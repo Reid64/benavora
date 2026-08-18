@@ -51,15 +51,16 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                   display: "flex",
                   flexDirection: "column",
                   background: card.frontGradient,
-                  border: `1px solid ${card.borderColor}`,
+                  border: `1.5px solid ${card.borderColor}`,
+                  boxShadow: "0 4px 14px rgba(16,27,45,0.12)",
                 }}
               >
-                <div style={{ height: "2px", background: card.accentGradient, borderRadius: "1px", marginBottom: "10px" }} />
+                <div style={{ height: "3px", background: card.accentGradient, borderRadius: "1px", marginBottom: "10px" }} />
                 <div
                   style={{
                     fontSize: "10px",
                     fontWeight: 700,
-                    color: "rgba(255,255,255,0.5)",
+                    color: "#64748B",
                     textTransform: "uppercase",
                     letterSpacing: "0.12em",
                     marginBottom: "6px",
@@ -67,8 +68,8 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                 >
                   {card.label}
                 </div>
-                <div style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>{card.value}</div>
-                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.75)", marginTop: "auto" }}>{card.sub}</div>
+                <div style={{ fontSize: "28px", fontWeight: 800, color: "#101B2D", lineHeight: 1 }}>{card.value}</div>
+                <div style={{ fontSize: "11px", color: "#475569", marginTop: "auto" }}>{card.sub}</div>
               </div>
 
               {/* Back */}
@@ -83,7 +84,8 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                   display: "flex",
                   flexDirection: "column",
                   background: card.frontGradient,
-                  border: `1px solid ${card.borderColor}`,
+                  border: `1.5px solid ${card.borderColor}`,
+                  boxShadow: "0 4px 14px rgba(16,27,45,0.12)",
                   transform: "rotateY(180deg)",
                   overflow: "hidden",
                 }}
@@ -95,7 +97,7 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                   style={{
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#FFFFFF",
+                    color: "#101B2D",
                     textDecoration: "none",
                     marginTop: "8px",
                     flexShrink: 0,

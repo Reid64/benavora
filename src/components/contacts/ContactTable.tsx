@@ -25,7 +25,7 @@ type ContactRelationship = Enums<"contact_relationship">;
 // Research & Discovery section signature accent — see
 // governance/DESIGN_SYSTEM.md "Section Accent Colors" and
 // src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#0284C7";
+const SECTION_ACCENT = "#A4712C";
 
 export type ContactTableProps = {
   contacts: ContactRow[];
@@ -94,8 +94,8 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             onChange={(event) => setParams({ q: event.target.value || null })}
             placeholder="Search contacts..."
             aria-label="Search contacts"
-            style={{ border: "1px solid #E2E8F0", backgroundColor: "#FFFFFF", color: "#334155" }}
-            className="w-full rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/10"
+            style={{ border: "1px solid rgba(16,27,45,0.15)", backgroundColor: "#F8F5EE", color: "#334155" }}
+            className="w-full rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#A4712C] focus:ring-2 focus:ring-[#A4712C]/10"
           />
         </div>
         <div className="sm:w-56">
@@ -120,7 +120,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
         <LoadingPlaceholder view={view} />
       ) : filtered.length === 0 ? (
         <div
-          style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", color: "#64748B" }}
+          style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", color: "#64748B" }}
           className="p-10 text-center text-sm"
         >
           No contacts match your filters.
@@ -137,7 +137,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
         </div>
       ) : (
         <div
-          style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+          style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)" }}
           className="overflow-hidden"
         >
           {filtered.map((contact, i) => (
@@ -163,7 +163,7 @@ function ViewToggle({
 }) {
   return (
     <div
-      style={{ border: "1px solid #E2E8F0", backgroundColor: "#FFFFFF" }}
+      style={{ border: "1px solid rgba(16,27,45,0.15)", backgroundColor: "#F8F5EE" }}
       className="inline-flex shrink-0 rounded-lg p-0.5 shadow-sm"
     >
       <button
@@ -243,7 +243,7 @@ function ContactListRow({
           onClick();
         }
       }}
-      style={{ backgroundColor: "#FFFFFF", borderBottom: isLast ? "none" : "1px solid #F1F5F9" }}
+      style={{ backgroundColor: "#F8F5EE", borderBottom: isLast ? "none" : "1px solid #F1F5F9" }}
       className="px-5 py-4 flex items-center gap-4 hover:bg-[#F8FAFC] transition-colors cursor-pointer"
     >
       <div
@@ -258,7 +258,7 @@ function ContactListRow({
           {contact.name}
         </div>
         {contact.title && (
-          <div style={{ color: "#0077B6" }} className="truncate text-sm font-medium">
+          <div style={{ color: "#A4712C" }} className="truncate text-sm font-medium">
             {contact.title}
           </div>
         )}
@@ -270,7 +270,7 @@ function ContactListRow({
           <a
             href={`mailto:${contact.email}`}
             onClick={(e) => e.stopPropagation()}
-            style={{ color: "#0077B6" }}
+            style={{ color: "#A4712C" }}
             className="text-sm hover:underline"
           >
             {contact.email}

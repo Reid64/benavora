@@ -1,6 +1,6 @@
 # BENAVORA — Feature Registry v2.0
 ## Supersedes: Feature_Registry.md v1.0
-## Date: August 17, 2026 (last update — row #52 UI Theme moved Built→Partial, v2 design system rollout now covers 23 routes (Draft Generator + Applications & Pipeline + Deadlines + Outreach & Communication + Admin/Platform); see 2026-08-17 addendum below and STATE_OF_THE_BUILD.md for the full per-page list)
+## Date: August 18, 2026 (last update — row #52 UI Theme: audit-confirmed fixes to Dashboard/Home, all 8 Research & Discovery pages, and 3 remaining Draft & Automation pages, plus the marketing homepage; still PARTIAL, only Intelligence & Reports remains; see 2026-08-18 addendum below and STATE_OF_THE_BUILD.md for the full per-page list)
 ## Status: CANONICAL — Updated after every FORGE run and CC session.
 ## Build tool: FORGE 1.x | Repo: Reid64/benavora | Production: www.benavora.com
 
@@ -243,7 +243,7 @@ auto-reply/respond capability a blanket "BUILT" would imply are both confirmed a
 | 49 | Onboarding Wizard | BUILT | 7-step guided setup. Progress saved per step. |
 | 50 | Audit Logs | BUILT | All user actions tracked. Searchable log viewer. |
 | 51 | User Invitations | BUILT | Invite by email with role assignment. Acceptance flow. |
-| 52 | UI Theme | PARTIAL | Superseded by the gold/bronze/navy/Soft Stone v2 design system (`PAGE_TREATMENT_PROTOCOL_V2.md`, `DESIGN_SYSTEM_V2_ASSIGNMENT.md`). As of 2026-08-17: Draft Generator (reference implementation) plus Applications, Deadlines, and 20 further routes across Applications & Pipeline, Outreach & Communication, and Admin/Platform (23 routes total) are on v2 — see `STATE_OF_THE_BUILD.md`'s 2026-08-17 session entries for the full per-page list. Research & Discovery, Intelligence & Reports, and most of Draft & Automation are still on the prior blue-based theme; full-site rollout is not complete. |
+| 52 | UI Theme | PARTIAL | Superseded by the gold/bronze/navy/Soft Stone v2 design system (`PAGE_TREATMENT_PROTOCOL_V2.md`, `DESIGN_SYSTEM_V2_ASSIGNMENT.md`). As of 2026-08-18: Draft Generator (reference), Applications & Pipeline, Outreach & Communication, Admin/Platform, Dashboard/Home, Research & Discovery (Opportunities, Donor Discovery + Prospects + Intent Signals, Nonprofit Directory, Foundations, Funders, Contacts), and Draft & Automation (AutoApply, Knowledge Base, Alerts, Activity) are all on v2, plus the public marketing homepage — see `STATE_OF_THE_BUILD.md`'s 2026-08-18 session entry for the full per-page list and real getComputedStyle-audit evidence. Every one of these 12 dashboard pages plus AutoApply was confirmed via live audit to have been silently missed by the earlier 2026-08-17 rollout claim (assigned but never actually treated — the same real gap AutoApply itself was first caught in). Intelligence & Reports (13 sub-pages) is the one section still on the prior blue-based theme; full-site rollout is not complete. |
 
 ---
 
@@ -634,6 +634,15 @@ CSS variables and Tailwind classes will still silently lose to the compat layer 
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 8 | 0 | 0 | 0 |
 | **TOTAL** | **199** | **131** | **13** | **19** | **36** |
+
+**2026-08-18 addendum:** row #52 (UI Theme) — real getComputedStyle audit found that Dashboard/Home,
+all 8 Research & Discovery pages, and 3 of 4 Draft & Automation pages had been silently skipped by
+the 2026-08-17 rollout claim (assigned to that batch, never actually treated) — the exact same
+"assigned but not done" gap AutoApply itself was caught in earlier the same night. All 12 were
+fixed and verified this session (real Bronze/Gold `getComputedStyle` matches, zero unintended
+white/near-white values, real screenshots) — see `STATE_OF_THE_BUILD.md`. The public marketing
+homepage was also converted to Gold-dominant. No status-column change (still PARTIAL — Intelligence
+& Reports, 13 sub-pages, remains untreated), so no summary-table count change either.
 
 **2026-08-17 addendum:** row #52 (UI Theme) moved Built→Partial — the v2 gold/bronze/navy/Soft
 Stone design system now covers Draft Generator, Applications, Deadlines, and 20 further routes (Applications & Pipeline, Outreach &

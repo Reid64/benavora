@@ -13,13 +13,17 @@ import { PageHeader } from "@/components/layout/PageHeader";
 // owner/admin, and shows product events (agent runs, drafts, discovered
 // opportunities, alerts) rather than a compliance trail. Polls every 30s.
 
-const CANVAS = "#D6E4F0";
-const CARD = "#FFFFFF";
-const BORDER = "#E2E8F0";
-const TEXT_PRIMARY = "#0F172A";
+// Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold. 2026-08-18: confirmed
+// via live getComputedStyle audit this page never received the v2 rollout.
+const CANVAS = "#D8D3C8";
+const CARD = "#F8F5EE";
+const BORDER = "rgba(16,27,45,0.15)";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
+const ACCENT = "#B88A2E";
+const SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
 
 const POLL_MS = 30_000;
 
@@ -89,15 +93,15 @@ export default function ActivityPage() {
     <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Activity"
+        accent={ACCENT}
         description="What's happened in your organization recently — agents, drafts, discoveries, and alerts. Updates automatically every 30 seconds."
       />
 
+      <div style={{ backgroundColor: ACCENT, borderRadius: 16, boxShadow: SHADOW, padding: 4 }}>
       <div
         style={{
           backgroundColor: CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: 16,
-          boxShadow: SHADOW,
+          borderRadius: 13,
           padding: 24,
         }}
       >
@@ -159,6 +163,7 @@ export default function ActivityPage() {
             })}
           </ul>
         )}
+      </div>
       </div>
     </div>
   );

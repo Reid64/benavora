@@ -113,15 +113,14 @@ const CATEGORY_ACCENT: Record<SourceBucket, string> = {
 
 const HOUSING_KEYWORDS = ["housing", "homeless", "shelter", "transitional"];
 
-// Research & Discovery section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#0284C7";
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout (still the old sky-blue/cyan palette on a
+// literal white page background) - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 /** Org-level org.source is never set to "land_bank" — only opportunities are.
  * Detects a housing-focused org from its free-text profile fields, since
@@ -383,9 +382,9 @@ export default function OpportunitiesPage() {
   const showEmpty = !loading && !error && opportunities.length === 0;
 
   const chipStyle = (active: boolean): CSSProperties => ({
-    backgroundColor: active ? SECTION_ACCENT : "#FFFFFF",
+    backgroundColor: active ? SECTION_ACCENT : "#F8F5EE",
     color: active ? "#FFFFFF" : "#64748B",
-    border: active ? `1px solid ${SECTION_ACCENT}` : "1px solid #E2E8F0",
+    border: active ? `1px solid ${SECTION_ACCENT}` : "1px solid rgba(16,27,45,0.15)",
     borderRadius: "20px",
     padding: "6px 16px",
     fontSize: "13px",
@@ -395,7 +394,7 @@ export default function OpportunitiesPage() {
 
   return (
     <ErrorBoundary>
-      <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px" }}>
+      <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
         {/* Header */}
         <div
           style={{
@@ -464,14 +463,12 @@ export default function OpportunitiesPage() {
         </div>
 
         {housingOrg && (
+          <div style={{ backgroundColor: SECTION_ACCENT, borderRadius: "15px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", padding: "4px", marginBottom: "20px" }}>
           <div
             style={{
-              backgroundColor: "#FFFFFF",
+              backgroundColor: "#F8F5EE",
               borderRadius: "12px",
               padding: "20px",
-              marginBottom: "20px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #E2E8F0",
               borderLeft: "4px solid #0F766E",
             }}
           >
@@ -539,8 +536,8 @@ export default function OpportunitiesPage() {
                       gap: "12px",
                       padding: "12px 14px",
                       borderRadius: "8px",
-                      backgroundColor: "#F0FDFA",
-                      border: "1px solid #CCFBF1",
+                      backgroundColor: "rgba(15,118,110,0.08)",
+                      border: "1px solid rgba(15,118,110,0.25)",
                       textDecoration: "none",
                     }}
                   >
@@ -563,6 +560,7 @@ export default function OpportunitiesPage() {
                 No land bank opportunities discovered yet for your service area.
               </p>
             )}
+          </div>
           </div>
         )}
 
@@ -626,10 +624,10 @@ export default function OpportunitiesPage() {
                     style={{
                       padding: "8px 12px 8px 30px",
                       borderRadius: "8px",
-                      border: "1px solid #E2E8F0",
+                      border: "1px solid rgba(16,27,45,0.15)",
                       fontSize: "13px",
                       color: "#0F172A",
-                      backgroundColor: "#FFFFFF",
+                      backgroundColor: "#F8F5EE",
                       width: "200px",
                     }}
                   />
@@ -641,12 +639,12 @@ export default function OpportunitiesPage() {
                   onChange={(e) => setStatusFilter(e.target.value as "all" | OpportunityStatus)}
                   style={{
                     borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
+                    border: "1px solid rgba(16,27,45,0.15)",
                     padding: "8px 12px",
                     fontSize: "13px",
                     fontWeight: 600,
                     color: "#334155",
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#F8F5EE",
                   }}
                 >
                   {STATUS_FILTER_OPTIONS.map((opt) => (
@@ -662,12 +660,12 @@ export default function OpportunitiesPage() {
                   onChange={(e) => setSort(e.target.value as SortOption)}
                   style={{
                     borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
+                    border: "1px solid rgba(16,27,45,0.15)",
                     padding: "8px 12px",
                     fontSize: "13px",
                     fontWeight: 600,
                     color: "#334155",
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#F8F5EE",
                   }}
                 >
                   {SORT_OPTIONS.map((opt) => (
@@ -702,12 +700,11 @@ export default function OpportunitiesPage() {
                 ))}
               </div>
             ) : sorted.length === 0 ? (
+              <div style={{ backgroundColor: SECTION_ACCENT, borderRadius: "15px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", padding: "4px" }}>
               <div
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: "#F8F5EE",
                   borderRadius: "12px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  border: "1px solid #E2E8F0",
                   padding: "40px",
                   textAlign: "center",
                   fontSize: "13px",
@@ -715,6 +712,7 @@ export default function OpportunitiesPage() {
                 }}
               >
                 No opportunities match your filters.
+              </div>
               </div>
             ) : (
               <div>
@@ -730,12 +728,18 @@ export default function OpportunitiesPage() {
                     <div
                       key={opp.id}
                       style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: "12px",
-                        padding: "20px 24px",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                        border: "1px solid #E2E8F0",
+                        backgroundColor: SECTION_ACCENT,
+                        borderRadius: "14px",
+                        boxShadow: "0 4px 16px rgba(164,113,44,0.18)",
+                        padding: "4px",
                         marginBottom: "12px",
+                      }}
+                    >
+                    <div
+                      style={{
+                        backgroundColor: "#F8F5EE",
+                        borderRadius: "11px",
+                        padding: "18px 22px",
                         display: "flex",
                         alignItems: "flex-start",
                         gap: "16px",
@@ -780,8 +784,8 @@ export default function OpportunitiesPage() {
                           {(opp.amount_max != null || opp.amount_available != null) && (
                             <span
                               style={{
-                                backgroundColor: "#F0F9FF",
-                                color: "#0077B6",
+                                backgroundColor: "rgba(79,109,143,0.1)",
+                                color: "#4F6D8F",
                                 borderRadius: "6px",
                                 padding: "3px 10px",
                                 fontSize: "12px",
@@ -826,9 +830,9 @@ export default function OpportunitiesPage() {
                           <Link
                             href={`/opportunities/${opp.id}`}
                             style={{
-                              backgroundColor: "#FFFFFF",
-                              color: "#0077B6",
-                              border: "1px solid #0077B6",
+                              backgroundColor: "#F8F5EE",
+                              color: "#4F6D8F",
+                              border: "1px solid #4F6D8F",
                               borderRadius: "8px",
                               padding: "6px 14px",
                               fontSize: "12px",
@@ -857,9 +861,9 @@ export default function OpportunitiesPage() {
                             type="button"
                             onClick={() => setDismissedIds((prev) => new Set(prev).add(opp.id))}
                             style={{
-                              backgroundColor: "#FFFFFF",
+                              backgroundColor: "#F8F5EE",
                               color: "#64748B",
-                              border: "1px solid #E2E8F0",
+                              border: "1px solid rgba(16,27,45,0.15)",
                               borderRadius: "8px",
                               padding: "6px 14px",
                               fontSize: "12px",
@@ -877,9 +881,9 @@ export default function OpportunitiesPage() {
                               display: "flex",
                               alignItems: "center",
                               gap: "4px",
-                              backgroundColor: "#FFFFFF",
-                              color: "#0077B6",
-                              border: "1px solid #E2E8F0",
+                              backgroundColor: "#F8F5EE",
+                              color: "#4F6D8F",
+                              border: "1px solid rgba(16,27,45,0.15)",
                               borderRadius: "8px",
                               padding: "6px 14px",
                               fontSize: "12px",
@@ -901,6 +905,7 @@ export default function OpportunitiesPage() {
                           <ProbabilityBreakdown data={opp.probabilityData} />
                         )}
                       </div>
+                    </div>
                     </div>
                   );
                 })}
@@ -939,8 +944,8 @@ function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
           marginTop: "14px",
           padding: "14px 16px",
           borderRadius: "8px",
-          backgroundColor: "#F1F5F9",
-          border: "1px solid #E2E8F0",
+          backgroundColor: "#F8F5EE",
+          border: "1px solid rgba(16,27,45,0.15)",
           fontSize: "12px",
           color: "#64748B",
         }}
@@ -1014,7 +1019,7 @@ function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
                     height: "100%",
                     width: `${Math.round(f.value * 100)}%`,
                     borderRadius: "3px",
-                    backgroundColor: "#00B4D8",
+                    backgroundColor: "#A4712C",
                   }}
                 />
               </div>
@@ -1059,28 +1064,22 @@ function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
 
 function StatCard({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
-    <div
-      style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: "10px",
-        padding: "16px 20px",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-        border: "1px solid #E2E8F0",
-        flex: "1",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "11px",
-          fontWeight: 700,
-          color: "#64748B",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {label}
+    <div style={{ backgroundColor: SECTION_ACCENT, borderRadius: "14px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", padding: "3px", flex: "1" }}>
+      <div style={{ backgroundColor: "#F8F5EE", borderRadius: "11px", padding: "16px 20px" }}>
+        <div style={{ fontSize: "28px", fontWeight: 800, color: accent }}>{value}</div>
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 700,
+            color: "#64748B",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginTop: "6px",
+          }}
+        >
+          {label}
+        </div>
       </div>
-      <div style={{ fontSize: "28px", fontWeight: 800, color: accent, marginTop: "4px" }}>{value}</div>
     </div>
   );
 }

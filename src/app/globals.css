@@ -638,7 +638,7 @@ textarea {
 .badge-amber { background-color: #FEF3C7; color: #92400E; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .badge-violet { background-color: #EDE9FE; color: #6D28D9; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .table-header-dark { background-color: #1A2B3C; color: #FFFFFF; }
-.page-bg { background-color: #E4E9F0; }
+.page-bg { background-color: #D8D3C8; }
 
 /* =============================================================================
    PRINT MODE — toggled by report pages (board-report, impact) via a body

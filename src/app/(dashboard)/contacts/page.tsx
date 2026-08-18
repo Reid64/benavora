@@ -13,15 +13,13 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
-// Research & Discovery section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#0284C7";
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research and /foundations.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 /**
  * Contact list (BLUEPRINT §4.3). Reads are RLS-scoped to the organization, so
@@ -82,7 +80,7 @@ export default function ContactsPage() {
   const showEmpty = !loading && !error && contacts.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh" }} className="space-y-6 p-6">
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Contacts"
         accent={SECTION_ACCENT}
@@ -113,7 +111,7 @@ export default function ContactsPage() {
 
       {showEmpty ? (
         <div
-          style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+          style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", border: "1px solid rgba(16,27,45,0.12)" }}
           className="p-10"
         >
           <EmptyState

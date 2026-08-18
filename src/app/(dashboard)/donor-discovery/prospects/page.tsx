@@ -48,7 +48,7 @@ const PIPELINE_STAGES: DdPipelineStage[] = [
 const STAGE_COLORS: Record<DdPipelineStage, string> = {
   new: "#64748B",
   reviewing: "#0EA5E9",
-  contacted: "#0077B6",
+  contacted: "#A4712C",
   applied: "#F59E0B",
   received: "#10B981",
   rejected: "#EF4444",
@@ -176,27 +176,30 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-surface p-5 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span
-          style={{ backgroundColor: `${accent}1A`, color: accent }}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-        >
-          <Icon className="h-5 w-5" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-          <div className="mt-0.5 text-xl font-bold text-navy-900">{value}</div>
+    <div style={{ backgroundColor: SECTION_ACCENT, borderRadius: "14px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", padding: "3px" }}>
+      <div className="rounded-[11px] p-5" style={{ backgroundColor: "#F8F5EE" }}>
+        <div className="flex items-center gap-3">
+          <span
+            style={{ backgroundColor: `${accent}1A`, color: accent }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+          >
+            <Icon className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <div className="text-xl font-bold text-navy-900">{value}</div>
+            <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// Donor Discovery & Outreach section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#4C51C6";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
 
 const FETCH_LIMIT = 100;
 
@@ -253,7 +256,7 @@ function TaxonomyCombobox({
         aria-expanded={open}
         aria-label="Filter by industry"
         className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-surface py-2 pl-3 pr-3 text-left text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2"
-        style={{ borderColor: open ? "#0077B6" : undefined }}
+        style={{ borderColor: open ? "#A4712C" : undefined }}
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
@@ -605,7 +608,7 @@ export default function DonorDiscoveryProspectsPage() {
                 onClick={(e) => e.stopPropagation()}
                 disabled={selectableIds.length === 0}
                 className="h-4 w-4 rounded border-slate-300 disabled:opacity-40"
-                style={{ accentColor: "#0077B6" }}
+                style={{ accentColor: "#A4712C" }}
               />
             ),
             render: (row: DdProspectRow) => (
@@ -616,7 +619,7 @@ export default function DonorDiscoveryProspectsPage() {
                 onChange={() => toggleProspect(row.id)}
                 onClick={(e) => e.stopPropagation()}
                 className="h-4 w-4 rounded border-slate-300"
-                style={{ accentColor: "#0077B6" }}
+                style={{ accentColor: "#A4712C" }}
               />
             ),
             className: "w-10",
@@ -684,7 +687,7 @@ export default function DonorDiscoveryProspectsPage() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            style={{ color: "#0077B6" }}
+            style={{ color: "#A4712C" }}
             className="text-sm font-medium hover:underline"
           >
             {row.directory.website.replace(/^https?:\/\//, "")}
@@ -711,7 +714,7 @@ export default function DonorDiscoveryProspectsPage() {
           <Link
             href={`/donor-discovery/prospects/${row.id}`}
             onClick={(e) => e.stopPropagation()}
-            style={{ color: "#0077B6" }}
+            style={{ color: "#4F6D8F" }}
             className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
           >
             View
@@ -725,7 +728,7 @@ export default function DonorDiscoveryProspectsPage() {
                 void handleAddToOutreach(row.id);
               }}
               disabled={outreachLoadingId === row.id}
-              style={{ backgroundColor: "#8B5CF6" }}
+              style={{ backgroundColor: "#A4712C" }}
               className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
             >
               <Send className="h-3 w-3" aria-hidden />
@@ -741,7 +744,7 @@ export default function DonorDiscoveryProspectsPage() {
   return (
     <div
       className="-m-4 min-h-full space-y-6 p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8"
-      style={{ backgroundColor: "#D6E4F0" }}
+      style={{ backgroundColor: "#D8D3C8" }}
     >
       <Link
         href="/donor-discovery"
@@ -768,7 +771,7 @@ export default function DonorDiscoveryProspectsPage() {
         actions={
           <Link
             href="/donor-discovery/new"
-            className="inline-flex items-center bg-[#4C51C6] hover:bg-[#3D42A3] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
+            className="inline-flex items-center bg-[#A4712C] hover:bg-[#8A5D24] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
           >
             Discover More
           </Link>
@@ -800,7 +803,7 @@ export default function DonorDiscoveryProspectsPage() {
           }
         />
         <StatCard icon={CheckCircle} label="High Score (70+)" value={highScoreCount} accent="#10B981" />
-        <StatCard icon={Send} label="Contacted" value={engagedCount} accent="#F59E0B" />
+        <StatCard icon={Send} label="Contacted" value={engagedCount} accent={SECTION_ACCENT} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
@@ -917,7 +920,7 @@ export default function DonorDiscoveryProspectsPage() {
             type="button"
             onClick={() => void handleBulkAdvance()}
             disabled={bulkUpdating}
-            style={{ backgroundColor: "#0077B6" }}
+            style={{ backgroundColor: "#A4712C" }}
             className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
             {bulkUpdating ? "Moving…" : "Move to stage"}

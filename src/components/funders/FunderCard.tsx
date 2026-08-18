@@ -39,9 +39,9 @@ function getFunderTypeBadge(category: FunderCategory) {
 }
 
 const FUNDER_BORDER_COLOR: Record<string, string> = {
-  Government: "#0077B6",
-  Foundation: "#6B48CC",
-  Corporate: "#00B4D8",
+  Government: "#4F6D8F",
+  Foundation: "#7A5980",
+  Corporate: "#C17817",
 };
 
 const FUNDER_BORDER_CLASS: Record<string, string> = {
@@ -100,7 +100,7 @@ export function FunderCard({
         }
       }}
       className={cn(
-        "bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth",
+        "bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#A4712C] transition-all cursor-pointer card-depth",
         getFunderBorderClass(funder.category),
       )}
       style={getFunderBorderStyle(funder.category)}
@@ -122,7 +122,7 @@ export function FunderCard({
               onClick={(event) => event.stopPropagation()}
               onChange={() => onToggleSelect?.()}
               title={isQueued ? "Already queued" : undefined}
-              className="h-4 w-4 rounded border-slate-300 text-[#0077B6] accent-[#0077B6] focus:ring-[#0077B6] disabled:opacity-40 cursor-pointer disabled:cursor-default"
+              className="h-4 w-4 rounded border-slate-300 text-[#A4712C] accent-[#A4712C] focus:ring-[#A4712C] disabled:opacity-40 cursor-pointer disabled:cursor-default"
             />
           )}
           <span

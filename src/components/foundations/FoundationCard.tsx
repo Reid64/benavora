@@ -7,11 +7,10 @@ import type { Tables } from "@/types/database";
 
 type FoundationRow = Tables<"foundation_directory">;
 
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research and /opportunities.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Bronze. Secondary accent: Slate Blue.
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 function formatCurrency(amount: number | null): string {
   if (amount === null) return "—";
@@ -27,13 +26,13 @@ function formatCurrency(amount: number | null): string {
  * distinction reliably shows up (e.g. "X COMMUNITY FOUNDATION"), so the
  * accent stripe is inferred from it rather than from a dedicated column.
  */
-function getAccentClass(name: string): string {
+function getAccentColor(name: string): string {
   const upper = name.toUpperCase();
-  if (upper.includes("COMMUNITY FOUNDATION")) return "border-l-4 border-[#7C3AED]";
+  if (upper.includes("COMMUNITY FOUNDATION")) return "#7A5980"; // Plum
   if (/\b(CORP|CORPORATION|COMPANY)\b.*FOUNDATION/.test(upper)) {
-    return "border-l-4 border-[#F59E0B]";
+    return "#C17817"; // Amber
   }
-  return "border-l-4 border-[#0077B6]";
+  return "#A4712C"; // Bronze - private foundation (this section's dominant identity)
 }
 
 export type FoundationCardProps = {
@@ -57,13 +56,14 @@ export function FoundationCard({
   onImport,
 }: FoundationCardProps) {
   const location = [foundation.city, foundation.state].filter(Boolean).join(", ");
+  const accentColor = getAccentColor(foundation.name);
 
   return (
     <div
-      className={`bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth border-accent-blue ${getAccentClass(foundation.name)}`}
+      className="bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md transition-all cursor-pointer card-depth"
       style={{
-        borderLeft: "4px solid #0077B6",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
+        borderLeft: `4px solid ${accentColor}`,
+        boxShadow: "0 4px 12px rgba(16,27,45,0.10)",
       }}
     >
       <div className="flex items-start justify-between gap-3">
@@ -73,7 +73,8 @@ export function FoundationCard({
             checked={isSelected}
             onChange={onToggleSelect}
             aria-label={`Select ${foundation.name}`}
-            className="h-4 w-4 rounded border-slate-300 text-[#0077B6] accent-[#0077B6] focus:ring-[#0077B6]"
+            style={{ accentColor }}
+            className="h-4 w-4 rounded border-slate-300"
           />
         </label>
         {foundation.ntee_code && <Badge color="navy">{foundation.ntee_code}</Badge>}
@@ -82,7 +83,8 @@ export function FoundationCard({
       <Link
         href={`/foundations/${foundation.id}`}
         onClick={(event) => event.stopPropagation()}
-        className="mt-2 block truncate text-base font-semibold text-slate-900 hover:text-[#0077B6] hover:underline"
+        className="mt-2 block truncate text-base font-semibold text-slate-900 hover:underline"
+        style={{ color: "#101B2D" }}
       >
         {foundation.name}
       </Link>
@@ -95,7 +97,7 @@ export function FoundationCard({
 
       <div className="mt-4 flex items-end justify-between gap-3">
         <div>
-          <p className="text-lg font-bold text-[#0077B6]">{formatCurrency(foundation.asset_amount)}</p>
+          <p className="text-lg font-bold" style={{ color: accentColor }}>{formatCurrency(foundation.asset_amount)}</p>
           <p className="text-xs text-slate-400">Assets</p>
         </div>
         {isImported ? (

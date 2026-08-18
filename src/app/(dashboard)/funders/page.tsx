@@ -11,14 +11,13 @@ import type { FunderRow } from "@/components/funders/FunderTable";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
-// Research & Discovery section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#0284C7";
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 /**
  * Funder list (BLUEPRINT §4.2). Reads are RLS-scoped to the organization, so
@@ -144,7 +143,7 @@ export default function FundersPage() {
   const showEmpty = !loading && !error && funders.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
+    <div className="min-h-screen space-y-6 p-6 page-bg">
       <PageHeader
         title="Funders"
         accent={SECTION_ACCENT}

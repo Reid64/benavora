@@ -61,20 +61,20 @@ export function ScraperStatusCard() {
   return (
     <div
       style={{
-        backgroundColor: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        backgroundColor: "rgba(16,27,45,0.04)",
+        border: "1px solid rgba(16,27,45,0.08)",
         borderLeft: "2px solid #10B981",
         borderRadius: "10px",
         padding: "12px 14px",
         marginBottom: "8px",
       }}
     >
-      <div style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF", marginBottom: "4px" }}>
+      <div style={{ fontSize: "13px", fontWeight: 700, color: "#101B2D", marginBottom: "4px" }}>
         Foundation Scraper
       </div>
 
       {state === "loading" && (
-        <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)" }}>Loading status…</div>
+        <div style={{ fontSize: "11px", color: "rgba(16,27,45,0.55)" }}>Loading status…</div>
       )}
       {state === "error" && (
         <div style={{ fontSize: "11px", color: "#EF4444" }}>Could not load scraper status.</div>
@@ -82,14 +82,14 @@ export function ScraperStatusCard() {
 
       {state === "done" && status && (
         <>
-          <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
+          <div style={{ fontSize: "11px", color: "rgba(16,27,45,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
             {status.totalEnriched.toLocaleString()} / {status.totalFoundations.toLocaleString()} foundations have a
             website on file
           </div>
 
           <div
             style={{
-              backgroundColor: "rgba(255,255,255,0.08)",
+              backgroundColor: "rgba(16,27,45,0.08)",
               borderRadius: "4px",
               overflow: "hidden",
               height: "6px",
@@ -110,10 +110,10 @@ export function ScraperStatusCard() {
             {pct}% enriched
           </div>
 
-          <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "2px" }}>
+          <div style={{ fontSize: "11px", color: "rgba(16,27,45,0.55)", marginBottom: "2px" }}>
             Last run: {formatTimestamp(status.lastRunAt)}
           </div>
-          <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "8px" }}>
+          <div style={{ fontSize: "11px", color: "rgba(16,27,45,0.55)", marginBottom: "8px" }}>
             {status.scraperEnabled
               ? `Next run: ${formatTimestamp(status.nextScheduledRun)}`
               : "Weekly run disabled (ENABLE_SCRAPER is not set)"}
@@ -126,7 +126,7 @@ export function ScraperStatusCard() {
         style={{
           display: "inline-block",
           background: "linear-gradient(135deg,#10B981,#059669)",
-          color: "white",
+          color: "#F8F5EE",
           borderRadius: "6px",
           padding: "6px 12px",
           fontSize: "11px",

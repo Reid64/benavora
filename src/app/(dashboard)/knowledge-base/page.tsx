@@ -43,28 +43,27 @@ import type { Tables } from "@/types/database";
 // their existing bracket-hex Tailwind implementation, unchanged here.
 
 const COLORS = {
-  canvas: "#E4E9F0",
-  card: "#FFFFFF",
-  cardBorder: "#E2E8F0",
-  text: "#0F172A",
+  canvas: "#D8D3C8",
+  card: "#F8F5EE",
+  cardBorder: "rgba(16,27,45,0.15)",
+  text: "#101B2D",
   textMuted: "#64748B",
-  primary: "#0077B6",
-  accent: "#00B4D8",
+  primary: "#B88A2E",
+  accent: "#101B2D",
 };
 
-// Draft & Automation section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#2563EB";
-const SECTION_ACCENT_TINT = "#EFF6FF";
+// Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold. Full accent family
+// available for distinct action buttons. 2026-08-18: confirmed via live
+// getComputedStyle audit this page never received the v2 rollout - same
+// real gap as AutoApply's.
+const SECTION_ACCENT = "#B88A2E";
+const SECTION_ACCENT_TINT = "rgba(184,138,46,0.1)";
 
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research, /foundations, /opportunities.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+const CTA_TEAL_BG = "#B88A2E";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
-const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
+const CARD_SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
 
 type Summary = {
   narrativeCount: number;
@@ -260,10 +259,10 @@ export default function KnowledgeBaseOverviewPage() {
             {/* Organization profile hero */}
             <div
               style={{
-                background: "linear-gradient(135deg,#0077B6,#00B4D8)",
+                background: "linear-gradient(135deg,#B88A2E,#101B2D)",
                 borderRadius: 12,
                 padding: 24,
-                color: "#FFFFFF",
+                color: "#F8F5EE",
               }}
             >
               <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", opacity: 0.75, textTransform: "uppercase" }}>

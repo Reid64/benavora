@@ -83,15 +83,13 @@ const MID_INTENT_THRESHOLD = 60;
 const DEADLINE_SOON_HOURS = 48;
 const LOOKBACK_DAYS = 30;
 
-// Research & Discovery section accent, per PAGE_TREATMENT_PROTOCOL.md and
-// governance/DESIGN_SYSTEM.md's Section Accent Colors — same value already
-// applied to /research, /opportunities, and /donor-discovery.
-const SECTION_ACCENT = "#0284C7";
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research and /opportunities.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 function accentColor(score: number | null): string {
   if (score === null) return "#6B7280";
@@ -143,20 +141,22 @@ function StatCard({
   return (
     <div
       style={{
-        backgroundColor: "#0D1526",
+        backgroundColor: "#A4712C",
         borderRadius: "14px",
-        padding: "20px 24px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+        padding: "3px",
+        boxShadow: "0 4px 20px rgba(164,113,44,0.22)",
         flex: "1 1 220px",
         position: "relative",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ backgroundColor: "#F8F5EE", borderRadius: "11px", padding: "17px 21px" }}>
+      <p style={{ fontSize: "28px", fontWeight: 900, color, margin: 0 }}>{value}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
         <p
           style={{
             fontSize: "11px",
             fontWeight: 700,
-            color: "#8BA8C8",
+            color: "#64748B",
             textTransform: "uppercase",
             letterSpacing: "0.08em",
             margin: 0,
@@ -179,7 +179,7 @@ function StatCard({
           />
         )}
       </div>
-      <p style={{ fontSize: "28px", fontWeight: 900, color, margin: "8px 0 0" }}>{value}</p>
+      </div>
       <style>{`
         @keyframes intentPulse {
           0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.6); }
@@ -229,7 +229,8 @@ function SignalCard({
         borderRadius: "14px",
         overflow: "hidden",
         marginBottom: "12px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+        boxShadow: "0 4px 20px rgba(164,113,44,0.25)",
+        border: "1px solid rgba(164,113,44,0.4)",
       }}
     >
       <div style={{ width: "6px", flexShrink: 0, backgroundColor: accent }} aria-hidden />
@@ -362,8 +363,8 @@ function SignalCard({
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              backgroundColor: "#0077B6",
-              color: "#FFFFFF",
+              backgroundColor: "#A4712C",
+              color: "#F8F5EE",
               fontSize: "12px",
               fontWeight: 700,
               padding: "8px 16px",
@@ -529,7 +530,7 @@ export default function IntentSignalsPage() {
   const canRun = canEdit(profile?.role);
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px", borderRadius: "16px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px", borderRadius: "16px" }}>
       <Link
         href="/donor-discovery"
         className="inline-flex items-center gap-1.5 text-sm text-navy-500 transition hover:text-navy-700"
@@ -670,7 +671,8 @@ export default function IntentSignalsPage() {
             borderRadius: "14px",
             padding: "64px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+            boxShadow: "0 4px 20px rgba(164,113,44,0.25)",
+            border: "1px solid rgba(164,113,44,0.4)",
           }}
         >
           <div

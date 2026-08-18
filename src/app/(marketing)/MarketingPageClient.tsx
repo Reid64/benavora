@@ -4,31 +4,40 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 
 // ─── Brand Tokens ─────────────────────────────────────────────────────────────
+// Dashboard/Home section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold, the dominant treatment
+// for this page (the site's front door), matching Dashboard's own
+// assignment. 2026-08-18: replaced the old blue/purple/teal brand-blue
+// token system (`blue` alone was referenced 34 times, by far the most-used
+// token) with Gold as the dominant identity; kept the deliberate dark hero
+// canvas (a real landing-page convention, not the "flat white card"
+// anti-pattern this rollout targets) and Bronze/Navy as secondary accents
+// in place of the old teal/purple.
 const B = {
   // Canvas
-  bg:         "#080C14",   // near-black with blue undertone
+  bg:         "#080C14",   // near-black hero canvas
   bgCard:     "#0D1424",   // card surface
   bgRaised:   "#111B2E",   // elevated card
-  bgHighlight:"#162040",   // featured/highlighted
-  // Brand blues
-  blue:       "#0EA5E9",   // primary — logo wordmark blue
-  blueDark:   "#1E6FD9",   // deep logo blue
-  blueGlow:   "rgba(14,165,233,0.12)",
-  // Brand purples
-  purple:     "#8B5CF6",   // paper plane / heart
-  purpleGlow: "rgba(139,92,246,0.12)",
-  // Teal
-  teal:       "#06B6D4",   // logo bottom gradient
+  bgHighlight:"#1F1708",   // featured/highlighted (gold-tinted dark)
+  // Brand gold (dominant)
+  blue:       "#D4A94D",   // primary accent — brighter gold for dark-bg contrast
+  blueDark:   "#B88A2E",   // Rich Gold
+  blueGlow:   "rgba(184,138,46,0.16)",
+  // Secondary — Bronze (was purple)
+  purple:     "#C99A52",
+  purpleGlow: "rgba(164,113,44,0.14)",
+  // Tertiary — Slate Blue (was teal)
+  teal:       "#7691AF",
   // Utility
   green:      "#10B981",
   amber:      "#F59E0B",
   red:        "#EF4444",
   // Text
-  textPrimary:"#F0F6FF",
-  textSecond: "#8BA3C0",
-  textMuted:  "#4E6A8A",
+  textPrimary:"#F8F5EE",
+  textSecond: "#B9AE96",
+  textMuted:  "#7C7261",
   // Borders
-  border:     "rgba(14,165,233,0.12)",
+  border:     "rgba(184,138,46,0.18)",
   borderFaint:"rgba(255,255,255,0.06)",
 };
 

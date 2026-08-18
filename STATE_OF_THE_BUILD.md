@@ -1,6 +1,84 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 17, 2026 (v2 design system rollout — Applications & Pipeline / Outreach & Communication / Admin/Platform sections, 20 routes, 2 real data-loading bugs fixed, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 18, 2026 (v2 rollout audit + fix: Dashboard/Home, all 8 Research & Discovery pages, 3 remaining Draft & Automation pages, plus the marketing homepage; gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 18, 2026 (v2 rollout audit-confirmed fixes: Dashboard/Home, Research & Discovery ×8, Draft & Automation ×3, marketing homepage)
+
+**Focus:** AutoApply had been assigned to the 2026-08-17 v2 rollout batch but was found, hours
+later, to have received zero actual treatment — a real silent gap between "assigned" and "done."
+Before doing any new work, this session audited every other page nominally part of that same batch
+using real `getComputedStyle()` checks (not source-reading) against each page's assigned section
+frame color: Dashboard/Home = Gold `#B88A2E`, Research & Discovery = Bronze `#A4712C`.
+
+**Phase 1 audit result — all 12 pages checked were genuinely untreated, zero exceptions:**
+`/dashboard`, `/opportunities`, `/donor-discovery`, `/donor-discovery/prospects`,
+`/donor-discovery/intent-signals`, `/nonprofits`, `/foundations`, `/funders`, `/contacts`,
+`/knowledge-base`, `/alerts`, `/activity`. Every one showed **zero** matches for its assigned Gold
+or Bronze `rgb()` value anywhere in `<main>`, still rendering the pre-v2 palette (literal
+`#FFFFFF` card backgrounds — 1,314 on `/opportunities` alone — old blue `#0077B6`/cyan
+`#22D3EE`/violet, and in several cases white or old-blue `<h1>` text on a light background,
+directly violating "Text on Soft Stone: Deep Navy, never white"). `/dashboard` was additionally
+found to be a fully separate, deliberately dark (`#0A1628`) "hero" theme that had never been
+migrated to the mandatory site-wide Soft Stone background at all — a larger-scope fix than the
+other 11 pages, not just a missing frame.
+
+**Phase 2 fixes, all real Bronze/Gold `getComputedStyle` confirmed post-fix, zero unintended
+white/near-white values in `<main>` (a handful of flagged near-white matches per page were
+individually checked and are legitimate: white text on colored/dark fills, real semantic status
+tints like `bg-slate-100` "unscored" badges — never a literal flat card):**
+- **Dashboard/Home (1 route):** `/dashboard` — full dark→light conversion (Soft Stone background,
+  Gold-frame/Ivory-inner layering on every panel, KPI scorecard, and the flip-card row). The
+  page's distinctive interactive flip-card ("Mission Control HUD") mechanic was kept — it's a real
+  feature, not decoration — but its 6 gradients were moved off the old blue/purple/cyan palette
+  onto the proven v2 accent family (Gold/Plum/Amber/Slate-Blue/Teal/Green). Real semantic colors
+  (alert severity, deadline urgency, trend direction) were left untouched.
+- **Research & Discovery (8 routes):** `/opportunities`, `/donor-discovery`,
+  `/donor-discovery/prospects`, `/donor-discovery/intent-signals`, `/nonprofits`, `/foundations`,
+  `/funders`, `/contacts` — Bronze frame + Slate Blue secondary applied via the mandatory
+  frame+ivory+shadow layering technique on every stat card and primary content card. Real
+  categorical distinctions kept (funding-source-type badges, pipeline-stage colors, foundation-type
+  accents) — same allowance Applications' stage colors already used. `/nonprofits` was, like
+  Dashboard, a full separate dark theme, converted in full. The shared `.page-bg` global CSS class
+  (also used by `/funders` and two untouched Intelligence pages) was still set to the pre-v2
+  `#E4E9F0`; fixed centrally in `globals.css` rather than per-file.
+- **Draft & Automation (3 routes):** `/knowledge-base`, `/alerts`, `/activity` — Gold frame applied;
+  `/activity`'s single content card was upgraded from a flat bordered box to the real two-layer
+  frame+shadow technique. AutoApply itself (the originally-reported gap) was already fixed earlier
+  this same session.
+- **Marketing homepage (`src/app/(marketing)/MarketingPageClient.tsx` + shared
+  `(marketing)/layout.tsx`):** the entire file is driven through one `B` brand-token object with no
+  scattered one-off hex (confirmed by grep — every hex literal in the 1,019-line file appears
+  exactly once, in the token definitions) — `B.blue`, referenced 34 times and by far the dominant
+  token, was gold-ified along with its secondary/tertiary tokens (Bronze replacing purple, Slate
+  Blue replacing teal), keeping the deliberate dark hero canvas (a real landing-page convention,
+  not the flat-white-card anti-pattern this rollout targets). The Sign In link fix from earlier
+  tonight (`href="/login"`) was confirmed intact via live click-through — not regressed. A
+  pre-existing, already-documented React hydration warning on this page (unrelated to any color
+  change, dev-mode only) was confirmed still present and out of scope.
+
+**A second, thorough sweep after the page-by-page pass caught 16 additional missed old-palette
+literals** (mostly secondary buttons/links/progress-bars inside otherwise-fixed files —
+`/opportunities`, `/donor-discovery`, `/donor-discovery/prospects` ×6, `/foundations` ×2 — a
+search-input focus ring and a bulk-select checkbox accent) that a single top-to-bottom read had
+missed; all fixed and re-verified.
+
+**Not in scope, confirmed but untouched:** Intelligence & Reports (13 sub-pages) remains on the
+prior blue-based theme — not part of this session's audit list. `/how-it-works` shares the
+marketing homepage's dark `B`-token system per its own code comment but wasn't named in this
+session's Phase 3 scope, so it was left alone.
+
+**Verification:** `tsc --noEmit` clean, `pnpm run build` clean, twice (once mid-session after the
+initial pass, once fresh — killed stray `node`, deleted `.next` — after the missed-literal sweep).
+Real Playwright screenshots and `getComputedStyle()` checks on every touched page, before and after,
+on a fresh dev server.
+
+**Also from earlier the same night (2026-08-18), not re-detailed here — see their own commits:**
+the `globals.css` `!important` compat-layer removal (`bg-white`/`bg-white-sunken` renamed to the
+real `bg-surface`/`bg-surface-sunken` utilities across 107 files, replacing the forced-override
+layer that had caused the Impersonate/FramedCard/`variant="ghost"` workarounds), and the
+Admin/Platform + Applications rainbow-per-card-border fix (`/admin/system`, `/command-center`,
+`/admin/autoapply-ops`, `/admin/monitor`, `/admin/improvements`, `/applications`) that first
+established the value-first stat-card pattern this session's Dashboard/Research work reused.
 
 ## SESSION — August 17, 2026 (v2 gold/bronze/navy/Soft Stone rollout: Applications & Pipeline, Outreach & Communication, Admin/Platform — 19 pages)
 

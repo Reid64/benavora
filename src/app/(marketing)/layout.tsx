@@ -58,7 +58,7 @@ export default function MarketingLayout({
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-slate-800 transition hover:text-cyan-600"
+                className="text-sm text-slate-800 transition hover:text-[#B88A2E]"
               >
                 {link.label}
               </Link>
@@ -68,13 +68,13 @@ export default function MarketingLayout({
           <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/login"
-              className="text-sm text-slate-800 transition hover:text-cyan-600"
+              className="text-sm text-slate-800 transition hover:text-[#B88A2E]"
             >
               Login
             </Link>
             <Link
               href="/login"
-              className="rounded-lg bg-gradient-to-r from-[#00B4D8] to-[#0077B6] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-900/10 transition hover:from-cyan-600 hover:to-cyan-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              className="rounded-lg bg-gradient-to-r from-[#B88A2E] to-[#D4A94D] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-900/10 transition hover:from-[#A47823] hover:to-[#B88A2E] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B88A2E] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               Start Free Trial
             </Link>
@@ -89,24 +89,24 @@ export default function MarketingLayout({
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-slate-400 sm:flex-row">
           <p>© 2026 Benavora. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            <Link href="/privacy" className="transition hover:text-cyan-600">
+            <Link href="/privacy" className="transition hover:text-[#B88A2E]">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="transition hover:text-cyan-600">
+            <Link href="/terms" className="transition hover:text-[#B88A2E]">
               Terms of Service
             </Link>
             <Link
               href="/for-consultants"
-              className="transition hover:text-cyan-600"
+              className="transition hover:text-[#B88A2E]"
             >
               For Consultants
             </Link>
-            <Link href="/security" className="transition hover:text-cyan-600">
+            <Link href="/security" className="transition hover:text-[#B88A2E]">
               Security
             </Link>
             <a
               href="mailto:support@benavora.com"
-              className="transition hover:text-cyan-600"
+              className="transition hover:text-[#B88A2E]"
             >
               support@benavora.com
             </a>

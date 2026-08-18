@@ -142,16 +142,13 @@ const STATUS_PROGRESS_PCT: Record<DdRequestStatus, number> = {
 
 const POLL_INTERVAL_MS = 15_000;
 
-// Research & Discovery section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts. Matches the accent already applied to
-// /research and /opportunities.
-const SECTION_ACCENT = "#0284C7";
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research and /opportunities.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 function countsSummary(counts: DdRequestCounts | null): string {
   if (!counts) return "Waiting to start…";
@@ -334,10 +331,15 @@ export default function DonorDiscoveryPage() {
     return () => clearInterval(timer);
   }, [hasActiveRequest, load]);
 
+  const statFrameStyle = {
+    backgroundColor: SECTION_ACCENT,
+    borderRadius: "14px",
+    boxShadow: "0 4px 20px rgba(164,113,44,0.22)",
+    padding: "3px",
+  };
   const statCardStyle = {
-    backgroundColor: "#FFFFFF",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    border: "1px solid #E2E8F0",
+    backgroundColor: "#F8F5EE",
+    borderRadius: "11px",
   };
   const statLabelStyle = {
     fontSize: "11px",
@@ -354,32 +356,29 @@ export default function DonorDiscoveryPage() {
   };
   const accentStatValueStyle = (color: string) => ({ ...statValueStyle, color });
 
-  // Dark #0D1526 stat-card row — matches intent-signals/page.tsx's StatCard
-  // convention, distinct from the light #F7F5F1 cards used elsewhere on this
-  // page (deliberate, per this feature's own build spec).
-  function DarkStatCard({ label, value, color }: { label: string; value: string; color: string }) {
+  // Second stat row - unified with the Bronze frame/Ivory technique used by
+  // the row above (2026-08-18); previously a separate dark #0D1526 card
+  // style with 4 unrelated colors (sky/cyan/purple/green) for 4 plain counts
+  // with no real status difference between them - the exact per-card
+  // rainbow pattern PAGE_TREATMENT_PROTOCOL_V2.md rules out.
+  function DarkStatCard({ label, value }: { label: string; value: string }) {
     return (
-      <div
-        style={{
-          backgroundColor: "#0D1526",
-          borderRadius: "14px",
-          padding: "20px 24px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
-        }}
-      >
-        <p
-          style={{
-            fontSize: "11px",
-            fontWeight: 700,
-            color: "#8BA8C8",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            margin: 0,
-          }}
-        >
-          {label}
-        </p>
-        <p style={{ fontSize: "26px", fontWeight: 900, color, margin: "8px 0 0" }}>{value}</p>
+      <div style={statFrameStyle}>
+        <div style={{ ...statCardStyle, padding: "20px 24px" }}>
+          <p style={{ fontSize: "26px", fontWeight: 900, color: SECTION_ACCENT, margin: 0 }}>{value}</p>
+          <p
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: "#64748B",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              margin: "8px 0 0",
+            }}
+          >
+            {label}
+          </p>
+        </div>
       </div>
     );
   }
@@ -405,7 +404,7 @@ export default function DonorDiscoveryPage() {
       label: "Discover Prospects",
       description: "Search nearby businesses by industry and add them to your pipeline.",
       href: "/donor-discovery/discover",
-      accent: "#0EA5E9",
+      accent: "#4F6D8F",
       icon: Rocket,
       stat: mostRecentRequest
         ? `Last run ${formatRelative(mostRecentRequest.created_at)} · ${totalProspects} in pipeline`
@@ -419,7 +418,7 @@ export default function DonorDiscoveryPage() {
       label: "Corporate Marketplace",
       description: "Browse and filter the shared corporate prospect pool by industry, ownership, and score.",
       href: "/donor-discovery/marketplace",
-      accent: "#EC4899",
+      accent: "#7A5980",
       icon: Store,
       stat: "Search by industry, ownership & propensity score",
       // Always a browse action, not org-specific data — treated as its own
@@ -433,7 +432,7 @@ export default function DonorDiscoveryPage() {
       label: "Corporate Outreach",
       description: "Compose and queue AI-personalized outreach to your prospects.",
       href: "/donor-discovery/outreach",
-      accent: "#8B5CF6",
+      accent: "#2E6B66",
       icon: Mail,
       stat: `${activeCampaignsCount} active campaign${activeCampaignsCount === 1 ? "" : "s"}`,
       isEmpty: activeCampaignsCount === 0,
@@ -445,7 +444,7 @@ export default function DonorDiscoveryPage() {
       label: "Intent Signals",
       description: "AI-detected corporate giving indicators — act before the window closes.",
       href: "/donor-discovery/intent-signals",
-      accent: "#F59E0B",
+      accent: "#C17817",
       icon: Radar,
       stat: `${highIntentCount} high-intent signal${highIntentCount === 1 ? "" : "s"}`,
       isEmpty: highIntentCount === 0,
@@ -455,7 +454,7 @@ export default function DonorDiscoveryPage() {
   ];
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#E4E9F0", padding: "24px", borderRadius: "16px" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#D8D3C8", padding: "24px", borderRadius: "16px" }}>
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
@@ -485,45 +484,37 @@ export default function DonorDiscoveryPage() {
           and "Conversions" spec, honestly labeled (there is no literal sent-count
           or conversion-count column to report instead). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Prospects Identified</p>
-          <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : totalProspects}</p>
+        <div style={statFrameStyle}>
+          <div className="p-5" style={statCardStyle}>
+            <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : totalProspects}</p>
+            <p style={statLabelStyle}>Prospects Identified</p>
+          </div>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>High-Intent Signals</p>
-          <p style={accentStatValueStyle("#F59E0B")}>{loading ? "—" : highIntentCount}</p>
+        <div style={statFrameStyle}>
+          <div className="p-5" style={statCardStyle}>
+            <p style={accentStatValueStyle("#F59E0B")}>{loading ? "—" : highIntentCount}</p>
+            <p style={statLabelStyle}>High-Intent Signals</p>
+          </div>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Active Campaigns</p>
-          <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : activeCampaignsCount}</p>
+        <div style={statFrameStyle}>
+          <div className="p-5" style={statCardStyle}>
+            <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : activeCampaignsCount}</p>
+            <p style={statLabelStyle}>Active Campaigns</p>
+          </div>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>AutoApply Submissions</p>
-          <p style={accentStatValueStyle("#10B981")}>{loading ? "—" : autoApplySubmissionsCount}</p>
+        <div style={statFrameStyle}>
+          <div className="p-5" style={statCardStyle}>
+            <p style={accentStatValueStyle("#10B981")}>{loading ? "—" : autoApplySubmissionsCount}</p>
+            <p style={statLabelStyle}>AutoApply Submissions</p>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DarkStatCard
-          label="Active Requests"
-          value={loading ? "—" : String(activeRequestsCount)}
-          color="#0EA5E9"
-        />
-        <DarkStatCard
-          label="Avg Score"
-          value={loading || avgScore == null ? "—" : String(avgScore)}
-          color="#00B4D8"
-        />
-        <DarkStatCard
-          label="New & Reviewing"
-          value={loading ? "—" : String(highValueCount)}
-          color="#8B5CF6"
-        />
-        <DarkStatCard
-          label="Contacted This Month"
-          value={loading ? "—" : String(contactedThisMonth)}
-          color="#10B981"
-        />
+        <DarkStatCard label="Active Requests" value={loading ? "—" : String(activeRequestsCount)} />
+        <DarkStatCard label="Avg Score" value={loading || avgScore == null ? "—" : String(avgScore)} />
+        <DarkStatCard label="New & Reviewing" value={loading ? "—" : String(highValueCount)} />
+        <DarkStatCard label="Contacted This Month" value={loading ? "—" : String(contactedThisMonth)} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -535,7 +526,7 @@ export default function DonorDiscoveryPage() {
               href={action.href}
               className="group flex flex-col rounded-xl p-5 transition-transform hover:-translate-y-0.5"
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F8F5EE",
                 boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
                 border: "1px solid #D9D3C5",
               }}
@@ -578,7 +569,7 @@ export default function DonorDiscoveryPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "20px", color: "white" }}>
+        <div style={{ backgroundColor: "#101B2D", borderRadius: "12px", padding: "20px", color: "white" }}>
           <p
             style={{
               fontSize: "11px",
@@ -640,11 +631,11 @@ export default function DonorDiscoveryPage() {
 
         <div
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             borderRadius: "12px",
             padding: "20px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-            border: "2px solid #E2E8F0",
+            border: "2px solid rgba(16,27,45,0.15)",
           }}
         >
           <p
@@ -698,7 +689,7 @@ export default function DonorDiscoveryPage() {
                   <Link
                     href={`/donor-discovery/prospects/${p.id}`}
                     style={{
-                      backgroundColor: "#7C3AED",
+                      backgroundColor: "#A4712C",
                       color: "white",
                       border: "none",
                       borderRadius: "8px",
@@ -752,9 +743,9 @@ export default function DonorDiscoveryPage() {
                   key={req.id}
                   className="bg-surface rounded-xl shadow-sm border border-border p-5 mb-4"
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#F8F5EE",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid #E2E8F0",
+                    border: "1px solid rgba(16,27,45,0.15)",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -784,7 +775,7 @@ export default function DonorDiscoveryPage() {
 
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#D9D3C5]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#00B4D8] to-[#0077B6] transition-all"
+                      className="h-full rounded-full bg-gradient-to-r from-[#D4A94D] to-[#A4712C] transition-all"
                       style={{ width: `${STATUS_PROGRESS_PCT[req.status]}%` }}
                     />
                   </div>
@@ -807,11 +798,11 @@ export default function DonorDiscoveryPage() {
             <Link
               key={stage}
               href={`/donor-discovery/prospects?stage=${stage}`}
-              className="bg-surface shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
+              className="bg-surface shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#A4712C] cursor-pointer transition-colors"
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F8F5EE",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                border: "1px solid #E2E8F0",
+                border: "1px solid rgba(16,27,45,0.15)",
               }}
             >
               <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
@@ -845,9 +836,9 @@ export default function DonorDiscoveryPage() {
                   key={p.id}
                   className="flex flex-col rounded-lg border border-border bg-surface p-4"
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#F8F5EE",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid #E2E8F0",
+                    border: "1px solid rgba(16,27,45,0.15)",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">

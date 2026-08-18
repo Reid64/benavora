@@ -1,7 +1,37 @@
 # BENAVORA — Session State
-## Last Updated: August 17, 2026 (v2 design system rollout completed for Applications & Pipeline, Outreach & Communication, and Admin/Platform sections — 20 routes, 2 real data bugs fixed)
+## Last Updated: August 18, 2026 (v2 rollout audit-confirmed fixes: Dashboard/Home, all 8 Research & Discovery pages, 3 remaining Draft & Automation pages, plus the marketing homepage)
 
-## Current Session — August 17, 2026 (v2 gold/bronze/navy/Soft Stone rollout — 20 routes across 3 sections)
+## Current Session — August 18, 2026 (v2 rollout audit + fix: Dashboard/Home, Research & Discovery ×8, Draft & Automation ×3, marketing homepage)
+
+**Focus:** AutoApply had been assigned to the 2026-08-17 v2 rollout but was found hours later to be
+completely untreated — a real, confirmed silent gap between "assigned" and "done." Before any new
+work, this session audited every other page nominally part of that same batch with real
+`getComputedStyle()` checks (not source-reading) against each page's assigned frame color
+(Dashboard/Home = Gold `#B88A2E`, Research & Discovery = Bronze `#A4712C`): `/dashboard`,
+`/opportunities`, `/donor-discovery` (+`/prospects`, `+/intent-signals`), `/nonprofits`,
+`/foundations`, `/funders`, `/contacts`, `/knowledge-base`, `/alerts`, `/activity` — **all 12
+showed zero matches for their assigned color**, still on the pre-v2 blue/cyan/violet palette
+(1,314 literal `#FFFFFF` backgrounds on `/opportunities` alone). All 12 were fixed and re-verified,
+plus the public marketing homepage (`(marketing)/MarketingPageClient.tsx`) was converted to
+Gold-dominant. Full per-page detail is in `STATE_OF_THE_BUILD.md`'s matching 2026-08-18 entry — not
+duplicated here.
+
+**Gates:** all stray node processes killed, `.next` deleted, fresh `tsc --noEmit` — 0 errors. Fresh
+`npm run build` — clean, full route manifest, "Compiled successfully," no errors. Run twice: once
+after the initial page-by-page pass, once more after a second sweep caught 16 additional
+missed old-palette literals (secondary buttons/links this task's own edits had left behind on
+`/opportunities`, `/donor-discovery`, `/donor-discovery/prospects`, `/foundations`).
+
+**Real functionality confirmed, not assumed:** the Sign In fix from earlier tonight
+(`href="/login"` on the marketing homepage) was confirmed intact via live click-through before and
+after this session's edits — not regressed.
+
+**Known accepted scope boundary:** Intelligence & Reports (13 sub-pages) remains on the prior
+blue-based theme — outside this session's audited page list. `/how-it-works` shares the marketing
+homepage's dark brand-token system per its own code comment but wasn't named in this session's
+scope, so it was left untouched.
+
+## Prior Session — August 17, 2026 (v2 gold/bronze/navy/Soft Stone rollout — 20 routes across 3 sections)
 
 **Focus:** continued the v2 design system rollout begun earlier the same day (Draft Generator
 reference implementation + Applications/Deadlines, commit `70feb4f`). Applied the navy/teal frame

@@ -28,7 +28,7 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           onClick();
         }
       }}
-      style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+      style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", border: "1px solid rgba(16,27,45,0.12)" }}
       className="p-5 hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
@@ -47,7 +47,7 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
 
       <h3 style={{ color: "#0F172A" }} className="text-base font-semibold mt-3">{contact.name}</h3>
       {contact.title && (
-        <p style={{ color: "#0077B6" }} className="text-sm font-medium">{contact.title}</p>
+        <p style={{ color: "#A4712C" }} className="text-sm font-medium">{contact.title}</p>
       )}
       <p style={{ color: "#94A3B8" }} className="text-xs">{contact.funderName}</p>
     </div>

@@ -110,25 +110,22 @@ interface CoverageStats {
   enrichedWeb: number;
 }
 
-// Research & Discovery section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts.
-const SECTION_ACCENT = "#0284C7";
-// Fixed bright teal — reserved for primary action buttons across every
-// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
-// the precedent set on /research and /opportunities.
-const CTA_TEAL_BG = "#22D3EE";
-const CTA_TEAL_TEXT = "#0A1628";
+// Research & Discovery section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Bronze. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_ACCENT = "#A4712C";
+const CTA_TEAL_BG = "#A4712C";
+const CTA_TEAL_TEXT = "#F8F5EE";
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div
-      className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm"
-      style={{ borderTop: `3px solid ${SECTION_ACCENT}` }}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold" style={{ color: SECTION_ACCENT }}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
+    <div style={{ backgroundColor: SECTION_ACCENT, borderRadius: "14px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", padding: "3px" }}>
+      <div className="rounded-[11px] px-5 py-4" style={{ backgroundColor: "#F8F5EE" }}>
+        <p className="text-2xl font-semibold" style={{ color: SECTION_ACCENT }}>{value}</p>
+        <p className="mt-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+        {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -417,7 +414,7 @@ export default function FoundationsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
+    <div className="min-h-screen space-y-6 p-6 page-bg">
       <PageHeader
         title="Foundation Directory"
         accent={SECTION_ACCENT}
@@ -462,7 +459,7 @@ export default function FoundationsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search foundations"
-            className="w-full bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/10 outline-none"
+            className="w-full bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#A4712C] focus:ring-2 focus:ring-[#A4712C]/10 outline-none"
           />
         </div>
         <Select
@@ -521,7 +518,7 @@ export default function FoundationsPage() {
                 checked={allCurrentSelected}
                 onChange={toggleAll}
                 aria-label="Select all on this page"
-                className="h-4 w-4 rounded border-navy-300 text-[#0077B6] accent-[#0077B6] focus:ring-[#0077B6]"
+                className="h-4 w-4 rounded border-navy-300 text-[#A4712C] accent-[#A4712C] focus:ring-[#A4712C]"
               />
               Select all on this page
             </label>

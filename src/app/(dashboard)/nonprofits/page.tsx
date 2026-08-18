@@ -52,31 +52,31 @@ function formatRevenue(amount: number | null): string {
 
 const TABLE_GRID_COLUMNS = "2fr 1fr 1fr 0.8fr 1fr 1fr 1.5fr";
 
-const SECTION_ACCENT = "#0284C7";
+const SECTION_ACCENT = "#A4712C";
 
 const chipStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "6px",
-  backgroundColor: "rgba(2,132,199,0.14)",
-  border: "1px solid rgba(2,132,199,0.35)",
+  backgroundColor: "rgba(164,113,44,0.12)",
+  border: "1px solid rgba(164,113,44,0.4)",
   borderRadius: "8px",
   padding: "6px 14px",
   fontSize: "12px",
-  color: "#FFFFFF",
+  color: "#101B2D",
   fontWeight: 600,
   marginRight: "8px",
 };
 
 const chipValueStyle: CSSProperties = {
-  color: "#38BDF8",
+  color: "#A4712C",
   fontWeight: 800,
 };
 
 const headerLabelStyle: CSSProperties = {
   fontSize: "10px",
   fontWeight: 700,
-  color: "rgba(56,189,248,0.75)",
+  color: "#64748B",
   textTransform: "uppercase",
   letterSpacing: "0.08em",
 };
@@ -139,22 +139,23 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
   }
 
   return (
-    <div style={{ backgroundColor: "#0A1628", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       {/* Header */}
       <div
         style={{
-          backgroundColor: "#0D1E35",
+          backgroundColor: "#F8F5EE",
           borderRadius: "14px",
-          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 4px 20px rgba(164,113,44,0.22)",
+          border: "1px solid rgba(16,27,45,0.12)",
           borderLeft: `4px solid ${SECTION_ACCENT}`,
           padding: "20px 24px",
           marginBottom: "16px",
         }}
       >
-        <div style={{ fontSize: "22px", fontWeight: 900, color: "#FFFFFF", letterSpacing: "-0.02em" }}>
+        <div style={{ fontSize: "22px", fontWeight: 900, color: "#101B2D", letterSpacing: "-0.02em" }}>
           Nonprofit Directory
         </div>
-        <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", marginTop: "4px" }}>
+        <div style={{ fontSize: "13px", color: "rgba(16,27,45,0.6)", marginTop: "4px" }}>
           {(totalCount ?? 0).toLocaleString()} 501(c)(3) organizations on file
         </div>
 
@@ -176,9 +177,9 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             style={{
               padding: "10px 16px",
               borderRadius: "10px",
-              border: "1px solid rgba(255,255,255,0.15)",
-              backgroundColor: "rgba(255,255,255,0.06)",
-              color: "#FFFFFF",
+              border: "1px solid rgba(16,27,45,0.15)",
+              backgroundColor: "rgba(16,27,45,0.06)",
+              color: "#101B2D",
               fontSize: "14px",
               width: "320px",
               outline: "none",
@@ -190,9 +191,9 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             style={{
               padding: "10px 14px",
               borderRadius: "10px",
-              border: "1px solid rgba(255,255,255,0.15)",
-              backgroundColor: "#0D1E35",
-              color: "#FFFFFF",
+              border: "1px solid rgba(16,27,45,0.15)",
+              backgroundColor: "#F8F5EE",
+              color: "#101B2D",
               fontSize: "13px",
             }}
           >
@@ -206,8 +207,8 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
           <button
             type="submit"
             style={{
-              backgroundColor: "#0077B6",
-              color: "white",
+              backgroundColor: "#A4712C",
+              color: "#F8F5EE",
               border: "none",
               borderRadius: "10px",
               padding: "10px 20px",
@@ -219,7 +220,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             Search
           </button>
           {hasFilter && (
-            <Link href="/nonprofits" style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", textDecoration: "underline" }}>
+            <Link href="/nonprofits" style={{ fontSize: "13px", color: "rgba(16,27,45,0.5)", textDecoration: "underline" }}>
               Clear
             </Link>
           )}
@@ -227,10 +228,10 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
       </div>
 
       {/* Results table */}
-      <div style={{ backgroundColor: "#0D1E35", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+      <div style={{ backgroundColor: "#F8F5EE", borderRadius: "14px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", border: "1px solid rgba(16,27,45,0.12)", overflow: "hidden" }}>
         <div
           style={{
-            backgroundColor: "rgba(2,132,199,0.10)",
+            backgroundColor: "rgba(164,113,44,0.10)",
             borderBottom: `2px solid ${SECTION_ACCENT}`,
             padding: "12px 20px",
             display: "grid",
@@ -247,7 +248,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
         </div>
 
         {nonprofits.length === 0 ? (
-          <div style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>
+          <div style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "rgba(16,27,45,0.5)" }}>
             No nonprofits match your filters.
           </div>
         ) : (
@@ -255,34 +256,34 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             <div
               key={row.id}
               style={{
-                backgroundColor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
+                backgroundColor: i % 2 === 0 ? "transparent" : "rgba(16,27,45,0.02)",
                 padding: "12px 20px",
                 display: "grid",
                 gridTemplateColumns: TABLE_GRID_COLUMNS,
                 alignItems: "center",
-                borderBottom: "1px solid rgba(255,255,255,0.04)",
+                borderBottom: "1px solid rgba(16,27,45,0.04)",
               }}
             >
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF" }}>{row.name}</span>
-              <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>{row.ein}</span>
-              <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#101B2D" }}>{row.name}</span>
+              <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.5)", fontFamily: "monospace" }}>{row.ein}</span>
+              <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.7)" }}>
                 {row.city && row.state ? `${row.city}, ${row.state}` : (row.city ?? row.state ?? "—")}
               </span>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)" }}>{row.ntee_code ?? "—"}</span>
-              <span style={{ fontSize: "12px", color: "#34D399", fontWeight: 600 }}>{formatRevenue(row.revenue_amount)}</span>
+              <span style={{ fontSize: "11px", color: "rgba(16,27,45,0.5)" }}>{row.ntee_code ?? "—"}</span>
+              <span style={{ fontSize: "12px", color: "#101B2D", fontWeight: 600 }}>{formatRevenue(row.revenue_amount)}</span>
               {row.website ? (
                 <a
                   href={row.website.startsWith("http") ? row.website : `https://${row.website}`}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: "#00B4D8", fontSize: "12px", textDecoration: "none" }}
+                  style={{ color: "#4F6D8F", fontSize: "12px", textDecoration: "none" }}
                 >
                   {row.website}
                 </a>
               ) : (
-                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)" }}>—</span>
+                <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.5)" }}>—</span>
               )}
-              <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>{row.officer_name ?? "—"}</span>
+              <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.7)" }}>{row.officer_name ?? "—"}</span>
             </div>
           ))
         )}
@@ -291,28 +292,28 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
         <div
           style={{
             padding: "14px 20px",
-            borderTop: "1px solid rgba(255,255,255,0.08)",
+            borderTop: "1px solid rgba(16,27,45,0.08)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
           {pageParam > 1 ? (
-            <Link href={pageHref(pageParam - 1)} style={{ fontSize: "13px", fontWeight: 700, color: "#00B4D8", textDecoration: "none" }}>
+            <Link href={pageHref(pageParam - 1)} style={{ fontSize: "13px", fontWeight: 700, color: "#4F6D8F", textDecoration: "none" }}>
               ← Previous
             </Link>
           ) : (
-            <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)" }}>← Previous</span>
+            <span style={{ fontSize: "13px", color: "rgba(16,27,45,0.3)" }}>← Previous</span>
           )}
-          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)" }}>
+          <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.6)" }}>
             Page {pageParam} of {totalPages.toLocaleString()} — {resultCount.toLocaleString()} results
           </span>
           {pageParam < totalPages ? (
-            <Link href={pageHref(pageParam + 1)} style={{ fontSize: "13px", fontWeight: 700, color: "#00B4D8", textDecoration: "none" }}>
+            <Link href={pageHref(pageParam + 1)} style={{ fontSize: "13px", fontWeight: 700, color: "#4F6D8F", textDecoration: "none" }}>
               Next →
             </Link>
           ) : (
-            <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)" }}>Next →</span>
+            <span style={{ fontSize: "13px", color: "rgba(16,27,45,0.3)" }}>Next →</span>
           )}
         </div>
       </div>

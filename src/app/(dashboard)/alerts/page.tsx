@@ -34,14 +34,16 @@ interface DisplayCategory {
   dot: string;
 }
 
-const CANVAS = "#D6E4F0";
-const CARD = "#FFFFFF";
-const TEXT_PRIMARY = "#0F172A";
+const CANVAS = "#D8D3C8";
+const CARD = "#F8F5EE";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-// Draft & Automation section signature accent — see PAGE_TREATMENT_PROTOCOL.md.
-const ACCENT = "#2563EB";
-const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
+// Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold. 2026-08-18: confirmed
+// via live getComputedStyle audit this page never received the v2 rollout.
+const ACCENT = "#B88A2E";
+const SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
 
 const DISPLAY_CATEGORIES: DisplayCategory[] = [
   {
@@ -110,7 +112,7 @@ const FILTERS: { key: FilterType; label: string }[] = [
 const SEVERITY_BORDER: Record<AlertSeverity, string> = {
   critical: "#EF4444",
   warning: "#F59E0B",
-  info: "#0077B6",
+  info: "#4F6D8F",
 };
 
 const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
@@ -472,7 +474,7 @@ function AlertRow({
           {snoozeOpen && (
             <div
               role="menu"
-              style={{ border: "1px solid #E2E8F0", backgroundColor: CARD, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+              style={{ border: "1px solid rgba(16,27,45,0.15)", backgroundColor: CARD, boxShadow: "0 8px 24px rgba(184,138,46,0.25)" }}
               className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg py-1"
             >
               {SNOOZE_OPTIONS.map((opt) => (

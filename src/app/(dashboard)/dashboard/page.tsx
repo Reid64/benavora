@@ -19,31 +19,31 @@ import { ScraperStatusCard } from "@/components/dashboard/ScraperStatusCard";
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
 export const dynamic = "force-dynamic";
 
-const NAVY = "#0A1628";
-const CARD_BG = "#0D1E35";
-const ROYAL = "#0077B6";
-
-// Dashboard/Home section signature accent — see governance/DESIGN_SYSTEM.md
-// "Section Accent Colors" and src/lib/design/section-accents.ts (dashboard:
-// "#1D4ED8"). Used only for this page's own chrome (header left-border,
-// the pipeline strip's and KPI scorecard's outer container borders, the AI
-// Triggers panel's own border) — never for the per-stage pipeline colors,
-// per-panel categorical colors (Top Opportunities/Recent Activity/etc.), or
-// real semantic status colors (Alerts red, Deadlines amber). Rendered as a
-// border, not solid text fill: this page's whole content area is the
-// intentionally dark (~#0A1628) "hero" theme, and #1D4ED8 text on that
-// background falls well under WCAG AA contrast (~2.5:1), so — matching the
-// /admin/orgs precedent — the accent is applied as chrome, not a text color.
-const ACCENT = "#1D4ED8";
-const SKY = "#0EA5E9";
-const CYAN = "#00D4FF";
-const TEAL = "#0891B2";
-const PURPLE = "#7C3AED";
-const AMBER = "#D97706";
-const GREEN = "#10B981";
-const RED = "#EF4444";
-const WHITE = "#FFFFFF";
-const MUTED = "rgba(255,255,255,0.6)";
+// Dashboard/Home section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold. Secondary accent: Deep
+// Navy. 2026-08-18: converted this page from its earlier standalone dark
+// "hero" theme (#0A1628, deliberately isolated from the site-wide Soft Stone
+// background) to the mandatory Soft-Stone + Gold-frame/ivory-inner layering
+// technique used everywhere else — confirmed via live getComputedStyle audit
+// that this page never received the v2 rollout at all, same real gap as
+// AutoApply's. FlipCards' per-card gradients and AI Triggers' per-trigger
+// border colors keep real per-item distinctiveness (multiple genuine
+// categories, same allowance Draft Generator's 6 buttons used) but now draw
+// only from the proven v2 accent family, not the old blue/purple/cyan set.
+const NAVY = "#101B2D";
+const CARD_BG = "#F8F5EE";
+const STONE = "#D8D3C8";
+const ROYAL = "#4F6D8F"; // Slate Blue
+const ACCENT = "#B88A2E"; // Gold - this page's section frame color
+const SKY = "#A4712C"; // Bronze
+const CYAN = "#C17817"; // Amber
+const TEAL = "#2E6B66"; // Teal
+const PURPLE = "#7A5980"; // Plum
+const AMBER = "#C17817"; // Amber
+const GREEN = "#10B981"; // real semantic success - untouched
+const RED = "#EF4444"; // real semantic error/urgency - untouched
+const WHITE = NAVY; // panels are now light (ivory); "WHITE" now means the dark text color on them
+const MUTED = "#64748B";
 
 type ApplicationRow = {
   id: string;
@@ -166,7 +166,7 @@ const TREND_META: Record<KpiTrend, { label: string; arrow: string; color: string
   UP: { label: "UP", arrow: "↑", color: "#34D399" },
   DOWN: { label: "DOWN", arrow: "↓", color: "#EF4444" },
   NEUTRAL: { label: "NEUTRAL", arrow: "→", color: "#FCD34D" },
-  NONE: { label: "--", arrow: "—", color: "rgba(255,255,255,0.3)" },
+  NONE: { label: "--", arrow: "—", color: "rgba(16,27,45,0.3)" },
 };
 
 type Kpi = { name: string; value: string; trend: KpiTrend; goal: string; goalMet: boolean | null };
@@ -205,15 +205,28 @@ function fundingActivityBucket(sourceType: string | null): FundingActivityBucket
   return "other";
 }
 
-const panelStyle: CSSProperties = {
-  backgroundColor: CARD_BG,
+// Mandatory layering technique: Gold outer frame (this page's section
+// color) with real shadow, Warm Ivory inner content - see
+// PAGE_TREATMENT_PROTOCOL_V2.md. `accent` keeps each panel's own real
+// distinguishing color (Action Queue vs. AI Triggers vs. Alerts are
+// genuinely different panels), now applied as a subtle header-side stripe
+// inside the frame rather than the panel's main color.
+const panelFrameStyle: CSSProperties = {
+  backgroundColor: ACCENT,
   borderRadius: "14px",
-  border: "1px solid rgba(255,255,255,0.08)",
+  boxShadow: "0 4px 20px rgba(184,138,46,0.22)",
+  padding: "3px",
+};
+
+const panelInnerStyle: CSSProperties = {
+  backgroundColor: CARD_BG,
+  borderRadius: "11px",
+  overflow: "hidden",
 };
 
 const panelHeaderStyle: CSSProperties = {
   padding: "16px 20px",
-  borderBottom: "1px solid rgba(255,255,255,0.06)",
+  borderBottom: "1px solid rgba(16,27,45,0.08)",
   fontSize: "15px",
   fontWeight: 800,
   color: WHITE,
@@ -231,9 +244,11 @@ function Panel({
   style?: CSSProperties;
 }) {
   return (
-    <div style={{ ...panelStyle, borderLeft: `3px solid ${accent}`, ...style }}>
-      <div style={panelHeaderStyle}>{title}</div>
-      <div style={{ padding: "16px 20px" }}>{children}</div>
+    <div style={{ ...panelFrameStyle, ...style }}>
+      <div style={panelInnerStyle}>
+        <div style={{ ...panelHeaderStyle, borderLeft: `3px solid ${accent}`, paddingLeft: "17px" }}>{title}</div>
+        <div style={{ padding: "16px 20px" }}>{children}</div>
+      </div>
     </div>
   );
 }
@@ -262,7 +277,7 @@ export default async function DashboardPage() {
 
   if (!profile?.organization_id) {
     return (
-      <div style={{ backgroundColor: NAVY, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+      <div style={{ backgroundColor: STONE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
         <div
           style={{
             borderRadius: "12px",
@@ -569,9 +584,9 @@ export default async function DashboardPage() {
       label: "KNOWLEDGE BASE",
       value: `${kbCompleteness}%`,
       sub: `${incompleteSections.length} gaps remaining`,
-      frontGradient: "linear-gradient(135deg,#0B2D4A,#0D3560)",
-      borderColor: "rgba(0,119,182,0.3)",
-      accentGradient: "linear-gradient(90deg,#0077B6,#0EA5E9)",
+      frontGradient: CARD_BG,
+      borderColor: "rgba(184,138,46,0.4)",
+      accentGradient: "linear-gradient(90deg,#B88A2E,#D4A94D)",
       href: "/knowledge-base",
       ctaLabel: "Complete setup",
       back: (
@@ -588,7 +603,7 @@ export default async function DashboardPage() {
                   fontSize: "12px",
                   color: WHITE,
                   padding: "4px 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.1)",
+                  borderBottom: "1px solid rgba(16,27,45,0.1)",
                   textDecoration: "none",
                 }}
               >
@@ -604,9 +619,9 @@ export default async function DashboardPage() {
       label: "INTELLIGENCE LIBRARY",
       value: String(intelligenceLibraryCount),
       sub: "narratives indexed",
-      frontGradient: "linear-gradient(135deg,#1E0A3C,#2A1050)",
-      borderColor: "rgba(124,58,237,0.3)",
-      accentGradient: "linear-gradient(90deg,#7C3AED,#A855F7)",
+      frontGradient: CARD_BG,
+      borderColor: "rgba(122,89,128,0.4)",
+      accentGradient: "linear-gradient(90deg,#7A5980,#9B7BA3)",
       href: "/intelligence-library",
       ctaLabel: "Open library",
       back: (
@@ -621,7 +636,7 @@ export default async function DashboardPage() {
               </div>
             ))
           )}
-          {lastImportDate && <div style={{ marginTop: "4px", color: "rgba(255,255,255,0.6)" }}>Last import: {formatRelative(lastImportDate)}</div>}
+          {lastImportDate && <div style={{ marginTop: "4px", color: "rgba(16,27,45,0.6)" }}>Last import: {formatRelative(lastImportDate)}</div>}
         </div>
       ),
     },
@@ -630,9 +645,9 @@ export default async function DashboardPage() {
       label: "DEADLINES",
       value: String(overdueDeadlines.length),
       sub: `${dueThisWeek.length} due this week`,
-      frontGradient: "linear-gradient(135deg,#2D1A00,#3A2200)",
-      borderColor: "rgba(217,119,6,0.3)",
-      accentGradient: "linear-gradient(90deg,#D97706,#F59E0B)",
+      frontGradient: CARD_BG,
+      borderColor: "rgba(193,120,23,0.4)",
+      accentGradient: "linear-gradient(90deg,#C17817,#E0A03D)",
       href: "/deadlines",
       ctaLabel: "View all deadlines",
       back: (
@@ -650,7 +665,7 @@ export default async function DashboardPage() {
                       fontSize: "10px",
                       fontWeight: 700,
                       color: WHITE,
-                      backgroundColor: chip.overdue ? "rgba(239,68,68,0.3)" : "rgba(217,119,6,0.3)",
+                      backgroundColor: chip.overdue ? "rgba(239,68,68,0.3)" : "rgba(193,120,23,0.3)",
                       borderRadius: "4px",
                       padding: "2px 6px",
                       flexShrink: 0,
@@ -670,9 +685,9 @@ export default async function DashboardPage() {
       label: "FUNDER RESEARCH",
       value: String(foundationTotal),
       sub: "profiles indexed",
-      frontGradient: "linear-gradient(135deg,#082838,#0A3548)",
-      borderColor: "rgba(14,165,233,0.3)",
-      accentGradient: "linear-gradient(90deg,#0EA5E9,#0077B6)",
+      frontGradient: CARD_BG,
+      borderColor: "rgba(79,109,143,0.4)",
+      accentGradient: "linear-gradient(90deg,#4F6D8F,#7691AF)",
       href: "/research",
       ctaLabel: "Open research",
       back: (
@@ -695,9 +710,9 @@ export default async function DashboardPage() {
       label: "AUTOAPPLY",
       value: String(automationSessionsRecent.length),
       sub: "sessions last 30 days",
-      frontGradient: "linear-gradient(135deg,#082830,#0A3540)",
-      borderColor: "rgba(8,145,178,0.3)",
-      accentGradient: "linear-gradient(90deg,#0891B2,#06B6D4)",
+      frontGradient: CARD_BG,
+      borderColor: "rgba(46,107,102,0.4)",
+      accentGradient: "linear-gradient(90deg,#2E6B66,#4C948D)",
       href: "/autoapply",
       ctaLabel: "View sessions",
       back: (
@@ -719,8 +734,8 @@ export default async function DashboardPage() {
       label: "PLATFORM HEALTH",
       value: String(platformHealthScore),
       sub: "overall readiness score",
-      frontGradient: "linear-gradient(135deg,#062818,#082E1C)",
-      borderColor: "rgba(16,185,129,0.3)",
+      frontGradient: CARD_BG,
+      borderColor: "rgba(16,185,129,0.4)",
       accentGradient: "linear-gradient(90deg,#10B981,#34D399)",
       href: "/knowledge-base",
       ctaLabel: "Improve score",
@@ -843,7 +858,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div style={{ backgroundColor: NAVY, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div style={{ backgroundColor: STONE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       <style>{`
         @keyframes pulseGlow {
           0% { box-shadow: 0 0 0 0 rgba(0,212,255,0.5); }
@@ -858,30 +873,23 @@ export default async function DashboardPage() {
       `}</style>
 
       {/* Header — page's own title bar; left-border chrome carries the
-          Dashboard/Home section accent. Heading text stays white (not
-          accent-colored) for real contrast against the dark hero background
-          — see ACCENT comment above. */}
+          Dashboard/Home section accent (Gold). Heading text is Deep Navy on
+          the Soft Stone background, per the universal text rule. */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
         <div style={{ borderLeft: `4px solid ${ACCENT}`, paddingLeft: "14px" }}>
           <h1 style={{ fontSize: "24px", fontWeight: 800, color: WHITE, margin: 0 }}>{orgName}</h1>
         </div>
-        <span style={{ fontSize: "14px", color: WHITE }}>{format(now, "MMMM d, yyyy")}</span>
+        <span style={{ fontSize: "14px", color: MUTED }}>{format(now, "MMMM d, yyyy")}</span>
       </div>
 
-      {/* Pipeline strip — the page's centerpiece. Outer container chrome
-          carries the section accent; each stage card keeps its own distinct
+      {/* Pipeline strip — the page's centerpiece, now the mandatory Gold
+          frame + Warm Ivory inner. Each stage card keeps its own distinct
           color (Onboard/Research/Opportunities/Narratives/AutoApply/Funding
-          Secured) untouched below. */}
-      <div
-        style={{
-          background: "linear-gradient(135deg,#0D1E35,#0A1A2E)",
-          borderRadius: "16px",
-          border: "1px solid rgba(0,212,255,0.15)",
-          borderLeft: `3px solid ${ACCENT}`,
-          padding: "18px 22px",
-          marginBottom: "18px",
-        }}
-      >
+          Secured untouched below) - a real categorical/stage distinction,
+          same allowance Applications' pipeline-stage colors use. */}
+      <div style={{ ...panelFrameStyle, marginBottom: "18px" }}>
+      <div style={panelInnerStyle}>
+        <div style={{ padding: "18px 22px" }}>
         <div style={{ fontSize: "15px", fontWeight: 800, color: WHITE, marginBottom: "14px" }}>Pipeline</div>
         <div style={{ display: "flex", alignItems: "center", gap: "0" }}>
           {stages.flatMap((stage, i) => [
@@ -890,15 +898,15 @@ export default async function DashboardPage() {
               href={stage.href}
               style={{
                 flex: "1",
-                backgroundColor: "rgba(255,255,255,0.06)",
+                backgroundColor: "rgba(16,27,45,0.04)",
                 borderRadius: "10px",
                 padding: "12px 14px",
-                borderTop: `2px solid ${stage.color}`,
+                borderTop: `3px solid ${stage.color}`,
                 textDecoration: "none",
                 ...(stage.active ? { animation: "pulseGlow 2.2s ease-in-out infinite" } : {}),
               }}
             >
-              <div style={{ fontSize: "11px", fontWeight: 700, color: WHITE, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {stage.label}
               </div>
               <div style={{ fontSize: "24px", fontWeight: 800, color: stage.color, lineHeight: 1, marginTop: "4px" }}>
@@ -907,13 +915,15 @@ export default async function DashboardPage() {
             </Link>,
             ...(i < stages.length - 1
               ? [
-                  <div key={`${stage.label}-arrow`} style={{ color: RED, fontSize: "18px", fontWeight: 900, padding: "0 8px", flexShrink: 0 }}>
+                  <div key={`${stage.label}-arrow`} style={{ color: MUTED, fontSize: "18px", fontWeight: 900, padding: "0 8px", flexShrink: 0 }}>
                     →
                   </div>,
                 ]
               : []),
           ])}
         </div>
+        </div>
+      </div>
       </div>
 
       {/* Flip cards */}
@@ -936,7 +946,7 @@ export default async function DashboardPage() {
                     alignItems: "center",
                     gap: "10px",
                     padding: "9px 0",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    borderBottom: "1px solid rgba(16,27,45,0.06)",
                     textDecoration: "none",
                   }}
                 >
@@ -983,7 +993,7 @@ export default async function DashboardPage() {
                       alignItems: "center",
                       gap: "10px",
                       padding: "9px 0",
-                      borderBottom: "1px solid rgba(255,255,255,0.06)",
+                      borderBottom: "1px solid rgba(16,27,45,0.06)",
                       textDecoration: "none",
                     }}
                   >
@@ -1009,26 +1019,19 @@ export default async function DashboardPage() {
           </Panel>
 
           {/* Funding Activity — CSS-only bar chart, no external chart library */}
-          <div
-            style={{
-              backgroundColor: "#0D1E35",
-              borderRadius: "14px",
-              border: "1px solid rgba(255,255,255,0.08)",
-              marginTop: "14px",
-              overflow: "hidden",
-            }}
-          >
+          <div style={{ ...panelFrameStyle, marginTop: "14px" }}>
+          <div style={panelInnerStyle}>
             <div
               style={{
                 padding: "14px 20px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                borderBottom: "1px solid rgba(16,27,45,0.06)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
               <span style={{ fontSize: "15px", fontWeight: 800, color: WHITE }}>Funding Activity</span>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>
+              <span style={{ fontSize: "11px", color: "rgba(16,27,45,0.4)" }}>
                 Opportunities by source — last 6 months
               </span>
             </div>
@@ -1043,7 +1046,7 @@ export default async function DashboardPage() {
                     return (
                       <div key={bar.key} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
                         <span style={{ width: "80px", flexShrink: 0, fontSize: "12px", color: WHITE }}>{bar.label}</span>
-                        <div style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: "4px", overflow: "hidden" }}>
+                        <div style={{ flex: 1, backgroundColor: "rgba(16,27,45,0.06)", borderRadius: "4px", overflow: "hidden" }}>
                           <div
                             style={{
                               width: `${pct}%`,
@@ -1066,13 +1069,14 @@ export default async function DashboardPage() {
                     {FUNDING_ACTIVITY_BARS.map((bar) => (
                       <div key={bar.key} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: bar.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>{bar.label}</span>
+                        <span style={{ fontSize: "11px", color: "rgba(16,27,45,0.6)" }}>{bar.label}</span>
                       </div>
                     ))}
                   </div>
                 </>
               )}
             </div>
+          </div>
           </div>
         </div>
 
@@ -1085,9 +1089,9 @@ export default async function DashboardPage() {
                 of the uniform AiTrigger shape used by the 3 cards above. */}
             <div
               style={{
-                backgroundColor: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderLeft: "2px solid #0891B2",
+                backgroundColor: "rgba(16,27,45,0.04)",
+                border: "1px solid rgba(16,27,45,0.08)",
+                borderLeft: "2px solid #2E6B66",
                 borderRadius: "10px",
                 padding: "12px 14px",
                 marginBottom: "8px",
@@ -1096,7 +1100,7 @@ export default async function DashboardPage() {
               <div style={{ fontSize: "13px", fontWeight: 700, color: WHITE, marginBottom: "4px" }}>
                 AutoApply Engine
               </div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
+              <div style={{ fontSize: "11px", color: "rgba(16,27,45,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
                 {autoApplySubText}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
@@ -1117,8 +1121,8 @@ export default async function DashboardPage() {
               <Link
                 href="/autoapply"
                 style={{
-                  background: "linear-gradient(135deg,#0891B2,#06B6D4)",
-                  color: "white",
+                  background: "linear-gradient(135deg,#2E6B66,#3D8983)",
+                  color: "#F8F5EE",
                   border: "none",
                   borderRadius: "6px",
                   padding: "6px 12px",
@@ -1152,7 +1156,7 @@ export default async function DashboardPage() {
                     alignItems: "flex-start",
                     gap: "8px",
                     padding: "8px 0",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    borderBottom: "1px solid rgba(16,27,45,0.06)",
                     textDecoration: "none",
                   }}
                 >
@@ -1193,7 +1197,7 @@ export default async function DashboardPage() {
                       justifyContent: "space-between",
                       gap: "10px",
                       padding: "8px 0",
-                      borderBottom: "1px solid rgba(255,255,255,0.06)",
+                      borderBottom: "1px solid rgba(16,27,45,0.06)",
                       textDecoration: "none",
                     }}
                   >
@@ -1202,7 +1206,7 @@ export default async function DashboardPage() {
                     </span>
                     <span
                       style={{
-                        backgroundColor: chip.overdue ? "rgba(239,68,68,0.25)" : "rgba(217,119,6,0.25)",
+                        backgroundColor: chip.overdue ? "rgba(239,68,68,0.25)" : "rgba(193,120,23,0.25)",
                         color: WHITE,
                         borderRadius: "4px",
                         padding: "2px 8px",
@@ -1221,43 +1225,35 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Scorecard — this page's primary stat/metric block; outer
-          container chrome carries the section accent. */}
-      <div
-        style={{
-          backgroundColor: CARD_BG,
-          borderRadius: "14px",
-          border: "1px solid rgba(255,255,255,0.08)",
-          marginTop: "14px",
-          overflow: "hidden",
-          borderLeft: `3px solid ${ACCENT}`,
-        }}
-      >
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: "12px" }}>
+      {/* KPI Scorecard — this page's primary stat/metric block, the
+          mandatory Gold frame + Warm Ivory inner. */}
+      <div style={{ ...panelFrameStyle, marginTop: "14px" }}>
+      <div style={panelInnerStyle}>
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(16,27,45,0.06)", display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ fontSize: "15px", fontWeight: 800, color: WHITE }}>Platform KPI Scorecard</span>
-          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginLeft: "auto" }}>Trend vs Goal</span>
+          <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.4)", marginLeft: "auto" }}>Trend vs Goal</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0" }}>
           {kpis.map((kpi, i) => {
             const isRightEdge = (i + 1) % 3 === 0;
             const isBottomRow = i >= 3;
             const trendMeta = TREND_META[kpi.trend];
-            const goalColor = kpi.goalMet === true ? "#34D399" : kpi.goalMet === false ? "#EF4444" : "rgba(255,255,255,0.3)";
+            const goalColor = kpi.goalMet === true ? "#34D399" : kpi.goalMet === false ? "#EF4444" : "rgba(16,27,45,0.3)";
             const goalMark = kpi.goalMet === true ? "✓" : kpi.goalMet === false ? "✗" : "—";
             return (
               <div
                 key={kpi.name}
                 style={{
                   padding: "16px 18px",
-                  borderRight: isRightEdge ? "none" : "1px solid rgba(255,255,255,0.06)",
-                  borderBottom: isBottomRow ? "none" : "1px solid rgba(255,255,255,0.06)",
+                  borderRight: isRightEdge ? "none" : "1px solid rgba(16,27,45,0.06)",
+                  borderBottom: isBottomRow ? "none" : "1px solid rgba(16,27,45,0.06)",
                 }}
               >
                 <div
                   style={{
                     fontSize: "10px",
                     fontWeight: 700,
-                    color: "rgba(255,255,255,0.45)",
+                    color: "rgba(16,27,45,0.45)",
                     textTransform: "uppercase",
                     letterSpacing: "0.1em",
                     marginBottom: "8px",
@@ -1268,7 +1264,7 @@ export default async function DashboardPage() {
                 <div style={{ fontSize: "30px", fontWeight: 900, color: WHITE, lineHeight: 1, marginBottom: "10px" }}>{kpi.value}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <div style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <div style={{ fontSize: "9px", fontWeight: 700, color: "rgba(16,27,45,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       TREND
                     </div>
                     <div style={{ fontSize: "12px", fontWeight: 700, color: trendMeta.color }}>
@@ -1276,11 +1272,11 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <div style={{ fontSize: "9px", fontWeight: 700, color: "rgba(16,27,45,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       GOAL
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                      <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>{kpi.goal}</span>
+                      <span style={{ fontSize: "11px", color: "rgba(16,27,45,0.6)" }}>{kpi.goal}</span>
                       <span style={{ fontSize: "13px", fontWeight: 700, marginLeft: "6px", color: goalColor }}>{goalMark}</span>
                     </div>
                   </div>
@@ -1290,6 +1286,7 @@ export default async function DashboardPage() {
           })}
         </div>
       </div>
+      </div>
 
       {/* Bottom row — 4 columns */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginTop: "16px" }}>
@@ -1298,7 +1295,7 @@ export default async function DashboardPage() {
             <p style={{ fontSize: "12px", color: MUTED, margin: 0 }}>No autonomous activity in the last 24h.</p>
           ) : (
             agentDecisions.slice(0, 5).map((decision) => (
-              <div key={decision.id} style={{ display: "flex", gap: "8px", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div key={decision.id} style={{ display: "flex", gap: "8px", padding: "8px 0", borderBottom: "1px solid rgba(16,27,45,0.06)" }}>
                 <div
                   style={{
                     width: "7px",
@@ -1333,7 +1330,7 @@ export default async function DashboardPage() {
                   <span>{bar.label}</span>
                   <span style={{ fontWeight: 700 }}>{pct}%</span>
                 </div>
-                <div style={{ height: "6px", borderRadius: "3px", backgroundColor: "rgba(255,255,255,0.08)" }}>
+                <div style={{ height: "6px", borderRadius: "3px", backgroundColor: "rgba(16,27,45,0.08)" }}>
                   <div style={{ height: "100%", width: `${pct}%`, borderRadius: "3px", backgroundColor: bar.color }} />
                 </div>
               </div>
@@ -1351,7 +1348,7 @@ export default async function DashboardPage() {
                   <span>{mix.label}</span>
                   <span style={{ fontWeight: 700 }}>{mix.count}</span>
                 </div>
-                <div style={{ height: "6px", borderRadius: "3px", backgroundColor: "rgba(255,255,255,0.08)" }}>
+                <div style={{ height: "6px", borderRadius: "3px", backgroundColor: "rgba(16,27,45,0.08)" }}>
                   <div
                     style={{
                       height: "100%",
@@ -1387,24 +1384,15 @@ export default async function DashboardPage() {
       </div>
 
       {/* Status bar */}
-      <div
-        style={{
-          background: "#060D1A",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: "0 0 8px 8px",
-          padding: "10px 24px",
-          marginTop: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "20px",
-        }}
-      >
+      <div style={{ ...panelFrameStyle, marginTop: "16px" }}>
+      <div style={{ ...panelInnerStyle, padding: "10px 24px", display: "flex", alignItems: "center", gap: "20px" }}>
         {statusDots.map((dot) => (
           <div key={dot.label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: dot.color, flexShrink: 0 }} />
             <span style={{ fontSize: "11px", color: WHITE }}>{dot.label}</span>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
@@ -1432,7 +1420,7 @@ function PlatformHealthDonut({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={center} cy={center} r={outerR} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />
+      <circle cx={center} cy={center} r={outerR} fill="none" stroke="rgba(16,27,45,0.08)" strokeWidth={10} />
       <circle
         cx={center}
         cy={center}
@@ -1444,7 +1432,7 @@ function PlatformHealthDonut({
         strokeLinecap="round"
         transform={`rotate(-90 ${center} ${center})`}
       />
-      <circle cx={center} cy={center} r={innerR} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />
+      <circle cx={center} cy={center} r={innerR} fill="none" stroke="rgba(16,27,45,0.08)" strokeWidth={10} />
       <circle
         cx={center}
         cy={center}
