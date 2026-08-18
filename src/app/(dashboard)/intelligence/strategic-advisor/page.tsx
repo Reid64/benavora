@@ -50,6 +50,10 @@ interface StrategicRecommendation {
   actioned_at: string | null;
 }
 
+// URGENCY_COLOR and CATEGORY_COLORS below are real semantic/categorical
+// data (urgency tier, recommendation type) — preserved untouched except for
+// the one literal old-primary-blue value ("expand"), per this task's v2
+// rollout instruction to remap old-palette hex but keep real category color.
 const URGENCY_COLOR: Record<Urgency, string> = {
   immediate: "#DC2626",
   urgent: "#F59E0B",
@@ -73,7 +77,7 @@ const CATEGORY_COLORS: Record<RecommendationCategory, string> = {
   apply_now: "#10B981",
   postpone: "#6B7280",
   hire: "#8B5CF6",
-  expand: "#0077B6",
+  expand: "#4F6D8F",
   pivot: "#F59E0B",
   partnership: "#00B4D8",
   board: "#1A2B3C",
@@ -189,7 +193,7 @@ export default function StrategicAdvisorPage() {
   const showEmpty = !loading && recommendations.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -201,12 +205,12 @@ export default function StrategicAdvisorPage() {
           marginBottom: "28px",
         }}
       >
-        <div>
+        <div style={{ borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
           <h1
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#101B2D",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
@@ -225,7 +229,7 @@ export default function StrategicAdvisorPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#1A2B3C",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "14px",
             fontWeight: 700,
@@ -234,7 +238,7 @@ export default function StrategicAdvisorPage() {
             border: "none",
             cursor: generating ? "default" : "pointer",
             opacity: generating ? 0.7 : 1,
-            boxShadow: "0 4px 16px rgba(26,43,60,0.25)",
+            boxShadow: "0 4px 16px rgba(122,89,128,0.25)",
           }}
         >
           {generating ? (
@@ -297,11 +301,11 @@ export default function StrategicAdvisorPage() {
       ) : showEmpty ? (
         <div
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             borderRadius: "14px",
             padding: "56px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
           }}
         >
           <TrendingUp size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
@@ -382,11 +386,11 @@ function RecommendationCard({
     <div
       style={{
         display: "flex",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "14px",
         overflow: "hidden",
         marginBottom: compact ? "12px" : "16px",
-        boxShadow: compact ? "0 2px 10px rgba(0,0,0,0.08)" : "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: compact ? "0 2px 10px rgba(122,89,128,0.14)" : "0 4px 20px rgba(122,89,128,0.18)",
       }}
     >
       <div style={{ width: "6px", flexShrink: 0, backgroundColor: accentColor }} aria-hidden />
@@ -494,9 +498,9 @@ function RecommendationCard({
                 gap: "6px",
                 fontSize: "12px",
                 fontWeight: 700,
-                color: deadlineBased ? "#DC2626" : "#0369A1",
-                backgroundColor: deadlineBased ? "#FEF2F2" : "#F0F9FF",
-                border: `1px solid ${deadlineBased ? "#FECACA" : "#BAE6FD"}`,
+                color: deadlineBased ? "#DC2626" : "#7A5980",
+                backgroundColor: deadlineBased ? "#FEF2F2" : "#F5F3FF",
+                border: `1px solid ${deadlineBased ? "#FECACA" : "#DDD3E5"}`,
                 borderRadius: "999px",
                 padding: "5px 14px",
               }}
@@ -561,12 +565,12 @@ function RecommendationCard({
               alignItems: "center",
               gap: "6px",
               backgroundColor: "transparent",
-              color: "#0077B6",
+              color: "#7A5980",
               fontSize: "13px",
               fontWeight: 700,
               padding: "8px 16px",
               borderRadius: "8px",
-              border: "1px solid #0077B6",
+              border: "1px solid #7A5980",
               cursor: acting ? "default" : "pointer",
               opacity: acting ? 0.6 : 1,
             }}

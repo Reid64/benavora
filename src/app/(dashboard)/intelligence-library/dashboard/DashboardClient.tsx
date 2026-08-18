@@ -496,7 +496,7 @@ export default function IntelligenceLibraryDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-primary">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#101B2D" }}>
           Intelligence Library
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -507,7 +507,10 @@ export default function IntelligenceLibraryDashboardPage() {
       {/* Tab bar */}
       <div className="border-b border-navy-200">
         <nav className="-mb-px flex gap-6" aria-label="Intelligence library tabs">
-          <span className="whitespace-nowrap border-b-2 border-teal-500 pb-3 text-sm font-medium text-teal-600">
+          <span
+            className="whitespace-nowrap border-b-2 pb-3 text-sm font-medium"
+            style={{ borderColor: "#7A5980", color: "#7A5980" }}
+          >
             Dashboard
           </span>
           {(
@@ -832,8 +835,8 @@ function StatCard({
   return (
     <Card>
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50">
-          <Icon className="h-4 w-4 text-teal-600" aria-hidden />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F5F3FF]">
+          <Icon className="h-4 w-4 text-[#7A5980]" aria-hidden />
         </div>
         <div className="min-w-0">
           <p className="text-xl font-semibold tabular-nums text-navy-900">

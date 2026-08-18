@@ -91,7 +91,7 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
           </div>
         </div>
 
-        <div className="grid grid-cols-7 border-b border-navy-200 bg-sidebar text-center text-xs font-medium text-white">
+        <div className="grid grid-cols-7 border-b-2 border-navy-300 bg-sidebar text-center text-xs font-medium text-white">
           {WEEKDAYS.map((day) => (
             <div key={day} className="px-2 py-2">
               {day}
@@ -113,17 +113,17 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
               <div
                 key={key}
                 className={cn(
-                  "min-h-[6.5rem] border-b border-r border-navy-100 p-1.5",
+                  "min-h-[6.5rem] border-b-2 border-r-2 border-navy-300 p-1.5",
                   !inMonth && "bg-navy-50/60",
                 )}
               >
                 <div
                   className={cn(
-                    "mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs",
+                    "mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
                     isToday(day)
-                      ? "bg-teal-600 font-semibold text-white"
+                      ? "bg-teal-600 text-white"
                       : inMonth
-                        ? "text-navy-600"
+                        ? "text-navy-700"
                         : "text-navy-400",
                   )}
                 >

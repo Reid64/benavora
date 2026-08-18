@@ -19,9 +19,10 @@ import type { BoardReportPageData } from "@/lib/reports/board-report-page";
 // Board Report — auto-generated, printable board-ready funding report at
 // /reports/board-report, backed by GET /api/reports/board-report/detail and
 // POST /api/reports/board-report/executive-summary. Inline style={{}} with
-// hardcoded hex only per BLUEPRINT_v2.md §7.5. Canvas #D6E4F0 per current
-// build task instruction (matches the most recently shipped report page,
-// funding-summary/page.tsx — see that file's header for the palette note).
+// hardcoded hex only per BLUEPRINT_v2.md §7.5. Canvas #D8D3C8 (Soft Stone)
+// per the v2 design system; frame accent Plum #7A5980 (Intelligence &
+// Reports section). URGENCY_COLORS and the probability-score badge
+// thresholds below are real semantic data and are preserved untouched.
 //
 // Print handling: DashboardShell always renders the sidebar/header outside
 // this page, so hiding them for print requires a body-level class toggled
@@ -50,16 +51,16 @@ function formatDate(iso: string): string {
 }
 
 const cardStyle: CSSProperties = {
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F8F5EE",
   borderRadius: "14px",
   padding: "24px",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+  boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
 };
 
 const sectionTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
-  color: "#0F172A",
+  color: "#101B2D",
   margin: 0,
 };
 
@@ -162,7 +163,7 @@ export default function BoardReportPage() {
   }, [data]);
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100%", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
       {/* Controls — hidden on print */}
       <div
         className="print:hidden"
@@ -176,7 +177,7 @@ export default function BoardReportPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", margin: 0 }}>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#101B2D", letterSpacing: "-0.02em", margin: 0, borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
             Board Report
           </h1>
           <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>
@@ -184,8 +185,8 @@ export default function BoardReportPage() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "#FFFFFF", borderRadius: "10px", padding: "6px 10px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-            <Calendar size={14} color="#0077B6" />
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "#F8F5EE", borderRadius: "10px", padding: "6px 10px", boxShadow: "0 2px 8px rgba(122,89,128,0.14)" }}>
+            <Calendar size={14} color="#7A5980" />
             <input
               type="date"
               value={startDate}
@@ -229,7 +230,7 @@ export default function BoardReportPage() {
               padding: "10px 16px",
               borderRadius: "8px",
               border: "none",
-              backgroundColor: "#0077B6",
+              backgroundColor: "#7A5980",
               color: "#FFFFFF",
               fontSize: "13px",
               fontWeight: 700,
@@ -245,7 +246,7 @@ export default function BoardReportPage() {
 
       {loading && (
         <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: "10px" }}>
-          <Loader2 size={16} className="animate-spin" color="#0077B6" />
+          <Loader2 size={16} className="animate-spin" color="#7A5980" />
           <span style={{ fontSize: "14px", color: "#64748B" }}>Aggregating board report data...</span>
         </div>
       )}
@@ -284,7 +285,7 @@ export default function BoardReportPage() {
                   padding: "8px 14px",
                   borderRadius: "8px",
                   border: "none",
-                  backgroundColor: "#6B48CC",
+                  backgroundColor: "#7A5980",
                   color: "#FFFFFF",
                   fontSize: "12px",
                   fontWeight: 700,
@@ -318,10 +319,10 @@ export default function BoardReportPage() {
                 gap: "14px",
               }}
             >
-              <MetricTile label="Total Opportunities" value={data.core.executive.totalOpportunities.toLocaleString()} accent="#0077B6" />
-              <MetricTile label="Applications Submitted" value={data.core.executive.applicationsSubmitted.toLocaleString()} sub={formatCurrency(data.core.executive.totalRequested) + " requested"} accent="#6B48CC" />
+              <MetricTile label="Total Opportunities" value={data.core.executive.totalOpportunities.toLocaleString()} accent="#4F6D8F" />
+              <MetricTile label="Applications Submitted" value={data.core.executive.applicationsSubmitted.toLocaleString()} sub={formatCurrency(data.core.executive.totalRequested) + " requested"} accent="#7A5980" />
               <MetricTile label="Awards" value={data.core.executive.awards.toLocaleString()} sub={formatCurrency(data.core.executive.totalAwarded)} accent="#10B981" />
-              <MetricTile label="Win Rate" value={winRate !== null ? `${winRate}%` : "—"} sub={`${data.core.executive.awards} awarded / ${data.core.executive.denials} denied`} accent="#F59E0B" />
+              <MetricTile label="Win Rate" value={winRate !== null ? `${winRate}%` : "—"} sub={`${data.core.executive.awards} awarded / ${data.core.executive.denials} denied`} accent="#4F6D8F" />
             </div>
             {data.core.pipeline.length > 0 && (
               <div style={{ ...cardStyle, marginTop: "14px" }}>
@@ -389,7 +390,7 @@ export default function BoardReportPage() {
           {/* 4. Upcoming Deadlines (next 60 days) */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
-              <Clock size={16} color="#0077B6" />
+              <Clock size={16} color="#7A5980" />
               <h2 style={sectionTitleStyle}>Upcoming Deadlines (Next 60 Days)</h2>
             </div>
             {data.upcomingDeadlines.length === 0 ? (
@@ -445,16 +446,16 @@ export default function BoardReportPage() {
           {/* 5. AI Platform Activity */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
-              <Bot size={16} color="#00B4D8" />
+              <Bot size={16} color="#7A5980" />
               <h2 style={sectionTitleStyle}>AI Platform Activity</h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
-              <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "#F0F9FF" }}>
-                <p style={{ fontSize: "22px", fontWeight: 800, color: "#0077B6", margin: 0 }}>{data.aiActivity.agentRuns}</p>
+              <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "#F5F3FF" }}>
+                <p style={{ fontSize: "22px", fontWeight: 800, color: "#7A5980", margin: 0 }}>{data.aiActivity.agentRuns}</p>
                 <p style={{ fontSize: "12px", color: "#64748B", margin: "2px 0 0" }}>Agent Runs</p>
               </div>
               <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "#F5F3FF" }}>
-                <p style={{ fontSize: "22px", fontWeight: 800, color: "#6B48CC", margin: 0 }}>{data.aiActivity.draftsGenerated}</p>
+                <p style={{ fontSize: "22px", fontWeight: 800, color: "#7A5980", margin: 0 }}>{data.aiActivity.draftsGenerated}</p>
                 <p style={{ fontSize: "12px", color: "#64748B", margin: "2px 0 0" }}>Drafts Generated</p>
               </div>
               <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "#ECFDF5" }}>

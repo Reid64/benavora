@@ -44,10 +44,10 @@ const PERIOD_LABEL: Record<ForecastPeriod, string> = {
 const PERIOD_ORDER: ForecastPeriod[] = ["90_day", "12_month"];
 
 const cardStyle: CSSProperties = {
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F8F5EE",
   borderRadius: "14px",
   padding: "28px",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+  boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
 };
 
 const sectionLabelStyle: CSSProperties = {
@@ -272,8 +272,8 @@ function ForecastCard({
             <NarrativeList
               title="Recommended Actions"
               items={row.recommended_actions!}
-              icon={<Sparkles size={14} color="#0077B6" />}
-              color="#0077B6"
+              icon={<Sparkles size={14} color="#7A5980" />}
+              color="#7A5980"
             />
           )}
         </div>
@@ -347,7 +347,7 @@ export default function FundingForecastPage() {
   const hasAny = forecasts.length > 0;
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100%", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
       <div
         style={{
           display: "flex",
@@ -363,9 +363,11 @@ export default function FundingForecastPage() {
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#101B2D",
               letterSpacing: "-0.02em",
               margin: 0,
+              borderLeft: "4px solid #7A5980",
+              paddingLeft: "16px",
             }}
           >
             Funding Forecast
@@ -382,7 +384,7 @@ export default function FundingForecastPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#0077B6",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "14px",
             fontWeight: 700,
@@ -404,7 +406,7 @@ export default function FundingForecastPage() {
 
       {loading && (
         <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: "10px" }}>
-          <Loader2 size={16} className="animate-spin" color="#0077B6" />
+          <Loader2 size={16} className="animate-spin" color="#7A5980" />
           <span style={{ fontSize: "14px", color: "#64748B" }}>
             Loading funding forecasts...
           </span>

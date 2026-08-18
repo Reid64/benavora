@@ -21,16 +21,23 @@ import {
 import { Input, Select } from "@/components/ui";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
-const CANVAS = "#D6E4F0";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#C3D3E2";
-const TEXT_PRIMARY = "#0F172A";
+// Intelligence & Reports section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+// SEVERITY_COLORS below is real semantic severity data — explicitly
+// preserved untouched, per this task's own instruction.
+const SECTION_FRAME = "#7A5980";
+const CANVAS = "#D8D3C8";
+const CARD_BG = "#F8F5EE";
+const BORDER = "rgba(16,27,45,0.15)";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
 const ERROR_BG = "#FEE2E2";
 const ERROR_BORDER = "#FECACA";
 const ERROR_TEXT = "#B91C1C";
-const ACCENT = "#0077B6";
+const ACCENT = "#7A5980";
 
 type Severity = "critical" | "high" | "medium" | "low" | "positive";
 
@@ -311,7 +318,7 @@ export default function ReputationIntelligencePage() {
       {editable && (
         <div
           className="rounded-xl p-5"
-          style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+          style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(122,89,128,0.18)" }}
         >
           <div className="flex items-center gap-2">
             <Search className="h-5 w-5" style={{ color: ACCENT }} aria-hidden />
@@ -428,7 +435,7 @@ export default function ReputationIntelligencePage() {
                   <div
                     key={item.key}
                     className="flex overflow-hidden rounded-xl"
-                    style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}
+                    style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(122,89,128,0.14)" }}
                   >
                     <div
                       className="w-1.5 shrink-0"
@@ -486,7 +493,7 @@ export default function ReputationIntelligencePage() {
                         onClick={() => handleMarkRead(item)}
                         disabled={dismissing.has(item.key)}
                         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
-                        style={{ backgroundColor: "#FFFFFF", border: `1px solid ${BORDER}`, color: TEXT_PRIMARY }}
+                        style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT_PRIMARY }}
                       >
                         <CheckCircle2 className="h-4 w-4" aria-hidden />
                         {dismissing.has(item.key) ? "Marking…" : "Mark Read"}

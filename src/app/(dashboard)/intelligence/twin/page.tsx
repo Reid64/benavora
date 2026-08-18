@@ -27,12 +27,18 @@ import type {
   TwinSectionReport,
 } from "@/lib/intelligence/twin-completeness";
 
-const CANVAS = "#D6E4F0";
-const HEADER_CARD_BG = "#FFFFFF";
-const HEADER_BORDER = "#C3D3E2";
-const SECTION_CARD_BG = "#0D1526";
-const SECTION_BAR_TRACK = "#1A2B3C";
-const TEXT_MUTED = "#8BA8C8";
+// Intelligence & Reports section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's. scoreColor
+// below is real semantic (completeness thresholds), untouched.
+const SECTION_FRAME = "#7A5980";
+const CANVAS = "#D8D3C8";
+const HEADER_CARD_BG = "#F8F5EE";
+const HEADER_BORDER = "rgba(16,27,45,0.15)";
+const SECTION_CARD_BG = "#F8F5EE";
+const SECTION_BAR_TRACK = "rgba(16,27,45,0.1)";
+const TEXT_MUTED = "#64748B";
 const GREEN = "#10B981";
 const AMBER = "#F59E0B";
 const RED = "#DC2626";
@@ -136,7 +142,7 @@ function CompletenessCircle({ score }: { score: number }) {
           height: size,
           borderRadius: "50%",
           border: `6px solid ${color}`,
-          backgroundColor: "#0D1526",
+          backgroundColor: "#101B2D",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -189,10 +195,11 @@ function SectionGridCard({
   const label = SECTION_LABELS[section.name] ?? humanizeField(section.name);
 
   return (
+    <div style={{ backgroundColor: SECTION_FRAME, borderRadius: "14px", boxShadow: "0 4px 16px rgba(122,89,128,0.2)", padding: "3px" }}>
     <div
       style={{
         backgroundColor: SECTION_CARD_BG,
-        borderRadius: "12px",
+        borderRadius: "11px",
         padding: "16px",
       }}
     >
@@ -209,7 +216,7 @@ function SectionGridCard({
             style={{
               fontSize: "14px",
               fontWeight: 700,
-              color: "#FFFFFF",
+              color: "#101B2D",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -296,7 +303,7 @@ function SectionGridCard({
                   key={idx}
                   style={{
                     fontSize: "12px",
-                    color: "#B7C6D9",
+                    color: "#475569",
                     marginTop: "5px",
                     lineHeight: 1.45,
                   }}
@@ -308,6 +315,7 @@ function SectionGridCard({
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }
@@ -425,7 +433,7 @@ export default function DigitalTwinPage() {
             border: `1px solid ${HEADER_BORDER}`,
           }}
         >
-          <Sparkles className="mx-auto h-8 w-8" style={{ color: "#0077B6" }} aria-hidden />
+          <Sparkles className="mx-auto h-8 w-8" style={{ color: SECTION_FRAME }} aria-hidden />
           <p style={{ marginTop: "12px", fontSize: "14px", color: "#64748B" }}>
             No digital twin data yet. Auto-populate to get started.
           </p>
@@ -433,12 +441,12 @@ export default function DigitalTwinPage() {
       ) : (
         <>
           {/* Header: circle + actions + revenue impact */}
+          <div style={{ backgroundColor: SECTION_FRAME, borderRadius: "15px", boxShadow: "0 4px 20px rgba(122,89,128,0.22)", padding: "4px" }}>
           <div
             className="rounded-xl p-6"
             style={{
               backgroundColor: HEADER_CARD_BG,
-              border: `1px solid ${HEADER_BORDER}`,
-              boxShadow: "0 4px 20px rgba(15,23,42,0.08)",
+              borderRadius: "12px",
             }}
           >
             <div className="flex flex-wrap items-center gap-8">
@@ -450,7 +458,7 @@ export default function DigitalTwinPage() {
                   onClick={() => void handleAutoPopulate()}
                   disabled={populating}
                   style={{
-                    backgroundColor: "#0EA5E9",
+                    backgroundColor: SECTION_FRAME,
                     color: "#FFFFFF",
                     border: "none",
                     borderRadius: "10px",
@@ -476,7 +484,7 @@ export default function DigitalTwinPage() {
                 <Link
                   href="/settings/organization-setup"
                   style={{
-                    backgroundColor: "#8B5CF6",
+                    backgroundColor: "#4F6D8F",
                     color: "#FFFFFF",
                     borderRadius: "10px",
                     padding: "12px 22px",
@@ -524,6 +532,7 @@ export default function DigitalTwinPage() {
                 </p>
               </div>
             )}
+          </div>
           </div>
 
           {/* Section grid: 2 columns x 5 rows */}
@@ -586,7 +595,7 @@ export default function DigitalTwinPage() {
                           aria-hidden
                         />
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", margin: 0 }}>
+                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#101B2D", margin: 0 }}>
                             {info.name}
                           </p>
                           <p style={{ fontSize: "11px", color: AMBER, margin: "2px 0 0 0" }}>
@@ -598,7 +607,7 @@ export default function DigitalTwinPage() {
                         href="/settings/organization-setup"
                         style={{
                           flexShrink: 0,
-                          backgroundColor: "#0077B6",
+                          backgroundColor: "#7A5980",
                           color: "#FFFFFF",
                           fontSize: "12px",
                           fontWeight: 600,

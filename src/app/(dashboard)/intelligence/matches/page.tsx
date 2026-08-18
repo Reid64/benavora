@@ -62,11 +62,11 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#E4E9F0" }}>
+    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#D8D3C8" }}>
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+        <div style={{ borderLeft: "4px solid #7A5980", paddingLeft: "1rem" }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#101B2D" }}>
             Semantic Funder Matches
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -78,7 +78,8 @@ export default function MatchesPage() {
           <button
             onClick={() => void handleRun()}
             disabled={running}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: "#7A5980" }}
           >
             {running ? (
               <RefreshCw className="h-4 w-4 animate-spin" />

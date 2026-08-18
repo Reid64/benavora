@@ -194,10 +194,11 @@ export default function DisasterResponsePage() {
   const showEmpty = !loading && !error && declarations.length === 0;
 
   return (
-    <div className="min-h-screen space-y-8 bg-[#EEF2F7] p-6 page-bg">
+    <div className="min-h-screen space-y-8 p-6 page-bg">
       <PageHeader
         title="Disaster Response"
         description="Live FEMA disaster declarations matched against emergency funding sources for affected nonprofits."
+        accent="#7A5980"
       />
 
       {error && (
@@ -338,7 +339,7 @@ export default function DisasterResponsePage() {
                 href={fund.applyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#0077B6] hover:underline"
+                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#7A5980] hover:underline"
               >
                 Apply
                 <ExternalLink className="h-3 w-3" aria-hidden />

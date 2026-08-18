@@ -131,7 +131,7 @@ export default function KnowledgeEnginePage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
+    <div className="min-h-screen space-y-6 bg-[#D8D3C8] p-6">
       <PageHeader
         title="Funding Knowledge Engine"
         description="Ask any question about what gets funded, why, and how to improve your odds."
@@ -140,7 +140,7 @@ export default function KnowledgeEnginePage() {
       <div className="flex flex-wrap gap-3">
         <div
           className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold"
-          style={{ backgroundColor: "#E0F2FE", color: "#0369A1", borderColor: "#BAE6FD" }}
+          style={{ backgroundColor: "#F5F3FF", color: "#7A5980", borderColor: "#DDD3E5" }}
         >
           <Sparkles className="h-4 w-4" aria-hidden />
           {proposalsCount === null ? "—" : proposalsCount.toLocaleString()} funded proposals indexed
@@ -169,7 +169,7 @@ export default function KnowledgeEnginePage() {
                 key={suggestion}
                 type="button"
                 onClick={() => handleSuggestedClick(suggestion)}
-                className="rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-[#0077B6] hover:text-[#0077B6]"
+                className="rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-[#7A5980] hover:text-[#7A5980]"
                 style={{ backgroundColor: "#F1F5F9", borderColor: "#E2E8F0" }}
               >
                 {suggestion}
@@ -270,7 +270,7 @@ export default function KnowledgeEnginePage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-2 inline-flex items-center gap-1 text-sm font-medium"
-                        style={{ color: "#0077B6" }}
+                        style={{ color: "#7A5980" }}
                       >
                         View source
                         <ExternalLink className="h-3.5 w-3.5" aria-hidden />

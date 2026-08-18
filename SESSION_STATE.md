@@ -1,7 +1,70 @@
 # BENAVORA — Session State
-## Last Updated: August 18, 2026 (v2 rollout audit-confirmed fixes: Dashboard/Home, all 8 Research & Discovery pages, 3 remaining Draft & Automation pages, plus the marketing homepage)
+## Last Updated: August 18, 2026 (v2 rollout: Intelligence & Reports ×20, Agent Marketplace gap closed, /research re-fixed for real, 3 detail fixes)
 
-## Current Session — August 18, 2026 (v2 rollout audit + fix: Dashboard/Home, Research & Discovery ×8, Draft & Automation ×3, marketing homepage)
+## Current Session — August 18, 2026 (v2 rollout: Intelligence & Reports ×20, Agent Marketplace, /research, Deadlines/Knowledge Base/Donor Discovery detail fixes)
+
+**Focus:** closed the "Intelligence & Reports (13 sub-pages) remains on the prior blue-based theme"
+scope boundary explicitly flagged by the prior same-day session below — plus a real design-system
+gap (`/agents/marketplace` was never assigned a section color at all) and a re-check of `/research`,
+which a still-earlier session had claimed was fixed. Reid personally audited every target page live
+first and confirmed none were actually treated; every page below was re-verified with real
+`getComputedStyle()` before touching it, not assumed from source alone.
+
+**Phase 1 — Intelligence & Reports, Plum `#7A5980` frame / Slate Blue `#4F6D8F` accent (20 pages):**
+all 15 `/intelligence/*` pages (hub, library, library/dashboard, twin, match-feed, knowledge,
+recommendations, competitors, matches, reputation, disaster, community-need, donor-intent,
+relationship-graph, strategic-advisor) plus all 5 `/reports/*` pages (hub, board-report, simulate,
+roi, forecast). Pre-fix audit script (`scripts/phase1-audit-intel-2026-08-18.mjs`) confirmed **zero**
+of the 20 pages matched Plum — all still on the pre-v2 sky-blue/purple palette
+(`rgb(2, 132, 199)`, `rgb(0, 119, 182)`, etc.), captured in `phase1b-audit-output.json`. Real
+semantic/categorical colors were explicitly preserved throughout and left untouched: severity tiers
+(`SEVERITY_COLORS` on `/intelligence/reputation`), priority/urgency tiers (`PRIORITY_COLORS`,
+`URGENCY_COLOR`, `CONFIDENCE_COLOR`, `STRENGTH_COLOR`), score-threshold badges, win/loss chart
+colors. Multi-hue categorical pickers (Intelligence Hub's `MODULES`, the Fundraising Simulator's
+6-scenario picker) were kept distinct but remapped off the old palette into the v2 family instead of
+left rainbow.
+
+**Phase 2 — Agent Marketplace, a real design-system gap closed:** `/agents/marketplace` and
+`/agents/marketplace/[agentId]` were never assigned a section in `DESIGN_SYSTEM_V2_ASSIGNMENT.md` at
+all. Assigned Gold `#B88A2E` (Draft & Automation family, matching AutoApply's own treatment
+standard) — not a re-fix of a broken page, a genuinely new assignment.
+
+**Phase 3 — `/research`, re-verified from scratch:** a prior session's claim that this page was
+already fixed was **false**. Live `getComputedStyle()` confirmed the h1 was still
+`rgb(2, 132, 199)` (`#0284C7`, old sky blue) with zero Bronze matches anywhere on the page —
+identical failure mode to the 20 Phase 1 pages. Applied Bronze `#A4712C` frame / Slate Blue
+`#4F6D8F` accent for real this time, including the `resourceAccentColor()` categorical family
+(foundation/health/federal resource-card top-bars) and all 8 inline `#0077B6` CTA/link instances.
+
+**Phase 4 — three detail fixes:**
+1. `/deadlines` calendar grid (`src/components/deadlines/CalendarGrid.tsx`) — cell borders bumped
+   from 1px `border-navy-100` (near-invisible) to 2px `border-navy-300`; day-of-month numbers gained
+   `font-bold` (previously only "today" was bold).
+2. `/knowledge-base/narratives` ("Proven Narratives") — the shared `<Card>` list items had a border
+   color (`#D9D3C5`, i.e. `--color-border`) nearly identical to the page background
+   (`#D8D3C8`), so cards read as undefined blocks with no visible edge. Gave each card an explicit
+   Warm Ivory background + a real bronze-tinted border/shadow, and brought `KnowledgeBaseNav`'s
+   still-blue active-tab state in line with the sibling `/knowledge-base` overview page's Gold
+   treatment (that page had already been fixed in an earlier session; this sibling route had not).
+3. `/donor-discovery` — the "Active Requests," "Pipeline Funnel," and "Top Prospects" inner tiles
+   all shared the exact same near-invisible `rgba(16,27,45,0.15)` border against a `bg-surface`
+   outer `<Card>` only one shade off from the tiles themselves — three stacked layers with no real
+   separation. Strengthened all three to a visible bronze-tinted border + shadow, and gave the outer
+   `<Card>` wrappers their own bronze-tinted border/shadow so the page → card → tile hierarchy is
+   now actually visible. The 4 quick-action cards' near-invisible `#D9D3C5` border was replaced with
+   each card's own accent color at higher opacity.
+
+**Verification:** every file re-checked with `npx tsc --noEmit` after editing (0 errors throughout).
+Real Playwright screenshots taken before/after on `/knowledge-base`, `/knowledge-base/narratives`,
+and `/donor-discovery` (magic-link login as `info@faithfoundationsf.org`) to confirm the contrast
+fixes actually rendered, not just compiled. Density spot-checked against `/autoapply` on
+`/intelligence`, `/research`, `/agents/marketplace`, `/reports` — all match AutoApply's value-first,
+single-accent, real-box-shadow standard.
+
+**Gates:** all stray node processes killed, `.next` deleted, fresh `npm run build` —
+`✓ Compiled successfully`, full route manifest including every page touched, no errors.
+
+## Prior Session — August 18, 2026 (v2 rollout audit + fix: Dashboard/Home, Research & Discovery ×8, Draft & Automation ×3, marketing homepage)
 
 **Focus:** AutoApply had been assigned to the 2026-08-17 v2 rollout but was found hours later to be
 completely untreated — a real, confirmed silent gap between "assigned" and "done." Before any new

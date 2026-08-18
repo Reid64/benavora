@@ -40,9 +40,9 @@ interface RunsResponse {
 const PAGE_SIZE = 50;
 
 const cardStyle = {
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F8F5EE",
   borderRadius: "12px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  boxShadow: "0 2px 8px rgba(184,138,46,0.16)",
   padding: "20px",
 };
 
@@ -62,7 +62,7 @@ function statusBadgeColors(status: string | null): { bg: string; fg: string } {
     case "failed":
       return { bg: "#FEF2F2", fg: "#B91C1C" };
     case "running":
-      return { bg: "#EAF6FC", fg: "#0077B6" };
+      return { bg: "#FBF1DE", fg: "#B88A2E" };
     case "pending":
       return { bg: "#F1F5F9", fg: "#64748B" };
     default:
@@ -154,16 +154,16 @@ export default function AgentLogViewerPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
       <div style={{ maxWidth: "1120px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div>
           <Link
             href="/agents/marketplace"
-            style={{ fontSize: "13px", fontWeight: 600, color: "#0077B6", textDecoration: "none" }}
+            style={{ fontSize: "13px", fontWeight: 600, color: "#B88A2E", textDecoration: "none" }}
           >
             ← Agent Marketplace
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1A2B3C", margin: "6px 0 0 0" }}>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#101B2D", margin: "6px 0 0 0", borderLeft: "4px solid #B88A2E", paddingLeft: "14px" }}>
             {agentName ?? "Agent Run History"}
           </h1>
           <span style={{ fontSize: "11px", color: "#94A3B8", fontFamily: "monospace" }}>
@@ -185,9 +185,9 @@ export default function AgentLogViewerPage() {
                 style={{
                   fontSize: "13px",
                   fontWeight: 600,
-                  color: "#0077B6",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #0077B6",
+                  color: "#B88A2E",
+                  backgroundColor: "#F8F5EE",
+                  border: "1px solid #B88A2E",
                   borderRadius: "8px",
                   padding: "8px 16px",
                   cursor: "pointer",
@@ -294,9 +294,9 @@ export default function AgentLogViewerPage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 600,
-                color: "#0077B6",
-                backgroundColor: "#FFFFFF",
-                border: "1px solid #0077B6",
+                color: "#B88A2E",
+                backgroundColor: "#F8F5EE",
+                border: "1px solid #B88A2E",
                 borderRadius: "8px",
                 padding: "8px 20px",
                 cursor: loadingMore ? "wait" : "pointer",

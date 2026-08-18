@@ -138,9 +138,9 @@ function isDeadlineUrgent(iso: string | null): boolean {
 /** Colored top-band accent per resource category: federal/registry = blue, health = teal, foundation/funder = purple, everything else (financial/statistical/registry data) = navy. */
 function resourceAccentColor(category: string): string {
   const c = category.toLowerCase();
-  if (c.includes("foundation") || c.includes("funder")) return "#6B48CC";
-  if (c.includes("health")) return "#00B4D8";
-  if (c.includes("federal") || c.includes("registry")) return "#0077B6";
+  if (c.includes("foundation") || c.includes("funder")) return "#7A5980";
+  if (c.includes("health")) return "#2E6B66";
+  if (c.includes("federal") || c.includes("registry")) return "#4F6D8F";
   return "#1A2B3C";
 }
 
@@ -167,7 +167,7 @@ function ResourceCard({ resource }: { resource: ResourceDefinition }) {
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: 12,
         padding: 16,
         boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
@@ -233,8 +233,8 @@ function ResourceCard({ resource }: { resource: ResourceDefinition }) {
           marginTop: 12,
           display: "inline-block",
           textAlign: "center",
-          backgroundColor: "#22D3EE",
-          color: "#0A1628",
+          backgroundColor: "#A4712C",
+          color: "#FFFFFF",
           fontSize: 12,
           fontWeight: 600,
           padding: "6px 0",
@@ -311,7 +311,7 @@ function ResourcesSection() {
           style={{
             width: "100%",
             maxWidth: 480,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             border: "1px solid #E2E8F0",
             borderRadius: 12,
             padding: "10px 16px",
@@ -347,7 +347,7 @@ function ResourcesSection() {
           {searchResults.length === 0 ? (
             <div
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F8F5EE",
                 borderRadius: 12,
                 padding: 24,
                 textAlign: "center",
@@ -395,7 +395,7 @@ function ResourcesSection() {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 aria-label="Filter resources by category"
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: "#F8F5EE",
                   border: "1px solid #E2E8F0",
                   borderRadius: 8,
                   padding: "6px 10px",
@@ -416,7 +416,7 @@ function ResourcesSection() {
                 type="button"
                 onClick={() => setShowAll((v) => !v)}
                 style={{
-                  backgroundColor: "#0077B6",
+                  backgroundColor: "#A4712C",
                   color: "#FFFFFF",
                   border: "none",
                   borderRadius: 8,
@@ -434,7 +434,7 @@ function ResourcesSection() {
           {showAll && (
             <div
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F8F5EE",
                 borderRadius: 12,
                 boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
                 padding: 16,
@@ -486,7 +486,7 @@ function ResourcesSection() {
                           style={{
                             fontSize: 12,
                             fontWeight: 600,
-                            color: "#0077B6",
+                            color: "#4F6D8F",
                             whiteSpace: "nowrap",
                           }}
                         >
@@ -641,7 +641,7 @@ function FundingSourceDirectorySection() {
           onClick={() => void handlePollNow()}
           disabled={polling}
           style={{
-            backgroundColor: "#0077B6",
+            backgroundColor: "#A4712C",
             color: "#FFFFFF",
             border: "none",
             borderRadius: 8,
@@ -697,7 +697,7 @@ function FundingSourceDirectorySection() {
           style={{
             width: "100%",
             maxWidth: 480,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             border: "1px solid #E2E8F0",
             borderRadius: 12,
             padding: "10px 16px",
@@ -712,7 +712,7 @@ function FundingSourceDirectorySection() {
       {groupedSources.length === 0 ? (
         <div
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             borderRadius: 12,
             padding: 24,
             textAlign: "center",
@@ -731,7 +731,7 @@ function FundingSourceDirectorySection() {
               <div
                 key={group.type}
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: "#F8F5EE",
                   borderRadius: 12,
                   boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
                   overflow: "hidden",
@@ -826,7 +826,7 @@ function FundingSourceDirectorySection() {
                               style={{
                                 fontSize: 12,
                                 fontWeight: 600,
-                                color: "#0077B6",
+                                color: "#4F6D8F",
                                 whiteSpace: "nowrap",
                                 flexShrink: 0,
                               }}
@@ -1003,12 +1003,12 @@ export default function ResearchPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#E0F2FE", display: "flex", flexDirection: "column", gap: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", display: "flex", flexDirection: "column", gap: "32px" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
         description="Run research agents to discover funding opportunities from government, corporate, and foundation sources."
-        accent="#0284C7"
+        accent="#A4712C"
       />
 
       {/* Research / Search Configuration tabs */}
@@ -1028,7 +1028,7 @@ export default function ResearchPage() {
               style={{
                 background: "none",
                 border: "none",
-                borderBottom: view === t.key ? "2px solid #0284C7" : "2px solid transparent",
+                borderBottom: view === t.key ? "2px solid #A4712C" : "2px solid transparent",
                 marginBottom: "-1px",
                 padding: "12px 4px",
                 fontSize: "14px",
@@ -1077,7 +1077,7 @@ export default function ResearchPage() {
               aria-label="Search discovered opportunities"
               style={{
                 flex: "1 1 320px",
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F8F5EE",
                 border: "1.5px solid #E2E8F0",
                 borderRadius: "12px",
                 padding: "12px 20px",
@@ -1089,7 +1089,7 @@ export default function ResearchPage() {
             <button
               type="submit"
               style={{
-                backgroundColor: "#0077B6",
+                backgroundColor: "#A4712C",
                 color: "#FFFFFF",
                 border: "none",
                 borderRadius: "12px",
@@ -1111,8 +1111,8 @@ export default function ResearchPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              backgroundColor: "#F8F5EE",
+              boxShadow: "0 2px 8px rgba(164,113,44,0.16)",
               border: "1px solid #E2E8F0",
               borderRadius: "12px",
               padding: "40px",
@@ -1126,8 +1126,8 @@ export default function ResearchPage() {
         ) : opportunities.length === 0 ? (
           <div
             style={{
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              backgroundColor: "#F8F5EE",
+              boxShadow: "0 2px 8px rgba(164,113,44,0.16)",
               border: "1px solid #E2E8F0",
               borderRadius: "12px",
               padding: "40px",
@@ -1142,8 +1142,8 @@ export default function ResearchPage() {
         ) : searchedOpportunities.length === 0 ? (
           <div
             style={{
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              backgroundColor: "#F8F5EE",
+              boxShadow: "0 2px 8px rgba(164,113,44,0.16)",
               border: "1px solid #E2E8F0",
               borderRadius: "12px",
               padding: "40px",
@@ -1155,7 +1155,7 @@ export default function ResearchPage() {
             No discovered opportunities match &ldquo;{searchQuery}&rdquo;.{" "}
             <button
               onClick={() => setSearchQuery("")}
-              style={{ fontWeight: 600, color: "#0077B6", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+              style={{ fontWeight: 600, color: "#4F6D8F", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
             >
               Clear search
             </button>
@@ -1171,9 +1171,9 @@ export default function ResearchPage() {
                   key={opp.id}
                   onClick={() => router.push(`/opportunities/${opp.id}`)}
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#F8F5EE",
                     borderRadius: "12px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    boxShadow: "0 2px 8px rgba(164,113,44,0.16)",
                     border: "1px solid #E2E8F0",
                     padding: "20px",
                     marginBottom: "16px",
@@ -1188,8 +1188,8 @@ export default function ResearchPage() {
                       <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
                         <span
                           style={{
-                            backgroundColor: "#EFF6FF",
-                            color: "#1D4ED8",
+                            backgroundColor: "#EEF2F6",
+                            color: "#4F6D8F",
                             padding: "3px 10px",
                             borderRadius: "999px",
                             fontSize: "11px",
@@ -1249,7 +1249,7 @@ export default function ResearchPage() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          backgroundColor: "#0077B6",
+                          backgroundColor: "#A4712C",
                           color: "#FFFFFF",
                           borderRadius: "8px",
                           padding: "4px 12px",
@@ -1290,7 +1290,7 @@ export default function ResearchPage() {
               flexShrink: 0,
               alignItems: "center",
               gap: "8px",
-              backgroundColor: "#0077B6",
+              backgroundColor: "#A4712C",
               color: "#FFFFFF",
               borderRadius: "8px",
               border: "none",
@@ -1325,8 +1325,8 @@ export default function ResearchPage() {
         {historicalAwards.length === 0 ? (
           <div
             style={{
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              backgroundColor: "#F8F5EE",
+              boxShadow: "0 2px 8px rgba(164,113,44,0.16)",
               border: "1px solid #E2E8F0",
               borderRadius: "12px",
               padding: "32px",
@@ -1342,8 +1342,8 @@ export default function ResearchPage() {
           <div
             style={{
               overflowX: "auto",
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              backgroundColor: "#F8F5EE",
+              boxShadow: "0 2px 8px rgba(164,113,44,0.16)",
               border: "1px solid #E2E8F0",
               borderRadius: "12px",
             }}
@@ -1403,12 +1403,12 @@ export default function ResearchPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #E2E8F0", paddingTop: "16px" }}>
         <Link
           href="/admin/audit-log"
-          style={{ fontSize: "13px", fontWeight: 600, color: "#0077B6", textDecoration: "none" }}
+          style={{ fontSize: "13px", fontWeight: 600, color: "#4F6D8F", textDecoration: "none" }}
         >
           View agent run history →
         </Link>
         {hasLiveRun && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#0077B6" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#4F6D8F" }}>
             <Spinner className="h-3 w-3" />
             Auto-refreshing every 30s
           </span>

@@ -527,8 +527,8 @@ export default function DonorDiscoveryPage() {
               className="group flex flex-col rounded-xl p-5 transition-transform hover:-translate-y-0.5"
               style={{
                 backgroundColor: "#F8F5EE",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
-                border: "1px solid #D9D3C5",
+                boxShadow: `0 4px 20px ${action.accent}33`,
+                border: `1.5px solid ${action.accent}66`,
               }}
             >
               <div className="flex items-start justify-between">
@@ -715,7 +715,15 @@ export default function DonorDiscoveryPage() {
         </div>
       )}
 
-      <Card title="Active Requests" description="Live progress for your discovery runs.">
+      <Card
+        title="Active Requests"
+        description="Live progress for your discovery runs."
+        style={{
+          backgroundColor: "#F8F5EE",
+          border: "1px solid rgba(164,113,44,0.35)",
+          boxShadow: "0 4px 16px rgba(16,27,45,0.10)",
+        }}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-8 text-sm text-text-muted">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
@@ -744,8 +752,8 @@ export default function DonorDiscoveryPage() {
                   className="bg-surface rounded-xl shadow-sm border border-border p-5 mb-4"
                   style={{
                     backgroundColor: "#F8F5EE",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid rgba(16,27,45,0.15)",
+                    boxShadow: "0 2px 8px rgba(164,113,44,0.20)",
+                    border: "1.5px solid rgba(164,113,44,0.4)",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -792,6 +800,11 @@ export default function DonorDiscoveryPage() {
       <Card
         title="Pipeline Funnel"
         description="Prospects by stage across all requests — click a stage to filter Prospects."
+        style={{
+          backgroundColor: "#F8F5EE",
+          border: "1px solid rgba(164,113,44,0.35)",
+          boxShadow: "0 4px 16px rgba(16,27,45,0.10)",
+        }}
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {FUNNEL_STAGES.map((stage) => (
@@ -801,8 +814,8 @@ export default function DonorDiscoveryPage() {
               className="bg-surface shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#A4712C] cursor-pointer transition-colors"
               style={{
                 backgroundColor: "#F8F5EE",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                border: "1px solid rgba(16,27,45,0.15)",
+                boxShadow: "0 2px 8px rgba(164,113,44,0.20)",
+                border: "1.5px solid rgba(164,113,44,0.4)",
               }}
             >
               <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
@@ -812,7 +825,15 @@ export default function DonorDiscoveryPage() {
         </div>
       </Card>
 
-      <Card title="Top Prospects" description="Highest-scoring new prospects awaiting review.">
+      <Card
+        title="Top Prospects"
+        description="Highest-scoring new prospects awaiting review."
+        style={{
+          backgroundColor: "#F8F5EE",
+          border: "1px solid rgba(164,113,44,0.35)",
+          boxShadow: "0 4px 16px rgba(16,27,45,0.10)",
+        }}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-8 text-sm text-text-muted">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
@@ -837,8 +858,8 @@ export default function DonorDiscoveryPage() {
                   className="flex flex-col rounded-lg border border-border bg-surface p-4"
                   style={{
                     backgroundColor: "#F8F5EE",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid rgba(16,27,45,0.15)",
+                    boxShadow: "0 2px 8px rgba(164,113,44,0.20)",
+                    border: "1.5px solid rgba(164,113,44,0.4)",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">

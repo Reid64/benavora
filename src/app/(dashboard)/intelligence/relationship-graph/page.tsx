@@ -244,7 +244,7 @@ export default function RelationshipGraphPage() {
   const showEmpty = !loading && connections.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -256,12 +256,12 @@ export default function RelationshipGraphPage() {
           marginBottom: "28px",
         }}
       >
-        <div>
+        <div style={{ borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
           <h1
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#101B2D",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
@@ -280,7 +280,7 @@ export default function RelationshipGraphPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#1A2B3C",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "14px",
             fontWeight: 700,
@@ -289,7 +289,7 @@ export default function RelationshipGraphPage() {
             border: "none",
             cursor: running ? "default" : "pointer",
             opacity: running ? 0.7 : 1,
-            boxShadow: "0 4px 16px rgba(26,43,60,0.25)",
+            boxShadow: "0 4px 16px rgba(122,89,128,0.25)",
           }}
         >
           {running ? (
@@ -361,11 +361,11 @@ export default function RelationshipGraphPage() {
       <div
         style={{
           display: "inline-flex",
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#F8F5EE",
           borderRadius: "10px",
           padding: "4px",
           marginBottom: "20px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          boxShadow: "0 2px 8px rgba(122,89,128,0.14)",
         }}
       >
         {(["list", "graph"] as const).map((mode) => (
@@ -383,7 +383,7 @@ export default function RelationshipGraphPage() {
               borderRadius: "7px",
               border: "none",
               cursor: "pointer",
-              backgroundColor: viewMode === mode ? "#1A2B3C" : "transparent",
+              backgroundColor: viewMode === mode ? "#7A5980" : "transparent",
               color: viewMode === mode ? "#FFFFFF" : "#64748B",
             }}
           >
@@ -419,11 +419,11 @@ export default function RelationshipGraphPage() {
       ) : showEmpty ? (
         <div
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             borderRadius: "14px",
             padding: "56px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
           }}
         >
           <Network size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
@@ -453,18 +453,18 @@ export default function RelationshipGraphPage() {
       {/* Analytics panel */}
       <div
         style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#F8F5EE",
           borderRadius: "14px",
           padding: "24px",
           marginTop: "28px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         }}
       >
         <h2
           style={{
             fontSize: "18px",
             fontWeight: 800,
-            color: "#0F172A",
+            color: "#101B2D",
             letterSpacing: "-0.01em",
             margin: "0 0 18px",
           }}
@@ -522,7 +522,7 @@ export default function RelationshipGraphPage() {
               <StatTile
                 label="Total Edges"
                 value={String(analytics.totalEdges)}
-                color="#0077B6"
+                color="#4F6D8F"
               />
               <StatTile
                 label="Avg Connections Per Foundation"
@@ -633,7 +633,7 @@ export default function RelationshipGraphPage() {
                               fontSize: "11px",
                               fontWeight: 700,
                               color: "#FFFFFF",
-                              backgroundColor: "#0077B6",
+                              backgroundColor: "#4F6D8F",
                               borderRadius: "999px",
                               padding: "3px 10px",
                             }}

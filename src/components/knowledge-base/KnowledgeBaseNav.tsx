@@ -35,8 +35,8 @@ export function KnowledgeBaseNav() {
             className={cn(
               "whitespace-nowrap transition-colors",
               active
-                ? "rounded-lg bg-[#0077B6] px-4 py-2 text-sm font-semibold text-white"
-                : "rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-[#0077B6]",
+                ? "rounded-lg bg-[#B88A2E] px-4 py-2 text-sm font-semibold text-white"
+                : "rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-[#B88A2E]",
             )}
           >
             {tab.label}

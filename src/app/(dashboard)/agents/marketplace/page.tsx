@@ -41,10 +41,12 @@ interface ConfigureResponse {
   };
 }
 
+const SECTION_FRAME = "#B88A2E"; // Gold — Draft & Automation family (Agent Marketplace was never assigned a section in the v2 design system doc; this closes that gap)
+
 const cardStyle = {
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F8F5EE",
   borderRadius: "12px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  boxShadow: "0 2px 8px rgba(184,138,46,0.16)",
   padding: "20px",
 };
 
@@ -62,7 +64,7 @@ function planBadgeColors(plan: string): { bg: string; fg: string } {
     case "enterprise":
       return { bg: "#F3EEFC", fg: "#7C3AED" };
     case "professional":
-      return { bg: "#EAF6FC", fg: "#0077B6" };
+      return { bg: "#FBF1DE", fg: "#A4712C" };
     default:
       return { bg: "#F0FDF4", fg: "#16A34A" };
   }
@@ -176,10 +178,10 @@ export default function AgentMarketplacePage() {
   }, []);
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
       <div style={{ maxWidth: "1120px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#101B2D", margin: 0, borderLeft: "4px solid #B88A2E", paddingLeft: "14px" }}>
             Agent Marketplace
           </h1>
           <p style={{ fontSize: "13px", color: "#6B7280", margin: "6px 0 0 0" }}>
@@ -208,9 +210,9 @@ export default function AgentMarketplacePage() {
                 style={{
                   fontSize: "13px",
                   fontWeight: 600,
-                  color: "#0077B6",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #0077B6",
+                  color: "#B88A2E",
+                  backgroundColor: "#F8F5EE",
+                  border: "1px solid #B88A2E",
                   borderRadius: "8px",
                   padding: "8px 16px",
                   cursor: "pointer",
@@ -351,7 +353,7 @@ function AgentCard({
         style={{
           fontSize: "12px",
           fontWeight: 600,
-          color: "#0077B6",
+          color: "#B88A2E",
           textDecoration: "none",
           alignSelf: "flex-start",
         }}
@@ -385,7 +387,7 @@ function ToggleSwitch({
         width: "44px",
         height: "24px",
         borderRadius: "12px",
-        backgroundColor: checked ? "#0EA5E9" : "#D1D5DB",
+        backgroundColor: checked ? "#B88A2E" : "#D1D5DB",
         border: "none",
         position: "relative",
         cursor: disabled ? "wait" : "pointer",

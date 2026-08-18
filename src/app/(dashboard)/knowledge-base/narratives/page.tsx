@@ -151,8 +151,8 @@ export default function NarrativesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+        <div className="border-l-4 border-[#B88A2E] pl-4">
+          <h1 className="text-2xl font-bold tracking-tight text-[#101B2D]">
             Narratives
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -218,7 +218,12 @@ export default function NarrativesPage() {
               {filtered.map((narrative) => (
                 <Card
                   key={narrative.id}
-                  className="relative transition hover:border-teal-300 hover:shadow-card-hover"
+                  className="relative transition hover:border-[#B88A2E]"
+                  style={{
+                    backgroundColor: "#F8F5EE",
+                    border: "1px solid rgba(16,27,45,0.18)",
+                    boxShadow: "0 4px 16px rgba(184,138,46,0.16)",
+                  }}
                 >
                   {/* Whole-card click target opens the detail view. Action
                       buttons below sit above it via z-index. */}

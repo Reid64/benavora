@@ -13,22 +13,27 @@ import Link from "next/link";
 
 import { formatCurrency, formatRelative } from "@/lib/utils/formatters";
 
-const CANVAS = "#D6E4F0";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#C3D3E2";
-const TEXT_PRIMARY = "#0F172A";
+// Intelligence & Reports section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_FRAME = "#7A5980";
+const CANVAS = "#D8D3C8";
+const CARD_BG = "#F8F5EE";
+const BORDER = "rgba(16,27,45,0.15)";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
-const ACCENT_LIGHT = "#00B4D8";
+const ACCENT = "#7A5980";
+const ACCENT_LIGHT = "#4F6D8F";
 const WARN_BG = "#FEF3C7";
 const WARN_BORDER = "#FDE68A";
 const WARN_TEXT = "#92400E";
 const ERROR_BG = "#FEE2E2";
 const ERROR_BORDER = "#FECACA";
 const ERROR_TEXT = "#B91C1C";
-const CHIP_BG = "#E0F2FE";
-const CHIP_TEXT = "#0369A1";
+const CHIP_BG = "#F5F3FF";
+const CHIP_TEXT = "#7A5980";
 
 type PersonalizationLevel = "none" | "limited" | "partial" | "strong";
 
@@ -128,14 +133,12 @@ function MatchCard({ entry }: { entry: MatchFeedEntry }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
+    <div style={{ background: SECTION_FRAME, borderRadius: 15, boxShadow: "0 4px 20px rgba(122,89,128,0.22)", padding: 3, marginBottom: 14 }}>
     <div
       style={{
         background: CARD_BG,
-        border: `1px solid ${BORDER}`,
         borderRadius: 12,
         padding: 20,
-        marginBottom: 14,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
@@ -244,6 +247,7 @@ function MatchCard({ entry }: { entry: MatchFeedEntry }) {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }

@@ -35,12 +35,20 @@ import {
   FlaskConical,
 } from "lucide-react";
 
-const CANVAS = "#D6E4F0";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#C3D3E2";
-const TEXT_PRIMARY = "#0F172A";
+// Intelligence & Reports section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's. Each
+// module keeps its own distinct identity color (11 genuinely different
+// modules), now drawn from the proven v2 accent family instead of the old
+// blue/purple/cyan set.
+const SECTION_FRAME = "#7A5980";
+const CANVAS = "#D8D3C8";
+const CARD_BG = "#F8F5EE";
+const BORDER = "rgba(16,27,45,0.15)";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
-const TRACK_BG = "#E7EEF5";
+const TRACK_BG = "rgba(16,27,45,0.08)";
 const BADGE_NEUTRAL_BG = "#F1F5F9";
 const BADGE_NEUTRAL_TEXT = "#64748B";
 const BADGE_ALERT_BG = "#FEE2E2";
@@ -65,7 +73,7 @@ const MODULES: ModuleDef[] = [
     description: "Organizations competing for the same funding, identified from IRS 990-PF giving history.",
     href: "/intelligence/competitors",
     icon: Target,
-    color: "#0077B6",
+    color: "#7A5980",
     statKind: "none",
   },
   {
@@ -74,7 +82,7 @@ const MODULES: ModuleDef[] = [
     description: "AI-ranked funders aligned to your mission, programs, and past outcomes.",
     href: "/intelligence/matches",
     icon: Sparkles,
-    color: "#0096C7",
+    color: "#4F6D8F",
     statKind: "none",
   },
   {
@@ -83,7 +91,7 @@ const MODULES: ModuleDef[] = [
     description: "Ranked funder matches by geographic fit, program alignment, and award size.",
     href: "/intelligence/recommendations",
     icon: Search,
-    color: "#6B48CC",
+    color: "#2E6B66",
     statKind: "none",
   },
   {
@@ -92,7 +100,7 @@ const MODULES: ModuleDef[] = [
     description: "The AI model of your mission, programs, financials, and proven narrative patterns.",
     href: "/intelligence/twin",
     icon: Fingerprint,
-    color: "#023E8A",
+    color: "#7A5980",
     statKind: "completeness",
   },
   {
@@ -110,7 +118,7 @@ const MODULES: ModuleDef[] = [
     description: "FEMA disaster declarations matched against emergency funding sources.",
     href: "/intelligence/disaster",
     icon: AlertTriangle,
-    color: "#F59E0B",
+    color: "#C17817",
     statKind: "none",
   },
   {
@@ -119,7 +127,7 @@ const MODULES: ModuleDef[] = [
     description: "Query a growing corpus of funded proposals and cross-org success patterns.",
     href: "/intelligence/knowledge",
     icon: Lightbulb,
-    color: "#4C3D8F",
+    color: "#7A5980",
     statKind: "info",
   },
   {
@@ -128,7 +136,7 @@ const MODULES: ModuleDef[] = [
     description: "How much your org benefits from — and contributes to — the cross-org pattern pool.",
     href: "/intelligence/learning-network",
     icon: Network,
-    color: "#00B4D8",
+    color: "#4F6D8F",
     statKind: "completeness",
   },
   {
@@ -146,7 +154,7 @@ const MODULES: ModuleDef[] = [
     description: "Census, housing, and employment signals forecasting service demand before it hits.",
     href: "/intelligence/community-need",
     icon: MapPin,
-    color: "#0EA5E9",
+    color: "#A3492F",
     statKind: "badge",
   },
   {
@@ -155,7 +163,7 @@ const MODULES: ModuleDef[] = [
     description: "Model what-if scenarios — losing a funder, a budget cut, a new program — before deciding.",
     href: "/intelligence/simulate",
     icon: FlaskConical,
-    color: "#7C3AED",
+    color: "#5C6935",
     statKind: "none",
   },
 ];
@@ -254,7 +262,7 @@ export default function IntelligencePage() {
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: CANVAS }}>
-      <div className="mb-8" style={{ borderLeft: "4px solid #0077B6", paddingLeft: "1rem" }}>
+      <div className="mb-8" style={{ borderLeft: `4px solid ${SECTION_FRAME}`, paddingLeft: "1rem" }}>
         <h1 className="text-2xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>
           Intelligence Hub
         </h1>
@@ -272,13 +280,15 @@ export default function IntelligencePage() {
             <Link
               key={mod.key}
               href={mod.href}
-              className="block rounded-xl p-5 transition-shadow hover:shadow-lg"
+              className="block transition-shadow hover:shadow-lg"
               style={{
-                backgroundColor: CARD_BG,
-                border: `1px solid ${BORDER}`,
-                boxShadow: "0 4px 20px rgba(15, 23, 42, 0.08)",
+                backgroundColor: SECTION_FRAME,
+                borderRadius: "14px",
+                boxShadow: "0 4px 20px rgba(122,89,128,0.22)",
+                padding: "3px",
               }}
             >
+            <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
               <div className="flex items-start justify-between gap-3">
                 <div
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"
@@ -335,6 +345,7 @@ export default function IntelligencePage() {
                   {stat.infoText}
                 </p>
               )}
+            </div>
             </Link>
           );
         })}

@@ -50,16 +50,23 @@ import {
   type FunderBucket,
 } from "@/lib/intelligence/proposals-query";
 
+// Intelligence & Reports section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+// FUNDER_BUCKET_BADGE/SOURCE_BADGE_OVERRIDE below keep their own real
+// per-source-type categorical colors, untouched.
+const SECTION_FRAME = "#7A5980";
 const COLORS = {
-  canvas: "#E4E9F0",
-  card: "#FFFFFF",
-  cardBorder: "#E2E8F0",
-  text: "#0F172A",
+  canvas: "#D8D3C8",
+  card: "#F8F5EE",
+  cardBorder: "rgba(16,27,45,0.15)",
+  text: "#101B2D",
   textMuted: "#64748B",
   textFaint: "#94A3B8",
-  primary: "#0077B6",
-  accent: "#00B4D8",
-  purple: "#8B5CF6",
+  primary: "#7A5980",
+  accent: "#4F6D8F",
+  purple: "#7A5980",
   green: "#16A34A",
   greenBg: "#F0FDF4",
   greenBorder: "#BBF7D0",
@@ -69,11 +76,11 @@ const COLORS = {
   redBg: "#FEF2F2",
 };
 
-const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
-const CARD_SHADOW_HOVER = "0 4px 16px rgba(0,0,0,0.12)";
+const CARD_SHADOW = "0 4px 20px rgba(122,89,128,0.18)";
+const CARD_SHADOW_HOVER = "0 4px 20px rgba(122,89,128,0.28)";
 
 const FUNDER_BUCKET_BADGE: Record<FunderBucket, { bg: string; fg: string; label: string }> = {
-  federal: { bg: "#0077B6", fg: "#FFFFFF", label: "Federal" },
+  federal: { bg: "#4F6D8F", fg: "#FFFFFF", label: "Federal" },
   private_foundation: { bg: "#10B981", fg: "#FFFFFF", label: "Foundation" },
   corporate_foundation: { bg: "#F59E0B", fg: "#FFFFFF", label: "Corporate" },
   community_foundation: { bg: "#10B981", fg: "#FFFFFF", label: "Foundation" },
@@ -452,7 +459,7 @@ export default function IntelligenceLibraryPage() {
       {/* Hero header */}
       <div
         style={{
-          background: "linear-gradient(135deg,#0F172A 0%,#1A2B3C 50%,#0F172A 100%)",
+          background: "linear-gradient(135deg,#101B2D 0%,#4A3752 50%,#101B2D 100%)",
           borderRadius: 16,
           padding: 32,
           marginBottom: 24,
@@ -819,7 +826,7 @@ export default function IntelligenceLibraryPage() {
         <StatCard
           label="Federal Grants"
           value={data ? data.filteredStats.federalCount.toLocaleString() : "—"}
-          accent="#0077B6"
+          accent="#4F6D8F"
         />
         <StatCard
           label="Foundation Grants"
@@ -1051,18 +1058,11 @@ function QuickChip({ active, label, onClick }: { active: boolean; label: string;
 
 function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div
-      style={{
-        background: COLORS.card,
-        border: `1px solid ${COLORS.cardBorder}`,
-        borderRadius: 12,
-        padding: 16,
-        borderLeft: `4px solid ${accent ?? COLORS.primary}`,
-        boxShadow: CARD_SHADOW,
-      }}
-    >
-      <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: COLORS.text, lineHeight: 1.2 }}>{value}</p>
-      <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: COLORS.textMuted }}>{label}</p>
+    <div style={{ background: SECTION_FRAME, borderRadius: 14, boxShadow: CARD_SHADOW, padding: 3 }}>
+      <div style={{ background: COLORS.card, borderRadius: 11, padding: 16, borderTop: `3px solid ${accent ?? SECTION_FRAME}` }}>
+        <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: accent ?? COLORS.primary, lineHeight: 1.2 }}>{value}</p>
+        <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: COLORS.textMuted }}>{label}</p>
+      </div>
     </div>
   );
 }
@@ -1230,8 +1230,8 @@ function ProposalCardView({
                 fontWeight: 600,
                 padding: "4px 9px",
                 borderRadius: 999,
-                background: "#EFF6FF",
-                color: "#1D4ED8",
+                background: "#F5F3FF",
+                color: "#7A5980",
               }}
             >
               {factor}

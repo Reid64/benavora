@@ -75,10 +75,10 @@ function StatTile({ label, value, color }: { label: string; value: string; color
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "14px",
         padding: "20px 24px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         flex: "1 1 200px",
       }}
     >
@@ -180,7 +180,7 @@ export default function DonorIntentPage() {
   const showEmpty = !loading && signals.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -192,12 +192,12 @@ export default function DonorIntentPage() {
           marginBottom: "28px",
         }}
       >
-        <div>
+        <div style={{ borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
           <h1
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#101B2D",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
@@ -216,7 +216,7 @@ export default function DonorIntentPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#1A2B3C",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "14px",
             fontWeight: 700,
@@ -225,7 +225,7 @@ export default function DonorIntentPage() {
             border: "none",
             cursor: running ? "default" : "pointer",
             opacity: running ? 0.7 : 1,
-            boxShadow: "0 4px 16px rgba(26,43,60,0.25)",
+            boxShadow: "0 4px 16px rgba(122,89,128,0.25)",
           }}
         >
           {running ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -285,7 +285,7 @@ export default function DonorIntentPage() {
         <StatTile
           label="Avg Intent Score"
           value={avgIntentScore !== null ? String(avgIntentScore) : "—"}
-          color="#0077B6"
+          color="#4F6D8F"
         />
       </div>
 
@@ -307,11 +307,11 @@ export default function DonorIntentPage() {
       ) : showEmpty ? (
         <div
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             borderRadius: "14px",
             padding: "56px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
           }}
         >
           <AlertTriangle size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
@@ -342,11 +342,11 @@ function SignalCard({ signal }: { signal: IntentSignal }) {
     <div
       style={{
         display: "flex",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "12px",
         overflow: "hidden",
         marginBottom: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
       }}
     >
       <div style={{ width: "6px", flexShrink: 0, backgroundColor: accent }} aria-hidden />
@@ -408,8 +408,8 @@ function SignalCard({ signal }: { signal: IntentSignal }) {
               style={{
                 fontSize: "11px",
                 fontWeight: 700,
-                color: "#0077B6",
-                backgroundColor: "#EAF6FC",
+                color: "#7A5980",
+                backgroundColor: "#F5F3FF",
                 borderRadius: "999px",
                 padding: "3px 12px",
               }}
@@ -422,8 +422,8 @@ function SignalCard({ signal }: { signal: IntentSignal }) {
               style={{
                 fontSize: "11px",
                 fontWeight: 700,
-                color: "#6B48CC",
-                backgroundColor: "#F3EEFC",
+                color: "#7A5980",
+                backgroundColor: "#F5F3FF",
                 borderRadius: "999px",
                 padding: "3px 12px",
               }}
@@ -506,7 +506,7 @@ function SignalCard({ signal }: { signal: IntentSignal }) {
                   marginTop: "10px",
                   fontSize: "12px",
                   fontWeight: 700,
-                  color: "#0077B6",
+                  color: "#7A5980",
                 }}
               >
                 View source →

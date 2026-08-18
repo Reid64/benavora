@@ -62,10 +62,10 @@ interface RoiStats {
 }
 
 const cardStyle: CSSProperties = {
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F8F5EE",
   borderRadius: "14px",
   padding: "28px",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+  boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
 };
 
 const sectionLabelStyle: CSSProperties = {
@@ -144,7 +144,7 @@ function InsightCard({ insight }: { insight: RoiInsight }) {
             fontSize: "11px",
             fontWeight: 700,
             color: "#FFFFFF",
-            backgroundColor: "#6B48CC",
+            backgroundColor: "#7A5980",
             padding: "4px 12px",
             borderRadius: "999px",
             textTransform: "uppercase",
@@ -243,7 +243,7 @@ function InsightCard({ insight }: { insight: RoiInsight }) {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#0077B6",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "13px",
             fontWeight: 700,
@@ -391,7 +391,7 @@ function AttachmentChart({ data }: { data: AttachmentStat[] }) {
               width={barWidth}
               height={withHeight}
               rx={6}
-              fill="#0096C7"
+              fill="#7A5980"
             />
             <text
               x={groupX + barWidth / 2}
@@ -435,7 +435,7 @@ function AttachmentChart({ data }: { data: AttachmentStat[] }) {
         );
       })}
       <g>
-        <rect x={0} y={chartHeight + 36} width={12} height={12} rx={3} fill="#0096C7" />
+        <rect x={0} y={chartHeight + 36} width={12} height={12} rx={3} fill="#7A5980" />
         <text x={18} y={chartHeight + 46} fontSize="11" fill="#64748B">
           With
         </text>
@@ -481,13 +481,13 @@ export default function RoiInsightsPage() {
   }, []);
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100%", padding: "32px" }}>
-      <div style={{ marginBottom: "28px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
+      <div style={{ marginBottom: "28px", borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
         <h1
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#0F172A",
+            color: "#101B2D",
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -501,7 +501,7 @@ export default function RoiInsightsPage() {
 
       {loading && (
         <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: "10px" }}>
-          <Loader2 size={16} className="animate-spin" color="#0077B6" />
+          <Loader2 size={16} className="animate-spin" color="#7A5980" />
           <span style={{ fontSize: "14px", color: "#64748B" }}>Loading ROI insights...</span>
         </div>
       )}
@@ -525,7 +525,7 @@ export default function RoiInsightsPage() {
             <MetricCard
               label="Applications Tracked"
               value={stats.applicationsTracked.toLocaleString()}
-              accent="#0077B6"
+              accent="#4F6D8F"
               sub={`${stats.decidedCount.toLocaleString()} with a recorded outcome`}
             />
             <MetricCard
@@ -537,7 +537,7 @@ export default function RoiInsightsPage() {
             <MetricCard
               label="Best Submission Day"
               value={stats.bestSubmissionDay ? stats.bestSubmissionDay.label : "—"}
-              accent="#6B48CC"
+              accent="#7A5980"
               sub={
                 stats.bestSubmissionDay
                   ? `${formatPercent(stats.bestSubmissionDay.winRate)} win rate (n=${stats.bestSubmissionDay.sampleSize})`
@@ -557,7 +557,7 @@ export default function RoiInsightsPage() {
           </div>
 
           <div style={{ marginBottom: "28px" }}>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
               Insights
             </h2>
             {insights.length === 0 ? (
@@ -577,7 +577,7 @@ export default function RoiInsightsPage() {
           </div>
 
           <div>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
               Submission Patterns
             </h2>
             <div

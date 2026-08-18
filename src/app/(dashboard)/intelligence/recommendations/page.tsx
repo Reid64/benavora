@@ -20,20 +20,25 @@ import { useProfile } from "@/lib/hooks/useProfile";
 import { enrollInReputationMonitoring } from "@/lib/funders/enroll-monitoring";
 import { createClient } from "@/lib/supabase/client";
 
-const CANVAS = "#D6E4F0";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#C3D3E2";
-const TEXT_PRIMARY = "#0F172A";
+// Intelligence & Reports section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
+// DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
+// Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
+// never received the v2 rollout - same real gap as AutoApply's.
+const SECTION_FRAME = "#7A5980";
+const CANVAS = "#D8D3C8";
+const CARD_BG = "#F8F5EE";
+const BORDER = "rgba(16,27,45,0.15)";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
+const ACCENT = "#7A5980";
 const ERROR_BG = "#FEE2E2";
 const ERROR_BORDER = "#FECACA";
 const ERROR_TEXT = "#B91C1C";
 const SUCCESS_BG = "#DCFCE7";
 const SUCCESS_TEXT = "#15803D";
-const CHIP_BG = "#E0F2FE";
-const CHIP_TEXT = "#0369A1";
+const CHIP_BG = "#F5F3FF";
+const CHIP_TEXT = "#7A5980";
 
 // Priority tiers per CURRENT TASK spec: urgent=#DC2626, normal=#0EA5E9, low=#6B7280.
 // Mapped onto match_score: a strong match is "urgent" (pursue while relevant),
@@ -143,7 +148,7 @@ function FunderCard({
   return (
     <div
       className="flex overflow-hidden rounded-xl"
-      style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}
+      style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(122,89,128,0.14)" }}
     >
       <div className="w-1.5 shrink-0" style={{ backgroundColor: color }} aria-hidden />
       <div className="flex-1">
@@ -207,7 +212,7 @@ function FunderCard({
             <button
               onClick={() => onDismiss(rec.foundation_id)}
               className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition"
-              style={{ backgroundColor: "#FFFFFF", border: `1px solid ${BORDER}`, color: TEXT_SECONDARY }}
+              style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT_SECONDARY }}
             >
               <X className="h-3 w-3" />
               Dismiss
@@ -283,7 +288,7 @@ function FunderCard({
 
 function OrgSummaryCard({ org }: { org: OrgSummary }) {
   return (
-    <div className="rounded-xl p-5" style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}>
+    <div className="rounded-xl p-5" style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(122,89,128,0.18)" }}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>
           {org.name ?? "Your organization"}
@@ -417,7 +422,7 @@ export default function RecommendationsPage() {
 
       {org && <OrgSummaryCard org={org} />}
 
-      <div className="rounded-xl p-4" style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}>
+      <div className="rounded-xl p-4" style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(122,89,128,0.14)" }}>
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1">
             <label className="mb-1.5 block text-xs font-medium" style={{ color: TEXT_SECONDARY }} htmlFor="category-select">
@@ -428,7 +433,7 @@ export default function RecommendationsPage() {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
-              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: CARD_BG, color: TEXT_PRIMARY }}
             >
               <option value="">All categories</option>
               {PROGRAM_CATEGORIES.map((c) => (
@@ -449,7 +454,7 @@ export default function RecommendationsPage() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
-              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: CARD_BG, color: TEXT_PRIMARY }}
               placeholder="50000"
             />
           </div>
@@ -466,7 +471,7 @@ export default function RecommendationsPage() {
                 setGeographyTouched(true);
               }}
               className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
-              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: CARD_BG, color: TEXT_PRIMARY }}
               placeholder="e.g. Texas"
             />
           </div>

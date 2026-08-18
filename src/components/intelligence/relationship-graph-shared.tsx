@@ -53,10 +53,10 @@ export function StatTile({
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "14px",
         padding: "20px 24px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         flex: "1 1 200px",
       }}
     >
@@ -95,11 +95,11 @@ export function ConnectionCard({
     <div
       style={{
         display: "flex",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "12px",
         overflow: "hidden",
         marginBottom: "12px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
       }}
     >
       <div
@@ -166,7 +166,7 @@ export function ConnectionCard({
         >
           <span>{connection.sourceLabel}</span>
           <span style={{ color: "#94A3B8", fontWeight: 400 }}>&rarr;</span>
-          <span style={{ color: "#0077B6" }}>
+          <span style={{ color: "#7A5980" }}>
             {humanizeEnum(connection.relationshipType)}
           </span>
           <span style={{ color: "#94A3B8", fontWeight: 400 }}>&rarr;</span>

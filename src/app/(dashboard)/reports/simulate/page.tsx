@@ -18,7 +18,12 @@ import {
 // "Predictive Fundraising Simulator"). Talks to /api/reports/simulate, which
 // wraps src/lib/agents/simulation-agent.ts's SimulationAgent. Every color in
 // this page is an inline hex value per BLUEPRINT_v2.md §7.5 — no CSS
-// variables, no Tailwind color classes.
+// variables, no Tailwind color classes. SCENARIOS' six distinct hues are a
+// real categorical picker (one color per scenario type, needed for scan
+// legibility, matching the intelligence hub's MODULES precedent) — all
+// remapped from the old palette into the v2 Plum/Slate/Teal/Amber/Rust
+// family, not left rainbow. CONFIDENCE_COLOR is real semantic data,
+// preserved untouched.
 
 type ScenarioType =
   | "board_expansion"
@@ -59,12 +64,12 @@ interface ScenarioConfig {
 }
 
 const SCENARIOS: ScenarioConfig[] = [
-  { key: "board_expansion", label: "Board Expansion", color: "#0077B6", icon: Users },
+  { key: "board_expansion", label: "Board Expansion", color: "#4F6D8F", icon: Users },
   { key: "staff_hire", label: "Staff Hire", color: "#10B981", icon: UserPlus },
-  { key: "geographic_expansion", label: "Geographic Expansion", color: "#F59E0B", icon: MapPin },
-  { key: "new_program", label: "New Program", color: "#8B5CF6", icon: Sparkles },
-  { key: "budget_increase", label: "Budget Increase", color: "#00B4D8", icon: TrendingUp },
-  { key: "partnership", label: "Partnership", color: "#EF4444", icon: Handshake },
+  { key: "geographic_expansion", label: "Geographic Expansion", color: "#C17817", icon: MapPin },
+  { key: "new_program", label: "New Program", color: "#7A5980", icon: Sparkles },
+  { key: "budget_increase", label: "Budget Increase", color: "#2E6B66", icon: TrendingUp },
+  { key: "partnership", label: "Partnership", color: "#A3492F", icon: Handshake },
 ];
 
 const SECTOR_OPTIONS = ["corporate", "legal", "finance", "nonprofit"];
@@ -91,7 +96,7 @@ const inputStyle: CSSProperties = {
   border: "1px solid #B8C9D9",
   fontSize: "14px",
   color: "#0F172A",
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F8F5EE",
 };
 
 function formatCurrency(n: number | null | undefined): string {
@@ -217,13 +222,13 @@ export default function SimulatorPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100%", padding: "32px" }}>
-      <div style={{ marginBottom: "28px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
+      <div style={{ marginBottom: "28px", borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
         <h1
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#0F172A",
+            color: "#101B2D",
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -238,14 +243,14 @@ export default function SimulatorPage() {
       {/* Scenario Builder */}
       <div
         style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#F8F5EE",
           borderRadius: "14px",
           padding: "28px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
           marginBottom: "28px",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
           Scenario Builder
         </h2>
 
@@ -272,7 +277,7 @@ export default function SimulatorPage() {
                   padding: "14px 16px",
                   borderRadius: "10px",
                   border: active ? `2px solid ${s.color}` : "1px solid #B8C9D9",
-                  backgroundColor: active ? `${s.color}1A` : "#FFFFFF",
+                  backgroundColor: active ? `${s.color}1A` : "#F8F5EE",
                   cursor: "pointer",
                   textAlign: "left",
                 }}
@@ -312,7 +317,7 @@ export default function SimulatorPage() {
                   max={10}
                   value={numBoardMembers}
                   onChange={(e) => setNumBoardMembers(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#8B5CF6" }}
+                  style={{ width: "100%", accentColor: "#7A5980" }}
                 />
               </div>
               <div>
@@ -328,8 +333,8 @@ export default function SimulatorPage() {
                         style={{
                           padding: "6px 14px",
                           borderRadius: "999px",
-                          border: active ? "2px solid #8B5CF6" : "1px solid #B8C9D9",
-                          backgroundColor: active ? "#8B5CF61A" : "#FFFFFF",
+                          border: active ? "2px solid #7A5980" : "1px solid #B8C9D9",
+                          backgroundColor: active ? "#7A59801A" : "#F8F5EE",
                           fontSize: "12px",
                           fontWeight: 600,
                           color: "#0F172A",
@@ -410,7 +415,7 @@ export default function SimulatorPage() {
                   step={10}
                   value={distanceMiles}
                   onChange={(e) => setDistanceMiles(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#8B5CF6" }}
+                  style={{ width: "100%", accentColor: "#7A5980" }}
                 />
               </div>
             </div>
@@ -463,7 +468,7 @@ export default function SimulatorPage() {
                 step={5}
                 value={budgetIncreasePercent}
                 onChange={(e) => setBudgetIncreasePercent(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "#8B5CF6" }}
+                style={{ width: "100%", accentColor: "#7A5980" }}
               />
             </div>
           )}
@@ -505,7 +510,7 @@ export default function SimulatorPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#8B5CF6",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "14px",
             fontWeight: 700,
@@ -526,13 +531,13 @@ export default function SimulatorPage() {
       {/* Past Simulations */}
       <div
         style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#F8F5EE",
           borderRadius: "14px",
           padding: "28px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
           Past Simulations
         </h2>
         {loadingPast ? (
@@ -640,9 +645,9 @@ function ResultsPanel({ result }: { result: SimulationScenario }) {
   const riskFactors = result.risk_factors ?? [];
 
   const bars = [
-    { label: "Year 1", value: year1, color: "#0077B6" },
-    { label: "Year 2", value: year2, color: "#00B4D8" },
-    { label: "Year 3", value: year3, color: "#8B5CF6" },
+    { label: "Year 1", value: year1, color: "#7A5980" },
+    { label: "Year 2", value: year2, color: "#4F6D8F" },
+    { label: "Year 3", value: year3, color: "#2E6B66" },
   ];
   const barWidth = 80;
   const gap = 40;
@@ -651,10 +656,10 @@ function ResultsPanel({ result }: { result: SimulationScenario }) {
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "14px",
         padding: "28px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         marginBottom: "28px",
       }}
     >
@@ -668,7 +673,7 @@ function ResultsPanel({ result }: { result: SimulationScenario }) {
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", margin: 0 }}>
           {result.scenario_name}
         </h2>
         <span
@@ -732,7 +737,7 @@ function ResultsPanel({ result }: { result: SimulationScenario }) {
               fontSize: "16px",
               fontWeight: 800,
               color: "#FFFFFF",
-              backgroundColor: "#0077B6",
+              backgroundColor: "#7A5980",
               padding: "4px 12px",
               borderRadius: "8px",
             }}
@@ -760,7 +765,7 @@ function ResultsPanel({ result }: { result: SimulationScenario }) {
               fontSize: "16px",
               fontWeight: 800,
               color: "#FFFFFF",
-              backgroundColor: "#8B5CF6",
+              backgroundColor: "#4F6D8F",
               padding: "4px 12px",
               borderRadius: "8px",
             }}

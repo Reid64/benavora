@@ -97,7 +97,7 @@ const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
 
 const RESOURCE_TYPE_COLOR: Record<ResourceType, string> = {
   funder: "#7C3AED",
-  opportunity: "#0077B6",
+  opportunity: "#4F6D8F",
   program: "#16A34A",
 };
 
@@ -242,7 +242,7 @@ function ResourcesPanel({ signalId }: { signalId: string }) {
                     style={{
                       fontSize: "12px",
                       fontWeight: 800,
-                      color: "#0077B6",
+                      color: "#7A5980",
                       flexShrink: 0,
                     }}
                   >
@@ -319,10 +319,10 @@ function StatTile({ label, value, color }: { label: string; value: string; color
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "14px",
         padding: "20px 24px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         flex: "1 1 200px",
       }}
     >
@@ -424,7 +424,7 @@ export default function CommunityNeedPage() {
   const showEmpty = !loading && signals.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -436,12 +436,12 @@ export default function CommunityNeedPage() {
           marginBottom: "28px",
         }}
       >
-        <div>
+        <div style={{ borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
           <h1
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#101B2D",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
@@ -460,7 +460,7 @@ export default function CommunityNeedPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            backgroundColor: "#1A2B3C",
+            backgroundColor: "#7A5980",
             color: "#FFFFFF",
             fontSize: "14px",
             fontWeight: 700,
@@ -469,7 +469,7 @@ export default function CommunityNeedPage() {
             border: "none",
             cursor: running ? "default" : "pointer",
             opacity: running ? 0.7 : 1,
-            boxShadow: "0 4px 16px rgba(26,43,60,0.25)",
+            boxShadow: "0 4px 16px rgba(122,89,128,0.25)",
           }}
         >
           {running ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -525,7 +525,7 @@ export default function CommunityNeedPage() {
         <StatTile
           label="Avg Predicted Demand Increase"
           value={avgDemandIncrease !== null ? `${avgDemandIncrease}%` : "—"}
-          color="#0077B6"
+          color="#4F6D8F"
         />
       </div>
 
@@ -547,11 +547,11 @@ export default function CommunityNeedPage() {
       ) : showEmpty ? (
         <div
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F8F5EE",
             borderRadius: "14px",
             padding: "56px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
           }}
         >
           <AlertTriangle size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
@@ -581,11 +581,11 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
     <div
       style={{
         display: "flex",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F8F5EE",
         borderRadius: "12px",
         overflow: "hidden",
         marginBottom: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
       }}
     >
       <div style={{ width: "6px", flexShrink: 0, backgroundColor: accentColor }} aria-hidden />
@@ -618,8 +618,8 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
               style={{
                 fontSize: "11px",
                 fontWeight: 700,
-                color: "#0077B6",
-                backgroundColor: "#EAF6FC",
+                color: "#7A5980",
+                backgroundColor: "#F5F3FF",
                 borderRadius: "999px",
                 padding: "3px 12px",
               }}
@@ -686,8 +686,8 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
         {signal.recommended_program_expansion && (
           <div
             style={{
-              backgroundColor: "#F0F9FF",
-              border: "1px solid #BAE6FD",
+              backgroundColor: "#F5F3FF",
+              border: "1px solid #DDD3E5",
               borderRadius: "10px",
               padding: "14px 16px",
             }}
@@ -696,7 +696,7 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
               style={{
                 fontSize: "11px",
                 fontWeight: 700,
-                color: "#0369A1",
+                color: "#7A5980",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
                 margin: "0 0 6px",
@@ -704,7 +704,7 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
             >
               Recommended Program Expansion
             </p>
-            <p style={{ fontSize: "13px", color: "#0C4A6E", margin: "0 0 12px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "13px", color: "#4A3752", margin: "0 0 12px", lineHeight: 1.5 }}>
               {signal.recommended_program_expansion}
             </p>
             <a
@@ -712,7 +712,7 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                backgroundColor: "#0077B6",
+                backgroundColor: "#7A5980",
                 color: "#FFFFFF",
                 fontSize: "13px",
                 fontWeight: 700,
