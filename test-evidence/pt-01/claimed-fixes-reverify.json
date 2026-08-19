@@ -1,0 +1,105 @@
+{
+  "generatedAt": "2026-08-19T10:26:29.517Z",
+  "authenticatedAs": "info@faithfoundationsf.org",
+  "baseUrl": "http://localhost:3000",
+  "taskContext": "Re-verification of 5 'claimed fixes' flagged in STATE_OF_THE_BUILD.md's 2026-08-18 session as having no matching commit in git history. No prior claim (broken or fixed) was trusted -- every item below was driven live against a real authenticated session this run.",
+  "summary": {
+    "total": 5,
+    "confirmedOk": 5,
+    "confirmedBroken": 0,
+    "unverified": 0
+  },
+  "items": [
+    {
+      "item": "Integrations Configure",
+      "prior_claim": "Reported broken: 404",
+      "current_state": "Configure link (href=\"/settings/state-portals\") navigated to http://localhost:3000/settings/state-portals and rendered real content (503 chars in <main>), no error boundary. Real, live, confirmed working today -- not a 404.",
+      "evidence_file": "test-evidence/pt-01/claimed-fixes/a_integrations_configure.png",
+      "verdict": "CONFIRMED-OK",
+      "detail": {
+        "url": "http://localhost:3000/settings/state-portals",
+        "errorBoundary": null,
+        "stillLoadingAfterSettle": false,
+        "mainTextLen": 503,
+        "mainTextSnippet": "General\nOrganization Setup\nIntegrations\nAgents\nNotifications\nBranding\nCustom APIs\nScraping Targets\nBilling\nWhite-Label\nState Grant Portals\n\nPortals the state grant scraper actually covers. This list is code-defined, not per-organization — adding a new state means onboarding it in portal-registry.ts,",
+        "screenshotFile": "test-evidence/pt-01/claimed-fixes/a_integrations_configure.png"
+      }
+    },
+    {
+      "item": "Grants.gov \"Run Now\"",
+      "prior_claim": "Reported broken",
+      "current_state": "Clicked Run Now; real POST /api/agents/grants-gov returned HTTP 200 (ok). Response body: {\"opportunities\":[{\"title\":\"GPD Grant Forecast\",\"agency\":\"Homeless Providers Grant and Per Diem Program\",\"opportunity_number\":\"VA-GPD-FORECAST-FY2026-FY2028\",\"close_date\":null,\"award_ceiling\":null,\"award_floor\":null,\"description\":null,\"eligibility_requirements\":null,\"geographic_restrictions\":null,\"opportunity_documents\":[],\"url\":\"https://www.grants.gov/search-grants?opp=VA-GPD-FORECAST-FY2026-FY2028\",\"source\":\"grants.gov\"},{\"title\":\"Family Unification Program (FUP) Multi-Year NOFO\",\"agency\":\"Dep. Genuinely working, not broken.",
+      "evidence_file": "test-evidence/pt-01/claimed-fixes/b_grants_gov_run_now.png",
+      "verdict": "CONFIRMED-OK",
+      "detail": {
+        "responseInfo": {
+          "status": 200,
+          "ok": true,
+          "bodySnippet": "{\"opportunities\":[{\"title\":\"GPD Grant Forecast\",\"agency\":\"Homeless Providers Grant and Per Diem Program\",\"opportunity_number\":\"VA-GPD-FORECAST-FY2026-FY2028\",\"close_date\":null,\"award_ceiling\":null,\"award_floor\":null,\"description\":null,\"eligibility_requirements\":null,\"geographic_restrictions\":null,\"opportunity_documents\":[],\"url\":\"https://www.grants.gov/search-grants?opp=VA-GPD-FORECAST-FY2026-FY2028\",\"source\":\"grants.gov\"},{\"title\":\"Family Unification Program (FUP) Multi-Year NOFO\",\"agency\":\"Dep"
+        },
+        "page": {
+          "url": "http://localhost:3000/settings/integrations",
+          "errorBoundary": null,
+          "stillLoadingAfterSettle": false,
+          "mainTextLen": 1446,
+          "mainTextSnippet": "General\nOrganization Setup\nIntegrations\nAgents\nNotifications\nBranding\nCustom APIs\nScraping Targets\nBilling\nWhite-Label\nIntegrations\n\nConnect data sources and services to power autonomous grant discovery.\n\nOAUTH CONNECTIONS\n\nGmail\n\nDisconnected\n\nSync email threads, auto-link correspondence to CRM rec",
+          "screenshotFile": "test-evidence/pt-01/claimed-fixes/b_grants_gov_run_now.png"
+        }
+      }
+    },
+    {
+      "item": "Scraping Targets link",
+      "prior_claim": "Reported broken",
+      "current_state": "Scraping Targets link navigated to http://localhost:3000/settings/scraping and rendered real content (472 chars in <main>), no error boundary.",
+      "evidence_file": "test-evidence/pt-01/claimed-fixes/c_scraping_targets.png",
+      "verdict": "CONFIRMED-OK",
+      "detail": {
+        "url": "http://localhost:3000/settings/scraping",
+        "errorBoundary": null,
+        "stillLoadingAfterSettle": false,
+        "mainTextLen": 472,
+        "mainTextSnippet": "General\nOrganization Setup\nIntegrations\nAgents\nNotifications\nBranding\nCustom APIs\nScraping Targets\nBilling\nWhite-Label\nScraping Targets\n\nAdd URLs for the AI to scrape on a schedule and extract grant opportunities automatically.\n\nAdd Target\nAllowed Domains\n1 domain allowlisted — connectors and scrapi",
+        "screenshotFile": "test-evidence/pt-01/claimed-fixes/c_scraping_targets.png"
+      }
+    },
+    {
+      "item": "Branding logo upload",
+      "prior_claim": "Reported fixed",
+      "current_state": "/settings/branding rendered real content with a real <input type=\"file\" accept=\"image/png,image/jpeg,image/webp,image/svg+xml\"> present in the DOM (source-confirmed at src/app/(dashboard)/settings/branding/page.tsx, uploads via supabase.storage.from(\"org-branding\").upload(...)). No file was uploaded (read-only verification per task instruction). Live storage.listBuckets() confirms the real target bucket \"org-branding\" (public=true) exists.",
+      "evidence_file": "test-evidence/pt-01/claimed-fixes/d_branding_logo_upload.png",
+      "verdict": "CONFIRMED-OK",
+      "detail": {
+        "fileInputCount": 1,
+        "accept": "image/png,image/jpeg,image/webp,image/svg+xml",
+        "bucketCheck": {
+          "checked": true,
+          "bucketExists": true,
+          "bucketPublic": true
+        },
+        "page": {
+          "url": "http://localhost:3000/settings/branding",
+          "errorBoundary": null,
+          "stillLoadingAfterSettle": false,
+          "mainTextLen": 852,
+          "mainTextSnippet": "General\nOrganization Setup\nIntegrations\nAgents\nNotifications\nBranding\nCustom APIs\nScraping Targets\nBilling\nWhite-Label\nBranding\n\nCustomize your organization's visual identity across the platform and outgoing communications.\n\nOrganization Logo\n\nDisplayed on the login page, email headers, and reports.",
+          "screenshotFile": "test-evidence/pt-01/claimed-fixes/d_branding_logo_upload.png"
+        }
+      }
+    },
+    {
+      "item": "Billing nav",
+      "prior_claim": "Reported fixed",
+      "current_state": "Billing link navigated to http://localhost:3000/settings/billing and rendered real content (1903 chars in <main>), no error boundary. Resolves correctly.",
+      "evidence_file": "test-evidence/pt-01/claimed-fixes/e_billing_nav.png",
+      "verdict": "CONFIRMED-OK",
+      "detail": {
+        "url": "http://localhost:3000/settings/billing",
+        "errorBoundary": null,
+        "stillLoadingAfterSettle": false,
+        "mainTextLen": 1903,
+        "mainTextSnippet": "General\nOrganization Setup\nIntegrations\nAgents\nNotifications\nBranding\nCustom APIs\nScraping Targets\nBilling\nWhite-Label\nBilling\n\nManage your subscription, usage, and invoices.\n\nStripe is not configured on this server. Plan changes are disabled; usage and limits below reflect your current tier.\nEnterp",
+        "screenshotFile": "test-evidence/pt-01/claimed-fixes/e_billing_nav.png"
+      }
+    }
+  ]
+}

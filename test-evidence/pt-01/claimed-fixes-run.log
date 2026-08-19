@@ -1,0 +1,22 @@
+Logging in as info@faithfoundationsf.org via admin-issued magic link...
+Session confirmed authenticated (landed on http://localhost:3000/dashboard).
+Loaded http://localhost:3000/settings/integrations
+
+--- Item a: Integrations Configure ---
+
+--- Item b: Grants.gov Run Now ---
+  Clicking Run Now -- waiting for POST /api/agents/grants-gov response (up to 120s)...
+
+--- Item c: Scraping Targets link ---
+
+--- Item d: Branding logo upload ---
+
+--- Item e: Billing nav ---
+
+Wrote C:\Users\manag\Documents\benavora\test-evidence\pt-01\claimed-fixes-reverify.json
+Summary: 5 items, 5 CONFIRMED-OK, 0 CONFIRMED-BROKEN, 0 UNVERIFIED.
+  [CONFIRMED-OK] Integrations Configure
+  [CONFIRMED-OK] Grants.gov "Run Now"
+  [CONFIRMED-OK] Scraping Targets link
+  [CONFIRMED-OK] Branding logo upload
+  [CONFIRMED-OK] Billing nav

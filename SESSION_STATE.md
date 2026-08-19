@@ -1,7 +1,39 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-01-004 element wiring crawl complete — 5,307 elements across 56 pages, 6 CONFIRMED-BROKEN all traced to one bug (WGR-012's blank-render, now confirmed reachable from 6 real primary-nav links), 1 audit-tool false positive found and fixed)
+## Last Updated: August 19, 2026 (PT-01-005 — 5 commit-less "claimed fixes" re-verified from scratch with fresh live evidence, all CONFIRMED-OK; a real race-condition bug in the test script itself was caught and fixed first, before it could produce 4 false "still broken" findings)
 
-## Current Session — August 19, 2026 (PT-01-004: interactive element wiring crawl across every primary-nav page + 20 sub-pages)
+## Current Session — August 19, 2026 (PT-01-005: re-verify the 5 commit-less claimed fixes)
+
+**Focus:** a prior request claimed "5 structural bug fixes" were already done (Integrations 404,
+queue-completion links, logo upload, Billing nav bug), but `git log` showed no matching commit for any
+of them — flagged, not fixed, in the 2026-08-18 STATE_OF_THE_BUILD.md entry. This session re-verifies
+all 5 from scratch: no prior claim (broken or fixed) trusted without fresh live evidence captured
+against a real authenticated session this run.
+
+**Status:** All 5 items **CONFIRMED-OK** against real live evidence (screenshots, live network
+responses, a live read-only storage-bucket check) — full per-item detail and the exact evidence cited
+for each is in `STATE_OF_THE_BUILD.md`'s matching session entry, not duplicated here.
+
+**Worth flagging on its own:** the first run of the new verification script produced 4 false negatives
+(reported `Configure`/`Run Now`/`Billing` as absent) due to a real race condition in the script itself
+— it queried the DOM immediately after `page.goto()`, before this app's client-side hydration/async
+data fetch settled. A full-page screenshot from that same failed run showed every "missing" element
+plainly rendered on screen, which is what caught it. Root-caused with a standalone debug script, fixed
+by adding an explicit settle wait (plus a second fix: an explicit poll for any "Loading..." spinner to
+clear before the final evidence capture, since two pages were still mid-fetch on the first genuinely-
+settled run). Re-run clean after both fixes. This is the exact failure mode the task's own "no prior
+claim is trusted without fresh live evidence" instruction guards against, applied here to this
+session's own tooling, not just the app under test.
+
+**What shipped:** `scripts/audit/pt01-005-claimed-fixes-reverify.mjs` (reusable live-verification
+script, same admin-magic-link auth pattern as PT-01-002/003/004), `scripts/audit/verify-pt01-005.mjs`
+(verifier — confirmed `PASS`), `test-evidence/pt-01/claimed-fixes-reverify.json`,
+`test-evidence/pt-01/claimed-fixes/*.png` (5 screenshots), and 5 new register rows (**WGR-018 through
+WGR-022**, all `CONFIRMED-OK`) in `test-evidence/_register/WIRING_GAP_REGISTER.md`.
+
+**Gates:** `node scripts/audit/verify-pt01-005.mjs` — `PASS` (5/5 mandated items, each with a real,
+non-empty `evidence_file` on disk).
+
+## Prior Session — August 19, 2026 (PT-01-004: interactive element wiring crawl across every primary-nav page + 20 sub-pages)
 
 **Focus:** crawl every `<a>`/`<button>` actually present in the rendered DOM of the 36 real
 primary-nav pages (sidebar + admin + header tabs, PT-01-002/003's own established set) plus 20

@@ -1,6 +1,69 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-01-004 — every `<a>`/`<button>` on the 36 primary-nav pages + 20 sub-pages classified by handler binding, not by firing it: 5,307 elements, 5,301 CONFIRMED-OK, 6 CONFIRMED-BROKEN (all one underlying bug — WGR-012's blank-render reachable from 6 real links on `/donor-discovery`, independently re-verified against 5 distinct real prospect ids, not just trusted from route-pattern reuse); one false positive found in the audit tool's own classifier and fixed before the pass was called complete (WGR-016)). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-01-005 — re-verified, from scratch, the 5 "claimed fixes" that had no matching commit in git history: Integrations Configure, Grants.gov Run Now, Scraping Targets link, Branding logo upload, Billing nav. All 5 CONFIRMED-OK against fresh live evidence this run — but the first pass initially misreported 4 of 5 as broken due to a race condition in the test script itself, caught and fixed before trusting the result. See session entry below.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-01-005: re-verified the 5 commit-less claimed fixes, from scratch, with fresh live evidence)
+
+**Context:** a prior request described "5 structural bug fixes" as already done — Integrations 404,
+queue-completion links, logo upload, Billing nav bug — with `git log` showing no matching commit for
+any of them (flagged, not fixed, in the 2026-08-18 STATE_OF_THE_BUILD.md session entry: "do not treat
+this claim as documented history"). This session is that dedicated re-verification. Per explicit
+instruction, no prior claim — broken *or* fixed — was trusted without fresh live evidence captured
+this run; PT-01-004's own earlier, page-level element-wiring crawl of `/settings/integrations` (which
+had already found all of these elements `CONFIRMED-OK` via static handler inspection) was deliberately
+not treated as sufficient — this session drove the real, real authenticated app and exercised each item
+directly, per the task's explicit instructions (including actually clicking Grants.gov's real "Run Now"
+button and capturing its real network response, not just checking the button exists).
+
+**A real finding worth stating plainly before the results: the first run of the new test script itself
+produced 4 false negatives, caught before being reported as fact.** Login (admin-issued magic link for
+`info@faithfoundationsf.org`, no password touched — same pattern as PT-01-002/003/004) and navigation
+worked correctly, but the script queried the DOM for each target element (`Configure`, `Run Now`,
+`Billing`) immediately after `page.goto()` with no settle wait — a real race against this app's
+client-side hydration and async data-loading (e.g. `isConfigured()`/`statePortalCount` fetched on
+mount). This intermittently returned zero matches for elements that were, per a full-page screenshot
+taken in the same failed run, plainly visible and rendered on screen. Root-caused with a standalone
+debug script (ran the identical queries after an explicit settle wait — every element found immediately,
+`Billing=1, Configure=1, Run Now=4, Scraping Targets=1`) before accepting either result. Fixed by adding
+a `settlePage()` wait after every navigation, before any element query, plus a second improvement — an
+explicit poll for any "Loading..." spinner text inside `<main>` to clear (up to 15s) before the final
+screenshot/evidence capture, since two of the five pages (Scraping Targets, Billing) were still showing
+`Loading…`/`Loading billing...` in their first genuinely-successful capture; a page still loading after
+that wait is graded `UNVERIFIED`, not silently upgraded to `CONFIRMED-OK`. Re-run clean after both
+fixes: 5/5 `CONFIRMED-OK`, zero elements still loading. This is recorded here, not swept aside, because
+it is a direct, concrete instance of the exact failure mode this task exists to guard against — an
+unverified/racy claim almost became a false "still broken" register entry.
+
+**Final result, all 5 items, real live evidence, all `CONFIRMED-OK`:**
+
+| Item | Prior claim | Live-verified current state |
+|---|---|---|
+| Integrations Configure | Reported broken: 404 | The only real "Configure" affordance on `/settings/integrations` is the State Grant Portals card (`configurePath="/settings/state-portals"` — source-confirmed Grants.gov/ProPublica/SAM.gov pass no `configurePath` at all). Clicked live: navigates to `/settings/state-portals`, renders a real Texas (TX) portal card with a working Preview action. Not a 404. |
+| Grants.gov "Run Now" | Reported broken | Clicked live; the real `POST /api/agents/grants-gov` (writer-role gated, `maxDuration=300`) returned `HTTP 200` with a genuine JSON body listing real, live grants.gov opportunities ("GPD Grant Forecast" / `VA-GPD-FORECAST-FY2026-FY2028`, "Family Unification Program (FUP) Multi-Year NOFO") — not a mock payload. The card's own UI independently confirmed the same result post-click: "Last sync: 3 minutes ago", button state flipped to "Queued" with a real "View Opportunities →" link. |
+| Scraping Targets link | Reported broken | Clicked live; navigates to `/settings/scraping`, renders real content (1 real target row for a `simpler.grants.gov` URL, Active/weekly badges, Run Now/Pause/Delete actions, an "Allowed Domains — 1 domain allowlisted" panel). |
+| Branding logo upload | Reported fixed | Navigated to `/settings/branding` — a real `<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">` is present and rendered (visible "Choose file" control, an existing logo already previewed). Source-confirmed it uploads via `supabase.storage.from("org-branding").upload(...)`. **No file was uploaded** (read-only per task instruction) — instead, a live, read-only `storage.listBuckets()` call independently confirmed the real target bucket `org-branding` genuinely exists in production (`public: true`). Both the control and its real storage target are live-confirmed, not just source-read. |
+| Billing nav | Reported fixed | Clicked live; navigates to `/settings/billing`, renders real, detailed content — a real Enterprise plan card ($499/month), real live usage metrics (25/5,000 daily agent runs, 3 AutoApply submissions this month, 0.634 MB / 50,000 MB storage), and an honest, non-crashing "Stripe is not configured on this server" informational banner rather than an error. |
+
+**What shipped this session:**
+- `scripts/audit/pt01-005-claimed-fixes-reverify.mjs` — the reusable, re-runnable live-verification
+  script (same admin-magic-link auth pattern as PT-01-002/003/004), including the `settlePage()`/
+  `waitForLoadingToClear()` fixes described above.
+- `scripts/audit/verify-pt01-005.mjs` — verifier; exits non-zero unless all 5 mandated items are
+  present, each with a non-empty `current_state` and a real, non-empty `evidence_file` that exists on
+  disk. **Confirmed passing**: `PT-01-005 PASS: ... Verdicts: CONFIRMED-OK=5.`
+- `test-evidence/pt-01/claimed-fixes-reverify.json` — the evidence file itself (`items[]`, one row per
+  mandated item, `prior_claim`/`current_state`/`evidence_file`/`verdict`).
+- `test-evidence/pt-01/claimed-fixes/*.png` — 5 full-page screenshots, one per item, taken on the
+  actually-resulting page after each real click/navigation.
+- `test-evidence/_register/WIRING_GAP_REGISTER.md` — 5 new rows, **WGR-018 through WGR-022**, all
+  `CONFIRMED-OK`, each pointing at the real evidence above and a reproduction command, matching this
+  register's own established convention of logging investigated-and-found-not-a-gap findings (not just
+  broken ones) so the question isn't re-asked cold in a later phase.
+
+**Verifier status:**
+```
+node scripts/audit/verify-pt01-005.mjs   -> PASS (5/5 mandated items, each with a real evidence_file on disk; Verdicts: CONFIRMED-OK=5)
+```
 
 ## SESSION — August 19, 2026 (PT-01-004: interactive element wiring crawl across every primary-nav page + 20 sub-pages)
 
