@@ -1,6 +1,59 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-00-002 — build-worker-cap gate confirmed present + re-proven live). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-00-003 — authoritative route manifest built from the real filesystem, zero dead-nav found). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-00-003: authoritative route manifest from fresh build)
+
+**Focus:** `src/components/layout/nav-items.ts` and the governance docs (`BLUEPRINT_v2.md` etc.) are
+both documented elsewhere in this repo's history as stale relative to the real route surface — the
+prior baseline-audit step needed a route list derived from the filesystem itself, not from either
+document, so that "does nav point at a route that exists" and "does a route exist that nav never
+mentions" can both be answered from ground truth.
+
+**Method:** walked `src/app` for every `page.tsx`/`route.ts`, converting each file path to a real
+URL path — route-group segments (`(dashboard)`, `(marketing)`) stripped since they don't appear in
+the URL, `[param]` dynamic segments preserved verbatim and flagged `dynamic: true`. Wrote
+`test-evidence/pt-00/route-manifest.json`: `{ generatedAt, routeCount, routes: [{path, type,
+file, dynamic}], deadNav: [], orphanRoutes: [] }`. **464 real routes** — 146 pages, 318 API routes.
+
+**Cross-referenced against `nav-items.ts`** (all 51 real `label`/`href` string-literal pairs across
+`NAV_ITEMS` + children, `DONOR_DISCOVERY_DRILLDOWN`/`DONOR_DISCOVERY_NAV_ITEMS`,
+`RESOURCES_NAV_ITEMS`, `SETTINGS_NAV_ITEM`, `PLATFORM_NAV_ITEMS` — `PROGRAMS_NAV_ITEMS` is empty by
+design). Verified the extraction was exhaustive by hand-listing the 51 pairs and checking the file's
+own `href: string;`/`label: string;` type-definition lines (the only non-quoted occurrences of
+either keyword) were correctly excluded.
+
+**Result: `deadNav: []` — genuinely zero.** Every href in `nav-items.ts` resolves to a real page
+route on disk today. This is a real, verified negative result, not an assumption — no
+`WIRING_GAP_REGISTER.md` row was added, since the register only records confirmed gaps and there is
+none to record here. Do not read this as "nav-items.ts is fully in sync with the app" — it only
+means nav-items.ts's own links are all live; see the header nav vs. sidebar-nav split note below.
+
+**`orphanRoutes`: 78 real pages `nav-items.ts` never mentions — expected, not a defect.** The file's
+own header comment states Dashboard/Research/Opportunities/AutoApply/Draft Generator/Donor Discovery
+live in `Header.tsx`'s top tab bar, "intentionally absent" from `nav-items.ts` — confirmed by reading
+`Header.tsx`'s `TABS` array, which covers 6 of the 78. The rest split into equally explainable
+categories: marketing pages (`/`, `/pricing`, `/how-it-works`, `/for-consultants`, `/privacy`,
+`/security`, `/terms`), auth pages (`/login`, `/register`, `/forgot-password`, `/reset-password`),
+`/settings/*` subsections (reached via `SettingsNav`, not the sidebar), and drilldown/action pages
+reached by a link from a list page rather than the sidebar (`/applications/new`,
+`/autoapply/[10+ subsections]`, `/donor-discovery/[8 subsections]`, `/funders/new`, `/funders/import`,
+etc.). This list is real and complete for "real page, zero nav-items.ts mention" — it is not itself a
+finding, since `nav-items.ts` was never meant to be the single index of every reachable page (that
+role belongs to `GlobalSearch`'s separate `feature-index.ts`, per `SESSION_STATE.md`'s 2026-08-14
+entry — not re-verified this session, out of scope).
+
+**Verification script:** `scripts/audit/verify-pt00-003.mjs` — exits non-zero unless
+`route-manifest.json` parses as JSON, `routes` is a non-empty array with `path`/`type`/`file`/
+`dynamic` on every entry (`type` restricted to `"page"`/`"api"`), and both `deadNav`/`orphanRoutes`
+keys are present as arrays (empty is valid — this session's real `deadNav: []` must still pass, not
+be treated as "missing"). Run and confirmed passing this session:
+`PT-00-003 PASS: route-manifest.json parses, 464 routes (146 pages, 318 api), deadNav=0,
+orphanRoutes=78.`
+
+**Gates:** no application code touched — this was a filesystem audit, not a build. The manifest
+generator itself was a temporary script, deleted after producing `route-manifest.json`; only the
+verifier (`verify-pt00-003.mjs`) and its evidence artifact remain.
 
 ## SESSION — August 19, 2026 (PT-00-002: build-config cpus cap confirmed/restored, WGR-001)
 

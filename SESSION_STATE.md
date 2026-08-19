@@ -1,7 +1,33 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-00-002 — build-worker-cap gate confirmed present + re-proven live)
+## Last Updated: August 19, 2026 (PT-00-003 — authoritative route manifest built from the real filesystem, zero dead-nav found)
 
-## Current Session — August 19, 2026 (PT-00-002: build-config cpus cap confirmed/restored, WGR-001)
+## Current Session — August 19, 2026 (PT-00-003: authoritative route manifest from fresh build)
+
+**Focus:** build the route list the app actually ships, from the filesystem and build output
+(truth), not from `nav-items.ts` or `BLUEPRINT_v2.md` (both documented elsewhere in this repo as
+stale relative to real state).
+
+**Status:** walked `src/app` for every `page.tsx`/`route.ts`, converting each to a real URL path
+(route-group folders like `(dashboard)`/`(marketing)` stripped, `[param]` dynamic segments kept and
+flagged). Wrote `test-evidence/pt-00/route-manifest.json`: 464 real routes (146 pages, 318 API),
+each `{ path, type: "page"|"api", file, dynamic }`. Cross-referenced all 51 real `label`/`href` pairs
+in `src/components/layout/nav-items.ts` against the manifest: `deadNav` came back **empty** — every
+nav-items.ts href resolves to a real page today, a genuine verified-negative result, so no
+`WIRING_GAP_REGISTER.md` row was added (the register only records confirmed gaps). `orphanRoutes`
+(78 real pages not mentioned in nav-items.ts) is expected, not a finding — that file's own header
+comment already documents 6 of them as intentionally living in `Header.tsx`'s tab bar instead, and
+the rest are marketing/auth pages, `/settings/*` subsections reached via `SettingsNav`, or
+drilldown/action pages reached from a list page rather than the sidebar. Full breakdown in
+`STATE_OF_THE_BUILD.md`'s matching session entry. Built `scripts/audit/verify-pt00-003.mjs` (checks
+the manifest parses, `routes` is non-empty with all 4 required fields, and both `deadNav`/
+`orphanRoutes` keys are present as arrays — empty arrays are valid, not treated as missing) and ran
+it — passes: `464 routes (146 pages, 318 api), deadNav=0, orphanRoutes=78`.
+
+**Gates:** no application code touched — filesystem audit only, not a build. The manifest generator
+was a temporary script, deleted after producing the evidence file; only the verifier and
+`route-manifest.json` remain under version control.
+
+## Previous Session — August 19, 2026 (PT-00-002: build-config cpus cap confirmed/restored, WGR-001)
 
 **Focus:** the stale-queue run from earlier tonight died on three consecutive 900s build gate
 timeouts — the memory-thrash signature `next.config.mjs`'s `experimental.cpus` worker cap exists to
