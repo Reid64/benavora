@@ -1,6 +1,74 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-01 render pass complete — all 146 page routes walked with a real authenticated session; 1 real, reproducible application bug found (WGR-012, `/donor-discovery/prospects/[id]` crashes on a partial enrichment record); a real multi-worktree dev-server `.next` contention issue found and worked around, not silently papered over (WGR-013); WGR-004's `/documents` hang did not reproduce this session (WGR-014, flagged not assumed fixed)). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-01-003 — live, click-based nav resolution across all 5 real nav surfaces (sidebar/admin/header tabs/header avatar menu/settings sub-nav), 72/72 nav elements confirmed resolving to a real rendered page, 0 contradictions of PT-00's static `deadNav=0` claim; a real Playwright click-timing testing pitfall found and fixed mid-session, documented so it isn't rediscovered cold). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-01-003: nav resolution across all nav surfaces)
+
+**Focus:** PT-00-003's `deadNav: []` finding (register row WGR-011) only ever compared
+`nav-items.ts`'s hrefs as strings against the build's route manifest — a static check that never
+touched a running app. This session settles the same question with live evidence: authenticate as a
+real user, then for every element on every real nav surface, actually locate it in the rendered DOM
+and click it, recording whether the result is a real page, a 404, an error boundary, a blank render,
+or a link that never rendered onto the page at all.
+
+**Surfaces covered (read directly from source this session, not re-derived automatically — a future
+session should re-read all three files if they may have drifted):** sidebar
+(`src/components/layout/nav-items.ts`'s `NAV_ITEMS` incl. all 4 parents' 19 children,
+`DONOR_DISCOVERY_NAV_ITEMS`, `RESOURCES_NAV_ITEMS`, `SETTINGS_NAV_ITEM` — 42 elements), admin
+(`PLATFORM_NAV_ITEMS`, 9, owner-gated), header tab bar (`Header.tsx`'s `TABS`, 6), header
+avatar/org menu (`Header.tsx`'s `MENU_LINKS`, 5 — a bonus surface beyond the four named in the task,
+same file/method, cheap extra coverage), and Settings sub-nav
+(`src/app/(dashboard)/settings/layout.tsx`'s `NAV_ITEMS`, 10, incl. both `ownerOnly` entries —
+the authenticated test account, `info@faithfoundationsf.org`, was confirmed live via a direct
+`profiles` query to be `role = "owner"`, so every gated entry is reachable).
+
+**Container selectors used, confirmed live before the full run** (a 2-part smoke check against the
+real dev server, not assumed from reading JSX alone): `aside[aria-label="Primary navigation"]`
+(sidebar + admin), `nav[aria-label="Primary sections"]` (header tabs),
+`button[aria-label="Organization menu"]` + `[role="menu"]` (avatar menu, dropdown opened before each
+click since it closes on navigation), `nav[aria-label="Settings navigation"]` (settings sub-nav).
+
+**Test-order finding, load-bearing for correctness, not incidental:** `src/lib/navigation/
+section-memory.ts` rewrites a sidebar top-level href (and `SETTINGS_NAV_ITEM` specifically) to the
+last-visited sub-path within that URL segment, once one has been visited (sessionStorage-backed) —
+confirmed by reading the module directly. `PLATFORM_NAV_ITEMS`/`RESOURCES_NAV_ITEMS`/
+`DONOR_DISCOVERY_NAV_ITEMS` and every child link use a literal href and are immune to this. To test
+the sidebar's own bare `/settings` link (and the avatar menu's bare `/settings` link) at their real,
+undisturbed target, the script visits them *before* the Settings sub-nav surface, which deliberately
+visits ten separate `/settings/*` sub-paths and would otherwise silently change what a bare
+`/settings` link resolves to for anything tested after it. Enforced order:
+sidebar → admin → header_tabs → header_avatar_menu → settings_nav (settings_nav always last).
+
+**Result: 72/72 nav elements resolve correctly** (`resolved_status: "renders"`, real content, no
+error signature, no 404, path matches target) — zero elements missing from the DOM, zero broken
+across all 5 surfaces. **No contradiction of PT-00's static `deadNav=0` claim.** Evidence:
+`test-evidence/pt-01/nav-resolution.json` (`crossCheckPt00DeadNavClaim.contradictsStaticFinding:
+false`), `test-evidence/pt-01/nav-resolution-run.log`. Register: **WGR-015**.
+
+**A real testing-methodology bug found and fixed mid-session, not silently smoothed over:** the
+first full run of this script misreported 65 of 72 elements as `resolved_via_redirect`. Root cause,
+confirmed via three throwaway reproduction scripts (deleted after use, not committed — this is
+therefore documented in prose here and in the committed script's own header comment/logic, not as a
+separate register row, since the register's own stated policy requires a persisted evidence file per
+row and none exists for the buggy run itself): this app's Next.js App Router client-side `<Link>`
+navigation does not reliably complete within `page.waitForLoadState("networkidle")` resolving plus a
+short fixed settle (400ms) between two consecutive sidebar clicks — `networkidle` can resolve before
+the freshly-mounted page has finished hydrating enough for the *next* link's click handler to be
+live. The click returned successfully with no thrown error, but the browser never navigated at all;
+the script was reading stale content left over from the *previous* page and wrongly classified the
+unchanged path as "resolved via a redirect" instead of "the click silently did nothing." Fixed by
+polling `page.url()` for an actual change (up to 15s) after every click before evaluating render
+state, and by adding a distinct `click_did_not_navigate` status so this failure mode can never again
+be silently mislabeled as a redirect. Re-verified after the fix with a 7-click manual reproduction
+and then the full 72-element run: 0 occurrences of the failure mode either time. Full narrative:
+`test-evidence/pt-01/PHASE-01-SUMMARY.md`'s PT-01-003 section.
+
+**Verifier:** `node scripts/audit/verify-pt01-003.mjs` → PASS (72/72 entries, every one has
+surface/label/target/resolved_status/verdict populated; confirmed to correctly exit non-zero against
+a deliberately emptied results array before being trusted).
+
+**Gates:** no application code changed this session (audit-only) — `pnpm tsc --noEmit` not
+re-run since nothing under its scope was touched.
 
 ## SESSION — August 19, 2026 (PT-01-002: authenticated render pass across all 146 page routes)
 

@@ -90,4 +90,50 @@ reproduction command/step. No PT-01 finding from this session exists outside the
 ```
 node scripts/audit/verify-pt01-001.mjs   -> PASS (page-routes.json matches PT-00 route-manifest.json's 146 page entries exactly)
 node scripts/audit/verify-pt01-002.mjs   -> PASS (146/146 route coverage, every row has httpStatus/errorBoundaryInDom/hasRealContent/consoleErrors populated)
+node scripts/audit/verify-pt01-003.mjs   -> PASS (72/72 nav elements across 5 surfaces, every row has surface/label/target/resolved_status/verdict populated)
 ```
+
+## PT-01-003 — nav resolution across every real nav surface
+
+PT-00-003's `deadNav: []` finding (register row WGR-011) was a **static** cross-reference: it
+compared `nav-items.ts`'s hrefs as strings against the build's route manifest, never touching a
+running app. PT-01-003 settles the same question with **live** evidence — real click-through, in a
+real authenticated Playwright session, against every element on the 5 real nav surfaces:
+
+- **sidebar** — `NAV_ITEMS` (19 top-level entries incl. all 4 parents' children — Reports/
+  Intelligence/Email/Outreach, 19 children total), `DONOR_DISCOVERY_NAV_ITEMS` (2, only rendered
+  while `pathname` starts with `/donor-discovery`), `RESOURCES_NAV_ITEMS` (1), `SETTINGS_NAV_ITEM`
+  (1) — **42 elements**.
+- **admin** — `PLATFORM_NAV_ITEMS` (9), owner/admin-gated, tested with the confirmed-owner test
+  account.
+- **header_tabs** — `Header.tsx`'s `TABS` (6).
+- **header_avatar_menu** — `Header.tsx`'s `MENU_LINKS` (5), a bonus surface beyond the four the task
+  named explicitly (same file, same click-based method, cheap extra coverage of "every navigation
+  surface").
+- **settings_nav** — `src/app/(dashboard)/settings/layout.tsx`'s `NAV_ITEMS` (10, incl. both
+  `ownerOnly` entries — Billing, White-Label — reachable since the test account is a real `owner`).
+
+**Result: 72/72 resolve correctly (`resolved_status: "renders"`, verdict `CONFIRMED-OK`).** Zero
+nav elements missing from the DOM, zero 404s, zero error boundaries, zero blank renders. No
+contradiction of WGR-011's static claim. Evidence: `test-evidence/pt-01/nav-resolution.json`,
+`test-evidence/pt-01/nav-resolution-run.log`. Register: **WGR-015**.
+
+### A real testing-methodology pitfall found and fixed mid-session — not a nav-resolution.json row, but worth recording here for a future session's benefit
+
+The first full run of this script reported 65 of 72 elements as `resolved_via_redirect` — plausible
+on its face, but wrong. Root-caused via three throwaway reproduction scripts (not committed —
+no persisted evidence file exists for the buggy run itself, which is why this isn't a formal register
+row; the finding is recorded here in prose instead, and the fix is directly visible in the committed
+script's own header comment and `URL_CHANGE_POLL_TIMEOUT_MS` logic): after a click, this app's
+Next.js App Router client-side `<Link>` navigation does not reliably complete within
+`page.waitForLoadState("networkidle")` returning plus a short fixed settle (400ms) — `networkidle`
+can resolve before the freshly-mounted page has finished hydrating enough for the *next* link's
+click handler to be live. The symptom was silent: `linkLocator.click()` returned without throwing,
+but the browser never navigated at all — the script was reading stale content from the *previous*
+page and (wrongly) classifying the unchanged `finalPath` as "resolved via redirect" rather than "the
+click never navigated." Fixed by polling `page.url()` for an actual change (up to 15s) after every
+click, before evaluating render state, and by adding a distinct `click_did_not_navigate` status so a
+genuine stuck click is never again silently mislabeled as a redirect. Re-run after the fix: 0 of 72
+elements showed this failure mode. Any future Playwright script that click-drives this app's nav
+should poll for a URL change rather than trusting `networkidle` plus a short fixed delay between
+consecutive client-side navigations.

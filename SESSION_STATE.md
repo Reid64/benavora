@@ -1,7 +1,43 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-01-002 render pass complete — 145/146 clean, 1 real bug found, 1 environmental dev-server issue found and worked around)
+## Last Updated: August 19, 2026 (PT-01-003 nav resolution complete — 72/72 real nav elements confirmed resolving to a real page across all 5 nav surfaces, no contradiction of PT-00's static deadNav=0 claim)
 
-## Current Session — August 19, 2026 (PT-01-002: authenticated render pass across all page routes)
+## Current Session — August 19, 2026 (PT-01-003: nav resolution across all nav surfaces)
+
+**Focus:** PT-00-003's `deadNav: []` finding (WGR-011) was a static string comparison
+(`nav-items.ts` hrefs vs. the build's route manifest) — never a running app. This session settles
+the same question live: authenticate as a real user, then locate and actually click every nav
+element on every real nav surface, recording whether it resolves to a real page, a 404, an error
+boundary, a blank render, or never renders into the DOM at all.
+
+**Surfaces tested (72 elements total):** sidebar (`NAV_ITEMS` incl. all 19 children +
+`DONOR_DISCOVERY_NAV_ITEMS` + `RESOURCES_NAV_ITEMS` + `SETTINGS_NAV_ITEM`, 42), admin
+(`PLATFORM_NAV_ITEMS`, 9), header tab bar (`TABS`, 6), header avatar/org menu (`MENU_LINKS`, 5 —
+a bonus surface beyond the four the task named), Settings sub-nav (10, incl. both `ownerOnly`
+entries, reachable since the test account is a confirmed real `owner`).
+
+**Result: 72/72 resolve correctly, 0 contradictions of PT-00's static claim.** Evidence:
+`test-evidence/pt-01/nav-resolution.json`, `test-evidence/pt-01/nav-resolution-run.log`. Register:
+**WGR-015**.
+
+**A real testing-methodology bug found and fixed mid-session:** the first full run misreported 65
+of 72 elements as "resolved via a redirect." Root cause: this app's client-side `<Link>` navigation
+doesn't reliably finish within `waitForLoadState("networkidle")` resolving plus a short fixed delay
+between two consecutive clicks in this dev-mode app — the click silently did nothing (no thrown
+error), and the script was reading stale content from the *previous* page, misclassifying an
+unchanged path as a redirect instead of "the click never navigated." Fixed by polling `page.url()`
+for an actual change (up to 15s) after every click before evaluating render state, with a distinct
+`click_did_not_navigate` status so this can't happen silently again. Re-verified clean after the
+fix, both via a manual 7-click reproduction and the full 72-element run. No committed evidence file
+exists for the buggy run itself (three throwaway diagnostic scripts, deleted after use) — this is
+documented in prose (here, `STATE_OF_THE_BUILD.md`, and `test-evidence/pt-01/PHASE-01-SUMMARY.md`)
+rather than as a separate register row, since WIRING_GAP_REGISTER.md's own policy requires a
+persisted evidence file per row.
+
+**Verifier:** `node scripts/audit/verify-pt01-003.mjs` → PASS.
+
+**Gates:** no application code touched this session — audit-only.
+
+## Prior Session — August 19, 2026 (PT-01-002: authenticated render pass across all page routes)
 
 **Focus:** deeper than PT-00-005's smoke sweep (HTTP status only) — for every one of the 146 page
 routes, recorded whether the rendered DOM shows a Next.js error boundary, an empty shell, or real

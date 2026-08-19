@@ -1,0 +1,100 @@
+PT-01-003: base URL http://localhost:3000
+PT-01-003: session sanity check OK (200 on /dashboard)
+
+PT-01-003: sidebar (NAV_ITEMS)...
+  Alerts (/alerts) -> renders
+  Activity (/activity) -> renders
+  Funders (/funders) -> renders
+  Foundations (/foundations) -> renders
+  Contacts (/contacts) -> renders
+  Applications (/applications) -> renders
+  Documents (/documents) -> renders
+  Knowledge Base (/knowledge-base) -> renders
+  Intelligence Library (/intelligence-library) -> renders
+  Agent Marketplace (/agents/marketplace) -> renders
+  Deadlines (/deadlines) -> renders
+  Compliance (/compliance) -> renders
+  Outcomes & Analytics (/outcomes) -> renders
+  Financials (/financials) -> renders
+  Marketplace (/marketplace) -> renders
+  Reports (/reports) -> renders
+    - Simulator (/reports/simulate) -> renders
+    - ROI Insights (/reports/roi) -> renders
+    - Funding Forecast (/reports/forecast) -> renders
+  Intelligence (/intelligence) -> renders
+    - Digital Twin (/intelligence/twin) -> renders
+    - Match Feed (/intelligence/match-feed) -> renders
+    - Knowledge Engine (/intelligence/knowledge) -> renders
+    - Recommendations (/intelligence/recommendations) -> renders
+    - Gap Analyzer (/intelligence/gap-analysis) -> renders
+    - Competitors (/intelligence/competitors) -> renders
+    - Semantic Matches (/intelligence/matches) -> renders
+    - Reputation (/intelligence/reputation) -> renders
+    - Disaster Response (/intelligence/disaster) -> renders
+    - Community Need (/intelligence/community-need) -> renders
+    - Donor Intent (/intelligence/donor-intent) -> renders
+    - Relationship Graph (/intelligence/relationship-graph) -> renders
+    - Strategic Advisor (/intelligence/strategic-advisor) -> renders
+  Email (/email) -> renders
+    - Campaigns (/email/campaigns) -> renders
+    - Templates (/email/templates) -> renders
+  Outreach (/outreach) -> renders
+    - Templates (/outreach/templates) -> renders
+
+PT-01-003: sidebar (Donor Discovery drilldown)...
+  Prospects (/donor-discovery/prospects) -> renders
+  Intent Signals (/donor-discovery/intent-signals) -> renders
+
+PT-01-003: sidebar (Resources)...
+  Nonprofit Directory (/nonprofits) -> renders
+
+PT-01-003: sidebar (Settings item)...
+  Settings (/settings) -> renders
+
+PT-01-003: admin (PLATFORM_NAV_ITEMS)...
+  Command Center (/command-center) -> renders
+  Organizations (/admin/orgs) -> renders
+  System Health (/admin/system) -> renders
+  Import (/import) -> renders
+  Sales Outreach (/admin/sales-outreach) -> renders
+  AutoApply Ops (/admin/autoapply-ops) -> renders
+  Monitor (/admin/monitor) -> renders
+  Improvements (/admin/improvements) -> renders
+  Audit Log (/admin/audit-log) -> renders
+
+PT-01-003: header_tabs (TABS)...
+  Dashboard (/dashboard) -> renders
+  Research (/research) -> renders
+  Opportunities (/opportunities) -> renders
+  AutoApply (/autoapply) -> renders
+  Draft Generator (/draft-generator) -> renders
+  Donor Discovery (/donor-discovery) -> renders
+
+PT-01-003: header_avatar_menu (MENU_LINKS)...
+  Settings (/settings) -> renders
+  Billing (/billing) -> renders
+  Onboarding (/onboarding) -> renders
+  Audit Log (/admin/audit-log) -> renders
+  AutoApply Ops (/admin/autoapply-ops) -> renders
+
+PT-01-003: settings_nav (SettingsNav)...
+  General (/settings) -> renders
+  Organization Setup (/settings/organization-setup) -> renders
+  Integrations (/settings/integrations) -> renders
+  Agents (/settings/agents) -> renders
+  Notifications (/settings/notifications) -> renders
+  Branding (/settings/branding) -> renders
+  Custom APIs (/settings/custom-apis) -> renders
+  Scraping Targets (/settings/scraping) -> renders
+  Billing (/settings/billing) -> renders
+  White-Label (/settings/white-label) -> renders
+
+PT-01-003 DONE: 72 nav element(s) tested across 5 surface(s).
+  sidebar: 42/42 CONFIRMED-OK
+  admin: 9/9 CONFIRMED-OK
+  header_tabs: 6/6 CONFIRMED-OK
+  header_avatar_menu: 5/5 CONFIRMED-OK
+  settings_nav: 10/10 CONFIRMED-OK
+  0 CONFIRMED-BROKEN total.
+  Cross-check vs PT-00 deadNav claim: contradictsStaticFinding=false
+Results written to test-evidence\pt-01\nav-resolution.json
