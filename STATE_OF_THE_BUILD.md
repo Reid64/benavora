@@ -1,6 +1,85 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-00-003 — authoritative route manifest built from the real filesystem, zero dead-nav found). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-00-004 — env-var audit: what lets the deploy-verifier silently no-op). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-00-004: env-var audit — what lets the deploy-verifier silently no-op)
+
+**Focus:** `STANDING_DIRECTIVES.md` DIRECTIVE-019 already documented the *symptom* (a missing
+`VERCEL_TOKEN`/`VERCEL_PROJECT_ID` makes `scripts/verify-deployment.ts` exit 3/INDETERMINATE
+instead of ever running a real PASS/FAIL check) as a known, unresolved manual action item for Reid.
+This session enumerates the *complete* truth behind it — every env var the codebase actually reads,
+cross-checked by name only against `.env.local`, with production-required ones flagged as findings
+when absent. No secret value was ever read, recorded, or written anywhere in this pass — presence
+was checked via `grep -oE '^[A-Za-z_][A-Za-z0-9_]*='` against `.env.local` (names only), never by
+opening a line's value.
+
+**Method:** repo-wide grep for `process.env.VAR` and `process.env['VAR']`/`process.env["VAR"]`
+across every tracked `.ts`/`.tsx`/`.js`/`.mjs`/`.cjs`/`.mts` file (excluding `node_modules`,
+`.next`, `.git`, `.claude`) — **76 distinct env var names** referenced across the codebase (`src/`,
+`worker/`, `scripts/`, root-level tracked scratch scripts, and the legacy `audit/` directory).
+Cross-checked each name against `.env.local`'s real variable names (**9 present**: `ANTHROPIC_API_KEY`,
+`DATABASE_URL`, `FAITH_FOUNDATION_ORG_ID`, `GOOGLE_PLACES_API_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`NEXT_PUBLIC_SUPABASE_URL`, `OPENAI_API_KEY`, `SAM_GOV_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+
+**Every `production_required` classification was verified against real code, not guessed from the
+variable name** — read the actual consuming file for each ambiguous case before marking it:
+- `scripts/verify-deployment.ts` (read in full): hard-requires `VERCEL_TOKEN` and `VERCEL_PROJECT_ID`
+  (or its `VERCEL_PROJECT_NAME` fallback) — both absent triggers the exact INDETERMINATE/exit-3
+  no-op DIRECTIVE-019 describes. `VERCEL_TEAM_ID` is explicitly optional per the script's own header
+  comment (only needed for team-scoped projects) — not counted as a P1 finding.
+- `worker/index.ts`'s `validateEnv()`: hard `process.exit(1)`s if `SUPABASE_URL`, `WORKER_ID`,
+  `SUPABASE_SERVICE_ROLE_KEY`, or `ANTHROPIC_API_KEY` is unset. **Real, concrete gap found**: the
+  worker needs its own `SUPABASE_URL`, distinct from the Next.js app's `NEXT_PUBLIC_SUPABASE_URL` —
+  the latter is present in `.env.local`, the former is not, so the worker process cannot boot locally
+  even though the web app's Supabase config looks complete.
+- 5 encryption-key vars (`CREDENTIAL_ENCRYPTION_KEY`, `INTEGRATION_ENCRYPTION_KEY`,
+  `INTEGRATION_KEY_SECRET`, `PORTAL_ENCRYPT_SECRET`, `UNSUBSCRIBE_HMAC_SECRET`) — read each
+  consuming file directly; all 5 `throw new Error(...)` immediately if unset (matches project memory
+  `benavora-encryption-fallbacks-removed`: the old hardcoded fallback keys were removed, so these are
+  now hard failures, not silent weak-key degradation). All 5 confirmed absent from `.env.local`.
+- `src/app/api/cron/autoapply/route.ts` (representative of 16 `/api/cron/*` routes): `if
+  (!cronSecret || authHeader !== ...)` — when `CRON_SECRET` is unset, every cron route permanently
+  401s regardless of the real Vercel Cron trigger header. Confirmed absent.
+- `STORAGE_DOCUMENTS_BUCKET`, `STORAGE_REPORTS_BUCKET`, `RESEND_FROM_DOMAIN`, `RESEND_FROM_EMAIL`,
+  `ENABLE_SCRAPER`: all have real code-level `??` defaults or are opt-in feature toggles — correctly
+  excluded from `production_required`, not silently assumed safe.
+
+**Result: `test-evidence/pt-00/env-audit.json` — 76 vars audited, 23 marked `production_required`,
+15 findings (absent + required):**
+
+| Severity | Vars |
+|---|---|
+| **P1** (disables the deploy-verify safety check itself, per DIRECTIVE-019) | `VERCEL_TOKEN`, `VERCEL_PROJECT_ID` |
+| **P2** (breaks real production functionality, but not the deploy-verify gate specifically) | `CREDENTIAL_ENCRYPTION_KEY`, `CRON_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `INTEGRATION_KEY_SECRET`, `PORTAL_ENCRYPT_SECRET`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `SCRAPER_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`, `UNSUBSCRIBE_HMAC_SECRET`, `WORKER_ID` |
+
+This is the first time this project's `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` gap has been placed
+alongside the other 13 real, currently-missing production secrets in one enumerated list — prior
+sessions (see DIRECTIVE-019's own text) treated it as an isolated, already-known item. The P2 list
+includes several vars whose absence is a genuine, live production risk independent of this task's
+deploy-verify framing: `CRON_SECRET` absent means all 16 cron routes are dead in production right
+now if that's also true there, and `RESEND_WEBHOOK_SECRET`'s absence means the Resend webhook fails
+closed (already documented behavior, see `benavora-resend-webhook-verified` memory) rather than
+silently accepting unverified events — worth Reid confirming these are genuinely unset in Vercel
+production too, not just locally, since this audit only checked `.env.local`.
+
+**Verifier:** `scripts/audit/verify-pt00-004.mjs` — exits non-zero unless `env-audit.json` parses as
+JSON, is non-empty, every row has the 5 required fields with correct types (`var` must be a valid
+identifier, `present_in_env_local`/`production_required` must be booleans), and — the defensive
+guard the task specifically asked for — the **raw file text** (not just parsed fields) contains no
+substring matching common secret-value shapes (`sk-...`, `sbp_...`, JWT, `AIza...`, a DB connection
+string with embedded credentials, a URL with embedded basic-auth credentials, a PEM private-key
+block). Run and confirmed passing this session:
+```
+PASS: test-evidence\pt-00\env-audit.json is valid.
+  76 env var(s) audited, 23 marked production_required.
+  15 finding(s) (production_required + absent from .env.local):
+    [P2] CREDENTIAL_ENCRYPTION_KEY ... [P1] VERCEL_TOKEN ... [P2] WORKER_ID
+```
+
+**Gates:** no application code touched — this was an env-var audit, not a build. The two
+intermediate node scripts used to compute `referenced_in` file lists and the final categorized JSON
+were scratch/temporary and deleted after producing `env-audit.json`; only the artifact and the
+verifier remain.
 
 ## SESSION — August 19, 2026 (PT-00-003: authoritative route manifest from fresh build)
 

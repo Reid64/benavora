@@ -1,0 +1,1011 @@
+{
+  "audit": "PT-00-004 env-var audit (names/presence only -- no secret values recorded anywhere in this file)",
+  "generated_context": "STANDING_DIRECTIVES.md DIRECTIVE-019 -- what let the deploy-verifier silently no-op",
+  "method": "Repo-wide grep for process.env.VAR and process.env['VAR'] across src/, worker/, scripts/, and root-level tracked files; cross-checked against .env.local variable NAMES only (never opened for values, no value ever written to this file).",
+  "summary": {
+    "total_vars_referenced": 76,
+    "present_in_env_local": 9,
+    "production_required": 23,
+    "findings_count": 15,
+    "p1_findings": [
+      "VERCEL_PROJECT_ID",
+      "VERCEL_TOKEN"
+    ],
+    "p2_findings": [
+      "CREDENTIAL_ENCRYPTION_KEY",
+      "CRON_SECRET",
+      "INTEGRATION_ENCRYPTION_KEY",
+      "INTEGRATION_KEY_SECRET",
+      "PORTAL_ENCRYPT_SECRET",
+      "RESEND_API_KEY",
+      "RESEND_WEBHOOK_SECRET",
+      "SCRAPER_API_KEY",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "SUPABASE_URL",
+      "UNSUBSCRIBE_HMAC_SECRET",
+      "WORKER_ID"
+    ]
+  },
+  "vars": [
+    {
+      "var": "ANALYZE",
+      "referenced_in": [
+        "next.config.mjs"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "ANTHROPIC_API_KEY",
+      "referenced_in": [
+        "scripts/enrich-website-contacts.ts",
+        "scripts/import-federal-awards.ts",
+        "scripts/import-foundation-awards.ts",
+        "scripts/seed-dd-aliases.ts",
+        "scripts/_tmp_check_claude_key.mjs",
+        "src/app/api/email/summarize/route.ts",
+        "src/lib/admin/unsubscribe-agent.ts",
+        "src/lib/ai/claude.ts"
+      ],
+      "referenced_in_file_count": 37,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Every Claude-calling agent/route (worker boot-required too, see worker/index.ts validateEnv())."
+    },
+    {
+      "var": "AUTOAPPLY_EMAIL",
+      "referenced_in": [
+        "scripts/setup-sparkgood-account.ts",
+        "src/lib/autoapply/registration-agent.ts",
+        "worker/queue-processor.ts"
+      ],
+      "referenced_in_file_count": 3,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "AUTOAPPLY_PHONE",
+      "referenced_in": [
+        "worker/queue-processor.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "BLS_API_KEY",
+      "referenced_in": [
+        "src/lib/intelligence/sources/bls-api.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "BMF_URL",
+      "referenced_in": [
+        "src/scripts/import-irs-bmf.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "CDC_APP_TOKEN",
+      "referenced_in": [
+        "src/lib/intelligence/sources/cdc-api.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "CENSUS_API_KEY",
+      "referenced_in": [
+        "src/lib/intelligence/sources/census-api.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "CI",
+      "referenced_in": [
+        "playwright.config.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "CREDENTIAL_ENCRYPTION_KEY",
+      "referenced_in": [
+        "src/lib/autoapply/credential-manager.ts",
+        "src/lib/email/encryption.ts",
+        "tests/lib/encryption.test.ts"
+      ],
+      "referenced_in_file_count": 3,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "AutoApply portal credential encryption -- hard throw() if unset (fallback removed, see project memory 'encryption-fallbacks-removed')."
+    },
+    {
+      "var": "CRON_SECRET",
+      "referenced_in": [
+        "src/app/api/cron/autoapply/route.ts",
+        "src/app/api/cron/campaigns/route.ts",
+        "src/app/api/cron/domain-warmup/route.ts",
+        "src/app/api/cron/draft-automation/route.ts",
+        "src/app/api/cron/draft-queue-check/route.ts",
+        "src/app/api/cron/email-sequences/route.ts",
+        "src/app/api/cron/follow-ups/route.ts",
+        "src/app/api/cron/grantsgov/route.ts"
+      ],
+      "referenced_in_file_count": 16,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "Bearer-auth gate on 16 /api/cron/* routes; if unset, `if (!cronSecret || ...)` always evaluates true -> every cron route permanently 401s regardless of the real Vercel Cron trigger."
+    },
+    {
+      "var": "DATABASE_URL",
+      "referenced_in": [
+        "scripts/check-migration-idempotency.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Direct Postgres connection -- the only real DDL path per STANDING_DIRECTIVES.md DIRECTIVE-017."
+    },
+    {
+      "var": "DATAOCEAN_BACKUP_ROOT",
+      "referenced_in": [
+        "scripts/backup-enrichment-output.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "DD_PLACES_MONTHLY_BUDGET_USD",
+      "referenced_in": [
+        "src/lib/donor-discovery/adapters/google-places.ts",
+        "tests/lib/google-places.test.ts"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "DRY_RUN_DATABASE_URL",
+      "referenced_in": [
+        "scripts/check-migration-idempotency.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "ENABLE_SCRAPER",
+      "referenced_in": [
+        "src/app/api/scraper/status/route.ts",
+        "worker/scheduler.ts"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "FAITH_FOUNDATION_ORG_ID",
+      "referenced_in": [
+        "scripts/platform-smoke-test.ts",
+        "scripts/verify-factor-breakdown-ui.ts",
+        "scripts/verify-funder-signal-monitor.ts",
+        "scripts/verify-relationship-memory-fix.ts",
+        "src/lib/donor-discovery/adapters/google-places-adapter.ts"
+      ],
+      "referenced_in_file_count": 5,
+      "present_in_env_local": true,
+      "production_required": false,
+      "status": "present_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "GEMINI_API_KEY",
+      "referenced_in": [
+        "src/lib/ai/gemini.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN",
+      "referenced_in": [
+        "src/lib/autoapply/confirmation-monitor.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "GOOGLE_CLIENT_ID",
+      "referenced_in": [
+        "src/lib/autoapply/confirmation-monitor.ts",
+        "src/lib/calendar/gcal-auth.ts",
+        "src/lib/calendar/gcal-sync.ts",
+        "src/lib/calendar/reminder-engine.ts",
+        "src/lib/email/gmail-auth.ts"
+      ],
+      "referenced_in_file_count": 5,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "GOOGLE_CLIENT_SECRET",
+      "referenced_in": [
+        "src/lib/autoapply/confirmation-monitor.ts",
+        "src/lib/calendar/gcal-auth.ts",
+        "src/lib/calendar/gcal-sync.ts",
+        "src/lib/calendar/reminder-engine.ts",
+        "src/lib/email/gmail-auth.ts",
+        "src/lib/integrations/google/oauth-state.ts"
+      ],
+      "referenced_in_file_count": 6,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "GOOGLE_GENERATIVE_AI_API_KEY",
+      "referenced_in": [
+        "src/lib/ai/gemini.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "GOOGLE_PLACES_API_KEY",
+      "referenced_in": [
+        "scripts/acquire-corporate-prospects.ts",
+        "src/app/api/donor-discovery/discover/route.ts",
+        "src/app/api/prospects/acquire/route.ts",
+        "src/lib/donor-discovery/adapters/geocoding-adapter.ts",
+        "src/lib/donor-discovery/adapters/google-places-adapter.ts",
+        "src/lib/donor-discovery/adapters/google-places.ts",
+        "src/lib/sources/corporate-acquisition-adapter.ts",
+        "tests/lib/google-places.test.ts"
+      ],
+      "referenced_in_file_count": 8,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Donor Discovery prospect acquisition + geocoding (8 files)."
+    },
+    {
+      "var": "HUD_API_KEY",
+      "referenced_in": [
+        "scripts/ingest-hud-data.ts",
+        "src/lib/intelligence/sources/hud-api.ts"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "INTEGRATION_ENCRYPTION_KEY",
+      "referenced_in": [
+        "src/lib/integrations/google/auth.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "Google integration token encryption (Behavioral Contracts Section 19) -- hard throw() if unset."
+    },
+    {
+      "var": "INTEGRATION_KEY_SECRET",
+      "referenced_in": [
+        "src/lib/crypto/key-encrypt.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "BYO API key encryption at rest (src/lib/crypto/key-encrypt.ts) -- hard throw() if unset."
+    },
+    {
+      "var": "IRS_990_FORCE",
+      "referenced_in": [
+        "scripts/enrich-foundations-990.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "IRS_990_INDEX_URL",
+      "referenced_in": [
+        "scripts/enrich-foundations-990.ts",
+        "src/lib/scraper/foundation-scraper.ts"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "IRS_990_XML_DIR",
+      "referenced_in": [
+        "src/lib/enrichment/engine.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "IRS_990_YEAR",
+      "referenced_in": [
+        "scripts/enrich-foundations-990.ts",
+        "scripts/investigate-990-schedule-i.ts",
+        "src/lib/scraper/foundation-scraper.ts"
+      ],
+      "referenced_in_file_count": 3,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "NEXT_PUBLIC_APP_URL",
+      "referenced_in": [
+        "src/app/api/notifications/route.ts",
+        "src/app/api/users/invite/route.ts",
+        "src/lib/agents/draft-generation-agent.ts",
+        "src/lib/autoapply/digest-email.ts",
+        "src/lib/services/notification-dispatcher.ts",
+        "src/__tests__/smoke/api-smoke.test.ts"
+      ],
+      "referenced_in_file_count": 6,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "NEXT_PUBLIC_SITE_URL",
+      "referenced_in": [
+        "playwright.config.ts",
+        "src/app/api/calendar/callback/route.ts",
+        "src/app/api/cron/reminders/route.ts",
+        "src/app/api/email/callback/route.ts",
+        "src/app/api/integrations/google/callback/route.ts",
+        "src/app/api/onboarding/complete-setup/route.ts",
+        "src/app/api/users/invite/route.ts",
+        "src/lib/integrations/google/calendar.ts"
+      ],
+      "referenced_in_file_count": 9,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "referenced_in": [
+        "scripts/security-test-main.mjs",
+        "src/lib/supabase/client.ts",
+        "src/lib/supabase/server.ts",
+        "src/middleware.ts",
+        "tests/e2e/helpers.ts"
+      ],
+      "referenced_in_file_count": 5,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Next.js app's Supabase client/server/middleware; inlined into the client bundle at build time."
+    },
+    {
+      "var": "NEXT_PUBLIC_SUPABASE_URL",
+      "referenced_in": [
+        "run-autoapply.ts",
+        "run-filler.ts",
+        "run-migration.js",
+        "scripts/acquire-corporate-prospects.ts",
+        "scripts/backfill-intelligence-library-columns.ts",
+        "scripts/batch-score-opportunities.ts",
+        "scripts/build-digital-twins.ts",
+        "scripts/build-grantmaker-profiles.ts"
+      ],
+      "referenced_in_file_count": 65,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Next.js app's Supabase client/server/middleware; inlined into the client bundle at build time."
+    },
+    {
+      "var": "NEXT_PUBLIC_WORKER_URL",
+      "referenced_in": [
+        "src/components/autoapply/LiveSessionViewer.tsx"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "NODE_ENV",
+      "referenced_in": [
+        "src/app/api/admin/orgs/[id]/impersonate/route.ts",
+        "src/components/ui/ErrorBoundary.tsx"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "OPENAI_API_KEY",
+      "referenced_in": [
+        "src/lib/intelligence/embeddings.ts",
+        "src/scripts/ingest-nih-proposals.ts",
+        "src/scripts/ingest-reviewer-guides.ts",
+        "src/scripts/ingest-rubrics-from-opportunities.ts",
+        "src/scripts/seed-logic-models.ts"
+      ],
+      "referenced_in_file_count": 5,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Embedding generation (Knowledge Engine indexer, intelligence library ingestion)."
+    },
+    {
+      "var": "PLAYWRIGHT_BASE_URL",
+      "referenced_in": [
+        "playwright.config.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
+      "referenced_in": [
+        "src/lib/autoapply/stealth-browser.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PLAYWRIGHT_TEST_EMAIL",
+      "referenced_in": [
+        "e2e/admin-sales.spec.ts",
+        "e2e/autoapply-dashboard.spec.ts",
+        "e2e/billing-gates.spec.ts",
+        "e2e/critical-paths.spec.ts",
+        "e2e/dashboard.spec.ts",
+        "e2e/donor-discovery-prospects.spec.ts",
+        "e2e/draft-generation.spec.ts",
+        "e2e/email-integration.spec.ts"
+      ],
+      "referenced_in_file_count": 13,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PLAYWRIGHT_TEST_PASSWORD",
+      "referenced_in": [
+        "e2e/admin-sales.spec.ts",
+        "e2e/autoapply-dashboard.spec.ts",
+        "e2e/billing-gates.spec.ts",
+        "e2e/critical-paths.spec.ts",
+        "e2e/dashboard.spec.ts",
+        "e2e/donor-discovery-prospects.spec.ts",
+        "e2e/draft-generation.spec.ts",
+        "e2e/email-integration.spec.ts"
+      ],
+      "referenced_in_file_count": 13,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PORT",
+      "referenced_in": [
+        "scripts/verify-admin-orgs-treatment-2026-08-18.mjs",
+        "worker/index.ts"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PORTAL_ENCRYPT_SECRET",
+      "referenced_in": [
+        "src/lib/automation/portal-credentials.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "AutoApply portal login-credential encryption -- hard throw() if unset."
+    },
+    {
+      "var": "PROXY_API_KEY",
+      "referenced_in": [
+        "worker/queue-processor.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PROXY_LIST",
+      "referenced_in": [
+        "worker/proxy-manager.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "PROXY_PROVIDER",
+      "referenced_in": [
+        "worker/queue-processor.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "RAILWAY_API_TOKEN",
+      "referenced_in": [
+        "scripts/soak-test-autoapply-worker.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "RAILWAY_SERVICE_ID",
+      "referenced_in": [
+        "scripts/soak-test-autoapply-worker.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "RESEND_API_KEY",
+      "referenced_in": [
+        "src/app/api/settings/integrations/status/route.ts",
+        "src/lib/admin/unsubscribe-agent.ts",
+        "src/lib/autoapply/digest-email.ts",
+        "src/lib/autoapply/email-submitter.ts",
+        "src/lib/autoapply/follow-up-scheduler.ts",
+        "src/lib/email/resend-client.ts",
+        "src/lib/email/sender.ts",
+        "src/lib/email/sequence-engine.ts"
+      ],
+      "referenced_in_file_count": 13,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "All transactional/digest/sequence email sending (13 files)."
+    },
+    {
+      "var": "RESEND_FROM_DOMAIN",
+      "referenced_in": [
+        "src/lib/email/sender.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "RESEND_FROM_EMAIL",
+      "referenced_in": [
+        "src/lib/autoapply/digest-email.ts",
+        "src/lib/email/resend-client.ts",
+        "src/lib/email/sequence-engine.ts",
+        "src/lib/notifications/notify.ts",
+        "src/lib/services/notification-dispatcher.ts"
+      ],
+      "referenced_in_file_count": 5,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "RESEND_WEBHOOK_SECRET",
+      "referenced_in": [
+        "src/app/api/admin/webhooks/email-events/route.ts",
+        "src/app/api/admin/webhooks/email-reply/route.ts",
+        "src/app/api/webhooks/resend/route.ts"
+      ],
+      "referenced_in_file_count": 3,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "Resend webhook signature verification -- fails closed (500s) if unset, per prior session's fix; a real security control, not cosmetic."
+    },
+    {
+      "var": "SAM_GOV_API_KEY",
+      "referenced_in": [
+        "scripts/ingest-samgov.ts",
+        "src/app/api/agents/research/route.ts",
+        "src/app/api/agents/sam-gov/route.ts",
+        "src/lib/donor-discovery/adapters/samgov-adapter.ts",
+        "src/lib/sources/corporate-acquisition-adapter.ts",
+        "src/lib/sources/land-bank-client.ts",
+        "src/lib/sources/samgov-client.ts"
+      ],
+      "referenced_in_file_count": 7,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Federal opportunity/entity research (SAM.gov client, corporate acquisition adapter, 7 files)."
+    },
+    {
+      "var": "SB_TOKEN_FILE",
+      "referenced_in": [
+        "apply-migration.mjs",
+        "deploy-migrations.mjs"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "SCRAPER_API_KEY",
+      "referenced_in": [
+        "src/lib/scraper/stealth-engine.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "ScraperAPI proxy key used by the stealth scraping engine (src/lib/scraper/stealth-engine.ts) -- foundation/nonprofit enrichment scrapers depend on it for reliable fetches."
+    },
+    {
+      "var": "SCRAPER_BATCH_LIMIT",
+      "referenced_in": [
+        "scripts/run-foundation-scraper.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "SCRAPER_START_OFFSET",
+      "referenced_in": [
+        "scripts/run-foundation-scraper.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "SEARXNG_URL",
+      "referenced_in": [
+        "src/lib/enrichment/sources/web-search.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "SIMPLER_GRANTS_API_KEY",
+      "referenced_in": [
+        "src/lib/agents/simpler-grants.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "SMOKE_OPP_ID",
+      "referenced_in": [
+        "scripts/smoke-test-workflow.mjs"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "STAMP",
+      "referenced_in": [
+        "audit/phase3-crud.mjs",
+        "audit/phase3-ui.mjs",
+        "audit/phase3-ui2.mjs",
+        "audit/phase3-ui3.mjs"
+      ],
+      "referenced_in_file_count": 4,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "STORAGE_DOCUMENTS_BUCKET",
+      "referenced_in": [
+        "src/app/api/contacts/tasks/[taskId]/download/route.ts",
+        "src/app/api/contacts/[id]/outreach/mail/route.ts",
+        "src/app/api/documents/assemble/route.ts"
+      ],
+      "referenced_in_file_count": 3,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "STORAGE_REPORTS_BUCKET",
+      "referenced_in": [
+        "src/app/api/reports/board/route.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "STRIPE_SECRET_KEY",
+      "referenced_in": [
+        "src/lib/payments/stripe.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "Billing/payments (src/lib/payments/stripe.ts)."
+    },
+    {
+      "var": "STRIPE_WEBHOOK_SECRET",
+      "referenced_in": [
+        "src/app/api/webhooks/stripe/route.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "Stripe webhook signature verification (src/app/api/webhooks/stripe/route.ts)."
+    },
+    {
+      "var": "SUPABASE_SERVICE_ROLE_KEY",
+      "referenced_in": [
+        "run-autoapply.ts",
+        "run-filler.ts",
+        "run-migration.js",
+        "scripts/acquire-corporate-prospects.ts",
+        "scripts/backfill-intelligence-library-columns.ts",
+        "scripts/batch-score-opportunities.ts",
+        "scripts/build-digital-twins.ts",
+        "scripts/build-grantmaker-profiles.ts"
+      ],
+      "referenced_in_file_count": 64,
+      "present_in_env_local": true,
+      "production_required": true,
+      "status": "ok",
+      "note": "Every admin/service-role Supabase client (bypasses RLS) across API routes, scripts, and the worker."
+    },
+    {
+      "var": "SUPABASE_URL",
+      "referenced_in": [
+        "src/scripts/check-portal-health.ts",
+        "src/scripts/ingest-nih-proposals.ts",
+        "src/scripts/ingest-reviewer-guides.ts",
+        "src/scripts/ingest-rubrics-from-opportunities.ts",
+        "src/scripts/seed-logic-models.ts",
+        "src/scripts/_cleanup-partial-proposals.ts",
+        "worker/index.ts"
+      ],
+      "referenced_in_file_count": 7,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "worker/index.ts validateEnv() hard process.exit(1)s if unset -- distinct var name from NEXT_PUBLIC_SUPABASE_URL, worker will not boot without it even though the Next.js app's var is present."
+    },
+    {
+      "var": "TEMPLATE_LIMIT",
+      "referenced_in": [
+        "scripts/run-foundation-990-template.ts",
+        "scripts/run-nonprofit-contact-template.ts"
+      ],
+      "referenced_in_file_count": 2,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "TS_STAMP",
+      "referenced_in": [
+        "audit/phase2-auth.mjs"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "TWOCAPTCHA_API_KEY",
+      "referenced_in": [
+        "src/lib/autoapply/captcha-solver.ts",
+        "src/lib/scraper/stealth-engine.ts",
+        "src/lib/services/captcha-solver.ts"
+      ],
+      "referenced_in_file_count": 3,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Feature-specific / dev-tooling / test-only / has a code-level default -- app and worker run without it."
+    },
+    {
+      "var": "UNSUBSCRIBE_HMAC_SECRET",
+      "referenced_in": [
+        "src/lib/admin/compliance.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "Compliance/unsubscribe-link HMAC signing -- hard throw() if unset."
+    },
+    {
+      "var": "VERCEL_PROJECT_ID",
+      "referenced_in": [
+        "scripts/verify-deployment.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P1",
+      "severity": "P1",
+      "note": "scripts/verify-deployment.ts hard-requires this (or VERCEL_PROJECT_NAME as fallback); absent -> exits 3 (INDETERMINATE)."
+    },
+    {
+      "var": "VERCEL_PROJECT_NAME",
+      "referenced_in": [
+        "scripts/verify-deployment.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Fallback alias for VERCEL_PROJECT_ID in scripts/verify-deployment.ts; not independently required if VERCEL_PROJECT_ID is set."
+    },
+    {
+      "var": "VERCEL_TEAM_ID",
+      "referenced_in": [
+        "scripts/verify-deployment.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": false,
+      "status": "missing_optional",
+      "note": "Explicitly optional per scripts/verify-deployment.ts's own header comment -- only needed if the Vercel project lives under a team."
+    },
+    {
+      "var": "VERCEL_TOKEN",
+      "referenced_in": [
+        "scripts/verify-deployment.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P1",
+      "severity": "P1",
+      "note": "scripts/verify-deployment.ts hard-requires this; absent -> exits 3 (INDETERMINATE), the gate never actually verifies production drift."
+    },
+    {
+      "var": "WORKER_ID",
+      "referenced_in": [
+        "worker/index.ts"
+      ],
+      "referenced_in_file_count": 1,
+      "present_in_env_local": false,
+      "production_required": true,
+      "status": "missing_required_P2",
+      "severity": "P2",
+      "note": "worker/index.ts validateEnv() hard process.exit(1)s if unset; the worker process cannot boot without it."
+    }
+  ]
+}

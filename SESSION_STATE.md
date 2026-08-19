@@ -1,7 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-00-003 — authoritative route manifest built from the real filesystem, zero dead-nav found)
+## Last Updated: August 19, 2026 (PT-00-004 — env-var audit: what lets the deploy-verifier silently no-op)
 
-## Current Session — August 19, 2026 (PT-00-003: authoritative route manifest from fresh build)
+## Current Session — August 19, 2026 (PT-00-004: env-var audit — what lets the deploy-verifier silently no-op)
+
+**Focus:** DIRECTIVE-019 already flagged `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` as missing and turning
+`scripts/verify-deployment.ts` into a silent INDETERMINATE no-op, but treated it as an isolated,
+already-known gap. This session enumerates the full truth: every env var the codebase reads, by
+name only, cross-checked against `.env.local` by name only (no value ever read/recorded/written).
+
+**Status:** repo-wide grep (both `process.env.VAR` and `process.env['VAR']` forms) across `src/`,
+`worker/`, `scripts/`, and root-level tracked files found **76 distinct env var names**. Checked
+each against `.env.local`'s real variable names via `grep -oE '^[A-Za-z_][A-Za-z0-9_]*='` (names
+only — **9 present**). Classified 23 as `production_required` after reading the actual consuming
+code for every ambiguous case (not guessed from the name): `scripts/verify-deployment.ts` for the
+Vercel vars (confirmed `VERCEL_TEAM_ID` is genuinely optional per its own header comment, unlike
+`VERCEL_TOKEN`/`VERCEL_PROJECT_ID`); `worker/index.ts`'s `validateEnv()` for the worker-boot vars
+(found a real gap: the worker needs its own `SUPABASE_URL`, distinct from the app's
+`NEXT_PUBLIC_SUPABASE_URL`, and doesn't have it); the 5 encryption-key files (all hard `throw` on
+unset, matching the `encryption-fallbacks-removed` memory); a representative cron route (confirmed
+`CRON_SECRET` unset means every one of 16 `/api/cron/*` routes permanently 401s); and confirmed
+`STORAGE_*_BUCKET`/`RESEND_FROM_*`/`ENABLE_SCRAPER` have real code-level defaults, correctly
+excluded. **Result: 15 findings** — 2 P1 (`VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, the deploy-verify
+gate itself) and 13 P2 (real production secrets absent, including `CRON_SECRET`,
+`RESEND_WEBHOOK_SECRET`, `WORKER_ID`, `SUPABASE_URL`, both Stripe vars, and 4 more encryption/portal
+secrets). Full per-var table with `referenced_in` file lists in `test-evidence/pt-00/env-audit.json`.
+
+**Verifier:** `scripts/audit/verify-pt00-004.mjs` — parses the JSON, checks structural shape on
+every row, and scans the raw file text for secret-value-shaped substrings (API-key prefixes, JWTs,
+DB connection strings with embedded creds, PEM blocks) as a defensive guard against the audit itself
+having captured a value. Ran clean: `76 env var(s) audited, 23 marked production_required`, `15
+finding(s)` listed by severity.
+
+**Gates:** no application code touched — an env-var audit, not a build. Two scratch node scripts
+used to compute file references and merge the final categorized JSON were deleted after producing
+`env-audit.json`.
+
+**Scoped commit:** `test-evidence/pt-00/env-audit.json`, `scripts/audit/verify-pt00-004.mjs`,
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` — no other files touched.
+
+## Prior Session — August 19, 2026 (PT-00-003: authoritative route manifest from fresh build)
 
 **Focus:** build the route list the app actually ships, from the filesystem and build output
 (truth), not from `nav-items.ts` or `BLUEPRINT_v2.md` (both documented elsewhere in this repo as
