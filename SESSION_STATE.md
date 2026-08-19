@@ -1,7 +1,52 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-02-005 complete — pagination audit of large-table list endpoints + root cause for the 5 known 500s (WGR-005..009), diagnosis only, no fixes: PostgREST's 1000-row default cap live-confirmed as the mechanism; 4 endpoints paginate correctly, 4 real findings registered (WGR-029/031 currently live-wrong in production today — a real request's prospect_count undercounted 133,812→~1000, a real average award amount understated ~37x; WGR-030/032's request_id half latent, same mechanism, not yet triggering on current data). All 5 known 500s root-caused with a live-captured error: WGR-005 is a column-name mismatch (org_id vs organization_id) from a silently-no-op'd CREATE TABLE IF NOT EXISTS across two migration trees; WGR-006/007/008/009 are all unapplied migrations. WGR-007's pending product decision confirmed still owed, both its options blocked on an unapplied migration. Verifier passes. Prior: PT-02-004 complete — CRUD round-trip proof for 11 resources through the real API layer: 8 full/partial cycles run for real against a local Supabase stack, 3 real findings registered (WGR-025/026/027 — 2 soft-delete-vs-404 gaps, 1 fully-broken email_templates CREATE), 15/15 viewer-role WRITE attempts correctly refused, 3 named example resources (opportunities/contacts/deadlines) confirmed to have zero CRUD route surface, verifier passes. Prior: PT-02-003 complete — role-tier enforcement matrix over all 49 admin/owner-gated API routes, real sessions at all 4 real roles: 304/304 checks pass, 0 under-enforcement findings, verifier passes. Earlier: PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Earlier: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
+## Last Updated: August 19, 2026 — audit PT-02 (API/CRUD/auth) COMPLETE. Headline: 318/318 API
+routes tested unauthenticated with zero auth bypasses; 304/304 role-tier calls (76 routes × 4
+roles) correctly enforced with zero under-enforcement. API authorization is sound. Review pack
+ready for Reid at `test-evidence/pt-02/REVIEW-PACK.md`. Real findings this phase (none are
+security/authorization issues): 2 live-wrong numbers on real pages from a silent
+PostgREST-1000-row-cap pagination bug (WGR-029/031), 1 unconditionally-broken route
+(`POST /api/email/templates`, WGR-027), 2 soft-delete API-contract quirks (WGR-025/026), and root
+causes for the 5 already-known 500s from PT-00 (4 missing tables never migrated to production, 1
+column-name application bug — WGR-005..009). WGR-007's product decision (apply migration 083 vs.
+retire for `application_followups`) remains owed. See "Current Session" below for the
+consolidation summary; the 5 prior-session entries under it are this phase's underlying work,
+unchanged.
 
-## Current Session — August 19, 2026 (PT-02-005: pagination audit + 5 known 500s root-caused, diagnosis only)
+## Current Session — August 19, 2026 (audit PT-02 COMPLETE: API/CRUD/auth audit, review pack ready)
+
+**Focus:** consolidation and human-review checkpoint for PT-02, closing the same way PT-00 and
+PT-01 each did. No new investigation — this pass writes `PHASE-02-SUMMARY.md` (every number this
+phase produced, cited to its evidence file and verifier) and `REVIEW-PACK.md` (the short read: is
+the API layer sound and authorization enforced — yes, on both axes tested; what's actually broken
+and how bad; the still-owed WGR-007 decision; a recommendation for the next phase) under
+`test-evidence/pt-02/`, confirms every PT-02 finding already has a register row with real evidence
+(WGR-023 through WGR-032, all added across the 5 prior substeps below — none needed adding this
+pass), and adds one piece of new information to the register: a note on WGR-003 recording Reid's
+report that `CRON_SECRET` is confirmed present in Vercel production and that cron routes return
+`401` (not a redirect) when hit unauthenticated there. That's Reid's own observation, not
+independently re-verified against the deployed environment — PT-02-002's own sweep (local dev
+server) found the opposite for every `cron_secret` route (a `307` redirect before the route's own
+check ever runs, see WGR-023) — recorded as an open discrepancy for a future check, not resolved
+by assumption.
+
+Ran all 5 existing `verify-pt02-00{1..5}.mjs` scripts fresh this session (all 5 PASS, real output
+captured in `PHASE-02-SUMMARY.md`) before writing the summary, rather than restating prior
+sessions' claims from memory. Full detail in `STATE_OF_THE_BUILD.md`'s matching "SESSION — August
+19, 2026 (audit PT-02 COMPLETE)" entry — not duplicated here.
+
+**Recommendation for the next phase:** proceed to **PT-05 (tenant isolation)** or **PT-06 (DB
+integrity)**, both feeding PT-14 (security). Leaning toward PT-05 as the more direct extension of
+what this phase already proved (role/auth correctness within one org) and the higher severity
+ceiling if something's wrong there. Reid's call.
+
+**Gates:** `node scripts/audit/verify-pt02-006.mjs` — new closing verifier for this phase, confirms
+`PHASE-02-SUMMARY.md`/`REVIEW-PACK.md` exist non-empty and the register grew past PT-01's last row
+(WGR-022) with WGR-023 present.
+
+**Not done, correctly out of scope:** no code fixes; WGR-007's product decision not made; the
+WGR-003/WGR-023 production-vs-local cron-reachability discrepancy not independently resolved.
+
+## Prior Session — August 19, 2026 (PT-02-005: pagination audit + 5 known 500s root-caused, diagnosis only)
 
 **Focus:** two targeted investigations owed from prior phases — (1) whether any list endpoint over
 a large table (`foundation_directory`, `donor_discovery_directory`, the nonprofit tables, prospects)

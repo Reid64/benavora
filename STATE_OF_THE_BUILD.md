@@ -1,6 +1,69 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-02-005 — pagination audit + 5 known 500s root-caused: live-confirmed this Supabase project's PostgREST `db.max_rows` silently caps every request at 1000 rows regardless of an app-level `.limit()`; found 4 real endpoints (2 currently live-wrong today, not hypothetical) that trust an unbounded `.select()` as complete — WGR-029 (donor-discovery request detail, real prospect_count undercounted 133,812→~1000 for a real production request), WGR-031 (Intelligence Library filter stats, real average award amount understated ~37x, $37.9M→$1.0M, 2 real sources silently missing from the filter dropdown), WGR-030/WGR-032 latent (same mechanism, not yet triggering on current data shape). 4 other large-table list endpoints (foundations page, nonprofits page, corporate-prospects API, donor-discovery/prospects main listing) confirmed to paginate correctly. All 5 previously-unresolved 500s (WGR-005..009) root-caused with live-captured error text: WGR-005 is a column-name mismatch (`organization_id` vs the real live `org_id`) traced to a stale `CREATE TABLE IF NOT EXISTS` no-op across two migration trees; WGR-006/008/009 and WGR-007 (re-confirmed) are all unapplied migrations (tables absent from production, code correct against the migration file on disk). WGR-007's pending product decision (apply migration 083 vs. retire for AG-28's `application_followups`) is confirmed still owed — and the alternative path is also blocked, since `application_followups` is itself unapplied. See session entry below. Prior: PT-02-004 — CRUD round-trip proof, 11 resources through the real API layer (not direct DB writes): 8 full create/read/update/delete cycles run for real (draft_queue, request_profiles, email_templates, email_sequences, plus read/update-only cycles on applications, drafts, donor_discovery_prospects, grant_budgets where no create/delete route exists), 3 real findings (WGR-025/026/027 — two soft-delete-but-GET-still-200 gaps, one fully-broken email_templates CREATE from a real subject/body vs subject_template/body_template schema mismatch), viewer-role WRITE correctly refused on all 15 real mutation-route attempts. 3 named example resources (opportunities, contacts, deadlines) confirmed to have zero CRUD route surface at all. Prior: PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. Earlier: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 — audit PT-02 (API/CRUD/auth) COMPLETE, consolidation done, review pack
+ready for Reid's review. Headline: 318/318 API routes tested unauthenticated with zero auth
+bypasses; 304/304 role-tier calls (76 routes × 4 roles) correctly enforced with zero
+under-enforcement. Authorization is sound. See the "SESSION — August 19, 2026 (audit PT-02
+COMPLETE)" entry immediately below for the consolidation summary; the five per-substep entries
+after it (PT-02-005 through the PT-02 preflight) are this phase's underlying work, unchanged.**
+
+## SESSION — August 19, 2026 (audit PT-02 COMPLETE: API/CRUD/auth audit, review pack ready)
+
+**Focus:** consolidation and human-review checkpoint for the PT-02 phase (API/CRUD/auth audit),
+following the same pattern PT-00 and PT-01 each closed with. No new investigation this entry — it
+consolidates the 5 PT-02 substeps already documented below (PT-02 preflight through PT-02-005) into
+a single phase summary and a short review pack for Reid, updates the wiring gap register with one
+piece of new information (a note on WGR-003 from Reid re: `CRON_SECRET` in production), and confirms
+the register has genuinely grown with this phase's findings (not just re-asserted).
+
+**Deliverables:**
+- `test-evidence/pt-02/PHASE-02-SUMMARY.md` — every number from this phase (API route
+  classification, unauth-sweep pass/fail counts, role-matrix results, CRUD cycle results,
+  pagination findings, the 5 root-caused 500s), each citing the evidence file it came from and the
+  verifier command that reproduces it. Ran all 5 existing `verify-pt02-00{1..5}.mjs` scripts fresh
+  this session and captured their real output rather than re-describing from memory — all 5 PASS.
+- `test-evidence/pt-02/REVIEW-PACK.md` — the short read: is the API layer sound and authorization
+  enforced (yes, on both dimensions tested — zero auth bypasses, zero role under-enforcement); the
+  highest-severity real findings (2 live-wrong numbers on real pages from silent pagination
+  truncation — WGR-029, WGR-031 — and one unconditionally-broken route, WGR-027); the still-owed
+  WGR-007 product decision (apply migration 083 vs. retire for AG-28's `application_followups` —
+  neither is a same-day fix, since the alternative is also unapplied); and a recommendation to
+  proceed to PT-05 (tenant isolation) or PT-06 (DB integrity) next, both of which feed PT-14
+  (security).
+- `test-evidence/_register/WIRING_GAP_REGISTER.md` — confirmed every PT-02 finding already has a
+  row (WGR-023 through WGR-032, all added across the 5 prior PT-02 substeps) with a real evidence
+  path and reproduction command; no new rows were needed this consolidation pass. WGR-005 through
+  WGR-009 already carry their root causes (added in the PT-02-005 substep). One update made this
+  pass: WGR-003 (env-var absence) got a note recording Reid's report that `CRON_SECRET` is
+  confirmed present in Vercel production and that cron routes return `401` there when hit
+  unauthenticated — flagged as Reid's own observation, not independently re-verified against the
+  deployed environment by this audit (PT-02-002's own sweep, against a local dev server, found the
+  opposite: a `307` redirect before the route's own `CRON_SECRET` check runs — see WGR-023).
+  Recorded as an open discrepancy for a future 10-minute check against the real Vercel URL, not
+  resolved by assumption either way.
+
+**Net result of the whole PT-02 phase, stated plainly:** the API layer's authorization is sound —
+this is the headline, and it held on both axes that would have made it not-sound (an
+unauthenticated bypass, an under-enforced role tier). What the phase did find is real but
+contained: two live, currently-wrong numbers on real pages caused by an unbounded-query pattern
+that Supabase's PostgREST silently caps at 1000 rows with no error (WGR-028 is the underlying
+mechanism; WGR-029/031 are the two live-wrong instances of it), one route that's unconditionally
+broken due to a column-name mismatch against the live schema (WGR-027), two soft-delete
+API-contract quirks (WGR-025/026), and root causes for the 5 already-known 500s from PT-00 (4
+missing tables never migrated to production, 1 application-code column-name bug — WGR-005 through
+WGR-009). None of these are authorization/security issues.
+
+**Not done this pass, correctly out of scope:** no code was fixed (this phase, like PT-00/PT-01, is
+diagnosis-only); WGR-007's product decision was not made; the WGR-003/WGR-023 production-vs-local
+discrepancy on cron-route reachability was not independently resolved.
+
+**Gates:** `node scripts/audit/verify-pt02-006.mjs` — this phase's closing verifier, confirms
+`PHASE-02-SUMMARY.md` and `REVIEW-PACK.md` both exist non-empty and the register has grown beyond
+PT-01's last row (WGR-022) with real PT-02 findings (WGR-023 present).
+
+---
+
+## SESSION — August 19, 2026 (PT-02-005 — pagination audit + 5 known 500s root-caused: live-confirmed this Supabase project's PostgREST `db.max_rows` silently caps every request at 1000 rows regardless of an app-level `.limit()`; found 4 real endpoints (2 currently live-wrong today, not hypothetical) that trust an unbounded `.select()` as complete — WGR-029 (donor-discovery request detail, real prospect_count undercounted 133,812→~1000 for a real production request), WGR-031 (Intelligence Library filter stats, real average award amount understated ~37x, $37.9M→$1.0M, 2 real sources silently missing from the filter dropdown), WGR-030/WGR-032 latent (same mechanism, not yet triggering on current data shape). 4 other large-table list endpoints (foundations page, nonprofits page, corporate-prospects API, donor-discovery/prospects main listing) confirmed to paginate correctly. All 5 previously-unresolved 500s (WGR-005..009) root-caused with live-captured error text: WGR-005 is a column-name mismatch (`organization_id` vs the real live `org_id`) traced to a stale `CREATE TABLE IF NOT EXISTS` no-op across two migration trees; WGR-006/008/009 and WGR-007 (re-confirmed) are all unapplied migrations (tables absent from production, code correct against the migration file on disk). WGR-007's pending product decision (apply migration 083 vs. retire for AG-28's `application_followups`) is confirmed still owed — and the alternative path is also blocked, since `application_followups` is itself unapplied. See session entry below. Prior: PT-02-004 — CRUD round-trip proof, 11 resources through the real API layer (not direct DB writes): 8 full create/read/update/delete cycles run for real (draft_queue, request_profiles, email_templates, email_sequences, plus read/update-only cycles on applications, drafts, donor_discovery_prospects, grant_budgets where no create/delete route exists), 3 real findings (WGR-025/026/027 — two soft-delete-but-GET-still-200 gaps, one fully-broken email_templates CREATE from a real subject/body vs subject_template/body_template schema mismatch), viewer-role WRITE correctly refused on all 15 real mutation-route attempts. 3 named example resources (opportunities, contacts, deadlines) confirmed to have zero CRUD route surface at all. Prior: PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. Earlier: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
 
 ## SESSION — August 19, 2026 (PT-02-005: pagination audit of large-table list endpoints + root cause for the 5 known 500s)
 
