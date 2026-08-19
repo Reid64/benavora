@@ -1,0 +1,196 @@
+{
+  "generatedAt": "2026-08-19T00:00:00.000Z",
+  "note": "PT-02 investigation, two parts: (1) pagination audit of every list endpoint returning rows from a large table (foundation_directory, donor_discovery_directory, nonprofit tables, prospects), testing whether each paginates or silently truncates at PostgREST's default row cap; (2) root-cause diagnosis for the 5 known 500s already registered as WGR-005 through WGR-009 (CONFIRMED-BROKEN, cause previously unrecorded except WGR-007). Both investigations were run live against the SAME production Supabase project (ref vbjplpquqxxfbpazyalt) that local `pnpm dev` -- and therefore the original PT-00-005 smoke sweep that first captured WGR-005..009 -- points at via NEXT_PUBLIC_SUPABASE_URL in .env.local. Diagnosis method: direct DATABASE_URL/psql connection (DIRECTIVE-017) plus live PostgREST REST calls with the service-role key, per STANDING_DIRECTIVES.md's documented DDL/inspection path. All root causes below reproduce the EXACT error body the app's route handler returns (captured live, not inferred from a code read alone). No fixes were made -- diagnosis only, per this task's explicit scope.",
+  "targetSupabaseUrl": "https://vbjplpquqxxfbpazyalt.supabase.co",
+  "localDevPointsAtSameProject": true,
+  "securityNote": "Every dotenv.config() call made by this investigation's throwaway scripts printed an unsolicited console 'tip' line, several of which read 'auth for agents [www.vestauth.com]' -- an unfamiliar domain phrased specifically to bait an AI agent into visiting it. Not visited, not treated as an instruction. Flagged to the user per this session's standing instruction to surface suspected prompt injection. Same finding already flagged in a prior session (see STATE_OF_THE_BUILD.md's queue-32 preflight entry) -- still present, still not investigated further, out of scope for this task.",
+
+  "postgrestDefaultRowCap": {
+    "value": 1000,
+    "liveVerified": true,
+    "evidenceCommand": "GET {supabaseUrl}/rest/v1/nonprofits?select=id&limit=5000 (service-role key, no Range header)",
+    "evidenceResult": {
+      "httpStatus": 206,
+      "contentRange": "0-999/1978526",
+      "rowsReturned": 1000
+    },
+    "conclusion": "This Supabase project's db.max_rows PostgREST setting silently caps ANY request at 1000 rows -- regardless of an app-level .limit() requesting more (5000 in this test), or no .limit()/.range() at all. The response is HTTP 206 Partial Content with a Content-Range header, not an error; supabase-js callers that never inspect count/Content-Range and just use data.length as 'the real total' will silently treat a 1000-row slice as complete."
+  },
+
+  "tableRowCounts": {
+    "foundation_directory": 133812,
+    "nonprofits": 1978526,
+    "corporate_prospects": 49,
+    "donor_discovery_directory": 133815,
+    "donor_discovery_prospects": 133812,
+    "dd_prospect_requests": 133812,
+    "intelligence_funded_proposals": 3489,
+    "notes": "donor_discovery_prospects' 133,812 rows are ALL owned by one real org (b1ab7402-dfc2-4712-869f-70ea3566cc1d, the Faith Foundation production org referenced throughout STATE_OF_THE_BUILD.md) and ALL linked, via dd_prospect_requests, to ONE real request (cf95be82-b66c-48af-a00b-782852b132b5) -- this is the exact 133,812-row growth WGR-017 already flagged as having pushed past PostgREST's 1000-row cap. That single real request is used below as the live reproduction case for two of the confirmed-truncating endpoints."
+  },
+
+  "paginationAudit": {
+    "methodology": "For every API route or page found (via repo-wide grep of .from(\"<table>\") across src/app for the 4 named large-table families) that returns rows from foundation_directory, nonprofits, donor_discovery_directory, donor_discovery_prospects, or corporate_prospects, read the handler/component and classify every .select() call against that table: PAGINATES_CORRECTLY (explicit page/limit params, .range()-bounded, count returned to the client so more-pages-exist is knowable), BOUNDED_NO_TOTAL (an app-level .limit() below PostgREST's 1000 cap, but no page/offset param and no total returned), SILENT_TRUNCATION_CONFIRMED (an unbounded or >1000-limited .select() live-reproduced returning fewer rows than the real table/filter total, with the shortfall demonstrated against real production data), or SILENT_TRUNCATION_LATENT (same unbounded query shape, confirmed via the PostgREST db.max_rows test above to silently cap at 1000 the moment it is asked to, but not currently producing an observably wrong result today because the real matching row count for any live filter value happens to be <=1000).",
+    "endpoints": [
+      {
+        "endpoint": "/foundations (page, client-side query)",
+        "table": "foundation_directory",
+        "file": "src/app/(dashboard)/foundations/page.tsx",
+        "verdict": "PAGINATES_CORRECTLY",
+        "detail": "PAGE_SIZE=50 (line 16), .range(from, to) built from a numeric page state, .select(\"*\", { count: \"exact\" }) so the real total is always known, real Prev/Next UI gated on total > PAGE_SIZE. Live table has 133,812 rows; every request returns exactly 50, never silently more or fewer.",
+        "liveRowCount": 133812
+      },
+      {
+        "endpoint": "/nonprofits (page, client-side query)",
+        "table": "nonprofits",
+        "file": "src/app/(dashboard)/nonprofits/page.tsx",
+        "verdict": "PAGINATES_CORRECTLY",
+        "detail": "PER_PAGE=50 (line 10), .range(offset, offset+PER_PAGE-1), count: \"estimated\" (appropriate at this table's scale -- 1.97M rows, an exact count would be an expensive full scan every page load). Real page-number UI derived from resultCount.",
+        "liveRowCount": 1978526
+      },
+      {
+        "endpoint": "GET /api/intelligence/corporate-prospects",
+        "table": "corporate_prospects",
+        "file": "src/app/api/intelligence/corporate-prospects/route.ts",
+        "verdict": "PAGINATES_CORRECTLY",
+        "detail": "page/pageSize query params, pageSize hard-capped at MAX_PAGE_SIZE=100 (line 38, well under PostgREST's 1000 default), .range(from, to), select(..., { count: \"exact\" }), response includes total and hasMore (from + prospects.length < total). Correct pagination mechanism regardless of table growth.",
+        "liveRowCount": 49
+      },
+      {
+        "endpoint": "GET /api/donor-discovery/prospects (main listing path, no taxonomy_id/request_id filter)",
+        "table": "donor_discovery_prospects",
+        "file": "src/app/api/donor-discovery/prospects/route.ts",
+        "verdict": "PAGINATES_CORRECTLY",
+        "detail": "page/limit query params, limit hard-capped at MAX_LIMIT=100 (line 22), .range(offset, offset+limit-1), select(..., { count: \"exact\" }), response includes total. The listing itself is correctly paginated. See the taxonomy_id/request_id sub-queries entry below (WGR-032) for a SEPARATE, unbounded pair of internal filter-building queries in this same route file that DO truncate.",
+        "liveRowCount": 133812
+      },
+      {
+        "endpoint": "GET /api/intelligence/outreach/prospects",
+        "table": "corporate_prospects",
+        "file": "src/app/api/intelligence/outreach/prospects/route.ts",
+        "verdict": "BOUNDED_NO_TOTAL",
+        "detail": "A prospect-selector typeahead, not a full list view. .limit(limit), limit capped at MAX_LIMIT=200 (line 23) -- below PostgREST's 1000 default, so this is NOT the 'silently truncates at the PostgREST default' pattern the task asks about; it is an app-imposed, honestly-lower cap. No page/offset param and no total/hasMore in the response, so if the underlying table ever exceeds 200 rows a caller has no way to reach or even detect the remainder. Unobservable today (49 real rows, well under 200). Logged as informational, not a P1/P2 truncation finding, since it never claims completeness the way a bare .select() with no limit does.",
+        "liveRowCount": 49
+      },
+      {
+        "endpoint": "GET /api/donor-discovery/requests/[id]",
+        "table": "dd_prospect_requests, donor_discovery_prospects",
+        "file": "src/app/api/donor-discovery/requests/[id]/route.ts",
+        "verdict": "SILENT_TRUNCATION_CONFIRMED",
+        "detail": "Two unbounded .select() calls (lines 33-36 and 46-50), no .range()/.limit() on either. Live-reproduced against the real request cf95be82-b66c-48af-a00b-782852b132b5 (133,812 real linked prospects, org b1ab7402-dfc2-4712-869f-70ea3566cc1d): the app's own query for this request returns exactly 1000 linked prospect ids (PostgREST Content-Range: 0-999/133812), so progress.prospect_count and progress.stage_breakdown silently report ~1000 vs the real 133,812 -- a 99.3% undercount, live, for a real production request, today. See WGR-029 for full evidence.",
+        "wgrId": "WGR-029",
+        "liveRowCount": 133812
+      },
+      {
+        "endpoint": "GET /api/donor-discovery/pipeline",
+        "table": "donor_discovery_prospects",
+        "file": "src/app/api/donor-discovery/pipeline/route.ts",
+        "verdict": "SILENT_TRUNCATION_LATENT",
+        "detail": "avgScoreRes query (lines 79-84): .select(\"score\").eq(\"organization_id\", organizationId).not(\"score\", \"is\", null), no .range()/.limit(), no ORDER BY. The truncation mechanism is proven live (same PostgREST db.max_rows behavior as every other finding here), but the real, live Faith Foundation org (the one with 133,812 donor_discovery_prospects rows) currently has 0 rows with a non-null score -- AutoApply/donor-discovery scoring has not run against this batch yet -- so today this query returns 0 rows either way and the displayed avgScore is null in both the truncated and true case. The bug is real and will silently misreport avgScore the moment scoring populates more than 1000 of this org's prospects, with no ORDER BY meaning which arbitrary 1000 rows PostgREST returns is not even deterministic across requests. See WGR-030 for full evidence.",
+        "wgrId": "WGR-030",
+        "liveRowCount": 133812
+      },
+      {
+        "endpoint": "GET /api/intelligence/proposals",
+        "table": "intelligence_funded_proposals",
+        "file": "src/app/api/intelligence/proposals/route.ts + src/lib/intelligence/proposals-query.ts",
+        "verdict": "SILENT_TRUNCATION_CONFIRMED",
+        "detail": "The main paginated results list itself (line 47, .range(from,to)) is correctly paginated -- not a finding. But two sibling queries fired in the same Promise.all are truncated: sourcesRes (route.ts line 49, .select(\"source\"), zero limit) and computeFilteredStats (proposals-query.ts line 318, .limit(5000) -- which PostgREST silently re-caps to 1000 regardless of the app's own higher limit, per postgrestDefaultRowCap above). Live table has 3,489 real rows, already past the 1000 cap. Both are live-reproduced wrong today: 2 real sources (FEDERAL_REGISTER, USASPENDING) are silently absent from the Intelligence Library's filter dropdown; the displayed average award amount is $1,010,648 (computed from the first, arbitrarily-ordered 1000 of 3,489 rows) vs the real $37,933,899 across all 3,489 rows -- a ~37x understatement shown to every user of this page. See WGR-031 for full evidence.",
+        "wgrId": "WGR-031",
+        "liveRowCount": 3489
+      },
+      {
+        "endpoint": "GET /api/donor-discovery/prospects?taxonomy_id=... and ?request_id=...",
+        "table": "donor_discovery_directory (taxonomy_id branch), dd_prospect_requests (request_id branch)",
+        "file": "src/app/api/donor-discovery/prospects/route.ts",
+        "verdict": "MIXED (request_id branch: SILENT_TRUNCATION_CONFIRMED, same mechanism as WGR-029; taxonomy_id branch: SILENT_TRUNCATION_LATENT)",
+        "detail": "Two internal filter-building sub-queries in the same route as the correctly-paginated main listing above, both unbounded (lines 81-84 for request_id -> dd_prospect_requests, lines 98-116 for taxonomy_id -> donor_discovery_taxonomy then donor_discovery_directory), used to build a .in() id-list filter applied BEFORE the outer .range()-bounded page/limit. request_id branch: filtering this same route by request_id=cf95be82-... (the real 133,812-linked request) would silently narrow the .in() filter to only the first 1000 linked ids, so the paginated result total/count would report a wrong (undercounted) total for that request -- confirmed live via the same dd_prospect_requests evidence as WGR-029. taxonomy_id branch: live-checked and found currently non-triggering -- 0 of the real 133,815 donor_discovery_directory rows have naics_codes or civic_kind populated at all today, so every taxonomy_id filter currently matches 0 rows regardless of this bug; the query shape would truncate the moment that enrichment data exists and a taxonomy node matches more than 1000 directory rows. See WGR-032 for full evidence.",
+        "wgrId": "WGR-032",
+        "liveRowCount": 133815
+      }
+    ]
+  },
+
+  "known500s": {
+    "note": "All 5 originally captured by test-evidence/pt-00/smoke-results.json's authenticated, no-query-param GET sweep and registered as WGR-005 through WGR-009 (CONFIRMED-BROKEN, root cause not previously investigated except WGR-007's already-known missing-table cause). Root-caused here by reading each handler, then live-querying the exact production database (vbjplpquqxxfbpazyalt) the local dev server that produced the original 500 points at, and finally reproducing the EXACT error the route would surface -- either the real PostgREST/Postgres error text (captured directly) or, for WGR-005, confirmation the app-level error message text matches a live-reproduced query failure.",
+    "findings": [
+      {
+        "wgrId": "WGR-005",
+        "endpoint": "GET /api/agents/discovery",
+        "handlerFile": "src/app/api/agents/discovery/route.ts",
+        "priorErrorBody": "{\"error\":\"Failed to load discovery matches.\"}",
+        "rootCauseCategory": "column_name_mismatch",
+        "rootCause": "The route queries .eq(\"organization_id\", ctx.orgId) against discovery_matches (line 55), but the LIVE table's real column is org_id, not organization_id. Root traced precisely: discovery_matches was first created by src/supabase/migrations/075_agent_marketplace.sql with org_id (line 39) -- this is the table that actually landed in production. A later migration, supabase/migrations/095_discovery_matches.sql, tried to redefine the table using organization_id (its own header comment explicitly argues for the rename), but its CREATE TABLE IF NOT EXISTS silently no-op'd against the already-existing org_id-shaped table, so the rename never took effect live. A still-later RLS-hardening migration, src/supabase/migrations/119_org_scoped_tables_rls_hardening.sql (line 51), already documents this exact drift in its own comment: 'discovery_matches: org_id NOT NULL (not organization_id -- confirmed live)' -- and even quotes this same route's header comment claiming organization_id scoping as FALSE prior to that migration. That migration fixed the RLS policies (now correctly using org_id) but never touched the application code in route.ts, which still queries the wrong column name. A second, independent call site with the identical bug was found while diagnosing this: src/lib/agents/morning-digest.ts line 38 also does .eq(\"organization_id\", orgId) against discovery_matches -- not part of this task's 5 known 500s, noted here only as corroborating evidence of the root cause, not registered as a new finding.",
+        "liveEvidence": {
+          "method": "Direct query against DATABASE_URL (production, vbjplpquqxxfbpazyalt) reproducing the route's exact filter+order+limit shape, both via raw Postgres and via the real PostgREST REST endpoint with the service-role key.",
+          "postgresError": { "code": "42703", "message": "column \"organization_id\" does not exist" },
+          "postgrestHttpStatus": 400,
+          "postgrestBody": { "code": "42703", "details": null, "hint": null, "message": "column discovery_matches.organization_id does not exist" },
+          "liveColumnsConfirmed": ["id", "org_id", "opportunity_id", "external_title", "external_source", "external_url", "discovery_run_id", "match_score", "match_reasons", "status", "actioned_at", "created_at"]
+        }
+      },
+      {
+        "wgrId": "WGR-006",
+        "endpoint": "GET /api/consultant/clients",
+        "handlerFile": "src/app/api/consultant/clients/route.ts",
+        "priorErrorBody": "{\"error\":\"Failed to load client access grants.\",\"code\":\"load_failed\"}",
+        "rootCauseCategory": "missing_table",
+        "rootCause": "The route queries consultant_client_access (line 32), a real table defined in supabase/migrations/086_white_label.sql with exactly the columns the route selects (id, client_org_id, access_level, granted_at, active, consultant_org_id) -- the application code is correct against the migration file on disk. The table simply does not exist in the live production database: migration 086 was never applied. This is the same class of gap MIGRATION_AUDIT.md already documented platform-wide (28 of 108 root-tree migrations never applied to production as of the 2026-07-28 audit) -- consultant_client_access was not one of that audit's named examples, but is the same failure mode.",
+        "liveEvidence": {
+          "method": "to_regclass('public.consultant_client_access') via direct DATABASE_URL query, then a live GET against the real PostgREST REST endpoint with the service-role key.",
+          "toRegclassResult": null,
+          "postgrestHttpStatus": 404,
+          "postgrestBody": { "code": "PGRST205", "details": null, "hint": "Perhaps you meant the table 'public.contact_tasks'", "message": "Could not find the table 'public.consultant_client_access' in the schema cache" }
+        }
+      },
+      {
+        "wgrId": "WGR-007",
+        "endpoint": "GET /api/outreach/sequences",
+        "handlerFile": "src/app/api/outreach/sequences/route.ts",
+        "priorErrorBody": "{\"error\":\"Failed to load follow-up sequences.\",\"code\":\"db_error\"}",
+        "rootCauseCategory": "missing_table",
+        "rootCause": "CONFIRMS the already-known cause recorded in the register and in STATE_OF_THE_BUILD.md's 2026-08-13 'outreach consolidation audit' session, re-verified live this task rather than assumed: the route queries followup_sequences (line 21), a real table defined in supabase/migrations/083_followup_sequences.sql with columns matching the route exactly (organization_id, name, trigger_stage, steps, created_at) -- the code is correct, the table is simply absent from production. The product decision this prior session flagged is STILL OWED and was NOT made as part of this task: apply the dormant migration 083 as-is, OR retire this route/page in favor of AG-28's application_followups model instead. Checked live whether that alternative table exists yet, since a decision in that direction would need it too: application_followups is ALSO confirmed absent from production (same PGRST205 signature) -- so neither option is currently ready to ship without its own migration-apply step first. Not this task's job to decide or apply either.",
+        "liveEvidence": {
+          "method": "to_regclass('public.followup_sequences') and to_regclass('public.application_followups') via direct DATABASE_URL query, then live GETs against the real PostgREST REST endpoint with the service-role key.",
+          "followup_sequences": {
+            "toRegclassResult": null,
+            "postgrestHttpStatus": 404,
+            "postgrestBody": { "code": "PGRST205", "details": null, "hint": "Perhaps you meant the table 'public.email_campaign_sequences'", "message": "Could not find the table 'public.followup_sequences' in the schema cache" }
+          },
+          "application_followups": {
+            "toRegclassResult": null,
+            "note": "Also confirmed missing live -- the 'retire in favor of AG-28's application_followups' alternative decision path is equally blocked on an unapplied migration today, not a ready-to-flip switch."
+          }
+        },
+        "pendingProductDecision": "STILL OWED, confirmed not resolved by this task: apply dormant migration supabase/migrations/083_followup_sequences.sql as-is, vs. retire /api/outreach/sequences + its page in favor of AG-28's application_followups model (which itself needs its own migration applied first, per the live check above)."
+      },
+      {
+        "wgrId": "WGR-008",
+        "endpoint": "GET /api/schoolfunder",
+        "handlerFile": "src/app/api/schoolfunder/route.ts",
+        "priorErrorBody": "{\"error\":\"Failed to load students.\",\"code\":\"load_failed\"}",
+        "rootCauseCategory": "missing_table",
+        "rootCause": "The route queries schoolfunder_students (line 23), a real table defined in supabase/migrations/103_schoolfunder.sql with columns matching the route's select list exactly (id, first_name, last_name, email, school_name, grade_level, enrollment_year, target_tuition_amount, funded_amount, status, created_at, org_id) -- the code is correct against the migration file. The table does not exist in production; the two sibling tables the same handler also reads (schoolfunder_volunteer_hours, schoolfunder_donations) are equally absent. This matches STATE_OF_THE_BUILD.md's Migration Audit finding verbatim: 'SchoolFunder (migration 103) has zero backing tables despite being a confirmed-kept live feature.'",
+        "liveEvidence": {
+          "method": "to_regclass('public.schoolfunder_students'/'schoolfunder_volunteer_hours'/'schoolfunder_donations') via direct DATABASE_URL query, then a live GET against the real PostgREST REST endpoint with the service-role key.",
+          "toRegclassResults": { "schoolfunder_students": null, "schoolfunder_volunteer_hours": null, "schoolfunder_donations": null },
+          "postgrestHttpStatus": 404,
+          "postgrestBody": { "code": "PGRST205", "details": null, "hint": "Perhaps you meant the table 'public.calendar_events'", "message": "Could not find the table 'public.schoolfunder_students' in the schema cache" }
+        }
+      },
+      {
+        "wgrId": "WGR-009",
+        "endpoint": "GET /api/settings/notifications",
+        "handlerFile": "src/app/api/settings/notifications/route.ts",
+        "priorErrorBody": "{\"error\":\"Failed to load notification preferences.\",\"code\":\"db_error\"}",
+        "rootCauseCategory": "missing_table",
+        "rootCause": "The route queries notification_preferences (line 40), a real table defined in supabase/migrations/087_notification_preferences.sql with columns matching the route exactly (organization_id, user_id, event_type, in_app, email, UNIQUE(user_id, organization_id, event_type)) -- the code is correct against the migration file. The table simply does not exist in production; migration 087 was never applied.",
+        "liveEvidence": {
+          "method": "to_regclass('public.notification_preferences') via direct DATABASE_URL query, then a live GET against the real PostgREST REST endpoint with the service-role key.",
+          "toRegclassResult": null,
+          "postgrestHttpStatus": 404,
+          "postgrestBody": { "code": "PGRST205", "details": null, "hint": "Perhaps you meant the table 'public.foundation_profiles'", "message": "Could not find the table 'public.notification_preferences' in the schema cache" }
+        }
+      }
+    ]
+  }
+}

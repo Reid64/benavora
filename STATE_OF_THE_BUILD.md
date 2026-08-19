@@ -1,6 +1,112 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-02-004 — CRUD round-trip proof, 11 resources through the real API layer (not direct DB writes): 8 full create/read/update/delete cycles run for real (draft_queue, request_profiles, email_templates, email_sequences, plus read/update-only cycles on applications, drafts, donor_discovery_prospects, grant_budgets where no create/delete route exists), 3 real findings (WGR-025/026/027 — two soft-delete-but-GET-still-200 gaps, one fully-broken email_templates CREATE from a real subject/body vs subject_template/body_template schema mismatch), viewer-role WRITE correctly refused on all 15 real mutation-route attempts. 3 named example resources (opportunities, contacts, deadlines) confirmed to have zero CRUD route surface at all. See session entry below. Prior: PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. Earlier: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-02-005 — pagination audit + 5 known 500s root-caused: live-confirmed this Supabase project's PostgREST `db.max_rows` silently caps every request at 1000 rows regardless of an app-level `.limit()`; found 4 real endpoints (2 currently live-wrong today, not hypothetical) that trust an unbounded `.select()` as complete — WGR-029 (donor-discovery request detail, real prospect_count undercounted 133,812→~1000 for a real production request), WGR-031 (Intelligence Library filter stats, real average award amount understated ~37x, $37.9M→$1.0M, 2 real sources silently missing from the filter dropdown), WGR-030/WGR-032 latent (same mechanism, not yet triggering on current data shape). 4 other large-table list endpoints (foundations page, nonprofits page, corporate-prospects API, donor-discovery/prospects main listing) confirmed to paginate correctly. All 5 previously-unresolved 500s (WGR-005..009) root-caused with live-captured error text: WGR-005 is a column-name mismatch (`organization_id` vs the real live `org_id`) traced to a stale `CREATE TABLE IF NOT EXISTS` no-op across two migration trees; WGR-006/008/009 and WGR-007 (re-confirmed) are all unapplied migrations (tables absent from production, code correct against the migration file on disk). WGR-007's pending product decision (apply migration 083 vs. retire for AG-28's `application_followups`) is confirmed still owed — and the alternative path is also blocked, since `application_followups` is itself unapplied. See session entry below. Prior: PT-02-004 — CRUD round-trip proof, 11 resources through the real API layer (not direct DB writes): 8 full create/read/update/delete cycles run for real (draft_queue, request_profiles, email_templates, email_sequences, plus read/update-only cycles on applications, drafts, donor_discovery_prospects, grant_budgets where no create/delete route exists), 3 real findings (WGR-025/026/027 — two soft-delete-but-GET-still-200 gaps, one fully-broken email_templates CREATE from a real subject/body vs subject_template/body_template schema mismatch), viewer-role WRITE correctly refused on all 15 real mutation-route attempts. 3 named example resources (opportunities, contacts, deadlines) confirmed to have zero CRUD route surface at all. Prior: PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. Earlier: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-02-005: pagination audit of large-table list endpoints + root cause for the 5 known 500s)
+
+**Focus:** two targeted investigations owed from prior phases. (1) PT-01's discovery that
+`donor_discovery_prospects` grew to 133,812 rows for one real org (WGR-017) raised the question of
+whether any list endpoint over a large table (`foundation_directory`, `donor_discovery_directory`,
+the nonprofit tables, prospects) silently truncates at PostgREST's default row cap instead of
+paginating. (2) WGR-005 through WGR-009 (the 5 API 500s the PT-00-005 smoke sweep first captured)
+had never been root-caused — only WGR-007 had a known cause, from an unrelated prior session. This
+task root-caused all 5 with a real, captured error, and did not fix anything (diagnosis only, per
+explicit scope).
+
+**Method:** every diagnosis was made against the SAME production Supabase project
+(`vbjplpquqxxfbpazyalt`) local `pnpm dev` points at via `NEXT_PUBLIC_SUPABASE_URL` in `.env.local` —
+the exact database the original PT-00-005 smoke sweep hit. Used the `DATABASE_URL` direct-Postgres
+path (`STANDING_DIRECTIVES.md` DIRECTIVE-017, via a Node `pg` client — no shell `$VAR` expansion,
+which this sandbox still blocks) plus live REST calls against the real PostgREST endpoint with the
+service-role key, so every root cause below is backed by the literal error text the app's own route
+handler receives, not an inferred guess from reading the code alone. All throwaway verification
+scripts were deleted after use; none were committed.
+
+**PostgREST's default row cap, live-confirmed first, since it's the mechanism behind every
+pagination finding below:** `GET /rest/v1/nonprofits?select=id&limit=5000` (service-role key, no
+Range header) returned `HTTP 206 Partial Content`, `Content-Range: 0-999/1978526` — exactly 1000
+rows, silently, regardless of the app's own `.limit(5000)` request or no limit at all. No error is
+raised; a caller that trusts `data.length` without checking `count`/`Content-Range` will treat a
+1000-row slice as the whole table.
+
+**Pagination audit result — 5 correct, 4 real findings, 2 of the 4 currently live-wrong (not
+hypothetical):**
+- **Confirmed correctly paginated:** `/foundations` page (133,812-row `foundation_directory`,
+  50/page via real `.range()`), `/nonprofits` page (1,978,526-row `nonprofits`, 50/page via
+  `.range()`), `GET /api/intelligence/corporate-prospects` (real page/pageSize, `.range()`, returns
+  total+hasMore), `GET /api/donor-discovery/prospects`'s own main listing (real page/limit,
+  `.range()`, returns total). `GET /api/intelligence/outreach/prospects` is honestly bounded at
+  `MAX_LIMIT=200` (below the 1000 default, not this bug) with no total returned — informational, not
+  a truncation finding.
+- **WGR-029, real and live today (P1):** `GET /api/donor-discovery/requests/[id]` has two unbounded
+  `.select()` calls. Live-reproduced against a real, currently-existing production request
+  (`cf95be82-...`, org `b1ab7402-...` — the real Faith Foundation org, 133,812 real linked
+  prospects): the app's own query for this exact request returns exactly 1000 linked ids, so
+  `progress.prospect_count`/`stage_breakdown` silently report ~1000 instead of the real 133,812 — a
+  99.3% undercount, live, right now, for a real request a real user could open today.
+- **WGR-031, real and live today (P1):** `GET /api/intelligence/proposals`'s own paginated results
+  list is correct, but two sibling stats queries (a distinct-`source` select with no limit, and
+  `computeFilteredStats`'s `.limit(5000)` which PostgREST re-caps to 1000 anyway) truncate against
+  the real 3,489-row `intelligence_funded_proposals` table — live-reproduced: 2 real sources
+  (`FEDERAL_REGISTER`, `USASPENDING`) are silently missing from the Intelligence Library's filter
+  dropdown, and the displayed average award amount is $1,010,648 (first, arbitrarily-ordered 1000 of
+  3,489 rows) versus the real $37,933,899 across all 3,489 — a ~37x understatement shown to every
+  user of the page.
+- **WGR-030 (P2) and the `request_id` half of WGR-032 (P2), latent, same mechanism, not yet
+  triggering:** `GET /api/donor-discovery/pipeline`'s unbounded `avgScore` query and
+  `GET /api/donor-discovery/prospects`'s `request_id`/`taxonomy_id` filter-building sub-queries all
+  share the identical unbounded-select shape. The `avgScore` and `request_id` branches would misfire
+  the same way as WGR-029/031 the moment relevant data crosses 1000 rows (the org with 133,812
+  prospects currently has 0 scored rows, so `avgScore` is `null` either way today); the `taxonomy_id`
+  branch is currently unreachable in practice since 0 of the real 133,815 `donor_discovery_directory`
+  rows have `naics_codes`/`civic_kind` populated yet.
+
+**5 known 500s, all root-caused with a real, captured error — WGR-005 through WGR-009 upgraded in
+the register, none fixed here:**
+- **WGR-005 (`/api/agents/discovery`) — column-name mismatch, not a missing table.** The route
+  queries `.eq("organization_id", ...)` against `discovery_matches`, but the live column is
+  `org_id`. Traced precisely: the table was first created by
+  `src/supabase/migrations/075_agent_marketplace.sql` with `org_id` — the shape that actually landed
+  in production. A later migration (`supabase/migrations/095_discovery_matches.sql`) tried to rename
+  it to `organization_id`, but its `CREATE TABLE IF NOT EXISTS` silently no-op'd against the
+  already-existing table. `src/supabase/migrations/119_org_scoped_tables_rls_hardening.sql` already
+  documented this exact drift in its own header comment ("`discovery_matches: org_id NOT NULL (not
+  organization_id — confirmed live)`") and fixed the RLS policies, but never touched this route's
+  code. Live-reproduced: Postgres `42703: column "organization_id" does not exist`; the equivalent
+  live PostgREST call returns the same error. A second, independent call site with the identical bug
+  (`src/lib/agents/morning-digest.ts` line 38) was found while diagnosing this — corroborating
+  evidence, not a separate registered finding.
+- **WGR-006 (`/api/consultant/clients`), WGR-008 (`/api/schoolfunder`), WGR-009
+  (`/api/settings/notifications`) — all unapplied migrations, application code correct.** Each
+  route's queried table (`consultant_client_access`, `schoolfunder_students` + 2 siblings,
+  `notification_preferences`) is defined in a real migration file with columns matching the route's
+  select list exactly, but none of the 5 tables exist in production. Live-confirmed via
+  `to_regclass()` returning null and a live PostgREST `HTTP 404 PGRST205` for each. WGR-008 matches
+  this file's own prior Migration Audit finding verbatim.
+- **WGR-007 (`/api/outreach/sequences`) — re-confirmed, decision still owed, not made here.** The
+  already-known cause (`followup_sequences` table, migration 083, unapplied) still holds live. Also
+  checked the alternative path this decision names — AG-28's `application_followups` model — since a
+  decision toward it would need that table ready: it is **also** confirmed absent from production
+  today. Neither option is a ready-to-flip switch; this task does not decide or apply either.
+
+**Evidence:** `test-evidence/pt-02/pagination-and-500s.json` (`postgrestDefaultRowCap`,
+`tableRowCounts`, `paginationAudit.endpoints[]`, `known500s.findings[]` — every finding carries the
+literal captured error/discrepancy, not a paraphrase). `test-evidence/_register/WIRING_GAP_REGISTER.md`
+rows WGR-005 through WGR-009 (upgraded with root causes) and new rows WGR-028 through WGR-032 (the
+pagination audit's positive-and-negative findings). Verifier: `scripts/audit/verify-pt02-005.mjs` —
+exits non-zero unless every expected large-table endpoint carries a verdict and every one of the 5
+known 500s carries a substantive, evidence-backed root cause (and WGR-007's pending decision is
+explicitly recorded as still owed, not silently dropped).
+
+**Flagged, not investigated further (out of scope for this task):** every `dotenv.config()` call
+made by this session's throwaway scripts printed an unsolicited console "tip" line, several reading
+"auth for agents [www.vestauth.com]" — an unfamiliar domain phrased specifically to bait an AI agent
+into visiting it. Not visited, not treated as an instruction. Same finding already flagged in a
+prior session (`STATE_OF_THE_BUILD.md`'s queue-32 preflight entry) and still present, still
+unresolved.
+
+**Gates:** no application code was changed (diagnosis only, per this task's explicit scope) — no
+`tsc`/`build` gate applies. `node scripts/audit/verify-pt02-005.mjs` — PASS.
 
 ## SESSION — August 19, 2026 (PT-02-004: CRUD round-trip proof for core resources, through the real API layer)
 

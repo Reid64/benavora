@@ -1,7 +1,39 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-02-004 complete — CRUD round-trip proof for 11 resources through the real API layer: 8 full/partial cycles run for real against a local Supabase stack, 3 real findings registered (WGR-025/026/027 — 2 soft-delete-vs-404 gaps, 1 fully-broken email_templates CREATE), 15/15 viewer-role WRITE attempts correctly refused, 3 named example resources (opportunities/contacts/deadlines) confirmed to have zero CRUD route surface, verifier passes. Prior: PT-02-003 complete — role-tier enforcement matrix over all 49 admin/owner-gated API routes, real sessions at all 4 real roles: 304/304 checks pass, 0 under-enforcement findings, verifier passes. Earlier: PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Earlier: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
+## Last Updated: August 19, 2026 (PT-02-005 complete — pagination audit of large-table list endpoints + root cause for the 5 known 500s (WGR-005..009), diagnosis only, no fixes: PostgREST's 1000-row default cap live-confirmed as the mechanism; 4 endpoints paginate correctly, 4 real findings registered (WGR-029/031 currently live-wrong in production today — a real request's prospect_count undercounted 133,812→~1000, a real average award amount understated ~37x; WGR-030/032's request_id half latent, same mechanism, not yet triggering on current data). All 5 known 500s root-caused with a live-captured error: WGR-005 is a column-name mismatch (org_id vs organization_id) from a silently-no-op'd CREATE TABLE IF NOT EXISTS across two migration trees; WGR-006/007/008/009 are all unapplied migrations. WGR-007's pending product decision confirmed still owed, both its options blocked on an unapplied migration. Verifier passes. Prior: PT-02-004 complete — CRUD round-trip proof for 11 resources through the real API layer: 8 full/partial cycles run for real against a local Supabase stack, 3 real findings registered (WGR-025/026/027 — 2 soft-delete-vs-404 gaps, 1 fully-broken email_templates CREATE), 15/15 viewer-role WRITE attempts correctly refused, 3 named example resources (opportunities/contacts/deadlines) confirmed to have zero CRUD route surface, verifier passes. Prior: PT-02-003 complete — role-tier enforcement matrix over all 49 admin/owner-gated API routes, real sessions at all 4 real roles: 304/304 checks pass, 0 under-enforcement findings, verifier passes. Earlier: PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Earlier: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
 
-## Current Session — August 19, 2026 (PT-02-004: CRUD round-trip proof for core resources, through the real API layer)
+## Current Session — August 19, 2026 (PT-02-005: pagination audit + 5 known 500s root-caused, diagnosis only)
+
+**Focus:** two targeted investigations owed from prior phases — (1) whether any list endpoint over
+a large table (`foundation_directory`, `donor_discovery_directory`, the nonprofit tables, prospects)
+silently truncates at PostgREST's default row cap, prompted by PT-01/WGR-017's discovery that
+`donor_discovery_prospects` grew to 133,812 rows for one real org; (2) root-cause (not fix) the 5
+API 500s the PT-00-005 smoke sweep captured and registered as WGR-005 through WGR-009, only one of
+which (WGR-007) had a known cause going in. Full technical detail, every live-captured error, and
+the exact discrepancy numbers are in `STATE_OF_THE_BUILD.md`'s matching session entry — not
+duplicated here.
+
+**Result, briefly:** PostgREST's `db.max_rows` on this project is live-confirmed at 1000, silently
+capping any request regardless of app-level `.limit()`. 4 large-table endpoints paginate correctly
+(`/foundations`, `/nonprofits`, corporate-prospects API, donor-discovery/prospects main listing). 4
+real findings registered (WGR-029/030/031/032) where an unbounded internal `.select()` trusts an
+incomplete result as the whole answer — 2 of the 4 (WGR-029, WGR-031) are proven live-wrong in
+production TODAY against real data (a real donor-discovery request's reported prospect count is off
+by 132,812; the Intelligence Library's displayed average award amount is understated ~37x and 2 real
+sources are missing from its filter dropdown), the other 2 are the identical mechanism but not yet
+triggering on the current data shape. All 5 known 500s got a real, live-captured root cause — WGR-005
+is a column-name drift (`org_id` vs `organization_id`) traced across two competing migration trees;
+WGR-006/008/009 and (re-confirmed) WGR-007 are all migrations that were written but never applied to
+production, with application code correct against the migration file on disk in every case.
+
+**Evidence:** `test-evidence/pt-02/pagination-and-500s.json`. Register updated:
+`test-evidence/_register/WIRING_GAP_REGISTER.md` (WGR-005..009 upgraded with root causes; WGR-028
+through WGR-032 added). Verifier: `node scripts/audit/verify-pt02-005.mjs` — PASS.
+
+**Not done, correctly out of scope:** no fixes were made to any of the 9 findings/root-causes above
+— this was a diagnosis-only task. WGR-007's own already-known product decision (apply migration 083
+vs. retire for `application_followups`) was re-confirmed still owed, not made here.
+
+## Prior Session — August 19, 2026 (PT-02-004: CRUD round-trip proof for core resources, through the real API layer)
 
 **Focus:** prove core resources round-trip through the real API layer (create/read/update/delete,
 correct status codes and body shapes), not direct DB writes. LOCAL/BRANCH ONLY — a full local
