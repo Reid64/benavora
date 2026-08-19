@@ -1,0 +1,100 @@
+PT-01-004: base URL http://localhost:3000
+PT-01-004: 36 primary-nav pages + 20 sub-pages to crawl
+PT-01-004: session sanity check OK (200 on /dashboard)
+PT-01-004: dynamic-route id resolutions:
+  applications -> idSource=real value=1944f4e3-eade-48e7-b314-f5bb8001f56a
+  opportunities -> idSource=real value=1d3ec638-484b-4c26-8ce6-bdb151e40850
+  funders -> idSource=real value=2521840b-9048-4c77-bd9c-f9f8492529d7
+  foundation_directory -> idSource=real value=09313b88-6d00-43a4-be13-131408e683e6
+  organizations -> idSource=real value=b1ab7402-dfc2-4712-869f-70ea3566cc1d
+  agent_registry -> idSource=real value=grant_summary
+
+[primary_nav] /alerts
+  197 element(s) found (a + button + role=button)
+  197/197 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /activity
+  61 element(s) found (a + button + role=button)
+  61/61 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /funders
+  46 element(s) found (a + button + role=button)
+  46/46 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /foundations
+  143 element(s) found (a + button + role=button)
+  143/143 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /contacts
+  46 element(s) found (a + button + role=button)
+  46/46 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /applications
+  52 element(s) found (a + button + role=button)
+  52/52 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /documents
+  49 element(s) found (a + button + role=button)
+  49/49 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /knowledge-base
+  48 element(s) found (a + button + role=button)
+  48/48 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /intelligence-library
+  122 element(s) found (a + button + role=button)
+  122/122 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /agents/marketplace
+  127 element(s) found (a + button + role=button)
+  127/127 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /deadlines
+  61 element(s) found (a + button + role=button)
+  61/61 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /compliance
+  44 element(s) found (a + button + role=button)
+  44/44 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /outcomes
+  45 element(s) found (a + button + role=button)
+  45/45 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /financials
+  41 element(s) found (a + button + role=button)
+  41/41 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /marketplace
+  42 element(s) found (a + button + role=button)
+  42/42 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /reports
+  49 element(s) found (a + button + role=button)
+  49/49 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /intelligence
+  65 element(s) found (a + button + role=button)
+  65/65 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /email
+  50 element(s) found (a + button + role=button)
+  50/50 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /outreach
+  46 element(s) found (a + button + role=button)
+  46/46 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /settings
+  57 element(s) found (a + button + role=button)
+  57/57 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /command-center
+  55 element(s) found (a + button + role=button)
+  55/55 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/orgs
+  301 element(s) found (a + button + role=button)
+  301/301 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/system

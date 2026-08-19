@@ -1,0 +1,204 @@
+PT-01-004: base URL http://localhost:3000
+PT-01-004: 36 primary-nav pages + 20 sub-pages to crawl
+PT-01-004: session sanity check OK (200 on /dashboard)
+PT-01-004: dynamic-route id resolutions:
+  applications -> idSource=real value=1944f4e3-eade-48e7-b314-f5bb8001f56a
+  opportunities -> idSource=real value=1d3ec638-484b-4c26-8ce6-bdb151e40850
+  funders -> idSource=real value=2521840b-9048-4c77-bd9c-f9f8492529d7
+  foundation_directory -> idSource=real value=a3021ebc-129b-471a-a0d7-cf4bfccf3794
+  organizations -> idSource=real value=b1ab7402-dfc2-4712-869f-70ea3566cc1d
+  agent_registry -> idSource=real value=grant_summary
+PT-01-004: resuming from checkpoint -- 1747 element row(s) already recorded, 22/36 primary-nav pages and 0/20 sub-pages already done.
+
+[primary_nav] /alerts -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /activity -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /funders -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /foundations -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /contacts -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /applications -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /documents -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /knowledge-base -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /intelligence-library -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /agents/marketplace -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /deadlines -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /compliance -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /outcomes -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /financials -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /marketplace -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /reports -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /intelligence -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /email -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /outreach -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /settings -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /command-center -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/orgs -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/system
+  43 element(s) found (a + button + role=button)
+  43/43 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /import
+  42 element(s) found (a + button + role=button)
+  42/42 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/sales-outreach
+  53 element(s) found (a + button + role=button)
+  53/53 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/autoapply-ops
+  42 element(s) found (a + button + role=button)
+  42/42 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/monitor
+  42 element(s) found (a + button + role=button)
+  42/42 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/improvements
+  46 element(s) found (a + button + role=button)
+  46/46 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /admin/audit-log
+  49 element(s) found (a + button + role=button)
+  49/49 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /nonprofits
+  53 element(s) found (a + button + role=button)
+  52/53 CONFIRMED-OK, 1 CONFIRMED-BROKEN
+
+[primary_nav] /dashboard
+  82 element(s) found (a + button + role=button)
+  82/82 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /research
+  209 element(s) found (a + button + role=button)
+  209/209 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /opportunities
+  1679 element(s) found (a + button + role=button)
+  1679/1679 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /autoapply
+  91 element(s) found (a + button + role=button)
+  91/91 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /draft-generator
+  70 element(s) found (a + button + role=button)
+  70/70 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /donor-discovery
+  62 element(s) found (a + button + role=button)
+  56/62 CONFIRMED-OK, 6 CONFIRMED-BROKEN
+
+[sub_page] /applications/list
+  51 element(s) found (a + button + role=button)
+  51/51 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /applications/new
+  43 element(s) found (a + button + role=button)
+  43/43 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /applications/1944f4e3-eade-48e7-b314-f5bb8001f56a
+  52 element(s) found (a + button + role=button)
+  52/52 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /opportunities/new
+  43 element(s) found (a + button + role=button)
+  43/43 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /opportunities/1d3ec638-484b-4c26-8ce6-bdb151e40850
+  54 element(s) found (a + button + role=button)
+  54/54 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /draft-generator/1944f4e3-eade-48e7-b314-f5bb8001f56a
+  47 element(s) found (a + button + role=button)
+  47/47 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /donor-discovery/prospects
+  50 element(s) found (a + button + role=button)
+  50/50 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /donor-discovery/discover
+  58 element(s) found (a + button + role=button)
+  58/58 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /funders/2521840b-9048-4c77-bd9c-f9f8492529d7
+  56 element(s) found (a + button + role=button)
+  56/56 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /foundations/a3021ebc-129b-471a-a0d7-cf4bfccf3794
+  42 element(s) found (a + button + role=button)
+  42/42 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /settings/organization-setup
+  58 element(s) found (a + button + role=button)
+  58/58 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /settings/integrations
+  62 element(s) found (a + button + role=button)
+  62/62 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /settings/billing
+  51 element(s) found (a + button + role=button)
+  51/51 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /settings/agents
+  52 element(s) found (a + button + role=button)
+  52/52 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /admin/orgs/b1ab7402-dfc2-4712-869f-70ea3566cc1d
+  51 element(s) found (a + button + role=button)
+  51/51 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /agents/marketplace/grant_summary
+  42 element(s) found (a + button + role=button)
+  42/42 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /knowledge-base/edit
+  41 element(s) found (a + button + role=button)
+  41/41 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /intelligence/twin
+  54 element(s) found (a + button + role=button)
+  54/54 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /reports/roi
+  44 element(s) found (a + button + role=button)
+  44/44 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[sub_page] /autoapply/controls
+  46 element(s) found (a + button + role=button)
+  46/46 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+PT-01-004 DONE: 5307 element(s) across 56 page(s).
+  5300 CONFIRMED-OK, 7 CONFIRMED-BROKEN (P0=7, P1=0).
+Results written to test-evidence\pt-01\element-graph.json
+
+Broken elements:
+  [P0] /nonprofits :: button "Search" -> form_no_submit_handler (test-evidence/pt-01/dead-ends/nonprofits__button__Search__audit-41.png)
+  [P0] /donor-discovery :: a "View Prospect" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__View_Prospect__audit-50.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-57.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-58.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-59.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-60.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-61.png)

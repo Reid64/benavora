@@ -1,0 +1,12 @@
+PT-01-004: base URL http://localhost:3000
+PT-01-004: 36 primary-nav pages + 20 sub-pages to crawl
+PT-01-004: session sanity check OK (200 on /dashboard)
+PT-01-004: dynamic-route id resolutions:
+  applications -> idSource=real value=1944f4e3-eade-48e7-b314-f5bb8001f56a
+  opportunities -> idSource=real value=1d3ec638-484b-4c26-8ce6-bdb151e40850
+  funders -> idSource=real value=2521840b-9048-4c77-bd9c-f9f8492529d7
+  foundation_directory -> idSource=real value=8e87aff4-7051-4235-8477-b5a0c76ca409
+  organizations -> idSource=real value=b1ab7402-dfc2-4712-869f-70ea3566cc1d
+  agent_registry -> idSource=real value=grant_summary
+
+[primary_nav] /alerts

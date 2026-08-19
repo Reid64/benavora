@@ -1,0 +1,137 @@
+PT-01-004: base URL http://localhost:3000
+PT-01-004: 36 primary-nav pages + 20 sub-pages to crawl
+PT-01-004: session sanity check OK (200 on /dashboard)
+PT-01-004: dynamic-route id resolutions:
+  applications -> idSource=real value=1944f4e3-eade-48e7-b314-f5bb8001f56a
+  opportunities -> idSource=real value=1d3ec638-484b-4c26-8ce6-bdb151e40850
+  funders -> idSource=real value=2521840b-9048-4c77-bd9c-f9f8492529d7
+  foundation_directory -> idSource=real value=b9b0f359-ccb6-403c-8602-d3887a34e3f9
+  organizations -> idSource=real value=b1ab7402-dfc2-4712-869f-70ea3566cc1d
+  agent_registry -> idSource=real value=grant_summary
+PT-01-004: resuming from checkpoint -- 5254 element row(s) already recorded, 35/36 primary-nav pages and 20/20 sub-pages already done.
+
+[primary_nav] /alerts -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /activity -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /funders -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /foundations -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /contacts -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /applications -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /documents -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /knowledge-base -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /intelligence-library -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /agents/marketplace -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /deadlines -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /compliance -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /outcomes -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /financials -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /marketplace -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /reports -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /intelligence -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /email -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /outreach -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /settings -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /command-center -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/orgs -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/system -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /import -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/sales-outreach -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/autoapply-ops -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/monitor -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/improvements -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /admin/audit-log -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /nonprofits
+  53 element(s) found (a + button + role=button)
+  53/53 CONFIRMED-OK, 0 CONFIRMED-BROKEN
+
+[primary_nav] /dashboard -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /research -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /opportunities -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /autoapply -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /draft-generator -- SKIPPED (already checkpointed from a prior run)
+
+[primary_nav] /donor-discovery -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /applications/list -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /applications/new -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /applications/[id] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /opportunities/new -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /opportunities/[id] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /draft-generator/[id] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /donor-discovery/prospects -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /donor-discovery/discover -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /funders/[id] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /foundations/[id] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /settings/organization-setup -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /settings/integrations -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /settings/billing -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /settings/agents -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /admin/orgs/[id] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /agents/marketplace/[agentId] -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /knowledge-base/edit -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /intelligence/twin -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /reports/roi -- SKIPPED (already checkpointed from a prior run)
+
+[sub_page] /autoapply/controls -- SKIPPED (already checkpointed from a prior run)
+
+PT-01-004 DONE: 5307 element(s) across 56 page(s).
+  5301 CONFIRMED-OK, 6 CONFIRMED-BROKEN (P0=6, P1=0).
+Results written to test-evidence\pt-01\element-graph.json
+
+Broken elements:
+  [P0] /donor-discovery :: a "View Prospect" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__View_Prospect__audit-50.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-57.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-58.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-59.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-60.png)
+  [P0] /donor-discovery :: a "Review" -> blank_render (test-evidence/pt-01/dead-ends/donor_discovery__a__Review__audit-61.png)

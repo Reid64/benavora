@@ -82,7 +82,7 @@ establish whether it's reliably reproducible, intermittent, or actually fixed.
 ## Register coverage
 
 All PT-01 findings from this phase are recorded in `test-evidence/_register/WIRING_GAP_REGISTER.md`
-as rows **WGR-012 through WGR-014**, each with a real evidence path under `test-evidence/pt-01/` and a
+as rows **WGR-012 through WGR-017**, each with a real evidence path under `test-evidence/pt-01/` and a
 reproduction command/step. No PT-01 finding from this session exists outside the register.
 
 ## Verifier status
@@ -91,6 +91,7 @@ reproduction command/step. No PT-01 finding from this session exists outside the
 node scripts/audit/verify-pt01-001.mjs   -> PASS (page-routes.json matches PT-00 route-manifest.json's 146 page entries exactly)
 node scripts/audit/verify-pt01-002.mjs   -> PASS (146/146 route coverage, every row has httpStatus/errorBoundaryInDom/hasRealContent/consoleErrors populated)
 node scripts/audit/verify-pt01-003.mjs   -> PASS (72/72 nav elements across 5 surfaces, every row has surface/label/target/resolved_status/verdict populated)
+node scripts/audit/verify-pt01-004.mjs   -> PASS (5307 elements across 56/56 declared pages -- 36/36 primary-nav, 20/20 sub-pages -- every row has required fields, every CONFIRMED-BROKEN row has a valid severity)
 ```
 
 ## PT-01-003 — nav resolution across every real nav surface
@@ -137,3 +138,63 @@ genuine stuck click is never again silently mislabeled as a redirect. Re-run aft
 elements showed this failure mode. Any future Playwright script that click-drives this app's nav
 should poll for a URL change rather than trusting `networkidle` plus a short fixed delay between
 consecutive client-side navigations.
+
+## PT-01-004 — every `<a>` and `<button>` on the primary-nav page set + 20 sub-pages, wiring classified by handler binding
+
+PT-01-002/003 answer "does this route render" and "does this nav element resolve" — neither checks
+whether every individual interactive element ON a rendered page actually leads somewhere real.
+PT-01-004 does: for the same 36 primary-nav pages (sidebar + admin + header tabs, verbatim from
+PT-01-002's `PRIMARY_NAV_PATHS`) plus 20 hand-picked one-level-deep sub-pages (list/detail/create/
+edit views, chosen from the real 146-route manifest), every `<a>`/`<button>`/`[role="button"]`
+actually present in the rendered DOM was enumerated and classified — not just the elements
+`nav-items.ts` already documents.
+
+**Method, per the task's explicit "inspect the handler binding, not by firing it" instruction:**
+links resolve their `href` (`#`/empty/`javascript:void` = dead; an in-page `#id` checked against a
+real matching element; `mailto:`/`tel:` format-checked; external hosts format-checked only, never
+live-fetched; a same-origin path reuses PT-01-002's/PT-01-003's already-computed evidence by exact
+href or by matching route pattern wherever possible, and only falls back to a fresh authenticated
+same-origin `fetch()` HEAD/GET for a genuinely novel path). Buttons are classified by reading the
+DOM node's own React fiber props (`__reactProps$<id>`, the key React attaches directly to the
+rendered node) for a bound `onClick`/`onPointerDown`/`onMouseDown` function, falling back to a
+legacy inline `onclick` attribute, an ancestor `<a href>` the click would bubble into, or (after this
+session's WGR-016 fix) any ancestor `<form>` for a `type=submit` button, since a plain native form
+always has a real default action even with no JS layered on top. No element was ever `.click()`'d.
+
+**Result: 5,307 elements across all 56 pages, 5,301 CONFIRMED-OK, 6 CONFIRMED-BROKEN (P0=6,
+P1=0).** All 36/36 primary-nav pages and all 20/20 declared sub-pages have at least one crawled
+element row — confirmed by `node scripts/audit/verify-pt01-004.mjs`, which also independently
+re-checks every row's required fields and that every CONFIRMED-BROKEN row carries a real severity.
+Evidence: `test-evidence/pt-01/element-graph.json`, `test-evidence/pt-01/element-wiring-run*.log`.
+
+**The 6 CONFIRMED-BROKEN rows are all one underlying issue, not six separate bugs**: 6 real, visible
+links on the primary-nav `/donor-discovery` page (1 "View Prospect", 5 "Review") to 6 distinct real
+prospect detail pages, every one hitting the already-registered WGR-012 blank-render bug. This
+session did not just trust the route-pattern reuse — it independently re-verified 5 of the 6 target
+ids directly: a DB query confirmed each one's linked `donor_discovery_directory.enrichment` jsonb
+shares the identical incomplete shape WGR-012's original id had, and a fresh authenticated render of
+4 of the 5 reproduced the same near-blank `<main>` (57 characters, chrome only). See **WGR-017**.
+
+**One false positive found in this session's own classifier, fixed before the pass completed, not
+silently left in the results**: the first full run flagged `/nonprofits`'s "Search" button as
+CONFIRMED-BROKEN (`form_no_submit_handler`) because its ancestor `<form>` has no `onSubmit` prop and
+no `action` attribute. Investigated against the real source (`src/app/(dashboard)/nonprofits/
+page.tsx`) and found this is a plain server component rendering `<form method="GET">` with zero
+client JS — the native browser default (submit to the current URL) is a real, correct action, not a
+missing one. Fixed `classifyButtonRow()` to treat any `type=submit` inside a `<form>` as wired
+regardless of whether a JS handler is present, re-crawled `/nonprofits` alone with the corrected
+classifier (not the whole 56-page set), and merged the corrected row back into the final results
+before the pass was called complete. See **WGR-016**.
+
+**Real interruption, handled honestly, not silently absorbed:** the first two attempts at this crawl
+(`element-wiring-run.log`, `element-wiring-run-recovery.log`) were both killed mid-run before
+completing — most likely by a foreground command timeout rather than an application error, given
+free system memory was already low (~600-900MB of 16GB) during this session and no error appears in
+either log at the point each attempt stops. Rather than restart from scratch a third time, the
+script gained a resume mode this session: on start, it reads any existing `element-graph.json` and
+skips a primary/sub-page only if that exact page already has crawled rows in it (checkpointing
+writes only ever happen after a page's crawl fully completes, so a page present in the file is
+genuinely done, never half-recorded). The 22 pages already checkpointed by the first attempt were
+skipped and reused verbatim; the remaining 34 pages were crawled fresh across two more backgrounded
+runs. Final result above is the union of all three runs, backed by the one final
+`element-graph.json` — not three separate partial files.

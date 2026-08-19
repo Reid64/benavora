@@ -1,6 +1,88 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-01-003 — live, click-based nav resolution across all 5 real nav surfaces (sidebar/admin/header tabs/header avatar menu/settings sub-nav), 72/72 nav elements confirmed resolving to a real rendered page, 0 contradictions of PT-00's static `deadNav=0` claim; a real Playwright click-timing testing pitfall found and fixed mid-session, documented so it isn't rediscovered cold). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-01-004 — every `<a>`/`<button>` on the 36 primary-nav pages + 20 sub-pages classified by handler binding, not by firing it: 5,307 elements, 5,301 CONFIRMED-OK, 6 CONFIRMED-BROKEN (all one underlying bug — WGR-012's blank-render reachable from 6 real links on `/donor-discovery`, independently re-verified against 5 distinct real prospect ids, not just trusted from route-pattern reuse); one false positive found in the audit tool's own classifier and fixed before the pass was called complete (WGR-016)). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-01-004: interactive element wiring crawl across every primary-nav page + 20 sub-pages)
+
+**Focus:** deeper than PT-01-002 (does a route render) and PT-01-003 (does a known nav element
+resolve) — neither checks whether every individual link/button actually present on a rendered page
+leads somewhere real. This pass enumerates every `<a>`/`<button>`/`[role="button"]` in the rendered
+DOM of the 36 real primary-nav pages (sidebar + admin + header tabs, the same set PT-01-002/003
+already established) plus 20 hand-picked one-level-deep sub-pages, and classifies each one by
+inspecting its bound handler — never by clicking it, per the task's explicit instruction.
+
+**Method:** links resolve `href` (`#`/empty/`javascript:void` = dead; in-page `#id` checked against
+a real matching element on the page; `mailto:`/`tel:` format-checked; external hosts format-checked
+only, never live-fetched — out of scope, a real risk in a sandboxed run against a third party); a
+same-origin path reuses PT-01-002's/PT-01-003's already-computed render/nav evidence wherever an
+exact href or route-pattern match exists, falling back to a fresh authenticated same-origin
+`fetch()` only for a genuinely novel path (a raw HTTP status catches a real Next.js 404 far more
+cheaply than a second full browser navigation per link). Buttons are classified by reading the DOM
+node's own React fiber props (`__reactProps$<id>`, the key React attaches directly to a rendered
+node — no devtools, no `.click()`) for a bound `onClick`/`onPointerDown`/`onMouseDown`, falling back
+to a legacy inline `onclick` attribute, an ancestor `<a href>` a click would bubble into, or (after
+this session's own fix, see below) any ancestor `<form>` for a `type=submit` button.
+
+**Result: 5,307 elements across all 56 pages — 5,301 CONFIRMED-OK, 6 CONFIRMED-BROKEN (P0=6,
+P1=0).** All 36/36 primary-nav pages and all 20/20 declared sub-pages have real crawled element
+rows, confirmed by `node scripts/audit/verify-pt01-004.mjs` (also independently checks every row's
+required fields and that every CONFIRMED-BROKEN row carries a valid severity). Evidence:
+`test-evidence/pt-01/element-graph.json`, `test-evidence/pt-01/PHASE-01-SUMMARY.md`'s new PT-01-004
+section.
+
+**The 6 CONFIRMED-BROKEN rows are one bug, not six, and this session did not just trust the
+crawler's own route-pattern-reuse shortcut on faith.** 6 real, visible links on the primary-nav
+`/donor-discovery` page (1 "View Prospect", 5 "Review") target 6 distinct real prospect detail
+pages, all hitting the already-registered WGR-012 blank-render bug
+(`ProspectDetail.tsx`'s unguarded `enrichment.giving_focus_areas.length`/
+`enrichment.in_kind_history_signals.length`). Rather than accept the crawler's reuse of PT-01-002's
+single-id render result as automatically applicable to 5 *other*, never-independently-tested real
+ids, this session ran a standalone check against all 5: a direct query confirmed every one of their
+linked `donor_discovery_directory` rows' `enrichment` jsonb shares the identical incomplete shape
+(`ein, ntee_code, asset_amount, giving_total` only) WGR-012's original id had, and a fresh
+authenticated render of 4 of the 5 reproduced the same near-blank `<main>` (57 characters, chrome
+text only) live. The 5th hit a navigation abort in the one-off verification script itself (not
+independently retried) but shares the identical broken enrichment shape as the other 4, so is
+graded CONFIRMED-BROKEN on that basis. This raises WGR-012 from "one drilldown record with bad
+data" to "a data-completeness gap affecting most real prospects sampled, reachable directly from a
+real, unmodified user flow on primary nav" — register row **WGR-017**.
+
+**One real false positive found in this session's own tooling, investigated and fixed before the
+pass was called complete, not left in the results or silently worked around:** the first full run
+flagged `/nonprofits`'s "Search" button as CONFIRMED-BROKEN (`form_no_submit_handler`) because its
+ancestor `<form>` has no React `onSubmit` prop and no `action` attribute. Read the real source
+(`src/app/(dashboard)/nonprofits/page.tsx`) before accepting that verdict: it is a plain server
+component (`async function`, no `"use client"`) rendering `<form method="GET">` with zero client
+JS — clicking Search performs a genuine, correct native browser GET navigation to
+`/nonprofits?search=...&state=...`, which the server component already reads via its `searchParams`
+prop. The classifier's heuristic had assumed every `type=submit` button needs a JS-visible handler
+to be "wired," which is false for a plain native form — the browser's own default submit-to-current-
+URL behavior is a real action, not a missing one. Fixed `classifyButtonRow()` in
+`scripts/audit/pt01-004-element-wiring.mjs` so `type=submit` inside any `<form>` classifies as
+CONFIRMED-OK regardless of whether a JS handler is present (`submit_button_no_form`, i.e. a
+`type=submit` with no ancestor `<form>` at all, remains the one real, distinct broken case). Removed
+the stale row and its screenshot, re-crawled `/nonprofits` alone with the fixed classifier (not the
+whole 56-page set), and merged the corrected result back into the final `element-graph.json` before
+the pass was called complete. Register row **WGR-016**.
+
+**A real interruption, handled honestly, not silently absorbed into a clean-looking final log:**
+this task's own untracked starting state (found already sitting in the working tree at session
+start, real timestamps from earlier the same day) showed two prior attempts at this exact crawl had
+already been killed mid-run — most likely a foreground command timeout, not an application error
+(free system memory measured 600-900MB of 16GB during this session's own run, and neither prior
+log shows an error at the point it stops). Rather than restart a third time from zero, the script
+gained a resume mode this session: on start it reads any existing `element-graph.json` and skips a
+primary/sub-page only when that exact page already has crawled rows in it — safe, since
+checkpointing only ever writes after a page's crawl fully returns, so a page present in the file was
+never left half-recorded. 22 of the 36 primary-nav pages already checkpointed by the first attempt
+were reused verbatim rather than re-crawled; the remaining 34 pages were crawled fresh across two
+more backgrounded runs (one to finish the sweep, one to redo `/nonprofits` alone after the classifier
+fix above). The final `element-graph.json` is the union of all attempts, not three separate partial
+files — `partial: false`, 56/56 pages, matching the verifier's own pass criteria.
+
+**Gates:** no application code changed this session (audit tooling + evidence only) — `pnpm
+tsc --noEmit` not re-run since nothing under its scope was touched. `node
+scripts/audit/verify-pt01-004.mjs` → PASS.
 
 ## SESSION — August 19, 2026 (PT-01-003: nav resolution across all nav surfaces)
 

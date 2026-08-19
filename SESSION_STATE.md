@@ -1,7 +1,53 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-01-003 nav resolution complete — 72/72 real nav elements confirmed resolving to a real page across all 5 nav surfaces, no contradiction of PT-00's static deadNav=0 claim)
+## Last Updated: August 19, 2026 (PT-01-004 element wiring crawl complete — 5,307 elements across 56 pages, 6 CONFIRMED-BROKEN all traced to one bug (WGR-012's blank-render, now confirmed reachable from 6 real primary-nav links), 1 audit-tool false positive found and fixed)
 
-## Current Session — August 19, 2026 (PT-01-003: nav resolution across all nav surfaces)
+## Current Session — August 19, 2026 (PT-01-004: interactive element wiring crawl across every primary-nav page + 20 sub-pages)
+
+**Focus:** crawl every `<a>`/`<button>` actually present in the rendered DOM of the 36 real
+primary-nav pages (sidebar + admin + header tabs, PT-01-002/003's own established set) plus 20
+hand-picked sub-pages, classifying each by inspecting its bound handler (React fiber props /
+ancestor `<a>`/ancestor `<form>`) — never by clicking it. Deeper than PT-01-002 (route renders) or
+PT-01-003 (a known nav element resolves): this checks whether every individual element on a page
+leads somewhere real.
+
+**Starting state, found not built from scratch:** `scripts/audit/pt01-004-element-wiring.mjs` and
+`verify-pt01-004.mjs` already existed, untracked, with real Aug-19 timestamps and a genuine partial
+run already checkpointed (22/36 primary pages, 0 findings so far) — two prior attempts had each
+been killed mid-run (most likely a foreground command timeout; free system memory measured as low
+as ~600MB of 16GB this session). Read the script in full before trusting it: real, rigorous design
+(handler-binding inspection, not click-firing; live same-origin fetch only for genuinely novel
+hrefs; per-page checkpointing; screenshot-on-failure with the element outlined and a banner naming
+the failing assertion). Added a resume mode (skip any page already checkpointed, since a page only
+ever appears in the file once its crawl has fully returned) rather than restart from zero, and
+finished the remaining 34 pages across two more backgrounded runs.
+
+**Result: 5,307 elements across 56/56 pages — 5,301 CONFIRMED-OK, 6 CONFIRMED-BROKEN (P0=6,
+P1=0).** `node scripts/audit/verify-pt01-004.mjs` → PASS (36/36 primary-nav + 20/20 sub-pages
+covered, every row's required fields present, every CONFIRMED-BROKEN row has a valid severity).
+Evidence: `test-evidence/pt-01/element-graph.json`.
+
+**The 6 broken rows are one bug, independently re-verified, not accepted on the crawler's own
+reuse shortcut:** 6 real links on `/donor-discovery` ("View Prospect" + 5× "Review") target 6
+distinct real prospect ids, all reusing WGR-012's already-registered blank-render finding via
+route-pattern match. Rather than trust that reuse blind, ran a standalone check against 5 of the 6
+ids: a direct DB query confirmed each one's linked `donor_discovery_directory.enrichment` shares
+WGR-012's exact incomplete shape, and a fresh live render of 4 of the 5 reproduced the identical
+near-blank `<main>` (57 chars). Raises WGR-012 from "one bad record" to "a real, reachable
+data-completeness gap affecting most prospects sampled." Register: **WGR-017**.
+
+**One real false positive in this session's own tooling, found and fixed before the pass was
+called complete:** `/nonprofits`'s "Search" button was first flagged CONFIRMED-BROKEN
+(`form_no_submit_handler`) for sitting in a `<form>` with no `onSubmit`/`action`. Checked the real
+source: it's a plain server component with `<form method="GET">` and zero client JS — the button
+IS wired, via the browser's own native submit-to-current-URL default. Fixed
+`classifyButtonRow()` so `type=submit` inside any `<form>` is CONFIRMED-OK regardless of a JS
+handler (a `type=submit` with NO ancestor `<form>` remains the one real broken case, unchanged),
+re-crawled `/nonprofits` alone with the fix, merged the corrected row back in. Register: **WGR-016**.
+
+**Gates:** no application code changed (audit tooling + evidence only) — `pnpm tsc --noEmit` not
+re-run since nothing under its scope was touched.
+
+## Prior Session — August 19, 2026 (PT-01-003: nav resolution across all nav surfaces)
 
 **Focus:** PT-00-003's `deadNav: []` finding (WGR-011) was a static string comparison
 (`nav-items.ts` hrefs vs. the build's route manifest) — never a running app. This session settles
