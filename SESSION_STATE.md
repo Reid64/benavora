@@ -1,5 +1,41 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Prior: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
+## Last Updated: August 19, 2026 (PT-02-003 complete — role-tier enforcement matrix over all 49 admin/owner-gated API routes, real sessions at all 4 real roles: 304/304 checks pass, 0 under-enforcement findings, verifier passes. Prior: PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Earlier: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
+
+## Current Session — August 19, 2026 (PT-02-003: role-tier enforcement matrix, real sessions at every role level)
+
+**Focus:** for every admin/owner-gated route classified in PT-02-001 (49 routes — platform admin,
+billing, white-label domains, org management, impersonation: the highest-blast-radius gates), call it
+with a real authenticated session at every real role tier (`viewer`/`writer`/`admin`/`owner` — this app
+has no `member` role; `writer` is the real middle tier) and confirm the gate refuses below-tier callers
+and permits at-or-above-tier callers. Full technical detail in `STATE_OF_THE_BUILD.md`'s matching
+session entry — this entry is the shorter cross-reference.
+
+**LOCAL/BRANCH ONLY, satisfied via a local `supabase start` stack, not a paid Supabase branch.**
+`test-evidence/pt-02/BRANCH_STRATEGY.md` had scoped a billed Supabase branch as the intended path for
+exactly this kind of session-requiring test; this session found a zero-cost alternative — Docker
+Desktop was present but not running, started it, then ran a real local Supabase stack (Postgres +
+GoTrue Auth + PostgREST) fully isolated from production and from every other project on this machine.
+Seeded with the minimal real schema `requireRole()` actually reads (`profiles`/`organizations`, exact
+column/RLS match to the live migrations), provisioned one throwaway org + 4 real auth users (one per
+role), and ran a second, real `next dev` instance against the local stack via env vars passed directly
+to the child process — **`.env.local` (production) was never read or touched.** Everything was torn
+down after the run: dev server stopped, `supabase stop` run (confirmed via `docker ps -a` — no
+containers remain), scratch directories deleted.
+
+**Result: 304/304 checks pass** (76 real route+method entries, after per-method `requireRole()` tier
+extraction verified against all 49 files by hand — 3 needed manual correction beyond the automated
+scan, see `STATE_OF_THE_BUILD.md` — x 4 roles). Every below-tier call (192) got the specific,
+distinguishable `403 {"code":"forbidden"}` role-gate refusal; every at-or-above-tier call (112) cleared
+the gate (confirmed by the absence of that code, not an overall-2xx assumption). **0 under-enforcement
+findings, 0 over-restriction findings.**
+
+**Artifacts:** `scripts/audit/pt02-003-role-matrix.mjs` (real, reusable doer script — provisions
+users, derives real session cookies, sweeps, hard-stops if pointed at production), `scripts/audit/
+verify-pt02-003.mjs` (coverage/shape verifier, exit 0), `test-evidence/pt-02/role-matrix.json` (304
+rows), `WGR-024` added to the wiring gap register (P3, `CONFIRMED-OK` — a clean result, logged for
+traceability per the register's own stated purpose, not a finding).
+
+**Gate:** `node scripts/audit/verify-pt02-003.mjs` — exit 0.
 
 ## Current Session — August 19, 2026 (PT-02-002: unauthenticated-rejection sweep, all API routes)
 

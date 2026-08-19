@@ -1,0 +1,3094 @@
+{
+  "generatedAt": "2026-08-19T16:50:30.003Z",
+  "baseUrl": "http://localhost:3099",
+  "targetSupabaseUrl": "http://127.0.0.1:57321",
+  "note": "LOCAL/BRANCH ONLY. Roles tested against a throwaway org+users provisioned by this same script on the target Supabase instance -- never production. Real roles: viewer, writer, admin, owner (src/lib/utils/constants.ts ROLE_HIERARCHY) -- the task's 'member' tier does not exist in this app; 'writer' is the equivalent middle tier.",
+  "testOrgId": "baa346f6-ff4e-4569-a028-056061501d80",
+  "rolesCovered": [
+    "viewer",
+    "writer",
+    "admin",
+    "owner"
+  ],
+  "roleHierarchy": {
+    "viewer": 1,
+    "writer": 2,
+    "admin": 3,
+    "owner": 4
+  },
+  "entryCount": 76,
+  "totalRows": 304,
+  "verdictCounts": {
+    "PASS": 304
+  },
+  "p0FindingCount": 0,
+  "p1FindingCount": 0,
+  "overRestrictiveCount": 0,
+  "reviewCount": 0,
+  "results": [
+    {
+      "path": "/api/admin/audit-log",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/audit-log",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/audit-log",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/audit-log",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/autoapply-ops",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/autoapply-ops",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/autoapply-ops",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/autoapply-ops",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_fields",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "update_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_action",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/command-center",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/command-center",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/command-center",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/command-center",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_fields",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "update_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/jobs/[id]/retry",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/jobs/[id]/retry",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/jobs/[id]/retry",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/jobs/[id]/retry",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/monitor",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/monitor",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/monitor",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/monitor",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/suspend",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/suspend",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/suspend",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/suspend",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "update_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/platform-metrics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/platform-metrics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/platform-metrics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/platform-metrics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "bad_request",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "PATCH",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "no_changes",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 404,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/stats",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/stats",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/stats",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/stats",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "stats_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics/export",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics/export",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics/export",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics/export",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_fields",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression/import",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression/import",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression/import",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression/import",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "bad_request",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "invalid_action",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/usage",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/usage",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/usage",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/usage",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]/approve",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]/approve",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]/approve",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 409,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]/approve",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 409,
+      "code": "not_found",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/config",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/config",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/config",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/config",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/mode",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/mode",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/mode",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/mode",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "PUT",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "PUT",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "PUT",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "PUT",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/config",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/config",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/config",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/config",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "no_op",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "no_op",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/test",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/test",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/test",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/test",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "not_configured",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "not_configured",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/keys",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_field",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "db_error",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/proposals",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/proposals",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/proposals",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/proposals",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "missing_title",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "GET",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "load_failed",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "PATCH",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/stripe/create-portal-session",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/stripe/create-portal-session",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/stripe/create-portal-session",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/stripe/create-portal-session",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "not_configured",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "PUT",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "PUT",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "PUT",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "PUT",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users/invite",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users/invite",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users/invite",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users/invite",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 400,
+      "code": "invalid_input",
+      "expected": "permit",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/billing",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "GET",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/billing",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 500,
+      "code": "not_configured",
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "requireRole inside resolveOwner() helper, not a literal call inside the exported function"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "admin",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "owner",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"tenant\" to exercise the owner branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "POST",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "viewer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "writer",
+      "status": 403,
+      "code": "forbidden",
+      "expected": "refuse",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "admin",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "DELETE",
+      "required_tier": "admin",
+      "role_tested": "owner",
+      "status": 200,
+      "code": null,
+      "expected": "permit",
+      "verdict": "PASS",
+      "note": "required tier is dynamic (control_type===\"platform\"?\"admin\":\"owner\"); this row uses control_type=\"platform\" to exercise the admin branch"
+    }
+  ]
+}

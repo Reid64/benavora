@@ -1,6 +1,119 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. See session entry below. Prior: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. See session entry below. Prior: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-02-003: role-tier enforcement matrix, real sessions at every role level)
+
+**Focus:** PT-02-003 per the audit program's phase structure — for every route classified
+`requireRole(tier)` in PT-02-001 whose required tier is `admin` or `owner` (the highest-blast-radius
+gates: platform admin, billing, white-label domains, org management, impersonation), call it with a
+*real, authenticated session* at every real role tier and confirm the gate actually refuses below-tier
+callers and permits at-or-above-tier callers. This is the first PT-02 phase that needed real sessions
+rather than a credential-less sweep, and per the task's explicit instruction, every test user was
+created LOCAL/BRANCH ONLY — never in production.
+
+**Role model correction, stated up front:** the task described testing "viewer, member, admin, owner."
+This app has no `member` role. The real, live role enum (`supabase/migrations/001_initial_schema.sql`'s
+`user_role` type, confirmed against `src/lib/utils/constants.ts`'s `ROLE_HIERARCHY`) is `owner(4) >
+admin(3) > writer(2) > viewer(1)` — `writer` is the real middle tier. Tested the 4 real roles, not the
+task's literal (and non-existent) list.
+
+**How "local/branch" was actually satisfied — a local `supabase start` stack, not a paid Supabase
+branch.** `test-evidence/pt-02/BRANCH_STRATEGY.md` (written by the PT-02 preflight) had already scoped
+a Supabase branch (via the Management API PAT, `POST /v1/projects/.../branches`) as the intended path
+for a future phase needing real write/session tests against isolated data. This session found a safer,
+zero-cost alternative that satisfies the same "never production" requirement without committing to a
+billed, non-instant action inside a non-interactive session: Docker Desktop was confirmed present but
+not running (`docker ps` failed with a daemon-connection error, matching the same finding a 2026-08-13
+session already recorded); started it, confirmed it came up, then ran a real `supabase init` +
+`supabase start` (ports bumped to a free 57xxx range — two *other*, unrelated local Supabase stacks
+from other projects were already running on this machine and claimed the default and next-offset port
+ranges) to get a genuine local Postgres + GoTrue Auth + PostgREST instance, isolated from every other
+project on this machine and from Benavora production. **No Supabase branch was created; no billing was
+incurred.**
+
+**Minimal-but-real schema, not the full ~200-migration tree.** `requireRole()` (`src/lib/auth/
+role-gate.ts`) only ever reads two tables — `profiles` (organization_id, role, restricted_onboarding_edit)
+and, transitively, `organizations` — so the local stack was seeded with exactly those two tables
+(byte-for-byte column/type match to `supabase/migrations/001_initial_schema.sql` +
+`138_demo_account_scope.sql`, including the real `current_org_id()` SECURITY DEFINER function and the
+real `profiles_org_isolation`/`organizations_org_isolation` RLS policies), not the full production
+schema. This was a deliberate scope decision, not corner-cutting: since `requireRole()`'s refusal is a
+specific, distinguishable `403 {code:"forbidden"}` response returned *before* any route touches a
+deeper table, a below-tier call always resolves that signal correctly regardless of what exists
+downstream, and an at-or-above-tier call clearing the gate and then hitting a real (and expected) 500
+from a downstream table this minimal schema doesn't have is still a genuine "permitted" result — a
+different question (does the route's business logic work) that PT-02-003 was not asked to answer.
+Confirmed live before trusting this design: `GET /api/admin/audit-log` as an `admin` session returned a
+real `500 {"code":"load_failed"}` (past the gate, correctly permitted, then failed on a missing
+downstream table) while a `viewer` session on the identical route got `403 {"code":"forbidden"}` —
+exactly the intended, distinguishable signal.
+
+**Real sessions, not simulated.** Ran the real, unmodified `@supabase/ssr` `createServerClient`
+machinery from Node (the identical code path `src/lib/supabase/server.ts`'s `createClient()` reads
+session cookies through on the app side) against a real `signInWithPassword()` result for each of 4
+freshly-created auth users, capturing the exact `Set-Cookie`-equivalent values it writes into a fake
+cookie jar — the same base64-chunked `sb-*-auth-token` cookie format a real browser would carry, not a
+hand-encoded token. The app under test was the real, unmodified Next.js app itself: a second `next dev`
+instance on port 3099, with `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`/
+`SUPABASE_SERVICE_ROLE_KEY` passed directly to the child process (Next.js's own env-load order gives
+already-set `process.env` values precedence over `.env.local`) so it talked to the local stack —
+**`.env.local` (which points at the real production Supabase project) was never read, modified, or
+touched.**
+
+**Route+method tier extraction — verified per method, not just per file.** `api-routes.json`'s
+`auth.tiers[]` is a file-level set (a static regex over every `requireRole("...")` literal in the
+file), which is enough to know a *file* is admin/owner-gated but not which *method* needs which tier —
+several of the 49 files mix a `viewer`-tier GET with an `admin`- or `owner`-tier POST/PATCH/DELETE in
+the same file (e.g. `/api/admin/system`: GET=`admin`, POST=`owner`). Built the real per-method map by
+locating each literal `requireRole("tier")` call site relative to its enclosing exported
+GET/POST/PATCH/PUT/DELETE function across all 49 files, then hand-verified every file the automated
+pass couldn't cleanly resolve (3 found): `/api/admin/orgs/[id]/suspend` (a false positive — a code
+*comment* mentioning `requireRole("owner")` was misattributed as its own call; the real POST handler
+is unambiguous, single call, owner); `/api/billing` (both GET and POST route through a local
+`resolveOwner()` helper that calls `requireRole("owner")` — not a literal call inside the exported
+function itself, missed by a naive per-file-position scan, confirmed correct by reading the file
+directly); `/api/autoapply/controls` POST/DELETE (the required tier is chosen at runtime —
+`control_type === "platform" ? "admin" : "owner"` — not a literal string at all; tested both real
+branches as separate matrix rows, `control_type: "tenant"` for the owner path and
+`control_type: "platform"` for the admin path). Result: 76 real route+method entries across the 49
+admin/owner-gated routes.
+
+**Result: 304/304 checks pass (76 entries x 4 roles), 0 under-enforcement findings, 0 over-restriction
+findings.** Every one of the 192 below-tier calls got exactly `403 {"code":"forbidden"}` — no
+exceptions, no ambiguous outcomes. Every one of the 112 at-or-above-tier calls cleared the gate
+(confirmed by the *absence* of the `forbidden` code, not by an overall-2xx assumption — the observed
+downstream mix was genuinely varied and expected given the minimal local schema: 19 real `200`s, plus
+`400`/`404`/`409`/`500` body-validation and missing-table errors, zero of which carried the `forbidden`
+code). Verdict logic derives the refuse/permit signal from the specific `(status, code)` pair, so an
+unrelated downstream error can never be misread as either a false pass or a false finding.
+
+**Artifacts:**
+- `scripts/audit/pt02-003-role-matrix.mjs` — the full, reusable, real doer script: provisions the
+  throwaway org + 4 role users (idempotent — safe to re-run against the same target), derives real
+  session cookies, sweeps all 76 entries x 4 roles, writes `test-evidence/pt-02/role-matrix.json`. Hard
+  stops if pointed at the production project ref or a `benavora.com` host, so it cannot accidentally
+  run against production even if misconfigured.
+- `scripts/audit/verify-pt02-003.mjs` — confirms `role-matrix.json` is non-empty, covers every one of
+  the 49 admin/owner-gated routes from `api-routes.json` (exact path-set match), every row carries a
+  recognized verdict and a recorded outcome, every route+method combination was tested across all 4
+  roles (not a partial sample), and any finding row captured its full response body. `node
+  scripts/audit/verify-pt02-003.mjs` exits 0.
+- `test-evidence/pt-02/role-matrix.json` — the 304-row result set.
+- `test-evidence/_register/WIRING_GAP_REGISTER.md` — WGR-024 added (P3, `CONFIRMED-OK`): logs this
+  clean result for traceability, per this register's own stated purpose, so the question isn't
+  re-asked from scratch by a future session.
+
+**Cleanup, confirmed:** the local `next dev` instance was stopped, `supabase stop` was run against the
+scratch project (containers removed, confirmed via `docker ps -a` showing none remaining), and the
+scratch working directories (outside the repo, and one gitignored-equivalent scratch folder inside it)
+were deleted. `git status` confirmed the only changes in this repo are the 3 files above plus this
+governance update — no test users, org, or schema exist anywhere production-adjacent.
+
+**Gates:** `node scripts/audit/verify-pt02-003.mjs` — exit 0, confirms coverage/shape. No `tsc`/`build`
+gate applicable — this session added only `.mjs` audit scripts (already excluded from the project's
+`tsconfig.json` scope, matching every prior `scripts/audit/*.mjs` script in this program) and JSON/MD
+evidence files; no application source was touched.
 
 ## SESSION — August 19, 2026 (PT-02-002: unauthenticated-rejection sweep, all API routes)
 
