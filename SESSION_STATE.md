@@ -1,7 +1,29 @@
 # BENAVORA — Session State
-## Last Updated: August 18, 2026 (PT-00 — wiring-gap audit evidence infrastructure scaffolded)
+## Last Updated: August 19, 2026 (PT-00-002 — build-worker-cap gate confirmed present + re-proven live)
 
-## Current Session — August 18, 2026 (PT-00: audit evidence infrastructure scaffold)
+## Current Session — August 19, 2026 (PT-00-002: build-config cpus cap confirmed/restored, WGR-001)
+
+**Focus:** the stale-queue run from earlier tonight died on three consecutive 900s build gate
+timeouts — the memory-thrash signature `next.config.mjs`'s `experimental.cpus` worker cap exists to
+prevent. Confirm present (fix if not), then prove a real build completes cleanly.
+
+**Status:** the cap was already present (`next.config.mjs:35`, `cpus: 1`) — no code change made.
+Recorded to `test-evidence/pt-00/build-config.txt` with the exact matched lines. Re-ran a real
+`pnpm run build` after deleting `.next`: completed in 97.880s, exit 0, `✓ Compiled successfully`,
+full route manifest — no timeout, no worker crash. This supersedes a stale `build-proof.txt` left in
+the same directory from an earlier failed attempt this cycle (`STATUS_DLL_INIT_FAILED`), which is
+now overwritten with the successful run. Built `scripts/audit/verify-pt00-002.mjs` (checks both
+evidence files exist and `build-proof.txt` shows a genuine success marker + exit 0 + no known
+crash/timeout signature) and ran it — passes. No `WIRING_GAP_REGISTER.md` entry added (WGR-001 is
+reserved for the cap-ABSENT branch, not needed here).
+
+**Gates:** the build itself is the gate under test — 97.880s, exit code 0, clean.
+
+**Scoped commit:** `test-evidence/pt-00/build-config.txt`, `test-evidence/pt-00/build-proof.txt`,
+`scripts/audit/verify-pt00-002.mjs`, this file, `STATE_OF_THE_BUILD.md`. `next.config.mjs` has zero
+diff and was correctly left out.
+
+## Prior Session — August 18, 2026 (PT-00: audit evidence infrastructure scaffold)
 
 **Focus:** scaffold-only session for a new wiring-gap audit program. Created
 `test-evidence/pt-00/` and `test-evidence/_register/` (with `WIRING_GAP_REGISTER.md` — header,

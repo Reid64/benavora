@@ -1,6 +1,47 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 18, 2026 (PT-00 — wiring-gap audit evidence infrastructure scaffolded). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-00-002 — build-worker-cap gate confirmed present + re-proven live). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-00-002: build-config cpus cap confirmed/restored, WGR-001)
+
+**Focus:** tonight's stale-queue run died on three consecutive 900s build-timeout gate failures —
+the memory-thrash signature `next.config.mjs`'s `experimental.cpus` worker cap exists specifically
+to prevent. Confirm the cap is present (fix it if not), then prove a real `pnpm run build` actually
+completes without hitting that failure mode.
+
+**Finding: the cap is already present, no code change needed.** `next.config.mjs:35` —
+`experimental.cpus: 1` — was already in place, with its own header comment describing the exact
+failure mode this audit step was checking for (worker fan-out to 20+ processes on this 22-logical-
+CPU box, severe memory thrashing / a prior `STATUS_DLL_INIT_FAILED` worker crash under
+multi-worktree contention, `cpus: 2` previously tried and found not tight enough). Recorded to
+`test-evidence/pt-00/build-config.txt` with the exact matched lines and line number. No
+`WIRING_GAP_REGISTER.md` entry was needed — WGR-001 is reserved for the ABSENT branch of this
+check, which didn't apply.
+
+**Proved it live, not just re-read from a stale file.** `test-evidence/pt-00/build-config.txt` and
+`build-proof.txt` already existed in the working tree from an earlier attempt this same cycle, but
+that prior `build-proof.txt` showed a genuine **failed** run (`Next.js build worker exited with
+code: 3221225794` — the literal `STATUS_DLL_INIT_FAILED` signature the cap's own comment
+describes), not a completed one — confirming the failure mode is real under contention, and that a
+clean pass isn't something to assume without re-running. Deleted `.next`, ran a fresh
+`pnpm run build` under a 900s+ timeout budget with full output captured to `build-proof.txt`:
+**completed in 97.880s, exit code 0, `✓ Compiled successfully`, full route manifest printed** — no
+timeout, no worker crash, no memory-thrash signature. `build-config.txt` updated to record this
+live re-verification alongside the original line-match evidence (the placeholder timestamp in the
+prior file was also corrected to this session's real run time).
+
+**Verifier built:** `scripts/audit/verify-pt00-002.mjs` — exits non-zero unless both evidence files
+exist AND `build-proof.txt` contains the `✓ Compiled successfully` marker, `EXIT_CODE=0`, and none
+of the known crash/timeout signatures (`STATUS_DLL_INIT_FAILED`, `Next.js build worker exited`,
+`ELIFECYCLE`, `Failed to compile`, a bare timeout/kill). Ran it — passes.
+
+**Gates:** the build itself *is* the gate being verified here — see above (97.880s, exit 0). No
+other application code was touched this session (`next.config.mjs` has zero diff — confirmed via
+`git status`).
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/verify-pt00-002.mjs`, this file, and
+`SESSION_STATE.md` — `next.config.mjs` was correctly left out of the diff since it required no
+change.
 
 ## SESSION — August 18, 2026 (PT-00: audit evidence infrastructure scaffold)
 

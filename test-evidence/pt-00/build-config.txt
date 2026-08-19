@@ -1,0 +1,47 @@
+PT-00-002 build-worker-cap check
+Timestamp: 2026-08-19T05:47:09Z
+File checked: next.config.mjs
+
+Status: PRESENT -- no code change made.
+
+Exact lines (next.config.mjs, experimental block):
+
+  experimental: {
+    serverComponentsExternalPackages: [
+      "archiver",
+      "playwright",
+      "pdf-parse",
+      "playwright-extra",
+      "puppeteer-extra-plugin-stealth",
+    ],
+    // Next.js defaults static-generation worker count to (logical CPUs - 1).
+    // On this box that fans out to 20+ workers, which is fine when it's the
+    // only build running but causes severe memory thrashing (and previously
+    // a worker crash: exit code 3221225794 / STATUS_DLL_INIT_FAILED) when
+    // multiple agent worktrees are building concurrently. cpus: 2 was not
+    // tight enough under heavy multi-worktree contention (system free memory
+    // observed as low as ~2GB of 16GB total with 6 worktrees building at
+    // once) and the build hung past the 900s gate timeout instead of
+    // finishing. Dropping to a single worker minimizes one build's peak
+    // memory footprint so it can still complete under host contention.
+    cpus: 1,
+  },
+
+Line number of the cap itself: next.config.mjs:35 ("cpus: 1,")
+
+Conclusion: the build-worker-count cap already exists and its own comment
+describes exactly the failure mode this audit step was checking for (memory
+thrash / hung build past a timeout gate under multi-worktree contention).
+No WIRING_GAP_REGISTER.md entry added -- the register only gets an entry
+when the cap is ABSENT (WGR-001 is reserved for that branch, not used here).
+
+Re-verified live this session (not just re-read from a stale prior file):
+a real `pnpm run build` was run against this exact config (see
+build-proof.txt) and completed in 97.880s, exit code 0 -- no 900s timeout,
+no worker crash. A prior build-proof.txt in this same directory (now
+overwritten) showed a failed run from an earlier session/worktree
+("Next.js build worker exited with code: 3221225794" -- the exact
+STATUS_DLL_INIT_FAILED signature this cap's own comment describes),
+confirming the failure mode is real under contention and that today's
+clean pass is not a coincidence of an already-warm cache -- .next was
+deleted before this run.
