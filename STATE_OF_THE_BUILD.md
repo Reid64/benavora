@@ -1,6 +1,65 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-00-005 — authenticated smoke suite, all 464 routes covered). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-00 COMPLETE — baseline established, review pack ready, awaiting Reid's Phase-00 review before PT-01 is authored). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-00 consolidation: PHASE-00-SUMMARY.md, register fully populated, REVIEW-PACK.md, human review checkpoint)
+
+**Focus:** close out PT-00. The five prior PT-00 sessions (PT-00-001 through PT-00-005, all below)
+each produced real evidence and its own verifier, but the central `WIRING_GAP_REGISTER.md` was still
+an empty table — no session had gone back and formally logged what each check actually found as
+register rows. This session does that consolidation, writes the two review documents the audit
+program needs at a human checkpoint, and marks PT-00 complete.
+
+**Register populated — 11 rows, WGR-001 through WGR-011, all citing real evidence already committed
+under `test-evidence/pt-00/`:**
+- **WGR-001** (CONFIRMED-OK) — the build-worker `cpus: 1` cap (PT-00-002) is present, not a gap.
+- **WGR-002** (CONFIRMED-BROKEN, P1) — `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` absent from local
+  `.env.local`, the exact DIRECTIVE-019 gap, degrades to warn-not-block per the existing FORGE fix.
+- **WGR-003** (CONFIRMED-BROKEN, P2) — 13 more production-required secrets absent locally, with two
+  concrete downstream risks called out specifically: the worker can't boot locally without its own
+  `SUPABASE_URL` (distinct from the web app's `NEXT_PUBLIC_SUPABASE_URL`, which is present), and all
+  16 `/api/cron/*` routes permanently 401 without `CRON_SECRET`. Local-only — production env vars
+  were never checked by PT-00-004's method, stated explicitly so this isn't over-read as a prod
+  outage.
+- **WGR-004** (CONFIRMED-BROKEN, **P0**) — `/documents` page hangs past a 30s timeout; graded P0
+  (not P1) because it's a literal top-level `NAV_ITEMS` sidebar entry, matching PT-00-005's own
+  classification exactly.
+- **WGR-005 through WGR-009** (CONFIRMED-BROKEN, P1 each) — the 5 real API 500s PT-00-005 found
+  (`/api/agents/discovery`, `/api/consultant/clients`, `/api/outreach/sequences`,
+  `/api/schoolfunder`, `/api/settings/notifications`), each with its handler file path and the same
+  P1-not-P0 reasoning PT-00-005 already established (none back a primary-nav page's core data load).
+  `/api/outreach/sequences`'s row cross-references the 2026-08-13 `followup_sequences`-table gap
+  explicitly — this is a re-confirmation of a known issue, not a new one.
+- **WGR-010** (CONFIRMED-OK) — the 78-route orphan list, matching PT-00-003's own already-completed
+  investigation verbatim (6 in `Header.tsx`'s tab bar by design, the rest marketing/auth/settings-
+  subsection/drilldown pages `nav-items.ts` was never meant to index). Logged now so a future phase
+  doesn't re-investigate this cold — PT-00-003 itself chose not to add a row since it read as a
+  non-finding; this consolidation formalizes it as CONFIRMED-OK for traceability, per the register's
+  own stated purpose for that scope tag.
+- **WGR-011** (CONFIRMED-OK) — dead-nav is 0, same reasoning as WGR-010.
+
+**Wrote `test-evidence/pt-00/PHASE-00-SUMMARY.md`** — every number (464 routes / 146 pages / 318
+APIs, 0 dead-nav, 78 orphan routes, 15 env findings by severity, 399/464 clean smoke passes with a
+precise breakdown of why 59 of the 65 "failures" are the sweep's own blind-probe method correctly
+getting rejected rather than bugs, and the WGR-001 build-config disposition) cites the exact evidence
+file it came from, reproducible via the cited `verify-pt00-00N.mjs` script.
+
+**Wrote `test-evidence/pt-00/REVIEW-PACK.md`** — the short, Reid-facing version: what PT-00 did, the
+11 findings in plain language, and an explicit go/no-go recommendation for PT-01. States plainly that
+**PT-01 onward is not yet authored** and shouldn't be until Reid has reviewed this baseline and given
+his own expectations for what the rest of the audit program should cover, weighed against
+`BENAVORA_AUDIT_PROGRAM.md` — which was not found anywhere in this repo checkout as of this session
+(flagged directly in the review pack rather than silently assumed to exist or fabricated).
+
+**Verifier built:** `scripts/audit/verify-pt00-006.mjs` — exits non-zero unless
+`PHASE-00-SUMMARY.md` and `REVIEW-PACK.md` both exist and are non-empty, and the register contains at
+least the `WGR-001` row. Run and confirmed passing this session.
+
+**Gates:** re-ran all 5 existing verifiers (`verify-pt00-001.mjs` through `-005.mjs`) before and
+after the register edit — all still PASS; the register's added prose doesn't affect any of their
+structural/coverage checks. No application code touched.
+
+**Scoped commit:** `test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`.
 
 ## SESSION — August 19, 2026 (PT-00-005: authenticated smoke suite over the full route manifest)
 

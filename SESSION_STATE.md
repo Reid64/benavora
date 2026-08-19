@@ -1,7 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-00-005 — authenticated smoke suite, all 464 routes covered)
+## Last Updated: August 19, 2026 (PT-00 COMPLETE — baseline established, awaiting Reid's Phase-00 review)
 
-## Current Session — August 19, 2026 (PT-00-005: authenticated smoke suite over the full route manifest)
+## Current Session — August 19, 2026 (PT-00 consolidation and human review checkpoint)
+
+**Focus:** consolidate the five prior PT-00-00N sessions into a reviewable baseline and stop —
+**PT-01 onward is NOT yet authored.** This session does not investigate anything new; it formalizes
+what PT-00-001 through PT-00-005 already found into `WIRING_GAP_REGISTER.md` (which was still an
+empty table going into this session — five real findings passes, zero rows logged) and writes the
+two documents a human checkpoint needs.
+
+**Status:** register now has 11 rows (WGR-001 through WGR-011), every one citing a real evidence file
+under `test-evidence/pt-00/` already committed by an earlier session, plus a reproduction step. Six
+are real confirmed bugs (P0 `/documents` timeout, 5×P1 API 500s — same severity grading PT-00-005
+itself already established, not re-derived); two are known/already-documented gaps re-confirmed
+(P1/P2 env var absence, local-only, production not checked); three are non-findings kept for
+traceability (build cap present, 0 dead-nav, 78 orphan routes — the last one matching PT-00-003's
+own already-completed explanation, not a new, weaker analysis).
+
+`test-evidence/pt-00/PHASE-00-SUMMARY.md` — every number cited to its evidence artifact: 464 routes
+(146/318), 0 dead-nav, 78 explained orphan routes, 15 env findings by severity (2 P1 / 13 P2, local-
+`.env.local`-only), smoke sweep breakdown (399 clean passes; of the 65 non-2xx, only 6 are real —
+27×404/18×400/14×401 are the sweep's own blind-probe method correctly getting rejected, not bugs),
+and the WGR-001 build-config disposition.
+
+`test-evidence/pt-00/REVIEW-PACK.md` — the short, Reid-facing version. States plainly that
+`BENAVORA_AUDIT_PROGRAM.md` was not found anywhere in this repo checkout — flagged directly rather
+than assumed or fabricated. Recommends **go** on reviewing the baseline, but PT-01 shouldn't be
+authored until Reid has reviewed this and given his own expectations for what the rest of the audit
+program should cover.
+
+`scripts/audit/verify-pt00-006.mjs` (new) — exits non-zero unless both new docs exist non-empty and
+the register has at least the WGR-001 row. Run and passing.
+
+**Gates:** re-ran `verify-pt00-001.mjs` through `-005.mjs` before and after editing the register —
+all 5 still PASS (the added prose doesn't touch their structural checks). No application code
+touched this session.
+
+**Scoped commit:** `test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`.
+
+## Prior Session — August 19, 2026 (PT-00-005: authenticated smoke suite over the full route manifest)
 
 **Focus:** broad-and-shallow — confirm every route in the PT-00-003 authoritative manifest (464
 routes: 146 page, 318 api) returns a non-error response to a real authenticated Playwright session.
