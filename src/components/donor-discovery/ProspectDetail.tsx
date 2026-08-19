@@ -62,9 +62,9 @@ interface DonorProspectExtraction {
   has_donation_form: boolean | null;
   donation_form_url: string | null;
   csr_page_url: string | null;
-  giving_focus_areas: string[];
-  in_kind_history_signals: string[];
-  decision_contacts: Array<{
+  giving_focus_areas?: string[];
+  in_kind_history_signals?: string[];
+  decision_contacts?: Array<{
     name: string;
     title: string;
     email: string | null;
@@ -571,9 +571,9 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
                 </DetailRow>
               )}
               <DetailRow label="Giving focus areas">
-                {enrichment.giving_focus_areas.length > 0 ? (
+                {(enrichment.giving_focus_areas?.length ?? 0) > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {enrichment.giving_focus_areas.map((area) => (
+                    {enrichment.giving_focus_areas?.map((area) => (
                       <Badge key={area} color="gray">
                         {area}
                       </Badge>
@@ -584,9 +584,9 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
                 )}
               </DetailRow>
               <DetailRow label="In-kind history signals">
-                {enrichment.in_kind_history_signals.length > 0 ? (
+                {(enrichment.in_kind_history_signals?.length ?? 0) > 0 ? (
                   <ul className="list-disc space-y-1 pl-4">
-                    {enrichment.in_kind_history_signals.map((signal, i) => (
+                    {enrichment.in_kind_history_signals?.map((signal, i) => (
                       <li key={i}>{signal}</li>
                     ))}
                   </ul>
@@ -611,9 +611,9 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
         </Card>
 
         <Card title="Contacts">
-          {enrichment && enrichment.decision_contacts.length > 0 ? (
+          {enrichment && (enrichment.decision_contacts?.length ?? 0) > 0 ? (
             <ul className="space-y-3">
-              {enrichment.decision_contacts.map((contact, i) => (
+              {enrichment.decision_contacts?.map((contact, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <Users className="mt-0.5 h-4 w-4 shrink-0 text-navy-400" aria-hidden />
                   <div className="min-w-0">

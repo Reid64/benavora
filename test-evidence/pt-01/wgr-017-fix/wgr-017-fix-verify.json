@@ -1,0 +1,723 @@
+{
+  "generatedAt": "2026-08-19T15:38:51.914Z",
+  "baseUrl": "http://localhost:3000",
+  "candidatesResolved": [
+    {
+      "found": true,
+      "prospectId": "19ec603e-bb4d-4e10-9482-e864dc85f511",
+      "directoryId": "a5e41547-8819-40ad-981b-dc191b5f26ff",
+      "legalName": "MORRISSETTE FAMILY FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "16934ed5-1d76-4cfa-9b3a-f087cabfd7ef",
+      "directoryId": "243cd591-afbd-4de8-af26-00098759eff6",
+      "legalName": "FOUNDATION FOR THE GREATEST GOOD",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "aff22886-83e0-4fab-99eb-d5f0c380d23d",
+      "directoryId": "7e94d20a-7501-47f9-a633-94ca13c88f73",
+      "legalName": "E J SCHMELTZ SCHOLARSHIP FUND",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "c643e10e-987b-4f65-962e-9e028622a8f6",
+      "directoryId": "e81cd459-7f1f-4e16-a446-82b857af07b9",
+      "legalName": "PARKER CHARITABLE FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "3a9bffb9-3bea-4bd7-ab90-7f3474c997c2",
+      "directoryId": "16692ff3-9066-4f06-9cfe-f4217e4ca64e",
+      "legalName": "CAMP COUNTY YOUTH PROJECT SHOW",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "b13aadff-e11b-436e-a187-4e34c0495190",
+      "directoryId": "ae79fda1-ac95-4341-bade-e5f64abe94f7",
+      "legalName": "ST STANISLAUS HISTORICAL MUSEUM SOCIETY INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "115ac0ce-e0dd-406b-8aa5-e711b0faf390",
+      "directoryId": "34bf8e0a-536a-4c3c-ab8c-d266da1f61c7",
+      "legalName": "DAVID STONE FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "9c5f7d2a-e0c4-4483-bcba-4d049d78698c",
+      "directoryId": "01549792-1b3d-417d-b34b-bcd915037698",
+      "legalName": "TEACHERS COUNCIL INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "70556731-2bdb-4d75-a8e6-342b3aff1f97",
+      "directoryId": "d4f81105-4b95-4671-b9d9-16848439f496",
+      "legalName": "JOHANNA A RODMAN FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "2347eb31-6671-49fb-a221-1920b1bc6b64",
+      "directoryId": "0a7761db-96bc-458f-945b-1a58ef26b6ab",
+      "legalName": "GOLDEN SUN FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "07a6cef9-565c-47b3-86fe-21b747316793",
+      "directoryId": "ce9b4607-8846-4f21-a6ca-1190d3897367",
+      "legalName": "LUNDSTROM-BOEHME FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "aad631c8-c3c2-4fee-83b2-a3d793d9efce",
+      "directoryId": "0c6537c2-25dc-4586-8706-70d041b1d6c1",
+      "legalName": "LAWRENCE AND IRA STRAUS CHARITABLE TR",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "3aecfcbc-5885-4b33-a21f-eb7958867ae6",
+      "directoryId": "be05327f-c063-45c3-bb6e-4ab377a9d0bf",
+      "legalName": "GRAVES TECHNOLOGIES FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "587e0d5a-e98c-4119-9d6d-3219bfe09bd4",
+      "directoryId": "a784c244-c776-431c-9568-5142592d5a72",
+      "legalName": "ELITE DANCE PARENT CLUB",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "60015e00-4a97-49fb-8b4a-bc632dc12b12",
+      "directoryId": "779faf2a-9f2b-475b-9ba7-0a7edda0a027",
+      "legalName": "ARBAUGH FAM CHARITABLE TR",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "c0eece5d-b982-4b82-aba2-d9ed9029f774",
+      "directoryId": "efac1dcd-5699-445b-be17-85e555d9b11a",
+      "legalName": "W F KING JR AND LORRAINE HAYES KING SCHOLARSHIP FUND",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "1e2d3c0c-d5e0-4aa7-8548-449933686654",
+      "directoryId": "426c3412-a4a8-42e8-82b8-2b8b1b4cfdc7",
+      "legalName": "THOMAS H LEATH & MARY HADLEY CONNOR LEATH FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "455af527-90b6-4b8a-a6b2-b5040a7a80cb",
+      "directoryId": "91775ebb-fa5f-42f2-b3bf-63abbb04c54f",
+      "legalName": "WATLING FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "66c3651c-9430-474d-8b05-16b7774e7945",
+      "directoryId": "a81ff918-f667-4171-bdf9-aa1845379026",
+      "legalName": "BROOKS FAMILY CHARITABLE TRUST",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "7ec4499e-3bdf-436d-bd7c-6b6e058d2167",
+      "directoryId": "6c6dac26-3c75-48d6-971c-8377e2f75083",
+      "legalName": "H G DISBROW JR CHARITABLE TR FBO BUCKS COUNTY LIBRARY Y-M BRANCH",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "efdd9356-c644-42ea-873d-237c0907065c",
+      "directoryId": "d5c03e6f-e908-488f-b519-2ee7b97d7fcf",
+      "legalName": "JOSEPH AND JUDITH H JOHNSON FAMILYFOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "25a31f56-ff50-4203-ade0-c72166572539",
+      "directoryId": "ccc5e7a3-4730-4ed1-a1c4-2b9511c51570",
+      "legalName": "MARY MCCORMAC SHEPPARD SCHOLARSHIP FUND",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "71b4988d-bfe2-4cdf-9a92-eec310231c4e",
+      "directoryId": "765b1fa7-eb68-43f1-a71c-fce75c9004b4",
+      "legalName": "CUT KIDS HUNGER INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "378f30ce-16c8-4b98-8c49-9abcae82d10c",
+      "directoryId": "390ad808-83d8-46ce-9b55-2c377a560478",
+      "legalName": "INSPIRATION OUTREACH FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "b38b6324-e796-4701-8a0a-c5e4b385035b",
+      "directoryId": "386d63ed-c10c-4713-9eaa-7ed0dc9ff86b",
+      "legalName": "TAN AND LOO FAMILY FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "972b13d0-1674-45b5-add3-e0d6b1a5fed9",
+      "directoryId": "dffc8dcd-0698-4f8f-85ca-05b1243a318b",
+      "legalName": "CHADASHA FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "0a072bce-3e31-47fc-b573-0abf502056f8",
+      "directoryId": "8ab6223d-0377-4876-bc33-629d77a15ba1",
+      "legalName": "THE SHARED PLATE FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "68a7059e-ff2d-46d8-807c-897be47bd355",
+      "directoryId": "0295f12c-7933-4083-bbe5-9a25706b8063",
+      "legalName": "HOUFF CHARITABLE FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "e68231c7-b142-46dd-aaeb-587819b45c44",
+      "directoryId": "4f1ef550-bcdb-4b60-81b3-49f7ea01ed43",
+      "legalName": "ALLENDER FAMILY FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "7b2011d9-5701-481d-933e-0d4ec6991a64",
+      "directoryId": "ce779f5d-c37e-479e-9461-200a3f8acabc",
+      "legalName": "FRANK J AND LENORA DUPUIS FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "304a54b7-a4c2-4074-8bf2-5f700915cb8d",
+      "directoryId": "7cf3f7a5-2cb0-403b-8708-3546278866a1",
+      "legalName": "SAKONNET FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "9bded5f4-f69c-4b00-9053-4c249968a414",
+      "directoryId": "aacec542-d438-4772-a0f3-36d32d2460e1",
+      "legalName": "GEORGE W AND AUDREY H MCGLAUGHLIN FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "ccbb4392-f3f1-494b-9d07-f1c5d83e95b6",
+      "directoryId": "2096e400-2a4d-4c40-b244-a4f45357a260",
+      "legalName": "ASCEND FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "1a1717a9-02c5-4de6-84b0-ee5e349997e2",
+      "directoryId": "b2f5e026-bb49-4b5a-8688-4c00a036bc50",
+      "legalName": "SANTA PAULA EDUCATION FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "4aa26ffc-1157-41f8-ac13-9c3e39cd555b",
+      "directoryId": "9e085ddf-a5da-400d-ac94-516526459d61",
+      "legalName": "WEBER FAMILY FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "4c9e8928-f4bd-4a00-8ba4-386ceb9c8beb",
+      "directoryId": "2793d13e-c271-4fee-84f0-accfc5aae024",
+      "legalName": "OPERATION RESTORE HOPE INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "d52d042c-5c50-4201-897f-18d814f7ef17",
+      "directoryId": "71eadd3b-e376-4c97-abe8-c470bf2ac322",
+      "legalName": "ZARLEY FAM FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "26f79ffa-9595-4c49-ba5c-8288a680cf7f",
+      "directoryId": "56cafc04-e95d-44fc-9c86-202fd2ba32e4",
+      "legalName": "LILLIAN HECK MEMORIAL FUND",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "51e906bb-ad37-440e-b1e4-1076321a073a",
+      "directoryId": "16dfabce-edc0-4217-8235-7c0b673c0558",
+      "legalName": "CLINT SINCLAIR MINISTRIES INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "1a6c972c-807d-4048-a578-f0c17e432378",
+      "directoryId": "2124b518-65d9-44b3-a0fe-99a3dbcdbe5a",
+      "legalName": "BEAS ARTISAN CENTER INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "16541897-3f2c-428b-9cd2-94a15fd54508",
+      "directoryId": "43f19b14-de33-4fe4-b642-d017f9682e4d",
+      "legalName": "MEDS 1 MEDICAL RESEARCH",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "bc5d2cba-2b72-4d3d-a60b-985e3c613677",
+      "directoryId": "711a0aca-0fca-4ac1-8242-ed4af2fc19dd",
+      "legalName": "ART MORE INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "c28005df-e66c-4a24-910a-9740f1353c57",
+      "directoryId": "64e54e75-f5e6-4405-b39d-b381919c7cd8",
+      "legalName": "SOUTHERN CALIFORNIA RETREAT FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "5795b821-88b3-4751-a084-58dd7e4d4c66",
+      "directoryId": "74a205ba-e112-423b-b64e-8cbc28924ebc",
+      "legalName": "THE JED AND CELIA MEESE FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "a9d6b275-c7b4-4ee3-923c-e450c1274119",
+      "directoryId": "69382e21-0d01-4606-82de-6937e0022f0f",
+      "legalName": "SUSAN B HEPNER FAMILY FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "b2511075-2f1c-4d1f-8fbe-f789044b3689",
+      "directoryId": "89683be1-47b9-41cf-81aa-00751a2f44f3",
+      "legalName": "HIRSHAN FAMILY FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "37893925-a6f7-4098-a274-bb41372b1fd7",
+      "directoryId": "67de3caa-f671-47c8-abf7-9f2cf632b5f9",
+      "legalName": "CAROLE SHAPIRO MEMORIAL FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "b8af0c92-d761-400e-b370-d57cd8f9a83d",
+      "directoryId": "2bbcb65e-d43a-4d57-9adf-99f60583f02e",
+      "legalName": "COOK WATERFOWL FOUNDATION",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "0aa5b42a-7145-4aa2-a64a-50d374f628bc",
+      "directoryId": "d76a6b79-b004-4491-9833-2f9106fed446",
+      "legalName": "CARRY ME COMFORT INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    },
+    {
+      "found": true,
+      "prospectId": "162e7eff-077f-4421-b8bf-442e017ad9fe",
+      "directoryId": "ca782ebd-90e3-4075-bd2b-7dc3b7bfdf85",
+      "legalName": "ROLLING RASCALS",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "incompleteShapeConfirmed": true
+    }
+  ],
+  "minContentChars": 200,
+  "results": [
+    {
+      "prospectId": "19ec603e-bb4d-4e10-9482-e864dc85f511",
+      "directoryId": "a5e41547-8819-40ad-981b-dc191b5f26ff",
+      "legalName": "MORRISSETTE FAMILY FOUNDATION INC",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "url": "http://localhost:3000/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511",
+      "httpStatus": 200,
+      "errorBoundaryInDom": false,
+      "errorBoundaryDetail": null,
+      "mainTextLength": 716,
+      "contentPreview": "Back to prospects MORRISSETTE FAMILY FOUNDATION INC Unscored New New Reviewing Contacted Applied Received Rejected Archived No donation form found Company WEBSITE - ADDRESS SPRINGFIELD, VA PHONE - LAST ENRICHED 24 days ago Score rationale Not yet scored. Enrichment HAS GIVING PROGRAM No HAS DONATI",
+      "consoleErrors": [],
+      "navigationError": null,
+      "screenshot": "test-evidence/pt-01/wgr-017-fix/after_19ec603e.png",
+      "pass": true
+    },
+    {
+      "prospectId": "16934ed5-1d76-4cfa-9b3a-f087cabfd7ef",
+      "directoryId": "243cd591-afbd-4de8-af26-00098759eff6",
+      "legalName": "FOUNDATION FOR THE GREATEST GOOD",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "url": "http://localhost:3000/donor-discovery/prospects/16934ed5-1d76-4cfa-9b3a-f087cabfd7ef",
+      "httpStatus": 200,
+      "errorBoundaryInDom": false,
+      "errorBoundaryDetail": null,
+      "mainTextLength": 732,
+      "contentPreview": "Back to prospects FOUNDATION FOR THE GREATEST GOOD Unscored New New Reviewing Contacted Applied Received Rejected Archived No donation form found Company WEBSITE - ADDRESS FULTON, MD PHONE - LAST ENRICHED 24 days ago Score rationale Not yet scored. Enrichment HAS GIVING PROGRAM No HAS DONATION FOR",
+      "consoleErrors": [],
+      "navigationError": null,
+      "screenshot": "test-evidence/pt-01/wgr-017-fix/after_16934ed5.png",
+      "pass": true
+    },
+    {
+      "prospectId": "aff22886-83e0-4fab-99eb-d5f0c380d23d",
+      "directoryId": "7e94d20a-7501-47f9-a633-94ca13c88f73",
+      "legalName": "E J SCHMELTZ SCHOLARSHIP FUND",
+      "enrichmentKeys": [
+        "ein",
+        "ntee_code",
+        "asset_amount",
+        "giving_total"
+      ],
+      "url": "http://localhost:3000/donor-discovery/prospects/aff22886-83e0-4fab-99eb-d5f0c380d23d",
+      "httpStatus": 200,
+      "errorBoundaryInDom": false,
+      "errorBoundaryDetail": null,
+      "mainTextLength": 712,
+      "contentPreview": "Back to prospects E J SCHMELTZ SCHOLARSHIP FUND Unscored New New Reviewing Contacted Applied Received Rejected Archived No donation form found Company WEBSITE - ADDRESS OLD GREENWICH, CT PHONE - LAST ENRICHED 24 days ago Score rationale Not yet scored. Enrichment HAS GIVING PROGRAM No HAS DONATION",
+      "consoleErrors": [],
+      "navigationError": null,
+      "screenshot": "test-evidence/pt-01/wgr-017-fix/after_aff22886.png",
+      "pass": true
+    }
+  ],
+  "allPass": true
+}

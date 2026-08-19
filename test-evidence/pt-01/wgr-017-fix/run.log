@@ -1,0 +1,114 @@
+WGR-017-FIX: resolved candidates (first 8 shown): [
+  {
+    "found": true,
+    "prospectId": "19ec603e-bb4d-4e10-9482-e864dc85f511",
+    "directoryId": "a5e41547-8819-40ad-981b-dc191b5f26ff",
+    "legalName": "MORRISSETTE FAMILY FOUNDATION INC",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "16934ed5-1d76-4cfa-9b3a-f087cabfd7ef",
+    "directoryId": "243cd591-afbd-4de8-af26-00098759eff6",
+    "legalName": "FOUNDATION FOR THE GREATEST GOOD",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "aff22886-83e0-4fab-99eb-d5f0c380d23d",
+    "directoryId": "7e94d20a-7501-47f9-a633-94ca13c88f73",
+    "legalName": "E J SCHMELTZ SCHOLARSHIP FUND",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "c643e10e-987b-4f65-962e-9e028622a8f6",
+    "directoryId": "e81cd459-7f1f-4e16-a446-82b857af07b9",
+    "legalName": "PARKER CHARITABLE FOUNDATION INC",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "3a9bffb9-3bea-4bd7-ab90-7f3474c997c2",
+    "directoryId": "16692ff3-9066-4f06-9cfe-f4217e4ca64e",
+    "legalName": "CAMP COUNTY YOUTH PROJECT SHOW",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "b13aadff-e11b-436e-a187-4e34c0495190",
+    "directoryId": "ae79fda1-ac95-4341-bade-e5f64abe94f7",
+    "legalName": "ST STANISLAUS HISTORICAL MUSEUM SOCIETY INC",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "115ac0ce-e0dd-406b-8aa5-e711b0faf390",
+    "directoryId": "34bf8e0a-536a-4c3c-ab8c-d266da1f61c7",
+    "legalName": "DAVID STONE FOUNDATION INC",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  },
+  {
+    "found": true,
+    "prospectId": "9c5f7d2a-e0c4-4483-bcba-4d049d78698c",
+    "directoryId": "01549792-1b3d-417d-b34b-bcd915037698",
+    "legalName": "TEACHERS COUNCIL INC",
+    "enrichmentKeys": [
+      "ein",
+      "ntee_code",
+      "asset_amount",
+      "giving_total"
+    ],
+    "incompleteShapeConfirmed": true
+  }
+]
+WGR-017-FIX: 50/50 sampled prospects confirmed with the incomplete enrichment shape.
+WGR-017-FIX: session sanity check OK (200 on /dashboard)
+  19ec603e-bb4d-4e10-9482-e864dc85f511: httpStatus=200 mainTextLength=716 errorBoundary=false pass=true
+  16934ed5-1d76-4cfa-9b3a-f087cabfd7ef: httpStatus=200 mainTextLength=732 errorBoundary=false pass=true
+  aff22886-83e0-4fab-99eb-d5f0c380d23d: httpStatus=200 mainTextLength=712 errorBoundary=false pass=true
+
+WGR-017-FIX PASS: 3/3 prospects render real content.
+Evidence written to test-evidence\pt-01\wgr-017-fix\wgr-017-fix-verify.json
