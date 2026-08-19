@@ -1,7 +1,49 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-02 preflight complete — 318 API routes extracted + statically classified from PT-00's route manifest, verifier passes, branch strategy recorded for future write tests. Prior: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
+## Last Updated: August 19, 2026 (PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Prior: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
 
-## Current Session — August 19, 2026 (PT-02 preflight: API-route working set + classification)
+## Current Session — August 19, 2026 (PT-02-002: unauthenticated-rejection sweep, all API routes)
+
+**Focus:** PT-02-002 — issue one genuinely unauthenticated request (zero cookies, zero
+`Authorization` header, zero secret/token) against every route in the PT-02-001 working set
+(318 routes), confirm each rejects rather than returning real protected data, register any P0
+auth-bypass found, and confirm the specific WGR-003 `CRON_SECRET` concern live. Full technical
+detail in `STATE_OF_THE_BUILD.md`'s matching session entry — this entry is the shorter
+cross-reference.
+
+**Result: 0 P0 auth-bypass findings across all 318 routes** (316 `PASS`, 2
+`PASS_DESIGN_MISMATCH`, 0 `REVIEW`). Every route rejects an unauthenticated caller — most (271
+`requireRole` + 3 `requireAuth` + 16 of 17 `auth.getUser` + 14 `cron_secret` + 4
+`webhook_signature` + 7 of 8 `none_detected`) via a `307` redirect to `/login` fired by
+`src/middleware.ts` itself, before the route's own auth check ever runs; the remaining routes
+either return a real `401` from their own in-handler check (`/api/auth/log-event`, correctly
+middleware-exempted) or a `400` from token validation (`/api/users/accept`, the one route that's
+genuinely public in `middleware.ts`'s allowlist).
+
+**Real new finding registered instead of a false "all clear," per task step 3's explicit
+instruction to confirm the cron 401 behavior — WGR-023 (P0):** the literal answer for cron
+routes is not "401" — it's a `307` redirect to `/login` from middleware, because
+`middleware.ts` has zero path exemption for `/api/cron/*`, `/api/sources/*`, `/api/webhooks/*`,
+or `/api/admin/webhooks/*`. Not an auth-bypass (nothing is exposed), but it means the routes'
+real intended callers — Vercel Cron (5 of the 14 `cron_secret` routes are registered in
+`vercel.json`), Stripe, Resend, and the Railway worker — are all server-to-server calls that
+never carry a Benavora session cookie either, so they would plausibly hit the same redirect and
+never reach their own `CRON_SECRET`/signature check in production. `/api/platform/bootstrap`
+(own code comment: "intentionally unauthenticated for initial setup") and `/api/unsubscribe`
+(already flagged `possibleMiddlewareConflict: true` by PT-02-001's static classifier — this
+session's live request is the first real confirmation of that flagged suspicion) show the
+identical root cause. Full write-up: `test-evidence/_register/WIRING_GAP_REGISTER.md` WGR-023.
+Not fixed this session — read-safe verification only, per explicit task scope.
+
+**Shipped:** `scripts/audit/pt02-002-unauth-sweep.mjs` (the sweep), `scripts/audit/verify-pt02-002.mjs`
+(exit 0 unless `unauth-sweep.json` exactly covers every `api-routes.json` path with a real verdict
+and a captured outcome), `test-evidence/pt-02/unauth-sweep.json` (318 rows), WGR-023 appended to
+the wiring gap register.
+
+**Gates:** `node scripts/audit/verify-pt02-002.mjs` — PASS, exit 0.
+
+---
+
+## Prior Session — August 19, 2026 (PT-02 preflight: API-route working set + classification)
 
 **Focus:** PT-02 preflight — extract and statically classify every API route from PT-00's route
 manifest, decide the branch strategy for the future write/CRUD-test phase, ship a verifier, update

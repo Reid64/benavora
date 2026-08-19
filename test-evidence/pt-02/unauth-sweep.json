@@ -1,0 +1,3203 @@
+{
+  "generatedAt": "2026-08-19T16:23:32.282Z",
+  "baseUrl": "http://localhost:3000",
+  "sourceApiRoutes": "test-evidence/pt-02/api-routes.json",
+  "totalRoutes": 318,
+  "verdictCounts": {
+    "PASS": 316,
+    "PASS_DESIGN_MISMATCH": 2
+  },
+  "p0FindingCount": 0,
+  "reviewCount": 0,
+  "designMismatchCount": 2,
+  "results": [
+    {
+      "path": "/api/activity",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/audit-log",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/autoapply-ops",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/command-center",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/improvements/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/jobs/[id]/retry",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/monitor",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/suspend",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/platform-metrics",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/prospects/stats",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/sales-analytics/export",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/suppression/import",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/system",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/usage",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/webhooks/email-events",
+      "method": "POST",
+      "mechanism": "webhook_signature",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/admin/webhooks/email-reply",
+      "method": "POST",
+      "mechanism": "webhook_signature",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/application-cloner",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]/approve",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/campaigns",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/campaigns/[campaignId]",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/competitor-intel",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/corporate-research",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/custom-api",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/custom-scrape",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/deadline-prediction",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/disaster",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/discovery",
+      "method": "GET",
+      "mechanism": "requireAuth",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/eligibility",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/email-parser",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/follow-up",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/form-analyzer",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/form-filler",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/foundation-finder",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/funder-intel",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/funder-relationship",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/giving-history",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/grants-gov",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/housing-specific",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/hud-monitor",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/keyword-expansion",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/learning",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/morning-digest",
+      "method": "GET",
+      "mechanism": "requireAuth",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/nofa-parser",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/outreach",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/playwright",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/propublica",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/registry",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/registry/[agentId]/runs",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/registry/configure",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/research",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/research-config",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/research/quality",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/research/status",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/sam-gov",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/semantic-matching",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/simpler-grants",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/simulate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/state-portals",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/state-scrapers",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/success-probability",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/tdhca",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/agents/usaspending",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/budget",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/draft",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/draft/rescore",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/fit-analysis",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/humanize",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/review",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/summarize",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/ai/validate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/alerts",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/applications/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/applications/[id]/budget",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/applications/[id]/clone",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/applications/[id]/expenses",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/applications/[id]/reconcile",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/audit",
+      "method": "POST",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/auth/callback",
+      "method": "GET",
+      "mechanism": "oauth_code_exchange",
+      "category": "public",
+      "expected": "200 or a redirect (public callback; own logic redirects when required params are absent)",
+      "status": 307,
+      "location": "http://localhost:3000/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/auth/log-event",
+      "method": "POST",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 401,
+      "location": null,
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/ab-tests",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/agreements",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/agreements/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/autonomous-status",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/config",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/documents",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/documents/readiness",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/follow-ups",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/follow-ups/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/follow-ups/cancel-all/[funderId]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/follow-ups/stats",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/mode",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/profiles",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/profiles/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/queue",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/review-queue",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/review-queue/[id]/reassign",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/review-queue/[id]/resume",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/review-queue/[id]/skip",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/review-queue/ambiguous/[id]/resolve",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/templates/test",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/test",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/automation/portal-credentials",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/automation/process",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/automation/queue",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/automation/stats",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/board-packet-trigger",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/config",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/decisions",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/followup-trigger",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/grant-dna-trigger",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/knowledge-indexer-trigger",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/queue",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/track-submission",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/autonomous/trigger",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/billing",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/billing/check-gate",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/billing/usage",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/board/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/calendar/auth",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/calendar/callback",
+      "method": "GET",
+      "mechanism": "none_detected",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS",
+      "note": "Google Calendar OAuth callback. Not in middleware PUBLIC_PATHS/isPublicPath -- middleware requires a Benavora session to reach it. In the real flow the same browser tab that initiated the OAuth handshake still carries the Benavora session cookie when Google redirects back, so this does not break the real user flow, but it does mean a truly credential-less caller cannot reach it either."
+    },
+    {
+      "path": "/api/calendar/sync",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/compliance",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/compliance/check",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/compliance/events",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/compliance/events/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/contacts/[id]/outreach/call",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/contacts/[id]/outreach/linkedin",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/contacts/[id]/outreach/mail",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/contacts/[id]/tasks",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/contacts/tasks/[taskId]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/contacts/tasks/[taskId]/download",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/autoapply",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/campaigns",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/domain-warmup",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/draft-automation",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/draft-queue-check",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/email-sequences",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/follow-ups",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/grantsgov",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/research",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/cron/sales-sends",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/deadlines/check",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/documents/assemble",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/documents/quota",
+      "method": "POST",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/connectors",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/connectors/test",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/discover",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/geocode",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/pipeline",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/prospects",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/prospects/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/prospects/[id]/route-to-autoapply",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/prospects/[id]/route-to-email",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/requests",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/requests/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/donor-discovery/taxonomy/search",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/[id]/humanize",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/config",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/stats",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/drafts/queue/trigger",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/analytics",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/auth",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/callback",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/contacts",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/link",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/send",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/sequences",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/sequences/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/sequences/[id]/analytics",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/sequences/[id]/enroll",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/summarize",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/sync",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/templates",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/templates/generate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/email/threads",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/financials/budgets",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/financials/expenses",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/foundations/[id]/competitors",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/foundations/[id]/profile",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/funders/[id]/relationship",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/funders/[id]/relationship-builder",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/funders/enroll-monitoring",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/funders/import",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/funders/relationship-scores",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/grants",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/grants/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/grants/[id]/rescore",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/import/csv",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist/[id]",
+      "method": "DELETE",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/custom-api/test",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google/calendar",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google/calendar/sync",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google/callback",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/google/sync",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/keys",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/benchmarks",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/briefing",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/budget-patterns",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/community-need",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/community-resources",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/compliance",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/corporate-prospects",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/corporate-prospects/[id]",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/corporate-prospects/[id]/giving-dna",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/deadline-predictions",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/digital-twin",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/donor-intent",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/evaluation",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/fundability",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/gap-analysis",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/grant-dna",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/grant-probability",
+      "method": "POST",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/ingest",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/knowledge-query",
+      "method": "POST",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/land-banks",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/learning-network",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/library/search",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/logic-model",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/match-feed",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/need-data",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/outreach/generate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/outreach/prospects",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/outreach/queue",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/proposals",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/recommendations",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/recommendations/explain",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/relationship-graph",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/relationship-graph/analytics",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/reputation",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/search",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/signal-monitor",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/stats",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/strategic-advisor",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/trends",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/twin/auto-populate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/intelligence/twin/completeness",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/knowledge-base",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/knowledge-base/suggest",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/marketplace/listings",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/marketplace/matches",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/marketplace/matches/[id]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/match/foundations",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/nav-counts",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/notifications",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/onboarding",
+      "method": "GET",
+      "mechanism": "none_detected",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS",
+      "note": "Own code also checks x-organization-id/x-user-id headers, which only middleware injects after a valid session."
+    },
+    {
+      "path": "/api/onboarding/complete-setup",
+      "method": "POST",
+      "mechanism": "none_detected",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS",
+      "note": "Own code also checks x-organization-id/x-user-id headers, which only middleware injects after a valid session."
+    },
+    {
+      "path": "/api/onboarding/generate-narratives",
+      "method": "POST",
+      "mechanism": "none_detected",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS",
+      "note": "Own code also checks x-organization-id header, which only middleware injects after a valid session."
+    },
+    {
+      "path": "/api/opportunities/[id]/narrative-gap-analysis",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/opportunities/[id]/probability",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/outreach/humanize-step",
+      "method": "POST",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/outreach/sequences",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/outreach/templates",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/outreach/templates/[id]/variants",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/outreach/templates/[id]/variants/[variantId]",
+      "method": "PATCH",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/platform/bootstrap",
+      "method": "POST",
+      "mechanism": "none_detected",
+      "category": "intended-public-but-blocked",
+      "expected": "route intends unauthenticated reachability; middleware currently requires a session first",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS_DESIGN_MISMATCH",
+      "note": "Route's own code comment: 'This endpoint is intentionally unauthenticated for initial setup, but self-disables after first platform_owner is created.' Middleware requires a session for this path (not in PUBLIC_PATHS), contradicting that design. Not an auth-bypass -- middleware rejects with no data exposure -- but the route's own documented reachability is currently false. See WGR-023."
+    },
+    {
+      "path": "/api/proposals/generate-package",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/prospects/acquire",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/renewals",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/board",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/board-report",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/board-report/detail",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/board-report/executive-summary",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/forecast",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/funding-summary",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/impact",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/impact/enhance",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/roi",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/reports/simulate",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/schoolfunder",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/schoolfunder/donate",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/schoolfunder/hours",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/scraper/status",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/integrations/status",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/settings/notifications",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/sources/grantsgov",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/sources/poll",
+      "method": "POST",
+      "mechanism": "requireAuth",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/sources/propublica",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/sources/registry",
+      "method": "GET",
+      "mechanism": "auth.getUser",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/sources/samgov",
+      "method": "GET",
+      "mechanism": "cron_secret",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/sources/state-portals",
+      "method": "GET",
+      "mechanism": "none_detected",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS",
+      "note": "Route itself has zero auth/role check of its own; protection is entirely middleware's session gate (any authenticated user of any role can call it -- an authorization-granularity question, out of this sweep's unauthenticated-rejection scope)."
+    },
+    {
+      "path": "/api/stripe/create-portal-session",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/unsubscribe",
+      "method": "GET",
+      "mechanism": "none_detected",
+      "category": "intended-public-but-blocked",
+      "expected": "route intends unauthenticated reachability; middleware currently requires a session first",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS_DESIGN_MISMATCH",
+      "note": "Bearer-token unsubscribe link, meant to work for a logged-out email recipient (already flagged by pt02-001 as possibleMiddlewareConflict=true). Middleware requires a session for this path (not in PUBLIC_PATHS), so a real recipient without an active Benavora session is redirected to /login instead of the unsubscribe confirmation page. Not an auth-bypass -- registered separately as WGR-023."
+    },
+    {
+      "path": "/api/users",
+      "method": "GET",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/users/accept",
+      "method": "POST",
+      "mechanism": "none_detected",
+      "category": "public",
+      "expected": "200, redirect, or a 4xx from the route's own token validation",
+      "status": 400,
+      "location": null,
+      "verdict": "PASS",
+      "note": "Exact-matched in middleware PUBLIC_PATHS (isPublicPath). Genuinely public, invite-token-in-body authed."
+    },
+    {
+      "path": "/api/users/invite",
+      "method": "POST",
+      "mechanism": "requireRole",
+      "category": "session",
+      "expected": "401, 403, or a redirect to /login (middleware session gate runs before the route's own check)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/webhooks/resend",
+      "method": "POST",
+      "mechanism": "webhook_signature",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api/webhooks/stripe",
+      "method": "POST",
+      "mechanism": "webhook_signature",
+      "category": "secret",
+      "expected": "401, 403, 400, or a redirect to /login (this app's middleware is not path-exempted for cron/webhook routes, so it rejects before the route's own CRON_SECRET/signature check runs)",
+      "status": 307,
+      "location": "/login",
+      "verdict": "PASS"
+    }
+  ]
+}

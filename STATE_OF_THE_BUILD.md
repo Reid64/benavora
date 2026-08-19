@@ -1,6 +1,73 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. See session entry below. Prior: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. See session entry below. Prior: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-02-002: unauthenticated-rejection sweep, all API routes)
+
+**Focus:** PT-02-002 per the audit program's phase structure — for every route in the PT-02-001
+working set (`test-evidence/pt-02/api-routes.json`, 318 routes), issue one genuinely unauthenticated
+request (zero cookies, zero `Authorization` header, zero secret/token of any kind) and confirm the
+response is a real rejection, not real protected data. Read-safe by design: GET where the route
+exports it, else its first real mutation method (`POST`/`PATCH`/`PUT`/`DELETE`, whichever the file
+actually exports) with a minimal `{}` body — per this task's own framing, safe because the expected
+outcome is rejection before any write is attempted.
+
+**What shipped:**
+- `scripts/audit/pt02-002-unauth-sweep.mjs` — starts from `api-routes.json`'s real classification
+  (`auth.mechanism`), fills dynamic `[id]`/`[...slug]` segments with the same placeholder convention
+  PT-00's smoke suite already established, issues the request with `redirect: "manual"` (so a 3xx is
+  observed as a 3xx, not silently followed into a 200 render of `/login`), and records
+  `{path, method, mechanism, category, expected, status, location, verdict, note?}` per route.
+  8 of the 318 routes are `none_detected` per PT-02-001's own classifier (which explicitly deferred
+  their real classification to a later phase — this is that phase); each of the 8 was read in full
+  this session and cross-checked against `src/middleware.ts`'s real `PUBLIC_PATHS`/`isPublicPath()`
+  logic before being assigned a real expected-behavior category (`NONE_DETECTED_OVERRIDE` in the
+  script, with the reasoning inline per route) rather than guessed.
+- Live-swept against a local `pnpm dev` server (318/318 routes, ~30s). **Result: `PASS` on 316,
+  `PASS_DESIGN_MISMATCH` on 2 (`/api/platform/bootstrap`, `/api/unsubscribe`), zero `REVIEW`, zero
+  `FINDING_P0_AUTH_BYPASS`.** No route returned 2xx to an unauthenticated caller.
+- **The real, uniform mechanism behind all 316 clean passes, confirmed empirically (not assumed
+  from source): `src/middleware.ts` is the actual primary gate for almost every path in this app.**
+  An unauthenticated request to any non-public path gets a `307` redirect to `/login` from
+  middleware itself, before the route's own `requireRole()`/`requireAuth()`/`auth.getUser()`/
+  `CRON_SECRET`/webhook-signature check ever runs. This is a safe rejection (no data exposure) and
+  was treated as a passing outcome alongside a literal `401`/`403` — the one `auth.getUser` route
+  that isn't middleware-gated (`/api/auth/log-event`, exempted via the `/api/auth` prefix) correctly
+  returns a real `401` from its own in-handler check instead, confirming the sweep can tell the two
+  rejection paths apart, not just assuming redirect-means-safe everywhere.
+- `scripts/audit/verify-pt02-002.mjs` — exits non-zero unless `unauth-sweep.json`'s `results[]`
+  exactly matches `api-routes.json`'s path set (not just a count match — checks for duplicates and
+  omissions independently, so a dropped-plus-duplicated pair can't hide behind an equal total), every
+  row carries a recognized, non-empty `verdict`, every row recorded either a numeric `status` or an
+  explicit `error` string (never neither), and any `FINDING_P0_AUTH_BYPASS` row carries a captured
+  `bodySnippet` (this task's own "capture the full response" requirement). Ran clean, exit 0.
+
+**WGR-023 (P0, new) — middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes.**
+Full evidence and reasoning in `test-evidence/_register/WIRING_GAP_REGISTER.md`; summary here. This
+task's step 3 asked specifically to confirm cron routes 401 unauthenticated, live-validating the
+existing WGR-003 `CRON_SECRET` note. The literal answer is more precise than "yes": all 14
+`cron_secret` routes and all 4 `webhook_signature` routes reject an unauthenticated caller, but via
+a `307` redirect to `/login` from middleware — not the route's own `CRON_SECRET`/signature check,
+because `src/middleware.ts`'s `PUBLIC_PATHS`/`isPublicPath()` exempts nothing under `/api/cron/*`,
+`/api/sources/*`, `/api/webhooks/*`, or `/api/admin/webhooks/*`. This is not an auth-bypass (the
+opposite — no unauthenticated caller gets anything), but it means the routes' own *intended* callers
+— Vercel Cron (5 of the 14 routes are registered in `vercel.json`), Stripe, Resend, and (for the
+other 9 `cron_secret` routes) presumably the Railway worker — are server-to-server calls that never
+carry a Benavora session cookie either, so they would plausibly hit the identical `307` and never
+reach their own credential check in production. `/api/platform/bootstrap`'s own code comment
+("intentionally unauthenticated for initial setup, but self-disables after first platform_owner is
+created") and `/api/unsubscribe` (a bearer-token link meant for a logged-out email recipient,
+already flagged `possibleMiddlewareConflict: true` by PT-02-001's static classifier — this session's
+live request is the first actual confirmation of that flagged suspicion) show the same root cause
+even more directly, contradicting their own documented design. **Not fixed this session** — read-safe
+verification only, no code changes, per this task's explicit scope. **Not confirmed against
+production env vars** — same local-`.env.local`-only caveat WGR-003 already carries; whether Vercel/
+Stripe/Resend/Railway calls actually get redirected the same way in the deployed environment was not
+checked here.
+
+**Gates:** `node scripts/audit/verify-pt02-002.mjs` — PASS, exit 0.
+
+---
 
 ## SESSION — August 19, 2026 (PT-02 preflight: API-route working set + classification)
 
