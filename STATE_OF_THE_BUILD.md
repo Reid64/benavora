@@ -1,6 +1,56 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-01-005 — re-verified, from scratch, the 5 "claimed fixes" that had no matching commit in git history: Integrations Configure, Grants.gov Run Now, Scraping Targets link, Branding logo upload, Billing nav. All 5 CONFIRMED-OK against fresh live evidence this run — but the first pass initially misreported 4 of 5 as broken due to a race condition in the test script itself, caught and fixed before trusting the result. See session entry below.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-01 COMPLETE — wiring audit consolidated, review pack written, awaiting Reid's review before PT-02 authoring. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed. One real P0 found: `/donor-discovery/prospects/[id]` crashes on incomplete `enrichment` data, reachable from 6 real primary-nav links. See session entry below.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-01 COMPLETE: consolidation, register confirmation, review pack)
+
+**Focus:** close out PT-01 (the four render/nav/element-wiring/claimed-fixes checks documented in
+the individual session entries below this one) with a single consolidated summary, confirm every
+PT-01 finding has a real register row, and write the short-form review pack for Reid — the same
+pattern PT-00 closed with.
+
+**What this session did, on top of the individual PT-01-00{2,3,4,5} sessions already recorded below:**
+- Wrote `test-evidence/pt-01/PHASE-01-SUMMARY.md` — every number in it re-derived directly from the
+  underlying evidence files this session (`render-results.json`, `nav-resolution.json`,
+  `element-graph.json`, `claimed-fixes-reverify.json`), not copied from a prior claim: 145/146 routes
+  render clean (1 real bug, `/donor-discovery/prospects/[id]`), 72/72 nav elements resolve across 5
+  surfaces, 5,301/5,307 interactive elements confirmed wired (6 broken, all one underlying bug reached
+  via 6 different links on `/donor-discovery`), all 5 claimed-fixes items CONFIRMED-OK.
+- Confirmed every PT-01 finding is in `test-evidence/_register/WIRING_GAP_REGISTER.md` with a real
+  evidence path and reproduction step, continuing the numbering after PT-00's WGR-001 through
+  WGR-011: **WGR-012 through WGR-022** (11 rows) — the donor-discovery crash (WGR-012, WGR-017), the
+  build-server contention finding (WGR-013), the `/documents` non-reproduction (WGR-014), the live
+  nav-resolution confirmation (WGR-015), the false-positive-classifier fix (WGR-016), and the 5
+  claimed-fixes rows (WGR-018 through WGR-022, all CONFIRMED-OK).
+- Wrote `test-evidence/pt-01/REVIEW-PACK.md` — the short read for Reid: what's confirmed solid
+  (nav/render/element-wiring layers, 99.9%+ correct), what's broken (one real bug, P0-graded because
+  it's reachable from real primary-nav links, not a drilldown edge case), and an explicit
+  PT-00-cross-check section stating plainly that WGR-011's `deadNav: []` claim is confirmed (not
+  contradicted) by live click-through, and that WGR-004's `/documents` hang did **not** reproduce this
+  session but is not being called fixed on that basis alone (logged as WGR-014, `UNVERIFIED`).
+- Recommendation: **Go for PT-02 (API/CRUD/auth)** — PT-01 stayed at the render/click-target layer by
+  design; data mutations, form submissions past the initial click, and the 318 API routes PT-00 only
+  smoke-tested at a shallow level are real, unaudited surface area for the next phase.
+
+**Net honest picture:** the frontend wiring layer (routes, nav, interactive elements) is genuinely
+solid. One real, P0-graded application bug was found with a known two-line root cause
+(`ProspectDetail.tsx`'s unguarded `enrichment.giving_focus_areas.length`/
+`enrichment.in_kind_history_signals.length`) and a narrow, well-understood blast radius (prospects
+with incomplete directory enrichment data — confirmed to be most of the real sampled prospects, not
+one bad record). Everything else broken in this phase's evidence is that same one bug counted at each
+layer it was independently found.
+
+**Gates:** `node scripts/audit/verify-pt01-006.mjs` — confirms `PHASE-01-SUMMARY.md` and
+`REVIEW-PACK.md` both exist and are non-empty, and that the register has grown beyond PT-00's last
+row (WGR-011) — added this session as the closing verifier for the whole PT-01 phase, following the
+same pattern as `verify-pt00-006.mjs` before it.
+
+**Status: PT-01 complete. Wiring truth (as opposed to nav-string/HTTP-status truth) is now
+established for the render, nav, and element-wiring layers. Awaiting Reid's review of this phase's
+findings before PT-02 (API/CRUD/auth) gets authored** — same checkpoint discipline PT-00 used: this
+program does not self-authorize its own next phase.
+
+---
 
 ## SESSION — August 19, 2026 (PT-01-005: re-verified the 5 commit-less claimed fixes, from scratch, with fresh live evidence)
 

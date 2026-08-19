@@ -1,7 +1,47 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-01-005 — 5 commit-less "claimed fixes" re-verified from scratch with fresh live evidence, all CONFIRMED-OK; a real race-condition bug in the test script itself was caught and fixed first, before it could produce 4 false "still broken" findings)
+## Last Updated: August 19, 2026 (PT-01 COMPLETE — consolidated summary + review pack written, wiring truth established for render/nav/element-wiring layers, awaiting Reid's review before PT-02 is authored)
 
-## Current Session — August 19, 2026 (PT-01-005: re-verify the 5 commit-less claimed fixes)
+## Current Session — August 19, 2026 (PT-01 COMPLETE: consolidation + human review point)
+
+**Focus:** close out PT-01 — the four sub-phases already recorded individually below this entry
+(render pass, nav resolution, element wiring, claimed-fixes re-verification) — with one consolidated
+summary, register confirmation, and a short review pack for Reid, mirroring how PT-00 closed.
+
+**What shipped this session:**
+- `test-evidence/pt-01/PHASE-01-SUMMARY.md` — every number cites the evidence file it came from
+  (145/146 routes render clean; 72/72 nav elements resolve live across 5 surfaces; 5,301/5,307
+  interactive elements confirmed wired; all 5 claimed-fixes items CONFIRMED-OK).
+- Confirmed the register (`test-evidence/_register/WIRING_GAP_REGISTER.md`) already has every PT-01
+  finding as its own row with a real evidence path and reproduction step, continuing PT-00's
+  numbering: **WGR-012 through WGR-022** (11 rows, no gaps, no PT-01 finding sitting outside the
+  register).
+- `test-evidence/pt-01/REVIEW-PACK.md` — the short read for Reid. States plainly which PT-00 claims
+  PT-01 confirmed (WGR-011's `deadNav: []`, via live click-through of all 72 nav elements) versus
+  did not confirm (WGR-004's `/documents` hang did not reproduce twice this session, but is logged
+  as `UNVERIFIED`, not silently marked fixed).
+- `scripts/audit/verify-pt01-006.mjs` — the closing verifier for the phase: exits non-zero unless
+  both `PHASE-01-SUMMARY.md` and `REVIEW-PACK.md` exist non-empty and the register has grown past
+  PT-00's last row (WGR-011).
+
+**The one real finding worth flagging on its own:** `/donor-discovery/prospects/[id]` crashes to a
+blank page for prospects with incomplete directory `enrichment` data — and this isn't an isolated
+edge case, it's reachable from 6 real, visible links on the primary-nav `/donor-discovery` page
+itself. Graded P0 (`WGR-017`) specifically because of that reachability, on top of the original
+drilldown-only finding (`WGR-012`, P1). Root cause is a known, narrow two-line fix in
+`ProspectDetail.tsx` (two unguarded `.length` accesses) — worth fixing on its own merits, but it
+doesn't block this phase's review or the PT-02 authoring decision.
+
+**Recommendation: Go for PT-02 (API/CRUD/auth).** Full reasoning in `REVIEW-PACK.md` — short version:
+PT-01 deliberately stayed at the render/click-target layer; data mutations, form submissions past the
+initial click, and the 318 API routes PT-00 only shallow-smoke-tested are real, unaudited surface
+area for the next phase.
+
+**Status: PT-01 complete, gates run clean, awaiting Reid's review before PT-02 gets authored** — same
+checkpoint discipline PT-00 used at its own close.
+
+---
+
+## Prior Session — August 19, 2026 (PT-01-005: re-verify the 5 commit-less claimed fixes)
 
 **Focus:** a prior request claimed "5 structural bug fixes" were already done (Integrations 404,
 queue-completion links, logo upload, Billing nav bug), but `git log` showed no matching commit for any
