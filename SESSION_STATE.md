@@ -1,7 +1,29 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-00-004 — env-var audit: what lets the deploy-verifier silently no-op)
+## Last Updated: August 19, 2026 (PT-00-005 — authenticated smoke suite, all 464 routes covered)
 
-## Current Session — August 19, 2026 (PT-00-004: env-var audit — what lets the deploy-verifier silently no-op)
+## Current Session — August 19, 2026 (PT-00-005: authenticated smoke suite over the full route manifest)
+
+**Focus:** broad-and-shallow — confirm every route in the PT-00-003 authoritative manifest (464
+routes: 146 page, 318 api) returns a non-error response to a real authenticated Playwright session.
+Depth is out of scope (PT-01/PT-02's job).
+
+**Status:** real magic-link session for `info@faithfoundationsf.org` (no password touched), sanity-
+checked against `/login` redirect before the suite ran. Page routes navigated and checked for
+status/hard-error/white-screen; API routes hit with a real authenticated `GET` (or `OPTIONS` when the
+route file exports no `GET`, confirmed by reading the file, never guessed) so nothing state-changing
+was ever fired blind. Result: **464/464 covered, 6 not `rendered_ok`, 5 hard 500 findings** — 1 P0
+(`/documents`, a top-level primary sidebar nav item, `page.goto()` timeout — a hang, not a render),
+5 P1 (`/api/agents/discovery`, `/api/consultant/clients`, `/api/outreach/sequences` — a live
+re-confirmation of the already-documented `followup_sequences` missing-table bug, `/api/schoolfunder`,
+`/api/settings/notifications` — none back a primary-nav page's data load). Full evidence, per-route
+classification reasoning, and the verifier's pass output are in `STATE_OF_THE_BUILD.md`'s matching
+entry. `scripts/audit/verify-pt00-005.mjs` confirms coverage route-by-route (not a bare count match)
+plus zero duplicate rows — run this session, passing.
+
+**Gates:** no application code touched — audit/evidence pass only, findings left unfixed per PT-00's
+scope (remediation belongs to PT-01/PT-02).
+
+## Prior Session — August 19, 2026 (PT-00-004: env-var audit — what lets the deploy-verifier silently no-op)
 
 **Focus:** DIRECTIVE-019 already flagged `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` as missing and turning
 `scripts/verify-deployment.ts` into a silent INDETERMINATE no-op, but treated it as an isolated,

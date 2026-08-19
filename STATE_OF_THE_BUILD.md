@@ -1,6 +1,70 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-00-004 — env-var audit: what lets the deploy-verifier silently no-op). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-00-005 — authenticated smoke suite, all 464 routes covered). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-00-005: authenticated smoke suite over the full route manifest)
+
+**Focus:** broad-and-shallow coverage over every route in `test-evidence/pt-00/route-manifest.json`
+(464 routes: 146 page, 318 api, per PT-00-003's authoritative fresh-build manifest) — confirm each
+returns a non-error response to a real authenticated session. Depth (functional correctness beyond
+"did it error") is explicitly out of scope here; that's PT-01/PT-02.
+
+**Method:** `scripts/audit/pt00-005-smoke-suite.mjs`, run against a local `pnpm dev` server already
+live on `localhost:3000`. Auth is a real, unmocked session: `supabase.auth.admin.generateLink()`
+issues a genuine magic link for `info@faithfoundationsf.org` (no password read or set), the link is
+followed to extract the real access/refresh token fragment, `@supabase/ssr`'s own `setSession()` +
+cookie-capture path converts that into the exact cookie shape the app's server-side session reader
+expects, and the resulting cookies are injected into a real Playwright/Chromium context — the same
+technique this project's prior live-verification sessions have used repeatedly (see
+`AGENT_VERIFICATION_LOG.md`'s AG-19/AG-41/Marketplace entries). A sanity check (`/dashboard` must not
+redirect to `/login`) runs before the suite starts, so a broken session would fail loudly up front
+rather than mislabeling all 464 routes as findings.
+
+Page routes: real `page.goto()` navigation, status + rendered body captured, checked against a hard-
+error detector (empty body/white screen, Next.js's dev-mode "Unhandled Runtime Error" overlay, a
+React client-side-exception boundary string, a raw 500/Internal-Server-Error body, or an unexpected
+redirect back to `/login`). API routes: a safe authenticated call — `GET` if the route file exports a
+`GET` handler (checked by reading the actual file, not guessed), otherwise `OPTIONS` (Next.js answers
+`OPTIONS` for any route without invoking a state-changing handler) — so this suite never fires a
+blind `POST`/`PATCH`/`DELETE` against a real endpoint. Dynamic segments (`[id]`, `[...slug]`,
+`[[...slug]]`) are filled with a placeholder UUID/slug so the route is actually reachable; a 404 for a
+fake id is expected and not a finding, a 500/white-screen for one is.
+
+**Result — 464/464 routes covered, 6 not `rendered_ok`, 5 hard 500/white-screen findings:**
+
+| Route | Type | Classification | Detail |
+|---|---|---|---|
+| `/documents` | page | **P0** | `page.goto()` timeout (30s) — top-level primary sidebar nav item (`nav-items.ts` `NAV_ITEMS`), not a sub-page; a user hitting this route today gets a hang, not a page. |
+| `/api/agents/discovery` | api | P1 | `500: "Failed to load discovery matches."` — not consumed by any dashboard page found via grep; backing endpoint only. |
+| `/api/consultant/clients` | api | P1 | `500: "Failed to load client access grants."` — backs `/settings/white-label`, a sub-settings page, not primary nav. |
+| `/api/outreach/sequences` | api | P1 | `500: "Failed to load follow-up sequences."` — matches the already-documented `followup_sequences` missing-table bug from the 2026-08-13 Outreach Consolidation Audit session (see that session's entry below); not a new finding, a live re-confirmation of a known one. |
+| `/api/schoolfunder` | api | P1 | `500: "Failed to load students."` — backs the standalone Faith Foundation showcase feature (`BLUEPRINT.md` §1), not core Benavora SaaS navigation. |
+| `/api/settings/notifications` | api | P1 | `500: "Failed to load notification preferences."` — backs `/settings/notifications`, a sub-settings page, not primary nav. |
+
+Classification (P0 vs P1) was decided by checking each failing route's real consumer, not by
+severity of the error string alone: `/documents` is graded P0 because it's a literal top-level
+`NAV_ITEMS` entry (confirmed via `src/components/layout/nav-items.ts`) — any authenticated user
+clicking the sidebar hits a hang. The 5 API 500s were each checked for a dashboard-page consumer via
+repo-wide grep before classifying; none back a primary-nav page's core data load, so all 5 are P1.
+
+Screenshot evidence for the one page-level failure: `test-evidence/pt-00/smoke-failures/documents.png`
+(full-page capture at the point of timeout). API failures have no screenshot (not a page-render
+context) — their real HTTP response body is captured directly in `smoke-results.json` instead.
+
+**Verifier:** `scripts/audit/verify-pt00-005.mjs` — exits non-zero unless `smoke-results.json` parses,
+every result row has all 5 required fields with correct types, zero duplicate `type::path` rows exist
+(a duplicate could mask a silently-dropped route while still passing a naive count check), and every
+one of the 464 manifest routes has an exact matching result row — walked route-by-route, not a bare
+`results.length === routes.length` count (which would pass even if a real route were dropped and a
+duplicate substituted for it). Run and confirmed passing this session:
+```
+PT-00-005 PASS: 464/464 manifest routes covered (146 page, 318 api), zero duplicates, zero missing.
+  6 route(s) not rendered_ok, 5 hard 500/white-screen finding(s).
+```
+
+**Gates:** no application code was touched — this is an audit/evidence-gathering pass, not a fix
+pass. The 6 findings above were left unfixed, exactly as PT-00 scope requires (broad-and-shallow
+coverage; remediation depth belongs to PT-01/PT-02).
 
 ## SESSION — August 19, 2026 (PT-00-004: env-var audit — what lets the deploy-verifier silently no-op)
 

@@ -1,0 +1,4502 @@
+{
+  "generatedAt": "2026-08-19T06:38:29.451Z",
+  "baseUrl": "http://localhost:3000",
+  "totalRoutes": 464,
+  "results": [
+    {
+      "path": "/",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/"
+    },
+    {
+      "path": "/activity",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/activity"
+    },
+    {
+      "path": "/admin",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin"
+    },
+    {
+      "path": "/admin/audit-log",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/audit-log"
+    },
+    {
+      "path": "/admin/autoapply-ops",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/autoapply-ops"
+    },
+    {
+      "path": "/admin/improvements",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/improvements"
+    },
+    {
+      "path": "/admin/monitor",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/monitor"
+    },
+    {
+      "path": "/admin/orgs",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/orgs"
+    },
+    {
+      "path": "/admin/orgs/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/admin/orgs/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/admin/sales-outreach",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/sales-outreach"
+    },
+    {
+      "path": "/admin/system",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/admin/system"
+    },
+    {
+      "path": "/agents/marketplace",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/agents/marketplace"
+    },
+    {
+      "path": "/agents/marketplace/[agentId]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/agents/marketplace/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/alerts",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/alerts"
+    },
+    {
+      "path": "/applications",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/applications"
+    },
+    {
+      "path": "/applications/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/applications/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/applications/list",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/applications/list"
+    },
+    {
+      "path": "/applications/new",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/applications/new"
+    },
+    {
+      "path": "/autoapply",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply"
+    },
+    {
+      "path": "/autoapply/[sessionId]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/autoapply/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/autoapply/agreements",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/agreements"
+    },
+    {
+      "path": "/autoapply/analytics",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/analytics"
+    },
+    {
+      "path": "/autoapply/automation-settings",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/automation-settings"
+    },
+    {
+      "path": "/autoapply/compliance",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/compliance"
+    },
+    {
+      "path": "/autoapply/controls",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/controls"
+    },
+    {
+      "path": "/autoapply/documents",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/documents"
+    },
+    {
+      "path": "/autoapply/follow-ups",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/follow-ups"
+    },
+    {
+      "path": "/autoapply/profiles",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/profiles"
+    },
+    {
+      "path": "/autoapply/recordings",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/recordings"
+    },
+    {
+      "path": "/autoapply/review-queue",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/review-queue"
+    },
+    {
+      "path": "/autoapply/settings",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/settings"
+    },
+    {
+      "path": "/autoapply/templates",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/templates"
+    },
+    {
+      "path": "/autoapply/test-results",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/test-results"
+    },
+    {
+      "path": "/autoapply/usage",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/usage"
+    },
+    {
+      "path": "/autoapply/webhooks",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/autoapply/webhooks"
+    },
+    {
+      "path": "/billing",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/billing"
+    },
+    {
+      "path": "/board/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/board/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/command-center",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/command-center"
+    },
+    {
+      "path": "/compliance",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/compliance"
+    },
+    {
+      "path": "/contacts",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/contacts"
+    },
+    {
+      "path": "/contacts/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/contacts/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/contacts/new",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/contacts/new"
+    },
+    {
+      "path": "/dashboard",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/dashboard"
+    },
+    {
+      "path": "/deadlines",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/deadlines"
+    },
+    {
+      "path": "/documents",
+      "type": "page",
+      "status": null,
+      "rendered_ok": false,
+      "error": "navigation failed: page.goto: Timeout 30000ms exceeded.",
+      "screenshot": "test-evidence/pt-00/smoke-failures/documents.png",
+      "dynamic": false,
+      "testedPath": "/documents"
+    },
+    {
+      "path": "/donor-discovery",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery"
+    },
+    {
+      "path": "/donor-discovery/connectors",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/connectors"
+    },
+    {
+      "path": "/donor-discovery/discover",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/discover"
+    },
+    {
+      "path": "/donor-discovery/intent-signals",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/intent-signals"
+    },
+    {
+      "path": "/donor-discovery/marketplace",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/marketplace"
+    },
+    {
+      "path": "/donor-discovery/new",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/new"
+    },
+    {
+      "path": "/donor-discovery/outreach",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/outreach"
+    },
+    {
+      "path": "/donor-discovery/outreach/prospects/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/donor-discovery/outreach/prospects/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/donor-discovery/prospects",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/donor-discovery/prospects"
+    },
+    {
+      "path": "/donor-discovery/prospects/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/donor-discovery/prospects/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/draft-generator",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/draft-generator"
+    },
+    {
+      "path": "/draft-generator/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/draft-generator/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/draft-generator/autonomous",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/draft-generator/autonomous"
+    },
+    {
+      "path": "/draft-generator/queue",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/draft-generator/queue"
+    },
+    {
+      "path": "/email",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/email"
+    },
+    {
+      "path": "/email/campaigns",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/email/campaigns"
+    },
+    {
+      "path": "/email/campaigns/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/email/campaigns/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/email/templates",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/email/templates"
+    },
+    {
+      "path": "/financials",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/financials"
+    },
+    {
+      "path": "/follow-ups",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/follow-ups"
+    },
+    {
+      "path": "/for-consultants",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/for-consultants"
+    },
+    {
+      "path": "/forgot-password",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/forgot-password"
+    },
+    {
+      "path": "/foundations",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/foundations"
+    },
+    {
+      "path": "/foundations/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/foundations/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/funders",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/funders"
+    },
+    {
+      "path": "/funders/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/funders/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/funders/[id]/relationship",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/funders/00000000-0000-0000-0000-000000000000/relationship"
+    },
+    {
+      "path": "/funders/import",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/funders/import"
+    },
+    {
+      "path": "/funders/new",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/funders/new"
+    },
+    {
+      "path": "/how-it-works",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/how-it-works"
+    },
+    {
+      "path": "/import",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/import"
+    },
+    {
+      "path": "/intelligence",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence"
+    },
+    {
+      "path": "/intelligence-library",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence-library"
+    },
+    {
+      "path": "/intelligence-library/dashboard",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence-library/dashboard"
+    },
+    {
+      "path": "/intelligence/community-need",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/community-need"
+    },
+    {
+      "path": "/intelligence/competitors",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/competitors"
+    },
+    {
+      "path": "/intelligence/disaster",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/disaster"
+    },
+    {
+      "path": "/intelligence/donor-intent",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/donor-intent"
+    },
+    {
+      "path": "/intelligence/gap-analysis",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/gap-analysis"
+    },
+    {
+      "path": "/intelligence/knowledge",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/knowledge"
+    },
+    {
+      "path": "/intelligence/learning-network",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/learning-network"
+    },
+    {
+      "path": "/intelligence/match-feed",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/match-feed"
+    },
+    {
+      "path": "/intelligence/matches",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/matches"
+    },
+    {
+      "path": "/intelligence/recommendations",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/recommendations"
+    },
+    {
+      "path": "/intelligence/relationship-graph",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/relationship-graph"
+    },
+    {
+      "path": "/intelligence/reputation",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/reputation"
+    },
+    {
+      "path": "/intelligence/simulate",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/simulate"
+    },
+    {
+      "path": "/intelligence/strategic-advisor",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/strategic-advisor"
+    },
+    {
+      "path": "/intelligence/twin",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/intelligence/twin"
+    },
+    {
+      "path": "/invite/[token]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/invite/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/knowledge-base",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/knowledge-base"
+    },
+    {
+      "path": "/knowledge-base/answers",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/knowledge-base/answers"
+    },
+    {
+      "path": "/knowledge-base/edit",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/knowledge-base/edit"
+    },
+    {
+      "path": "/knowledge-base/narratives",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/knowledge-base/narratives"
+    },
+    {
+      "path": "/knowledge-base/narratives/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/knowledge-base/narratives/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/knowledge-base/profile",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/knowledge-base/profile"
+    },
+    {
+      "path": "/login",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/login"
+    },
+    {
+      "path": "/marketplace",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/marketplace"
+    },
+    {
+      "path": "/nonprofits",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/nonprofits"
+    },
+    {
+      "path": "/notifications",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/notifications"
+    },
+    {
+      "path": "/onboarding",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/onboarding"
+    },
+    {
+      "path": "/opportunities",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/opportunities"
+    },
+    {
+      "path": "/opportunities/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/opportunities/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/opportunities/new",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/opportunities/new"
+    },
+    {
+      "path": "/outcomes",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/outcomes"
+    },
+    {
+      "path": "/outcomes/analytics",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/outcomes/analytics"
+    },
+    {
+      "path": "/outreach",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/outreach"
+    },
+    {
+      "path": "/outreach/campaigns",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/outreach/campaigns"
+    },
+    {
+      "path": "/outreach/campaigns/[id]",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": true,
+      "testedPath": "/outreach/campaigns/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/outreach/sequences",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/outreach/sequences"
+    },
+    {
+      "path": "/outreach/templates",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/outreach/templates"
+    },
+    {
+      "path": "/pricing",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/pricing"
+    },
+    {
+      "path": "/privacy",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/privacy"
+    },
+    {
+      "path": "/register",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/register"
+    },
+    {
+      "path": "/renewals",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/renewals"
+    },
+    {
+      "path": "/reports",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports"
+    },
+    {
+      "path": "/reports/board-report",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports/board-report"
+    },
+    {
+      "path": "/reports/forecast",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports/forecast"
+    },
+    {
+      "path": "/reports/funding-summary",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports/funding-summary"
+    },
+    {
+      "path": "/reports/impact",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports/impact"
+    },
+    {
+      "path": "/reports/roi",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports/roi"
+    },
+    {
+      "path": "/reports/simulate",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reports/simulate"
+    },
+    {
+      "path": "/research",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/research"
+    },
+    {
+      "path": "/research/match",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/research/match"
+    },
+    {
+      "path": "/reset-password",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/reset-password"
+    },
+    {
+      "path": "/schoolfunder",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/schoolfunder"
+    },
+    {
+      "path": "/search-profiles",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/search-profiles"
+    },
+    {
+      "path": "/search-profiles/configure",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/search-profiles/configure"
+    },
+    {
+      "path": "/security",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/security"
+    },
+    {
+      "path": "/settings",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings"
+    },
+    {
+      "path": "/settings/agents",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/agents"
+    },
+    {
+      "path": "/settings/billing",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/billing"
+    },
+    {
+      "path": "/settings/branding",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/branding"
+    },
+    {
+      "path": "/settings/custom-apis",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/custom-apis"
+    },
+    {
+      "path": "/settings/integrations",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/integrations"
+    },
+    {
+      "path": "/settings/notifications",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/notifications"
+    },
+    {
+      "path": "/settings/organization-setup",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/organization-setup"
+    },
+    {
+      "path": "/settings/scraping",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/scraping"
+    },
+    {
+      "path": "/settings/state-portals",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/state-portals"
+    },
+    {
+      "path": "/settings/white-label",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/settings/white-label"
+    },
+    {
+      "path": "/terms",
+      "type": "page",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "dynamic": false,
+      "testedPath": "/terms"
+    },
+    {
+      "path": "/api/activity",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/activity"
+    },
+    {
+      "path": "/api/admin/audit-log",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/audit-log"
+    },
+    {
+      "path": "/api/admin/autoapply-ops",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/autoapply-ops"
+    },
+    {
+      "path": "/api/admin/campaigns",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/campaigns"
+    },
+    {
+      "path": "/api/admin/campaigns/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/admin/campaigns/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/admin/command-center",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/command-center"
+    },
+    {
+      "path": "/api/admin/domains",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/domains"
+    },
+    {
+      "path": "/api/admin/domains/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/admin/domains/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/admin/improvements",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/improvements"
+    },
+    {
+      "path": "/api/admin/improvements/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/admin/improvements/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/admin/jobs/[id]/retry",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/admin/jobs/00000000-0000-0000-0000-000000000000/retry"
+    },
+    {
+      "path": "/api/admin/monitor",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/monitor"
+    },
+    {
+      "path": "/api/admin/orgs",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/orgs"
+    },
+    {
+      "path": "/api/admin/orgs/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/admin/orgs/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/impersonate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/admin/orgs/00000000-0000-0000-0000-000000000000/impersonate"
+    },
+    {
+      "path": "/api/admin/orgs/[id]/suspend",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/admin/orgs/00000000-0000-0000-0000-000000000000/suspend"
+    },
+    {
+      "path": "/api/admin/platform-metrics",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/platform-metrics"
+    },
+    {
+      "path": "/api/admin/prospects",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/prospects"
+    },
+    {
+      "path": "/api/admin/prospects/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/admin/prospects/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/admin/prospects/stats",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/prospects/stats"
+    },
+    {
+      "path": "/api/admin/sales-analytics",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/sales-analytics"
+    },
+    {
+      "path": "/api/admin/sales-analytics/export",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/sales-analytics/export"
+    },
+    {
+      "path": "/api/admin/suppression",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/suppression"
+    },
+    {
+      "path": "/api/admin/suppression/import",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/admin/suppression/import"
+    },
+    {
+      "path": "/api/admin/system",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/system"
+    },
+    {
+      "path": "/api/admin/usage",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/admin/usage"
+    },
+    {
+      "path": "/api/admin/webhooks/email-events",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/admin/webhooks/email-events"
+    },
+    {
+      "path": "/api/admin/webhooks/email-reply",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/admin/webhooks/email-reply"
+    },
+    {
+      "path": "/api/agents/application-cloner",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/application-cloner"
+    },
+    {
+      "path": "/api/agents/automation",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/automation"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/agents/automation/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/agents/automation/[sessionId]/approve",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/agents/automation/00000000-0000-0000-0000-000000000000/approve"
+    },
+    {
+      "path": "/api/agents/campaigns",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/agents/campaigns"
+    },
+    {
+      "path": "/api/agents/campaigns/[campaignId]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/agents/campaigns/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/agents/competitor-intel",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/competitor-intel"
+    },
+    {
+      "path": "/api/agents/corporate-research",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/corporate-research"
+    },
+    {
+      "path": "/api/agents/custom-api",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/custom-api"
+    },
+    {
+      "path": "/api/agents/custom-scrape",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/custom-scrape"
+    },
+    {
+      "path": "/api/agents/deadline-prediction",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/deadline-prediction"
+    },
+    {
+      "path": "/api/agents/disaster",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/agents/disaster"
+    },
+    {
+      "path": "/api/agents/discovery",
+      "type": "api",
+      "status": 500,
+      "rendered_ok": false,
+      "error": "HTTP 500: {\"error\":\"Failed to load discovery matches.\"}",
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/agents/discovery"
+    },
+    {
+      "path": "/api/agents/eligibility",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/eligibility"
+    },
+    {
+      "path": "/api/agents/email-parser",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/email-parser"
+    },
+    {
+      "path": "/api/agents/follow-up",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/follow-up"
+    },
+    {
+      "path": "/api/agents/form-analyzer",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/form-analyzer"
+    },
+    {
+      "path": "/api/agents/form-filler",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/form-filler"
+    },
+    {
+      "path": "/api/agents/foundation-finder",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/foundation-finder"
+    },
+    {
+      "path": "/api/agents/funder-intel",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/funder-intel"
+    },
+    {
+      "path": "/api/agents/funder-relationship",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/funder-relationship"
+    },
+    {
+      "path": "/api/agents/giving-history",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/giving-history"
+    },
+    {
+      "path": "/api/agents/grants-gov",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/grants-gov"
+    },
+    {
+      "path": "/api/agents/housing-specific",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/housing-specific"
+    },
+    {
+      "path": "/api/agents/hud-monitor",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/hud-monitor"
+    },
+    {
+      "path": "/api/agents/keyword-expansion",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/keyword-expansion"
+    },
+    {
+      "path": "/api/agents/learning",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/learning"
+    },
+    {
+      "path": "/api/agents/morning-digest",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/agents/morning-digest"
+    },
+    {
+      "path": "/api/agents/nofa-parser",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/nofa-parser"
+    },
+    {
+      "path": "/api/agents/outreach",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/outreach"
+    },
+    {
+      "path": "/api/agents/playwright",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/playwright"
+    },
+    {
+      "path": "/api/agents/propublica",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/propublica"
+    },
+    {
+      "path": "/api/agents/registry",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/agents/registry"
+    },
+    {
+      "path": "/api/agents/registry/[agentId]/runs",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/agents/registry/00000000-0000-0000-0000-000000000000/runs"
+    },
+    {
+      "path": "/api/agents/registry/configure",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/registry/configure"
+    },
+    {
+      "path": "/api/agents/research",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/research"
+    },
+    {
+      "path": "/api/agents/research-config",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/research-config"
+    },
+    {
+      "path": "/api/agents/research/quality",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/research/quality"
+    },
+    {
+      "path": "/api/agents/research/status",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/agents/research/status"
+    },
+    {
+      "path": "/api/agents/sam-gov",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/sam-gov"
+    },
+    {
+      "path": "/api/agents/semantic-matching",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/semantic-matching"
+    },
+    {
+      "path": "/api/agents/simpler-grants",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/simpler-grants"
+    },
+    {
+      "path": "/api/agents/simulate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/simulate"
+    },
+    {
+      "path": "/api/agents/state-portals",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/state-portals"
+    },
+    {
+      "path": "/api/agents/state-scrapers",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/state-scrapers"
+    },
+    {
+      "path": "/api/agents/success-probability",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/success-probability"
+    },
+    {
+      "path": "/api/agents/tdhca",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/tdhca"
+    },
+    {
+      "path": "/api/agents/usaspending",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/agents/usaspending"
+    },
+    {
+      "path": "/api/ai/budget",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/budget"
+    },
+    {
+      "path": "/api/ai/draft",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/draft"
+    },
+    {
+      "path": "/api/ai/draft/rescore",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/draft/rescore"
+    },
+    {
+      "path": "/api/ai/fit-analysis",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/fit-analysis"
+    },
+    {
+      "path": "/api/ai/humanize",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/humanize"
+    },
+    {
+      "path": "/api/ai/review",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/review"
+    },
+    {
+      "path": "/api/ai/summarize",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/summarize"
+    },
+    {
+      "path": "/api/ai/validate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/ai/validate"
+    },
+    {
+      "path": "/api/alerts",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/alerts"
+    },
+    {
+      "path": "/api/applications/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/applications/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/applications/[id]/budget",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/applications/00000000-0000-0000-0000-000000000000/budget"
+    },
+    {
+      "path": "/api/applications/[id]/clone",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/applications/00000000-0000-0000-0000-000000000000/clone"
+    },
+    {
+      "path": "/api/applications/[id]/expenses",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/applications/00000000-0000-0000-0000-000000000000/expenses"
+    },
+    {
+      "path": "/api/applications/[id]/reconcile",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/applications/00000000-0000-0000-0000-000000000000/reconcile"
+    },
+    {
+      "path": "/api/audit",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/audit"
+    },
+    {
+      "path": "/api/auth/callback",
+      "type": "api",
+      "status": 307,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/auth/callback"
+    },
+    {
+      "path": "/api/auth/log-event",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/auth/log-event"
+    },
+    {
+      "path": "/api/autoapply/ab-tests",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/ab-tests"
+    },
+    {
+      "path": "/api/autoapply/agreements",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/agreements"
+    },
+    {
+      "path": "/api/autoapply/agreements/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/agreements/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/autoapply/autonomous-status",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/autonomous-status"
+    },
+    {
+      "path": "/api/autoapply/config",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/config"
+    },
+    {
+      "path": "/api/autoapply/controls",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/controls"
+    },
+    {
+      "path": "/api/autoapply/documents",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/documents"
+    },
+    {
+      "path": "/api/autoapply/documents/readiness",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/documents/readiness"
+    },
+    {
+      "path": "/api/autoapply/follow-ups",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/follow-ups"
+    },
+    {
+      "path": "/api/autoapply/follow-ups/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/follow-ups/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/autoapply/follow-ups/cancel-all/[funderId]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/follow-ups/cancel-all/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/autoapply/follow-ups/stats",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/follow-ups/stats"
+    },
+    {
+      "path": "/api/autoapply/mode",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/mode"
+    },
+    {
+      "path": "/api/autoapply/profiles",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/profiles"
+    },
+    {
+      "path": "/api/autoapply/profiles/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/profiles/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/autoapply/queue",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/queue"
+    },
+    {
+      "path": "/api/autoapply/review-queue",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/review-queue"
+    },
+    {
+      "path": "/api/autoapply/review-queue/[id]/reassign",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/review-queue/00000000-0000-0000-0000-000000000000/reassign"
+    },
+    {
+      "path": "/api/autoapply/review-queue/[id]/resume",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/review-queue/00000000-0000-0000-0000-000000000000/resume"
+    },
+    {
+      "path": "/api/autoapply/review-queue/[id]/skip",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/review-queue/00000000-0000-0000-0000-000000000000/skip"
+    },
+    {
+      "path": "/api/autoapply/review-queue/ambiguous/[id]/resolve",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/autoapply/review-queue/ambiguous/00000000-0000-0000-0000-000000000000/resolve"
+    },
+    {
+      "path": "/api/autoapply/templates/test",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/templates/test"
+    },
+    {
+      "path": "/api/autoapply/test",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/test"
+    },
+    {
+      "path": "/api/autoapply/usage",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/usage"
+    },
+    {
+      "path": "/api/autoapply/usage/keys",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/usage/keys"
+    },
+    {
+      "path": "/api/autoapply/webhooks",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autoapply/webhooks"
+    },
+    {
+      "path": "/api/automation/portal-credentials",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/automation/portal-credentials"
+    },
+    {
+      "path": "/api/automation/process",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/automation/process"
+    },
+    {
+      "path": "/api/automation/queue",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/automation/queue"
+    },
+    {
+      "path": "/api/automation/stats",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/automation/stats"
+    },
+    {
+      "path": "/api/autonomous/board-packet-trigger",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/board-packet-trigger"
+    },
+    {
+      "path": "/api/autonomous/config",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/config"
+    },
+    {
+      "path": "/api/autonomous/decisions",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/decisions"
+    },
+    {
+      "path": "/api/autonomous/followup-trigger",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/followup-trigger"
+    },
+    {
+      "path": "/api/autonomous/grant-dna-trigger",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/grant-dna-trigger"
+    },
+    {
+      "path": "/api/autonomous/knowledge-indexer-trigger",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/knowledge-indexer-trigger"
+    },
+    {
+      "path": "/api/autonomous/queue",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/queue"
+    },
+    {
+      "path": "/api/autonomous/track-submission",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/track-submission"
+    },
+    {
+      "path": "/api/autonomous/trigger",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/autonomous/trigger"
+    },
+    {
+      "path": "/api/billing",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/billing"
+    },
+    {
+      "path": "/api/billing/check-gate",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/billing/check-gate"
+    },
+    {
+      "path": "/api/billing/usage",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/billing/usage"
+    },
+    {
+      "path": "/api/board/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/board/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/calendar/auth",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/calendar/auth"
+    },
+    {
+      "path": "/api/calendar/callback",
+      "type": "api",
+      "status": 307,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/calendar/callback"
+    },
+    {
+      "path": "/api/calendar/sync",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/calendar/sync"
+    },
+    {
+      "path": "/api/command-center/layout",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/command-center/layout"
+    },
+    {
+      "path": "/api/compliance",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/compliance"
+    },
+    {
+      "path": "/api/compliance/check",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/compliance/check"
+    },
+    {
+      "path": "/api/compliance/events",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/compliance/events"
+    },
+    {
+      "path": "/api/compliance/events/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/compliance/events/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/consultant/clients",
+      "type": "api",
+      "status": 500,
+      "rendered_ok": false,
+      "error": "HTTP 500: {\"error\":\"Failed to load client access grants.\",\"code\":\"load_failed\"}",
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/consultant/clients"
+    },
+    {
+      "path": "/api/contacts/[id]/outreach/call",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/contacts/00000000-0000-0000-0000-000000000000/outreach/call"
+    },
+    {
+      "path": "/api/contacts/[id]/outreach/linkedin",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/contacts/00000000-0000-0000-0000-000000000000/outreach/linkedin"
+    },
+    {
+      "path": "/api/contacts/[id]/outreach/mail",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/contacts/00000000-0000-0000-0000-000000000000/outreach/mail"
+    },
+    {
+      "path": "/api/contacts/[id]/tasks",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/contacts/00000000-0000-0000-0000-000000000000/tasks"
+    },
+    {
+      "path": "/api/contacts/tasks/[taskId]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/contacts/tasks/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/contacts/tasks/[taskId]/download",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/contacts/tasks/00000000-0000-0000-0000-000000000000/download"
+    },
+    {
+      "path": "/api/cron/autoapply",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/autoapply"
+    },
+    {
+      "path": "/api/cron/campaigns",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/campaigns"
+    },
+    {
+      "path": "/api/cron/domain-warmup",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/domain-warmup"
+    },
+    {
+      "path": "/api/cron/draft-automation",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/draft-automation"
+    },
+    {
+      "path": "/api/cron/draft-queue-check",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/draft-queue-check"
+    },
+    {
+      "path": "/api/cron/email-sequences",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/email-sequences"
+    },
+    {
+      "path": "/api/cron/follow-ups",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/follow-ups"
+    },
+    {
+      "path": "/api/cron/grantsgov",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/grantsgov"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/reminders"
+    },
+    {
+      "path": "/api/cron/research",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/research"
+    },
+    {
+      "path": "/api/cron/sales-sends",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/cron/sales-sends"
+    },
+    {
+      "path": "/api/deadlines/check",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/deadlines/check"
+    },
+    {
+      "path": "/api/documents/assemble",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/documents/assemble"
+    },
+    {
+      "path": "/api/documents/quota",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/documents/quota"
+    },
+    {
+      "path": "/api/donor-discovery/connectors",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/connectors"
+    },
+    {
+      "path": "/api/donor-discovery/connectors/test",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/connectors/test"
+    },
+    {
+      "path": "/api/donor-discovery/discover",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/discover"
+    },
+    {
+      "path": "/api/donor-discovery/geocode",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/geocode"
+    },
+    {
+      "path": "/api/donor-discovery/pipeline",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/pipeline"
+    },
+    {
+      "path": "/api/donor-discovery/prospects",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/prospects"
+    },
+    {
+      "path": "/api/donor-discovery/prospects/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/donor-discovery/prospects/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/donor-discovery/prospects/[id]/route-to-autoapply",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/donor-discovery/prospects/00000000-0000-0000-0000-000000000000/route-to-autoapply"
+    },
+    {
+      "path": "/api/donor-discovery/prospects/[id]/route-to-email",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/donor-discovery/prospects/00000000-0000-0000-0000-000000000000/route-to-email"
+    },
+    {
+      "path": "/api/donor-discovery/requests",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/requests"
+    },
+    {
+      "path": "/api/donor-discovery/requests/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/donor-discovery/requests/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/donor-discovery/taxonomy/search",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/donor-discovery/taxonomy/search"
+    },
+    {
+      "path": "/api/drafts/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/drafts/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/drafts/[id]/humanize",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/drafts/00000000-0000-0000-0000-000000000000/humanize"
+    },
+    {
+      "path": "/api/drafts/queue",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/drafts/queue"
+    },
+    {
+      "path": "/api/drafts/queue/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/drafts/queue/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/drafts/queue/config",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/drafts/queue/config"
+    },
+    {
+      "path": "/api/drafts/queue/stats",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/drafts/queue/stats"
+    },
+    {
+      "path": "/api/drafts/queue/trigger",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/drafts/queue/trigger"
+    },
+    {
+      "path": "/api/email/analytics",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/analytics"
+    },
+    {
+      "path": "/api/email/auth",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/auth"
+    },
+    {
+      "path": "/api/email/callback",
+      "type": "api",
+      "status": 307,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/callback"
+    },
+    {
+      "path": "/api/email/contacts",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/contacts"
+    },
+    {
+      "path": "/api/email/link",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/email/link"
+    },
+    {
+      "path": "/api/email/send",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/email/send"
+    },
+    {
+      "path": "/api/email/sequences",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/sequences"
+    },
+    {
+      "path": "/api/email/sequences/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/email/sequences/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/email/sequences/[id]/analytics",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/email/sequences/00000000-0000-0000-0000-000000000000/analytics"
+    },
+    {
+      "path": "/api/email/sequences/[id]/enroll",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/email/sequences/00000000-0000-0000-0000-000000000000/enroll"
+    },
+    {
+      "path": "/api/email/summarize",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/email/summarize"
+    },
+    {
+      "path": "/api/email/sync",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/email/sync"
+    },
+    {
+      "path": "/api/email/templates",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/templates"
+    },
+    {
+      "path": "/api/email/templates/generate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/email/templates/generate"
+    },
+    {
+      "path": "/api/email/threads",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/email/threads"
+    },
+    {
+      "path": "/api/financials/budgets",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/financials/budgets"
+    },
+    {
+      "path": "/api/financials/expenses",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/financials/expenses"
+    },
+    {
+      "path": "/api/foundations/[id]/competitors",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/foundations/00000000-0000-0000-0000-000000000000/competitors"
+    },
+    {
+      "path": "/api/foundations/[id]/profile",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/foundations/00000000-0000-0000-0000-000000000000/profile"
+    },
+    {
+      "path": "/api/funders/[id]/relationship",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/funders/00000000-0000-0000-0000-000000000000/relationship"
+    },
+    {
+      "path": "/api/funders/[id]/relationship-builder",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/funders/00000000-0000-0000-0000-000000000000/relationship-builder"
+    },
+    {
+      "path": "/api/funders/enroll-monitoring",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/funders/enroll-monitoring"
+    },
+    {
+      "path": "/api/funders/import",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/funders/import"
+    },
+    {
+      "path": "/api/funders/relationship-scores",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/funders/relationship-scores"
+    },
+    {
+      "path": "/api/grants",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/grants"
+    },
+    {
+      "path": "/api/grants/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/grants/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/grants/[id]/rescore",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/grants/00000000-0000-0000-0000-000000000000/rescore"
+    },
+    {
+      "path": "/api/import/csv",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/import/csv"
+    },
+    {
+      "path": "/api/integrations/custom-api",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/custom-api"
+    },
+    {
+      "path": "/api/integrations/custom-api/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/integrations/custom-api/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/custom-api/allowlist"
+    },
+    {
+      "path": "/api/integrations/custom-api/allowlist/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/integrations/custom-api/allowlist/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/integrations/custom-api/test",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/integrations/custom-api/test"
+    },
+    {
+      "path": "/api/integrations/google",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/google"
+    },
+    {
+      "path": "/api/integrations/google/calendar",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/google/calendar"
+    },
+    {
+      "path": "/api/integrations/google/calendar/sync",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/integrations/google/calendar/sync"
+    },
+    {
+      "path": "/api/integrations/google/callback",
+      "type": "api",
+      "status": 307,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/google/callback"
+    },
+    {
+      "path": "/api/integrations/google/sync",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/integrations/google/sync"
+    },
+    {
+      "path": "/api/integrations/keys",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/keys"
+    },
+    {
+      "path": "/api/integrations/scraping-targets",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/integrations/scraping-targets"
+    },
+    {
+      "path": "/api/integrations/scraping-targets/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/integrations/scraping-targets/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/intelligence/benchmarks",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/benchmarks"
+    },
+    {
+      "path": "/api/intelligence/briefing",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/briefing"
+    },
+    {
+      "path": "/api/intelligence/budget-patterns",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/budget-patterns"
+    },
+    {
+      "path": "/api/intelligence/community-need",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/community-need"
+    },
+    {
+      "path": "/api/intelligence/community-resources",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/community-resources"
+    },
+    {
+      "path": "/api/intelligence/compliance",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/compliance"
+    },
+    {
+      "path": "/api/intelligence/corporate-prospects",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/corporate-prospects"
+    },
+    {
+      "path": "/api/intelligence/corporate-prospects/[id]",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/intelligence/corporate-prospects/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/intelligence/corporate-prospects/[id]/giving-dna",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/intelligence/corporate-prospects/00000000-0000-0000-0000-000000000000/giving-dna"
+    },
+    {
+      "path": "/api/intelligence/deadline-predictions",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/deadline-predictions"
+    },
+    {
+      "path": "/api/intelligence/digital-twin",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/digital-twin"
+    },
+    {
+      "path": "/api/intelligence/donor-intent",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/donor-intent"
+    },
+    {
+      "path": "/api/intelligence/evaluation",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/evaluation"
+    },
+    {
+      "path": "/api/intelligence/fundability",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/fundability"
+    },
+    {
+      "path": "/api/intelligence/gap-analysis",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/gap-analysis"
+    },
+    {
+      "path": "/api/intelligence/grant-dna",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/grant-dna"
+    },
+    {
+      "path": "/api/intelligence/grant-probability",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/grant-probability"
+    },
+    {
+      "path": "/api/intelligence/ingest",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/ingest"
+    },
+    {
+      "path": "/api/intelligence/knowledge-query",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/knowledge-query"
+    },
+    {
+      "path": "/api/intelligence/land-banks",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/land-banks"
+    },
+    {
+      "path": "/api/intelligence/learning-network",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/learning-network"
+    },
+    {
+      "path": "/api/intelligence/library/search",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/library/search"
+    },
+    {
+      "path": "/api/intelligence/logic-model",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/logic-model"
+    },
+    {
+      "path": "/api/intelligence/match-feed",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/match-feed"
+    },
+    {
+      "path": "/api/intelligence/need-data",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/need-data"
+    },
+    {
+      "path": "/api/intelligence/outreach/generate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/outreach/generate"
+    },
+    {
+      "path": "/api/intelligence/outreach/prospects",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/outreach/prospects"
+    },
+    {
+      "path": "/api/intelligence/outreach/queue",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/outreach/queue"
+    },
+    {
+      "path": "/api/intelligence/proposals",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/proposals"
+    },
+    {
+      "path": "/api/intelligence/recommendations",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/recommendations"
+    },
+    {
+      "path": "/api/intelligence/recommendations/explain",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/recommendations/explain"
+    },
+    {
+      "path": "/api/intelligence/relationship-graph",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/relationship-graph"
+    },
+    {
+      "path": "/api/intelligence/relationship-graph/analytics",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/relationship-graph/analytics"
+    },
+    {
+      "path": "/api/intelligence/reputation",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/reputation"
+    },
+    {
+      "path": "/api/intelligence/search",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/search"
+    },
+    {
+      "path": "/api/intelligence/signal-monitor",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/signal-monitor"
+    },
+    {
+      "path": "/api/intelligence/stats",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/stats"
+    },
+    {
+      "path": "/api/intelligence/strategic-advisor",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/strategic-advisor"
+    },
+    {
+      "path": "/api/intelligence/trends",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/trends"
+    },
+    {
+      "path": "/api/intelligence/twin/auto-populate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/twin/auto-populate"
+    },
+    {
+      "path": "/api/intelligence/twin/completeness",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/intelligence/twin/completeness"
+    },
+    {
+      "path": "/api/knowledge-base",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/knowledge-base"
+    },
+    {
+      "path": "/api/knowledge-base/suggest",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/knowledge-base/suggest"
+    },
+    {
+      "path": "/api/marketplace/listings",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/marketplace/listings"
+    },
+    {
+      "path": "/api/marketplace/matches",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/marketplace/matches"
+    },
+    {
+      "path": "/api/marketplace/matches/[id]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/marketplace/matches/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/match/foundations",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/match/foundations"
+    },
+    {
+      "path": "/api/nav-counts",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/nav-counts"
+    },
+    {
+      "path": "/api/notifications",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/notifications"
+    },
+    {
+      "path": "/api/onboarding",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/onboarding"
+    },
+    {
+      "path": "/api/onboarding/complete-setup",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/onboarding/complete-setup"
+    },
+    {
+      "path": "/api/onboarding/generate-narratives",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/onboarding/generate-narratives"
+    },
+    {
+      "path": "/api/opportunities/[id]/narrative-gap-analysis",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/opportunities/00000000-0000-0000-0000-000000000000/narrative-gap-analysis"
+    },
+    {
+      "path": "/api/opportunities/[id]/probability",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/opportunities/00000000-0000-0000-0000-000000000000/probability"
+    },
+    {
+      "path": "/api/outreach/humanize-step",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/outreach/humanize-step"
+    },
+    {
+      "path": "/api/outreach/sequences",
+      "type": "api",
+      "status": 500,
+      "rendered_ok": false,
+      "error": "HTTP 500: {\"error\":\"Failed to load follow-up sequences.\",\"code\":\"db_error\"}",
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/outreach/sequences"
+    },
+    {
+      "path": "/api/outreach/templates",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/outreach/templates"
+    },
+    {
+      "path": "/api/outreach/templates/[id]/variants",
+      "type": "api",
+      "status": 404,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": true,
+      "testedPath": "/api/outreach/templates/00000000-0000-0000-0000-000000000000/variants"
+    },
+    {
+      "path": "/api/outreach/templates/[id]/variants/[variantId]",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": true,
+      "testedPath": "/api/outreach/templates/00000000-0000-0000-0000-000000000000/variants/00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "path": "/api/platform/bootstrap",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/platform/bootstrap"
+    },
+    {
+      "path": "/api/proposals/generate-package",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/proposals/generate-package"
+    },
+    {
+      "path": "/api/prospects/acquire",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/prospects/acquire"
+    },
+    {
+      "path": "/api/renewals",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/renewals"
+    },
+    {
+      "path": "/api/reports/board",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/reports/board"
+    },
+    {
+      "path": "/api/reports/board-report",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/board-report"
+    },
+    {
+      "path": "/api/reports/board-report/detail",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/board-report/detail"
+    },
+    {
+      "path": "/api/reports/board-report/executive-summary",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/reports/board-report/executive-summary"
+    },
+    {
+      "path": "/api/reports/forecast",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/forecast"
+    },
+    {
+      "path": "/api/reports/funding-summary",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/funding-summary"
+    },
+    {
+      "path": "/api/reports/impact",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/impact"
+    },
+    {
+      "path": "/api/reports/impact/enhance",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/reports/impact/enhance"
+    },
+    {
+      "path": "/api/reports/roi",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/roi"
+    },
+    {
+      "path": "/api/reports/simulate",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/reports/simulate"
+    },
+    {
+      "path": "/api/schoolfunder",
+      "type": "api",
+      "status": 500,
+      "rendered_ok": false,
+      "error": "HTTP 500: {\"error\":\"Failed to load students.\",\"code\":\"load_failed\"}",
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/schoolfunder"
+    },
+    {
+      "path": "/api/schoolfunder/donate",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/schoolfunder/donate"
+    },
+    {
+      "path": "/api/schoolfunder/hours",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/schoolfunder/hours"
+    },
+    {
+      "path": "/api/scraper/status",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/scraper/status"
+    },
+    {
+      "path": "/api/settings/agents/relationship-builder-v2",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/settings/agents/relationship-builder-v2"
+    },
+    {
+      "path": "/api/settings/integrations/status",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/settings/integrations/status"
+    },
+    {
+      "path": "/api/settings/notifications",
+      "type": "api",
+      "status": 500,
+      "rendered_ok": false,
+      "error": "HTTP 500: {\"error\":\"Failed to load notification preferences.\",\"code\":\"db_error\"}",
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/settings/notifications"
+    },
+    {
+      "path": "/api/sources/grantsgov",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/sources/grantsgov"
+    },
+    {
+      "path": "/api/sources/poll",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/sources/poll"
+    },
+    {
+      "path": "/api/sources/propublica",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/sources/propublica"
+    },
+    {
+      "path": "/api/sources/registry",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/sources/registry"
+    },
+    {
+      "path": "/api/sources/samgov",
+      "type": "api",
+      "status": 401,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/sources/samgov"
+    },
+    {
+      "path": "/api/sources/state-portals",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/sources/state-portals"
+    },
+    {
+      "path": "/api/stripe/create-portal-session",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/stripe/create-portal-session"
+    },
+    {
+      "path": "/api/unsubscribe",
+      "type": "api",
+      "status": 400,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/unsubscribe"
+    },
+    {
+      "path": "/api/users",
+      "type": "api",
+      "status": 200,
+      "rendered_ok": true,
+      "error": null,
+      "method": "GET",
+      "dynamic": false,
+      "testedPath": "/api/users"
+    },
+    {
+      "path": "/api/users/accept",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/users/accept"
+    },
+    {
+      "path": "/api/users/invite",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/users/invite"
+    },
+    {
+      "path": "/api/webhooks/resend",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/webhooks/resend"
+    },
+    {
+      "path": "/api/webhooks/stripe",
+      "type": "api",
+      "status": 204,
+      "rendered_ok": true,
+      "error": null,
+      "method": "OPTIONS",
+      "dynamic": false,
+      "testedPath": "/api/webhooks/stripe"
+    }
+  ]
+}
