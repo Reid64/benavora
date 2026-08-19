@@ -1,6 +1,28 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-00 COMPLETE — baseline established, review pack ready, awaiting Reid's Phase-00 review before PT-01 is authored). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-01 STARTED — preflight complete, page-route working set established: 146 page routes extracted from PT-00's 464-route manifest, verified to match exactly). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-01 preflight: page-route working set)
+
+**Focus:** PT-01 preflight step. Confirmed PT-00's three required outputs exist and are readable
+(`test-evidence/pt-00/route-manifest.json` — 464 routes total, 146 `type=="page"` / 318
+`type=="api"`, plus `deadNav`/`orphanRoutes` arrays present; `test-evidence/_register/WIRING_GAP_REGISTER.md`;
+`scripts/audit/evidence-lib.mjs`) before proceeding — PT-01 was not blocked.
+
+**What shipped:**
+- `scripts/audit/pt01-extract-page-routes.mjs` — reads PT-00's `route-manifest.json`, filters
+  `routes[]` to `type == "page"`, writes `test-evidence/pt-01/page-routes.json` (146 entries) as
+  the working set this phase walks.
+- `scripts/audit/verify-pt01-001.mjs` — re-reads both PT-00's manifest and the new
+  `page-routes.json`, independently recomputes the `type=="page"` count from the manifest, and
+  fails unless the extracted set's count and declared `pageRouteCount` field both match it exactly
+  and every entry is genuinely `type=="page"` — proves nothing was dropped or miscounted during
+  extraction. Confirmed passing: `PT-01-001 PASS: page-routes.json has 146 page route(s), matching
+  PT-00 route-manifest.json exactly.`
+
+**Note:** PT-00's own closing entry stated it was awaiting Reid's Phase-00 review before PT-01 was
+authored. This session's task explicitly directed PT-01 preflight work to proceed now — flagging
+the sequencing note here rather than silently overriding it.
 
 ## SESSION — August 19, 2026 (PT-00 consolidation: PHASE-00-SUMMARY.md, register fully populated, REVIEW-PACK.md, human review checkpoint)
 

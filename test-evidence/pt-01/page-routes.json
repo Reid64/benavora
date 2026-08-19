@@ -1,0 +1,883 @@
+{
+  "generatedAt": "2026-08-19T07-40-48Z",
+  "sourceManifest": "test-evidence/pt-00/route-manifest.json",
+  "pageRouteCount": 146,
+  "pageRoutes": [
+    {
+      "path": "/",
+      "type": "page",
+      "file": "src/app/(marketing)/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/activity",
+      "type": "page",
+      "file": "src/app/(dashboard)/activity/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/audit-log",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/audit-log/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/autoapply-ops",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/autoapply-ops/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/improvements",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/improvements/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/monitor",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/monitor/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/orgs",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/orgs/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/orgs/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/admin/sales-outreach",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/sales-outreach/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/admin/system",
+      "type": "page",
+      "file": "src/app/(dashboard)/admin/system/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/agents/marketplace",
+      "type": "page",
+      "file": "src/app/(dashboard)/agents/marketplace/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/agents/marketplace/[agentId]",
+      "type": "page",
+      "file": "src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/alerts",
+      "type": "page",
+      "file": "src/app/(dashboard)/alerts/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/applications",
+      "type": "page",
+      "file": "src/app/(dashboard)/applications/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/applications/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/applications/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/applications/list",
+      "type": "page",
+      "file": "src/app/(dashboard)/applications/list/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/applications/new",
+      "type": "page",
+      "file": "src/app/(dashboard)/applications/new/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/[sessionId]",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/[sessionId]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/autoapply/agreements",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/agreements/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/analytics",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/analytics/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/automation-settings",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/automation-settings/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/compliance",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/compliance/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/controls",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/controls/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/documents",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/documents/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/follow-ups",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/follow-ups/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/profiles",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/profiles/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/recordings",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/recordings/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/review-queue",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/review-queue/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/settings",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/settings/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/templates",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/templates/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/test-results",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/test-results/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/usage",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/usage/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/autoapply/webhooks",
+      "type": "page",
+      "file": "src/app/(dashboard)/autoapply/webhooks/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/billing",
+      "type": "page",
+      "file": "src/app/(dashboard)/billing/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/board/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/board/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/command-center",
+      "type": "page",
+      "file": "src/app/(dashboard)/command-center/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/compliance",
+      "type": "page",
+      "file": "src/app/(dashboard)/compliance/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/contacts",
+      "type": "page",
+      "file": "src/app/(dashboard)/contacts/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/contacts/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/contacts/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/contacts/new",
+      "type": "page",
+      "file": "src/app/(dashboard)/contacts/new/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/dashboard",
+      "type": "page",
+      "file": "src/app/(dashboard)/dashboard/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/deadlines",
+      "type": "page",
+      "file": "src/app/(dashboard)/deadlines/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/documents",
+      "type": "page",
+      "file": "src/app/(dashboard)/documents/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/connectors",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/connectors/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/discover",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/discover/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/intent-signals",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/intent-signals/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/marketplace",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/marketplace/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/new",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/new/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/outreach",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/outreach/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/outreach/prospects/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/outreach/prospects/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/donor-discovery/prospects",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/prospects/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/donor-discovery/prospects/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/donor-discovery/prospects/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/draft-generator",
+      "type": "page",
+      "file": "src/app/(dashboard)/draft-generator/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/draft-generator/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/draft-generator/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/draft-generator/autonomous",
+      "type": "page",
+      "file": "src/app/(dashboard)/draft-generator/autonomous/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/draft-generator/queue",
+      "type": "page",
+      "file": "src/app/(dashboard)/draft-generator/queue/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/email",
+      "type": "page",
+      "file": "src/app/(dashboard)/email/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/email/campaigns",
+      "type": "page",
+      "file": "src/app/(dashboard)/email/campaigns/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/email/campaigns/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/email/campaigns/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/email/templates",
+      "type": "page",
+      "file": "src/app/(dashboard)/email/templates/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/financials",
+      "type": "page",
+      "file": "src/app/(dashboard)/financials/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/follow-ups",
+      "type": "page",
+      "file": "src/app/(dashboard)/follow-ups/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/for-consultants",
+      "type": "page",
+      "file": "src/app/(marketing)/for-consultants/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/forgot-password",
+      "type": "page",
+      "file": "src/app/forgot-password/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/foundations",
+      "type": "page",
+      "file": "src/app/(dashboard)/foundations/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/foundations/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/foundations/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/funders",
+      "type": "page",
+      "file": "src/app/(dashboard)/funders/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/funders/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/funders/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/funders/[id]/relationship",
+      "type": "page",
+      "file": "src/app/(dashboard)/funders/[id]/relationship/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/funders/import",
+      "type": "page",
+      "file": "src/app/(dashboard)/funders/import/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/funders/new",
+      "type": "page",
+      "file": "src/app/(dashboard)/funders/new/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/how-it-works",
+      "type": "page",
+      "file": "src/app/(marketing)/how-it-works/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/import",
+      "type": "page",
+      "file": "src/app/(dashboard)/import/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence-library",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence-library/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence-library/dashboard",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence-library/dashboard/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/community-need",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/community-need/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/competitors",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/competitors/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/disaster",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/disaster/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/donor-intent",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/donor-intent/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/gap-analysis",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/gap-analysis/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/knowledge",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/knowledge/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/learning-network",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/learning-network/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/match-feed",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/match-feed/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/matches",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/matches/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/recommendations",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/recommendations/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/relationship-graph",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/relationship-graph/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/reputation",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/reputation/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/simulate",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/simulate/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/strategic-advisor",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/strategic-advisor/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/intelligence/twin",
+      "type": "page",
+      "file": "src/app/(dashboard)/intelligence/twin/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/invite/[token]",
+      "type": "page",
+      "file": "src/app/invite/[token]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/knowledge-base",
+      "type": "page",
+      "file": "src/app/(dashboard)/knowledge-base/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/knowledge-base/answers",
+      "type": "page",
+      "file": "src/app/(dashboard)/knowledge-base/answers/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/knowledge-base/edit",
+      "type": "page",
+      "file": "src/app/(dashboard)/knowledge-base/edit/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/knowledge-base/narratives",
+      "type": "page",
+      "file": "src/app/(dashboard)/knowledge-base/narratives/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/knowledge-base/narratives/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/knowledge-base/narratives/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/knowledge-base/profile",
+      "type": "page",
+      "file": "src/app/(dashboard)/knowledge-base/profile/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/login",
+      "type": "page",
+      "file": "src/app/login/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/marketplace",
+      "type": "page",
+      "file": "src/app/(dashboard)/marketplace/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/nonprofits",
+      "type": "page",
+      "file": "src/app/(dashboard)/nonprofits/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/notifications",
+      "type": "page",
+      "file": "src/app/(dashboard)/notifications/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/onboarding",
+      "type": "page",
+      "file": "src/app/(dashboard)/onboarding/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/opportunities",
+      "type": "page",
+      "file": "src/app/(dashboard)/opportunities/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/opportunities/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/opportunities/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/opportunities/new",
+      "type": "page",
+      "file": "src/app/(dashboard)/opportunities/new/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/outcomes",
+      "type": "page",
+      "file": "src/app/(dashboard)/outcomes/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/outcomes/analytics",
+      "type": "page",
+      "file": "src/app/(dashboard)/outcomes/analytics/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/outreach",
+      "type": "page",
+      "file": "src/app/(dashboard)/outreach/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/outreach/campaigns",
+      "type": "page",
+      "file": "src/app/(dashboard)/outreach/campaigns/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/outreach/campaigns/[id]",
+      "type": "page",
+      "file": "src/app/(dashboard)/outreach/campaigns/[id]/page.tsx",
+      "dynamic": true
+    },
+    {
+      "path": "/outreach/sequences",
+      "type": "page",
+      "file": "src/app/(dashboard)/outreach/sequences/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/outreach/templates",
+      "type": "page",
+      "file": "src/app/(dashboard)/outreach/templates/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/pricing",
+      "type": "page",
+      "file": "src/app/(marketing)/pricing/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/privacy",
+      "type": "page",
+      "file": "src/app/(marketing)/privacy/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/register",
+      "type": "page",
+      "file": "src/app/register/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/renewals",
+      "type": "page",
+      "file": "src/app/(dashboard)/renewals/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports/board-report",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/board-report/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports/forecast",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/forecast/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports/funding-summary",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/funding-summary/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports/impact",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/impact/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports/roi",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/roi/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reports/simulate",
+      "type": "page",
+      "file": "src/app/(dashboard)/reports/simulate/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/research",
+      "type": "page",
+      "file": "src/app/(dashboard)/research/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/research/match",
+      "type": "page",
+      "file": "src/app/(dashboard)/research/match/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/reset-password",
+      "type": "page",
+      "file": "src/app/reset-password/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/schoolfunder",
+      "type": "page",
+      "file": "src/app/(dashboard)/schoolfunder/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/search-profiles",
+      "type": "page",
+      "file": "src/app/(dashboard)/search-profiles/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/search-profiles/configure",
+      "type": "page",
+      "file": "src/app/(dashboard)/search-profiles/configure/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/security",
+      "type": "page",
+      "file": "src/app/(marketing)/security/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/agents",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/agents/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/billing",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/billing/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/branding",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/branding/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/custom-apis",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/custom-apis/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/integrations",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/integrations/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/notifications",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/notifications/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/organization-setup",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/organization-setup/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/scraping",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/scraping/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/state-portals",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/state-portals/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/settings/white-label",
+      "type": "page",
+      "file": "src/app/(dashboard)/settings/white-label/page.tsx",
+      "dynamic": false
+    },
+    {
+      "path": "/terms",
+      "type": "page",
+      "file": "src/app/(marketing)/terms/page.tsx",
+      "dynamic": false
+    }
+  ]
+}

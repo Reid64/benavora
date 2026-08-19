@@ -1,7 +1,21 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-00 COMPLETE — baseline established, awaiting Reid's Phase-00 review)
+## Last Updated: August 19, 2026 (PT-01 started — page-route working set established)
 
-## Current Session — August 19, 2026 (PT-00 consolidation and human review checkpoint)
+## Current Session — August 19, 2026 (PT-01 preflight)
+
+**Focus:** confirmed PT-00's outputs (route manifest, wiring gap register, evidence-lib) are
+present and readable, then extracted the page-route working set (146 of 464 total routes,
+`type=="page"`) that PT-01 will walk. Wrote a verifier that independently recomputes the count from
+the PT-00 manifest and fails unless it matches exactly.
+
+**Status:** `scripts/audit/pt01-extract-page-routes.mjs` written and run —
+`test-evidence/pt-01/page-routes.json` created, 146 entries. `scripts/audit/verify-pt01-001.mjs`
+written and run — PASS, counts match exactly against PT-00's manifest.
+
+**Commit:** `audit PT-01: preflight, page-route working set` (this session).
+**Gates:** `node scripts/audit/verify-pt01-001.mjs` — PASS.
+
+## Prior Session — August 19, 2026 (PT-00 consolidation and human review checkpoint)
 
 **Focus:** consolidate the five prior PT-00-00N sessions into a reviewable baseline and stop —
 **PT-01 onward is NOT yet authored.** This session does not investigate anything new; it formalizes
