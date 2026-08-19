@@ -1,7 +1,42 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-01 started — page-route working set established)
+## Last Updated: August 19, 2026 (PT-01-002 render pass complete — 145/146 clean, 1 real bug found, 1 environmental dev-server issue found and worked around)
 
-## Current Session — August 19, 2026 (PT-01 preflight)
+## Current Session — August 19, 2026 (PT-01-002: authenticated render pass across all page routes)
+
+**Focus:** deeper than PT-00-005's smoke sweep (HTTP status only) — for every one of the 146 page
+routes, recorded whether the rendered DOM shows a Next.js error boundary, an empty shell, or real
+content, via a real authenticated Playwright session (same admin-magic-link pattern as PT-00-005, no
+password touched). Dynamic `[id]` routes resolved to a real, live row via direct scoped Supabase
+queries wherever one exists (13 of 17); the 3 with no real row on file were tested with a placeholder
+and tagged `PENDING-SCOPE` — all 3 rendered correct "not found" states, not bugs.
+
+**Real mid-session complication, investigated and worked around, not glossed over:** the shared
+`localhost:3000` dev server was found to have a corrupted/missing client hydration bundle
+(`.next/static/chunks/main-app.js` absent at the filesystem level), caused by a concurrent, unrelated
+`next build` process in the same checkout writing to the same shared `.next/`. 12 of 146 routes
+failed an initial sweep, all bearing a build-contention signature — not real app bugs. Did not kill
+the other process; instead ran a second, isolated `next dev` instance (temporary, reverted
+`next.config.mjs`/`tsconfig.json` changes, confirmed clean via `git diff` afterward) and re-swept
+clean against it. Full detail: register row **WGR-013**.
+
+**Status:** clean run — **145/146 routes render correctly.** **1 real, reproducible bug**:
+`/donor-discovery/prospects/[id]` crashes (`Cannot read properties of undefined (reading 'length')`)
+for a real prospect whose linked directory row has a partial `enrichment` jsonb object — two
+unguarded `.length` accesses in `ProspectDetail.tsx` (lines 574, 587). Blanks the entire page.
+Reproduced 4 times, zero build-contention signature — register row **WGR-012** (P1). **WGR-004's
+`/documents` hang did NOT reproduce** this session, on two independent attempts — flagged as its own
+finding (register row **WGR-014**, `UNVERIFIED`), not silently treated as fixed.
+
+`scripts/audit/pt01-002-render-pass.mjs` (the sweep) and `scripts/audit/verify-pt01-002.mjs` (exits
+non-zero unless all 146 routes are covered and every row has `httpStatus`/`errorBoundaryInDom`/
+`hasRealContent`/`consoleErrors` populated) both written and run — verifier PASS.
+`test-evidence/pt-01/PHASE-01-SUMMARY.md` written with full numbers and evidence citations.
+
+**Commit:** `audit PT-01: render pass across all page routes` (this session).
+**Gates:** `node scripts/audit/verify-pt01-001.mjs` — PASS. `node scripts/audit/verify-pt01-002.mjs`
+— PASS.
+
+## Prior Session — August 19, 2026 (PT-01 preflight)
 
 **Focus:** confirmed PT-00's outputs (route manifest, wiring gap register, evidence-lib) are
 present and readable, then extracted the page-route working set (146 of 464 total routes,

@@ -1,0 +1,2034 @@
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3101
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · cpus
+
+ ✓ Starting...
+
+   We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
+   The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+   	- include was updated to add '.next-pt01-audit/types/**/*.ts'
+
+ ✓ Ready in 2.1s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 862ms (125 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 14.7s (684 modules)
+ GET /login 200 in 818ms
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (102kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (243kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 2s (1082 modules)
+ GET /dashboard 200 in 3106ms
+ ✓ Compiled /admin/monitor in 359ms (1109 modules)
+ GET /admin/monitor 200 in 1725ms
+ ✓ Compiled /api/nav-counts in 157ms (635 modules)
+ GET /api/nav-counts 200 in 1110ms
+ GET /api/nav-counts 200 in 1266ms
+ ✓ Compiled /api/notifications in 450ms (704 modules)
+ GET /api/nav-counts 200 in 1816ms
+ GET /api/notifications?unread_only=true 200 in 1816ms
+ GET /api/nav-counts 200 in 1873ms
+ GET /api/notifications?unread_only=true 200 in 466ms
+ GET /api/nav-counts 200 in 1080ms
+ GET /api/nav-counts 200 in 490ms
+ ✓ Compiled /api/admin/monitor in 115ms (706 modules)
+ GET /api/admin/monitor 200 in 488ms
+ ✓ Compiled /autoapply/controls in 455ms (1198 modules)
+ GET /autoapply/controls 200 in 1294ms
+ GET /api/nav-counts 200 in 338ms
+ ✓ Compiled /api/autoapply/controls in 249ms (717 modules)
+ GET /api/nav-counts 200 in 478ms
+ GET /api/nav-counts 200 in 449ms
+ GET /api/nav-counts 200 in 465ms
+ GET /api/notifications?unread_only=true 200 in 817ms
+ GET /api/autoapply/controls 200 in 855ms
+ GET /api/nav-counts 200 in 517ms
+ GET /api/nav-counts 200 in 352ms
+ GET /api/notifications?unread_only=true 200 in 442ms
+ GET /api/autoapply/controls 200 in 234ms
+ ✓ Compiled /api/autoapply/autonomous-status in 136ms (719 modules)
+ GET /api/autoapply/autonomous-status 200 in 472ms
+ GET /api/autoapply/autonomous-status 200 in 376ms
+ ✓ Compiled /documents in 399ms (1233 modules)
+ GET /documents 200 in 887ms
+ GET /api/nav-counts 200 in 540ms
+ GET /api/nav-counts 200 in 542ms
+ GET /api/nav-counts 200 in 620ms
+ GET /api/notifications?unread_only=true 200 in 622ms
+ GET /api/nav-counts 200 in 625ms
+ GET /api/nav-counts 200 in 711ms
+ GET /api/nav-counts 200 in 389ms
+ GET /api/notifications?unread_only=true 200 in 437ms
+ GET /dashboard 200 in 629ms
+ ○ Compiling / ...
+ ✓ Compiled / in 656ms (1259 modules)
+ GET / 200 in 821ms
+ ✓ Compiled /_not-found in 269ms (1248 modules)
+ GET /& 404 in 373ms
+ ✓ Compiled /activity in 367ms (1260 modules)
+ GET /activity 200 in 996ms
+ ✓ Compiled /api/activity in 232ms (753 modules)
+ GET /api/nav-counts 200 in 537ms
+ GET /api/nav-counts 200 in 967ms
+ GET /api/nav-counts 200 in 975ms
+ GET /api/notifications?unread_only=true 200 in 1375ms
+ GET /api/nav-counts 200 in 1384ms
+ GET /api/activity 200 in 1761ms
+ GET /api/nav-counts 200 in 1143ms
+ GET /api/notifications?unread_only=true 200 in 832ms
+ GET /api/nav-counts 200 in 835ms
+ GET /api/activity 200 in 803ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 580ms (1280 modules)
+ ✓ Compiled in 385ms (524 modules)
+ GET /admin 200 in 1325ms
+ GET /api/nav-counts 200 in 328ms
+ GET /api/notifications?unread_only=true 200 in 432ms
+ GET /api/nav-counts 200 in 388ms
+ GET /api/nav-counts 200 in 435ms
+ GET /api/nav-counts 200 in 471ms
+ GET /api/nav-counts 200 in 478ms
+ GET /api/notifications?unread_only=true 200 in 263ms
+ GET /api/nav-counts 200 in 521ms
+ ✓ Compiled /admin/audit-log in 374ms (1270 modules)
+ GET /admin/audit-log 200 in 946ms
+ GET /api/nav-counts 200 in 349ms
+ GET /api/nav-counts 200 in 355ms
+ GET /api/nav-counts 200 in 464ms
+ GET /api/nav-counts 200 in 446ms
+ GET /api/notifications?unread_only=true 200 in 544ms
+ GET /api/nav-counts 200 in 489ms
+ ✓ Compiled /api/admin/audit-log in 246ms (759 modules)
+ GET /api/notifications?unread_only=true 200 in 401ms
+ GET /api/nav-counts 200 in 436ms
+ GET /api/admin/audit-log 200 in 751ms
+ ○ Compiling /admin/autoapply-ops ...
+ ✓ Compiled /admin/autoapply-ops in 2.6s (2349 modules)
+ GET /admin/autoapply-ops 200 in 3300ms
+ GET /api/nav-counts 200 in 387ms
+ GET /api/notifications?unread_only=true 200 in 277ms
+ GET /api/nav-counts 200 in 532ms
+ GET /api/nav-counts 200 in 533ms
+ GET /api/nav-counts 200 in 566ms
+ GET /api/nav-counts 200 in 534ms
+ GET /api/notifications?unread_only=true 200 in 420ms
+ GET /api/nav-counts 200 in 425ms
+ ✓ Compiled /api/admin/autoapply-ops in 329ms (1301 modules)
+ GET /api/admin/autoapply-ops 200 in 2142ms
+ ○ Compiling /admin/improvements ...
+ ✓ Compiled /admin/improvements in 553ms (2364 modules)
+ GET /admin/improvements 200 in 1300ms
+ GET /api/nav-counts 200 in 372ms
+ GET /api/nav-counts 200 in 474ms
+ GET /api/notifications?unread_only=true 200 in 465ms
+ GET /api/nav-counts 200 in 467ms
+ GET /api/nav-counts 200 in 498ms
+ GET /api/nav-counts 200 in 485ms
+ GET /api/notifications?unread_only=true 200 in 289ms
+ GET /api/nav-counts 200 in 407ms
+ ✓ Compiled /api/admin/improvements in 365ms (1311 modules)
+ GET /api/admin/improvements 200 in 834ms
+ GET /admin/monitor 200 in 482ms
+ GET /api/notifications?unread_only=true 200 in 607ms
+ GET /api/nav-counts 200 in 816ms
+ GET /api/nav-counts 200 in 821ms
+ GET /api/nav-counts 200 in 1142ms
+ GET /api/nav-counts 200 in 1144ms
+ GET /api/nav-counts 200 in 1198ms
+ GET /api/notifications?unread_only=true 200 in 289ms
+ GET /api/nav-counts 200 in 433ms
+ GET /api/admin/monitor 200 in 582ms
+ ✓ Compiled /admin/orgs in 499ms (2373 modules)
+ GET /admin/orgs 200 in 1492ms
+ GET /api/nav-counts 200 in 534ms
+ GET /api/notifications?unread_only=true 200 in 755ms
+ GET /api/nav-counts 200 in 622ms
+ GET /api/nav-counts 200 in 809ms
+ GET /api/nav-counts 200 in 937ms
+ GET /api/nav-counts 200 in 936ms
+ GET /api/notifications?unread_only=true 200 in 543ms
+ GET /api/nav-counts 200 in 616ms
+ ✓ Compiled /admin/orgs/[id] in 500ms (2367 modules)
+ GET /admin/orgs/b1ab7402-dfc2-4712-869f-70ea3566cc1d 200 in 1504ms
+ GET /api/nav-counts 200 in 345ms
+ GET /api/nav-counts 200 in 344ms
+ GET /api/notifications?unread_only=true 200 in 469ms
+ GET /api/nav-counts 200 in 478ms
+ GET /api/nav-counts 200 in 465ms
+ GET /api/nav-counts 200 in 489ms
+ GET /api/notifications?unread_only=true 200 in 298ms
+ GET /api/nav-counts 200 in 385ms
+ ○ Compiling /admin/sales-outreach ...
+ ✓ Compiled /admin/sales-outreach in 593ms (2382 modules)
+ GET /admin/sales-outreach 200 in 1038ms
+ GET /api/nav-counts 200 in 328ms
+ GET /api/nav-counts 200 in 360ms
+ GET /api/nav-counts 200 in 420ms
+ GET /api/nav-counts 200 in 434ms
+ GET /api/nav-counts 200 in 439ms
+ GET /api/notifications?unread_only=true 200 in 493ms
+ GET /api/notifications?unread_only=true 200 in 310ms
+ GET /api/nav-counts 200 in 318ms
+ ✓ Compiled /api/admin/sales-analytics in 351ms (1307 modules)
+ ✓ Compiled (1317 modules)
+ GET /api/admin/campaigns 200 in 1698ms
+ GET /api/admin/domains 200 in 2018ms
+ GET /api/admin/prospects/stats 200 in 2019ms
+ GET /api/admin/sales-analytics?period=all 200 in 2220ms
+ GET /api/admin/sales-analytics?period=7d 200 in 1778ms
+ GET /api/admin/campaigns 200 in 341ms
+ GET /api/admin/domains 200 in 246ms
+ GET /api/admin/campaigns 200 in 261ms
+ ○ Compiling /admin/system ...
+ ✓ Compiled /admin/system in 751ms (2393 modules)
+ GET /admin/system 200 in 1323ms
+ GET /api/nav-counts 200 in 490ms
+ GET /api/notifications?unread_only=true 200 in 881ms
+ GET /api/nav-counts 200 in 830ms
+ GET /api/nav-counts 200 in 769ms
+ GET /api/nav-counts 200 in 885ms
+ GET /api/nav-counts 200 in 1092ms
+ GET /api/notifications?unread_only=true 200 in 397ms
+ ✓ Compiled /api/admin/system in 373ms (1326 modules)
+ GET /api/nav-counts 200 in 758ms
+ GET /api/admin/system 200 in 1154ms
+ ○ Compiling /agents/marketplace ...
+ ✓ Compiled /agents/marketplace in 567ms (2401 modules)
+ GET /agents/marketplace 200 in 973ms
+ GET /api/nav-counts 200 in 320ms
+ GET /api/notifications?unread_only=true 200 in 417ms
+ GET /api/nav-counts 200 in 426ms
+ ✓ Compiled /api/agents/registry in 423ms (1318 modules)
+ ✓ Compiled in 1ms (1318 modules)
+ ✓ Compiled in 0ms (1318 modules)
+ GET /api/nav-counts 200 in 1733ms
+ GET /api/nav-counts 200 in 1692ms
+ ✓ Compiled in 1ms (1318 modules)
+ GET /api/nav-counts 200 in 1897ms
+ GET /api/nav-counts 200 in 1730ms
+ GET /api/agents/registry 200 in 2489ms
+ GET /api/notifications?unread_only=true 200 in 1871ms
+ GET /api/agents/registry 200 in 333ms
+ ○ Compiling /agents/marketplace/[agentId] ...
+ ✓ Compiled /agents/marketplace/[agentId] in 574ms (2395 modules)
+ GET /agents/marketplace/grant_summary 200 in 1625ms
+ ✓ Compiled /api/agents/registry/[agentId]/runs in 487ms (1315 modules)
+ GET /api/nav-counts 200 in 820ms
+ GET /api/notifications?unread_only=true 200 in 950ms
+ GET /api/nav-counts 200 in 1757ms
+ GET /api/nav-counts 200 in 1770ms
+ GET /api/nav-counts 200 in 1626ms
+ GET /api/nav-counts 200 in 797ms
+ GET /api/notifications?unread_only=true 200 in 759ms
+ GET /api/agents/registry/grant_summary/runs?limit=50 200 in 2347ms
+ GET /api/nav-counts 200 in 459ms
+ GET /api/agents/registry/grant_summary/runs?limit=50 200 in 454ms
+ ○ Compiling /alerts ...
+ ✓ Compiled /alerts in 700ms (2406 modules)
+ GET /alerts 200 in 1189ms
+ GET /api/nav-counts 200 in 833ms
+ ○ Compiling /api/alerts ...
+ ✓ Compiled /api/alerts in 637ms (1317 modules)
+ GET /api/nav-counts 200 in 1847ms
+ GET /api/nav-counts 200 in 1754ms
+ GET /api/nav-counts 200 in 2303ms
+ GET /api/nav-counts 200 in 853ms
+ GET /api/notifications?unread_only=true 200 in 2618ms
+ GET /api/nav-counts 200 in 793ms
+ GET /api/notifications?unread_only=true 200 in 1000ms
+ GET /api/alerts 200 in 3843ms
+ GET /api/alerts 200 in 1242ms
+ ○ Compiling /applications ...
+ ✓ Compiled /applications in 775ms (2413 modules)
+ GET /applications 200 in 1262ms
+ GET /api/nav-counts 200 in 360ms
+ GET /api/nav-counts 200 in 515ms
+ GET /api/nav-counts 200 in 536ms
+ GET /api/nav-counts 200 in 587ms
+ GET /api/nav-counts 200 in 650ms
+ GET /api/notifications?unread_only=true 200 in 722ms
+ GET /api/notifications?unread_only=true 200 in 380ms
+ GET /api/nav-counts 200 in 276ms
+ ○ Compiling /applications/[id] ...
+ ✓ Compiled /applications/[id] in 894ms (2461 modules)
+ GET /applications/1944f4e3-eade-48e7-b314-f5bb8001f56a 200 in 6747ms
+ GET /api/nav-counts 200 in 771ms
+ GET /api/nav-counts 200 in 850ms
+ GET /api/nav-counts 200 in 966ms
+ GET /api/nav-counts 200 in 1259ms
+ GET /api/nav-counts 200 in 1188ms
+ GET /api/notifications?unread_only=true 200 in 1437ms
+ GET /api/notifications?unread_only=true 200 in 687ms
+ GET /api/nav-counts 200 in 611ms
+ ○ Compiling /api/compliance/check ...
+ ✓ Compiled /api/compliance/check in 1250ms (887 modules)
+ POST /api/compliance/check 200 in 5805ms
+ POST /api/compliance/check 200 in 5320ms
+ ○ Compiling /applications/list ...
+ ✓ Compiled /applications/list in 719ms (1991 modules)
+ GET /applications/list 200 in 1333ms
+ GET /api/nav-counts 200 in 424ms
+ GET /api/nav-counts 200 in 509ms
+ GET /api/notifications?unread_only=true 200 in 473ms
+ GET /api/nav-counts 200 in 534ms
+ GET /api/nav-counts 200 in 535ms
+ GET /api/nav-counts 200 in 537ms
+ GET /api/notifications?unread_only=true 200 in 295ms
+ GET /api/nav-counts 200 in 325ms
+ ○ Compiling /applications/new ...
+ ✓ Compiled /applications/new in 519ms (1976 modules)
+ GET /applications/new 200 in 1098ms
+ GET /api/nav-counts 200 in 407ms
+ GET /api/nav-counts 200 in 428ms
+ GET /api/nav-counts 200 in 434ms
+ GET /api/nav-counts 200 in 444ms
+ GET /api/nav-counts 200 in 447ms
+ GET /api/notifications?unread_only=true 200 in 522ms
+ GET /api/notifications?unread_only=true 200 in 284ms
+ GET /api/nav-counts 200 in 324ms
+ ○ Compiling /autoapply ...
+ ✓ Compiled /autoapply in 1571ms (2611 modules)
+ GET /autoapply 200 in 2478ms
+ GET /api/nav-counts 200 in 666ms
+ ✓ Compiled /api/autoapply/mode in 431ms (1437 modules)
+ GET /api/nav-counts 200 in 753ms
+ ✓ Compiled (1439 modules)
+ GET /api/nav-counts 200 in 1279ms
+ GET /api/nav-counts 200 in 814ms
+ GET /api/nav-counts 200 in 594ms
+ GET /api/autoapply/mode 200 in 1696ms
+ GET /api/autoapply/autonomous-status 200 in 1820ms
+ GET /api/notifications?unread_only=true 200 in 1756ms
+ GET /api/notifications?unread_only=true 200 in 332ms
+ GET /api/nav-counts 200 in 337ms
+ GET /api/autoapply/mode 200 in 545ms
+ GET /api/autoapply/autonomous-status 200 in 559ms
+ ○ Compiling /autoapply/[sessionId] ...
+ ✓ Compiled /autoapply/[sessionId] in 780ms (2626 modules)
+ GET /autoapply/00000000-0000-0000-0000-000000000000 200 in 2189ms
+ GET /api/nav-counts 200 in 503ms
+ GET /api/nav-counts 200 in 514ms
+ ○ Compiling /api/agents/automation/[sessionId] ...
+ GET /api/nav-counts 200 in 762ms
+ GET /api/nav-counts 200 in 711ms
+ ✓ Compiled /api/agents/automation/[sessionId] in 600ms (1444 modules)
+ ✓ Compiled in 1ms (1444 modules)
+ ✓ Compiled in 1ms (1444 modules)
+ GET /api/notifications?unread_only=true 200 in 1731ms
+ ✓ Compiled in 0ms (1444 modules)
+ GET /api/notifications?unread_only=true 200 in 2389ms
+ GET /api/nav-counts 200 in 3037ms
+ GET /api/nav-counts 200 in 2864ms
+ GET /api/agents/automation/00000000-0000-0000-0000-000000000000 404 in 4596ms
+ GET /api/agents/automation/00000000-0000-0000-0000-000000000000 404 in 406ms
+ ○ Compiling /autoapply/agreements ...
+ ✓ Compiled /autoapply/agreements in 660ms (2645 modules)
+ GET /autoapply/agreements 200 in 1143ms
+ ✓ Compiled /api/autoapply/agreements in 417ms (1452 modules)
+ GET /api/nav-counts 200 in 785ms
+ GET /api/nav-counts 200 in 795ms
+ GET /api/nav-counts 200 in 797ms
+ GET /api/nav-counts 200 in 1085ms
+ GET /api/notifications?unread_only=true 200 in 1584ms
+ GET /api/autoapply/agreements 200 in 1587ms
+ GET /api/nav-counts 200 in 750ms
+ GET /api/nav-counts 200 in 822ms
+ GET /api/notifications?unread_only=true 200 in 950ms
+ GET /api/autoapply/agreements 200 in 554ms
+ ○ Compiling /autoapply/analytics ...
+ ✓ Compiled /autoapply/analytics in 1255ms (2783 modules)
+ GET /autoapply/analytics 200 in 1697ms
+ GET /api/nav-counts 200 in 353ms
+ GET /api/nav-counts 200 in 527ms
+ GET /api/nav-counts 200 in 492ms
+ GET /api/nav-counts 200 in 507ms
+ GET /api/nav-counts 200 in 510ms
+ GET /api/notifications?unread_only=true 200 in 587ms
+ GET /api/notifications?unread_only=true 200 in 309ms
+ GET /api/nav-counts 200 in 293ms
+ ○ Compiling /autoapply/automation-settings ...
+ ✓ Compiled /autoapply/automation-settings in 702ms (2772 modules)
+ GET /autoapply/automation-settings 200 in 1283ms
+ GET /api/notifications?unread_only=true 200 in 374ms
+ GET /api/nav-counts 200 in 383ms
+ GET /api/nav-counts 200 in 522ms
+ GET /api/nav-counts 200 in 542ms
+ GET /api/nav-counts 200 in 605ms
+ GET /api/nav-counts 200 in 678ms
+ GET /api/nav-counts 200 in 350ms
+ GET /api/notifications?unread_only=true 200 in 460ms
+ ○ Compiling /autoapply/compliance ...
+ ✓ Compiled /autoapply/compliance in 702ms (2741 modules)
+ GET /autoapply/compliance 200 in 1169ms
+ GET /api/nav-counts 200 in 517ms
+ GET /api/nav-counts 200 in 528ms
+ GET /api/nav-counts 200 in 501ms
+ GET /api/nav-counts 200 in 507ms
+ GET /api/nav-counts 200 in 518ms
+ GET /api/notifications?unread_only=true 200 in 544ms
+ GET /api/nav-counts 200 in 354ms
+ GET /api/notifications?unread_only=true 200 in 414ms
+ ✓ Compiled /autoapply/controls in 306ms (1482 modules)
+ GET /autoapply/controls 200 in 752ms
+ GET /api/nav-counts 200 in 454ms
+ ○ Compiling /api/autoapply/controls ...
+ GET /api/nav-counts 200 in 665ms
+ GET /api/nav-counts 200 in 674ms
+ ✓ Compiled /api/autoapply/controls in 565ms (1485 modules)
+ GET /api/nav-counts 200 in 814ms
+ ✓ Compiled in 1ms (1485 modules)
+ ✓ Compiled in 1ms (1485 modules)
+ GET /api/notifications?unread_only=true 200 in 1676ms
+ ✓ Compiled in 0ms (1485 modules)
+ GET /api/autoapply/controls 200 in 2405ms
+ GET /api/notifications?unread_only=true 200 in 1534ms
+ GET /api/nav-counts 200 in 1861ms
+ GET /api/nav-counts 200 in 1829ms
+ GET /api/autoapply/controls 200 in 437ms
+ GET /api/autoapply/autonomous-status 200 in 430ms
+ GET /api/autoapply/autonomous-status 200 in 275ms
+ ○ Compiling /autoapply/documents ...
+ ✓ Compiled /autoapply/documents in 650ms (2759 modules)
+ GET /autoapply/documents 200 in 1231ms
+ GET /api/nav-counts 200 in 565ms
+ GET /api/nav-counts 200 in 543ms
+ ○ Compiling /api/autoapply/documents ...
+ GET /api/nav-counts 200 in 741ms
+ ✓ Compiled /api/autoapply/documents in 569ms (1488 modules)
+ GET /api/notifications?unread_only=true 200 in 886ms
+ ✓ Compiled in 0ms (1490 modules)
+ ✓ Compiled in 0ms (1490 modules)
+ ✓ Compiled in 0ms (1490 modules)
+ GET /api/autoapply/documents/readiness 200 in 2524ms
+ GET /api/nav-counts 200 in 2054ms
+ GET /api/nav-counts 200 in 2461ms
+ GET /api/nav-counts 200 in 2432ms
+ GET /api/autoapply/documents 200 in 3421ms
+ GET /api/notifications?unread_only=true 200 in 2458ms
+ GET /api/autoapply/documents/readiness 200 in 403ms
+ GET /api/autoapply/documents 200 in 417ms
+ ○ Compiling /autoapply/follow-ups ...
+ ✓ Compiled /autoapply/follow-ups in 647ms (2678 modules)
+ GET /autoapply/follow-ups 200 in 1108ms
+ GET /api/nav-counts 200 in 411ms
+ GET /api/nav-counts 200 in 602ms
+ ○ Compiling /api/autoapply/follow-ups ...
+ ✓ Compiled /api/autoapply/follow-ups in 522ms (1408 modules)
+ ✓ Compiled (1410 modules)
+ GET /api/notifications?unread_only=true 200 in 1422ms
+ GET /api/nav-counts 200 in 1497ms
+ GET /api/nav-counts 200 in 506ms
+ GET /api/nav-counts 200 in 949ms
+ GET /api/autoapply/follow-ups/stats 200 in 1558ms
+ GET /api/autoapply/follow-ups? 200 in 1655ms
+ GET /api/notifications?unread_only=true 200 in 420ms
+ GET /api/nav-counts 200 in 602ms
+ GET /api/autoapply/follow-ups/stats 200 in 637ms
+ GET /api/autoapply/follow-ups? 200 in 488ms
+ ○ Compiling /autoapply/profiles ...
+ ✓ Compiled /autoapply/profiles in 757ms (2665 modules)
+ GET /autoapply/profiles 200 in 2071ms
+ GET /api/nav-counts 200 in 697ms
+ ✓ Compiled /api/autoapply/profiles in 480ms (1388 modules)
+ GET /api/notifications?unread_only=true 200 in 868ms
+ GET /api/nav-counts 200 in 878ms
+ GET /api/autoapply/documents/readiness 200 in 1447ms
+ GET /api/nav-counts 200 in 1718ms
+ GET /api/nav-counts 200 in 603ms
+ GET /api/autoapply/profiles 200 in 1799ms
+ GET /api/notifications?unread_only=true 200 in 526ms
+ GET /api/nav-counts 200 in 607ms
+ GET /api/nav-counts 200 in 389ms
+ GET /api/autoapply/documents/readiness 200 in 474ms
+ GET /api/autoapply/profiles 200 in 461ms
+ ○ Compiling /autoapply/recordings ...
+ ✓ Compiled /autoapply/recordings in 1055ms (2672 modules)
+ GET /autoapply/recordings 200 in 1822ms
+ GET /api/notifications?unread_only=true 200 in 763ms
+ GET /api/nav-counts 200 in 1249ms
+ GET /api/nav-counts 200 in 1430ms
+ GET /api/nav-counts 200 in 1255ms
+ GET /api/nav-counts 200 in 1436ms
+ GET /api/nav-counts 200 in 1261ms
+ GET /api/notifications?unread_only=true 200 in 573ms
+ GET /api/nav-counts 200 in 599ms
+ ○ Compiling /autoapply/review-queue ...
+ ✓ Compiled /autoapply/review-queue in 818ms (2636 modules)
+ GET /autoapply/review-queue 200 in 1588ms
+ GET /api/nav-counts 200 in 537ms
+ GET /api/nav-counts 200 in 501ms
+ ✓ Compiled /api/autoapply/review-queue in 478ms (1353 modules)
+ GET /api/notifications?unread_only=true 200 in 741ms
+ ✓ Compiled in 1ms (1353 modules)
+ GET /api/nav-counts 200 in 1492ms
+ GET /api/nav-counts 200 in 1645ms
+ ✓ Compiled in 1ms (1353 modules)
+ ✓ Compiled in 0ms (1353 modules)
+ GET /api/nav-counts 200 in 1440ms
+ GET /api/nav-counts 200 in 1781ms
+ GET /api/autoapply/review-queue 200 in 2843ms
+ GET /api/notifications?unread_only=true 200 in 2083ms
+ GET /api/autoapply/review-queue 200 in 350ms
+ ○ Compiling /autoapply/settings ...
+ ✓ Compiled /autoapply/settings in 683ms (2647 modules)
+ GET /autoapply/settings 200 in 1286ms
+ ✓ Compiled /api/autoapply/config in 377ms (1360 modules)
+ GET /api/nav-counts 200 in 851ms
+ GET /api/notifications?unread_only=true 200 in 874ms
+ GET /api/nav-counts 200 in 1554ms
+ GET /api/nav-counts 200 in 1581ms
+ GET /api/nav-counts 200 in 1681ms
+ GET /api/autoapply/config 200 in 1734ms
+ GET /api/nav-counts 200 in 520ms
+ GET /api/notifications?unread_only=true 200 in 470ms
+ GET /api/nav-counts 200 in 341ms
+ GET /api/autoapply/config 200 in 293ms
+ ○ Compiling /autoapply/templates ...
+ ✓ Compiled /autoapply/templates in 740ms (2633 modules)
+ GET /autoapply/templates 200 in 1245ms
+ GET /api/nav-counts 200 in 805ms
+ GET /api/notifications?unread_only=true 200 in 771ms
+ GET /api/nav-counts 200 in 882ms
+ GET /api/nav-counts 200 in 870ms
+ GET /api/nav-counts 200 in 1253ms
+ GET /api/nav-counts 200 in 1256ms
+ GET /api/nav-counts 200 in 480ms
+ GET /api/notifications?unread_only=true 200 in 461ms
+ ○ Compiling /autoapply/test-results ...
+ ✓ Compiled /autoapply/test-results in 644ms (2033 modules)
+ GET /autoapply/test-results 200 in 1876ms
+ GET /api/nav-counts 200 in 742ms
+ GET /api/nav-counts 200 in 746ms
+ GET /api/nav-counts 200 in 1033ms
+ GET /api/nav-counts 200 in 1038ms
+ GET /api/notifications?unread_only=true 200 in 1630ms
+ GET /api/nav-counts 200 in 1753ms
+ GET /api/nav-counts 200 in 622ms
+ GET /api/notifications?unread_only=true 200 in 817ms
+ ○ Compiling /autoapply/usage ...
+ ✓ Compiled /autoapply/usage in 804ms (2563 modules)
+ GET /autoapply/usage 200 in 1742ms
+ GET /api/nav-counts 200 in 812ms
+ GET /api/nav-counts 200 in 858ms
+ GET /api/nav-counts 200 in 957ms
+ GET /api/nav-counts 200 in 1081ms
+ GET /api/nav-counts 200 in 1281ms
+ GET /api/notifications?unread_only=true 200 in 1535ms
+ GET /api/notifications?unread_only=true 200 in 683ms
+ GET /api/nav-counts 200 in 693ms
+ ✓ Compiled /api/autoapply/usage/keys in 384ms (1249 modules)
+ GET /api/autoapply/usage/keys 200 in 820ms
+ GET /api/autoapply/usage/keys 200 in 318ms
+ ○ Compiling /autoapply/webhooks ...
+ ✓ Compiled /autoapply/webhooks in 767ms (2561 modules)
+ GET /autoapply/webhooks 200 in 1616ms
+ ✓ Compiled /api/autoapply/webhooks in 434ms (1257 modules)
+ GET /api/nav-counts 200 in 820ms
+ GET /api/nav-counts 200 in 1035ms
+ GET /api/nav-counts 200 in 1042ms
+ GET /api/nav-counts 200 in 1071ms
+ GET /api/notifications?unread_only=true 200 in 1566ms
+ GET /api/autoapply/webhooks 200 in 1803ms
+ GET /api/nav-counts 200 in 618ms
+ GET /api/nav-counts 200 in 545ms
+ GET /api/notifications?unread_only=true 200 in 652ms
+ GET /api/autoapply/webhooks 200 in 328ms
+ ○ Compiling /billing ...
+ ✓ Compiled /billing in 853ms (2579 modules)
+ GET /billing 200 in 1537ms
+ GET /api/nav-counts 200 in 791ms
+ GET /api/nav-counts 200 in 796ms
+ GET /api/nav-counts 200 in 863ms
+ GET /api/nav-counts 200 in 836ms
+ GET /api/notifications?unread_only=true 200 in 864ms
+ GET /api/nav-counts 200 in 846ms
+ ✓ Compiled /api/billing in 445ms (1255 modules)
+ GET /api/nav-counts 200 in 927ms
+ GET /api/notifications?unread_only=true 200 in 1068ms
+ ✓ Compiled (1448 modules)
+ GET /api/billing 200 in 3432ms
+ GET /api/billing/usage 200 in 3833ms
+ ○ Compiling /board/[id] ...
+ ✓ Compiled /board/[id] in 852ms (2762 modules)
+ GET /board/885933d2-c2de-4e4c-9504-9402ae4bc0d9 200 in 1812ms
+ GET /api/nav-counts 200 in 558ms
+ ✓ Compiled /api/board/[id] in 457ms (1446 modules)
+ GET /api/notifications?unread_only=true 200 in 789ms
+ GET /api/nav-counts 200 in 1658ms
+ GET /api/nav-counts 200 in 1762ms
+ GET /api/nav-counts 200 in 1786ms
+ GET /api/nav-counts 200 in 1144ms
+ GET /api/notifications?unread_only=true 200 in 765ms
+ GET /api/nav-counts 200 in 443ms
+ GET /api/board/885933d2-c2de-4e4c-9504-9402ae4bc0d9 200 in 2348ms
+ GET /api/board/885933d2-c2de-4e4c-9504-9402ae4bc0d9 200 in 507ms
+ ○ Compiling /command-center ...
+ ✓ Compiled /command-center in 866ms (2765 modules)
+ GET /command-center 200 in 1885ms
+ GET /api/nav-counts 200 in 735ms
+ ○ Compiling /api/command-center/layout ...
+ ✓ Compiled /api/command-center/layout in 516ms (1445 modules)
+ GET /api/nav-counts 200 in 1001ms
+ GET /api/nav-counts 200 in 1713ms
+ GET /api/nav-counts 200 in 1765ms
+ GET /api/command-center/layout 200 in 1879ms
+ GET /api/nav-counts 200 in 851ms
+ GET /api/notifications?unread_only=true 200 in 2025ms
+ GET /api/notifications?unread_only=true 200 in 715ms
+ GET /api/nav-counts 200 in 528ms
+ GET /api/command-center/layout 200 in 492ms
+ ○ Compiling /compliance ...
+ ✓ Compiled /compliance in 955ms (2780 modules)
+ GET /compliance 200 in 1566ms
+ GET /api/nav-counts 200 in 950ms
+ GET /api/nav-counts 200 in 954ms
+ ○ Compiling /api/compliance/events ...
+ ✓ Compiled /api/compliance/events in 536ms (1451 modules)
+ GET /api/nav-counts 200 in 1135ms
+ GET /api/notifications?unread_only=true 200 in 1389ms
+ ✓ Compiled in 0ms (1453 modules)
+ ✓ Compiled in 1ms (1453 modules)
+ ✓ Compiled in 0ms (1453 modules)
+ GET /api/compliance 200 in 3309ms
+ GET /api/nav-counts 200 in 1798ms
+ GET /api/compliance/events 200 in 3724ms
+ GET /api/nav-counts 200 in 2644ms
+ GET /api/notifications?unread_only=true 200 in 2552ms
+ GET /api/nav-counts 200 in 2765ms
+ GET /api/compliance 200 in 495ms
+ GET /api/compliance/events 200 in 379ms
+ ○ Compiling /contacts ...
+ ✓ Compiled /contacts in 986ms (2804 modules)
+ GET /contacts 200 in 1499ms
+ GET /api/nav-counts 200 in 724ms
+ GET /api/nav-counts 200 in 1001ms
+ GET /api/notifications?unread_only=true 200 in 1126ms
+ GET /api/nav-counts 200 in 1203ms
+ GET /api/nav-counts 200 in 1360ms
+ GET /api/nav-counts 200 in 1358ms
+ GET /api/notifications?unread_only=true 200 in 604ms
+ GET /api/nav-counts 200 in 738ms
+ ○ Compiling /contacts/[id] ...
+ ✓ Compiled /contacts/[id] in 1113ms (2816 modules)
+ GET /contacts/343888d8-2efb-4be3-b507-d3b15a1ac8ea 200 in 2199ms
+ GET /api/nav-counts 200 in 666ms
+ GET /api/nav-counts 200 in 774ms
+ GET /api/notifications?unread_only=true 200 in 906ms
+ GET /api/nav-counts 200 in 857ms
+ GET /api/nav-counts 200 in 870ms
+ GET /api/nav-counts 200 in 874ms
+ ✓ Compiled /api/contacts/[id]/tasks in 449ms (1463 modules)
+ GET /api/notifications?unread_only=true 200 in 900ms
+ GET /api/nav-counts 200 in 1064ms
+ GET /api/contacts/343888d8-2efb-4be3-b507-d3b15a1ac8ea/tasks 200 in 1692ms
+ GET /api/contacts/343888d8-2efb-4be3-b507-d3b15a1ac8ea/tasks 200 in 480ms
+ ○ Compiling /contacts/new ...
+ ✓ Compiled /contacts/new in 1071ms (2834 modules)
+ GET /contacts/new 200 in 1926ms
+ GET /api/nav-counts 200 in 930ms
+ GET /api/nav-counts 200 in 1163ms
+ GET /api/nav-counts 200 in 1167ms
+ GET /api/nav-counts 200 in 1239ms
+ GET /api/nav-counts 200 in 1033ms
+ GET /api/notifications?unread_only=true 200 in 1465ms
+ GET /api/notifications?unread_only=true 200 in 607ms
+ GET /api/nav-counts 200 in 650ms
+ ✓ Compiled /dashboard in 438ms (1549 modules)
+ GET /dashboard 200 in 1259ms
+ GET /api/nav-counts 200 in 623ms
+ GET /api/nav-counts 200 in 705ms
+ ○ Compiling /api/scraper/status ...
+ GET /api/nav-counts 200 in 957ms
+ GET /api/nav-counts 200 in 1030ms
+ ✓ Compiled /api/scraper/status in 772ms (1539 modules)
+ ✓ Compiled in 0ms (1539 modules)
+ GET /api/notifications?unread_only=true 200 in 2271ms
+ ✓ Compiled in 0ms (1539 modules)
+ GET /api/nav-counts 200 in 1722ms
+ ✓ Compiled in 1ms (1539 modules)
+ GET /api/scraper/status 200 in 3526ms
+ GET /api/notifications?unread_only=true 200 in 2621ms
+ GET /api/nav-counts 200 in 2161ms
+ GET /api/scraper/status 200 in 512ms
+ ○ Compiling /deadlines ...
+ ✓ Compiled /deadlines in 1126ms (2404 modules)
+ GET /deadlines 200 in 2032ms
+ ○ Compiling /api/integrations/google/calendar ...
+ GET /api/nav-counts 200 in 894ms
+ ✓ Compiled /api/integrations/google/calendar in 663ms (1035 modules)
+ GET /api/nav-counts 200 in 999ms
+ GET /api/nav-counts 200 in 1003ms
+ GET /api/notifications?unread_only=true 200 in 7384ms
+ ✓ Compiled /documents in 0ms (2145 modules)
+ ✓ Compiled in 0ms (2159 modules)
+ ✓ Compiled in 1ms (2159 modules)
+ ✓ Compiled in 1ms (2159 modules)
+ GET /documents 200 in 10508ms
+ GET /api/nav-counts 200 in 1127ms
+ GET /api/nav-counts 200 in 1035ms
+ GET /api/nav-counts 200 in 1085ms
+ GET /api/nav-counts 200 in 1086ms
+ GET /api/nav-counts 200 in 1093ms
+ GET /api/notifications?unread_only=true 200 in 1308ms
+ GET /api/notifications?unread_only=true 200 in 813ms
+ GET /api/nav-counts 200 in 915ms
+ ○ Compiling /donor-discovery ...
+ ✓ Compiled /donor-discovery in 982ms (3311 modules)
+ GET /donor-discovery 200 in 1788ms
+ GET /api/nav-counts 200 in 754ms
+ ○ Compiling /api/donor-discovery/pipeline ...
+ ✓ Compiled /api/donor-discovery/pipeline in 644ms (1934 modules)
+ ✓ Compiled (1936 modules)
+ GET /api/nav-counts 200 in 2151ms
+ GET /api/nav-counts 200 in 2125ms
+ GET /api/nav-counts 200 in 1319ms
+ GET /api/notifications?unread_only=true 200 in 2288ms
+ GET /api/donor-discovery/requests 200 in 2635ms
+ GET /api/nav-counts 200 in 835ms
+ GET /api/notifications?unread_only=true 200 in 939ms
+ GET /api/donor-discovery/pipeline 200 in 3678ms
+ GET /api/nav-counts 200 in 1077ms
+ GET /api/donor-discovery/requests 200 in 1016ms
+ GET /api/donor-discovery/pipeline 200 in 1589ms
+ ○ Compiling /donor-discovery/connectors ...
+ ✓ Compiled /donor-discovery/connectors in 989ms (3321 modules)
+ GET /donor-discovery/connectors 200 in 1696ms
+ GET /api/nav-counts 200 in 766ms
+ GET /api/nav-counts 200 in 681ms
+ GET /api/nav-counts 200 in 789ms
+ ○ Compiling /api/donor-discovery/connectors ...
+ GET /api/nav-counts 200 in 814ms
+ ✓ Compiled /api/donor-discovery/connectors in 1013ms (1940 modules)
+ ✓ Compiled in 0ms (1940 modules)
+ ✓ Compiled in 0ms (1940 modules)
+ GET /api/notifications?unread_only=true 200 in 2888ms
+ ✓ Compiled in 0ms (1940 modules)
+ GET /api/nav-counts 200 in 2695ms
+ GET /api/notifications?unread_only=true 200 in 3077ms
+ GET /api/donor-discovery/connectors 200 in 4249ms
+ GET /api/donor-discovery/connectors 200 in 3073ms
+ GET /api/nav-counts 200 in 3148ms
+ ○ Compiling /donor-discovery/discover ...
+ ✓ Compiled /donor-discovery/discover in 1255ms (3351 modules)
+ GET /donor-discovery/discover 200 in 1824ms
+ GET /api/nav-counts 200 in 802ms
+ GET /api/nav-counts 200 in 924ms
+ GET /api/nav-counts 200 in 1027ms
+ GET /api/nav-counts 200 in 1038ms
+ GET /api/nav-counts 200 in 1289ms
+ GET /api/notifications?unread_only=true 200 in 1628ms
+ GET /api/notifications?unread_only=true 200 in 875ms
+ GET /api/nav-counts 200 in 628ms
+ ○ Compiling /donor-discovery/intent-signals ...
+ ✓ Compiled /donor-discovery/intent-signals in 996ms (3337 modules)
+ GET /donor-discovery/intent-signals 200 in 1875ms
+ GET /api/nav-counts 200 in 825ms
+ GET /api/nav-counts 200 in 851ms
+ ○ Compiling /api/intelligence/donor-intent ...
+ ✓ Compiled /api/intelligence/donor-intent in 864ms (1987 modules)
+ GET /api/nav-counts 200 in 1422ms
+ GET /api/nav-counts 200 in 1425ms
+ GET /api/notifications?unread_only=true 200 in 1765ms
+ GET /api/intelligence/donor-intent 200 in 2040ms
+ GET /api/nav-counts 200 in 823ms
+ GET /api/nav-counts 200 in 622ms
+ GET /api/intelligence/donor-intent 200 in 738ms
+ GET /api/notifications?unread_only=true 200 in 973ms
+ ○ Compiling /donor-discovery/marketplace ...
+ ✓ Compiled /donor-discovery/marketplace in 925ms (3394 modules)
+ GET /donor-discovery/marketplace 200 in 1500ms
+ ○ Compiling /api/intelligence/corporate-prospects ...
+ GET /api/nav-counts 200 in 918ms
+ ✓ Compiled /api/intelligence/corporate-prospects in 659ms (1992 modules)
+ GET /api/nav-counts 200 in 1080ms
+ GET /api/nav-counts 200 in 997ms
+ GET /api/nav-counts 200 in 1262ms
+ GET /api/notifications?unread_only=true 200 in 2299ms
+ GET /api/intelligence/corporate-prospects?pageSize=24&page=0&sort=name 200 in 2281ms
+ GET /api/notifications?unread_only=true 200 in 695ms
+ GET /api/nav-counts 200 in 811ms
+ GET /api/intelligence/corporate-prospects?pageSize=24&page=0&sort=name 200 in 725ms
+ GET /api/nav-counts 200 in 834ms
+ ○ Compiling /donor-discovery/new ...
+ ✓ Compiled /donor-discovery/new in 1035ms (3409 modules)
+ GET /donor-discovery/new 200 in 1735ms
+ GET /api/nav-counts 200 in 949ms
+ GET /api/nav-counts 200 in 1197ms
+ GET /api/notifications?unread_only=true 200 in 1472ms
+ GET /api/nav-counts 200 in 1644ms
+ GET /api/notifications?unread_only=true 200 in 456ms
+ GET /api/nav-counts 200 in 1829ms
+ GET /api/nav-counts 200 in 1910ms
+ GET /api/nav-counts 200 in 451ms
+ ○ Compiling /donor-discovery/outreach ...
+ ✓ Compiled /donor-discovery/outreach in 1041ms (3357 modules)
+ GET /donor-discovery/outreach 200 in 2022ms
+ ○ Compiling /api/intelligence/outreach/prospects ...
+ GET /api/nav-counts 200 in 996ms
+ GET /api/nav-counts 200 in 959ms
+ ✓ Compiled /api/intelligence/outreach/prospects in 793ms (1948 modules)
+ GET /api/nav-counts 200 in 1032ms
+ GET /api/nav-counts 200 in 1043ms
+ ✓ Compiled in 1ms (1948 modules)
+ GET /api/notifications?unread_only=true 200 in 2285ms
+ ✓ Compiled in 0ms (1948 modules)
+ ✓ Compiled in 1ms (1948 modules)
+ GET /api/intelligence/outreach/prospects?limit=150 200 in 3732ms
+ GET /api/notifications?unread_only=true 200 in 2338ms
+ GET /api/intelligence/outreach/prospects?limit=150 200 in 2519ms
+ GET /api/nav-counts 200 in 2825ms
+ GET /api/nav-counts 200 in 2784ms
+ ○ Compiling /donor-discovery/outreach/prospects/[id] ...
+ ✓ Compiled /donor-discovery/outreach/prospects/[id] in 1030ms (3368 modules)
+ GET /donor-discovery/outreach/prospects/1fbd64e9-063c-46e0-a258-62d306cee76e 200 in 2472ms
+ GET /api/nav-counts 200 in 714ms
+ GET /api/nav-counts 200 in 860ms
+ GET /api/nav-counts 200 in 861ms
+ GET /api/nav-counts 200 in 865ms
+ GET /api/notifications?unread_only=true 200 in 941ms
+ ○ Compiling /api/intelligence/corporate-prospects/[id] ...
+ ✓ Compiled /api/intelligence/corporate-prospects/[id] in 812ms (1956 modules)
+ ✓ Compiled in 1ms (1956 modules)
+ ✓ Compiled in 1ms (848 modules)
+ ✓ Compiled in 1ms (848 modules)
+ GET /api/nav-counts 200 in 2587ms
+ GET /api/notifications?unread_only=true 200 in 2248ms
+ GET /api/intelligence/corporate-prospects/1fbd64e9-063c-46e0-a258-62d306cee76e 200 in 3679ms
+ GET /api/intelligence/corporate-prospects/1fbd64e9-063c-46e0-a258-62d306cee76e 200 in 2303ms
+ GET /api/nav-counts 200 in 2411ms
+ ○ Compiling /donor-discovery/prospects ...
+ ✓ Compiled /donor-discovery/prospects in 932ms (2271 modules)
+ GET /donor-discovery/prospects 200 in 1517ms
+ GET /api/nav-counts 200 in 881ms
+ ○ Compiling /api/donor-discovery/prospects ...
+ ✓ Compiled /api/donor-discovery/prospects in 676ms (840 modules)
+ GET /api/nav-counts 200 in 1932ms
+ GET /api/nav-counts 200 in 1852ms
+ GET /api/nav-counts 200 in 852ms
+ GET /api/notifications?unread_only=true 200 in 1868ms
+ GET /api/donor-discovery/requests 200 in 1990ms
+ GET /api/nav-counts 200 in 1061ms
+ GET /api/nav-counts 200 in 1091ms
+ GET /api/notifications?unread_only=true 200 in 1455ms
+ GET /api/donor-discovery/requests 200 in 1657ms
+ GET /api/donor-discovery/prospects?limit=100 200 in 4632ms
+ GET /api/donor-discovery/prospects?limit=100 200 in 3801ms
+ ○ Compiling /donor-discovery/prospects/[id] ...
+ ✓ Compiled /donor-discovery/prospects/[id] in 1019ms (2262 modules)
+ GET /donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 2891ms
+ GET /api/nav-counts 200 in 735ms
+ ○ Compiling /api/donor-discovery/prospects/[id] ...
+ GET /api/notifications?unread_only=true 200 in 900ms
+ ✓ Compiled /api/donor-discovery/prospects/[id] in 702ms (840 modules)
+ GET /api/nav-counts 200 in 2103ms
+ GET /api/nav-counts 200 in 2252ms
+ GET /api/nav-counts 200 in 2275ms
+ GET /api/nav-counts 200 in 1511ms
+ GET /api/notifications?unread_only=true 200 in 1229ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 2826ms
+ GET /api/nav-counts 200 in 574ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 487ms
+ GET /donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 481ms
+ GET /api/nav-counts 200 in 901ms
+ GET /api/nav-counts 200 in 1032ms
+ GET /api/notifications?unread_only=true 200 in 1221ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 1159ms
+ GET /api/nav-counts 200 in 1428ms
+ GET /api/nav-counts 200 in 1434ms
+ GET /api/nav-counts 200 in 1013ms
+ GET /api/notifications?unread_only=true 200 in 1210ms
+ GET /api/nav-counts 200 in 707ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 942ms
+ GET /donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 582ms
+ GET /api/nav-counts 200 in 795ms
+ GET /api/nav-counts 200 in 964ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 901ms
+ GET /api/nav-counts 200 in 1146ms
+ GET /api/notifications?unread_only=true 200 in 1145ms
+ GET /api/nav-counts 200 in 1335ms
+ GET /api/nav-counts 200 in 811ms
+ GET /api/notifications?unread_only=true 200 in 946ms
+ GET /api/nav-counts 200 in 870ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 962ms
+ GET /donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 744ms
+ ○ Compiling /draft-generator ...
+ ✓ Compiled /draft-generator in 1585ms (2756 modules)
+ GET /draft-generator 200 in 2194ms
+ ○ Compiling /api/intelligence/match-feed ...
+ ✓ Compiled /api/intelligence/match-feed in 587ms (1311 modules)
+ GET /api/nav-counts 200 in 1297ms
+ GET /api/nav-counts 200 in 1425ms
+ GET /api/nav-counts 200 in 1344ms
+ GET /api/notifications?unread_only=true 200 in 1944ms
+ GET /api/nav-counts 200 in 2081ms
+ GET /api/nav-counts 200 in 785ms
+ GET /api/nav-counts 200 in 860ms
+ GET /api/intelligence/match-feed?limit=500 200 in 2752ms
+ GET /api/notifications?unread_only=true 200 in 998ms
+ GET /api/intelligence/match-feed?limit=500 200 in 732ms
+ ○ Compiling /draft-generator/[id] ...
+ ✓ Compiled /draft-generator/[id] in 987ms (2764 modules)
+ GET /draft-generator/1944f4e3-eade-48e7-b314-f5bb8001f56a 200 in 2114ms
+ GET /api/nav-counts 200 in 720ms
+ GET /api/nav-counts 200 in 735ms
+ GET /api/nav-counts 200 in 680ms
+ GET /api/nav-counts 200 in 711ms
+ GET /api/notifications?unread_only=true 200 in 991ms
+ GET /api/nav-counts 200 in 904ms
+ GET /api/notifications?unread_only=true 200 in 502ms
+ GET /api/nav-counts 200 in 604ms
+ ○ Compiling /draft-generator/autonomous ...
+ ✓ Compiled /draft-generator/autonomous in 915ms (2822 modules)
+ GET /draft-generator/autonomous 200 in 1789ms
+ GET /api/nav-counts 200 in 651ms
+ GET /api/nav-counts 200 in 669ms
+ GET /api/nav-counts 200 in 716ms
+ GET /api/nav-counts 200 in 710ms
+ GET /api/notifications?unread_only=true 200 in 803ms
+ GET /api/nav-counts 200 in 876ms
+ GET /api/notifications?unread_only=true 200 in 474ms
+ GET /api/nav-counts 200 in 695ms
+ ○ Compiling /draft-generator/queue ...
+ ✓ Compiled /draft-generator/queue in 887ms (2826 modules)
+ GET /draft-generator/queue 200 in 1864ms
+ GET /api/nav-counts 200 in 775ms
+ GET /api/notifications?unread_only=true 200 in 812ms
+ GET /api/nav-counts 200 in 829ms
+ GET /api/nav-counts 200 in 749ms
+ ○ Compiling /api/drafts/queue/config ...
+ ✓ Compiled /api/drafts/queue in 722ms (1370 modules)
+ ✓ Compiled in 1ms (1374 modules)
+ ✓ Compiled in 0ms (1366 modules)
+ ✓ Compiled in 0ms (1366 modules)
+ GET /api/drafts/queue/stats 200 in 3066ms
+ GET /api/nav-counts 200 in 2351ms
+ GET /api/notifications?unread_only=true 200 in 2345ms
+ GET /api/nav-counts 200 in 2477ms
+ GET /api/drafts/queue/config 200 in 3593ms
+ GET /api/drafts/queue?sort=priority&limit=100 200 in 2924ms
+ GET /api/nav-counts 200 in 567ms
+ GET /api/drafts/queue/stats 200 in 762ms
+ GET /api/drafts/queue/config 200 in 691ms
+ GET /api/drafts/queue?sort=priority&limit=100 200 in 709ms
+ ○ Compiling /email ...
+ ✓ Compiled /email in 960ms (2837 modules)
+ GET /email 200 in 1536ms
+ ○ Compiling /api/email/threads ...
+ GET /api/nav-counts 200 in 1006ms
+ GET /api/nav-counts 200 in 1139ms
+ ✓ Compiled /api/email/threads in 729ms (1363 modules)
+ GET /api/nav-counts 200 in 2007ms
+ GET /api/notifications?unread_only=true 200 in 649ms
+ GET /api/nav-counts 200 in 2035ms
+ GET /api/notifications?unread_only=true 200 in 2040ms
+ GET /api/nav-counts 200 in 992ms
+ GET /api/email/threads?filter=all&search= 200 in 2094ms
+ GET /api/nav-counts 200 in 492ms
+ GET /api/email/threads?filter=all&search= 200 in 507ms
+ ○ Compiling /email/campaigns ...
+ ✓ Compiled /email/campaigns in 1028ms (2841 modules)
+ GET /email/campaigns 200 in 1852ms
+ GET /api/nav-counts 200 in 839ms
+ GET /api/nav-counts 200 in 841ms
+ ○ Compiling /api/email/sequences ...
+ GET /api/nav-counts 200 in 918ms
+ GET /api/nav-counts 200 in 921ms
+ ✓ Compiled /api/email/sequences in 769ms (1453 modules)
+ ✓ Compiled in 1ms (1453 modules)
+ ✓ Compiled in 0ms (1453 modules)
+ GET /api/notifications?unread_only=true 200 in 2474ms
+ ✓ Compiled in 1ms (1453 modules)
+ GET /api/email/sequences 200 in 3143ms
+ GET /api/notifications?unread_only=true 200 in 2102ms
+ GET /api/nav-counts 200 in 2323ms
+ GET /api/nav-counts 200 in 2593ms
+ GET /api/email/sequences 200 in 466ms
+ ○ Compiling /email/campaigns/[id] ...
+ ✓ Compiled /email/campaigns/[id] in 1014ms (2929 modules)
+ GET /email/campaigns/00000000-0000-0000-0000-000000000000 200 in 2147ms
+ GET /api/nav-counts 200 in 736ms
+ GET /api/nav-counts 200 in 822ms
+ ○ Compiling /api/email/sequences/[id] ...
+ GET /api/notifications?unread_only=true 200 in 1076ms
+ ✓ Compiled /api/email/sequences/[id] in 649ms (1460 modules)
+ ✓ Compiled in 0ms (1462 modules)
+ GET /api/nav-counts 200 in 2185ms
+ ✓ Compiled in 1ms (1462 modules)
+ ✓ Compiled in 1ms (1462 modules)
+ GET /api/nav-counts 200 in 2778ms
+ GET /api/nav-counts 200 in 2319ms
+ ✓ Compiled in 0ms (1462 modules)
+ GET /api/email/sequences/00000000-0000-0000-0000-000000000000/analytics 404 in 4078ms
+ GET /api/notifications?unread_only=true 200 in 2791ms
+ GET /api/nav-counts 200 in 1930ms
+ GET /api/email/sequences/00000000-0000-0000-0000-000000000000 404 in 4902ms
+ GET /api/email/sequences/00000000-0000-0000-0000-000000000000/analytics 404 in 824ms
+ GET /api/email/sequences/00000000-0000-0000-0000-000000000000 404 in 461ms
+ ○ Compiling /email/templates ...
+ ✓ Compiled /email/templates in 1432ms (2957 modules)
+ ✓ Compiled in 874ms (1488 modules)
+ GET /email/templates 200 in 2597ms
+ GET /api/nav-counts 200 in 676ms
+ ○ Compiling /api/email/templates ...
+ GET /api/nav-counts 200 in 920ms
+ GET /api/nav-counts 200 in 924ms
+ GET /api/nav-counts 200 in 932ms
+ ✓ Compiled /api/email/templates in 1061ms (1471 modules)
+ GET /api/notifications?unread_only=true 200 in 2620ms
+ GET /api/nav-counts 200 in 1798ms
+ GET /api/nav-counts 200 in 1152ms
+ GET /api/notifications?unread_only=true 200 in 1256ms
+ GET /api/email/templates 200 in 2890ms
+ GET /api/email/templates 200 in 396ms
+ ○ Compiling /financials ...
+ ✓ Compiled /financials in 1568ms (2943 modules)
+ GET /financials 200 in 2488ms
+ GET /api/nav-counts 200 in 618ms
+ GET /api/nav-counts 200 in 748ms
+ GET /api/nav-counts 200 in 805ms
+ GET /api/nav-counts 200 in 810ms
+ GET /api/nav-counts 200 in 812ms
+ GET /api/notifications?unread_only=true 200 in 964ms
+ GET /api/nav-counts 200 in 595ms
+ GET /api/notifications?unread_only=true 200 in 555ms
+ ○ Compiling /follow-ups ...
+ ✓ Compiled /follow-ups in 1875ms (2453 modules)
+ GET /follow-ups 200 in 2633ms
+ GET /api/nav-counts 200 in 766ms
+ GET /api/nav-counts 200 in 694ms
+ GET /api/nav-counts 200 in 715ms
+ GET /api/nav-counts 200 in 733ms
+ GET /api/nav-counts 200 in 744ms
+ GET /api/notifications?unread_only=true 200 in 831ms
+ GET /api/notifications?unread_only=true 200 in 564ms
+ GET /api/nav-counts 200 in 605ms
+ ○ Compiling /for-consultants ...
+ ✓ Compiled /for-consultants in 1286ms (2474 modules)
+ GET /for-consultants 200 in 1657ms
+ ○ Compiling /forgot-password ...
+ ✓ Compiled /forgot-password in 1176ms (2452 modules)
+ GET /forgot-password 200 in 1656ms
+ ○ Compiling /foundations ...
+ ✓ Compiled /foundations in 1093ms (2464 modules)
+ GET /foundations 200 in 2061ms
+ GET /api/notifications?unread_only=true 200 in 736ms
+ GET /api/nav-counts 200 in 760ms
+ GET /api/nav-counts 200 in 820ms
+ GET /api/nav-counts 200 in 824ms
+ GET /api/nav-counts 200 in 956ms
+ GET /api/nav-counts 200 in 984ms
+ GET /api/notifications?unread_only=true 200 in 691ms
+ GET /api/nav-counts 200 in 479ms
+ ○ Compiling /foundations/[id] ...
+ ✓ Compiled /foundations/[id] in 1017ms (2416 modules)
+ GET /foundations/14081716-1bf9-41a4-babb-13333a36a88f 200 in 2371ms
+ GET /api/nav-counts 200 in 800ms
+ GET /api/nav-counts 200 in 712ms
+ ○ Compiling /api/foundations/[id]/profile ...
+ ✓ Compiled /api/foundations/[id]/profile in 640ms (880 modules)
+ GET /api/notifications?unread_only=true 200 in 1806ms
+ GET /api/notifications?unread_only=true 200 in 954ms
+ GET /api/nav-counts 200 in 1863ms
+ GET /api/nav-counts 200 in 1015ms
+ GET /api/nav-counts 200 in 1943ms
+ GET /api/foundations/14081716-1bf9-41a4-babb-13333a36a88f/profile 200 in 2511ms
+ GET /api/nav-counts 200 in 431ms
+ GET /api/foundations/14081716-1bf9-41a4-babb-13333a36a88f/profile 200 in 439ms
+ ○ Compiling /funders ...
+ ✓ Compiled /funders in 1242ms (2420 modules)
+ GET /funders 200 in 2249ms
+ GET /api/nav-counts 200 in 1372ms
+ GET /api/nav-counts 200 in 1402ms
+ GET /api/nav-counts 200 in 1863ms
+ GET /api/nav-counts 200 in 1893ms
+ GET /api/nav-counts 200 in 1897ms
+ GET /api/notifications?unread_only=true 200 in 1831ms
+ GET /api/nav-counts 200 in 794ms
+ GET /api/notifications?unread_only=true 200 in 897ms
+ ○ Compiling /funders/[id] ...
+ ✓ Compiled /funders/[id] in 1537ms (2453 modules)
+ GET /funders/2521840b-9048-4c77-bd9c-f9f8492529d7 200 in 2871ms
+ GET /api/nav-counts 200 in 730ms
+ GET /api/nav-counts 200 in 734ms
+ GET /api/nav-counts 200 in 897ms
+ GET /api/nav-counts 200 in 905ms
+ GET /api/nav-counts 200 in 907ms
+ GET /api/notifications?unread_only=true 200 in 1052ms
+ GET /api/notifications?unread_only=true 200 in 587ms
+ ✓ Compiled /api/automation/portal-credentials in 455ms (901 modules)
+ GET /api/nav-counts 200 in 842ms
+ GET /api/automation/portal-credentials?funderId=2521840b-9048-4c77-bd9c-f9f8492529d7 200 in 996ms
+ GET /api/automation/portal-credentials?funderId=2521840b-9048-4c77-bd9c-f9f8492529d7 200 in 354ms
+ ○ Compiling /funders/[id]/relationship ...
+ ✓ Compiled /funders/[id]/relationship in 1003ms (2452 modules)
+ GET /funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship 200 in 2080ms
+ GET /api/nav-counts 200 in 713ms
+ GET /api/notifications?unread_only=true 200 in 806ms
+ ○ Compiling /api/funders/[id]/relationship-builder ...
+ ✓ Compiled /api/funders/[id]/relationship-builder in 568ms (911 modules)
+ ✓ Compiled (921 modules)
+ GET /api/nav-counts 200 in 2224ms
+ GET /api/nav-counts 200 in 2473ms
+ GET /api/nav-counts 200 in 1362ms
+ GET /api/nav-counts 200 in 1730ms
+ GET /api/funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship 200 in 3246ms
+ GET /api/funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship-builder 200 in 3330ms
+ GET /api/notifications?unread_only=true 200 in 827ms
+ GET /api/nav-counts 200 in 745ms
+ GET /api/funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship-builder 200 in 918ms
+ GET /api/funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship 200 in 1017ms
+ ○ Compiling /funders/import ...
+ ✓ Compiled /funders/import in 1027ms (2471 modules)
+ GET /funders/import 200 in 1552ms
+ GET /api/notifications?unread_only=true 200 in 837ms
+ GET /api/nav-counts 200 in 1062ms
+ GET /api/nav-counts 200 in 1136ms
+ GET /api/nav-counts 200 in 1157ms
+ GET /api/nav-counts 200 in 1342ms
+ GET /api/nav-counts 200 in 1429ms
+ GET /api/nav-counts 200 in 755ms
+ GET /api/notifications?unread_only=true 200 in 1066ms
+ ○ Compiling /funders/new ...
+ ✓ Compiled /funders/new in 1124ms (2494 modules)
+ GET /funders/new 200 in 1908ms
+ GET /api/nav-counts 200 in 1022ms
+ GET /api/nav-counts 200 in 1219ms
+ GET /api/nav-counts 200 in 1230ms
+ GET /api/nav-counts 200 in 1149ms
+ GET /api/notifications?unread_only=true 200 in 1495ms
+ GET /api/nav-counts 200 in 1418ms
+ GET /api/notifications?unread_only=true 200 in 607ms
+ GET /api/nav-counts 200 in 664ms
+ ○ Compiling /how-it-works ...
+ ✓ Compiled /how-it-works in 1102ms (2501 modules)
+ GET /how-it-works 200 in 1421ms
+ ○ Compiling /import ...
+ ✓ Compiled /import in 1147ms (2509 modules)
+ GET /import 200 in 1840ms
+ GET /api/nav-counts 200 in 955ms
+ GET /api/nav-counts 200 in 1211ms
+ GET /api/nav-counts 200 in 1217ms
+ GET /api/nav-counts 200 in 1219ms
+ GET /api/nav-counts 200 in 1215ms
+ GET /api/notifications?unread_only=true 200 in 1176ms
+ GET /api/notifications?unread_only=true 200 in 807ms
+ GET /api/nav-counts 200 in 666ms
+ ○ Compiling /intelligence ...
+ ✓ Compiled /intelligence in 1378ms (2388 modules)
+ GET /intelligence 200 in 2344ms
+ ○ Compiling /api/intelligence/digital-twin ...
+ GET /api/nav-counts 200 in 1590ms
+ GET /api/nav-counts 200 in 1420ms
+ GET /api/nav-counts 200 in 1487ms
+ ✓ Compiled /api/intelligence/digital-twin in 1758ms (828 modules)
+ ✓ Compiled /api/intelligence/strategic-advisor in 1ms (831 modules)
+ GET /api/notifications?unread_only=true 200 in 4120ms
+ ✓ Compiled in 0ms (839 modules)
+ ✓ Compiled in 0ms (839 modules)
+ GET /api/intelligence/reputation 200 in 6190ms
+ ✓ Compiled /api/intelligence/stats in 1ms (839 modules)
+ ✓ Compiled in 1ms (841 modules)
+ GET /api/intelligence/digital-twin 200 in 7045ms
+ GET /api/intelligence/strategic-advisor 200 in 5525ms
+ GET /api/intelligence/community-need 200 in 5662ms
+ GET /api/intelligence/learning-network 200 in 5665ms
+ ○ Compiling /intelligence-library ...
+ ✓ Compiled /intelligence-library in 1414ms (2415 modules)
+ GET /intelligence-library 200 in 2275ms
+ GET /api/nav-counts 200 in 1204ms
+ GET /api/nav-counts 200 in 1094ms
+ ○ Compiling /api/intelligence/proposals ...
+ ✓ Compiled /api/intelligence/proposals in 834ms (856 modules)
+ GET /api/notifications?unread_only=true 200 in 1588ms
+ ✓ Compiled in 1ms (856 modules)
+ GET /api/nav-counts 200 in 3051ms
+ ✓ Compiled in 0ms (856 modules)
+ GET /api/nav-counts 200 in 3815ms
+ ✓ Compiled in 1ms (856 modules)
+ GET /api/nav-counts 200 in 3565ms
+ GET /api/nav-counts 200 in 2798ms
+ GET /api/intelligence/proposals?page=1 200 in 5429ms
+ GET /api/notifications?unread_only=true 200 in 4027ms
+ GET /api/intelligence/proposals?page=1 200 in 820ms
+ ○ Compiling /intelligence-library/dashboard ...
+ ✓ Compiled /intelligence-library/dashboard in 1715ms (2934 modules)
+ GET /intelligence-library/dashboard 200 in 2498ms
+ GET /api/nav-counts 200 in 1423ms
+ GET /api/nav-counts 200 in 1525ms
+ GET /api/notifications?unread_only=true 200 in 1927ms
+ GET /api/nav-counts 200 in 1949ms
+ GET /api/nav-counts 200 in 1952ms
+ GET /api/nav-counts 200 in 2071ms
+ GET /api/notifications?unread_only=true 200 in 1134ms
+ GET /api/nav-counts 200 in 1610ms
+ ○ Compiling /intelligence/community-need ...
+ ✓ Compiled /intelligence/community-need in 1317ms (2932 modules)
+ GET /intelligence/community-need 200 in 2365ms
+ GET /api/nav-counts 200 in 1301ms
+ GET /api/nav-counts 200 in 1325ms
+ GET /api/intelligence/community-need 200 in 1395ms
+ GET /api/nav-counts 200 in 1408ms
+ GET /api/notifications?unread_only=true 200 in 1414ms
+ GET /api/nav-counts 200 in 1376ms
+ GET /api/nav-counts 200 in 886ms
+ GET /api/notifications?unread_only=true 200 in 1056ms
+ GET /api/intelligence/community-need 200 in 741ms
+ GET /api/nav-counts 200 in 781ms
+ ○ Compiling /intelligence/competitors ...
+ ✓ Compiled /intelligence/competitors in 1266ms (2940 modules)
+ GET /intelligence/competitors 200 in 2005ms
+ GET /api/notifications?unread_only=true 200 in 1147ms
+ GET /api/nav-counts 200 in 1184ms
+ GET /api/nav-counts 200 in 1112ms
+ GET /api/nav-counts 200 in 1119ms
+ GET /api/nav-counts 200 in 1130ms
+ GET /api/nav-counts 200 in 1137ms
+ GET /api/notifications?unread_only=true 200 in 853ms
+ GET /api/nav-counts 200 in 706ms
+ ○ Compiling /intelligence/disaster ...
+ ✓ Compiled /intelligence/disaster in 1333ms (2923 modules)
+ GET /intelligence/disaster 200 in 2269ms
+ ○ Compiling /api/agents/disaster ...
+ GET /api/nav-counts 200 in 1292ms
+ GET /api/nav-counts 200 in 1468ms
+ ✓ Compiled /api/agents/disaster in 1076ms (1344 modules)
+ GET /api/nav-counts 200 in 3086ms
+ GET /api/notifications?unread_only=true 200 in 3226ms
+ GET /api/nav-counts 200 in 3124ms
+ GET /api/notifications?unread_only=true 200 in 1443ms
+ GET /api/nav-counts 200 in 1485ms
+ GET /api/nav-counts 200 in 639ms
+ GET /api/agents/disaster 200 in 5339ms
+ GET /api/agents/disaster 200 in 1822ms
+ ○ Compiling /intelligence/donor-intent ...
+ ✓ Compiled /intelligence/donor-intent in 1424ms (2934 modules)
+ GET /intelligence/donor-intent 200 in 2345ms
+ GET /api/nav-counts 200 in 1677ms
+ ○ Compiling /api/intelligence/donor-intent ...
+ GET /api/nav-counts 200 in 1597ms
+ ✓ Compiled /api/intelligence/donor-intent in 2.5s (1393 modules)
+ GET /api/notifications?unread_only=true 200 in 4151ms
+ GET /api/nav-counts 200 in 4163ms
+ GET /api/nav-counts 200 in 4184ms
+ GET /api/intelligence/donor-intent 200 in 4310ms
+ GET /api/nav-counts 200 in 2650ms
+ GET /api/notifications?unread_only=true 200 in 2141ms
+ GET /api/intelligence/donor-intent 200 in 862ms
+ GET /api/nav-counts 200 in 1204ms
+ ○ Compiling /intelligence/gap-analysis ...
+ ✓ Compiled /intelligence/gap-analysis in 1272ms (2932 modules)
+ GET /intelligence/gap-analysis 200 in 2365ms
+ GET /api/nav-counts 200 in 1359ms
+ ○ Compiling /api/intelligence/gap-analysis ...
+ ✓ Compiled /api/intelligence/gap-analysis in 646ms (1339 modules)
+ GET /api/notifications?unread_only=true 200 in 1306ms
+ GET /api/nav-counts 200 in 2579ms
+ GET /api/nav-counts 200 in 2798ms
+ GET /api/nav-counts 200 in 2978ms
+ GET /api/nav-counts 200 in 1463ms
+ GET /api/notifications?unread_only=true 200 in 1216ms
+ GET /api/nav-counts 200 in 823ms
+ GET /api/intelligence/gap-analysis 200 in 5748ms
+ GET /api/intelligence/gap-analysis 200 in 2976ms
+ ○ Compiling /intelligence/knowledge ...
+ ✓ Compiled /intelligence/knowledge in 1208ms (2933 modules)
+ GET /intelligence/knowledge 200 in 1930ms
+ GET /api/nav-counts 200 in 1169ms
+ GET /api/nav-counts 200 in 1610ms
+ GET /api/nav-counts 200 in 1810ms
+ GET /api/nav-counts 200 in 2041ms
+ GET /api/notifications?unread_only=true 200 in 2055ms
+ GET /api/nav-counts 200 in 2378ms
+ GET /api/notifications?unread_only=true 200 in 1010ms
+ GET /api/nav-counts 200 in 813ms
+ ○ Compiling /intelligence/learning-network ...
+ ✓ Compiled /intelligence/learning-network in 1278ms (2927 modules)
+ GET /intelligence/learning-network 200 in 2141ms
+ GET /api/nav-counts 200 in 1144ms
+ ○ Compiling /api/intelligence/learning-network ...
+ ✓ Compiled /api/intelligence/learning-network in 733ms (1335 modules)
+ GET /api/nav-counts 200 in 2466ms
+ GET /api/nav-counts 200 in 2480ms
+ GET /api/intelligence/learning-network 200 in 3053ms
+ GET /api/nav-counts 200 in 3067ms
+ GET /api/nav-counts 200 in 1717ms
+ GET /api/notifications?unread_only=true 200 in 3082ms
+ GET /api/nav-counts 200 in 1513ms
+ GET /api/notifications?unread_only=true 200 in 1443ms
+ GET /api/intelligence/learning-network 200 in 1307ms
+ ○ Compiling /intelligence/match-feed ...
+ ✓ Compiled /intelligence/match-feed in 1178ms (2405 modules)
+ GET /intelligence/match-feed 200 in 2044ms
+ ○ Compiling /api/intelligence/match-feed ...
+ ✓ Compiled /api/intelligence/match-feed in 597ms (811 modules)
+ GET /api/nav-counts 200 in 2005ms
+ GET /api/nav-counts 200 in 2006ms
+ GET /api/nav-counts 200 in 2100ms
+ GET /api/nav-counts 200 in 2332ms
+ GET /api/notifications?unread_only=true 200 in 2173ms
+ GET /api/nav-counts 200 in 1260ms
+ GET /api/intelligence/match-feed?limit=25 200 in 3660ms
+ GET /api/notifications?unread_only=true 200 in 1243ms
+ GET /api/nav-counts 200 in 1154ms
+ GET /api/intelligence/match-feed?limit=25 200 in 813ms
+ ○ Compiling /intelligence/matches ...
+ ✓ Compiled /intelligence/matches in 1260ms (2416 modules)
+ GET /intelligence/matches 200 in 2230ms
+ GET /api/nav-counts 200 in 1253ms
+ GET /api/nav-counts 200 in 1145ms
+ GET /api/nav-counts 200 in 1206ms
+ GET /api/nav-counts 200 in 1210ms
+ GET /api/nav-counts 200 in 1221ms
+ GET /api/notifications?unread_only=true 200 in 1699ms
+ GET /api/notifications?unread_only=true 200 in 789ms
+ GET /api/nav-counts 200 in 804ms
+ ○ Compiling /intelligence/recommendations ...
+ ✓ Compiled /intelligence/recommendations in 1353ms (2409 modules)
+ GET /intelligence/recommendations 200 in 2275ms
+ GET /api/nav-counts 200 in 1253ms
+ GET /api/nav-counts 200 in 1332ms
+ GET /api/nav-counts 200 in 1362ms
+ GET /api/nav-counts 200 in 1368ms
+ GET /api/nav-counts 200 in 1380ms
+ GET /api/notifications?unread_only=true 200 in 1600ms
+ GET /api/notifications?unread_only=true 200 in 946ms
+ ○ Compiling /api/intelligence/recommendations ...
+ ✓ Compiled /api/intelligence/recommendations in 600ms (801 modules)
+ GET /api/nav-counts 200 in 1464ms
+ GET /api/intelligence/recommendations?limit=20&amount=50000 200 in 1952ms
+ ○ Compiling /intelligence/relationship-graph ...
+ ✓ Compiled /intelligence/relationship-graph in 1553ms (2424 modules)
+ GET /intelligence/relationship-graph 200 in 2515ms
+ ○ Compiling /api/intelligence/relationship-graph/analytics ...
+ GET /api/nav-counts 200 in 1244ms
+ GET /api/nav-counts 200 in 1421ms
+ ✓ Compiled /api/intelligence/relationship-graph/analytics in 1090ms (815 modules)
+ ✓ Compiled (817 modules)
+ GET /api/notifications?unread_only=true 200 in 2984ms
+ GET /api/nav-counts 200 in 2967ms
+ GET /api/nav-counts 200 in 1368ms
+ GET /api/nav-counts 200 in 1379ms
+ GET /api/intelligence/relationship-graph 200 in 3806ms
+ GET /api/intelligence/relationship-graph/analytics 200 in 4694ms
+ GET /api/notifications?unread_only=true 200 in 1626ms
+ GET /api/nav-counts 200 in 1476ms
+ GET /api/intelligence/relationship-graph 200 in 1406ms
+ GET /api/intelligence/relationship-graph/analytics 200 in 1784ms
+ ○ Compiling /intelligence/reputation ...
+ ✓ Compiled /intelligence/reputation in 1329ms (2389 modules)
+ GET /intelligence/reputation 200 in 2144ms
+ ○ Compiling /api/intelligence/reputation ...
+ ✓ Compiled /api/intelligence/reputation in 810ms (771 modules)
+ GET /api/nav-counts 200 in 1517ms
+ GET /api/nav-counts 200 in 2620ms
+ GET /api/nav-counts 200 in 2661ms
+ GET /api/nav-counts 200 in 2664ms
+ GET /api/intelligence/reputation 200 in 2954ms
+ GET /api/notifications?unread_only=true 200 in 2832ms
+ GET /api/nav-counts 200 in 991ms
+ GET /api/notifications?unread_only=true 200 in 1270ms
+ GET /api/nav-counts 200 in 1160ms
+ GET /api/intelligence/reputation 200 in 1023ms
+ ○ Compiling /intelligence/simulate ...
+ ✓ Compiled /intelligence/simulate in 1363ms (2399 modules)
+ GET /intelligence/simulate 200 in 2290ms
+ GET /api/nav-counts 200 in 1113ms
+ GET /api/nav-counts 200 in 1078ms
+ GET /api/nav-counts 200 in 1105ms
+ GET /api/nav-counts 200 in 1124ms
+ GET /api/nav-counts 200 in 1128ms
+ GET /api/notifications?unread_only=true 200 in 1321ms
+ GET /api/notifications?unread_only=true 200 in 1256ms
+ GET /api/nav-counts 200 in 1097ms
+ ○ Compiling /intelligence/strategic-advisor ...
+ ✓ Compiled /intelligence/strategic-advisor in 1358ms (2399 modules)
+ GET /intelligence/strategic-advisor 200 in 2346ms
+ GET /api/nav-counts 200 in 1006ms
+ ○ Compiling /api/intelligence/strategic-advisor ...
+ ✓ Compiled /api/intelligence/strategic-advisor in 690ms (780 modules)
+ GET /api/nav-counts 200 in 2538ms
+ GET /api/intelligence/strategic-advisor 200 in 2544ms
+ GET /api/nav-counts 200 in 1441ms
+ GET /api/nav-counts 200 in 2600ms
+ GET /api/nav-counts 200 in 2603ms
+ GET /api/notifications?unread_only=true 200 in 2777ms
+ GET /api/notifications?unread_only=true 200 in 992ms
+ GET /api/nav-counts 200 in 1017ms
+ GET /api/intelligence/strategic-advisor 200 in 1294ms
+ ○ Compiling /intelligence/twin ...
+ ✓ Compiled /intelligence/twin in 1318ms (2410 modules)
+ GET /intelligence/twin 200 in 2368ms
+ ○ Compiling /api/intelligence/twin/completeness ...
+ GET /api/nav-counts 200 in 1212ms
+ GET /api/nav-counts 200 in 1209ms
+ GET /api/nav-counts 200 in 1160ms
+ GET /api/nav-counts 200 in 1260ms
+ ✓ Compiled /api/intelligence/twin/completeness in 1036ms (781 modules)
+ ✓ Compiled in 0ms (781 modules)
+ GET /api/notifications?unread_only=true 200 in 2912ms
+ ✓ Compiled in 1ms (781 modules)
+ ✓ Compiled in 0ms (781 modules)
+ GET /api/notifications?unread_only=true 200 in 2771ms
+ GET /api/nav-counts 200 in 3003ms
+ GET /api/nav-counts 200 in 3221ms
+ GET /api/intelligence/twin/completeness 200 in 7406ms
+ ○ Compiling /invite/[token] ...
+ ✓ Compiled /invite/[token] in 1834ms (2492 modules)
+ ✓ Compiled in 1138ms (1641 modules)
+ GET /invite/00000000-0000-0000-0000-000000000000 200 in 3244ms
+ ○ Compiling /knowledge-base ...
+ ✓ Compiled /knowledge-base in 1314ms (2482 modules)
+ GET /knowledge-base 200 in 2351ms
+ ○ Compiling /api/knowledge-base ...
+ GET /api/nav-counts 200 in 1268ms
+ GET /api/nav-counts 200 in 1586ms
+ ✓ Compiled /api/knowledge-base in 1045ms (853 modules)
+ GET /api/notifications?unread_only=true 200 in 2720ms
+ GET /api/nav-counts 200 in 2724ms
+ GET /api/nav-counts 200 in 2811ms
+ GET /api/nav-counts 200 in 1308ms
+ GET /api/notifications?unread_only=true 200 in 1094ms
+ GET /api/knowledge-base 200 in 3169ms
+ GET /api/nav-counts 200 in 634ms
+ GET /api/knowledge-base 200 in 668ms
+ ○ Compiling /knowledge-base/answers ...
+ ✓ Compiled /knowledge-base/answers in 1430ms (2502 modules)
+ GET /knowledge-base/answers 200 in 2170ms
+ GET /api/nav-counts 200 in 986ms
+ GET /api/nav-counts 200 in 1233ms
+ GET /api/notifications?unread_only=true 200 in 1835ms
+ GET /api/notifications?unread_only=true 200 in 806ms
+ GET /api/nav-counts 200 in 2214ms
+ GET /api/nav-counts 200 in 2219ms
+ GET /api/nav-counts 200 in 2248ms
+ GET /api/nav-counts 200 in 745ms
+ ○ Compiling /knowledge-base/edit ...
+ ✓ Compiled /knowledge-base/edit in 1534ms (2495 modules)
+ GET /knowledge-base/edit 200 in 2403ms
+ GET /api/nav-counts 200 in 1498ms
+ GET /api/nav-counts 200 in 1319ms
+ GET /api/notifications?unread_only=true 200 in 1448ms
+ GET /api/nav-counts 200 in 1454ms
+ GET /api/nav-counts 200 in 1504ms
+ GET /api/knowledge-base 200 in 1719ms
+ GET /api/nav-counts 200 in 1160ms
+ GET /api/nav-counts 200 in 1265ms
+ GET /api/notifications?unread_only=true 200 in 1308ms
+ GET /api/knowledge-base 200 in 1192ms
+ ○ Compiling /knowledge-base/narratives ...
+ ✓ Compiled /knowledge-base/narratives in 1503ms (2517 modules)
+ GET /knowledge-base/narratives 200 in 2437ms
+ GET /api/nav-counts 200 in 1486ms
+ GET /api/nav-counts 200 in 1695ms
+ GET /api/nav-counts 200 in 1515ms
+ GET /api/nav-counts 200 in 1704ms
+ GET /api/nav-counts 200 in 1536ms
+ GET /api/notifications?unread_only=true 200 in 1724ms
+ GET /api/notifications?unread_only=true 200 in 907ms
+ GET /api/nav-counts 200 in 730ms
+ ○ Compiling /knowledge-base/narratives/[id] ...
+ ✓ Compiled /knowledge-base/narratives/[id] in 1585ms (2525 modules)
+ GET /knowledge-base/narratives/8448e3fe-7172-4390-8d89-bf2fe68d1d52 200 in 3021ms
+ GET /api/nav-counts 200 in 1397ms
+ GET /api/nav-counts 200 in 2113ms
+ GET /api/nav-counts 200 in 2123ms
+ GET /api/nav-counts 200 in 2227ms
+ GET /api/nav-counts 200 in 2364ms
+ GET /api/notifications?unread_only=true 200 in 2542ms
+ GET /api/notifications?unread_only=true 200 in 921ms
+ GET /api/nav-counts 200 in 829ms
+ ○ Compiling /knowledge-base/profile ...
+ ✓ Compiled /knowledge-base/profile in 1537ms (2527 modules)
+ GET /knowledge-base/profile 200 in 2391ms
+ GET /api/nav-counts 200 in 1169ms
+ GET /api/nav-counts 200 in 1317ms
+ GET /api/nav-counts 200 in 1331ms
+ GET /api/nav-counts 200 in 1338ms
+ GET /api/nav-counts 200 in 1343ms
+ GET /api/notifications?unread_only=true 200 in 1552ms
+ GET /api/notifications?unread_only=true 200 in 809ms
+ GET /api/nav-counts 200 in 612ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 557ms (861 modules)
+ GET /login 200 in 1144ms
+ ○ Compiling /marketplace ...
+ ✓ Compiled /marketplace in 1579ms (2543 modules)
+ GET /marketplace 200 in 2832ms
+ GET /api/nav-counts 200 in 1428ms
+ ○ Compiling /api/marketplace/matches ...
+ ✓ Compiled /api/marketplace/matches in 893ms (869 modules)
+ GET /api/nav-counts 200 in 1918ms
+ GET /api/nav-counts 200 in 1922ms
+ ✓ Compiled in 0ms (871 modules)
+ GET /api/notifications?unread_only=true 200 in 3263ms
+ ✓ Compiled in 1ms (871 modules)
+ ✓ Compiled in 0ms (871 modules)
+ GET /api/marketplace/listings 200 in 4811ms
+ ✓ Compiled in 1ms (795 modules)
+ GET /api/nav-counts 200 in 4585ms
+ ✓ Compiled in 1ms (795 modules)
+ GET /api/nav-counts 200 in 4195ms
+ GET /api/marketplace/matches 200 in 7162ms
+ GET /api/marketplace/listings 200 in 1320ms
+ GET /api/notifications?unread_only=true 200 in 4604ms
+ GET /api/nav-counts 200 in 3285ms
+ ○ Compiling /nonprofits ...
+ ✓ Compiled /nonprofits in 1200ms (2461 modules)
+ GET /nonprofits 200 in 2348ms
+ GET /api/nav-counts 200 in 1607ms
+ GET /api/nav-counts 200 in 1687ms
+ GET /api/nav-counts 200 in 1521ms
+ GET /api/notifications?unread_only=true 200 in 1695ms
+ GET /api/nav-counts 200 in 1995ms
+ GET /api/nav-counts 200 in 2000ms
+ GET /api/notifications?unread_only=true 200 in 1292ms
+ GET /api/nav-counts 200 in 904ms
+ ○ Compiling /notifications ...
+ ✓ Compiled /notifications in 1288ms (2461 modules)
+ GET /notifications 200 in 2135ms
+ GET /api/nav-counts 200 in 1163ms
+ GET /api/nav-counts 200 in 1342ms
+ GET /api/nav-counts 200 in 1262ms
+ GET /api/notifications 200 in 1630ms
+ GET /api/nav-counts 200 in 1284ms
+ GET /api/notifications?unread_only=true 200 in 1466ms
+ GET /api/nav-counts 200 in 1532ms
+ GET /api/notifications 200 in 1390ms
+ GET /api/notifications?unread_only=true 200 in 1825ms
+ GET /api/nav-counts 200 in 1410ms
+ ○ Compiling /onboarding ...
+ ✓ Compiled /onboarding in 1479ms (2467 modules)
+ GET /onboarding 200 in 2404ms
+ GET /api/nav-counts 200 in 1228ms
+ GET /api/nav-counts 200 in 1406ms
+ GET /api/nav-counts 200 in 1425ms
+ GET /api/nav-counts 200 in 1554ms
+ GET /api/nav-counts 200 in 1566ms
+ GET /api/notifications?unread_only=true 200 in 1832ms
+ GET /api/notifications?unread_only=true 200 in 933ms
+ ○ Compiling /api/onboarding ...
+ ✓ Compiled /api/onboarding in 538ms (801 modules)
+ GET /api/nav-counts 200 in 2075ms
+ GET /api/onboarding 200 in 2285ms
+ GET /api/onboarding 200 in 661ms
+ ○ Compiling /opportunities ...
+ ✓ Compiled /opportunities in 1476ms (2389 modules)
+ GET /opportunities 200 in 2329ms
+ GET /api/nav-counts 200 in 1377ms
+ GET /api/nav-counts 200 in 1285ms
+ GET /api/notifications?unread_only=true 200 in 1367ms
+ GET /api/nav-counts 200 in 1542ms
+ GET /api/nav-counts 200 in 1550ms
+ GET /api/nav-counts 200 in 1998ms
+ GET /api/notifications?unread_only=true 200 in 865ms
+ GET /api/nav-counts 200 in 818ms
+ ○ Compiling /opportunities/[id] ...
+ ✓ Compiled /opportunities/[id] in 2.1s (2445 modules)
+ GET /opportunities/1d3ec638-484b-4c26-8ce6-bdb151e40850 200 in 3575ms
+ ○ Compiling /api/opportunities/[id]/probability ...
+ ✓ Compiled /api/opportunities/[id]/probability in 767ms (748 modules)
+ GET /api/nav-counts 200 in 1915ms
+ GET /api/nav-counts 200 in 1723ms
+ GET /api/nav-counts 200 in 1886ms
+ GET /api/nav-counts 200 in 1893ms
+ GET /api/notifications?unread_only=true 200 in 2167ms
+ GET /api/opportunities/1d3ec638-484b-4c26-8ce6-bdb151e40850/probability 200 in 3209ms
+ GET /api/nav-counts 200 in 1541ms
+ GET /api/notifications?unread_only=true 200 in 1971ms
+ GET /api/nav-counts 200 in 1839ms
+ GET /api/opportunities/1d3ec638-484b-4c26-8ce6-bdb151e40850/probability 200 in 927ms
+ ○ Compiling /opportunities/new ...
+ ✓ Compiled /opportunities/new in 1812ms (2443 modules)
+ GET /opportunities/new 200 in 2745ms
+ GET /api/nav-counts 200 in 869ms
+ GET /api/nav-counts 200 in 1065ms
+ GET /api/nav-counts 200 in 1064ms
+ GET /api/nav-counts 200 in 1070ms
+ GET /api/notifications?unread_only=true 200 in 1095ms
+ GET /api/nav-counts 200 in 1523ms
+ GET /api/notifications?unread_only=true 200 in 955ms
+ GET /api/nav-counts 200 in 1054ms
+ ○ Compiling /outcomes ...
+ ✓ Compiled /outcomes in 1619ms (2442 modules)
+ GET /outcomes 200 in 2657ms
+ GET /api/nav-counts 200 in 1359ms
+ GET /api/nav-counts 200 in 1231ms
+ GET /api/nav-counts 200 in 1301ms
+ GET /api/nav-counts 200 in 1491ms
+ GET /api/nav-counts 200 in 1317ms
+ GET /api/notifications?unread_only=true 200 in 1631ms
+ GET /api/notifications?unread_only=true 200 in 841ms
+ GET /api/nav-counts 200 in 949ms
+ ○ Compiling /outcomes/analytics ...
+ ✓ Compiled /outcomes/analytics in 2.8s (3033 modules)
+ GET /outcomes/analytics 200 in 4621ms
+ GET /api/nav-counts 200 in 1421ms
+ GET /api/nav-counts 200 in 1639ms
+ GET /api/nav-counts 200 in 1695ms
+ GET /api/nav-counts 200 in 1711ms
+ GET /api/nav-counts 200 in 1553ms
+ GET /api/notifications?unread_only=true 200 in 2002ms
+ GET /api/notifications?unread_only=true 200 in 1057ms
+ GET /api/nav-counts 200 in 1226ms
+ ○ Compiling /outreach ...
+ ✓ Compiled /outreach in 1440ms (3033 modules)
+ GET /outreach 200 in 2593ms
+ GET /api/nav-counts 200 in 1374ms
+ GET /api/nav-counts 200 in 1608ms
+ GET /api/notifications?unread_only=true 200 in 1564ms
+ GET /api/nav-counts 200 in 1565ms
+ GET /api/nav-counts 200 in 1791ms
+ GET /api/nav-counts 200 in 1795ms
+ GET /api/notifications?unread_only=true 200 in 961ms
+ GET /api/nav-counts 200 in 1082ms
+ ○ Compiling /outreach/campaigns ...
+ ✓ Compiled /outreach/campaigns in 1347ms (3037 modules)
+ GET /outreach/campaigns 307 in 2398ms
+ ○ Compiling /email/campaigns ...
+ ✓ Compiled /email/campaigns in 517ms (1331 modules)
+ GET /email/campaigns 200 in 1314ms
+ GET /api/nav-counts 200 in 1699ms
+ ○ Compiling /api/email/sequences ...
+ ✓ Compiled /api/email/sequences in 1372ms (1411 modules)
+ GET /api/nav-counts 200 in 3559ms
+ GET /api/nav-counts 200 in 3593ms
+ GET /api/notifications?unread_only=true 200 in 3612ms
+ GET /api/nav-counts 200 in 3659ms
+ GET /api/email/sequences 200 in 3682ms
+ GET /api/nav-counts 200 in 2120ms
+ GET /api/notifications?unread_only=true 200 in 1148ms
+ GET /api/nav-counts 200 in 1197ms
+ GET /api/email/sequences 200 in 1028ms
+ ○ Compiling /outreach/campaigns/[id] ...
+ ✓ Compiled /outreach/campaigns/[id] in 1505ms (3112 modules)
+ GET /outreach/campaigns/00000000-0000-0000-0000-000000000000 307 in 3114ms
+ GET /email/campaigns 200 in 719ms
+ GET /api/nav-counts 200 in 2019ms
+ GET /api/nav-counts 200 in 2218ms
+ GET /api/nav-counts 200 in 1647ms
+ GET /api/nav-counts 200 in 2901ms
+ GET /api/email/sequences 200 in 3353ms
+ GET /api/notifications?unread_only=true 200 in 3509ms
+ GET /api/nav-counts 200 in 1447ms
+ GET /api/notifications?unread_only=true 200 in 1155ms
+ GET /api/nav-counts 200 in 937ms
+ GET /api/email/sequences 200 in 1006ms
+ ○ Compiling /outreach/sequences ...
+ ✓ Compiled /outreach/sequences in 1395ms (3103 modules)
+ GET /outreach/sequences 307 in 2324ms
+ GET /email/campaigns 200 in 666ms
+ GET /api/nav-counts 200 in 1260ms
+ GET /api/nav-counts 200 in 1169ms
+ GET /api/nav-counts 200 in 1298ms
+ GET /api/nav-counts 200 in 1314ms
+ GET /api/email/sequences 200 in 1612ms
+ GET /api/notifications?unread_only=true 200 in 1627ms
+ GET /api/nav-counts 200 in 929ms
+ GET /api/notifications?unread_only=true 200 in 1296ms
+ GET /api/nav-counts 200 in 1182ms
+ GET /api/email/sequences 200 in 1059ms
+ ○ Compiling /outreach/templates ...
+ ✓ Compiled /outreach/templates in 1560ms (3077 modules)
+ GET /outreach/templates 200 in 2500ms
+ GET /api/nav-counts 200 in 1191ms
+ ○ Compiling /api/outreach/templates ...
+ GET /api/nav-counts 200 in 1626ms
+ ✓ Compiled /api/outreach/templates in 1194ms (1366 modules)
+ GET /api/nav-counts 200 in 1967ms
+ GET /api/nav-counts 200 in 1973ms
+ ✓ Compiled in 1ms (1366 modules)
+ ✓ Compiled in 0ms (1366 modules)
+ GET /api/notifications?unread_only=true 200 in 3983ms
+ ✓ Compiled in 0ms (1337 modules)
+ GET /api/nav-counts 200 in 4377ms
+ GET /api/outreach/templates 200 in 6102ms
+ ✓ Compiled in 1ms (1337 modules)
+ GET /api/nav-counts 200 in 3763ms
+ ✓ Compiled in 1ms (1337 modules)
+ GET /api/notifications?unread_only=true 200 in 4518ms
+ ○ Compiling /pricing ...
+ ✓ Compiled /pricing in 2.4s (3076 modules)
+ GET /pricing 200 in 3167ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1241ms (3065 modules)
+ GET /& 404 in 1467ms
+ ○ Compiling /privacy ...
+ ✓ Compiled /privacy in 1353ms (3067 modules)
+ GET /privacy 200 in 1873ms
+ ○ Compiling /register ...
+ ✓ Compiled /register in 1470ms (3075 modules)
+ GET /register 200 in 1918ms
+ ○ Compiling /renewals ...
+ ✓ Compiled /renewals in 1670ms (3088 modules)
+ GET /renewals 200 in 2685ms
+ GET /api/nav-counts 200 in 1640ms
+ ○ Compiling /api/renewals ...
+ GET /api/nav-counts 200 in 1438ms
+ ✓ Compiled /api/renewals in 903ms (1367 modules)
+ GET /api/notifications?unread_only=true 200 in 1833ms
+ GET /api/nav-counts 200 in 1846ms
+ GET /api/nav-counts 200 in 1873ms
+ GET /api/renewals 200 in 2802ms
+ GET /api/nav-counts 200 in 1260ms
+ GET /api/notifications?unread_only=true 200 in 1520ms
+ GET /api/nav-counts 200 in 1373ms
+ GET /api/renewals 200 in 780ms
+ ○ Compiling /reports ...
+ ✓ Compiled /reports in 1531ms (3096 modules)
+ GET /reports 200 in 2333ms
+ GET /api/nav-counts 200 in 1638ms
+ GET /api/nav-counts 200 in 1842ms
+ GET /api/nav-counts 200 in 1750ms
+ GET /api/nav-counts 200 in 1561ms
+ GET /api/nav-counts 200 in 1640ms
+ GET /api/notifications?unread_only=true 200 in 2011ms
+ GET /api/notifications?unread_only=true 200 in 805ms
+ GET /api/nav-counts 200 in 913ms
+ ○ Compiling /reports/board-report ...
+ ✓ Compiled /reports/board-report in 1522ms (3104 modules)
+ GET /reports/board-report 200 in 2562ms
+ GET /api/nav-counts 200 in 1093ms
+ GET /api/nav-counts 200 in 936ms
+ ○ Compiling /api/reports/board-report/detail ...
+ GET /api/nav-counts 200 in 1056ms
+ GET /api/nav-counts 200 in 1085ms
+ ✓ Compiled /api/reports/board-report/detail in 1715ms (1377 modules)
+ GET /api/notifications?unread_only=true 200 in 3223ms
+ GET /api/nav-counts 200 in 1559ms
+ GET /api/nav-counts 200 in 2113ms
+ GET /api/notifications?unread_only=true 200 in 2198ms
+ GET /api/reports/board-report/detail?dateFrom=2026-01-01&dateTo=2026-08-19 200 in 3595ms
+ GET /api/reports/board-report/detail?dateFrom=2026-01-01&dateTo=2026-08-19 200 in 1754ms
+ ○ Compiling /reports/forecast ...
+ ✓ Compiled /reports/forecast in 1482ms (2530 modules)
+ GET /reports/forecast 200 in 2246ms
+ ○ Compiling /api/reports/forecast ...
+ GET /api/nav-counts 200 in 1545ms
+ ✓ Compiled /api/reports/forecast in 1104ms (800 modules)
+ GET /api/nav-counts 200 in 1993ms
+ GET /api/nav-counts 200 in 1998ms
+ GET /api/nav-counts 200 in 2001ms
+ ✓ Compiled in 1ms (800 modules)
+ GET /api/notifications?unread_only=true 200 in 3370ms
+ ✓ Compiled in 1ms (800 modules)
+ ✓ Compiled in 1ms (800 modules)
+ GET /api/reports/forecast 200 in 5616ms
+ ✓ Compiled in 1ms (800 modules)
+ GET /api/nav-counts 200 in 4681ms
+ GET /api/nav-counts 200 in 3909ms
+ GET /api/reports/forecast 200 in 4162ms
+ GET /api/notifications?unread_only=true 200 in 4291ms
+ ○ Compiling /reports/funding-summary ...
+ ✓ Compiled /reports/funding-summary in 1759ms (2516 modules)
+ GET /reports/funding-summary 200 in 2574ms
+ ○ Compiling /api/intelligence/trends ...
+ GET /api/nav-counts 200 in 1358ms
+ ✓ Compiled /api/intelligence/trends in 1018ms (781 modules)
+ ✓ Compiled (783 modules)
+ GET /api/nav-counts 200 in 2693ms
+ GET /api/nav-counts 200 in 2734ms
+ GET /api/nav-counts 200 in 1329ms
+ GET /api/notifications?unread_only=true 200 in 2854ms
+ GET /api/reports/funding-summary?period=month 200 in 3177ms
+ GET /api/intelligence/trends 200 in 3428ms
+ GET /api/nav-counts 200 in 1393ms
+ GET /api/nav-counts 200 in 1608ms
+ GET /api/notifications?unread_only=true 200 in 1818ms
+ GET /api/reports/funding-summary?period=month 200 in 1849ms
+ GET /api/intelligence/trends 200 in 1157ms
+ ○ Compiling /reports/impact ...
+ ✓ Compiled /reports/impact in 1505ms (2529 modules)
+ GET /reports/impact 200 in 2376ms
+ ○ Compiling /api/reports/impact ...
+ GET /api/nav-counts 200 in 1696ms
+ ✓ Compiled /api/reports/impact in 1133ms (792 modules)
+ GET /api/nav-counts 200 in 2108ms
+ GET /api/nav-counts 200 in 2116ms
+ GET /api/notifications?unread_only=true 200 in 3820ms
+ GET /api/nav-counts 200 in 3656ms
+ GET /api/nav-counts 200 in 2145ms
+ GET /api/nav-counts 200 in 1391ms
+ GET /api/notifications?unread_only=true 200 in 1691ms
+ GET /api/reports/impact 200 in 4383ms
+ GET /api/reports/impact 200 in 706ms
+ ○ Compiling /reports/roi ...
+ ✓ Compiled /reports/roi in 1580ms (2520 modules)
+ GET /reports/roi 200 in 2398ms
+ ○ Compiling /api/reports/roi ...
+ GET /api/nav-counts 200 in 1514ms
+ GET /api/nav-counts 200 in 1706ms
+ ✓ Compiled /api/reports/roi in 1098ms (768 modules)
+ GET /api/nav-counts 200 in 1635ms
+ GET /api/nav-counts 200 in 1822ms
+ GET /api/notifications?unread_only=true 200 in 4042ms
+ GET /api/reports/roi 200 in 4371ms
+ GET /api/nav-counts 200 in 2315ms
+ GET /api/nav-counts 200 in 2335ms
+ GET /api/notifications?unread_only=true 200 in 2268ms
+ GET /api/reports/roi 200 in 2227ms
+ ○ Compiling /reports/simulate ...
+ ✓ Compiled /reports/simulate in 1833ms (2522 modules)
+ GET /reports/simulate 200 in 2770ms
+ ○ Compiling /api/reports/simulate ...
+ GET /api/nav-counts 200 in 1746ms
+ GET /api/nav-counts 200 in 1601ms
+ GET /api/nav-counts 200 in 1672ms
+ GET /api/nav-counts 200 in 1689ms
+ ✓ Compiled /api/reports/simulate in 2.3s (780 modules)
+ GET /api/notifications?unread_only=true 200 in 2072ms
+ GET /api/notifications?unread_only=true 200 in 4429ms
+ GET /api/nav-counts 200 in 2529ms
+ GET /api/nav-counts 200 in 2018ms
+ GET /api/reports/simulate 200 in 4614ms
+ GET /api/reports/simulate 200 in 2253ms
+ ○ Compiling /research ...
+ ✓ Compiled /research in 1916ms (2552 modules)
+ GET /research 200 in 2731ms
+ GET /api/nav-counts 200 in 1231ms
+ GET /api/nav-counts 200 in 1416ms
+ GET /api/nav-counts 200 in 1439ms
+ GET /api/nav-counts 200 in 1440ms
+ GET /api/nav-counts 200 in 1654ms
+ GET /api/notifications?unread_only=true 200 in 1867ms
+ GET /api/notifications?unread_only=true 200 in 922ms
+ GET /api/nav-counts 200 in 660ms
+ ○ Compiling /research/match ...
+ ✓ Compiled /research/match in 1504ms (2540 modules)
+ GET /research/match 200 in 2750ms
+ GET /api/nav-counts 200 in 1289ms
+ GET /api/nav-counts 200 in 1592ms
+ GET /api/nav-counts 200 in 1564ms
+ GET /api/nav-counts 200 in 1567ms
+ GET /api/notifications?unread_only=true 200 in 1572ms
+ GET /api/nav-counts 200 in 1585ms
+ GET /api/notifications?unread_only=true 200 in 925ms
+ GET /api/nav-counts 200 in 1054ms
+ ○ Compiling /reset-password ...
+ ✓ Compiled /reset-password in 1563ms (2537 modules)
+ GET /reset-password 200 in 2098ms
+ ○ Compiling /schoolfunder ...
+ ✓ Compiled /schoolfunder in 1662ms (2597 modules)
+ GET /schoolfunder 200 in 2858ms
+ GET /api/nav-counts 200 in 1471ms
+ GET /api/nav-counts 200 in 1440ms
+ GET /api/nav-counts 200 in 1930ms
+ GET /api/nav-counts 200 in 1938ms
+ GET /api/nav-counts 200 in 2072ms
+ GET /api/notifications?unread_only=true 200 in 2087ms
+ GET /api/notifications?unread_only=true 200 in 1106ms
+ GET /api/nav-counts 200 in 641ms
+ ○ Compiling /search-profiles ...
+ ✓ Compiled /search-profiles in 1657ms (2601 modules)
+ GET /search-profiles 200 in 2742ms
+ GET /api/nav-counts 200 in 1804ms
+ GET /api/nav-counts 200 in 1536ms
+ GET /api/nav-counts 200 in 1968ms
+ GET /api/nav-counts 200 in 1976ms
+ GET /api/nav-counts 200 in 1986ms
+ GET /api/notifications?unread_only=true 200 in 2003ms
+ GET /api/notifications?unread_only=true 200 in 1342ms
+ GET /api/nav-counts 200 in 1345ms
+ ○ Compiling /search-profiles/configure ...
+ ✓ Compiled /search-profiles/configure in 1868ms (2596 modules)
+ GET /search-profiles/configure 200 in 2746ms
+ GET /api/nav-counts 200 in 1460ms
+ GET /api/nav-counts 200 in 1325ms
+ GET /api/nav-counts 200 in 1591ms
+ GET /api/nav-counts 200 in 1606ms
+ GET /api/nav-counts 200 in 1608ms
+ GET /api/notifications?unread_only=true 200 in 1739ms
+ GET /api/nav-counts 200 in 874ms
+ GET /api/notifications?unread_only=true 200 in 1093ms
+ ○ Compiling /security ...
+ ✓ Compiled /security in 1570ms (2604 modules)
+ GET /security 200 in 2118ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 2.1s (2635 modules)
+ GET /settings 200 in 3008ms
+ GET /api/nav-counts 200 in 1049ms
+ GET /api/nav-counts 200 in 1059ms
+ GET /api/nav-counts 200 in 1190ms
+ GET /api/nav-counts 200 in 1209ms
+ GET /api/nav-counts 200 in 1211ms
+ GET /api/notifications?unread_only=true 200 in 1513ms
+ GET /api/notifications?unread_only=true 200 in 890ms
+ GET /api/nav-counts 200 in 692ms
+ ○ Compiling /settings/agents ...
+ ✓ Compiled /settings/agents in 1889ms (2607 modules)
+ GET /settings/agents 200 in 3010ms
+ GET /api/nav-counts 200 in 1135ms
+ ○ Compiling /api/autonomous/decisions ...
+ GET /api/nav-counts 200 in 1090ms
+ GET /api/nav-counts 200 in 1107ms
+ ✓ Compiled /api/autonomous/decisions in 903ms (837 modules)
+ ✓ Compiled in 1ms (840 modules)
+ ✓ Compiled in 0ms (840 modules)
+ GET /api/notifications?unread_only=true 200 in 3307ms
+ ✓ Compiled in 1ms (840 modules)
+ GET /api/autonomous/config 200 in 4511ms
+ GET /api/notifications?unread_only=true 200 in 3293ms
+ GET /api/nav-counts 200 in 3636ms
+ GET /api/nav-counts 200 in 3803ms
+ GET /api/nav-counts 200 in 1930ms
+ GET /api/autonomous/decisions 200 in 5852ms
+ GET /api/autonomous/config 200 in 992ms
+ GET /api/autonomous/decisions 200 in 788ms
+ ○ Compiling /api/settings/agents/relationship-builder-v2 ...
+ ✓ Compiled /api/settings/agents/relationship-builder-v2 in 517ms (842 modules)
+ GET /api/settings/agents/relationship-builder-v2 200 in 788ms
+ ○ Compiling /settings/billing ...
+ ✓ Compiled /settings/billing in 1562ms (2627 modules)
+ GET /settings/billing 200 in 2473ms
+ GET /api/nav-counts 200 in 1186ms
+ GET /api/nav-counts 200 in 1135ms
+ GET /api/nav-counts 200 in 1185ms
+ GET /api/nav-counts 200 in 1196ms
+ GET /api/nav-counts 200 in 1216ms
+ GET /api/notifications?unread_only=true 200 in 1434ms
+ GET /api/notifications?unread_only=true 200 in 1020ms
+ GET /api/nav-counts 200 in 1199ms
+ ○ Compiling /api/billing ...
+ ✓ Compiled /api/billing in 621ms (858 modules)
+ ✓ Compiled (1051 modules)
+ GET /api/billing 200 in 3211ms
+ GET /api/billing/usage 200 in 3397ms
+ ○ Compiling /settings/branding ...
+ ✓ Compiled /settings/branding in 1915ms (2836 modules)
+ GET /settings/branding 200 in 2784ms
+ GET /api/nav-counts 200 in 1353ms
+ GET /api/nav-counts 200 in 1832ms
+ GET /api/nav-counts 200 in 1862ms
+ GET /api/nav-counts 200 in 1862ms
+ GET /api/nav-counts 200 in 1869ms
+ GET /api/notifications?unread_only=true 200 in 2193ms
+ GET /api/notifications?unread_only=true 200 in 749ms
+ GET /api/nav-counts 200 in 898ms
+ ○ Compiling /settings/custom-apis ...
+ ✓ Compiled /settings/custom-apis in 2.4s (2692 modules)
+ GET /settings/custom-apis 200 in 3518ms
+ GET /api/nav-counts 200 in 1256ms
+ ○ Compiling /api/integrations/custom-api ...
+ GET /api/nav-counts 200 in 1141ms
+ GET /api/nav-counts 200 in 1158ms
+ ✓ Compiled /api/integrations/custom-api in 1278ms (912 modules)
+ ✓ Compiled (922 modules)
+ GET /api/notifications?unread_only=true 200 in 3658ms
+ GET /api/notifications?unread_only=true 200 in 1942ms
+ GET /api/nav-counts 200 in 1969ms
+ GET /api/nav-counts 200 in 2688ms
+ GET /api/integrations/custom-api 200 in 3983ms
+ GET /api/integrations/custom-api/allowlist 200 in 4245ms
+ GET /api/nav-counts 200 in 1360ms
+ GET /api/integrations/custom-api 200 in 1066ms
+ GET /api/integrations/custom-api/allowlist 200 in 728ms
+ ○ Compiling /settings/integrations ...
+ ✓ Compiled /settings/integrations in 1832ms (2723 modules)
+ GET /settings/integrations 200 in 2886ms
+ GET /api/nav-counts 200 in 1225ms
+ GET /api/nav-counts 200 in 1401ms
+ GET /api/nav-counts 200 in 1448ms
+ GET /api/nav-counts 200 in 1484ms
+ GET /api/nav-counts 200 in 1514ms
+ GET /api/notifications?unread_only=true 200 in 1903ms
+ GET /api/notifications?unread_only=true 200 in 956ms
+ ○ Compiling /api/settings/integrations/status ...
+ ✓ Compiled /api/settings/integrations/status in 771ms (915 modules)
+ ✓ Compiled (917 modules)
+ GET /api/nav-counts 200 in 2085ms
+ GET /api/settings/integrations/status 200 in 2250ms
+ GET /api/integrations/keys 200 in 2513ms
+ ○ Compiling /settings/notifications ...
+ ✓ Compiled /settings/notifications in 1899ms (2726 modules)
+ GET /settings/notifications 200 in 3018ms
+ GET /api/nav-counts 200 in 1368ms
+ ○ Compiling /api/settings/notifications ...
+ GET /api/nav-counts 200 in 1612ms
+ GET /api/nav-counts 200 in 1509ms
+ GET /api/notifications?unread_only=true 200 in 1789ms
+ ✓ Compiled /api/settings/notifications in 1564ms (916 modules)
+ GET /api/nav-counts 200 in 3266ms
+ GET /api/nav-counts 200 in 1887ms
+ GET /api/nav-counts 200 in 1714ms
+ GET /api/settings/notifications 500 in 3574ms
+ GET /api/notifications?unread_only=true 200 in 2028ms
+ GET /api/settings/notifications 500 in 664ms
+ ○ Compiling /settings/organization-setup ...
+ ✓ Compiled /settings/organization-setup in 1901ms (2718 modules)
+ GET /settings/organization-setup 200 in 2920ms
+ GET /api/nav-counts 200 in 1767ms
+ GET /api/notifications?unread_only=true 200 in 2026ms
+ GET /api/nav-counts 200 in 1902ms
+ GET /api/nav-counts 200 in 1912ms
+ GET /api/nav-counts 200 in 1923ms
+ GET /api/nav-counts 200 in 1938ms
+ GET /api/notifications?unread_only=true 200 in 1012ms
+ GET /api/nav-counts 200 in 926ms
+ ○ Compiling /settings/scraping ...
+ ✓ Compiled /settings/scraping in 2.9s (2726 modules)
+ GET /settings/scraping 200 in 4200ms
+ ○ Compiling /api/integrations/scraping-targets ...
+ GET /api/nav-counts 200 in 1768ms
+ ✓ Compiled /api/integrations/scraping-targets in 998ms (917 modules)
+ GET /api/nav-counts 200 in 2724ms
+ GET /api/nav-counts 200 in 2616ms
+ GET /api/notifications?unread_only=true 200 in 3976ms
+ GET /api/integrations/custom-api/allowlist 200 in 4030ms
+ GET /api/nav-counts 200 in 1590ms
+ GET /api/integrations/scraping-targets 200 in 4274ms
+ GET /api/notifications?unread_only=true 200 in 1212ms
+ GET /api/nav-counts 200 in 1850ms
+ GET /api/integrations/custom-api/allowlist 200 in 1264ms
+ GET /api/nav-counts 200 in 1413ms
+ GET /api/integrations/scraping-targets 200 in 1236ms
+ ○ Compiling /settings/state-portals ...
+ ✓ Compiled /settings/state-portals in 1944ms (2519 modules)
+ GET /settings/state-portals 200 in 3090ms
+ GET /api/nav-counts 200 in 1225ms
+ GET /api/nav-counts 200 in 1124ms
+ GET /api/nav-counts 200 in 1074ms
+ GET /api/nav-counts 200 in 1100ms
+ GET /api/nav-counts 200 in 1119ms
+ GET /api/notifications?unread_only=true 200 in 1266ms
+ GET /api/nav-counts 200 in 998ms
+ GET /api/notifications?unread_only=true 200 in 1105ms
+ ○ Compiling /settings/white-label ...
+ ✓ Compiled /settings/white-label in 1669ms (2506 modules)
+ GET /settings/white-label 200 in 2809ms
+ GET /api/nav-counts 200 in 1484ms
+ ○ Compiling /api/consultant/clients ...
+ GET /api/nav-counts 200 in 1448ms
+ GET /api/nav-counts 200 in 1456ms
+ GET /api/nav-counts 200 in 1465ms
+ ✓ Compiled /api/consultant/clients in 1517ms (705 modules)
+ GET /api/notifications?unread_only=true 200 in 3658ms
+ GET /api/nav-counts 200 in 2343ms
+ GET /api/nav-counts 200 in 1593ms
+ GET /api/notifications?unread_only=true 200 in 1710ms
+ GET /api/consultant/clients 500 in 4041ms
+ GET /api/consultant/clients 500 in 620ms
+ ○ Compiling /terms ...
+ ✓ Compiled /terms in 2.4s (2528 modules)
+ GET /terms 200 in 3101ms
+ ○ Compiling /donor-discovery/prospects/[id] ...
+ ✓ Compiled /donor-discovery/prospects/[id] in 565ms (709 modules)
+ GET /donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 2685ms
+ GET /api/nav-counts 200 in 1416ms
+ ○ Compiling /api/donor-discovery/prospects/[id] ...
+ GET /api/nav-counts 200 in 1399ms
+ GET /api/nav-counts 200 in 1411ms
+ GET /api/nav-counts 200 in 1415ms
+ GET /api/notifications?unread_only=true 200 in 1515ms
+ ✓ Compiled /api/donor-discovery/prospects/[id] in 857ms (696 modules)
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 3050ms
+ GET /api/nav-counts 200 in 1697ms
+ GET /api/nav-counts 200 in 1689ms
+ GET /api/notifications?unread_only=true 200 in 1796ms
+ GET /api/donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 1893ms
+ GET /donor-discovery/prospects/19ec603e-bb4d-4e10-9482-e864dc85f511 200 in 771ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 2.6s (585 modules)
+ GET /login 200 in 3334ms
+[?25h

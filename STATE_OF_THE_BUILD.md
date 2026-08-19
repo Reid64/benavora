@@ -1,6 +1,72 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-01 STARTED — preflight complete, page-route working set established: 146 page routes extracted from PT-00's 464-route manifest, verified to match exactly). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-01 render pass complete — all 146 page routes walked with a real authenticated session; 1 real, reproducible application bug found (WGR-012, `/donor-discovery/prospects/[id]` crashes on a partial enrichment record); a real multi-worktree dev-server `.next` contention issue found and worked around, not silently papered over (WGR-013); WGR-004's `/documents` hang did not reproduce this session (WGR-014, flagged not assumed fixed)). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-01-002: authenticated render pass across all 146 page routes)
+
+**Focus:** deeper than PT-00-005's smoke sweep, which only recorded HTTP status. This session records
+whether the RENDERED DOM shows a Next.js error boundary, an empty shell, or real page content, for
+every route in `test-evidence/pt-01/page-routes.json` (146 routes). Real authenticated Playwright
+session (admin-issued magic link for `info@faithfoundationsf.org`, no password touched — same
+pattern as PT-00-005). Dynamic `[id]` routes resolved to a real, live row via a direct scoped
+Supabase query wherever one exists (13 of 17 dynamic routes); the 3 with no real row on file
+(`/autoapply/[sessionId]`, `/email/campaigns/[id]`, `/invite/[token]`) were tested with a placeholder
+UUID and tagged `PENDING-SCOPE` — all 3 rendered a real, correct "not found/unavailable" state, not a
+bug, matching PT-00's own lesson that a placeholder-driven 404 isn't itself a finding.
+
+**A real, mid-session environmental blocker, investigated and worked around, not ignored:** the
+shared local dev server (`localhost:3000`) was found partway through the first sweep attempt to have
+a corrupted/missing client hydration bundle (`.next/static/chunks/main-app.js` and siblings,
+confirmed absent at the filesystem level, `.next`'s own mtime frozen since before this session
+started) — caused by a concurrent, unrelated `next build` process in the same checkout (still running
+55+ minutes without completing) writing to the same shared `.next/` directory `next dev` reads from.
+12 of 146 routes failed an initial sweep against the shared server, every one bearing one of two
+build-contention signatures (a server-side `Cannot find module '.../vendor-chunks/@supabase+auth-js@2.108.0.js'`
+error, or repeated `404`s on core `_next/static/` chunks); a follow-up check of ~15 more
+"stuck-on-Loading" routes found the contamination had spread further by then. This is the same
+multi-worktree `.next` contention failure mode `next.config.mjs`'s `experimental.cpus: 1` comment and
+WGR-001 already document for `build`-vs-`build` contention — this session found it also applies to
+`dev`-vs-`build`, and that `next dev` does not self-heal from it. **Did not kill the other process** —
+instead launched a second, fully isolated `next dev` instance (different port, different `distDir`
+via a temporary, now-reverted `next.config.mjs` env-gated addition) and re-ran the full sweep clean
+against it. The shared server was left running, untouched, for whatever else depends on it. Full
+narrative and evidence: register row **WGR-013**, `test-evidence/pt-01/PHASE-01-SUMMARY.md`.
+
+**Clean-run result: 145 of 146 routes render correctly** (real HTTP status, no error-boundary
+signature, real page content). **1 real, confirmed, reproducible bug**:
+`/donor-discovery/prospects/[id]` — a real prospect (`19ec603e-...`) whose linked
+`donor_discovery_directory` row has a genuinely partial `enrichment` jsonb object (only
+`ein`/`ntee_code`/`asset_amount`/`giving_total` populated) crashes `ProspectDetail.tsx` with
+`Cannot read properties of undefined (reading 'length')` — two unguarded `.length` accesses
+(lines 574, 587) on optional array fields (`giving_focus_areas`, `in_kind_history_signals`) that this
+project's real, live enrichment data doesn't always populate. Blanks the entire page
+(`httpStatus: 200`, 0 characters of rendered content). Reproduced identically 4 times, zero
+build-contention signature present — a real code defect, not environmental. Register row **WGR-012**
+(P1 — drilldown detail page, not the literal top-level `/donor-discovery` primary-nav entry).
+
+**WGR-004 (`/documents` hang) did NOT reproduce this session**, on either of two independent
+attempts — rendered cleanly in 3.7-5.6s both times. Per this program's own convention, a
+non-reproduction is itself a finding, not silent evidence of a fix; root cause was never
+investigated either time. Logged as register row **WGR-014** (`UNVERIFIED`) — do not treat WGR-004
+as resolved on this alone.
+
+**Shipped:** `scripts/audit/pt01-002-render-pass.mjs` (the sweep itself — real-id resolution,
+bounded network-idle wait, up-to-4-attempt retry/recheck logic with build-contention detection,
+per-route screenshot-on-failure), `scripts/audit/verify-pt01-002.mjs` (exits non-zero unless
+`render-results.json` covers all 146 routes and every row has `httpStatus`/`errorBoundaryInDom`/
+`hasRealContent`/`consoleErrors` populated — confirmed passing), `test-evidence/pt-01/render-results.json`,
+`test-evidence/pt-01/render-failures/` (1 current-failure screenshot + a 12-screenshot
+`build-contention-investigation/` subfolder kept as evidence of the environmental finding, clearly
+separated from the authoritative result set), `test-evidence/pt-01/PHASE-01-SUMMARY.md`,
+`test-evidence/_register/WIRING_GAP_REGISTER.md` rows WGR-012 through WGR-014.
+
+**Verified clean before finalizing:** `git diff --stat next.config.mjs tsconfig.json` confirmed empty
+after reverting the temporary isolated-`distDir` edit and Next's auto-added `tsconfig.json` include
+entry — no residual change to either tracked file. The isolated dev server process and its
+`.next-pt01-audit/` build-output directory were both torn down.
+
+**Gates:** `node scripts/audit/verify-pt01-001.mjs` — PASS. `node scripts/audit/verify-pt01-002.mjs`
+— PASS (146/146 coverage, every row fully populated).
 
 ## SESSION — August 19, 2026 (PT-01 preflight: page-route working set)
 

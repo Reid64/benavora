@@ -1,0 +1,117 @@
+{
+  "/admin/autoapply-ops": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787127920207",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787127920207"
+    ],
+    "pageErrors": []
+  },
+  "/autoapply/00000000-0000-0000-0000-000000000000": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 0,
+    "staticChunk404Sample": [],
+    "pageErrors": [
+      "Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/autoapply/analytics": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787127938883",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787127938883"
+    ],
+    "pageErrors": []
+  },
+  "/autoapply/documents": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787127948093",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787127948093"
+    ],
+    "pageErrors": []
+  },
+  "/autoapply/usage": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787127956545",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787127956545"
+    ],
+    "pageErrors": []
+  },
+  "/email/campaigns/00000000-0000-0000-0000-000000000000": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 0,
+    "staticChunk404Sample": [],
+    "pageErrors": [
+      "Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/follow-ups": {
+    "mainTextLength": 7,
+    "contentPreview": "Loading",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787127975659",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787127975659"
+    ],
+    "pageErrors": []
+  },
+  "/funders/2521840b-9048-4c77-bd9c-f9f8492529d7": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 0,
+    "staticChunk404Sample": [],
+    "pageErrors": [
+      "Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/intelligence-library/dashboard": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787127993730",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787127993730"
+    ],
+    "pageErrors": []
+  },
+  "/intelligence/competitors": {
+    "mainTextLength": 8,
+    "contentPreview": "Loading…",
+    "staticChunk404Count": 5,
+    "staticChunk404Sample": [
+      "404 http://localhost:3000/_next/static/css/app/layout.css?v=1787128002654",
+      "404 http://localhost:3000/_next/static/chunks/main-app.js?v=1787128002654"
+    ],
+    "pageErrors": []
+  },
+  "/invite/00000000-0000-0000-0000-000000000000": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 0,
+    "staticChunk404Sample": [],
+    "pageErrors": [
+      "Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/opportunities/1d3ec638-484b-4c26-8ce6-bdb151e40850": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "staticChunk404Count": 0,
+    "staticChunk404Sample": [],
+    "pageErrors": [
+      "Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "/admin/improvements": {
+    "mainTextLength": 32,
+    "contentPreview": "Loading improvement proposals...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/admin/monitor": {
+    "mainTextLength": 18,
+    "contentPreview": "Loading Monitor...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/admin/sales-outreach": {
+    "mainTextLength": 16,
+    "contentPreview": "Loading…Loading…",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/admin/system": {
+    "mainTextLength": 24,
+    "contentPreview": "Loading System Health...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/applications/new": {
+    "mainTextLength": 20,
+    "contentPreview": "Loading...Loading...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/autoapply/controls": {
+    "mainTextLength": 17,
+    "contentPreview": "Loading controls…",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/autoapply/profiles": {
+    "mainTextLength": 17,
+    "contentPreview": "Loading profiles…",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/autoapply/settings": {
+    "mainTextLength": 17,
+    "contentPreview": "Loading settings…",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/draft-generator/1944f4e3-eade-48e7-b314-f5bb8001f56a": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "consoleErrorCount": 2,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "[uncaught] Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/financials": {
+    "mainTextLength": 42,
+    "contentPreview": "Loading financials...Loading financials...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/knowledge-base/edit": {
+    "mainTextLength": 60,
+    "contentPreview": "Loading your knowledge base...Loading your knowledge base...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/onboarding": {
+    "mainTextLength": 56,
+    "contentPreview": "Loading your setup wizard...Loading your setup wizard...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/reset-password": {
+    "mainTextLength": 29,
+    "contentPreview": "Validating your reset link...",
+    "consoleErrorCount": 4,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/search-profiles/configure": {
+    "mainTextLength": 48,
+    "contentPreview": "Loading configuration...Loading configuration...",
+    "consoleErrorCount": 5,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "/board/885933d2-c2de-4e4c-9504-9402ae4bc0d9": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "consoleErrorCount": 2,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "[uncaught] Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship": {
+    "mainTextLength": 0,
+    "contentPreview": "",
+    "consoleErrorCount": 2,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "[uncaught] Cannot find module './vendor-chunks/@supabase+auth-js@2.108.0.js'\nRequire stack:\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\webpack-runtime.js\n- C:\\Users\\manag\\Documents\\benavora\\.next\\server\\ap"
+    ]
+  },
+  "/terms": {
+    "mainTextLength": 33,
+    "contentPreview": "404\nThis page could not be found.",
+    "consoleErrorCount": 4,
+    "consoleErrorSample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  }
+}
