@@ -1,6 +1,116 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`; see session entry below. Prior state: PT-01 COMPLETE — wiring audit consolidated, review pack written, awaiting Reid's review before PT-02 authoring. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. See session entry below. Prior: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-02 preflight: API-route working set + classification)
+
+**Focus:** PT-02 preflight per the audit program's own phase structure (mirrors PT-01's own
+`pt01-extract-page-routes.mjs` → `verify-pt01-001.mjs` pattern, applied to the API-route half of
+PT-00's route manifest instead of the page-route half PT-01 already covered).
+
+**Confirmed before starting, per this task's own instruction — PT-00/PT-01 artifacts present, not
+assumed:** `test-evidence/pt-00/route-manifest.json` (464 routes: 146 page, 318 api),
+`test-evidence/_register/WIRING_GAP_REGISTER.md`, `scripts/audit/evidence-lib.mjs` all confirmed
+present via a direct filesystem search before any code was written.
+
+**What shipped:**
+- `scripts/audit/pt02-extract-api-routes.mjs` — reads `route-manifest.json`, filters to
+  `type=="api"` (318 routes, matches the manifest's own count exactly), and statically classifies
+  each one by reading its real handler source (no server started, no network call):
+  - `methods[]` — which of GET/POST/PUT/PATCH/DELETE the file actually exports. Verified first,
+    across all 318 real `route.ts` files, that only two export forms exist in this codebase
+    (`export (async )?function METHOD` and `export const METHOD =`/`:`) and every file uses one —
+    zero re-export/higher-order-wrapper edge cases, so the two-pattern detector is exhaustive.
+  - `isMutation` — true iff `methods[]` contains POST/PUT/PATCH/DELETE. 231 of 318.
+  - `auth.mechanism` — the real in-handler gate, checked in priority order: `requireRole` (271
+    routes, this repo's dominant role-gate helper, 381 real call sites across 271 files, confirmed
+    by repo-wide grep before writing the detector) → `requireAuth` (3) → `checkPermission` (0) →
+    `auth.getUser` (17) → `cron_secret` (14, Vercel Cron bearer-token routes) →
+    `webhook_signature` (4, Stripe/Resend signature verification) → `oauth_code_exchange` (1) →
+    `none_detected` (8, explicitly flagged for review, not silently treated as intentionally
+    public).
+  - `auth.tiers[]` — the real `requireRole("...")` tier string(s) found per file (viewer/writer/
+    admin/owner — 125/155/27/24 routes respectively; a route can carry more than one tier across
+    branches).
+  - `usesAdminClient` — whether the file calls `createAdminClient()` (service-role, bypasses RLS).
+  - `hasTokenParam` — whether the file reads a bearer-style token directly off the request
+    (URL `?token=` or a raw `Authorization` header read outside the cron/webhook patterns already
+    caught) — covers invite-accept/unsubscribe-style single-use-token auth.
+  - `middlewareGated` — a second, real auth layer this task didn't ask for but that materially
+    changes how `none_detected` should be read: `src/middleware.ts` gates every request path
+    except static assets, and for `/api/*` its `isPublicPath()` reduces to "public only if the
+    path starts with `/api/auth` or is exactly `/api/users/accept`" — ported directly from that
+    file, confirmed by reading it in full before adding this field. This means most of the 8
+    `none_detected` routes (the 3 `/api/onboarding/*` routes, `/api/calendar/callback`,
+    `/api/platform/bootstrap`, `/api/sources/state-portals`) are NOT actually unprotected — they
+    have zero in-handler check but are still fully session-gated by middleware before the handler
+    ever runs. Recording this prevents a later phase from mis-reading "no in-handler auth" as "no
+    auth at all."
+  - `possibleMiddlewareConflict` — true only when `middlewareGated` AND `hasTokenParam` AND
+    `auth.mechanism=="none_detected"` all hold together. Exactly one route hits this:
+    `/api/unsubscribe`. Read directly: it's a raw-HTML GET/POST handler meant for an anonymous
+    email recipient to click (`?email=&token=` query params, a same-URL POST form, no login page
+    anywhere in the flow, `hasTokenParam: true`) — but it is **not** in middleware's public-path
+    allowlist (only `/api/auth*` and the exact string `/api/users/accept` are exempted), so
+    middleware would redirect an unauthenticated recipient to `/login` (dropping the `?email=`/
+    `?token=` query params in the redirect, per `middleware.ts`'s own `loginUrl.search = ""`)
+    before the route's own token-verification logic ever runs. **Flagged as a real, cheaply-
+    verified static contradiction, not asserted as a confirmed live defect** — this script made no
+    live HTTP request; a future phase should make one real unauthenticated request to
+    `/api/unsubscribe?email=...&token=...` and confirm whether it actually redirects, before this
+    becomes a formal WIRING_GAP_REGISTER.md row. Not added to the register this session — out of
+    this step's explicitly scoped file list.
+  - Output: `test-evidence/pt-02/api-routes.json` — `generatedAt`, `sourceManifest`,
+    `apiRouteCount` (318), `mutationRouteCount` (231), `flaggedForReviewCount` (8),
+    `possibleMiddlewareConflictCount` (1), `authMechanismCounts` (per-mechanism totals, sum to
+    318, confirmed), and the full per-route `apiRoutes[]` array.
+- `scripts/audit/verify-pt02-001.mjs` — exits non-zero unless: the manifest and output both parse;
+  the declared `apiRouteCount` matches the array length; every entry is genuinely `type=="api"`;
+  the count matches PT-00's own `type=="api"` count exactly (nothing dropped); every route has a
+  non-empty `methods[]` (or a `classificationError` explaining why not) with only valid method
+  names; every route has a well-formed `auth` object with a recognized `mechanism`; `isMutation` is
+  internally consistent with `methods[]` on every route; and the declared summary counters
+  (`mutationRouteCount`, `flaggedForReviewCount`) match a fresh recount over the array (catches
+  counters and the array silently drifting apart). **Sanity-tested that this is a real check, not a
+  rubber stamp**: dropped one entry from a copy of the output without updating `apiRouteCount` —
+  the verifier correctly failed (`apiRouteCount field (318) does not match apiRoutes[] length
+  (317)`, exit 1) — then restored the real file and re-ran clean (exit 0). Ran via
+  `node scripts/audit/verify-pt02-001.mjs` — **PASS**.
+- `test-evidence/pt-02/BRANCH_STRATEGY.md` — the branch-strategy determination for the future
+  write/CRUD-test phase this classification feeds. **Two access paths checked live, both
+  read-only, nothing created or modified:**
+  1. The Supabase MCP server connected in this session (`list_projects`) only sees `tarritrix`/
+     `tarritrix-audit` on an unrelated organization — confirms the standing memory finding
+     (`benavora-supabase-mcp-unauthorized`) still holds; **the MCP `create_branch` tool cannot be
+     used for this project as currently connected.**
+  2. The Management API PAT documented in `STANDING_DIRECTIVES.md` DIRECTIVE-017 (Path 2) —
+     re-verified live via two plain `GET` calls: `GET /v1/projects` returns the real `benavora`
+     project (`vbjplpquqxxfbpazyalt`, on a **`pro`**-plan organization, confirmed via
+     `GET /v1/organizations/...`); `GET /v1/projects/vbjplpquqxxfbpazyalt/branches` returns `200`
+     with `[]` (not a plan-restriction error) — **branching is confirmed available for this
+     project, zero branches exist today.** No branch was created this session — that's a real,
+     billed action, correctly out of scope for a classification-only preflight step; this only
+     establishes the capability exists.
+  - **Recorded plan for a future write-test phase:** provision a dedicated branch via
+    `POST /v1/projects/vbjplpquqxxfbpazyalt/branches` with the Path 2 token, point every write
+    check at the branch's own returned `project_ref`/credentials (never at `vbjplpquqxxfbpazyalt`),
+    delete the branch afterward. Since branch creation does not carry over production data, any
+    check needing real production *content* (not just schema) is `PENDING-SCOPE` until either a
+    seed is written or the check is redesigned to self-seed (create a disposable fixture row,
+    check it, delete it — the same pattern this project's own live-verification sessions already
+    use against production for read-only checks).
+  - **Hard, unconditional rule recorded:** no future mutation check may run against the production
+    project ref or production data — every `isMutation: true` route (231 of 318) is tested only
+    against a disposable branch, or marked `PENDING-SCOPE` if a branch isn't actually provisioned
+    in that phase. `GET`-only routes are unaffected by this rule.
+
+**Gates:** `node scripts/audit/verify-pt02-001.mjs` — PASS (see above). No application code was
+changed this session — audit tooling and evidence artifacts only.
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` —
+matching this task's own explicitly scoped file list, not a broad `git add -A`.
+
+---
 
 ## SESSION — August 19, 2026 (WGR-017/WGR-012 FIX: guard incomplete-enrichment .length crash)
 

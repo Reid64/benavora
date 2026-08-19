@@ -1,7 +1,62 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`, re-verified live against 3 real prospects. Prior: PT-01 COMPLETE — consolidated summary + review pack written, wiring truth established for render/nav/element-wiring layers, awaiting Reid's review before PT-02 is authored)
+## Last Updated: August 19, 2026 (PT-02 preflight complete — 318 API routes extracted + statically classified from PT-00's route manifest, verifier passes, branch strategy recorded for future write tests. Prior: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
 
-## Current Session — August 19, 2026 (WGR-017/WGR-012 FIX: guard incomplete-enrichment .length crash)
+## Current Session — August 19, 2026 (PT-02 preflight: API-route working set + classification)
+
+**Focus:** PT-02 preflight — extract and statically classify every API route from PT-00's route
+manifest, decide the branch strategy for the future write/CRUD-test phase, ship a verifier, update
+governance docs. Full technical detail in `STATE_OF_THE_BUILD.md`'s matching session entry — this
+entry is the shorter cross-reference.
+
+**Preflight check (step 1 of the task): PT-00/PT-01 artifacts confirmed present, not assumed** —
+`test-evidence/pt-00/route-manifest.json`, `test-evidence/_register/WIRING_GAP_REGISTER.md`,
+`scripts/audit/evidence-lib.mjs` all found via a direct filesystem search before writing any code.
+No HALT needed.
+
+**What shipped:**
+- `scripts/audit/pt02-extract-api-routes.mjs` → `test-evidence/pt-02/api-routes.json` — 318 API
+  routes (matches PT-00's own `type=="api"` count exactly), each statically classified by reading
+  its real handler source: `methods[]`, `isMutation` (231 true), `auth.mechanism`/`auth.tiers[]`
+  (271 `requireRole`, 17 `auth.getUser`, 14 `cron_secret`, 4 `webhook_signature`, 3 `requireAuth`,
+  1 `oauth_code_exchange`, 8 `none_detected`), `usesAdminClient`, `hasTokenParam`, plus two fields
+  ported directly from `src/middleware.ts`'s real `isPublicPath()` logic —
+  `middlewareGated`/`possibleMiddlewareConflict` — since middleware gates every `/api/*` path
+  except `/api/auth*` and the exact string `/api/users/accept`, and treating a `none_detected`
+  in-handler route as fully unprotected without checking that would have been a real
+  classification error (most of the 8 `none_detected` routes are still middleware-session-gated).
+  One real, cheaply-verified static contradiction surfaced: `/api/unsubscribe` is designed for an
+  anonymous email-link recipient (`?email=&token=` params, no login page in its flow) but is not
+  in middleware's public-path allowlist — flagged as `possibleMiddlewareConflict: true`, not
+  asserted as a confirmed live defect (no HTTP request was made), and not added to
+  `WIRING_GAP_REGISTER.md` this session since that file was outside this step's explicitly scoped
+  file list. Worth a real unauthenticated request in a future phase.
+- `scripts/audit/verify-pt02-001.mjs` — exits non-zero unless `api-routes.json` parses, is
+  non-empty, its declared count matches both its own array length and PT-00's real `type=="api"`
+  count, and every route carries a valid `methods[]` + a recognized `auth` classification.
+  **Sanity-tested it actually fails on bad input** (dropped one array entry on a copy without
+  updating the count field — verifier correctly failed, then the real file was restored and
+  re-verified clean) before trusting it. `node scripts/audit/verify-pt02-001.mjs` — **PASS**.
+- `test-evidence/pt-02/BRANCH_STRATEGY.md` — branch-strategy determination for future write tests.
+  Checked live (read-only, nothing created): the connected Supabase MCP server only has access to
+  an unrelated account (`tarritrix`/`tarritrix-audit`) — confirms the standing memory finding that
+  it can't be used for this project. The Management API PAT from `STANDING_DIRECTIVES.md`
+  DIRECTIVE-017 (Path 2) **is** authorized for the real `benavora` project
+  (`vbjplpquqxxfbpazyalt`, pro plan) and its branches endpoint returns `200 []` — branching is
+  confirmed available, no branch created yet. Recorded plan: future write checks provision a
+  disposable branch via the Management API, test against the branch's own project ref, delete it
+  afterward; anything needing real production content (not just schema) is `PENDING-SCOPE` until
+  seeded or redesigned to self-seed. **Hard rule recorded: no mutation check may ever run against
+  the production project ref `vbjplpquqxxfbpazyalt`.**
+
+**Gates:** `node scripts/audit/verify-pt02-001.mjs` — PASS. No application code changed this
+session.
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`
+only, per the task's own explicit file list — not `git add -A`.
+
+---
+
+## Prior Session — August 19, 2026 (WGR-017/WGR-012 FIX: guard incomplete-enrichment .length crash)
 
 **Focus:** fix the P0 the prior PT-01 session flagged below (`/donor-discovery/prospects/[id]` crashing
 on incomplete `enrichment` data) rather than leave it as a known-but-unfixed finding.
