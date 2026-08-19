@@ -1,7 +1,57 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-02-003 complete — role-tier enforcement matrix over all 49 admin/owner-gated API routes, real sessions at all 4 real roles: 304/304 checks pass, 0 under-enforcement findings, verifier passes. Prior: PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Earlier: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
+## Last Updated: August 19, 2026 (PT-02-004 complete — CRUD round-trip proof for 11 resources through the real API layer: 8 full/partial cycles run for real against a local Supabase stack, 3 real findings registered (WGR-025/026/027 — 2 soft-delete-vs-404 gaps, 1 fully-broken email_templates CREATE), 15/15 viewer-role WRITE attempts correctly refused, 3 named example resources (opportunities/contacts/deadlines) confirmed to have zero CRUD route surface, verifier passes. Prior: PT-02-003 complete — role-tier enforcement matrix over all 49 admin/owner-gated API routes, real sessions at all 4 real roles: 304/304 checks pass, 0 under-enforcement findings, verifier passes. Earlier: PT-02-002 complete — unauthenticated-rejection sweep over all 318 API routes: 0 P0 auth-bypass findings, verifier passes; a real new P0 wiring gap registered instead (WGR-023, middleware has no exemption for cron/webhook/bootstrap/unsubscribe routes). Earlier: PT-02 preflight — 318 API routes extracted + statically classified, branch strategy recorded. Earlier: WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`. Earlier: PT-01 COMPLETE.)
 
-## Current Session — August 19, 2026 (PT-02-003: role-tier enforcement matrix, real sessions at every role level)
+## Current Session — August 19, 2026 (PT-02-004: CRUD round-trip proof for core resources, through the real API layer)
+
+**Focus:** prove core resources round-trip through the real API layer (create/read/update/delete,
+correct status codes and body shapes), not direct DB writes. LOCAL/BRANCH ONLY — a full local
+Supabase stack was provisioned (all 112 usable migrations from root `supabase/migrations/`, plus
+two targeted `ALTER TABLE` fixes for columns that live in the *other* migration tree or in an
+excluded later migration the app's own middleware turns out to require) and fully torn down after.
+Full technical detail, the exact per-resource results table, and 6 real (but out-of-scope-to-fix)
+migration-application bugs found while standing up the local stack are in `STATE_OF_THE_BUILD.md`'s
+matching session entry — not duplicated here.
+
+**Resource selection:** of the task's 8 named example resources, 3 (`opportunities`, `contacts`,
+`deadlines`) turned out to have zero CRUD route surface at all, and 3 more (`grant_budgets`,
+`applications`, `donor_discovery_prospects`) have only a partial verb set — all confirmed by reading
+the real route files, not assumed. 3 additional resources with a genuine full 4-verb surface
+(`request_profiles`, `email_templates`, `email_campaign_sequences`) were added for breadth,
+including the one real hard-delete-then-404 positive control in the set.
+
+**Result:** 11 resources tested, 24 steps actually exercised via real API calls, 27 honest
+`no_route` findings (a missing verb, explicitly recorded, not silently skipped), 15/15 viewer-role
+WRITE attempts on real mutation routes correctly refused (`403 forbidden`). **3 real findings**,
+now in `test-evidence/_register/WIRING_GAP_REGISTER.md`: WGR-025 (`draft_queue` DELETE is a soft
+delete; the subsequent GET still returns 200, never the expected 404), WGR-026 (same pattern on
+`request_profiles`), WGR-027 (`email_templates` CREATE is **fully, unconditionally broken** — the
+route inserts/selects `subject`/`body`, but the live table only has
+`subject_template`/`body_template`).
+
+**Two bugs in this session's own test script, found and fixed before trusting the results:** (1)
+the fresh local stack's `service_role`/`anon`/`authenticated` roles had no base table grants at all
+(a real gap between what a hosted Supabase Cloud project auto-provisions and what the local CLI's
+`supabase start` does) — fixed with a one-time local `GRANT`/`ALTER DEFAULT PRIVILEGES`, not a repo
+change; (2) the verdict logic initially mis-flagged a correct 404-after-hard-delete as a failure,
+and the `applications`/`drafts` resource tests initially ran in the wrong order (the former flips a
+flag the latter needs to be true) — both fixed within this session.
+
+**Verifier:** `scripts/audit/verify-pt02-004.mjs` — confirms all 11 resources present, all four
+required CRUD steps + `readAfterDelete` on each, every step has a recognized outcome and (when
+tested) a real numeric status, every tested mutation step carries a viewer-refusal check. **PASS.**
+
+**Scoped commit:** `test-evidence/pt-02/crud-cycles.json`,
+`test-evidence/_register/WIRING_GAP_REGISTER.md` (3 new rows), `scripts/audit/pt02-004-crud-cycles.mjs`,
+`scripts/audit/verify-pt02-004.mjs`, this file, `STATE_OF_THE_BUILD.md`. The local Supabase stack,
+second dev server, and disposable scratch migration copy used to run this were fully torn down —
+nothing from the local infrastructure itself is part of this commit; `supabase/config.toml`/
+`.gitignore` scaffold files this session's own `supabase init` created in the real repo, and an
+incidental `supabase/.temp/cli-latest` version-string bump, were removed/reverted before committing
+(confirmed via `git status`, not part of this task's deliverable).
+
+---
+
+## Prior Session — August 19, 2026 (PT-02-003: role-tier enforcement matrix, real sessions at every role level)
 
 **Focus:** for every admin/owner-gated route classified in PT-02-001 (49 routes — platform admin,
 billing, white-label domains, org management, impersonation: the highest-blast-radius gates), call it

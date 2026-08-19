@@ -1,0 +1,570 @@
+{
+  "generatedAt": "2026-08-19T17:38:49.713Z",
+  "baseUrl": "http://localhost:3199",
+  "targetSupabaseUrl": "http://127.0.0.1:57321",
+  "note": "LOCAL/BRANCH ONLY. Real mutations against a throwaway org+users+fixtures provisioned by this same script on a local Supabase instance -- never production. Every create/read/update/delete call went through the real, unmodified Next.js API layer (fetch against the app under test), never a direct DB write for the resource under test itself -- direct service-role inserts were used only for prerequisite FK fixtures (an opportunity, a pending_review application, a donor-discovery directory/request pair) that have no CREATE route of their own, per each resource's own notes. Roles: writer (performs every CRUD call), viewer (one WRITE attempt per existing mutation route, expected refused).",
+  "testOrgId": "8ce6260f-ca40-47f9-85cc-bb619d71464f",
+  "fixtures": {
+    "opportunityId": "720335cd-1fbd-4932-a17f-dd920a725a13",
+    "applicationId": "e70f1b14-f038-40bc-95b5-068131c791d0",
+    "directoryId": "7ab34cf3-8834-4092-a846-e43f96d9047e",
+    "requestId": "0d876faf-33e1-4990-8837-43ab49ca338f",
+    "prospectId": "3592e98d-f440-4f64-bb17-14d9567cf45b"
+  },
+  "resourceCount": 11,
+  "findingResourceCount": 3,
+  "noRouteStepCount": 27,
+  "resources": [
+    {
+      "resource": "draft_queue",
+      "label": "AutoApply Draft/Pipeline Queue (draft_queue table)",
+      "taskExample": "drafts / pipeline items",
+      "steps": {
+        "create": {
+          "route": "POST /api/drafts/queue",
+          "outcome": "tested",
+          "status": 201,
+          "hasId": true,
+          "id": "6b664f43-d76b-44af-ad41-f87ae94cbead",
+          "shapeOk": true,
+          "notes": "created pending draft_queue item",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "read": {
+          "route": "GET /api/drafts/queue/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=6b664f43-d76b-44af-ad41-f87ae94cbead"
+        },
+        "update": {
+          "route": "PATCH /api/drafts/queue/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "fieldChanged": "priority",
+          "sentValue": 1,
+          "responseValue": 1,
+          "persistedValue": 1,
+          "persisted": true,
+          "notes": "priority action=prioritize",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "delete": {
+          "route": "DELETE /api/drafts/queue/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "notes": "route implements a SOFT delete: status set to 'rejected' (rejected_reason='removed_from_queue'), row is not removed",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "readAfterDelete": {
+          "route": "GET /api/drafts/queue/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "expected404": true,
+          "actual404": false,
+          "persistedStatusField": "rejected",
+          "verdict": "FINDING",
+          "notes": "GET still returns 200 after DELETE; item.status='rejected' -- soft delete means \"assert 2xx + subsequent GET 404s\" does not hold for this resource"
+        }
+      },
+      "verdict": "FINDING"
+    },
+    {
+      "resource": "request_profiles",
+      "label": "AutoApply Request Profiles (request_profiles table)",
+      "taskExample": "additional -- full-CRUD breadth resource, not in the task's named example list",
+      "steps": {
+        "create": {
+          "route": "POST /api/autoapply/profiles",
+          "outcome": "tested",
+          "status": 201,
+          "hasId": true,
+          "id": "9b59934d-46da-4698-8b31-9396edb563bb",
+          "shapeOk": true,
+          "notes": "created request_profiles row",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "read": {
+          "route": "GET /api/autoapply/profiles/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=9b59934d-46da-4698-8b31-9396edb563bb"
+        },
+        "update": {
+          "route": "PUT /api/autoapply/profiles/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "fieldChanged": "priority",
+          "sentValue": 7,
+          "responseValue": 7,
+          "persistedValue": 7,
+          "persisted": true,
+          "notes": "priority updated via PUT",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "delete": {
+          "route": "DELETE /api/autoapply/profiles/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "notes": "route implements a SOFT delete: active set to false, row is not removed",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "readAfterDelete": {
+          "route": "GET /api/autoapply/profiles/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "expected404": true,
+          "actual404": false,
+          "persistedActiveField": false,
+          "verdict": "FINDING",
+          "notes": "GET still returns 200 after DELETE; profile.active=false -- soft delete, GET does not filter on active"
+        }
+      },
+      "verdict": "FINDING"
+    },
+    {
+      "resource": "email_templates",
+      "label": "Email Templates (email_templates table)",
+      "taskExample": "additional -- full-CRUD breadth resource, not in the task's named example list",
+      "steps": {
+        "create": {
+          "route": "POST /api/email/templates",
+          "outcome": "tested",
+          "status": 500,
+          "hasId": false,
+          "id": null,
+          "shapeOk": false,
+          "notes": "create failed: {\"error\":\"Failed to create template.\",\"code\":\"db_error\"} -- real schema mismatch: the live email_templates table (migration 054) has columns subject_template/body_template, but this route inserts/selects subject/body, which do not exist as columns on this table",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "read": {
+          "route": "GET /api/email/templates (list, find by id)",
+          "outcome": "skipped_prereq_failed",
+          "status": null,
+          "notes": "create step did not return a usable id -- see create.notes for the real schema-mismatch cause"
+        },
+        "update": {
+          "route": "PATCH /api/email/templates",
+          "outcome": "skipped_prereq_failed",
+          "status": null,
+          "notes": "create step did not return a usable id"
+        },
+        "delete": {
+          "route": "DELETE /api/email/templates",
+          "outcome": "skipped_prereq_failed",
+          "status": null,
+          "notes": "create step did not return a usable id"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/email/templates (list, find by id)",
+          "outcome": "skipped_prereq_failed",
+          "status": null,
+          "notes": "create step did not return a usable id"
+        }
+      },
+      "verdict": "FINDING"
+    },
+    {
+      "resource": "email_sequences",
+      "label": "Email Campaign Sequences (email_campaign_sequences table)",
+      "taskExample": "additional -- full-CRUD breadth resource, not in the task's named example list; also the one real hard-DELETE positive control in this set",
+      "steps": {
+        "create": {
+          "route": "POST /api/email/sequences",
+          "outcome": "tested",
+          "status": 201,
+          "hasId": true,
+          "id": "0095adbd-c596-4d9b-a6c5-958f9a37683a",
+          "shapeOk": true,
+          "notes": "created email_campaign_sequences row (+ 2 steps)",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "read": {
+          "route": "GET /api/email/sequences/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=0095adbd-c596-4d9b-a6c5-958f9a37683a, steps_returned=2"
+        },
+        "update": {
+          "route": "PATCH /api/email/sequences/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "fieldChanged": "name",
+          "sentValue": "PT-02-004 fixture sequence (updated)",
+          "responseValue": "PT-02-004 fixture sequence (updated)",
+          "persistedValue": "PT-02-004 fixture sequence (updated)",
+          "persisted": true,
+          "notes": "name updated via PATCH",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "delete": {
+          "route": "DELETE /api/email/sequences/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "notes": "route implements a REAL hard delete (.delete(), not a soft-delete flag)",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "readAfterDelete": {
+          "route": "GET /api/email/sequences/{id}",
+          "outcome": "tested",
+          "status": 404,
+          "expected404": true,
+          "actual404": true,
+          "verdict": "PASS",
+          "notes": "confirmed real 404 after hard delete -- positive control demonstrating the DELETE-then-GET-404 assertion genuinely works when a route implements a real delete"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "grant_budgets",
+      "label": "Grant Budgets (grant_budgets table)",
+      "taskExample": "grant_budgets",
+      "steps": {
+        "create": {
+          "route": "POST /api/financials/budgets",
+          "outcome": "tested",
+          "status": 201,
+          "hasId": true,
+          "id": "7350c862-61e9-4935-9d58-4f59f6623878",
+          "shapeOk": true,
+          "notes": "created grant_budgets row",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "read": {
+          "route": "GET /api/financials/budgets?application_id=... (list; no GET-by-id route exists)",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=7350c862-61e9-4935-9d58-4f59f6623878; found_in_list=true"
+        },
+        "update": {
+          "route": "PATCH /api/financials/budgets/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: /api/financials/budgets/route.ts only exports GET (list) and POST (create); there is no /api/financials/budgets/[id]/route.ts and no update handler anywhere for this resource"
+        },
+        "delete": {
+          "route": "DELETE /api/financials/budgets/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: same file as above, no delete handler for this resource anywhere in the API"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/financials/budgets/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no DELETE route exists for this resource, so there is nothing to confirm a 404 after"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "drafts",
+      "label": "Application Drafts (applications table, draft-content fields, via /api/drafts/[id])",
+      "taskExample": "drafts",
+      "steps": {
+        "create": {
+          "route": "POST /api/drafts",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: drafts are produced by draft-generation-agent.ts, never created directly through this API; the fixture application row used below was seeded directly (service role)"
+        },
+        "read": {
+          "route": "GET /api/drafts/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=e70f1b14-f038-40bc-95b5-068131c791d0, pending_review=true"
+        },
+        "update": {
+          "route": "PATCH /api/drafts/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "fieldChanged": "draft_content",
+          "sentValue": "PT-02-004 fixture draft content (updated).",
+          "responseValue": "PT-02-004 fixture draft content (updated).",
+          "persistedValue": "PT-02-004 fixture draft content (updated).",
+          "persisted": true,
+          "notes": "draft_content updated via PATCH (route requires pending_review=true, which the fixture was seeded with)",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "delete": {
+          "route": "DELETE /api/drafts/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: /api/drafts/[id]/route.ts exports GET and PATCH only"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/drafts/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no DELETE route exists for this resource"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "applications",
+      "label": "Applications (applications table, application-record fields)",
+      "taskExample": "applications",
+      "steps": {
+        "create": {
+          "route": "POST /api/applications",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: no /api/applications/route.ts anywhere in the API; the fixture application row used for read/update below was seeded directly (service role), not created through the API"
+        },
+        "read": {
+          "route": "GET /api/drafts/{id} (the only GET-by-id route that reads the applications table; there is no /api/applications/[id] GET)",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=e70f1b14-f038-40bc-95b5-068131c791d0, pending_review=true"
+        },
+        "update": {
+          "route": "PATCH /api/applications/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "fieldChanged": "pending_review",
+          "sentValue": false,
+          "responseValue": false,
+          "persistedValue": false,
+          "persisted": true,
+          "notes": "pending_review flipped false via PATCH /api/applications/{id}; persistence verified via a fresh GET /api/drafts/{id} (the API's only readable view of this field), not a direct DB read",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "delete": {
+          "route": "DELETE /api/applications/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: /api/applications/[id]/route.ts exports PATCH only"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/applications/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no DELETE route exists for this resource"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "donor_discovery_prospects",
+      "label": "Donor Discovery Prospects (donor_discovery_prospects table)",
+      "taskExample": "donor-discovery prospects",
+      "steps": {
+        "create": {
+          "route": "POST /api/donor-discovery/prospects",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: GET /api/donor-discovery/prospects is a directory-search/import endpoint, not a plain prospect-record creator; there is no POST here and no other route that creates a donor_discovery_prospects row directly -- prospects are populated by discovery agents/import. The fixture prospect used below was seeded directly (service role, plus its required directory/request FK rows)."
+        },
+        "read": {
+          "route": "GET /api/donor-discovery/prospects/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "matchesCreated": true,
+          "notes": "id=3592e98d-f440-4f64-bb17-14d9567cf45b"
+        },
+        "update": {
+          "route": "PATCH /api/donor-discovery/prospects/{id}",
+          "outcome": "tested",
+          "status": 200,
+          "fieldChanged": "pipeline_stage",
+          "sentValue": "reviewing",
+          "responseValue": "reviewing",
+          "persistedValue": "reviewing",
+          "persisted": true,
+          "notes": "pipeline_stage updated via PATCH",
+          "viewerWriteAttempt": {
+            "status": 403,
+            "code": "forbidden",
+            "refused": true
+          }
+        },
+        "delete": {
+          "route": "DELETE /api/donor-discovery/prospects/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no route exists: /api/donor-discovery/prospects/[id]/route.ts exports GET and PATCH only"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/donor-discovery/prospects/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no DELETE route exists for this resource"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "opportunities",
+      "label": "Opportunities (opportunities table)",
+      "taskExample": "opportunities",
+      "steps": {
+        "create": {
+          "route": "POST /api/opportunities",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the opportunities resource itself: the only two nested GET routes under /api/opportunities/[id]/ are narrative-gap-analysis and probability, neither of which reads or returns the opportunity record; there is no plain GET/POST/PATCH/DELETE anywhere for opportunities"
+        },
+        "read": {
+          "route": "GET /api/opportunities/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the opportunities resource itself: the only two nested GET routes under /api/opportunities/[id]/ are narrative-gap-analysis and probability, neither of which reads or returns the opportunity record; there is no plain GET/POST/PATCH/DELETE anywhere for opportunities"
+        },
+        "update": {
+          "route": "PATCH/PUT /api/opportunities/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the opportunities resource itself: the only two nested GET routes under /api/opportunities/[id]/ are narrative-gap-analysis and probability, neither of which reads or returns the opportunity record; there is no plain GET/POST/PATCH/DELETE anywhere for opportunities"
+        },
+        "delete": {
+          "route": "DELETE /api/opportunities/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the opportunities resource itself: the only two nested GET routes under /api/opportunities/[id]/ are narrative-gap-analysis and probability, neither of which reads or returns the opportunity record; there is no plain GET/POST/PATCH/DELETE anywhere for opportunities"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/opportunities/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no CREATE or DELETE route exists for this resource"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "contacts",
+      "label": "Contacts (contacts table)",
+      "taskExample": "contacts",
+      "steps": {
+        "create": {
+          "route": "POST /api/contacts",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the contact record itself: only nested /api/contacts/[id]/outreach/{call,linkedin,mail} (POST, draft-generation actions) and a distinct contact_tasks sub-resource (/api/contacts/[id]/tasks GET, /api/contacts/tasks/[taskId] PATCH) exist; none of these read, create, or delete a contacts row"
+        },
+        "read": {
+          "route": "GET /api/contacts/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the contact record itself: only nested /api/contacts/[id]/outreach/{call,linkedin,mail} (POST, draft-generation actions) and a distinct contact_tasks sub-resource (/api/contacts/[id]/tasks GET, /api/contacts/tasks/[taskId] PATCH) exist; none of these read, create, or delete a contacts row"
+        },
+        "update": {
+          "route": "PATCH/PUT /api/contacts/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the contact record itself: only nested /api/contacts/[id]/outreach/{call,linkedin,mail} (POST, draft-generation actions) and a distinct contact_tasks sub-resource (/api/contacts/[id]/tasks GET, /api/contacts/tasks/[taskId] PATCH) exist; none of these read, create, or delete a contacts row"
+        },
+        "delete": {
+          "route": "DELETE /api/contacts/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for the contact record itself: only nested /api/contacts/[id]/outreach/{call,linkedin,mail} (POST, draft-generation actions) and a distinct contact_tasks sub-resource (/api/contacts/[id]/tasks GET, /api/contacts/tasks/[taskId] PATCH) exist; none of these read, create, or delete a contacts row"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/contacts/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no CREATE or DELETE route exists for this resource"
+        }
+      },
+      "verdict": "PASS"
+    },
+    {
+      "resource": "deadlines",
+      "label": "Deadlines (deadlines table)",
+      "taskExample": "deadlines",
+      "steps": {
+        "create": {
+          "route": "POST /api/deadlines",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for deadline records: /api/deadlines/check (GET, POST) is an autonomous scan/action-trigger endpoint (recomputes reminder state across all deadlines), not a per-record create/read/update/delete endpoint"
+        },
+        "read": {
+          "route": "GET /api/deadlines/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for deadline records: /api/deadlines/check (GET, POST) is an autonomous scan/action-trigger endpoint (recomputes reminder state across all deadlines), not a per-record create/read/update/delete endpoint"
+        },
+        "update": {
+          "route": "PATCH/PUT /api/deadlines/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for deadline records: /api/deadlines/check (GET, POST) is an autonomous scan/action-trigger endpoint (recomputes reminder state across all deadlines), not a per-record create/read/update/delete endpoint"
+        },
+        "delete": {
+          "route": "DELETE /api/deadlines/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "no CRUD route surface exists for deadline records: /api/deadlines/check (GET, POST) is an autonomous scan/action-trigger endpoint (recomputes reminder state across all deadlines), not a per-record create/read/update/delete endpoint"
+        },
+        "readAfterDelete": {
+          "route": "GET /api/deadlines/{id}",
+          "outcome": "no_route",
+          "status": null,
+          "notes": "not applicable -- no CREATE or DELETE route exists for this resource"
+        }
+      },
+      "verdict": "PASS"
+    }
+  ]
+}

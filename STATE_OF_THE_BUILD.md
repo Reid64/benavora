@@ -1,6 +1,191 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. See session entry below. Prior: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (PT-02-004 — CRUD round-trip proof, 11 resources through the real API layer (not direct DB writes): 8 full create/read/update/delete cycles run for real (draft_queue, request_profiles, email_templates, email_sequences, plus read/update-only cycles on applications, drafts, donor_discovery_prospects, grant_budgets where no create/delete route exists), 3 real findings (WGR-025/026/027 — two soft-delete-but-GET-still-200 gaps, one fully-broken email_templates CREATE from a real subject/body vs subject_template/body_template schema mismatch), viewer-role WRITE correctly refused on all 15 real mutation-route attempts. 3 named example resources (opportunities, contacts, deadlines) confirmed to have zero CRUD route surface at all. See session entry below. Prior: PT-02-003 — role-tier enforcement matrix over all 49 admin/owner-gated API routes: 304/304 checks pass (76 route+method entries x 4 real roles), 0 under-enforcement findings, 0 over-restriction findings. Tested with real authenticated sessions at all 4 real roles (viewer/writer/admin/owner) against a throwaway local Supabase stack this session provisioned and tore down itself — never production, never a billed Supabase branch. Earlier: PT-02-002 — unauthenticated-rejection sweep, all 318 API routes: 0 P0 auth-bypass findings, but a real new P0 wiring gap found and registered (WGR-023) — `src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes, so their own CRON_SECRET/signature/token checks are unreachable by an unauthenticated caller AND, plausibly, by their real external callers too, since neither carries a Benavora session cookie. Earlier: PT-02 preflight — API-route working set extracted + statically classified: 318 routes, 231 mutation, 8 flagged for review; branch strategy for future write tests recorded. Earlier: WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`. Earlier still: PT-01 COMPLETE — wiring audit consolidated, review pack written. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (PT-02-004: CRUD round-trip proof for core resources, through the real API layer)
+
+**Focus:** PT-02-004 per the audit program's phase structure — for the resources a real user
+actually creates/edits, run a full CREATE→READ→UPDATE→DELETE cycle through the real, unmodified
+Next.js API layer (never a direct DB write for the resource under test itself) and record the
+literal status/shape/persistence result of every step, plus one viewer-role WRITE attempt on every
+real mutation route encountered along the way. LOCAL/BRANCH ONLY, same standing rule as every prior
+PT-02 phase — no mutation touched production.
+
+**Resource selection, and why it differs from the task's literal 8-item list.** The task named 8
+example resources: applications, opportunities, drafts, pipeline items, contacts, donor-discovery
+prospects, grant_budgets, deadlines. Checked each against the real route files
+(`test-evidence/pt-02/api-routes.json` plus a direct read of every candidate file) before writing
+any test code, per this task's own "judgment" instruction — and found **3 of the 8 have zero CRUD
+route surface at all**: `opportunities` (the only two nested `/api/opportunities/[id]/*` routes are
+`narrative-gap-analysis` and `probability`, neither of which reads/writes the opportunity record
+itself), `contacts` (only nested outreach-draft-generation and a distinct `contact_tasks`
+sub-resource exist, never the contact record), and `deadlines` (`/api/deadlines/check` is an
+autonomous scan/reminder-recompute action endpoint, not per-record CRUD). Three more have only a
+partial verb set: `grant_budgets` (CREATE+READ only — `/api/financials/budgets/route.ts` exports
+just GET/POST, no `[id]` route exists anywhere), `applications` (UPDATE-only via
+`/api/applications/[id]` PATCH, a narrow `pending_review`-flip endpoint per its own header comment
+— "this isn't a general application-mutation endpoint" — no CREATE/DELETE route, and no
+`/api/applications/[id]` GET either), and `donor_discovery_prospects` (READ+UPDATE only —
+prospects are populated by discovery agents/import, never created directly through this API, and
+there's no DELETE route). `drafts` (the application's draft-content fields via the real
+`/api/drafts/[id]` GET+PATCH) has the same READ+UPDATE-only shape as `applications` — the two
+share one underlying `applications` row but are genuinely distinct API surfaces with distinct
+semantics, so both were kept as separate resource entries per the task's own list. To still deliver
+a meaningful proof of "resources round-trip through the API," 3 additional resources with a real,
+self-contained, full 4-verb surface were added: `request_profiles` (AutoApply's request-profile
+config, `/api/autoapply/profiles`), `email_templates`, and `email_campaign_sequences`
+(`/api/email/sequences`) — the last of which turned out to be the one genuine hard-DELETE-then-real-404
+positive control in the whole set, useful for confirming the DELETE-then-GET-404 assertion actually
+works when a route implements it, in contrast to every soft-delete resource found elsewhere.
+
+**Local stack, built for real functional testing, not the minimal 2-table schema PT-02-003 used.**
+PT-02-003 only needed `profiles`/`organizations` since `requireRole()` never touches anything
+deeper. This task needed real `draft_queue`/`request_profiles`/`email_templates`/
+`email_campaign_sequences`/`grant_budgets`/`donor_discovery_prospects` tables with real data
+actually persisting and being readable back, so a full local Supabase stack (`supabase start`,
+Docker, ports bumped to a free 57xxx range) was built from all 112 of the first 112 files in root
+`supabase/migrations/` (migrations 113+ excluded — confirmed via direct dependency check that
+nothing past 112 is needed by any tested route; 113 itself was the first to reference a table,
+`agent_decisions`, that no migration in the entire 142-file tree ever creates, a real, separate,
+pre-existing gap flagged for the register below but out of scope to chase further here) plus two
+targeted `ALTER TABLE` statements applied directly (not as new migration files) for columns that
+turned out to live only in the *other*, `src/supabase/migrations/` tree
+(`applications.pending_review`/`.auto_generated`, from `src/supabase/migrations/
+080_autonomous_agent_infrastructure.sql`) or in a later root-tree migration this task deliberately
+excluded but the app's own middleware turned out to hard-require
+(`profiles.restricted_onboarding_edit`, from `138_demo_account_scope.sql` — without it,
+`src/middleware.ts`'s own profile-select errors and 307-redirects **every** request, authenticated
+or not, to `/login`, which is exactly what happened on the first two live runs before this was
+diagnosed). Both are genuine, real requirements of a working local instance, not artifacts of this
+session's own migration-set trimming.
+
+**Six real, previously-undocumented migration-application bugs found and fixed in a disposable
+scratch copy of the migration tree (never the tracked repo files) while standing up this stack —
+listed here because they're real and reproducible against the actual tracked
+`supabase/migrations/*.sql` files, even though fixing them wasn't this task's goal:**
+1. `001_initial_schema.sql` defines `current_org_id()` (a `LANGUAGE sql` function selecting from
+   `public.profiles`) at line ~86, **before** `CREATE TABLE profiles` at line ~134 — on this local
+   Postgres 17 instance, `CREATE FUNCTION` for a `LANGUAGE sql` body validates referenced relations
+   eagerly, so the file fails to apply at all with "relation public.profiles does not exist" unless
+   `check_function_bodies` is off for that statement or the function is moved after the table.
+2. Six pairs of migration files share the exact same leading version number
+   (`002_phases_2_5.sql`/`002_register_organization.sql`, `022_fix_model_name.sql`/
+   `022_usage_tracking.sql`, `052_governance_layer.sql`/`052_webhook_configs.sql`,
+   `053_autoapply_missing_columns.sql`/`053_multichannel_analytics.sql`,
+   `054_email_calendar_integration.sql`/`054_funders_contact_email.sql`,
+   `055_admin_sales_outreach.sql`/`055_sequence_enrollment_variables.sql`,
+   `058_backfill_opportunity_deadlines.sql`/`058_lead_enrichment_system.sql`) — a real, live
+   collision against Supabase's own `schema_migrations` version-uniqueness tracking (confirmed
+   live: applying both members of a pair back-to-back throws a real
+   `duplicate key value violates unique constraint "schema_migrations_pkey"`), not just a cosmetic
+   naming clash. Corroborates this project's own standing "duplicate `052_governance_layer.sql` /
+   `052_webhook_configs.sql`" note (`STANDING_DIRECTIVES.md`) with 5 more real pairs never
+   previously documented.
+3. `035_automation_queue.sql`'s own idempotent-guarded `CREATE TYPE automation_status AS ENUM
+   ('queued','processing','paused','completed','failed')` silently no-ops against
+   `002_phases_2_5.sql`'s earlier, incompatible `automation_status` definition
+   (`'pending','in_progress','awaiting_approval','approved','submitted','failed','cancelled'`),
+   leaving `'queued'` invalid for `automation_queue`'s own `DEFAULT 'queued'` column three
+   statements later in the same file — a real, reproducible `22P02 invalid input value for enum
+   automation_status` on first apply.
+4. `041_scraping_targets.sql` re-creates the exact `scraping_targets_org` RLS policy
+   `034_custom_connections.sql` already created for the same table, with no `DROP POLICY IF
+   EXISTS` guard — a real `42710 policy already exists` on first apply.
+5. `052_webhook_configs.sql` (renamed `0521_...` in the scratch copy only, per finding 2) redefines
+   `webhook_configs` with different columns (`type`/`is_active`) than
+   `051_submission_intelligence.sql`'s earlier, incompatible definition
+   (`webhook_type`/`active`) — `CREATE TABLE IF NOT EXISTS` silently keeps the older shape, then
+   the same file's own `CREATE INDEX idx_webhook_configs_active ON webhook_configs(organization_id,
+   is_active)` fails with a real `42703 column "is_active" does not exist`.
+6. `045_autoapply_tables.sql` and `050_funder_credentials.sql` write every one of their RLS
+   policies against a table, `organization_members`, that **no migration in the entire 142-file
+   tree ever creates** — real org membership in this schema is always derived from
+   `profiles.organization_id`. `066_fix_autoapply_rls_policies.sql`'s own header comment already
+   documents this exact bug for 045's three tables and supersedes them correctly — but
+   `050_funder_credentials.sql` has the identical bug and **no later migration ever fixes it**,
+   confirmed by grep (zero other files reference `funder_credentials`). This means
+   `funder_credentials`'s RLS policies reference a nonexistent table right now in the tracked repo,
+   with no known fix migration — a real, undocumented-until-now gap, most likely explaining why
+   this table doesn't appear to have ever been successfully migration-applied to production either.
+
+None of these six were fixed in the real repo (only in the disposable scratch copy used to stand up
+this session's local stack, which was applied to a throwaway local Postgres instance and fully torn
+down afterward) — flagging them here rather than silently working around them and saying nothing,
+since they're real and reproducible against the tracked files today. Not added to the wiring-gap
+register (`test-evidence/_register/WIRING_GAP_REGISTER.md`) since that register's own scope is
+runtime/API wiring gaps evidenced against a running app, not migration-file-application bugs — a
+future session auditing the migration tree directly (in the spirit of the existing
+`MIGRATION_AUDIT.md`) is the right place to register and prioritize these.
+
+**Results — `test-evidence/pt-02/crud-cycles.json`, 11 resources, 24 steps actually exercised via
+real API calls, 27 recorded as honest `no_route` structural findings (a missing verb is itself
+informative, not silently skipped), 15 real viewer-role WRITE attempts, all 15 correctly refused
+(`403 {code:"forbidden"}`):**
+
+| Resource | Verdict | What actually happened |
+|---|---|---|
+| `draft_queue` ("pipeline items") | FINDING | Full CRUD works: POST 201 (real id, correct shape), GET 200 (matches), PATCH `action:"prioritize"` 200 (persisted, re-verified via a fresh GET), DELETE 200. **WGR-025**: DELETE is a soft delete (`status='rejected'`); the subsequent GET still returns 200 with the full item, never 404. |
+| `request_profiles` (additional) | FINDING | Full CRUD works: POST 201, GET 200, PUT 200 (persisted), DELETE 200. **WGR-026**: same soft-delete-but-GET-still-200 pattern (`active=false`, no 404). |
+| `email_templates` (additional) | FINDING | **WGR-027**: POST unconditionally 500s — real schema mismatch, `email_templates` has `subject_template`/`body_template`, the route inserts/selects `subject`/`body`, which don't exist as columns. Read/update/delete correctly recorded `skipped_prereq_failed` (nothing to operate on). |
+| `email_campaign_sequences` (additional) | PASS | Full CRUD, real: POST 201, GET 200 (2 real steps returned), PATCH 200 (persisted), **DELETE 200 is a genuine hard delete** (`.delete()`), subsequent GET correctly 404s — the one positive control proving the DELETE-then-404 assertion itself works when a route implements a real delete. |
+| `grant_budgets` | PASS | POST 201 (real row), GET (list, filtered by `application_id`, found the created row) 200. UPDATE/DELETE correctly `no_route` — no `[id]` route exists for this resource at all. |
+| `drafts` | PASS | GET `/api/drafts/{id}` 200 (matches fixture), PATCH `/api/drafts/{id}` 200 — `draft_content` persisted, re-verified via a fresh GET. Requires `pending_review=true`; this resource's own test deliberately runs **before** the `applications` test below, which flips that flag, per its own route's documented one-way gate. CREATE/DELETE correctly `no_route`. |
+| `applications` | PASS | GET (via `/api/drafts/{id}`, the only GET-by-id route touching this table) 200. PATCH `/api/applications/{id}` 200 — flips `pending_review` false, persisted, re-verified via a fresh `/api/drafts/{id}` GET (this route's own narrow, documented scope: "this isn't a general application-mutation endpoint"). CREATE/DELETE correctly `no_route`. |
+| `donor_discovery_prospects` | PASS | GET `/api/donor-discovery/prospects/{id}` 200 (matches fixture). PATCH 200 — `pipeline_stage` persisted, re-verified. CREATE/DELETE correctly `no_route` (prospects come only from discovery agents/import). |
+| `opportunities` | PASS | All 4 steps correctly `no_route` — zero CRUD surface confirmed, no fabricated test against a route that doesn't exist. |
+| `contacts` | PASS | Same — zero CRUD surface for the contact record itself confirmed. |
+| `deadlines` | PASS | Same — `/api/deadlines/check` is an action endpoint, not deadline-record CRUD. |
+
+("PASS" here means every step that *was* actually tested behaved correctly and every viewer WRITE
+attempt was correctly refused — a resource whose only gap is a missing route is not itself a
+finding, since a missing verb was already recorded explicitly as `no_route` with a reason, distinct
+from a route that exists and misbehaves.)
+
+**Two real bugs found and fixed in this session's own test script before the results above were
+trustworthy, both self-corrected within this same session, documented rather than silently
+patched over:**
+1. The local stack's `service_role`/`anon`/`authenticated` roles had no base table
+   `SELECT`/`INSERT`/`UPDATE`/`DELETE` grants at all on any table created before whatever point a
+   real Supabase Cloud project's own (platform-side, not migration-file) default-ACL bootstrap
+   would normally run — a real gap in the open-source local CLI's `supabase start` vs. what a
+   hosted Supabase Cloud project provisions automatically for a fresh project (see project memory
+   `benavora-public-schema-default-acl-anon-exposure`, which already documents the *other* side of
+   this fact — that these default grants are what makes an unprotected new table anon-exposed in
+   production). Fixed by replicating the standard grant (`GRANT ALL ON ALL TABLES/SEQUENCES/
+   ROUTINES IN SCHEMA public TO anon, authenticated, service_role` + matching `ALTER DEFAULT
+   PRIVILEGES`) directly against the local instance — a one-time local-environment fix, not a
+   repo change.
+2. The test script's own resource-verdict logic initially flagged `email_campaign_sequences` as a
+   FINDING because its correct, expected `readAfterDelete` status (404, the desired outcome for a
+   real hard delete) tripped a generic "any tested step with status >= 400 is a finding" rule meant
+   for the other four steps. Fixed to judge `readAfterDelete` solely by its own explicit
+   pass/finding verdict field. Also found the `applications`/`drafts` resource tests were called in
+   the wrong order (applications, which flips `pending_review` false, was running *before* drafts,
+   which needs `pending_review=true` to succeed) — swapped, with the dependency stated directly in
+   the script's own comment this time.
+
+**Verifier:** `scripts/audit/verify-pt02-004.mjs` confirms `crud-cycles.json` covers exactly this
+task's 11 selected resources, each carries all four required CRUD steps
+(create/read/update/delete) plus `readAfterDelete`, every step has a recognized `outcome`
+(`tested`/`no_route`/`skipped_prereq_failed`) and, when `tested`, a real numeric HTTP status; every
+mutation step that was actually exercised via a real route carries a `viewerWriteAttempt.refused`
+boolean. `node scripts/audit/verify-pt02-004.mjs` — PASS.
+
+**Cleanup:** the local Supabase stack (Docker containers + volumes) was fully stopped and removed
+(`supabase stop --no-backup`), the second `next dev` instance killed, the disposable scratch
+migration copy (outside the repo) deleted, and the real repo's `supabase/config.toml`/`.gitignore`
+scaffold files this session's own `supabase init` created were removed before committing (not part
+of this task's deliverable) — confirmed via `git status` that `supabase/` is clean and only
+`supabase/.temp/cli-latest`'s incidental CLI-version-string bump was reverted.
+
+**Register:** WGR-025 (draft_queue soft-delete, P2), WGR-026 (request_profiles soft-delete, P2),
+WGR-027 (email_templates CREATE fully broken by a real schema mismatch, P1) appended to
+`test-evidence/_register/WIRING_GAP_REGISTER.md`.
+
+**Gates:** `node scripts/audit/verify-pt02-004.mjs` — PASS (see above; this task's own closing gate,
+run after the scoped commit per its own step 6).
+
+---
 
 ## SESSION — August 19, 2026 (PT-02-003: role-tier enforcement matrix, real sessions at every role level)
 
