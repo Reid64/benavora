@@ -1,7 +1,36 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 (PT-01 COMPLETE — consolidated summary + review pack written, wiring truth established for render/nav/element-wiring layers, awaiting Reid's review before PT-02 is authored)
+## Last Updated: August 19, 2026 (WGR-017/WGR-012 P0 FIXED — `/donor-discovery/prospects/[id]` incomplete-enrichment crash resolved, commit `d5500cd`, re-verified live against 3 real prospects. Prior: PT-01 COMPLETE — consolidated summary + review pack written, wiring truth established for render/nav/element-wiring layers, awaiting Reid's review before PT-02 is authored)
 
-## Current Session — August 19, 2026 (PT-01 COMPLETE: consolidation + human review point)
+## Current Session — August 19, 2026 (WGR-017/WGR-012 FIX: guard incomplete-enrichment .length crash)
+
+**Focus:** fix the P0 the prior PT-01 session flagged below (`/donor-discovery/prospects/[id]` crashing
+on incomplete `enrichment` data) rather than leave it as a known-but-unfixed finding.
+
+**What shipped this session:**
+- `src/components/donor-discovery/ProspectDetail.tsx` — guarded `giving_focus_areas.length`,
+  `in_kind_history_signals.length` (the two WGR-012/WGR-017 named directly), and
+  `decision_contacts.length` (same crash shape, same component, fixed preventively) with
+  `?.length ?? 0` / `?.map`; loosened `DonorProspectExtraction`'s type to mark all three optional.
+- Before trusting the fix mattered, re-confirmed the data gap is still real today: WGR-017's 5 named
+  prospect ids no longer resolve by direct lookup (the table grew to 133,812 rows since that session,
+  past PostgREST's 1000-row cap), so this session live-queried a fresh sample — 50/50 sampled
+  prospects (incl. WGR-012's original id) still carry the incomplete enrichment shape.
+- `scripts/audit/wgr017-fix-verify.mjs` (new, real-auth Playwright check) — authenticated-navigated to
+  3 of those confirmed-incomplete prospects; all 3 now render 700+ chars of real content, no error
+  boundary, versus the prior 57-char blank shell. Evidence: `test-evidence/pt-01/wgr-017-fix/`.
+- `pnpm run build` — exit 0 (after stopping a locally-running `pnpm run dev` that was holding
+  `.next/trace` open, the same `.next`-contention shape WGR-001/WGR-013 already document).
+- `WGR-012` and `WGR-017` marked `RESOLVED` in `test-evidence/_register/WIRING_GAP_REGISTER.md`
+  (fix commit `d5500cd`, new evidence path cited); added a `RESOLVED` scope tag to the register legend.
+- Fix commit `d5500cd` ships the code + evidence only; this entry and the register update follow in a
+  second commit, since a commit can't cite its own hash (matches `STATE_OF_THE_BUILD.md`'s existing
+  convention of citing past fix commits by hash after the fact).
+
+**Net effect:** the one real P0 PT-01 found is fixed and re-verified live. `/donor-discovery` and its
+drilldowns are worth re-including in a future full render-pass sweep to confirm 146/146 clean (the
+145/146 figure in the PT-01 entry below predates this fix).
+
+## Previous Session — August 19, 2026 (PT-01 COMPLETE: consolidation + human review point)
 
 **Focus:** close out PT-01 — the four sub-phases already recorded individually below this entry
 (render pass, nav resolution, element wiring, claimed-fixes re-verification) — with one consolidated

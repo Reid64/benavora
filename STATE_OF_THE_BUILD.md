@@ -1,6 +1,42 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 (PT-01 COMPLETE — wiring audit consolidated, review pack written, awaiting Reid's review before PT-02 authoring. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed. One real P0 found: `/donor-discovery/prospects/[id]` crashes on incomplete `enrichment` data, reachable from 6 real primary-nav links. See session entry below.). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 19, 2026 (WGR-017/WGR-012 P0 FIXED — the `/donor-discovery/prospects/[id]` incomplete-enrichment crash PT-01 found is resolved, commit `d5500cd`; see session entry below. Prior state: PT-01 COMPLETE — wiring audit consolidated, review pack written, awaiting Reid's review before PT-02 authoring. 145/146 routes render clean, 72/72 nav elements resolve live, 5,301/5,307 interactive elements confirmed wired, all 5 commit-less claimed fixes confirmed genuinely fixed.). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 19, 2026 (WGR-017/WGR-012 FIX: guard incomplete-enrichment .length crash)
+
+**Focus:** fix the one real P0 PT-01 found — `ProspectDetail.tsx` unguarded `enrichment.giving_focus_areas.length` / `enrichment.in_kind_history_signals.length` (also `decision_contacts.length`, same crash shape, guarded preventively) throwing on prospects whose linked `donor_discovery_directory.enrichment` jsonb is missing those fields.
+
+**What this session did:**
+- Guarded all three optional-array reads (`giving_focus_areas`, `in_kind_history_signals`,
+  `decision_contacts`) in `src/components/donor-discovery/ProspectDetail.tsx` with `?.length ?? 0`
+  and `?.map`; loosened `DonorProspectExtraction`'s type to mark all three fields optional, matching
+  the real backend shape rather than the aspirational always-present one.
+- Re-verified the underlying data gap is still live before trusting the fix mattered: WGR-017's own
+  5 named prospect ids no longer resolve by direct id lookup (`donor_discovery_prospects` has grown
+  to 133,812 rows since that session, past PostgREST's 1000-row page cap), so this session live-queried
+  a fresh sample instead — **50/50 sampled prospects** (including WGR-012's original `19ec603e-...` id)
+  still carry the identical incomplete `{ein, ntee_code, asset_amount, giving_total}`-only enrichment
+  shape. Confirms this was not a coincidentally-already-fixed-data no-op.
+- Ran a real authenticated Playwright check (`scripts/audit/wgr017-fix-verify.mjs`, magic-link auth,
+  same pattern as PT-01-002) against 3 of those confirmed-incomplete prospects
+  (`19ec603e-...`, `16934ed5-...`, `aff22886-...`): each now renders 700+ chars of real content
+  (`mainTextLength` 712-732) with no error boundary, versus the prior 57-char blank shell. Evidence:
+  `test-evidence/pt-01/wgr-017-fix/wgr-017-fix-verify.json`, `after_*.png` screenshots, `run.log`.
+- `pnpm run build` — exit 0. (First attempt hit `EPERM: operation not permitted, open '.next/trace'`
+  from a locally-running `pnpm run dev` holding the same `.next/` directory — the same multi-process
+  `.next` contention shape WGR-001/WGR-013 already document, this time `dev`-vs-`build` on one machine
+  rather than `build`-vs-`build`. Stopped the dev server, `rm -rf .next/trace`, reran clean.)
+- Marked `WGR-012` and `WGR-017` `RESOLVED` in `test-evidence/_register/WIRING_GAP_REGISTER.md`, citing
+  fix commit `d5500cd` and the new evidence path, added a `RESOLVED` scope tag to the register's legend.
+- Fix commit `d5500cd` intentionally does not include this doc update or the register update — a
+  commit cannot cite its own hash. This session entry and the register update ship in a second,
+  immediately-following commit, matching this file's own existing convention of citing past fix
+  commits by hash after the fact (e.g. the priority-scoring entry below citing `commit ff3caca`).
+
+**Net effect:** PT-01's one real, primary-nav-reachable P0 is now fixed and re-verified against live
+data, not just source-read. `/donor-discovery` and its prospect drilldowns should be re-added to a
+future render-pass sweep to confirm 146/146 routes clean (currently still recorded as 145/146 in the
+PT-01 consolidation entry below, which predates this fix).
 
 ## SESSION — August 19, 2026 (PT-01 COMPLETE: consolidation, register confirmation, review pack)
 
