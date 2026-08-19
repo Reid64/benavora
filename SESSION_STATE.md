@@ -1,5 +1,22 @@
 # BENAVORA — Session State
-## Last Updated: August 18, 2026 (commit `80b6189` — Donor Discovery Pipeline Funnel real depth fix, marketing homepage brand claim verified live)
+## Last Updated: August 18, 2026 (PT-00 — wiring-gap audit evidence infrastructure scaffolded)
+
+## Current Session — August 18, 2026 (PT-00: audit evidence infrastructure scaffold)
+
+**Focus:** scaffold-only session for a new wiring-gap audit program. Created
+`test-evidence/pt-00/` and `test-evidence/_register/` (with `WIRING_GAP_REGISTER.md` — header,
+P0–P3 severity legend, the 4 scope tags CONFIRMED-BROKEN/UNVERIFIED/PENDING-SCOPE/CONFIRMED-OK,
+and an empty findings table) plus `scripts/audit/` (`evidence-lib.mjs` — file/JSON assertion
+helpers, a register-row appender, a timestamp helper; `verify-pt00-001.mjs` — confirms the
+scaffold itself is real). No application code touched, no wiring-gap findings investigated yet —
+this just builds where findings get recorded and how they get verified in later phases.
+
+**Gates:** `node scripts/audit/verify-pt00-001.mjs` — PASS, exit 0 (register + evidence-lib.mjs
+present and non-empty, P0-P3 legend confirmed in register text). No `tsc`/build gates apply (no
+TypeScript touched).
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`
+only — no other files staged.
 
 ## OPEN — product-decision gaps, not resolved
 
@@ -4830,3 +4847,20 @@ Confirmed accurate as given:
 | Federal import stalled at 0 records | Needs code-level debugging of the USASpending/NIH/NSF write path, not just a re-run |
 | Benavora Supabase project not reachable via connected MCP | Either connect the correct Supabase org/project to this session's MCP, or continue using service-role PostgREST / Management API for DDL and audits |
 | DATAOCEAN backup | Copy `enrichment-output/` to D:\ once the current ProPublica contact enrichment run finishes |
+
+---
+
+## FORGE Orchestrator Hardening — August 18, 2026
+
+Root cause of the risk this closes: manifest `status:` fields are hand-editable, and the `v2-rollout-batch1..4-20260817` queues were hand-completed directly against production (commits `836b35c`, `aa8b218`, `80b6189`) while the orchestrator run that should have marked them `complete` crashed/never finished — leaving them at `status: failed`/`running` in `library-manifest.yaml`. Resetting a "failed" queue's status to `pending` to retry it is a normal recovery action; without an independent guard, that action would silently re-run and clobber already-shipped, hand-verified work.
+
+Changes made in `C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1`:
+- **Completed-queues ledger** (`C:\Users\manag\Documents\FORGE\completed-queues.json`) — keyed on queue `id` AND a SHA256 hash of the queue's YAML content, independent of manifest `status:`. Queue selection (`Get-RunnableQueues`, the plan-preview loop, and `-only`) now excludes any queue whose id or file hash appears in the ledger, logging `SKIPPED (ledger): <id>`. Verified this actually blocks a rerun even after manually resetting `v2-rollout-batch1-20260817`'s manifest status back to `pending` (test performed and reverted this session).
+- **Archive on completion or final failure** — every queue that finishes (pass or fail) gets a ledger entry appended and its source YAML moved from `library\benavora\` to `archive\benavora\`, so it physically can't be redeployed by `Run-Queue` even from a stale "pending" manifest entry. Rerunning an archived queue now requires manually moving the file back and removing its ledger entry — a deliberate two-step action instead of a one-line status edit.
+- **Preflight roster + confirmation gate** — before any queue launches, the orchestrator prints the full runnable roster (id, file, prompt count) and requires the operator to type `RUN`, unless `-Confirmed` is passed for unattended runs. No other gate/retry/deploy-verification logic was touched.
+
+Remediation applied to the current benavora manifest:
+- `v2-rollout-batch1-20260817` through `v2-rollout-batch4-20260817` set to `status: superseded` with a note pointing at the commits above — must never re-run.
+- Ledger seeded with 44 entries (every queue at `status: complete` or `status: superseded`), each with its file's SHA256 hash.
+- All 44 corresponding queue YAMLs moved from `library\benavora\` to `archive\benavora\`. `queue-pt-00-baseline.yaml` (in `projects\benavora\`, `status: failed`) and all genuinely-pending files (`queue-40..44`, `queue-62`, `queue-pt-01..15`) were left in place — none of those are complete/superseded.
+- `powershell -ExecutionPolicy Bypass -File .\forge-orchestrator.ps1 -project benavora -dryRun` confirms: 0 queues runnable right now (the remaining `pending` entries are legitimately blocked — `governance-final-sync-20260812` depends on four `failed` audit queues, and `pt-01..15` depend on `pt-00-baseline` which is `status: failed`), zero v2-rollout queues appear anywhere in the plan.

@@ -1,6 +1,41 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 18, 2026 (commit `80b6189` — Donor Discovery Pipeline Funnel real depth fix, marketing homepage brand claim verified live against production and one real gap closed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 18, 2026 (PT-00 — wiring-gap audit evidence infrastructure scaffolded). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 18, 2026 (PT-00: audit evidence infrastructure scaffold)
+
+**Focus:** stand up the evidence infrastructure for a new wiring-gap audit program (`test-evidence/`
+tree + a central findings register + a small verification helper library), per the audit program
+spec. This is scaffolding only — no application code was touched, and no actual wiring-gap
+investigation happened yet; this session just builds the place findings will get recorded and
+verified against.
+
+**What shipped:**
+- `test-evidence/pt-00/` — new directory for PT-00 phase evidence artifacts (a `README.md`
+  placeholder was added since git doesn't track empty directories; real evidence files land here
+  as later audit phases run).
+- `test-evidence/_register/WIRING_GAP_REGISTER.md` — the central findings register. Header
+  explains the evidence-path/reproduction requirement for every row, a P0–P3 severity legend
+  (P0 = confirmed broken in a live/production path; P1 = confirmed broken but contained; P2 = real
+  but low blast radius; P3 = unverified/needs a product decision), the four scope tags
+  (CONFIRMED-BROKEN, UNVERIFIED, PENDING-SCOPE, CONFIRMED-OK), and an empty markdown table with
+  columns `ID | Layer | Severity | Finding | Evidence Path | Reproduction | Scope Tag`.
+- `scripts/audit/evidence-lib.mjs` — shared helpers for later audit scripts: `timestamp()`,
+  `assertFileExistsNonEmpty(path)`, `assertJsonFileHasKey(path, key)` (parses JSON and confirms a
+  top-level key is present), and `appendFindingRow(finding, registerPath?)` (appends one row to
+  the register, validating all 7 required fields are present first). ASCII-only, Node 20
+  compatible (no dependencies beyond `node:fs`/`node:path`).
+- `scripts/audit/verify-pt00-001.mjs` — a standalone check confirming this scaffold itself is
+  real: exits non-zero unless `evidence-lib.mjs` exists and is non-empty, the register exists and
+  is non-empty, and the register text contains the P0/P1/P2/P3 legend terms. Run and confirmed
+  passing this session (`PT-00-001 PASS`, exit 0) before committing.
+
+**Not done, correctly out of scope for this task:** no actual wiring-gap findings were
+investigated or added to the register — the register's table is intentionally empty, ready for the
+next audit phase to populate with real, evidence-backed rows.
+
+**Gates:** `node scripts/audit/verify-pt00-001.mjs` — PASS, exit 0. No TypeScript/build changes
+made (pure `.mjs`/`.md` scaffold), so `tsc`/`build` gates are not applicable to this session.
 
 ## OPEN — PRODUCT-DECISION GAPS (not resolved, awaiting Reid's direct input — do not treat as done)
 
@@ -7782,4 +7817,20 @@ Treat "30 agents built and wired" as accurate for "built"; for "wired to a live 
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+## FORGE ORCHESTRATOR — LEDGER + ARCHIVE + PREFLIGHT GATE (August 18, 2026)
+
+`C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1` gained three safety mechanisms, added after the `v2-rollout-batch1..4-20260817` queues were hand-completed directly against production (commits `836b35c`, `aa8b218`, `80b6189`) while the orchestrator's own run crashed before marking them `complete` in `library-manifest.yaml` — leaving them at `status: failed`/`running`, one edit away from being picked up and re-run over already-shipped work:
+
+1. **`completed-queues.json` ledger** — a project-independent record keyed on queue `id` and a SHA256 hash of the queue YAML's content. Queue selection (`Get-RunnableQueues`, the plan-preview loop, `-only`) excludes anything in the ledger regardless of what `status:` says in the manifest, logging `SKIPPED (ledger): <id>`. This is the actual fix: manifest `status:` alone was never a reliable guard because it's routinely hand-edited during recovery (e.g. resetting `failed` → `pending` to retry).
+2. **Archive on completion or final failure** — `Record-QueueOutcome` appends a ledger entry and moves the queue's source YAML from `library\<project>\` to `archive\<project>\` the moment a queue finishes, pass or fail. A queue that's been archived can't be redeployed by `Run-Queue` even if its manifest entry gets reset. Rerunning requires manually moving the file back and deleting its ledger entry.
+3. **Preflight roster + `RUN` confirmation** — before any queue launches (both the main loop and `-only`), the orchestrator prints the full runnable list (id, file, prompt count) and blocks on operator confirmation unless `-Confirmed` is passed. All gate logic, retry logic, deploy-verification (`Invoke-DeployVerification`), and logging are unchanged.
+
+**Benavora manifest remediation applied this session:**
+- `v2-rollout-batch1-20260817` .. `v2-rollout-batch4-20260817` → `status: superseded`, noted as hand-completed and must never re-run.
+- Ledger seeded with 44 entries — every queue at `status: complete` or `superseded` — each hashed from its file in `library\benavora\`.
+- Those 44 queue YAMLs moved `library\benavora\` → `archive\benavora\`. Left untouched: `queue-pt-00-baseline.yaml` (`status: failed`, lives in `projects\benavora\`) and every genuinely-pending file (`queue-40..44`, `queue-62-workflow-showcase-page.yaml`, `queue-pt-01..15` — most of the latter don't exist as files yet).
+- Verified via `powershell -ExecutionPolicy Bypass -File .\forge-orchestrator.ps1 -project benavora -dryRun`: roster shows 0 runnable queues (all remaining `pending` entries are legitimately dependency-blocked, not ledger-related), and zero `v2-rollout-*` entries appear anywhere in the plan. Also verified the ledger blocks a rerun even after manually resetting `v2-rollout-batch1-20260817` back to `status: pending` in the manifest (test performed and reverted).
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
