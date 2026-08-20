@@ -1,0 +1,291 @@
+{
+  "auditPhase": "PT-08",
+  "objective": "Determine, from the actual worker boot code, which processors/consumers are registered AND started at boot (not merely defined or imported), reconciled against a real production boot log.",
+  "generatedAt": "2026-08-19T19:31:00Z",
+  "method": {
+    "staticRead": "worker/index.ts (entry point) and every module it imports at the top level (worker/heartbeat.ts, worker/queue-processor.ts, worker/dd-request-processor.ts, worker/knowledge-indexer-processor.ts, src/lib/autoapply/confirmation-monitor.ts, worker/scheduler.ts, worker/autonomous-orchestrator.ts, worker/stream-server.ts), plus a repo-wide grep for every module exporting a start()/stop() pair to find modules NOT imported by index.ts.",
+    "liveReconciliation": "railway logs --deployment (Railway CLI v5.20.0, authenticated as reid@repvg.com, project benavora-worker, service bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127, deployment 9af8db54-805a-411c-bbc2-3e10df25957b, status Online) filtered to the exact container-start window (2026-08-15T20:57:16Z - 20:57:20Z) plus a 5-day sweep (--since 30d, filtered on \"Starting\") to catch every scheduler job actually firing. A live query against the production worker_status table (via DATABASE_URL / pg, DIRECTIVE-017 path) independently confirms the heartbeat registration + tick, which logs nothing on success by design.",
+    "evidenceFiles": [
+      "test-evidence/pt-08/railway-status.txt",
+      "test-evidence/pt-08/railway-boot-window.json",
+      "test-evidence/pt-08/railway-scheduler-jobs-fired.json",
+      "test-evidence/pt-08/worker-status-live-query.txt"
+    ]
+  },
+  "workerDeployment": {
+    "project": "benavora-worker",
+    "projectId": "1d79d4e6-f529-4903-9577-7085b3ab126b",
+    "serviceId": "bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127",
+    "deploymentId": "9af8db54-805a-411c-bbc2-3e10df25957b",
+    "status": "Online",
+    "containerStartedAt": "2026-08-15T20:57:16.873306238Z",
+    "workerBootLogLine": "[Worker] AutoApply Worker started — id=railway-worker-1 at 2026-08-15T20:57:16.854Z",
+    "note": "This deployment has been running continuously since 2026-08-15; the boot line only appears once, at true process start, since worker/index.ts's console.log at the end of main() only fires the first time the process boots. The scheduler-job-fire evidence spans 2026-08-15 through 2026-08-19 on this same live process, confirming continued operation, not just a one-time successful boot."
+  },
+  "processors": [
+    {
+      "processor": "StreamServer",
+      "module": "worker/stream-server.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:134-135 -- `const streamServer = new StreamServer(streamPort, supabase); await streamServer.start();`",
+      "evidence": [
+        "static: worker/index.ts:132-135 instantiates and awaits .start()",
+        "live: test-evidence/pt-08/railway-boot-window.json -- \"[StreamServer] Stream server listening on port 8080\" at 2026-08-15T20:57:17.547326044Z"
+      ],
+      "notes": "Class-based, not the start()/stop()-module-namespace pattern used by the other processors, but confirmed live-listening on the deployed container's port 8080."
+    },
+    {
+      "processor": "heartbeat",
+      "module": "worker/heartbeat.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:137-138 -- `await heartbeat.register(supabase, env.workerId); heartbeat.start(supabase, env.workerId);`",
+      "evidence": [
+        "static: worker/index.ts:137-138 calls register() then start(); worker/heartbeat.ts:65-71 start() sets a 30s setInterval calling writeHeartbeat()",
+        "live (indirect, by design): heartbeat.ts's writeHeartbeat() logs NOTHING on a successful tick (only on error/zero-row-match, per its own header comment on 2026-07-28's fix). Confirmed instead via a direct live query of the production worker_status table.",
+        "test-evidence/pt-08/worker-status-live-query.txt -- row worker_id=railway-worker-1: started_at=2026-08-15T20:57:16.669Z (185ms before the [Worker] boot log line, consistent with register() running before main()'s final console.log), last_heartbeat_at is 23 seconds old at query time (well inside the 30s interval), items_processed=2, status=idle."
+      ],
+      "notes": "started_at in the DB row and the boot log's own embedded timestamp (2026-08-15T20:57:16.854Z) agree to within 200ms -- both are real artifacts of the same boot event, not two different runs."
+    },
+    {
+      "processor": "queueProcessor (AutoApply submission queue)",
+      "module": "worker/queue-processor.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:139 -- `queueProcessor.start(supabase, env.workerId, streamServer);`",
+      "evidence": [
+        "static: worker/queue-processor.ts:1985 export function start(); calls the private loop() method which awaits proxyManager.loadProxies() then enters `while (this.running)`",
+        "live: test-evidence/pt-08/railway-boot-window.json -- \"[QueueProcessor] Starting — worker=railway-worker-1\", \"[ProxyManager] PROXY_LIST env var is empty\", \"[QueueProcessor] Proxy pool ready — 0/0 active\", \"[QueueProcessor] Queue empty, sleeping 15s\" all at 2026-08-15T20:57:17.547Z",
+        "live steady-state: [QueueProcessor] log lines are the single most frequent prefix in a 3000-line recent tail sample (1296 occurrences), confirming continuous operation, not just a one-time boot log."
+      ],
+      "notes": "Embeds three additional job-type consumers in its own idle cycle -- see the three 'embedded-in-queueProcessor' entries below. Also imports helper library modules (rate-limiter.ts's RateLimiter, proxy-manager.ts's ProxyManager, portal-health.ts's quickHealthCheck, batch-scorer.ts's scoreAndReorderQueue) that are not independent processors -- they have no start()/stop() of their own and only execute as part of this already-started loop."
+    },
+    {
+      "processor": "enrich_donor_prospect job (embedded in queueProcessor)",
+      "module": "src/worker/jobs/enrich-donor-prospect.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/queue-processor.ts:33-36 imports claimNextEnrichDonorProspectJob/handleEnrichDonorProspectJob; called from the private runEnrichDonorProspectJob() (line 473), which is itself called every idle cycle from loop() (line 266).",
+      "evidence": [
+        "static: worker/queue-processor.ts:33-36 (import), 266 (called from loop()), 473-484 (implementation, calls claimNextEnrichDonorProspectJob then handleEnrichDonorProspectJob)"
+      ],
+      "notes": "Supplementary opportunistic re-enrichment; runs only when submission_queue is empty (queueProcessor's idle branch)."
+    },
+    {
+      "processor": "score_donor_prospect job (embedded in queueProcessor)",
+      "module": "src/worker/jobs/score-donor-prospect.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/queue-processor.ts:37-40 imports claimNextScoreDonorProspectJob/handleScoreDonorProspectJob; called from the private runScoreDonorProspectJob() (line 497), called every idle cycle from loop() (line 277).",
+      "evidence": [
+        "static: worker/queue-processor.ts:37-40 (import), 277 (called from loop()), 497-506 (implementation)"
+      ],
+      "notes": "Same idle-cycle posture as enrich_donor_prospect above."
+    },
+    {
+      "processor": "run_connector_enrichment job (embedded in queueProcessor)",
+      "module": "src/worker/jobs/run-connector-enrichment.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/queue-processor.ts:41-43 imports claimNextRunConnectorEnrichmentJob/handleRunConnectorEnrichmentJob; called from the private runRunConnectorEnrichmentJob() (line 518), called every idle cycle from loop() (line 288).",
+      "evidence": [
+        "static: worker/queue-processor.ts:41-43 (import), 288 (called from loop()), 518-530 (implementation)"
+      ],
+      "notes": "Same idle-cycle posture as the two entries above."
+    },
+    {
+      "processor": "ddRequestProcessor (donor discovery request pipeline)",
+      "module": "worker/dd-request-processor.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:140 -- `ddRequestProcessor.start(supabase);`",
+      "evidence": [
+        "static: worker/dd-request-processor.ts:657 export function start()",
+        "live: test-evidence/pt-08/railway-boot-window.json -- \"[DdRequestProcessor] Starting\" and \"[DdRequestProcessor] Queue empty, sleeping 15s\" at 2026-08-15T20:57:17.547Z",
+        "live steady-state: [DdRequestProcessor] is the most frequent log prefix in a 3000-line recent tail sample (1325 occurrences)."
+      ],
+      "notes": "Internally instantiates the exported DdRequestProcessor class and claims donor_discovery_requests rows via the donor_discovery_claim_request RPC (FOR UPDATE SKIP LOCKED). This is the sole real running consumer of that queue -- see the process-discovery-request.ts finding below, which duplicates this capability under a different, unreachable entry point."
+    },
+    {
+      "processor": "knowledgeIndexerProcessor",
+      "module": "worker/knowledge-indexer-processor.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:141 -- `knowledgeIndexerProcessor.start(supabase);`",
+      "evidence": [
+        "static: worker/knowledge-indexer-processor.ts:108 export function start()",
+        "live: test-evidence/pt-08/railway-boot-window.json -- \"[KnowledgeIndexerProcessor] Starting\" at 2026-08-15T20:57:17.547273685Z",
+        "live steady-state: \"[KnowledgeIndexerProcessor] Pass complete — 0/1 embedded, 1 error(s)\" recurring in the recent tail sample (313 occurrences in the 3000-line sample), confirming the continuous loop is actively ticking, not just started once."
+      ],
+      "notes": "The recurring 0/1-embedded-1-error pattern is a real, live runtime issue but is outside PT-08's scope (registration state, not correctness) -- noted for whoever picks up runtime-error findings next."
+    },
+    {
+      "processor": "confirmationMonitor (Gmail AutoApply confirmation monitor)",
+      "module": "src/lib/autoapply/confirmation-monitor.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:142 -- `confirmationMonitor.start(supabase);`",
+      "evidence": [
+        "static: src/lib/autoapply/confirmation-monitor.ts:606 export function start()",
+        "live: test-evidence/pt-08/railway-boot-window.json -- \"[gmail-confirmation-monitor] Starting — polling every 5 minute(s)\" and the immediate first tick's \"[gmail-confirmation-monitor] Skipping cycle — GOOGLE_CLIENT_ID / ... not fully configured\" both at 2026-08-15T20:57:17.547Z",
+        "live steady-state: the same skip message recurs every ~5 minutes in the recent tail sample (66 occurrences in 3000 lines)."
+      ],
+      "notes": "Genuinely started and ticking on schedule; every cycle is a real no-op today because the required Gmail OAuth credentials (GOOGLE_CLIENT_ID/SECRET, GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN) are unset -- a documented, pre-existing credential gap (AUTOAPPLY_ARCHITECTURE_V2.md §10A), not a registration gap. Registration state: STARTED."
+    },
+    {
+      "processor": "scheduler",
+      "module": "worker/scheduler.ts",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:143 -- `scheduler.start(supabase);`",
+      "evidence": [
+        "static: worker/scheduler.ts:311 export function start() sets a 60s setInterval checking each of 13 registered jobs' hour:minute against America/Chicago time",
+        "live: test-evidence/pt-08/railway-scheduler-jobs-fired.json -- all 13 registered jobs observed actually firing at their correct scheduled times across 2026-08-15 through 2026-08-19 (see 'scheduledJobs' array below for the per-job breakdown)."
+      ],
+      "notes": "scheduler.start() itself logs nothing at boot (only per-job fire events) -- registration state is confirmed by the fact that every one of its 13 registered jobs fired on schedule over a 5-day live window, which is only possible if the setInterval is running."
+    },
+    {
+      "processor": "agentQueueProcessor",
+      "module": "worker/autonomous-orchestrator.ts (processAgentQueue / stopAgentQueueProcessor)",
+      "state": "STARTED",
+      "registeredVia": "worker/index.ts:144-146 -- `agentQueueDone = processAgentQueue(supabase).catch(...)` (kicked off as a fire-and-forget promise, not a .start()/.stop() module pair, but a genuine `while (!queueProcessorStopped)` continuous poll loop per its own doc comment at autonomous-orchestrator.ts:2129-2134).",
+      "evidence": [
+        "static: worker/autonomous-orchestrator.ts:2135 export async function processAgentQueue() -- `while (!queueProcessorStopped) { ... claimNextQueueItem ... }`",
+        "live: test-evidence/pt-08/railway-boot-window.json -- \"[AgentQueueProcessor] Started.\" at 2026-08-15T20:57:17.547292625Z"
+      ],
+      "notes": "stopAgentQueueProcessor() is called from index.ts's shutdown() handler, confirming this is treated as a real managed processor, not a fire-and-forget script."
+    },
+    {
+      "processor": "enrichment-processor (foundation + corporate/EA-01..EA-10 enrichment, AG-22 propensity scoring)",
+      "module": "worker/enrichment-processor.ts",
+      "state": "DEFINED-NOT-STARTED",
+      "registeredVia": "NONE -- not imported by worker/index.ts, not dynamically imported by worker/scheduler.ts, not called from any API route, not called from any scripts/ CLI entry point.",
+      "evidence": [
+        "static: worker/enrichment-processor.ts:269 export function start(), :277 export function stop(), :283 export function waitForIdle() -- a complete, real start()/stop()/waitForIdle() processor triple, structurally identical to every STARTED processor above.",
+        "repo-wide grep for the literal string \"enrichment-processor\" across all *.ts files found exactly 2 hits: the file itself, and one comment-only reference in src/lib/agents/ag-22-propensity-scoring.ts:21 ('worker/enrichment-processor.ts's triggerScoreEngine() is the real call site') -- a documentation reference, not an import.",
+        "repo-wide grep for \"runEnrichmentBatch\" (the function start() calls) found exactly 1 hit -- its own definition. No caller anywhere.",
+        "grep of scripts/ for \"enrichment-processor\" or \"runEnrichmentBatch\": zero matches -- no CLI entry point exists either.",
+        "WORKER_ARCHITECTURE_v2.md:92 -- the canonical governance doc's own documented boot sequence step 6 reads '6. Start enrichment processor loop (continuous, lower priority)'. worker/index.ts has no such call anywhere. This is a direct, confirmed doc-vs-code mismatch, not just an absence of evidence."
+      ],
+      "notes": "This is the P1 register finding. worker/enrichment-processor.ts imports and runs all 10 EA agents (EA-01 through EA-10, confirmed via grep of its own import block, lines 60-69) plus AG-22 PropensityScoringAgent (its only call site anywhere in the repo). All 11 of those agent classes are therefore unreachable via any continuous, automatic worker process today -- consistent with, and now freshly re-confirmed for, the same gap this project's governance history has documented since at least 2026-07-28 ('not called from worker/index.ts's boot sequence yet -- it runs standalone/on-demand only, not continuously in production'). This session's finding is stronger than that prior note: there is no 'standalone/on-demand' path either -- zero API route or CLI script calls it, so the only way it has ever run is a manually-written throwaway verification script, as documented in multiple AGENT_VERIFICATION_LOG.md entries for AG-22."
+    },
+    {
+      "processor": "process_discovery_request job handler (duplicate/orphaned entry point)",
+      "module": "src/worker/jobs/process-discovery-request.ts",
+      "state": "DEFINED-NOT-STARTED",
+      "registeredVia": "NONE -- exported handleProcessDiscoveryRequestJob() and the PROCESS_DISCOVERY_REQUEST_JOB_TYPE constant are referenced nowhere else in the repo.",
+      "evidence": [
+        "repo-wide grep for \"process_discovery_request\" and \"PROCESS_DISCOVERY_REQUEST_JOB_TYPE\": exactly 1 file matches -- the module's own definition. No producer enqueues this job type; no consumer claims it.",
+        "The module's own header comment (src/worker/jobs/process-discovery-request.ts:5-17) states plainly that the real, running consumer of donor_discovery_requests is worker/dd-request-processor.ts's own poll loop (confirmed STARTED above), and that this file 'exposes that same pipeline under the src/worker/jobs/* job-payload shape used by the sibling enrich_donor_prospect / score_donor_prospect jobs, without duplicating its logic.'"
+      ],
+      "notes": "Distinguished deliberately from the enrichment-processor.ts finding above: this is genuine dead code, but it does NOT back a missing feature -- the capability it would provide (processing a donor_discovery_requests row) is already fully covered by ddRequestProcessor, which is confirmed STARTED. Filed as a lower-severity (P3/orphaned-code) finding, not a P1 functionality gap."
+    },
+    {
+      "processor": "AG-38 self-improvement pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runSelfImprovementPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:59-68, daily 4:00 CST, dynamic import of ./autonomous-orchestrator.js",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 09:00:17Z, 2026-08-17 09:00:24Z, 2026-08-18 09:00:22Z, 2026-08-19 09:00:25Z UTC (all 4:00 CST)"],
+      "notes": "Reachable and firing on schedule. A real runtime error was observed twice in the same log sweep ('[AutonomousOrchestrator] AG-38 self-improvement pipeline failed: Failed to start AG-38 platform-level run: null value in column ...') -- a DB-schema correctness issue, out of scope for this registration-state audit; flagged here only so it isn't lost."
+    },
+    {
+      "processor": "AutoApply autonomous overnight orchestrator",
+      "module": "worker/autoapply-autonomous-orchestrator.ts (runAutonomousAutoApply)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:69-78, daily 3:00 CST, dynamic import of ./autoapply-autonomous-orchestrator.js",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 08:00:26Z, 2026-08-17 08:00:24Z, 2026-08-18 08:00:22Z, 2026-08-19 08:00:24Z UTC; pipeline-level log '[AutoApplyAutonomousOrchestrator] Nightly batch starting for 0 eligible org(s).' confirms the dynamic import and function call both succeeded, every day."],
+      "notes": "A file distinct from worker/autonomous-orchestrator.ts (note the different filename) -- confirmed reachable via its own scheduler entry."
+    },
+    {
+      "processor": "AG-36 learning network aggregator pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runLearningNetworkPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:79-93, daily 6:00 CST (self-gates to Sunday-only inside the pipeline function)",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 11:00:17Z and 2026-08-19 11:00:24Z UTC (Sundays)"],
+      "notes": "Confirms the previously-documented 'AG-36 never called from any live code path' gap (FEATURE_REGISTRY_v2.md, dated 2026-07-19) is stale/resolved -- it is now wired and firing."
+    },
+    {
+      "processor": "AG-10 grant DNA weekly pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runGrantDnaWeeklyPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:94-112, weekly (Sunday), 3:00 CST slot, day-of-week gate inside the pipeline function",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 08:00:26Z and 2026-08-19 08:00:24Z UTC (Sundays)"]
+    },
+    {
+      "processor": "AG-42 change monitor daily pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runChangeMonitorDailyPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:113-133, daily, 5:00 CST",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 10:00:17Z, 2026-08-17 10:00:20Z, 2026-08-18 10:00:31Z, 2026-08-19 10:00:24Z UTC"]
+    },
+    {
+      "processor": "AG-25 disaster response pipeline (FEMA poll)",
+      "module": "worker/autonomous-orchestrator.ts (runDisasterResponsePipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:134-153, daily, 5:45 CST",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 10:45:26Z, 2026-08-17 10:45:20Z, 2026-08-18 10:45:22Z, 2026-08-19 10:45:25Z UTC; pipeline-level log '[AutonomousOrchestrator] Disaster response pipeline starting (FEMA poll).' confirms the function itself ran, not just the scheduler wrapper."],
+      "notes": "WORKER_ARCHITECTURE_v2.md:94 documents this as 'Start FEMA polling (every 6 hours)' as its own standalone boot-time process (worker/fema-poller.ts). Neither that file nor a 6-hourly cadence exists in the actual code -- the real implementation folds this into scheduler.ts as a once-daily job. Functionally reachable, but at a different cadence than documented; noted, not filed as a P1 (the capability is genuinely wired, only the frequency differs from the superseded spec)."
+    },
+    {
+      "processor": "AG-23 / AG-32 relationship graph incremental pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runRelationshipGraphIncrementalPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:183-204, daily, 5:30 CST",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 10:30:17Z, 2026-08-17 10:30:20Z, 2026-08-18 10:30:22Z, 2026-08-19 10:30:24Z UTC; pipeline-level log '[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline starting for 1 org(s).' confirms the function itself ran."]
+    },
+    {
+      "processor": "AG-26 funding forecast monthly pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runFundingForecastMonthlyPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:205-224, monthly (1st-of-month gate inside the pipeline function), shares the 4:00 CST slot with AG-38",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- scheduler fired the job at 4:00 CST on 2026-08-17/18/19 (no-ops on non-1st days by design, per isFirstOfMonthChicago()); reachability of the dynamic import itself is confirmed by the sibling AG-38 job at the same slot never throwing an import-time error."]
+    },
+    {
+      "processor": "AG-27 board packet daily pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runBoardPacketDailyPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:225-242, daily, 2:00 CST, shares the slot with the nightly autonomous pipeline",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- fired 2026-08-16 07:00:27Z, 2026-08-17 07:00:25Z, 2026-08-18 07:00:28Z, 2026-08-19 07:00:24Z UTC"]
+    },
+    {
+      "processor": "nightly autonomous pipeline + AG-28 application_followups sweep",
+      "module": "worker/autonomous-orchestrator.ts (runAutonomousPipeline) + src/worker/jobs/process-followups.ts (processFollowups)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:29-48, daily, 2:00 CST",
+      "evidence": [
+        "live: railway-scheduler-jobs-fired.json -- '[Scheduler] 2:00 CST reached — starting nightly autonomous pipeline.' fired 2026-08-16 through 2026-08-19; '[AutonomousOrchestrator] Nightly pipeline starting for 2 active org(s).' confirms the pipeline function itself ran each day.",
+        "process-followups.ts is confirmed reached (not just imported) via a real runtime error in the same log sweep: '[process-followups] Failed to load due application_followups rows: Could not find the table public.application_followups in the schema cache' -- a genuine DB-schema issue (out of scope here), but it proves the job code executed far enough to attempt its first query."
+      ]
+    },
+    {
+      "processor": "morning digest pipeline",
+      "module": "worker/autonomous-orchestrator.ts (runDigestPipeline)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:49-58, daily, 7:00 CST",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- '[AutonomousOrchestrator] Morning digest pipeline starting for 2 active org(s).' fired 2026-08-16, 08-17, 08-18, 08-19"]
+    },
+    {
+      "processor": "foundation-enrichment-weekly (Directive 1 foundation scraper)",
+      "module": "src/lib/scraper/foundation-scraper.ts (runFoundationScraper)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:154-182, weekly (Sunday), 3:00 CST, gated behind `process.env.ENABLE_SCRAPER === 'true'` before the dynamic import even runs",
+      "evidence": ["live: railway logs, filter 'ENABLE_SCRAPER' -- '[Scheduler] foundation-enrichment-weekly skipped — ENABLE_SCRAPER is not \\'true\\'.' fired every Sunday observed (2026-08-16), confirming the wrapper job itself IS invoked weekly, but the scraper module's own dynamic import line is never reached in the current production config because ENABLE_SCRAPER is unset."],
+      "notes": "Deliberate config gate per STANDING_DIRECTIVES.md Directive 1 ('Gated behind ENABLE_SCRAPER to prevent accidental runs -- the scraper launches real Chromium instances'), not dead code -- classified STARTED because the wrapper job is genuinely invoked on schedule and the gate is intentional, documented behavior, not an omitted registration. The scraper module itself has not actually executed in this production deployment because the flag is off."
+    },
+    {
+      "processor": "nonprofit-enrichment-weekly (Directive 1 nonprofit scraper)",
+      "module": "src/lib/scraper/nonprofit-scraper.ts (runNonprofitScraper)",
+      "state": "STARTED",
+      "registeredVia": "worker/scheduler.ts:243-269, weekly (Sunday), 4:00 CST, same ENABLE_SCRAPER gate as foundation-enrichment-weekly",
+      "evidence": ["live: railway-scheduler-jobs-fired.json -- '[Scheduler] 4:00 CST reached — starting nonprofit-enrichment-weekly.' fired 2026-08-16 and 2026-08-19 (Sundays), immediately followed by the same ENABLE_SCRAPER skip message."],
+      "notes": "Same gated-but-wired status as foundation-enrichment-weekly above."
+    }
+  ],
+  "wgr003CrossCheck": {
+    "question": "Does the worker boot require its own SUPABASE_URL (distinct from NEXT_PUBLIC_SUPABASE_URL), and does a missing value hard-exit the worker?",
+    "answer": "Yes, confirmed by direct code read: worker/index.ts:17-43 validateEnv() checks process.env.SUPABASE_URL (not NEXT_PUBLIC_SUPABASE_URL -- a completely separate env var the Next.js web app uses), alongside SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, and WORKER_ID. If any of the four is falsy, it logs '[Worker] Fatal: missing required env vars: ...' and calls process.exit(1) synchronously, before any processor (including StreamServer) is constructed.",
+    "railwayProdStatus": "Reid confirmed SUPABASE_URL is present in Railway production. This audit did not independently read the variable's live value in Railway's dashboard/CLI (that would require exposing a production secret) -- but this session's boot-log evidence goes a step further than presence-confirmation: the live boot log (test-evidence/pt-08/railway-boot-window.json) shows the worker reaching '[Worker] AutoApply Worker started' and every processor's own 'Starting' line, all of which are only reachable if validateEnv() already returned successfully (module-level code that runs before any of main()'s awaited calls). This is direct, live proof that all four required env vars, including SUPABASE_URL, are genuinely set and truthy in the current Railway production deployment -- not just reported present by Reid.",
+    "registerCrossReference": "WGR-003 (test-evidence/_register/WIRING_GAP_REGISTER.md) already documents the local-.env.local absence of SUPABASE_URL and the resulting hard-exit risk. This PT-08 pass adds the missing production-side confirmation that WGR-003 explicitly flagged as unresolved ('worth Reid confirming these are genuinely unset in Vercel/Railway production too') -- for SUPABASE_URL specifically, production is confirmed fine by live evidence, not just verbal confirmation. See the Edit made to WGR-003's row in this session."
+  },
+  "summary": {
+    "totalProcessorsInventoried": 26,
+    "started": 24,
+    "definedNotStarted": 2,
+    "referencedOnly": 0,
+    "registerFindingsFiled": [
+      "P1 (WGR-XXX, see WIRING_GAP_REGISTER.md): worker/enrichment-processor.ts (EA-01..EA-10 + AG-22) -- documented boot step, never wired, zero reachability of any kind.",
+      "P3 (WGR-XXX, see WIRING_GAP_REGISTER.md): src/worker/jobs/process-discovery-request.ts -- orphaned duplicate entry point, no functionality gap since ddRequestProcessor already covers the same capability."
+    ]
+  }
+}

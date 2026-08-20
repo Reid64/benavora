@@ -1,0 +1,87 @@
+{"message":"Starting Container","level":"info","timestamp":"2026-08-15T20:57:16.873306238Z"}
+{"message":"[DdRequestProcessor] Starting","timestamp":"2026-08-15T20:57:17.547266995Z","level":"info"}
+{"timestamp":"2026-08-15T20:57:17.547273685Z","level":"info","message":"[KnowledgeIndexerProcessor] Starting"}
+{"timestamp":"2026-08-15T20:57:17.547279645Z","message":"[gmail-confirmation-monitor] Starting — polling every 5 minute(s)","level":"info"}
+{"message":"[QueueProcessor] Starting â€” worker=railway-worker-1","timestamp":"2026-08-15T20:57:17.547329614Z","level":"info"}
+{"level":"info","message":"[Scheduler] 2:00 CST reached — starting nightly autonomous pipeline.","timestamp":"2026-08-16T07:00:27.571551347Z"}
+{"timestamp":"2026-08-16T07:00:27.571557727Z","level":"info","message":"[Scheduler] 2:00 CST reached — starting AG-27 board packet daily pipeline."}
+{"level":"info","timestamp":"2026-08-16T07:00:27.571562127Z","message":"[AutonomousOrchestrator] Nightly pipeline starting for 2 active org(s)."}
+{"message":"[Scheduler] 3:00 CST reached — starting AutoApply autonomous overnight orchestrator.","timestamp":"2026-08-16T08:00:26.900172351Z","level":"info"}
+{"message":"[Scheduler] 3:00 CST reached — starting AG-10 grant DNA weekly pipeline.","timestamp":"2026-08-16T08:00:26.900179131Z","level":"info"}
+{"level":"info","message":"[Scheduler] 3:00 CST reached — starting foundation-enrichment-weekly.","timestamp":"2026-08-16T08:00:26.900182791Z"}
+{"timestamp":"2026-08-16T08:00:26.900193330Z","level":"info","message":"[AutoApplyAutonomousOrchestrator] Nightly batch starting for 0 eligible org(s)."}
+{"timestamp":"2026-08-16T08:00:26.900199490Z","level":"info","message":"[AutonomousOrchestrator] AG-10 grant DNA weekly pipeline starting for 2 active org(s)."}
+{"timestamp":"2026-08-16T09:00:17.791387673Z","message":"[Scheduler] 4:00 CST reached — starting AG-38 self-improvement pipeline.","level":"info"}
+{"timestamp":"2026-08-16T09:00:17.791392452Z","level":"info","message":"[Scheduler] 4:00 CST reached — starting AG-26 funding forecast monthly pipeline."}
+{"message":"[Scheduler] 4:00 CST reached — starting nonprofit-enrichment-weekly.","timestamp":"2026-08-16T09:00:17.791396442Z","level":"info"}
+{"level":"info","message":"[AutonomousOrchestrator] AG-38 self-improvement pipeline starting.","timestamp":"2026-08-16T09:00:17.791401772Z"}
+{"level":"info","timestamp":"2026-08-16T10:00:17.886586230Z","message":"[Scheduler] 5:00 CST reached — starting AG-42 change monitor daily pipeline."}
+{"timestamp":"2026-08-16T10:00:17.886591870Z","level":"info","message":"[AutonomousOrchestrator] AG-42 change monitor daily pipeline starting."}
+{"message":"[Scheduler] 5:30 CST reached — starting AG-23 relationship graph incremental pipeline.","timestamp":"2026-08-16T10:30:17.911188997Z","level":"info"}
+{"message":"[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline starting for 1 org(s).","timestamp":"2026-08-16T10:30:18.386088373Z","level":"info"}
+{"timestamp":"2026-08-16T10:45:26.869550656Z","level":"info","message":"[Scheduler] 5:45 CST reached — starting AG-25 disaster response pipeline."}
+{"timestamp":"2026-08-16T10:45:26.869557386Z","message":"[AutonomousOrchestrator] Disaster response pipeline starting (FEMA poll).","level":"info"}
+{"level":"info","message":"[Scheduler] 6:00 CST reached — starting AG-36 learning network aggregator pipeline.","timestamp":"2026-08-16T11:00:17.965107289Z"}
+{"message":"[AutonomousOrchestrator] AG-36 learning network pipeline starting.","level":"info","timestamp":"2026-08-16T11:00:17.965117969Z"}
+{"timestamp":"2026-08-16T12:00:18.064404983Z","level":"info","message":"[Scheduler] 7:00 CST reached — starting morning digest pipeline."}
+{"level":"info","message":"[AutonomousOrchestrator] Morning digest pipeline starting for 2 active org(s).","timestamp":"2026-08-16T12:00:18.716187071Z"}
+{"timestamp":"2026-08-17T07:00:25.666366992Z","level":"info","message":"[Scheduler] 2:00 CST reached — starting nightly autonomous pipeline."}
+{"level":"info","timestamp":"2026-08-17T07:00:25.666377832Z","message":"[Scheduler] 2:00 CST reached — starting AG-27 board packet daily pipeline."}
+{"message":"[AutonomousOrchestrator] Nightly pipeline starting for 2 active org(s).","timestamp":"2026-08-17T07:00:25.666383052Z","level":"info"}
+{"message":"[Scheduler] 3:00 CST reached — starting AutoApply autonomous overnight orchestrator.","timestamp":"2026-08-17T08:00:24.243292001Z","level":"info"}
+{"level":"info","message":"[Scheduler] 3:00 CST reached — starting AG-10 grant DNA weekly pipeline.","timestamp":"2026-08-17T08:00:24.243300501Z"}
+{"message":"[Scheduler] 3:00 CST reached — starting foundation-enrichment-weekly.","level":"info","timestamp":"2026-08-17T08:00:24.243303391Z"}
+{"timestamp":"2026-08-17T08:00:24.243312781Z","message":"[AutoApplyAutonomousOrchestrator] Nightly batch starting for 0 eligible org(s).","level":"info"}
+{"message":"[Scheduler] 4:00 CST reached — starting AG-38 self-improvement pipeline.","timestamp":"2026-08-17T09:00:24.732538300Z","level":"info"}
+{"message":"[Scheduler] 4:00 CST reached — starting AG-26 funding forecast monthly pipeline.","timestamp":"2026-08-17T09:00:24.732540990Z","level":"info"}
+{"timestamp":"2026-08-17T09:00:24.732543750Z","level":"info","message":"[Scheduler] 4:00 CST reached — starting nonprofit-enrichment-weekly."}
+{"message":"[AutonomousOrchestrator] AG-38 self-improvement pipeline starting.","level":"info","timestamp":"2026-08-17T09:00:24.732549760Z"}
+{"level":"info","message":"[Scheduler] 5:00 CST reached — starting AG-42 change monitor daily pipeline.","timestamp":"2026-08-17T10:00:20.105031524Z"}
+{"message":"[AutonomousOrchestrator] AG-42 change monitor daily pipeline starting.","timestamp":"2026-08-17T10:00:20.105040493Z","level":"info"}
+{"message":"[Scheduler] 5:30 CST reached — starting AG-23 relationship graph incremental pipeline.","timestamp":"2026-08-17T10:30:20.119306955Z","level":"info"}
+{"timestamp":"2026-08-17T10:30:20.587988646Z","level":"info","message":"[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline starting for 1 org(s)."}
+{"level":"info","message":"[Scheduler] 5:45 CST reached — starting AG-25 disaster response pipeline.","timestamp":"2026-08-17T10:45:20.137367612Z"}
+{"timestamp":"2026-08-17T10:45:20.137377402Z","level":"info","message":"[AutonomousOrchestrator] Disaster response pipeline starting (FEMA poll)."}
+{"timestamp":"2026-08-17T11:00:20.198597445Z","level":"info","message":"[Scheduler] 6:00 CST reached — starting AG-36 learning network aggregator pipeline."}
+{"timestamp":"2026-08-17T12:00:26.687359748Z","level":"info","message":"[Scheduler] 7:00 CST reached — starting morning digest pipeline."}
+{"level":"info","message":"[AutonomousOrchestrator] Morning digest pipeline starting for 2 active org(s).","timestamp":"2026-08-17T12:00:26.687363968Z"}
+{"message":"[Scheduler] 2:00 CST reached — starting nightly autonomous pipeline.","timestamp":"2026-08-18T07:00:28.814406039Z","level":"info"}
+{"timestamp":"2026-08-18T07:00:28.814409889Z","level":"info","message":"[Scheduler] 2:00 CST reached — starting AG-27 board packet daily pipeline."}
+{"level":"info","message":"[AutonomousOrchestrator] Nightly pipeline starting for 2 active org(s).","timestamp":"2026-08-18T07:00:28.814413799Z"}
+{"message":"[Scheduler] 3:00 CST reached — starting AutoApply autonomous overnight orchestrator.","timestamp":"2026-08-18T08:00:22.059924729Z","level":"info"}
+{"message":"[Scheduler] 3:00 CST reached — starting AG-10 grant DNA weekly pipeline.","timestamp":"2026-08-18T08:00:22.061003688Z","level":"info"}
+{"timestamp":"2026-08-18T08:00:22.061017688Z","level":"info","message":"[Scheduler] 3:00 CST reached — starting foundation-enrichment-weekly."}
+{"level":"info","message":"[AutoApplyAutonomousOrchestrator] Nightly batch starting for 0 eligible org(s).","timestamp":"2026-08-18T08:00:22.347077229Z"}
+{"timestamp":"2026-08-18T09:00:22.138711330Z","level":"info","message":"[Scheduler] 4:00 CST reached — starting AG-38 self-improvement pipeline."}
+{"message":"[Scheduler] 4:00 CST reached — starting AG-26 funding forecast monthly pipeline.","timestamp":"2026-08-18T09:00:22.138716650Z","level":"info"}
+{"message":"[Scheduler] 4:00 CST reached — starting nonprofit-enrichment-weekly.","timestamp":"2026-08-18T09:00:22.139762758Z","level":"info"}
+{"timestamp":"2026-08-18T09:00:22.139771998Z","message":"[AutonomousOrchestrator] AG-38 self-improvement pipeline starting.","level":"info"}
+{"message":"[Scheduler] 5:00 CST reached — starting AG-42 change monitor daily pipeline.","level":"info","timestamp":"2026-08-18T10:00:31.675101713Z"}
+{"message":"[AutonomousOrchestrator] AG-42 change monitor daily pipeline starting.","timestamp":"2026-08-18T10:00:31.675106753Z","level":"info"}
+{"message":"[Scheduler] 5:30 CST reached — starting AG-23 relationship graph incremental pipeline.","timestamp":"2026-08-18T10:30:22.325506205Z","level":"info"}
+{"level":"info","timestamp":"2026-08-18T10:30:22.745822786Z","message":"[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline starting for 1 org(s)."}
+{"message":"[Scheduler] 5:45 CST reached — starting AG-25 disaster response pipeline.","level":"info","timestamp":"2026-08-18T10:45:22.317887239Z"}
+{"message":"[AutonomousOrchestrator] Disaster response pipeline starting (FEMA poll).","timestamp":"2026-08-18T10:45:22.317898779Z","level":"info"}
+{"timestamp":"2026-08-18T11:00:22.337747425Z","message":"[Scheduler] 6:00 CST reached — starting AG-36 learning network aggregator pipeline.","level":"info"}
+{"timestamp":"2026-08-18T12:00:27.793828865Z","message":"[Scheduler] 7:00 CST reached — starting morning digest pipeline.","level":"info"}
+{"message":"[AutonomousOrchestrator] Morning digest pipeline starting for 2 active org(s).","timestamp":"2026-08-18T12:00:27.793833785Z","level":"info"}
+{"message":"[Scheduler] 2:00 CST reached — starting nightly autonomous pipeline.","level":"info","timestamp":"2026-08-19T07:00:24.107238954Z"}
+{"message":"[Scheduler] 2:00 CST reached — starting AG-27 board packet daily pipeline.","timestamp":"2026-08-19T07:00:24.107242774Z","level":"info"}
+{"level":"info","timestamp":"2026-08-19T07:00:24.294162840Z","message":"[AutonomousOrchestrator] Nightly pipeline starting for 2 active org(s)."}
+{"timestamp":"2026-08-19T08:00:24.264248888Z","message":"[Scheduler] 3:00 CST reached — starting AutoApply autonomous overnight orchestrator.","level":"info"}
+{"timestamp":"2026-08-19T08:00:24.264257138Z","message":"[Scheduler] 3:00 CST reached — starting AG-10 grant DNA weekly pipeline.","level":"info"}
+{"message":"[Scheduler] 3:00 CST reached — starting foundation-enrichment-weekly.","timestamp":"2026-08-19T08:00:24.264261858Z","level":"info"}
+{"message":"[AutoApplyAutonomousOrchestrator] Nightly batch starting for 0 eligible org(s).","timestamp":"2026-08-19T08:00:24.535619169Z","level":"info"}
+{"level":"info","message":"[Scheduler] 4:00 CST reached — starting AG-38 self-improvement pipeline.","timestamp":"2026-08-19T09:00:25.640917417Z"}
+{"timestamp":"2026-08-19T09:00:25.640921037Z","level":"info","message":"[Scheduler] 4:00 CST reached — starting AG-26 funding forecast monthly pipeline."}
+{"timestamp":"2026-08-19T09:00:25.640924217Z","level":"info","message":"[Scheduler] 4:00 CST reached — starting nonprofit-enrichment-weekly."}
+{"timestamp":"2026-08-19T09:00:25.640929247Z","level":"info","message":"[AutonomousOrchestrator] AG-38 self-improvement pipeline starting."}
+{"message":"[Scheduler] 5:00 CST reached — starting AG-42 change monitor daily pipeline.","timestamp":"2026-08-19T10:00:24.431880394Z","level":"info"}
+{"timestamp":"2026-08-19T10:00:24.431886214Z","message":"[AutonomousOrchestrator] AG-42 change monitor daily pipeline starting.","level":"info"}
+{"level":"info","message":"[Scheduler] 5:30 CST reached — starting AG-23 relationship graph incremental pipeline.","timestamp":"2026-08-19T10:30:24.495558536Z"}
+{"message":"[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline starting for 1 org(s).","timestamp":"2026-08-19T10:30:24.961021922Z","level":"info"}
+{"timestamp":"2026-08-19T10:45:25.213904331Z","level":"info","message":"[Scheduler] 5:45 CST reached — starting AG-25 disaster response pipeline."}
+{"timestamp":"2026-08-19T10:45:25.213906851Z","message":"[AutonomousOrchestrator] Disaster response pipeline starting (FEMA poll).","level":"info"}
+{"level":"info","message":"[Scheduler] 6:00 CST reached — starting AG-36 learning network aggregator pipeline.","timestamp":"2026-08-19T11:00:24.518514270Z"}
+{"message":"[Scheduler] 7:00 CST reached — starting morning digest pipeline.","timestamp":"2026-08-19T12:00:24.606647299Z","level":"info"}
+{"message":"[AutonomousOrchestrator] Morning digest pipeline starting for 2 active org(s).","timestamp":"2026-08-19T12:00:24.922132662Z","level":"info"}

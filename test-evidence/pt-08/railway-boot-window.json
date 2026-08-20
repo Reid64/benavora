@@ -1,0 +1,13 @@
+{"level":"info","timestamp":"2026-08-15T20:57:16.873306238Z","message":"Starting Container"}
+{"level":"error","message":"[ProxyManager] PROXY_LIST env var is empty — no proxies loaded, running direct","timestamp":"2026-08-15T20:57:17.547252575Z"}
+{"level":"info","timestamp":"2026-08-15T20:57:17.547266995Z","message":"[DdRequestProcessor] Starting"}
+{"level":"info","timestamp":"2026-08-15T20:57:17.547273685Z","message":"[KnowledgeIndexerProcessor] Starting"}
+{"message":"[gmail-confirmation-monitor] Starting — polling every 5 minute(s)","level":"info","timestamp":"2026-08-15T20:57:17.547279645Z"}
+{"timestamp":"2026-08-15T20:57:17.547286545Z","level":"error","message":"[gmail-confirmation-monitor] Skipping cycle — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN not fully configured. This requires a one-time human OAuth consent as apply@benavora.com — see AUTOAPPLY_ARCHITECTURE_V2.md §10A."}
+{"timestamp":"2026-08-15T20:57:17.547292625Z","level":"info","message":"[AgentQueueProcessor] Started."}
+{"timestamp":"2026-08-15T20:57:17.547297685Z","message":"[Worker] AutoApply Worker started — id=railway-worker-1 at 2026-08-15T20:57:16.854Z","level":"info"}
+{"message":"[QueueProcessor] Proxy pool ready â€” 0/0 active","timestamp":"2026-08-15T20:57:17.547304675Z","level":"info"}
+{"timestamp":"2026-08-15T20:57:17.547309455Z","message":"[DdRequestProcessor] Queue empty, sleeping 15s","level":"info"}
+{"message":"[QueueProcessor] Queue empty, sleeping 15s","timestamp":"2026-08-15T20:57:17.547314575Z","level":"info"}
+{"message":"[StreamServer] Stream server listening on port 8080","timestamp":"2026-08-15T20:57:17.547326044Z","level":"info"}
+{"message":"[QueueProcessor] Starting â€” worker=railway-worker-1","level":"info","timestamp":"2026-08-15T20:57:17.547329614Z"}

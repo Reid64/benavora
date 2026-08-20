@@ -1,11 +1,153 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 — audit PT-02 (API/CRUD/auth) COMPLETE, consolidation done, review pack
-ready for Reid's review. Headline: 318/318 API routes tested unauthenticated with zero auth
-bypasses; 304/304 role-tier calls (76 routes × 4 roles) correctly enforced with zero
-under-enforcement. Authorization is sound. See the "SESSION — August 19, 2026 (audit PT-02
-COMPLETE)" entry immediately below for the consolidation summary; the five per-substep entries
-after it (PT-02-005 through the PT-02 preflight) are this phase's underlying work, unchanged.**
+**Updated: August 19, 2026 — audit PT-08 (worker boot inventory) done. Headline: worker/index.ts
+starts 7 top-level processors at boot (heartbeat, AutoApply queue processor, donor-discovery
+request processor, knowledge indexer, Gmail confirmation monitor, scheduler, agent-queue
+processor) plus a WebSocket stream server, all live-confirmed via a real production boot log.
+The scheduler in turn fires 13 registered jobs, all confirmed reaching their target functions via
+a 5-day live log sweep. One real P1 dead-code finding: `worker/enrichment-processor.ts` (the
+EA-01..EA-10 corporate-enrichment pipeline + AG-22 propensity scoring) is a complete, real
+processor that is never registered anywhere — confirmed unreachable by any path, continuous or
+on-demand, and directly contradicts WORKER_ARCHITECTURE_v2.md's own documented boot sequence. See
+the "SESSION — August 19, 2026 (audit PT-08: worker boot inventory)" entry below.**
+
+## SESSION — August 19, 2026 (audit PT-08: worker boot inventory)
+
+**Scope:** determine, from the actual boot code in `worker/index.ts`, which processors/consumers
+are registered AND started at boot — not merely defined or imported — distinguishing STARTED,
+DEFINED-NOT-STARTED (the documented dead-code class), and REFERENCED-ONLY. Reconcile the static
+read against a real production worker boot log where reachable.
+
+**Method:** read `worker/index.ts`'s `main()` line by line, then every module it imports at the
+top level. Separately, grepped the whole `worker/` and `src/worker/` trees for every module
+exporting a `start()`/`stop()` pair (the processor-registration idiom this codebase uses
+consistently) to find any such module `index.ts` does *not* import — this is how the one real
+dead-code finding was found, not by trusting the doc's own claims. The Railway CLI
+(`railway whoami` → `reid@repvg.com`) was already authenticated in this session with no extra
+setup needed, and the linked `benavora-worker` service was confirmed `Online`
+(deployment `9af8db54-...`, container started `2026-08-15T20:57:16.873Z`, running continuously
+since). `railway logs --deployment` pulled the exact container-boot window
+(`--since`/`--until` a 4-second bracket around the start timestamp) and captured every processor's
+own startup log line in one clean, complete slice — every processor that logs on `start()` did
+so within the same millisecond-scale window, confirming they all fire synchronously from
+`main()` as the static read predicted. A second sweep (`--since 30d`, filtered on `"Starting"`)
+caught all 13 of the scheduler's registered jobs actually firing on their correct wall-clock times
+across 2026-08-15 through 2026-08-19, live proof the scheduler's internal 60-second check loop is
+genuinely running (it logs nothing itself at boot — only per-job fire events). A direct
+`DATABASE_URL`/`pg` query against the live production `worker_status` table (DIRECTIVE-017 path)
+independently confirmed `heartbeat.ts`'s registration + tick, which by design logs nothing on a
+successful cycle: `started_at` in the DB row and the boot log's own embedded timestamp agree to
+within 200ms, and `last_heartbeat_at` was 23-27 seconds old at two separate query times — inside
+the real 30-second interval, live right now, not a stale one-time write.
+
+**Result — 26 processors/consumers inventoried, 24 STARTED, 2 DEFINED-NOT-STARTED, 0
+REFERENCED-ONLY** (no genuine "imported/mentioned but not a real processor" case was found in this
+codebase — every start()/stop()-shaped module is either genuinely wired, directly or via the
+scheduler's dynamic imports, or genuinely orphaned). Full inventory with per-processor evidence:
+`test-evidence/pt-08/boot-inventory.json`.
+
+**STARTED (24):** the 7 modules `worker/index.ts` imports and calls directly at the top of
+`main()` — `StreamServer` (class, `.start()`), `heartbeat`, `queueProcessor`, `ddRequestProcessor`,
+`knowledgeIndexerProcessor`, `confirmationMonitor` (the Gmail AutoApply confirmation monitor,
+`src/lib/autoapply/confirmation-monitor.ts`), `scheduler` — plus the agent-queue processor
+(`processAgentQueue`, kicked off as a fire-and-forget promise rather than a `.start()`/`.stop()`
+pair, but confirmed a genuine `while (!queueProcessorStopped)` continuous loop with its own
+managed shutdown hook). Three additional job-type consumers (`enrich_donor_prospect`,
+`score_donor_prospect`, `run_connector_enrichment`) are embedded inside `queueProcessor`'s own
+idle cycle, not separate top-level processors, but genuinely wired and called every idle tick — all
+three confirmed by direct code read (`worker/queue-processor.ts` lines 266/277/288 call the private
+methods that claim and handle each job type). Below the top level, the scheduler's 13 registered
+jobs (all 10 of `autonomous-orchestrator.ts`'s exported pipeline functions, plus
+`autoapply-autonomous-orchestrator.ts`'s `runAutonomousAutoApply`, plus the foundation and
+nonprofit Directive-1 scrapers) were **all** confirmed to actually fire and reach their target
+function via live log evidence spanning 5 real days — not just present in the scheduler's job
+array. Two of the 13 (`foundation-enrichment-weekly`, `nonprofit-enrichment-weekly`) are classified
+STARTED with a caveat: the wrapper job genuinely fires weekly and is confirmed live, but the actual
+scraper module's dynamic import is gated behind `ENABLE_SCRAPER === 'true'` and that flag is
+currently unset in production — confirmed live via the scheduler's own
+`"...skipped — ENABLE_SCRAPER is not 'true'."` log line firing every Sunday observed. This is
+STANDING_DIRECTIVES.md Directive 1's own documented, deliberate safety gate (real Chromium
+instances, real outbound requests), not an omitted registration — so it's recorded as STARTED (the
+job code path is genuinely reachable and exercised weekly up to the gate check), not dead code.
+
+**DEFINED-NOT-STARTED (2), one real P1 finding and one orphaned-but-harmless P3:**
+1. **`worker/enrichment-processor.ts` — P1, register finding WGR-033.** A complete, real
+   `start()`/`stop()`/`waitForIdle()` processor, structurally identical to every started one, that
+   `worker/index.ts` simply never calls. It imports and runs all 10 EA-0X corporate-enrichment
+   agents plus AG-22 (`PropensityScoringAgent`, confirmed via grep to have this file as its **only**
+   call site anywhere in the repo) — meaning all 11 of those agent classes are unreachable via any
+   continuous or on-demand production path today. This directly contradicts
+   `WORKER_ARCHITECTURE_v2.md` line 92, whose own canonical documented boot sequence lists
+   `"6. Start enrichment processor loop (continuous, lower priority)"` as a real step — no such call
+   exists anywhere in the actual `worker/index.ts`. This re-confirms, with fresh direct evidence,
+   the same gap this project's own governance history has flagged since at least 2026-07-28 (see
+   this file's own "SESSION — August 18, 2026 (overnight consolidation)" entry: "not called from
+   worker/index.ts's boot sequence yet — it runs standalone/on-demand only") — but this pass found
+   that "standalone/on-demand" overstated it: there is no CLI script or API route calling it either
+   (`scripts/` grep: zero hits; repo-wide grep for `runEnrichmentBatch`: exactly 1 hit, its own
+   definition). The only way this code has ever executed is a manually-written, throwaway
+   verification script, consistent with every AG-22 diagnosis entry elsewhere in this file's
+   history.
+2. **`src/worker/jobs/process-discovery-request.ts` — P3, register finding WGR-034.** A real
+   exported job handler (`handleProcessDiscoveryRequestJob`) and job-type constant
+   (`PROCESS_DISCOVERY_REQUEST_JOB_TYPE`) referenced nowhere else in the repo — no producer
+   enqueues this job type, no consumer claims it. Deliberately filed at lower severity than the
+   finding above: this file's own header comment states plainly that the capability it would
+   provide is already fully covered by `worker/dd-request-processor.ts`'s own poll loop (confirmed
+   STARTED, the real running consumer of `donor_discovery_requests`) — so this is genuine dead code,
+   but it backs no missing feature. It reads as an alternate, never-finished entry point under a
+   job-payload shape used by sibling files (`enrich-donor-prospect.ts`, `score-donor-prospect.ts` —
+   both of which genuinely ARE wired, into `queueProcessor`'s idle cycle), abandoned before it was
+   ever connected to a dispatcher.
+
+**WGR-003 cross-check (item 5 of this task):** confirmed by direct code read that
+`worker/index.ts`'s `validateEnv()` (lines 17-43) requires its own `SUPABASE_URL` — a completely
+separate env var from the Next.js web app's `NEXT_PUBLIC_SUPABASE_URL` — alongside
+`SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, and `WORKER_ID`; a missing/falsy value on any of
+the four logs `"[Worker] Fatal: missing required env vars: ..."` and calls `process.exit(1)`
+synchronously, before any processor (including the stream server) is even constructed. Reid
+confirmed `SUPABASE_URL` is present in Railway production — this session's boot-log evidence goes
+further than that presence-confirmation: reaching `"[Worker] AutoApply Worker started"` and every
+processor's own `"Starting"` line is only possible if `validateEnv()` already returned
+successfully, since it runs at module-load time before `main()`'s first `await`. That is live proof
+all four required vars are genuinely truthy in the current Railway production deployment right now
+— not just reported present. `WIRING_GAP_REGISTER.md`'s WGR-003 row (which already documented the
+local-`.env.local` absence and explicitly left "worth Reid confirming these are genuinely unset in
+Vercel/Railway production too" open) was updated in place with this confirmation, scoped to
+`SUPABASE_URL` specifically — the other 12 vars in that row remain unconfirmed in production either
+way.
+
+**Register updates:** two new findings appended to `test-evidence/_register/WIRING_GAP_REGISTER.md`
+— WGR-033 (P1, `worker/enrichment-processor.ts` dead code) and WGR-034 (P3,
+`process-discovery-request.ts` orphaned duplicate). WGR-003's existing row was edited in place to
+add the PT-08 production-confirmation note (not a new row — the underlying finding is the same one,
+just newly corroborated for one of its 13 variables).
+
+**Evidence:** `test-evidence/pt-08/boot-inventory.json` (the full 26-processor inventory with
+per-entry state + evidence), `test-evidence/pt-08/railway-status.txt`,
+`test-evidence/pt-08/railway-boot-window.json` (the complete real container-boot log slice),
+`test-evidence/pt-08/railway-scheduler-jobs-fired.json` (5-day live sweep of every scheduled job
+firing), `test-evidence/pt-08/worker-status-live-query.txt` (live `worker_status` table read).
+Verifier: `scripts/audit/verify-pt08-001.mjs` — confirms the inventory is valid JSON, every entry
+has a state from the 3-state taxonomy plus non-empty evidence, the declared summary counts match
+the actual array contents, and every referenced live-log evidence file actually exists and is
+non-empty. `node scripts/audit/verify-pt08-001.mjs` → PASS, 26 processors, 24 STARTED / 2
+DEFINED-NOT-STARTED.
+
+**Not in this pass's scope, noted in passing, not filed as findings here:** two real runtime
+correctness issues surfaced incidentally in the same log sweep — `AG-38 self-improvement pipeline`
+failing twice with a DB `null value in column` error, and `process-followups` failing to load
+`application_followups` (`"Could not find the table 'public.application_followups' in the schema
+cache"`). Both confirm their respective scheduler jobs ARE reached (a registration-state PASS), but
+then fail on real, separate DB/schema issues — out of scope for a boot-registration audit, flagged
+here so they aren't lost. Also noted: `WORKER_ARCHITECTURE_v2.md` line 94 documents FEMA polling as
+a standalone `worker/fema-poller.ts` process running "every 6 hours"; the real implementation folds
+this into the scheduler's once-daily 5:45 AM CST `AG-25 disaster response pipeline` job instead —
+functionally reachable (confirmed firing daily via live logs), just at a different cadence and
+location than the superseded spec describes.
+
+**Gates:** no application code was changed this session (audit/evidence-only, per this task's
+scope) — `pnpm tsc --noEmit`/`pnpm run build` not applicable.
 
 ## SESSION — August 19, 2026 (audit PT-02 COMPLETE: API/CRUD/auth audit, review pack ready)
 

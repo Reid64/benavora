@@ -1,0 +1,30 @@
+◇ injected env (9) from .env.local // tip: ⌘ override existing { override: true }
+[
+  {
+    "worker_id": "railway-worker-1",
+    "status": "idle",
+    "started_at": "2026-08-15T20:57:16.669Z",
+    "last_heartbeat_at": "2026-08-20T00:31:32.524Z",
+    "items_processed": 2,
+    "items_failed": 0,
+    "heartbeat_age": {
+      "seconds": 23,
+      "milliseconds": 404.232
+    }
+  },
+  {
+    "worker_id": "benavora-worker-1",
+    "status": "offline",
+    "started_at": "2026-07-20T22:30:09.028Z",
+    "last_heartbeat_at": "2026-07-20T22:30:09.027Z",
+    "items_processed": 0,
+    "items_failed": 0,
+    "heartbeat_age": {
+      "days": 30,
+      "hours": 2,
+      "minutes": 1,
+      "seconds": 46,
+      "milliseconds": 901.232
+    }
+  }
+]
