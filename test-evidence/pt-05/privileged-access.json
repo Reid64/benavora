@@ -1,0 +1,311 @@
+{
+  "generated_at": "2026-08-20T05:38:44.137Z",
+  "environment": {
+    "target": "local pt05-local-stack (never production)",
+    "local_db_url_redacted": "postgresql://postgres:***@127.0.0.1:56322/postgres",
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt"
+  },
+  "demo_write_protection": {
+    "migration": "supabase/migrations/138_demo_account_scope.sql",
+    "spec_ref": "DEMO_ACCOUNT_SCOPE_2026-08-15.md",
+    "protection_live_in_production": {
+      "verdict": "HOLDS -- all columns, functions, and triggers confirmed live via direct read-only production query (not just column presence per PT-06's own methodology)",
+      "evidence_ref": "test-evidence/pt-05/pt05-004-production-investigation.json",
+      "columns_found": [
+        {
+          "table_name": "organizations",
+          "column_name": "extended_profile",
+          "data_type": "jsonb",
+          "is_nullable": "NO",
+          "column_default": "'{}'::jsonb"
+        },
+        {
+          "table_name": "profiles",
+          "column_name": "restricted_onboarding_edit",
+          "data_type": "boolean",
+          "is_nullable": "NO",
+          "column_default": "false"
+        }
+      ],
+      "functions_found": [
+        "block_if_onboarding_edit_restricted",
+        "block_restricted_organizations_update",
+        "is_onboarding_edit_restricted"
+      ],
+      "triggers_found": [
+        {
+          "table_name": "board_members",
+          "trigger_name": "block_restricted_write",
+          "calls_function": "block_if_onboarding_edit_restricted",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.board_members FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+        },
+        {
+          "table_name": "documents",
+          "trigger_name": "block_restricted_write",
+          "calls_function": "block_if_onboarding_edit_restricted",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+        },
+        {
+          "table_name": "knowledge_base",
+          "trigger_name": "block_restricted_write",
+          "calls_function": "block_if_onboarding_edit_restricted",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.knowledge_base FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+        },
+        {
+          "table_name": "organizational_digital_twins",
+          "trigger_name": "block_restricted_write",
+          "calls_function": "block_if_onboarding_edit_restricted",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.organizational_digital_twins FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+        },
+        {
+          "table_name": "organizations",
+          "trigger_name": "block_restricted_organizations_update",
+          "calls_function": "block_restricted_organizations_update",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER block_restricted_organizations_update BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION block_restricted_organizations_update()"
+        },
+        {
+          "table_name": "organizations",
+          "trigger_name": "trg_seed_platform_config",
+          "calls_function": "seed_default_platform_config",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER trg_seed_platform_config AFTER INSERT ON public.organizations FOR EACH ROW EXECUTE FUNCTION seed_default_platform_config()"
+        },
+        {
+          "table_name": "programs",
+          "trigger_name": "block_restricted_write",
+          "calls_function": "block_if_onboarding_edit_restricted",
+          "enabled_flag": "O",
+          "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.programs FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+        }
+      ]
+    },
+    "pt06_unapplied_migration_cross_check": {
+      "checked": true,
+      "migration": "138_demo_account_scope.sql",
+      "found_in_pt06_appliedAndOnDisk_bucket": true,
+      "found_in_pt06_onDiskNotApplied_bucket": false,
+      "evidence_ref": "test-evidence/pt-06/migration-drift.json",
+      "verdict": "APPLIED_PER_PT06"
+    },
+    "behavioral_test": {
+      "method": "Real GoTrue-authenticated sessions (owner A = restricted_onboarding_edit:true, owner B = false, negative control) against the local pt05-local-stack with migration 138's exact functions/triggers reproduced verbatim (pt05-004-schema-extension.sql), attempting writes through the same @supabase/supabase-js client the real app uses, not raw SQL.",
+      "restricted_flag_confirmed_set": [
+        {
+          "id": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+          "restricted_onboarding_edit": false
+        },
+        {
+          "id": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+          "restricted_onboarding_edit": true
+        }
+      ],
+      "attempts": [
+        {
+          "id": "A1_blocked_organizations_protected_column",
+          "actor": "owner_a (restricted_onboarding_edit=true)",
+          "table": "organizations",
+          "operation": "UPDATE",
+          "column": "founder_name",
+          "expected": "blocked",
+          "error_code": "42501",
+          "error_message": "This demo account cannot modify this organization field.",
+          "rows_returned": 0,
+          "verdict": "PASS_BLOCKED"
+        },
+        {
+          "id": "A2_allowed_organizations_branding_column",
+          "actor": "owner_a (restricted_onboarding_edit=true)",
+          "table": "organizations",
+          "operation": "UPDATE",
+          "column": "logo_url",
+          "expected": "allowed",
+          "error_code": null,
+          "error_message": null,
+          "rows_returned": 1,
+          "verdict": "PASS_ALLOWED"
+        },
+        {
+          "id": "A3_blocked_knowledge_base_insert",
+          "actor": "owner_a (restricted_onboarding_edit=true)",
+          "table": "knowledge_base",
+          "operation": "INSERT",
+          "expected": "blocked",
+          "error_code": "42501",
+          "error_message": "This demo account cannot modify organizational profile data.",
+          "rows_returned": 0,
+          "verdict": "PASS_BLOCKED"
+        },
+        {
+          "id": "A4_blocked_digital_twin_update",
+          "actor": "owner_a (restricted_onboarding_edit=true)",
+          "table": "organizational_digital_twins",
+          "operation": "UPDATE",
+          "expected": "blocked",
+          "error_code": "42501",
+          "error_message": "This demo account cannot modify organizational profile data.",
+          "rows_returned": 0,
+          "verdict": "PASS_BLOCKED"
+        },
+        {
+          "id": "A5_blocked_knowledge_base_delete",
+          "actor": "owner_a (restricted_onboarding_edit=true)",
+          "table": "knowledge_base",
+          "operation": "DELETE",
+          "expected": "blocked",
+          "error_code": "42501",
+          "error_message": "This demo account cannot modify organizational profile data.",
+          "rows_returned": 0,
+          "row_confirmed_still_present_after_attempt": true,
+          "verdict": "PASS_BLOCKED"
+        },
+        {
+          "id": "B1_negative_control_organizations_update",
+          "actor": "owner_b (restricted_onboarding_edit=false)",
+          "table": "organizations",
+          "operation": "UPDATE",
+          "column": "founder_name",
+          "expected": "allowed",
+          "error_code": null,
+          "error_message": null,
+          "rows_returned": 1,
+          "verdict": "PASS_NEGATIVE_CONTROL_UNAFFECTED"
+        },
+        {
+          "id": "B2_negative_control_knowledge_base_insert",
+          "actor": "owner_b (restricted_onboarding_edit=false)",
+          "table": "knowledge_base",
+          "operation": "INSERT",
+          "expected": "allowed",
+          "error_code": null,
+          "error_message": null,
+          "rows_returned": 1,
+          "verdict": "PASS_NEGATIVE_CONTROL_UNAFFECTED"
+        },
+        {
+          "id": "B3_negative_control_digital_twin_update",
+          "actor": "owner_b (restricted_onboarding_edit=false)",
+          "table": "organizational_digital_twins",
+          "operation": "UPDATE",
+          "expected": "allowed",
+          "error_code": null,
+          "error_message": null,
+          "rows_returned": 1,
+          "verdict": "PASS_NEGATIVE_CONTROL_UNAFFECTED"
+        }
+      ],
+      "independent_re_read_after_all_attempts": {
+        "org_a_founder_name_unchanged": true,
+        "org_a_logo_url_did_change_as_expected": true,
+        "org_a_knowledge_base_marker_row_count_should_be_zero": 0,
+        "org_a_digital_twin_mission_unchanged": true
+      },
+      "verdict": "HOLDS"
+    }
+  },
+  "admin_impersonation": {
+    "route": "src/app/api/admin/orgs/[id]/impersonate/route.ts",
+    "bounded_to_org": {
+      "verdict": "UNBOUNDED",
+      "reasoning": "The impersonation_org_id cookie the route sets is read by zero other call sites in the entire repo (git grep confirms it only appears in its own route.ts). The actual authorization gate for every owner-scoped admin route, including /admin/orgs/[id] itself, is role-only (profiles.role = 'owner'), with no comparison to any 'currently impersonating org X' state -- because no such state is ever persisted or checked server-side. An admin who has 'started impersonating' org A can reach org B (or any other org) by simply navigating to /admin/orgs/{orgB}, with zero additional restriction, identically to before 'impersonating' anything.",
+      "cookie_grep": {
+        "command": "git grep -n impersonation_org_id -- src worker scripts",
+        "matches": [
+          "src/app/api/admin/orgs/[id]/impersonate/route.ts:22:const COOKIE_NAME = \"impersonation_org_id\";"
+        ],
+        "cookie_appears_only_in_its_own_setter_route": true
+      },
+      "role_gate_is_org_independent": {
+        "query": "select role from profiles where id = $1  -- src/lib/auth/role-gate.ts checkPermission()",
+        "owner_a_role": "owner",
+        "owner_b_role": "owner",
+        "note": "The query never references an org id at all -- it cannot be 'bounded' to one by construction."
+      },
+      "admin_surface_cross_org_reach_confirmed": {
+        "description": "Owner A's session (which just performed the impersonation_log/audit_logs inserts for target_org_id=org B above) successfully reads org B's real admin-detail data via the service-role admin path, the same path /admin/orgs/[id]/page.tsx uses after its role-only gate passes.",
+        "org_b_row_returned_via_admin_path": {
+          "id": "0fdd7a7d-6214-4d54-bca2-40239e0146f9",
+          "name": "PT-05 Test Org B"
+        }
+      },
+      "ordinary_rls_unaffected_for_contrast": {
+        "description": "Owner A's own RLS-scoped session (not the admin path) still cannot read org B's tenant-scoped organizations row directly -- confirms this finding is specifically about the owner-gated ADMIN surface bypassing org scoping by design, not a new RLS regression alongside PT-05-002/003's already-clean findings.",
+        "owner_a_rls_scoped_read_of_org_b": {
+          "error_code": null,
+          "rows_returned": 0
+        }
+      },
+      "production_evidence": {
+        "total_owner_role_profiles_in_production": 70,
+        "note": "Every one of these real users passes the same role-only gate for every org on the platform, not just the org they last 'impersonated'."
+      }
+    },
+    "audit_logged": {
+      "verdict": "PARTIAL",
+      "reasoning": "Two separate audit writes happen per impersonation call. The generic audit_logs write (logAudit()) succeeds for any real caller (confirmed above: CONFIRMED_SUCCEEDS). But the DEDICATED impersonation_log write -- the purpose-built table this feature exists to populate, per the route's own header comment ('SCHEMA_REGISTRY §55') -- is guaranteed to fail with a foreign-key violation for every real production caller today, because its admin_id column references platform_admins(id), and 0 of the 70 real owner-role profiles in production are present in platform_admins (platform_admins has exactly 1 row total, confirmed this phase via read-only production query). The route's own code never checks the {error} on this insert (result is not destructured), so the failure is silently swallowed and the caller receives { ok: true } regardless. impersonation_log has 0 rows in production today, consistent with this.",
+      "production_evidence": {
+        "impersonation_log_row_count": 0,
+        "impersonation_log_admin_id_fk_target": [
+          {
+            "fk_column": "admin_id",
+            "references_table": "platform_admins",
+            "references_column": "id"
+          },
+          {
+            "fk_column": "target_org_id",
+            "references_table": "organizations",
+            "references_column": "id"
+          }
+        ],
+        "platform_admins_row_count": 1,
+        "owner_role_profiles_present_in_platform_admins": 0,
+        "total_owner_role_profiles": 70,
+        "audit_logs_rows_with_admin_action_impersonate": 0
+      },
+      "local_reproduction": [
+        {
+          "id": "impersonation_log_insert_as_real_owner",
+          "table": "impersonation_log",
+          "admin_id_used": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff (a real owner-role profile id, mirroring the real route's gate.userId)",
+          "expected_in_production_today": "FK violation -- platform_admins has 0 of 70 real owner-role profiles",
+          "result": {
+            "ok": false,
+            "code": "23503",
+            "message": "insert or update on table \"impersonation_log\" violates foreign key constraint \"impersonation_log_admin_id_fkey\""
+          },
+          "verdict": "CONFIRMED_FK_VIOLATION_MATCHES_PRODUCTION"
+        },
+        {
+          "id": "audit_logs_insert_as_real_owner",
+          "table": "audit_logs",
+          "expected": "succeeds (no FK problem -- organization_id and user_id both resolve to real rows the caller genuinely owns/targets)",
+          "result": {
+            "ok": true,
+            "id": "8584f552-3ef4-413d-a225-19d62e4138c1"
+          },
+          "verdict": "CONFIRMED_SUCCEEDS"
+        }
+      ]
+    }
+  },
+  "findings": [
+    {
+      "id": "PT05-004-F1",
+      "severity": "P0",
+      "area": "admin_impersonation",
+      "description": "Admin impersonation is unbounded: the impersonation_org_id cookie set by POST /api/admin/orgs/[id]/impersonate is never read by any other code path in the application. Every owner-gated cross-org admin route (including /admin/orgs/[id] itself) authorizes on profiles.role = 'owner' alone, with no dependency on which org (if any) the admin has 'started impersonating'. An admin impersonating org A can reach org B (or any of the platform's other orgs) with zero additional restriction, identically to before impersonation started. This is compounded by 'owner' being a per-org role held by 70 real users today (any org's own owner), not a distinct platform-admin population.",
+      "evidence": "test-evidence/pt-05/privileged-access.json (admin_impersonation.bounded_to_org)"
+    },
+    {
+      "id": "PT05-004-F2",
+      "severity": "P1",
+      "area": "admin_impersonation",
+      "description": "The dedicated impersonation_log audit table (SCHEMA_REGISTRY §55) is unwritable for every real production caller: its admin_id column has a foreign key to platform_admins(id), but platform_admins has only 1 row and 0 of the platform's 70 real owner-role profiles are present in it. Every impersonation attempt's impersonation_log insert therefore fails with a 23503 foreign-key violation, silently (the route never checks the insert's {error}), and impersonation_log has 0 rows in production despite the feature existing. A separate, generic audit_logs row IS written successfully per call, so impersonation is not fully unlogged -- but the specific, purpose-built impersonation audit trail is broken for every real user.",
+      "evidence": "test-evidence/pt-05/privileged-access.json (admin_impersonation.audit_logged)"
+    }
+  ]
+}

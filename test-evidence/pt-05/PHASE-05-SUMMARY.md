@@ -305,3 +305,119 @@ policy for a given command is org-scoped.
   captured `raw_rows` payload; requires a real before/after Org-B re-read for every attempt; live
   re-checks the local stack still exists and independently re-verifies one sampled claim directly
   against the database, bypassing `cross-write.json`'s own recorded result).
+
+## PT-05-004 — Demo write-protection + admin impersonation scoping/audit-logging
+
+Two independent surfaces, both privileged-access questions rather than tenant-isolation ones (the
+subject of PT-05-002/003): (1) does the demo-account write-protection migration
+(`138_demo_account_scope.sql`) actually block writes for a restricted-flag profile, and (2) is
+platform-admin impersonation of another org bounded to that org and audit-logged. Real production
+evidence first, then a live behavioral test against the local stack (never production) for the
+parts a schema-only read can't settle.
+
+### Demo write-protection — HOLDS, live-verified beyond PT-06's own methodology
+
+PT-06's drift methodology only checks column/table *existence*, never trigger/function existence —
+so before any behavioral test, this pass ran a fresh, direct, read-only production query
+(`pt05-004-investigate.mjs`) confirming the real objects, not just the columns migration 138 adds:
+all 3 functions (`is_onboarding_edit_restricted`, `block_if_onboarding_edit_restricted`,
+`block_restricted_organizations_update`) and all 6 real triggers (`block_restricted_write` on
+`knowledge_base`/`board_members`/`programs`/`organizational_digital_twins`/`documents`,
+`block_restricted_organizations_update` on `organizations`) exist live in production, each
+confirmed wired to the *correct* function via a `pg_trigger.tgfoid -> pg_proc` join — not just a
+matching trigger name. Migration `138_demo_account_scope.sql` is also confirmed present in PT-06's
+`appliedAndOnDisk` bucket, not its `onDiskNotApplied` bucket — **not** among PT-06's unapplied set,
+so this is not the P1 "protection not live in prod" finding the task flagged as a possibility.
+
+The behavioral half (`pt05-004-privileged-access.mjs`) reproduced migration 138's exact
+function/trigger SQL verbatim against the local stack (`pt05-004-schema-extension.sql`), plus the
+real production RLS policy on `organizations` (`id = current_org_id()`) for realism, then ran 8 real
+writes through real GoTrue-authenticated sessions via `@supabase/supabase-js` (the same client the
+real app uses, not raw SQL):
+
+| Attempt | Actor | Table/column | Expected | Result |
+|---|---|---|---|---|
+| A1 | owner A (restricted) | `organizations.founder_name` UPDATE | blocked | **42501, blocked** |
+| A2 | owner A (restricted) | `organizations.logo_url` UPDATE (§2.1 branding carve-out) | allowed | **allowed, wrote through** |
+| A3 | owner A (restricted) | `knowledge_base` INSERT | blocked | **42501, blocked** |
+| A4 | owner A (restricted) | `organizational_digital_twins` UPDATE | blocked | **42501, blocked** |
+| A5 | owner A (restricted) | `knowledge_base` DELETE | blocked | **42501, blocked** |
+| B1 | owner B (unrestricted, negative control) | `organizations.founder_name` UPDATE | allowed | **allowed** |
+| B2 | owner B (unrestricted, negative control) | `knowledge_base` INSERT | allowed | **allowed** |
+| B3 | owner B (unrestricted, negative control) | `organizational_digital_twins` UPDATE | allowed | **allowed** |
+
+All 8/8 matched their expected outcome. An independent service-role re-read after every attempt
+confirmed each blocked write genuinely mutated nothing (Org A's `founder_name`/digital-twin mission
+unchanged, zero marker rows landed in `knowledge_base`), while the one allowed write (`logo_url`)
+did visibly change — proving the block is real and column/table-scoped, not a coincidental
+PostgREST error unrelated to the trigger. `board_members`/`programs`/`documents` were not
+separately re-created locally; production inspection already confirmed the identical shared trigger
+function is attached to all 5 real whole-table-blocked tables, so `knowledge_base` +
+`organizational_digital_twins` (2 independent live samples of the same function) is corroborating
+coverage, not partial coverage presented as full.
+
+**Finding:** WGR-076 (P3, CONFIRMED-OK) — records the clean result, matching this program's own
+convention (see WGR-071/WGR-073) of registering a verified-clean outcome, not just problems.
+
+### Admin impersonation — bounded_to_org: UNBOUNDED (P0); audit_logged: PARTIAL (P1)
+
+**Bounded to org — NO, confirmed unbounded.** A repo-wide `git grep -n impersonation_org_id -- src
+worker scripts` (run live inside the verification script, not asserted from memory) finds the
+cookie `POST /api/admin/orgs/[id]/impersonate` sets in exactly one place: the route file that sets
+it. Zero other files — not `middleware.ts`, not any page, not any component — ever read it back.
+The real authorization gate for every owner-scoped admin route, including `/admin/orgs/[id]` itself,
+is `checkPermission(userId, "owner")` / `requireRole("owner")` — a query against
+`profiles.role` alone, with **no org-id parameter at all**, confirmed by running that exact query
+live for two different real local test users. Live reproduction: owner A's session, immediately
+after generating the two audit-trail inserts for "impersonating" org B, reads org B's real
+admin-detail row via the same service-role admin path `/admin/orgs/[id]/page.tsx` uses — succeeds,
+1 row returned — with zero dependency on any impersonation state. For contrast (so this isn't
+mistaken for a PT-05-002/003-class RLS leak): the same owner A's own **RLS-scoped** session,
+querying `organizations` directly rather than through the admin path, correctly gets 0 rows for org
+B — ordinary tenant RLS is intact; this finding is specifically that the owner-gated ADMIN surface
+bypasses org scoping by design via `createAdminClient()`, and "impersonation" adds no restriction on
+top of that. Production evidence: 70 real users hold `role='owner'` today — any one of them, not a
+distinct platform-admin population, passes this same org-independent gate for every org on the
+platform.
+
+**Finding:** WGR-074 (P0, CONFIRMED-BROKEN).
+
+**Audit-logged — PARTIAL, not fully unlogged but the dedicated trail is broken.** The route makes
+two inserts per call. `impersonation_log` — the purpose-built table this feature exists to populate
+(its own header comment cites `SCHEMA_REGISTRY §55`) — has `admin_id` as a foreign key to
+`platform_admins(id)`. Live, read-only production query: `platform_admins` has exactly 1 row, and 0
+of the platform's 70 real `owner`-role profiles are present in it. Every real caller's `admin_id`
+(their own profile id, exactly what `requireRole("owner")`'s `gate.userId` supplies) is therefore
+guaranteed to violate that FK — reproduced live against a local copy of the identical constraint,
+observing the exact `23503` violation. The route's code never checks `{error}` on this insert (the
+result isn't destructured), so the failure is silently swallowed and the caller still gets
+`{ ok: true }`. `impersonation_log` has **0 rows in production today**, consistent with this being a
+100%-reproducible failure, not an unused feature that merely hasn't been tried. The second insert —
+a generic `audit_logs` row via `logAudit()`, with no comparable FK problem (`organization_id`/
+`user_id` both resolve to rows the real caller genuinely owns) — was independently reproduced and
+confirmed to **succeed**. Net: impersonation is not literally unlogged (a generic audit_logs row
+does land), but its dedicated, purpose-built audit trail is broken for every real user, which is
+the concrete condition the task's own severity table maps to P1.
+
+**Finding:** WGR-075 (P1, CONFIRMED-BROKEN).
+
+### Evidence files
+
+- `test-evidence/pt-05/pt05-004-production-investigation.json` — read-only production evidence:
+  demo-protection functions/triggers/columns, `impersonation_log`/`platform_admins`/`audit_logs`
+  real shapes and FK targets, row counts, and the owner-role-profile/platform_admins overlap count.
+- `test-evidence/pt-05/privileged-access.json` — the full behavioral test: all 8 demo-protection
+  write attempts with captured error codes and an independent re-read, both impersonation findings
+  with their live local reproductions, the cookie grep, and the role-gate query results.
+- `scripts/audit/pt05-004-investigate.mjs` — read-only production investigation script.
+- `scripts/audit/pt05-004-schema-extension.sql` — migration 138's real functions/triggers plus the
+  real `impersonation_log`/`platform_admins`/`audit_logs` shapes, reproduced verbatim on the local
+  stack.
+- `scripts/audit/pt05-004-privileged-access.mjs` — the behavioral test script.
+- `scripts/audit/pt05-004-register-findings.mjs` — registers WGR-074/075/076.
+- `scripts/audit/verify-pt05-004.mjs` — the verifier (requires both a demo-protection behavioral
+  test with at least one blocked and one allowed attempt, an independent re-read, PT-06
+  unapplied-migration cross-check with correct P1 escalation if it were ever found unapplied, and an
+  impersonation result with both `bounded_to_org` and `audit_logged` verdicts backed by real
+  evidence arrays, not bare strings; cross-checks severity registration against the recorded
+  verdicts).

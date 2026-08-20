@@ -1,5 +1,36 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-05-003 COMPLETE. Cross-tenant WRITE attempts (UPDATE,
+## Last Updated: August 20, 2026 — audit PT-05-004 COMPLETE. Demo write-protection + admin
+impersonation scoping/audit-logging. **Demo write-protection** (migration
+`138_demo_account_scope.sql`): a fresh read-only production query (going beyond PT-06's own
+column-existence-only drift methodology) confirmed all 3 real functions and all 6 real triggers
+live in production and correctly wired to the right function (`pg_trigger.tgfoid -> pg_proc` join,
+not a name match) — migration 138 is in PT-06's *applied* bucket, not the P1 "not live in prod" gap
+the task flagged as a possibility. A live behavioral test (real GoTrue-authenticated sessions, real
+`@supabase/supabase-js` writes, against a local reproduction of the exact trigger logic plus
+production's real `organizations` RLS policy) ran 8 real writes: every protected write blocked
+(`42501`) for a restricted profile, the one explicitly-allowed branding column (`logo_url`) still
+writable, an unrestricted negative-control profile unaffected on the identical writes, and an
+independent service-role re-read confirming every blocked attempt genuinely mutated nothing.
+**8/8 PASS.** **Admin impersonation** (`POST /api/admin/orgs/[id]/impersonate`): a live repo-wide
+`git grep` confirms the `impersonation_org_id` cookie the route sets is read by zero other code
+paths anywhere in the app — the real authorization gate for every owner-scoped admin route,
+including `/admin/orgs/[id]` itself, is role-only (`profiles.role='owner'`) with no org-id
+dependency at all, held by 70 real users today (not a distinct platform-admin population). Live
+reproduction: an admin's session, immediately after "impersonating" org A, reads org B's real
+admin-detail data via the same admin/service-role path with zero additional restriction — while
+that same admin's own RLS-scoped session correctly still can't read org B directly (rules out a
+PT-05-002/003-class RLS regression; this is specifically the owner-gated admin surface bypassing
+org scoping by design). **UNBOUNDED — WGR-074, P0.** Separately: the dedicated `impersonation_log`
+audit table's `admin_id` column FKs to `platform_admins`, which has only 1 row and 0 overlap with
+any of the 70 real `owner`-role profiles — every real insert is guaranteed to fail `23503`,
+silently swallowed since the route never checks `{error}`, consistent with `impersonation_log`
+holding 0 rows in production. A separate, generic `audit_logs` write (no FK problem) does succeed
+per call, confirmed via live reproduction — so this is partial, not total, audit failure.
+**PARTIAL — WGR-075, P1.** See `test-evidence/pt-05/privileged-access.json`,
+`test-evidence/pt-05/pt05-004-production-investigation.json`, `PHASE-05-SUMMARY.md`'s "PT-05-004"
+section, `REVIEW-PACK.md`, `WIRING_GAP_REGISTER.md` WGR-074/075/076.
+
+## Prior — August 20, 2026 — audit PT-05-003 COMPLETE. Cross-tenant WRITE attempts (UPDATE,
 DELETE, INSERT tagged with Org B's org_id), all tenant-scoped tables — the more dangerous direction
 than PT-05-002's read test. Authenticated as Org A's real user, attempted three real mutations
 against Org B's data on the same 20 live-tested tables (7 PT-05-001-seeded + all 13 of PT-06's

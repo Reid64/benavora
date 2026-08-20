@@ -35,6 +35,31 @@ default-deny rather than a tenant-scoped check specifically — noted per-table,
 detail: `PHASE-05-SUMMARY.md`'s "PT-05-003" section, `test-evidence/pt-05/cross-write.json`,
 WGR-073.
 
+## PT-05-004 result, up front: demo write-protection HOLDS; admin impersonation is UNBOUNDED (P0) and its dedicated audit trail is broken (P1)
+
+Two privileged-access questions, separate from PT-05-002/003's tenant-isolation testing. **Demo
+write-protection** (migration `138_demo_account_scope.sql`): re-verified live beyond PT-06's
+column-only methodology — all 3 real functions and 6 real triggers confirmed live in production
+(joined to the correct function, not just name-matched), and a live behavioral test (8 real writes
+via real GoTrue sessions) confirmed 8/8 expected outcomes: every protected write blocked (`42501`),
+the one explicitly-allowed branding column (`logo_url`) still writable, a negative-control
+unrestricted profile unaffected, and an independent re-read confirming no blocked write mutated
+anything. Migration 138 is in PT-06's *applied* bucket, not its unapplied one — not the P1 gap the
+task flagged as a possibility. **Admin impersonation** (`POST /api/admin/orgs/[id]/impersonate`):
+the cookie it sets is read by zero other code paths anywhere in the repo (repo-wide grep, run
+live) — the real authorization gate for every owner-scoped admin route is role-only
+(`profiles.role='owner'`, held by 70 real users today, not a distinct platform-admin population)
+with no org-id dependency at all, so an admin "impersonating" org A can reach org B with zero
+additional restriction — live-reproduced with RLS-scoped-vs-admin-path contrast to rule out a
+PT-05-002/003-class RLS regression. **WGR-074, P0.** Separately, the dedicated `impersonation_log`
+audit table is unwritable for every real caller: its `admin_id` FK targets `platform_admins`, which
+has only 1 row and 0 overlap with any of the 70 real `owner`-role profiles — every real insert fails
+`23503`, silently swallowed by the route (never checks `{error}`), confirmed by `impersonation_log`
+holding 0 rows in production. A separate, generic `audit_logs` write does succeed per call, so this
+is not fully unlogged — but the purpose-built trail is broken for every real user. **WGR-075, P1.**
+Full detail: `PHASE-05-SUMMARY.md`'s "PT-05-004" section, `test-evidence/pt-05/privileged-access.json`,
+`test-evidence/pt-05/pt05-004-production-investigation.json`.
+
 ## What exists now
 
 A running local Postgres 17 + GoTrue + PostgREST stack (`.pt05-local-stack/`, Docker containers

@@ -1,0 +1,307 @@
+{
+  "generated_at": "2026-08-20T05:31:02.460Z",
+  "target": "production (read-only session)",
+  "demo_protection_columns": [
+    {
+      "table_name": "organizations",
+      "column_name": "extended_profile",
+      "data_type": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "restricted_onboarding_edit",
+      "data_type": "boolean",
+      "is_nullable": "NO",
+      "column_default": "false"
+    }
+  ],
+  "demo_protection_functions": [
+    {
+      "function_name": "block_if_onboarding_edit_restricted",
+      "definition_sha_prefix": "CREATE OR REPLACE FUNCTION public.block_",
+      "full_definition": "CREATE OR REPLACE FUNCTION public.block_if_onboarding_edit_restricted()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nBEGIN\n  IF public.is_onboarding_edit_restricted() THEN\n    RAISE EXCEPTION 'This demo account cannot modify organizational profile data.'\n      USING ERRCODE = '42501';\n  END IF;\n  RETURN COALESCE(NEW, OLD);\nEND;\n$function$\n"
+    },
+    {
+      "function_name": "block_restricted_organizations_update",
+      "definition_sha_prefix": "CREATE OR REPLACE FUNCTION public.block_",
+      "full_definition": "CREATE OR REPLACE FUNCTION public.block_restricted_organizations_update()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nBEGIN\n  IF public.is_onboarding_edit_restricted() THEN\n    IF NEW.name IS DISTINCT FROM OLD.name\n      OR NEW.ein IS DISTINCT FROM OLD.ein\n      OR NEW.tax_status IS DISTINCT FROM OLD.tax_status\n      OR NEW.mission_statement IS DISTINCT FROM OLD.mission_statement\n      OR NEW.vision_statement IS DISTINCT FROM OLD.vision_statement\n      OR NEW.founding_date IS DISTINCT FROM OLD.founding_date\n      OR NEW.founder_name IS DISTINCT FROM OLD.founder_name\n      OR NEW.founder_bio IS DISTINCT FROM OLD.founder_bio\n      OR NEW.service_area IS DISTINCT FROM OLD.service_area\n      OR NEW.target_population IS DISTINCT FROM OLD.target_population\n      OR NEW.annual_budget IS DISTINCT FROM OLD.annual_budget\n      OR NEW.total_staff IS DISTINCT FROM OLD.total_staff\n      OR NEW.total_volunteers IS DISTINCT FROM OLD.total_volunteers\n      OR NEW.extended_profile IS DISTINCT FROM OLD.extended_profile\n      OR NEW.onboarding_step IS DISTINCT FROM OLD.onboarding_step\n      OR NEW.onboarding_progress IS DISTINCT FROM OLD.onboarding_progress\n      OR NEW.onboarding_completed IS DISTINCT FROM OLD.onboarding_completed\n      OR NEW.onboarding_completed_at IS DISTINCT FROM OLD.onboarding_completed_at\n    THEN\n      RAISE EXCEPTION 'This demo account cannot modify this organization field.'\n        USING ERRCODE = '42501';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "function_name": "is_onboarding_edit_restricted",
+      "definition_sha_prefix": "CREATE OR REPLACE FUNCTION public.is_onb",
+      "full_definition": "CREATE OR REPLACE FUNCTION public.is_onboarding_edit_restricted()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT COALESCE(\n    (SELECT restricted_onboarding_edit FROM public.profiles WHERE id = auth.uid()),\n    false\n  );\n$function$\n"
+    }
+  ],
+  "demo_protection_triggers": [
+    {
+      "table_name": "board_members",
+      "trigger_name": "block_restricted_write",
+      "calls_function": "block_if_onboarding_edit_restricted",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.board_members FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+    },
+    {
+      "table_name": "documents",
+      "trigger_name": "block_restricted_write",
+      "calls_function": "block_if_onboarding_edit_restricted",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+    },
+    {
+      "table_name": "knowledge_base",
+      "trigger_name": "block_restricted_write",
+      "calls_function": "block_if_onboarding_edit_restricted",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.knowledge_base FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+    },
+    {
+      "table_name": "organizational_digital_twins",
+      "trigger_name": "block_restricted_write",
+      "calls_function": "block_if_onboarding_edit_restricted",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.organizational_digital_twins FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+    },
+    {
+      "table_name": "organizations",
+      "trigger_name": "block_restricted_organizations_update",
+      "calls_function": "block_restricted_organizations_update",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER block_restricted_organizations_update BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION block_restricted_organizations_update()"
+    },
+    {
+      "table_name": "organizations",
+      "trigger_name": "trg_seed_platform_config",
+      "calls_function": "seed_default_platform_config",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER trg_seed_platform_config AFTER INSERT ON public.organizations FOR EACH ROW EXECUTE FUNCTION seed_default_platform_config()"
+    },
+    {
+      "table_name": "programs",
+      "trigger_name": "block_restricted_write",
+      "calls_function": "block_if_onboarding_edit_restricted",
+      "enabled_flag": "O",
+      "definition": "CREATE TRIGGER block_restricted_write BEFORE INSERT OR DELETE OR UPDATE ON public.programs FOR EACH ROW EXECUTE FUNCTION block_if_onboarding_edit_restricted()"
+    }
+  ],
+  "impersonation_log": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "admin_id",
+        "data_type": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "target_org_id",
+        "data_type": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "target_user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "started_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ended_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "reason",
+        "data_type": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "actions_taken",
+        "data_type": "ARRAY",
+        "is_nullable": "YES"
+      }
+    ],
+    "foreign_keys": [
+      {
+        "fk_column": "admin_id",
+        "references_table": "platform_admins",
+        "references_column": "id"
+      },
+      {
+        "fk_column": "target_org_id",
+        "references_table": "organizations",
+        "references_column": "id"
+      }
+    ],
+    "row_count": 0
+  },
+  "platform_admins": {
+    "row_count": 1,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "email",
+        "data_type": "text"
+      },
+      {
+        "column_name": "full_name",
+        "data_type": "text"
+      },
+      {
+        "column_name": "platform_role",
+        "data_type": "USER-DEFINED"
+      },
+      {
+        "column_name": "permissions",
+        "data_type": "ARRAY"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean"
+      },
+      {
+        "column_name": "last_login_at",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "invited_by",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "owner_role_profiles_present_in_platform_admins": 0,
+    "total_owner_role_profiles": 70
+  },
+  "audit_logs": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organization_id",
+        "data_type": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "action",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "entity_type",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "entity_id",
+        "data_type": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "details",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      }
+    ],
+    "foreign_keys": [
+      {
+        "fk_column": "organization_id",
+        "references_table": "organizations"
+      },
+      {
+        "fk_column": "user_id",
+        "references_table": "profiles"
+      }
+    ],
+    "rows_with_admin_action_impersonate": 0
+  },
+  "profiles_columns": [
+    {
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "organization_id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "email",
+      "data_type": "text"
+    },
+    {
+      "column_name": "full_name",
+      "data_type": "text"
+    },
+    {
+      "column_name": "role",
+      "data_type": "USER-DEFINED"
+    },
+    {
+      "column_name": "avatar_url",
+      "data_type": "text"
+    },
+    {
+      "column_name": "last_login_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "command_center_layout",
+      "data_type": "jsonb"
+    },
+    {
+      "column_name": "restricted_onboarding_edit",
+      "data_type": "boolean"
+    }
+  ]
+}

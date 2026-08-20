@@ -1,6 +1,32 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-05-003 COMPLETE. Cross-tenant WRITE attempts (UPDATE, DELETE,
+**Updated: August 20, 2026 — audit PT-05-004 COMPLETE. Demo-account write-protection (migration
+`138_demo_account_scope.sql`) re-verified live, HOLDS. Admin impersonation
+(`POST /api/admin/orgs/[id]/impersonate`) is UNBOUNDED (P0) and its dedicated audit trail is
+BROKEN for every real user (P1).** Demo protection: beyond PT-06's own column-existence-only
+methodology, a fresh read-only production query confirmed all 3 real functions and all 6 real
+triggers live and correctly wired (joined `tgfoid -> pg_proc`, not just name-matched); a live
+behavioral test (real GoTrue sessions, real `@supabase/supabase-js` writes against a local
+reproduction of the exact trigger logic) confirmed 8/8 expected outcomes — every protected write
+blocked (`42501`), the one explicitly-allowed branding column still writable, a negative-control
+unrestricted profile unaffected, and an independent re-read confirming no blocked write mutated
+anything. Migration 138 is in PT-06's *applied* bucket — not the P1 "protection not live" gap the
+task flagged as a possibility. Impersonation: the `impersonation_org_id` cookie the route sets is
+read by zero other code paths anywhere in the repo (live repo-wide grep) — the real authorization
+gate for every owner-scoped admin route is role-only (`profiles.role='owner'`, held by 70 real
+users today, not a distinct platform-admin population), so an admin "impersonating" org A reaches
+org B with zero additional restriction, live-reproduced with an RLS-scoped-vs-admin-path contrast
+to rule out a tenant-isolation regression. Separately, the dedicated `impersonation_log` table's
+`admin_id` FK targets `platform_admins`, which has only 1 row and 0 overlap with any of the 70 real
+`owner`-role profiles — every real insert fails `23503`, silently swallowed by the route (never
+checks `{error}`), confirmed by `impersonation_log` holding 0 rows in production; a separate,
+generic `audit_logs` write does succeed per call, so this is partial, not total, logging failure.
+See `test-evidence/pt-05/privileged-access.json`,
+`test-evidence/pt-05/pt05-004-production-investigation.json`,
+`test-evidence/pt-05/PHASE-05-SUMMARY.md`'s "PT-05-004" section, `WIRING_GAP_REGISTER.md`
+WGR-074/075/076.
+
+**Prior: August 20, 2026 — audit PT-05-003 COMPLETE. Cross-tenant WRITE attempts (UPDATE, DELETE,
 INSERT-tagged-with-Org-B's-org_id) across all 120 tenant-scoped tables PT-06 identified, authenticated
 as Org A targeting Org B's data — the more dangerous direction than PT-05-002's read test, since a
 successful cross-tenant write means one tenant can corrupt, erase, or forge another tenant's data.
