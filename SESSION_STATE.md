@@ -1,5 +1,21 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-11: visual/cross-browser/soak executed.
+## Last Updated: August 20, 2026 — audit PT-11 COMPLETE: regression suites, review pack ready.
+
+Consolidated all three PT-11 sub-audits into `test-evidence/pt-11/PHASE-11-SUMMARY.md` (real dated
+pass/fail numbers per suite, every number cited to a raw log under `test-evidence/pt-11/logs/`) and
+`test-evidence/pt-11/REVIEW-PACK.md` (the short read). Headline: **10 of 19 test-suite categories
+had zero evidence of ever running before this phase**; 7 were run for real today, with real failures
+found in 3. Four persisting failures confirmed (two checked twice for persistence): a regression-
+test URL-normalization drift, a stale landing-page H1 assertion, a visual-regression masking-
+coverage gap on the AutoApply page (2/2 runs), and — the highest-priority, most user-facing finding
+— the known WebKit post-login navigation race, reproducing 0/5 in both of 2 independent runs today,
+exactly matching the 2026-08-13 finding, unfixed. A related chromium+firefox application-list
+failure also persisted both runs. One incidental production bug (AG-38's platform-level scheduled
+run failing on a real NOT NULL violation) surfaced via the soak test's own Railway log pull. Six new
+register rows added (WGR-095 through WGR-100) — register now runs WGR-001 through WGR-100 unbroken.
+Gate: `node scripts/audit/verify-pt11-004.mjs` — PASS.
+
+---
 
 Follow-up to the PT-11 core-suites session (below). Re-ran the three suites that pass explicitly
 deferred as historically flaky/non-deterministic, per this task: visual-regression, cross-browser

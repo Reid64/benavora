@@ -1,5 +1,64 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-11 COMPLETE: regression suites, review pack ready.**
+Consolidation of the three PT-11 sub-audits (test-suite inventory, core suites executed with real
+numbers, visual/cross-browser/soak executed) into `test-evidence/pt-11/PHASE-11-SUMMARY.md` (every
+suite's real dated pass/fail numbers, cited to a raw log) and `test-evidence/pt-11/REVIEW-PACK.md`
+(the short read for Reid). This is the phase that answers "does this project's own test tooling
+actually run, and does it pass" — the same discipline PT-09 applied to the agent roster, applied
+here to the test suite itself.
+
+**The headline finding: 10 of 19 suite categories had zero discoverable evidence anywhere in the
+repo of ever completing a run before this phase.** PT-11 ran 7 of those 10 for the first time today
+(`unit-src`, `unit-tests-dir`, `smoke-vitest-api`, `smoke-playwright-public`,
+`smoke-playwright-e2e-root`, `smoke-platform-script`, `visual-regression`) and found real,
+currently-reproducing failures in 3 of them. The remaining 3 (`tests/e2e/authed/*` — 16 files,
+`tests/e2e/public/*` — 2 files, 12 other `e2e/*.spec.ts` files) remain untouched and still have zero
+run evidence, stated explicitly as an open gap rather than silently dropped.
+
+**Four persisting failures found, two checked twice specifically to rule out a one-off flake:**
+1. `regressions.test.ts` — a real trailing-slash URL-normalization drift between the test's
+   expectation and the current fetch/normalization code (WGR-096).
+2. `tests/smoke.spec.ts` — a stale landing-page H1 assertion that no longer matches the real,
+   current homepage copy (WGR-097).
+3. `e2e/visual-regression.spec.ts` — the AutoApply page fails its own same-session, freshly
+   generated baseline in **both of 2 independent comparison runs** (115px then 194px diff). Root
+   cause: the page's live WebSocket connection-status indicator isn't covered by the suite's own
+   `timestampMasks()` helper — a gap in the test suite's own masking coverage, not a real UI
+   regression (the other 4 pages passed cleanly both times) (WGR-098).
+4. `e2e/critical-paths.spec.ts` on WebKit — **0/5 in both of 2 independent runs today**, the
+   identical post-login navigation timeout every time, exactly reproducing the defect first
+   documented 2026-08-13 and still completely unfixed. **The single most user-facing finding this
+   phase produced**: real Safari (desktop + mobile) users cannot reliably reach the dashboard after
+   logging in, against the real, live application (WGR-099). A related failure — "creating an
+   application... adds a row to `/applications/list`" — also reproduced on chromium+firefox in both
+   runs, matching 2026-08-13 exactly (WGR-100).
+
+**One incidental, previously-undocumented production bug surfaced via the soak test's own Railway
+log pull, unrelated to anything this phase was testing for:** AG-38's platform-level scheduled run
+fails live with a real `organization_id` NOT NULL constraint violation — caught only because this
+session happened to be watching Railway's error logs during the soak run's window (WGR-095).
+
+**Also confirmed, worth stating plainly rather than treating as a contradiction:** two prior
+governance-doc claims about specific suites turned out stale in opposite directions when re-run for
+real today. `lib-tests`' 2026-07-06 claim of a `compliance.test.ts` env-var failure did **not**
+reproduce (73/73 clean) — a false negative that would have wasted a future session investigating a
+non-issue. The AutoApply soak test's 2026-08-13 result (0/50 reached terminal, hit the 130-minute
+cap) was real and accurate for that specific run, but today's identical, unmodified script achieved
+a full, clean **50/50 drain** with zero genuine failures — the same rate-limiter behavior held both
+times (inter-completion gaps landing inside the documented 60-120s range on every one of 49 measured
+gaps today); the difference is that today's run had zero pre-existing queue contention and enough
+wall-clock budget for the bottleneck to fully play out, not a code change between the two dates.
+
+**Six new register rows this consolidation pass** (WGR-095 through WGR-100, none previously filed):
+see the list above. `WIRING_GAP_REGISTER.md` now runs WGR-001 through WGR-100, unbroken.
+
+**Gate:** `node scripts/audit/verify-pt11-004.mjs` — PASS. Confirms `PHASE-11-SUMMARY.md` and
+`REVIEW-PACK.md` are present and non-empty, and that the register has grown past WGR-094 (the last
+row before this consolidation) with real new PT-11-004 findings starting at WGR-095.
+
+---
+
 **Updated: August 20, 2026 — audit PT-11: visual/cross-browser/soak executed.** Follow-up to the
 PT-11 core-suites pass immediately below: re-ran the three suites that pass explicitly deferred as
 "historically flaky/non-deterministic" — visual-regression (no baseline existed at all going in),
