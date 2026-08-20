@@ -1,0 +1,205 @@
+{
+  "generated_at": "2026-08-20T15:40:18.340Z",
+  "opportunity_id": "8851652c-2def-4bc3-8428-308c4f23fd0b",
+  "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+  "input": {
+    "opportunity_name": "Texas Community Development Block Grant - Housing",
+    "category": "housing_grant",
+    "current_eligibility_score": 72,
+    "current_deadline": "2026-08-15T00:00:00.000Z",
+    "opportunities_updated_at": "2026-08-19T07:01:27.828Z",
+    "deadline_days_from_now_at_generation_time": -6,
+    "twin_completeness_score": 70,
+    "twin_updated_at": "2026-07-18T02:49:36.469Z",
+    "outcomes_in_same_category_count": 0,
+    "outcomes_awarded_count": 0,
+    "probability_row_computed_at": "2026-08-02T20:06:03.562Z"
+  },
+  "documented_formula": {
+    "weights": {
+      "eligibility_score": 0.3,
+      "category_win_rate": 0.25,
+      "deadline_proximity": 0.2,
+      "twin_completeness": 0.25
+    },
+    "neutral_fallbacks": {
+      "eligibility_score": 0.5,
+      "category_win_rate": 0.3,
+      "twin_completeness": 0.2
+    },
+    "aggregation": "overall_score = round(clamp(sum(weight_i * value_i * 100), 0, 100))",
+    "recommendation_thresholds": "score>=70 apply, score>=40 consider, else skip",
+    "confidence_rule": "realDataCount(eligibility!=null, outcomes.length>0, deadline!=null, twin!=null) ==4 high, >=2 medium, else low",
+    "deadline_thresholds": "days>=30 -> 1.0, days>=15 -> 0.5, days>=0 -> 0.1, else 0",
+    "source_file": "src/lib/intelligence/grant-probability-engine.ts"
+  },
+  "check_A_internal_consistency_of_stored_arithmetic": {
+    "description": "Given the exact factor.value fields the system persisted, does contribution = weight*value*100 and overall_score = round(sum(contribution)) match what was stored?",
+    "stored_factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.5,
+        "weight": 0.3,
+        "contribution": 15
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0.1,
+        "weight": 0.2,
+        "contribution": 2.0000000000000004
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.7,
+        "weight": 0.25,
+        "contribution": 17.5
+      }
+    ],
+    "stored_overall_score": 42,
+    "reconstructed_factors": [
+      {
+        "name": "eligibility_score",
+        "weight": 0.3,
+        "value": 0.5,
+        "contribution": 15
+      },
+      {
+        "name": "category_win_rate",
+        "weight": 0.25,
+        "value": 0.3,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "weight": 0.2,
+        "value": 0.1,
+        "contribution": 2
+      },
+      {
+        "name": "twin_completeness",
+        "weight": 0.25,
+        "value": 0.7,
+        "contribution": 17.5
+      }
+    ],
+    "reconstructed_overall_score": 42,
+    "reconstructed_recommendation": "consider",
+    "stored_recommendation": "consider",
+    "match": true
+  },
+  "expected": {
+    "description": "Hand-computed via the documented formula, using CURRENT real opportunities/organizational_digital_twins/outcomes data (independent reimplementation, not calling the app's own scoring functions).",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "weight": 0.3,
+        "value": 0.72,
+        "contribution": 21.6
+      },
+      {
+        "name": "category_win_rate",
+        "weight": 0.25,
+        "value": 0.3,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "weight": 0.2,
+        "value": 0,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "weight": 0.25,
+        "value": 0.7,
+        "contribution": 17.5
+      }
+    ],
+    "overall_score": 47,
+    "recommendation": "consider",
+    "confidence": "medium"
+  },
+  "actual": {
+    "description": "The system's actual persisted/returned opportunity_probability_scores row -- confirmed via src/app/(dashboard)/opportunities/page.tsx's own header comment to be exactly what a real caller/UI currently reads (\"This UI only reads this row; it never recomputes anything\").",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.5,
+        "weight": 0.3,
+        "contribution": 15
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0.1,
+        "weight": 0.2,
+        "contribution": 2.0000000000000004
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.7,
+        "weight": 0.25,
+        "contribution": 17.5
+      }
+    ],
+    "overall_score": 42,
+    "recommendation": "consider",
+    "confidence": "medium",
+    "computed_at": "2026-08-02T20:06:03.562Z"
+  },
+  "delta": {
+    "overall_score": 5,
+    "recommendation_changed": false,
+    "confidence_changed": false,
+    "per_factor": [
+      {
+        "name": "eligibility_score",
+        "expected_value": 0.72,
+        "actual_value": 0.5,
+        "value_delta": 0.22,
+        "expected_contribution": 21.6,
+        "actual_contribution": 15,
+        "contribution_delta": 6.6
+      },
+      {
+        "name": "category_win_rate",
+        "expected_value": 0.3,
+        "actual_value": 0.3,
+        "value_delta": 0,
+        "expected_contribution": 7.5,
+        "actual_contribution": 7.5,
+        "contribution_delta": 0
+      },
+      {
+        "name": "deadline_proximity",
+        "expected_value": 0,
+        "actual_value": 0.1,
+        "value_delta": -0.1,
+        "expected_contribution": 0,
+        "actual_contribution": 2.0000000000000004,
+        "contribution_delta": -2
+      },
+      {
+        "name": "twin_completeness",
+        "expected_value": 0.7,
+        "actual_value": 0.7,
+        "value_delta": 0,
+        "expected_contribution": 17.5,
+        "actual_contribution": 17.5,
+        "contribution_delta": 0
+      }
+    ]
+  },
+  "finding": "MISMATCH: the documented formula, applied to the opportunity's CURRENT real eligibility_score (72), produces overall_score=47 (factor eligibility_score contribution 21.6, using value 0.72) but the system's actual stored/returned row still shows overall_score=42 with the eligibility_score factor pinned at the neutral fallback value 0.5 (contribution 15). opportunities.eligibility_score was populated/changed at Wed Aug 19 2026 02:01:27 GMT-0500 (Central Daylight Time), after opportunity_probability_scores.computed_at (Sun Aug 02 2026 15:06:03 GMT-0500 (Central Daylight Time)), and computeGrantProbability() was never re-triggered to reflect it -- confirmed independently by the stored key_risks array still containing 'No eligibility score computed for this opportunity yet.', a string buildKeyRisks() only emits when opportunity.eligibility_score IS NULL, which is inconsistent with the column's current non-null value of 72. computeGrantProbability() has no change-triggered recompute; the UI (opportunities/page.tsx) reads only the stale persisted row. This is a real, currently-live output mismatch between the documented formula and what a user actually sees, not merely a hypothetical edge case."
+}

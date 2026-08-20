@@ -1,6 +1,31 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-03 COMPLETE: E2E workflows, review pack ready. 6 real findings
+**Updated: August 20, 2026 — audit PT-04: grant-probability hand-verification. Hand-computed the
+Grant Probability Engine's documented factor-weight formula (`src/lib/intelligence/grant-probability-engine.ts`)
+against a real, already-scored opportunity+org pair (Texas Community Development Block Grant -
+Housing, `8851652c-2def-4bc3-8428-308c4f23fd0b`, org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) and
+found a real, currently-live mismatch: the persisted `opportunity_probability_scores` row (score 42)
+does not reflect the opportunity's current `eligibility_score` (72, updated 2026-08-19). The row was
+last computed 2026-08-02, when `eligibility_score` was still null — its `eligibility_score` factor is
+still pinned at the neutral fallback value 0.5 (contribution 15) instead of the real 0.72 (contribution
+21.6), an aggregation-level formula/output mismatch of +5 points (42 vs. the documented-formula-correct
+47) between what the code's own weights say the score should be and what a real user reading
+`opportunity_probability_scores` via the Opportunities page actually sees today. Independently confirmed
+via the stored `key_risks` array itself still containing "No eligibility score computed for this
+opportunity yet." — a string `buildKeyRisks()` only emits when `eligibility_score IS NULL`, proving the
+row predates the column's current non-null value rather than being a rounding artifact. Root cause:
+`computeGrantProbability()` has no change-triggered recompute, and `opportunities/page.tsx`'s own header
+comment confirms the UI "never recomputes anything" — it only reads the stale persisted row. The core
+aggregation arithmetic itself (`contribution = weight*value*100`, summed, rounded, clamped) was verified
+internally consistent against the stored factor values (Check A, `test-evidence/pt-04/grant-probability.json`)
+— this is a staleness/no-recompute-trigger bug, not a broken formula. Full input/expected/actual/delta
+capture in `test-evidence/pt-04/grant-probability.json`; `scripts/audit/verify-pt04-001.mjs` enforces the
+evidence file records all four fields and cross-checks delta values are honestly derived from
+expected/actual, not fabricated.
+
+---
+
+**Prior update: August 20, 2026 — audit PT-03 COMPLETE: E2E workflows, review pack ready. 6 real findings
 across 4 evidence passes (WGR-129 through WGR-134: 4×P0 + 1×P1 + 1×P3). The core signup-to-deadline
 loop and the Donor Discovery→AutoApply hand-off both work end to end against the real app
 (local/non-production); the kanban pipeline's documented 12-stage transition graph is enforced in

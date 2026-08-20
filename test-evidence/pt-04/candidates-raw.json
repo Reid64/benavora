@@ -1,0 +1,450 @@
+[
+  {
+    "opportunity_id": "af4620eb-530a-40dc-87f9-f23c577f22e9",
+    "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+    "overall_score": 40,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.5,
+        "weight": 0.3,
+        "contribution": 15
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0,
+        "weight": 0.2,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.7,
+        "weight": 0.25,
+        "contribution": 17.5
+      }
+    ],
+    "recommendation": "consider",
+    "key_risks": [
+      "No eligibility score computed for this opportunity yet.",
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time."
+    ],
+    "key_strengths": [
+      "Organizational Digital Twin is well-developed (70%+ complete)."
+    ],
+    "estimated_roi": "Moderate: worthwhile with focused preparation",
+    "time_to_complete": "Est. 4-8 hours",
+    "computed_at": "2026-08-02T20:06:53.806Z",
+    "category": "housing_grant",
+    "deadline": "2026-07-15T00:00:00.000Z",
+    "eligibility_score": 18,
+    "opportunity_name": "Self-Help Homeownership Opportunity Program (SHOP)",
+    "twin_completeness_score": 70,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "8851652c-2def-4bc3-8428-308c4f23fd0b",
+    "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+    "overall_score": 42,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.5,
+        "weight": 0.3,
+        "contribution": 15
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0.1,
+        "weight": 0.2,
+        "contribution": 2.0000000000000004
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.7,
+        "weight": 0.25,
+        "contribution": 17.5
+      }
+    ],
+    "recommendation": "consider",
+    "key_risks": [
+      "No eligibility score computed for this opportunity yet.",
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time."
+    ],
+    "key_strengths": [
+      "Organizational Digital Twin is well-developed (70%+ complete)."
+    ],
+    "estimated_roi": "Moderate: worthwhile with focused preparation",
+    "time_to_complete": "Est. 4-8 hours",
+    "computed_at": "2026-08-02T20:06:03.562Z",
+    "category": "housing_grant",
+    "deadline": "2026-08-15T00:00:00.000Z",
+    "eligibility_score": 72,
+    "opportunity_name": "Texas Community Development Block Grant - Housing",
+    "twin_completeness_score": 70,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "a3e45cc5-5176-4b2a-88a9-d294e426ec6e",
+    "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+    "overall_score": 40,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.5,
+        "weight": 0.3,
+        "contribution": 15
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0,
+        "weight": 0.2,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.7,
+        "weight": 0.25,
+        "contribution": 17.5
+      }
+    ],
+    "recommendation": "consider",
+    "key_risks": [
+      "No eligibility score computed for this opportunity yet.",
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time."
+    ],
+    "key_strengths": [
+      "Organizational Digital Twin is well-developed (70%+ complete)."
+    ],
+    "estimated_roi": "Moderate: worthwhile with focused preparation",
+    "time_to_complete": "Est. 4-8 hours",
+    "computed_at": "2026-07-30T07:10:27.335Z",
+    "category": "government_grant",
+    "deadline": "2026-06-23T00:00:00.000Z",
+    "eligibility_score": 5,
+    "opportunity_name": "Centers of Excellence for Veteran Student Success (CEVSS) Program",
+    "twin_completeness_score": 70,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "b98c13d4-919c-4e4e-9832-d0ae27731496",
+    "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+    "overall_score": 18,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.12,
+        "weight": 0.3,
+        "contribution": 3.5999999999999996
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0.1,
+        "weight": 0.2,
+        "contribution": 2.0000000000000004
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.2,
+        "weight": 0.25,
+        "contribution": 5
+      }
+    ],
+    "recommendation": "skip",
+    "key_risks": [
+      "Eligibility score is below 50 — fit is uncertain.",
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time.",
+      "No Organizational Digital Twin exists for this org yet."
+    ],
+    "key_strengths": [],
+    "estimated_roi": "Low: effort likely outweighs expected return",
+    "time_to_complete": "Est. 12-16 hours",
+    "computed_at": "2026-07-18T00:35:15.392Z",
+    "category": "private_foundation",
+    "deadline": "2026-07-25T00:30:28.889Z",
+    "eligibility_score": 12,
+    "opportunity_name": "Brightwater Housing Stability Initiative 2026",
+    "twin_completeness_score": 60,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "a42efa0d-e8dc-48e4-8ae1-8ac38e83b060",
+    "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+    "overall_score": 41,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.95,
+        "weight": 0.3,
+        "contribution": 28.499999999999996
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0,
+        "weight": 0.2,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.2,
+        "weight": 0.25,
+        "contribution": 5
+      }
+    ],
+    "recommendation": "consider",
+    "key_risks": [
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time.",
+      "No Organizational Digital Twin exists for this org yet."
+    ],
+    "key_strengths": [
+      "Strong eligibility fit (score 70+)."
+    ],
+    "estimated_roi": "Moderate: worthwhile with focused preparation",
+    "time_to_complete": "Est. 12-16 hours",
+    "computed_at": "2026-07-18T00:35:03.541Z",
+    "category": "local_community_grant",
+    "deadline": "2026-06-07T00:30:28.889Z",
+    "eligibility_score": 95,
+    "opportunity_name": "Riverside United Way Basic Needs Grant 2026",
+    "twin_completeness_score": 60,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "a397bc08-3f30-4fdf-8659-e1453d2a071c",
+    "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+    "overall_score": 53,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.69,
+        "weight": 0.3,
+        "contribution": 20.7
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 1,
+        "weight": 0.2,
+        "contribution": 20
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.2,
+        "weight": 0.25,
+        "contribution": 5
+      }
+    ],
+    "recommendation": "consider",
+    "key_risks": [
+      "No prior outcomes recorded in this funding category.",
+      "No Organizational Digital Twin exists for this org yet."
+    ],
+    "key_strengths": [
+      "Deadline is 30+ days out — ample time to prepare."
+    ],
+    "estimated_roi": "Moderate: worthwhile with focused preparation",
+    "time_to_complete": "Est. 12-16 hours",
+    "computed_at": "2026-07-18T00:35:02.604Z",
+    "category": "private_foundation",
+    "deadline": "2026-08-19T00:30:28.889Z",
+    "eligibility_score": 69,
+    "opportunity_name": "Brightwater Capacity-Building Mini-Grant",
+    "twin_completeness_score": 60,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "5cb4b465-bcaa-4580-b9fb-b9da0656f810",
+    "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+    "overall_score": 35,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.74,
+        "weight": 0.3,
+        "contribution": 22.2
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0,
+        "weight": 0.2,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.2,
+        "weight": 0.25,
+        "contribution": 5
+      }
+    ],
+    "recommendation": "skip",
+    "key_risks": [
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time.",
+      "No Organizational Digital Twin exists for this org yet."
+    ],
+    "key_strengths": [
+      "Strong eligibility fit (score 70+)."
+    ],
+    "estimated_roi": "Low: effort likely outweighs expected return",
+    "time_to_complete": "Est. 12-16 hours",
+    "computed_at": "2026-07-18T00:34:17.584Z",
+    "category": "government_grant",
+    "deadline": "2026-06-18T00:30:28.889Z",
+    "eligibility_score": 74,
+    "opportunity_name": "State Rapid Re-Housing Block Grant (NOFA 26-04)",
+    "twin_completeness_score": 60,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "5a595b76-fbac-4936-8159-2b7a5e5dc121",
+    "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+    "overall_score": 39,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.88,
+        "weight": 0.3,
+        "contribution": 26.400000000000002
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0,
+        "weight": 0.2,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.2,
+        "weight": 0.25,
+        "contribution": 5
+      }
+    ],
+    "recommendation": "skip",
+    "key_risks": [
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time.",
+      "No Organizational Digital Twin exists for this org yet."
+    ],
+    "key_strengths": [
+      "Strong eligibility fit (score 70+)."
+    ],
+    "estimated_roi": "Low: effort likely outweighs expected return",
+    "time_to_complete": "Est. 12-16 hours",
+    "computed_at": "2026-07-18T00:34:16.323Z",
+    "category": "corporate_foundation",
+    "deadline": "2026-06-30T00:30:28.889Z",
+    "eligibility_score": 88,
+    "opportunity_name": "Cornerstone Financial Empowerment Grant — Q2",
+    "twin_completeness_score": 60,
+    "outcome_count": "0"
+  },
+  {
+    "opportunity_id": "15edbda7-842c-414a-bfc0-8338322402dd",
+    "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+    "overall_score": 37,
+    "confidence": "medium",
+    "factors": [
+      {
+        "name": "eligibility_score",
+        "value": 0.81,
+        "weight": 0.3,
+        "contribution": 24.3
+      },
+      {
+        "name": "category_win_rate",
+        "value": 0.3,
+        "weight": 0.25,
+        "contribution": 7.5
+      },
+      {
+        "name": "deadline_proximity",
+        "value": 0,
+        "weight": 0.2,
+        "contribution": 0
+      },
+      {
+        "name": "twin_completeness",
+        "value": 0.2,
+        "weight": 0.25,
+        "contribution": 5
+      }
+    ],
+    "recommendation": "skip",
+    "key_risks": [
+      "No prior outcomes recorded in this funding category.",
+      "Deadline is under 15 days away — limited prep time.",
+      "No Organizational Digital Twin exists for this org yet."
+    ],
+    "key_strengths": [
+      "Strong eligibility fit (score 70+)."
+    ],
+    "estimated_roi": "Low: effort likely outweighs expected return",
+    "time_to_complete": "Est. 12-16 hours",
+    "computed_at": "2026-07-18T00:33:33.910Z",
+    "category": "faith_compatible_grant",
+    "deadline": "2026-07-15T00:30:28.889Z",
+    "eligibility_score": 81,
+    "opportunity_name": "Evergreen Family Emergency Fund — Spring Cycle",
+    "twin_completeness_score": 60,
+    "outcome_count": "0"
+  }
+]

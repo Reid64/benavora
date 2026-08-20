@@ -1,6 +1,62 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-03 COMPLETE: E2E workflows, review pack ready. 6 real
-findings (WGR-129 through WGR-134: 4×P0 + 1×P1 + 1×P3), register WGR-001 through WGR-134.
+## Last Updated: August 20, 2026 — audit PT-04: grant-probability hand-verification. Real formula/
+output mismatch found: `opportunity_probability_scores` row for a real opportunity is stale relative
+to the opportunity's current `eligibility_score` (72 vs. the neutral 0.5 the persisted row still uses),
+producing a documented-formula-correct score of 47 vs. the actual stored/returned 42 — no
+change-triggered recompute exists. Evidence in `test-evidence/pt-04/grant-probability.json`.
+
+## SESSION — August 20, 2026 (audit PT-04: grant-probability hand-verification)
+
+**Focus:** confirmed PT-00 artifacts present (`test-evidence/pt-00/`). Read the real
+`computeGrantProbability()` implementation (`src/lib/intelligence/grant-probability-engine.ts`) end
+to end. Queried production (read-only, via `DATABASE_URL`) for a real, already-scored opportunity+org
+pair with a full complement of real underlying data — `opportunities`, `organizational_digital_twins`,
+`outcomes`, `opportunity_probability_scores` — and hand-computed the documented factor-weight formula
+two ways: (A) an internal-consistency check against the exact stored factor values (does
+`contribution = weight*value*100`, summed/rounded/clamped, match the stored `overall_score`? — PASS,
+the aggregation arithmetic is correct), and (B) an independent fresh hand-computation using the
+opportunity's *current* real `eligibility_score`/`deadline`/`twin_completeness_score`/`outcomes` data,
+compared field-by-field against the system's actual stored/returned row (confirmed via
+`opportunities/page.tsx`'s own comment to be exactly what a real UI reader sees, since it "never
+recomputes anything").
+
+**Finding: real, currently-live mismatch, not a hypothetical edge case.** The stored
+`opportunity_probability_scores` row for opportunity `8851652c-2def-4bc3-8428-308c4f23fd0b` ("Texas
+Community Development Block Grant - Housing", org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) was last
+computed 2026-08-02T20:06:03Z, before `eligibility_score` was populated — its `eligibility_score`
+factor is pinned at the neutral fallback (0.5, contribution 15). The opportunity's real
+`eligibility_score` is now 72 (`opportunities.updated_at` 2026-08-19T07:01:27Z), which the documented
+formula would score at 0.72 (contribution 21.6) — a 6.6-point factor delta and a 5-point overall-score
+delta (documented-formula-correct 47 vs. actual stored/returned 42). Independently confirmed via the
+stored `key_risks` array still containing "No eligibility score computed for this opportunity yet." —
+a string `buildKeyRisks()` only emits when `eligibility_score IS NULL`, ruling out this being a
+rounding coincidence (e.g. `eligibility_score` having been exactly 50 at compute time). Root cause:
+`computeGrantProbability()` is never re-triggered when `eligibility_score` changes after the initial
+score, and the Opportunities page reads only the persisted row, never recomputing. Recommendation
+threshold (`>=40` "consider") happened not to flip in this instance, but the underlying score/
+contribution mismatch is real and would flip the recommendation for an opportunity nearer a threshold
+boundary.
+
+**Built:**
+- `scripts/audit/pt04-001-fetch-data.mjs` — read-only candidate query, found 9 real opportunity+org
+  pairs with full non-null underlying data (eligibility_score, deadline, twin_completeness_score all
+  present); written to `test-evidence/pt-04/candidates-raw.json`.
+- `scripts/audit/pt04-002-detail.mjs` — read-only detail pull for the chosen pair (opportunities,
+  organizational_digital_twins, outcomes, opportunity_probability_scores rows in full).
+- `scripts/audit/pt04-001-grant-probability.mjs` — the hand-verification script itself. Independently
+  reimplements the documented sub-formulas (does not call the app's own scoring helper functions,
+  except for the `date-fns` library's `differenceInCalendarDays`, whose own correctness isn't in
+  question — only the business-logic thresholds built on top of it are). Writes
+  `test-evidence/pt-04/grant-probability.json` with `input`, `documented_formula`,
+  `check_A_internal_consistency_of_stored_arithmetic`, `expected`, `actual`, `delta`, and `finding`.
+- `scripts/audit/verify-pt04-001.mjs` — fails unless `grant-probability.json` records a concrete input,
+  a hand-computed `expected` block (factors + overall_score/recommendation/confidence), the system's
+  `actual` stored/returned block in the same shape, and a `delta` block whose `overall_score` and
+  per-factor deltas are cross-checked to actually equal `expected - actual` (not independently
+  fabricated). Negative-tested: fails correctly when the `delta` block is stripped from a copy of the
+  evidence file; passes against the real file. Exit code 0 on pass, 1 on fail.
+
+**Gates:** `node scripts/audit/verify-pt04-001.mjs` — PASS against the real evidence file.
 
 ## SESSION — August 20, 2026 (audit PT-03 COMPLETE: E2E workflows, review pack ready)
 
