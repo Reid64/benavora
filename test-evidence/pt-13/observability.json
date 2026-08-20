@@ -1,0 +1,392 @@
+{
+  "generated_at": "2026-08-20T09:30:00Z",
+  "phase": "PT-13",
+  "task": "Observability audit -- (1) compare agent_runs/agent_decisions row completeness against the real agent executions PT-09 proved, to find executions happening unlogged; (2) trace error-surfacing paths for background failures (does a failure reach the UI/an alert, or die silently); (3) document what monitoring/alerting ACTUALLY exists in production, not what governance docs claim exists.",
+  "method": "Cross-referenced test-evidence/pt-09/PHASE-09-SUMMARY.md and its 44 per-agent batch1-results/batch2-results/*.json artifacts (real, live-invocation execution proof against a local Supabase stack seeded from a real production schema snapshot -- not re-run this session) against the current source of the two agent base classes (src/lib/agents/base-agent.ts, src/lib/agents/autonomous-base.ts) and every canonical agent's own file to determine, per PT-09-tested execution, whether a corresponding agent_runs/agent_decisions row is structurally guaranteed, structurally absent, or PT-09's own evidence file simply didn't check. Traced real failure paths by direct source read of worker/index.ts, worker/dd-request-processor.ts, worker/queue-processor.ts entry points, and both agent base classes' catch/error branches. Documented production monitoring/alerting by grepping every real read and write site of worker_status, system_errors, alerts, and the alerting/webhook-notification library files, then confirming against package.json (no error-tracking SDK), .github/workflows/ (real vs. described-in-STANDING_DIRECTIVES.md scope), and vercel.json (no dedicated health-check cron). No production database was queried this session -- every finding is grounded in a file:line citation to code currently on disk, or to a prior phase's already-committed, independently-reproducible evidence file.",
+
+  "part1_runLogCompleteness": {
+    "method": "PT-09 (test-evidence/pt-09/) already live-invoked all 43 canonical agent slots (44 individually-verdicted rows, 2 dual-use numbers) and recorded a real before/after row-delta per write-target table. This audit re-read every one of those 44 result files specifically for the 'agent_runs' key in rowDelta, then, for every entry where that key was absent or zero, read the agent's own real implementing file to determine whether the absence reflects (a) PT-09's own evidence-collection script simply not tracking that table for that agent (not a completeness finding on its own), or (b) a structural, unconditional absence of any agent_runs write anywhere in that agent's source, confirmed by grep returning zero matches for 'agent_runs' in the implementing file.",
+    "pt09SourceFiles": [
+      "test-evidence/pt-09/PHASE-09-SUMMARY.md",
+      "test-evidence/pt-09/batch1-results/*.json",
+      "test-evidence/pt-09/batch2-results/*.json"
+    ],
+    "loggingFrameworks": [
+      {
+        "class": "BaseAgent",
+        "file": "src/lib/agents/base-agent.ts",
+        "logsTo": ["agent_runs"],
+        "usedByExample": "src/lib/agents/recursive-learning.ts (AG-07), and every Generation-1 subroutine agent",
+        "structuralGap": "logStart() (lines 160-181) inserts the 'running' row via `const { data } = await this.client.from('agent_runs').insert(...)` -- the `error` half of the response is never destructured, checked, or logged anywhere, not even to console. If that insert fails for any reason (schema drift, a missing column, RLS), `runId` becomes null. update() (lines 184-190) is then a documented no-op whenever `runId` is null (`if (!runId) return;`). Net effect: it is structurally possible for a BaseAgent-derived agent to execute its full real work (real Claude calls, real business-table writes) while producing zero agent_runs trace of any kind, in either the running or the completed/failed state, with no error surfaced anywhere -- not to the caller, not to a log line, not to any table."
+      },
+      {
+        "class": "AutonomousAgent",
+        "file": "src/lib/agents/autonomous-base.ts",
+        "logsTo": ["agent_runs", "agent_decisions"],
+        "usedByExample": "32 of the canonical Generation-2 agent classes extend this class",
+        "structuralGap": "startRun() (lines 132-155) and logDecision() (lines 89-129) DO check their insert's `error` and throw on failure -- a start-logging failure propagates to the caller. But completeRun() (lines 158-191) and failRun() (lines 193-204) both discard the `error` from their `.update()` call with zero checking and zero console output. This exact pattern is not hypothetical: STATE_OF_THE_BUILD.md's 2026-08-03 session entry documents a real production incident it caused -- GrantDnaAgent (AG-10) runs returned success:true internally but the agent_runs row stayed stuck at status:'running' forever because the migration adding output_payload had not been applied and completeRun()'s unchecked update silently failed; that same session flags AutonomousDigestAgent and StrategicAdvisorAgent as having 'likely had every real production run silently stuck at status: running' from the same unchecked-update pattern before an unrelated fix happened to add the missing column. The CODE PATTERN that caused that incident is unchanged in the file as it exists today -- it is a standing structural risk, not a closed historical bug."
+      }
+    ],
+    "pt09ExecutionComparison": {
+      "totalCanonicalRowsInPt09Table": 44,
+      "confirmedAgentRunsDeltaGreaterThanZero": 34,
+      "notInvokedNoCodeExists": 4,
+      "notInvokedNoCodeExists_note": "AG-12 (PENDING-SCOPE, no dry-run mode anywhere so it was never invoked), AG-31/AG-33/AG-34 (PENDING-SCOPE, zero implementation file confirmed by fresh grep) -- these 4 have nothing to log because there is nothing to run.",
+      "pt09DidNotTrackAgentRunsKey": 6,
+      "pt09DidNotTrackAgentRunsKey_breakdown": {
+        "usesFrameworkLoggingConfirmedByReadingSource": ["AG-07 (extends BaseAgent, src/lib/agents/recursive-learning.ts:83)", "AG-38 (writes a bespoke platform-level agent_runs row directly, src/lib/agents/self-improvement-agent.ts:343-393, since AutonomousAgent.startRun() hardcodes a non-null organization_id and this agent's row must have organization_id=null)"],
+        "confirmedStructuralZeroByReadingSource": ["AG-13 (src/lib/scraper/foundation-scraper.ts -- zero matches for 'agent_runs' anywhere in the file)", "AG-14 (worker/dd-request-processor.ts -- zero matches for 'agent_runs' anywhere in the file)", "AG-16 (src/lib/intelligence/digital-twin-builder.ts -- zero matches for 'agent_runs' anywhere in the file)", "AG-25 Disaster Response (src/lib/agents/disaster-response-agent.ts -- its own header comment at line 5 states plainly: 'no Claude call, nothing logged to agent_runs')"]
+      }
+    },
+    "findings": [
+      {
+        "id": "F1",
+        "category": "unlogged-execution-by-design",
+        "unloggedExecution": true,
+        "monitoringStatus": null,
+        "severity": "P2",
+        "file": "src/app/api/intelligence/outreach/generate/route.ts",
+        "line": null,
+        "description": "AG-24 (ag-24-outreach-generator) is a canonical, registered agent per agent-registry-seed.ts. PT-09 live-invoked it: real authenticated session, real Claude call, real HTTP 200 with substantive generated content. The route contains no BaseAgent/AutonomousAgent subclass and no agentType/agentId literal at all -- it writes zero rows to any table, including agent_runs, on every invocation, success or failure. A real agent-classified execution that produces zero forensic trace anywhere in the database.",
+        "evidence": "test-evidence/pt-09/batch2-results/AG-24.json verdictReasoning: 'there is no BaseAgent/AutonomousAgent subclass here (no agent_runs logging either, confirmed by the before/after sentinel above being 0/0)'",
+        "evidenceRef": "test-evidence/pt-09/batch2-results/AG-24.json"
+      },
+      {
+        "id": "F2",
+        "category": "unlogged-execution-structural",
+        "unloggedExecution": true,
+        "monitoringStatus": null,
+        "severity": "P1",
+        "file": "worker/dd-request-processor.ts",
+        "line": 265,
+        "description": "AG-14 (ag-14-donor-discovery, the continuous-poll worker processor confirmed STARTED in production per PT-08's boot-inventory.json) never writes to agent_runs anywhere in its source -- confirmed by a zero-match grep of the entire file. This is the single most consequential unlogged-execution finding: AG-14's real, most-common production failure mode is the missing donor_discovery_claim_request RPC (confirmed absent from production -- migration 070 was never applied), which dequeue() (line 265-276) catches into a bare console.error and returns null, treated identically to an empty queue. A real user's donor-discovery request submitted today sits in status='queued' forever with zero record in agent_runs, zero record anywhere else in the database, and zero error surfaced to any human -- confirmed live-reproduced by PT-09.",
+        "evidence": "test-evidence/pt-09/batch1-results/AG-14.json verdict: ERROR-SWALLOWED, verdictReasoning: 'a request submitted by a real user today would sit in queued status indefinitely with no error anywhere in the product for a human to see.'",
+        "evidenceRef": "test-evidence/pt-09/batch1-results/AG-14.json"
+      },
+      {
+        "id": "F3",
+        "category": "unlogged-execution-structural",
+        "unloggedExecution": true,
+        "monitoringStatus": null,
+        "severity": "P3",
+        "file": "src/lib/scraper/foundation-scraper.ts",
+        "line": null,
+        "description": "AG-13 (ag-13-foundation-enrichment), wired into the weekly foundation-enrichment-weekly scheduler job, never writes to agent_runs anywhere in its source (zero-match grep). PT-09 confirmed a real, completed, zero-field-change run (WIRED-NO-OUTPUT) with no agent_runs trace of that run recorded anywhere -- the run's own outcome (enriched=false) is only knowable by diffing foundation_directory before/after, never by querying agent_runs.",
+        "evidence": "test-evidence/pt-09/batch1-results/AG-13.json writeTargetTables: [\"foundation_directory\"] -- agent_runs absent from the target list entirely, confirmed by direct source read this session, not a PT-09 evidence gap.",
+        "evidenceRef": "test-evidence/pt-09/batch1-results/AG-13.json"
+      },
+      {
+        "id": "F4",
+        "category": "unlogged-execution-structural",
+        "unloggedExecution": true,
+        "monitoringStatus": null,
+        "severity": "P3",
+        "file": "src/lib/intelligence/digital-twin-builder.ts",
+        "line": null,
+        "description": "AG-16 (ag-16-digital-twin) never writes to agent_runs anywhere in its source (zero-match grep). PT-09 confirmed a real, successful run (organizational_digital_twins:+1, real mission/board content) with no corresponding agent_runs row -- a working, wired agent whose successful runs are invisible to any tooling or dashboard that queries agent_runs to answer 'is this agent running / has it run recently.'",
+        "evidence": "test-evidence/pt-09/batch1-results/AG-16.json writeTargetTables: [\"organizational_digital_twins\"] -- agent_runs absent, confirmed by direct source read this session.",
+        "evidenceRef": "test-evidence/pt-09/batch1-results/AG-16.json"
+      },
+      {
+        "id": "F5",
+        "category": "unlogged-execution-self-documented",
+        "unloggedExecution": true,
+        "monitoringStatus": null,
+        "severity": "P3",
+        "file": "src/lib/agents/disaster-response-agent.ts",
+        "line": 5,
+        "description": "AG-25 Disaster Response's own header comment states plainly: 'no Claude call, nothing logged to agent_runs.' This is an intentional design choice, not a bug -- but it means a canonical, registered, real-working autonomous agent (PT-09 confirmed WORKS: real live FEMA OpenFEMA v2 API call, real disaster_declarations/alerts writes) produces literally zero agent_runs trace by design, contrary to BaseAgent's own file-header claim that 'agents never fail silently' -- the claim is about failure logging specifically, but the practical effect for an operator querying agent_runs to confirm 'did AG-25 run today' is the same: nothing to find, success or failure.",
+        "evidence": "test-evidence/pt-09/batch2-results/AG-25__Disaster_Response_.json verdict: WORKS, writeTargetTables: [\"disaster_declarations\",\"alerts\"] -- no agent_runs.",
+        "evidenceRef": "test-evidence/pt-09/batch2-results/AG-25__Disaster_Response_.json"
+      },
+      {
+        "id": "F6",
+        "category": "structural-logging-gap",
+        "unloggedExecution": true,
+        "monitoringStatus": "structuralGap",
+        "severity": "P2",
+        "file": "src/lib/agents/base-agent.ts",
+        "line": 160,
+        "description": "BaseAgent.logStart() (line 160-181) discards the `error` from its own INSERT into agent_runs -- no check, no console output. Combined with update()'s (line 184-190) documented no-op-on-null-runId behavior, this means the entire logging layer for every BaseAgent-derived agent (recursive-learning.ts / AG-07 and its sibling Generation-1 subroutine agents) can fail completely silent the moment the initial insert fails, for any real work the agent goes on to do.",
+        "evidence": "Direct source read, src/lib/agents/base-agent.ts:159-181 (logStart) and :183-190 (update) -- confirmed no error-checking in either method.",
+        "evidenceRef": "src/lib/agents/base-agent.ts"
+      },
+      {
+        "id": "F7",
+        "category": "structural-logging-gap-already-caused-incident",
+        "unloggedExecution": true,
+        "monitoringStatus": "structuralGap",
+        "severity": "P2",
+        "file": "src/lib/agents/autonomous-base.ts",
+        "line": 158,
+        "description": "AutonomousAgent.completeRun() (line 158-191) and failRun() (line 193-204) both discard the `error` from their agent_runs UPDATE with zero checking and zero console output -- the exact pattern that STATE_OF_THE_BUILD.md's 2026-08-03 session documents as having already caused a real production incident (AG-10 GrantDnaAgent runs stuck at status='running' forever; AutonomousDigestAgent and StrategicAdvisorAgent separately flagged as 'likely had every real production run silently stuck' from the same code path before an unrelated column-add fixed it by coincidence). The unchecked-update code pattern itself remains unchanged in the current file -- any future column drop or RLS change on agent_runs would reproduce this exact class of silent-forever-running incident with no code change needed to trigger it.",
+        "evidence": "Direct source read, src/lib/agents/autonomous-base.ts:158-204. Prior incident: STATE_OF_THE_BUILD.md session dated 2026-08-03 ('AG-10 Grant DNA Analysis Agent live-verified... every GrantDnaAgent run returned success: true but the real agent_runs row stayed stuck at status: running forever').",
+        "evidenceRef": "STATE_OF_THE_BUILD.md (2026-08-03 AG-10 live-verification session entry)"
+      },
+      {
+        "id": "F8",
+        "category": "agent-decisions-coverage-gap",
+        "unloggedExecution": true,
+        "monitoringStatus": null,
+        "severity": "P3",
+        "file": "src/lib/agents/autonomous-digest-agent.ts",
+        "line": null,
+        "description": "Of 32 files that `extends AutonomousAgent`, 31 call `logDecision()` at least once (confirmed by grep across src/lib/agents/*.ts). AutonomousDigestAgent is the sole exception -- it never calls logDecision() anywhere in its source, so whatever internal ranking/inclusion decisions it makes while building the real, live, 7AM-pipeline-wired morning digest are never recorded to agent_decisions, only a coarse agent_runs completion row (via its own createNotification call at line 355) exists as any trace of what it decided.",
+        "evidence": "grep -rl \"logDecision(\" src/lib/agents --include=*.ts returns 32 files; grep -rl \"extends AutonomousAgent\" returns the same 32; autonomous-digest-agent.ts is present in the second set and absent from the first (verified by explicit per-file check).",
+        "evidenceRef": "src/lib/agents/autonomous-digest-agent.ts"
+      },
+      {
+        "id": "F9",
+        "category": "logging-completeness-cuts-both-ways-corroborating",
+        "unloggedExecution": false,
+        "monitoringStatus": null,
+        "severity": "P3",
+        "file": "test-evidence/pt-09/PHASE-09-SUMMARY.md",
+        "line": 126,
+        "description": "PT-09's own headline finding -- 13 of 43 canonical agents (30%) carried a misleadingly-positive 'BUILT'/'WIRED' status under every prior check this project had run, because a real, non-error agent_runs.status='completed' row was treated as proof of real work, when in fact 12 of those 13 wrote zero rows to any business table (WIRED-NO-OUTPUT) and 1 silently swallowed its real failure (AG-14, see F2 above) -- is direct, already-published, independently-reproducible evidence that agent_runs completeness is not a two-state problem. It is not just 'some executions produce no log row' (F1-F5 above); it is also 'a present, completed log row is not proof the execution did anything real.' Both directions of this gap must be read together: a monitoring system that only checks 'does agent_runs have a recent completed row for agent X' would be blind to both failure modes simultaneously.",
+        "evidence": "test-evidence/pt-09/PHASE-09-SUMMARY.md, section 'The false-pass casualty count — the honest reckoning', lines 126-150.",
+        "evidenceRef": "test-evidence/pt-09/PHASE-09-SUMMARY.md"
+      }
+    ]
+  },
+
+  "part2_errorSurfacing": {
+    "method": "Read every real catch/error-handling branch in the worker's boot sequence (worker/index.ts), the two agent base classes, the one continuous-poll processor with a confirmed silent-failure signature (worker/dd-request-processor.ts), and the codebase's only three notification/alerting mechanisms (alerts table via createNotification, alerting.ts's checkAlerts(), webhook-notifier.ts) to determine, for each, whether a real background failure reaches: (a) a database record, (b) a log line only a human tailing server output would see, (c) an in-app UI surface a human would see without being told to look, or (d) nothing at all.",
+    "findings": [
+      {
+        "id": "F10",
+        "category": "silent-failure",
+        "unloggedExecution": true,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": null,
+        "severity": "P1",
+        "file": "worker/dd-request-processor.ts",
+        "line": 268,
+        "description": "dequeue()'s RPC-failure branch (`if (error) { console.error(...); return null; }`) is indistinguishable, at every layer above it, from a genuinely empty queue. The failure reaches a server console.error line (Railway logs only, not tailed by anything automated) and stops there -- no database record of any kind, no alerts row, no system_errors row, no UI indicator. Same finding as F2, restated here specifically as an error-surfacing-path trace rather than a run-logging-completeness trace.",
+        "evidence": "Direct source read, worker/dd-request-processor.ts:265-276.",
+        "evidenceRef": "worker/dd-request-processor.ts"
+      },
+      {
+        "id": "F11",
+        "category": "silent-failure-zombie-worker",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": null,
+        "severity": "P1",
+        "file": "worker/index.ts",
+        "line": 144,
+        "description": "The one background sub-process wired with an outer try/catch that does NOT crash the whole worker on failure (`agentQueueDone = processAgentQueue(supabase).catch((err) => { console.error(...) })`) only console.error's -- it does not set worker_status.status='error' (contrast with the uncaughtException/unhandledRejection handlers at lines 112-128, which DO set status='error' and exit) and does not stop the process. If processAgentQueue's internal loop throws an unhandled error past its own catch, the effect is a worker that keeps sending a healthy 30s heartbeat (heartbeat.ts is a wholly separate interval, unaffected) and shows 'online' on /admin/system, while agent_queue processing has silently and permanently stopped -- the dashboard's own health signal (worker_status='online') is compatible with a fully dead agent_queue processor.",
+        "evidence": "Direct source read, worker/index.ts:144-146 (the outlier catch pattern) contrasted with :112-128 (the two handlers that do mark status='error').",
+        "evidenceRef": "worker/index.ts"
+      },
+      {
+        "id": "F12",
+        "category": "partial-surfacing",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": false,
+        "monitoringStatus": "wired",
+        "severity": "P3",
+        "file": "worker/index.ts",
+        "line": 112,
+        "description": "process.on('uncaughtException'/'unhandledRejection') both console.error the full error, then write worker_status.status='error' before exiting (process restarts under Railway's own supervisor). This does reach a real database record and, downstream, the /admin/system dashboard's worker table -- but reaches no human automatically; a human must be actively viewing /admin/system or tailing Railway logs at that moment, or must visit later before the next successful heartbeat overwrites status back to 'online'/'idle'/'processing'.",
+        "evidence": "Direct source read, worker/index.ts:112-128.",
+        "evidenceRef": "worker/index.ts"
+      },
+      {
+        "id": "F13",
+        "category": "no-automatic-alert-on-agent-failure",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "structuralGap",
+        "severity": "P2",
+        "file": "src/lib/agents/autonomous-base.ts",
+        "line": 193,
+        "description": "failRun() is explicitly documented ('Never throws - a logging failure must never mask the original error the caller is already handling') to only patch the agent_runs row -- it never calls createNotification(). Confirmed by cross-check: createNotification()'s own `severity` parameter accepts \"error\" (autonomous-base.ts:252), but a repo-wide grep found zero real call sites anywhere in src/lib/agents that pass severity:\"error\" -- every real createNotification() call across the fleet (morning digest ready, board packet ready, compliance blocked, etc.) is a business-outcome notice at default \"info\" severity, never an agent-infrastructure-failure notice. A failed autonomous agent run therefore never automatically becomes a user-facing (or operator-facing) alert; it only ever becomes a raw agent_runs.status='failed' row that a human must go query directly. No UI page lists failed agent_runs for a human to browse.",
+        "evidence": "grep -rn 'severity.*(error|\"error\")' src/lib/agents returns only the type-definition line in autonomous-base.ts:252 and one unused comment reference in donor-intent-monitor-agent.ts:31 -- zero real invocations.",
+        "evidenceRef": "src/lib/agents/autonomous-base.ts"
+      },
+      {
+        "id": "F14",
+        "category": "dead-alerting-code",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "deadCode",
+        "severity": "P2",
+        "file": "src/lib/autoapply/alerting.ts",
+        "line": 21,
+        "description": "checkAlerts() is a fully-built, real threshold-alert engine covering worker-offline (>5min stale heartbeat), low success rate (<50% over 1hr), daily cost overrun (>$50), and per-tenant submission-volume anomaly (>3x 30-day average) -- exactly the kind of automated failure detection a mature ops setup needs. It has zero callers anywhere in the codebase outside its own definition. This is not an inference from absence: form-filler-agent.ts's own header comment at the one place it is discussed explicitly documents it as dead code -- 'alerting.ts's checkAlerts() is a periodic system-wide threshold scan... with no per-event dispatch and no caller anywhere in this codebase.' It is not wired into worker/scheduler.ts, not exposed via any API route, not called from any dashboard component.",
+        "evidence": "grep -rn checkAlerts across the repo returns exactly 2 lines: the function's own definition (alerting.ts:21) and a comment in src/lib/autoapply/form-filler-agent.ts:184 explicitly stating it has no caller.",
+        "evidenceRef": "src/lib/autoapply/form-filler-agent.ts:183-188"
+      },
+      {
+        "id": "F15",
+        "category": "customer-opt-in-not-operator-alerting",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": false,
+        "monitoringStatus": "wired",
+        "severity": "P3",
+        "file": "src/lib/autoapply/webhook-notifier.ts",
+        "line": 85,
+        "description": "WebhookNotifier is real and wired -- it fires on 6 real AutoApply lifecycle events including submission_failed, review_needed, and captcha_solve_failed (the latter confirmed as the live replacement for the never-called checkAlerts(), per F14's own citation), POSTs to Slack or a generic webhook URL. But delivery is entirely gated on the ORG having pre-configured an active row in webhook_configs (organization_id-scoped, is_active=true, matching event in its events array) -- there is no built-in destination pointed at Benavora's own operations team. If no org has ever configured a webhook, every one of these 6 real events fires into `matching.length === 0` and returns silently (line 109), with only a console.warn if the fetch itself fails (line 133), never if there was simply nothing configured to notify.",
+        "evidence": "Direct source read, src/lib/autoapply/webhook-notifier.ts:85-141.",
+        "evidenceRef": "src/lib/autoapply/webhook-notifier.ts"
+      },
+      {
+        "id": "F16",
+        "category": "no-drill-down-no-push",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "wired",
+        "severity": "P3",
+        "file": "src/app/api/admin/system/route.ts",
+        "line": 75,
+        "description": "system_errors is a real platform-level error table, but has only 2 write sites in the entire codebase (src/lib/ai/claude.ts, on a platform Anthropic-key 401; src/lib/autoapply/confirmation-monitor.ts, on a Gmail OAuth refresh failure) and exactly 1 read site (/api/admin/system, a bare 24h COUNT with no row-level detail returned). The consuming UI (SystemClient.tsx:234-235) renders this count as a single colored number tile (red if >0, green if 0) with no click-through to see the actual error message, timestamp, or source of any individual row -- and no push notification fires when a new system_errors row is inserted; a human must visit /admin/system and notice the tile has turned red.",
+        "evidence": "grep -rln 'system_errors' src worker returns exactly these 3 files; src/app/(dashboard)/admin/system/SystemClient.tsx:234-235 renders only the count, no detail list.",
+        "evidenceRef": "src/app/api/admin/system/route.ts"
+      },
+      {
+        "id": "F17",
+        "category": "no-error-tracking-sdk",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "aspirational",
+        "severity": "P3",
+        "file": "package.json",
+        "line": null,
+        "description": "No error-tracking/APM SDK (Sentry, Bugsnag, Rollbar, Honeybadger, Datadog, New Relic, LogRocket) appears anywhere in package.json's dependencies. Every application-level and worker-level error in this codebase is surfaced, at most, via console.error/console.warn captured only by the hosting platform's own raw log retention (Vercel function logs for the Next.js app, Railway logs for the worker) -- neither of which is queried, aggregated, or alerted on by anything in this repository.",
+        "evidence": "Grep of package.json for sentry|bugsnag|rollbar|honeybadger|datadog|newrelic|logrocket (case-insensitive) returned zero matches.",
+        "evidenceRef": "package.json"
+      }
+    ]
+  },
+
+  "part3_monitoringReality": {
+    "method": "Enumerated every real read/write site of worker_status, system_errors, and alerts; checked package.json, .github/workflows/, and vercel.json for external monitoring/health-check/notification infrastructure; and independently verified one dashboard metric's actual behavior against the real enum it filters on, rather than trusting its presence on a dashboard as proof it works.",
+    "existsAndWired": [
+      "worker_status table + worker/heartbeat.ts (30s interval tick, checked-error re-registration on failed/zero-row updates -- a real, previously-fixed silent-failure bug per its own header comment)",
+      "/admin/system dashboard (src/app/(dashboard)/admin/system/SystemClient.tsx + src/app/api/admin/system/route.ts) -- pull-based, reads worker_status, running agent_runs count, submission_queue/agent_queue depths, system_errors 24h count, avg agent_runs duration_ms",
+      "/admin/autoapply-ops (references last_heartbeat_at per grep of src/app/api/admin/autoapply-ops/route.ts) -- a second real dashboard surface",
+      "alerts table + /alerts page + nav-counts bell badge -- real, org-scoped, in-app customer notification surface, confirmed read by 16 real files across src/",
+      "WebhookNotifier -- real, wired for 6 AutoApply lifecycle events, opt-in per org via webhook_configs (see F15)",
+      "GitHub Actions daily-tests.yml -- a real scheduled workflow (cron 0 5 * * *, i.e. 11PM CST), running pnpm test:unit"
+    ],
+    "existsButDeadCode": [
+      "src/lib/autoapply/alerting.ts checkAlerts() -- fully-built worker-offline/low-success-rate/cost-exceeded/tenant-anomaly threshold engine, zero callers anywhere (see F14)"
+    ],
+    "aspirationalNeverBuilt": [
+      "STANDING_DIRECTIVES.md Directive 6 describes: a daily 11PM CST run covering smoke/unit/integration/E2E/visual-regression/DB-migration/soak/cross-browser/dynamic-analysis/regression test types, writing results to a Supabase test_runs table, surfaced on a dashboard at /platform/test-results. None of this exists beyond the unit-test slice: `test_runs` has zero references anywhere in src/ or worker/ (confirmed by grep), and /platform/test-results is not a real route (only an unrelated /autoapply/test-results page exists). The real daily-tests.yml workflow runs only `pnpm test:unit` -- no E2E, visual regression, cross-browser, soak, or DB migration steps are wired into it, and it persists nothing to any database table.",
+      "No dedicated /api/health (or similar) endpoint exists anywhere under src/app/api for an external uptime monitor to poll (confirmed by directory search for health/ping/status route names).",
+      "No external uptime-monitoring service reference (UptimeRobot, Pingdom, StatusPage, healthchecks.io, BetterUptime, Checkly) found anywhere in the codebase, and no Sentry/APM SDK (see F17)."
+    ],
+    "findings": [
+      {
+        "id": "F18",
+        "category": "wired-monitoring-confirmed",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": false,
+        "monitoringStatus": "wired",
+        "severity": "P3",
+        "file": "worker/heartbeat.ts",
+        "line": 43,
+        "description": "The heartbeat write path is genuinely real, current, and self-healing: writeHeartbeat() awaits its own UPDATE, checks both a real error and a zero-row match (a zero-row UPDATE succeeds with an empty result in Postgres, not an error -- the function's own header comment documents this as the exact prior bug it was rewritten to close), and falls back to a fresh upsert via register() on either failure signature so a single bad tick can no longer freeze worker_status forever.",
+        "evidence": "Direct source read, worker/heartbeat.ts:28-63.",
+        "evidenceRef": "worker/heartbeat.ts"
+      },
+      {
+        "id": "F19",
+        "category": "wired-monitoring-pull-based",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": false,
+        "monitoringStatus": "wired",
+        "severity": "P3",
+        "file": "src/app/api/admin/system/route.ts",
+        "line": 43,
+        "description": "/admin/system's GET handler is real and does report a genuinely useful cross-section: worker health, currently-running agent_runs, both queue depths, error count, average agent-run duration. Its own header comment states it 'doubles as the Supabase connectivity check' -- if the underlying Promise.all itself throws, the route degrades to a 200 response with a false-but-safe empty state rather than a 500, which is a deliberate, documented design choice, not a bug. The entire mechanism is pull-based: nothing pushes this data to a human, they must navigate to the page.",
+        "evidence": "Direct source read, src/app/api/admin/system/route.ts:35-93.",
+        "evidenceRef": "src/app/api/admin/system/route.ts"
+      },
+      {
+        "id": "F20",
+        "category": "broken-monitoring-metric",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "brokenMetric",
+        "severity": "P1",
+        "file": "src/app/api/admin/system/route.ts",
+        "line": 70,
+        "description": "The one dashboard metric that exists specifically to surface AG-14's real failure mode (F2/F10 above -- donor-discovery requests stuck forever in status='queued') cannot ever show it: the query filters `.eq(\"status\", \"pending\")`, but donor_discovery_request_status (defined in supabase/migrations/067_donor_discovery_foundation.sql:14-16) is a Postgres ENUM with exactly these 6 values -- 'queued', 'enumerating', 'enriching', 'scoring', 'complete', 'failed'. 'pending' is not among them and has never been a real status this table's own create-route (src/app/api/donor-discovery/requests/route.ts:100, `status: \"queued\"`) or worker processor ever writes. This metric structurally reads 0 forever, regardless of how many real requests are genuinely stuck -- the exact scenario PT-09 reproduced live. A human diligently checking /admin/system every day would see 'donor_discovery_requests: 0' and have no reason to suspect anything is wrong.",
+        "evidence": "Direct source read: src/app/api/admin/system/route.ts:70-73 (`.eq(\"status\", \"pending\")`), supabase/migrations/067_donor_discovery_foundation.sql:14-16 (enum has no 'pending' value), src/app/api/donor-discovery/requests/route.ts:100 (real create status is 'queued', never 'pending'). This finding was made independently this session, not carried from PT-09.",
+        "evidenceRef": "src/app/api/admin/system/route.ts; supabase/migrations/067_donor_discovery_foundation.sql"
+      },
+      {
+        "id": "F21",
+        "category": "aspirational-monitoring-doc-vs-reality",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "aspirational",
+        "severity": "P2",
+        "file": "STANDING_DIRECTIVES.md",
+        "line": null,
+        "description": "STANDING_DIRECTIVES.md Directive 6 ('Comprehensive Daily Test Suite') describes a 10-category daily test regime with results in a Supabase test_runs table and a /platform/test-results dashboard. Neither exists: `test_runs` has zero references in src/ or worker/ (confirmed by grep), and no /platform/test-results route exists (only an unrelated /autoapply/test-results page). The one real artifact, .github/workflows/daily-tests.yml, runs only `pnpm test:unit` on the described 11PM CST schedule -- a genuine but far narrower slice than the directive claims, with zero result persistence and zero dashboard.",
+        "evidence": "Direct read of .github/workflows/daily-tests.yml (21 lines, single `pnpm test:unit` step); grep for test_runs across src/ and worker/ returns zero matches; directory search confirms no /platform/test-results route.",
+        "evidenceRef": ".github/workflows/daily-tests.yml"
+      },
+      {
+        "id": "F22",
+        "category": "scheduled-ci-failure-notification-empirically-unreliable",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "aspirational",
+        "severity": "P3",
+        "file": "STANDING_DIRECTIVES.md",
+        "line": null,
+        "description": "This project's own governance record already contains direct, first-party evidence that a scheduled GitHub Actions workflow silently failing does not reliably reach a human here: DIRECTIVE-019 documents that a sibling scheduled workflow (deploy-check.yml) ran 50 failures out of its last 51 runs -- including on commits whose actual Vercel build succeeded -- and went unnoticed for an extended period until a manual audit found it, rather than via any GitHub-native failure notification. This is cited as direct precedent, not speculation, for why daily-tests.yml's pass/fail state (see F21) should not be assumed to be monitored by anyone either, absent evidence otherwise.",
+        "evidence": "STANDING_DIRECTIVES.md, DIRECTIVE-019 section: 'gh run list showed 50 failures / 1 cancelled / 0 successes out of its last 51 runs'.",
+        "evidenceRef": "STANDING_DIRECTIVES.md (DIRECTIVE-019)"
+      },
+      {
+        "id": "F23",
+        "category": "no-external-uptime-or-apm-monitoring",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": true,
+        "monitoringStatus": "aspirational",
+        "severity": "P3",
+        "file": "package.json",
+        "line": null,
+        "description": "No external uptime-monitoring service reference (UptimeRobot, Pingdom, StatusPage, healthchecks.io, BetterUptime, Checkly) and no dedicated health-check endpoint exist anywhere in this codebase for one to poll. Combined with F17 (no error-tracking SDK), the only two monitoring surfaces this platform has for its own uptime/health are: a human navigating to /admin/system, and a human tailing Vercel/Railway raw logs.",
+        "evidence": "Repo-wide search (Grep tool + directory search) for the listed service names and for a health/ping/status API route returned no matches beyond the internal-only routes already documented in F16/F18/F19.",
+        "evidenceRef": "vercel.json; src/app/api directory listing"
+      },
+      {
+        "id": "F24",
+        "category": "customer-facing-not-operator-facing",
+        "unloggedExecution": false,
+        "absentErrorSurfacing": false,
+        "monitoringStatus": "wired",
+        "severity": "P3",
+        "file": "src/lib/agents/autonomous-base.ts",
+        "line": 247,
+        "description": "createNotification()/the alerts table is real and does reach a real UI (16 files read from it, including a bell-icon nav-counts badge and a dedicated /alerts page) -- but every real call site across the agent fleet uses it for a business-outcome notice scoped to the triggering org (morning digest ready, board packet ready, compliance blocked), never for an agent-infrastructure failure (see F13). This is Benavora's one genuinely-working automated notification surface, and it is entirely customer-facing, not operator-facing -- there is no equivalent mechanism that notifies Benavora's own team when something in the platform itself breaks.",
+        "evidence": "grep -rln 'from(\"alerts\")' src returns 16 files, all customer dashboard/nav-count/business-event consumers or writers; cross-referenced against F13's finding that severity:\"error\" is never actually used.",
+        "evidenceRef": "src/lib/agents/autonomous-base.ts:245-262"
+      }
+    ]
+  },
+
+  "summary": {
+    "totalFindings": 24,
+    "part1FindingCount": 9,
+    "part2FindingCount": 8,
+    "part3FindingCount": 7,
+    "unloggedExecutionCount": 9,
+    "absentErrorSurfacingCount": 10,
+    "wiredMonitoringCount": 6,
+    "deadMonitoringCodeCount": 1,
+    "aspirationalMonitoringCount": 4,
+    "brokenMetricCount": 1,
+    "p1Count": 4,
+    "p2Count": 6,
+    "p3Count": 14,
+    "headline": "Run-log completeness: at least 6 canonical agents (AG-13, AG-14, AG-16, AG-24, AG-25 Disaster Response, and AutonomousDigestAgent's decision-logging) structurally never produce an agent_runs/agent_decisions trace for some or all of their real executions -- not an evidence-collection gap, confirmed by zero-match source-code greps. Both agent base classes (BaseAgent, AutonomousAgent) have unchecked-error logging paths capable of silently losing a run's completion state; the AutonomousAgent pattern already caused one documented production incident (AG-10, 2026-08-03) and the code that caused it is unchanged today. Error surfacing: the only automatic path from an agent failure to a human-visible surface is a human manually visiting /admin/system or /alerts -- no autonomous agent automatically raises an alert on its own failure (createNotification's severity:'error' option is defined but never actually called), a fully-built threshold-alerting engine (checkAlerts()) has zero callers anywhere, and the one dashboard metric built specifically to catch the AG-14 stuck-queue failure mode queries a status value ('pending') that does not exist in the real enum and therefore reads zero forever regardless of real backlog. Monitoring reality: worker_status/heartbeat and /admin/system are genuinely real and current; the daily test suite, error-tracking SDK, and external uptime monitoring described or implied by governance docs do not exist beyond a narrow real GitHub Actions unit-test run whose own failure-visibility is empirically unproven on this project (per DIRECTIVE-019's own deploy-check.yml precedent)."
+  }
+}

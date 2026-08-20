@@ -1,5 +1,46 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-13 COMPLETE: silent catch-block census.
+## Last Updated: August 20, 2026 — audit PT-13: run-log completeness + monitoring reality.
+
+Cross-referenced `test-evidence/pt-09/`'s already-committed real-execution proof (44 canonical agent
+invocations with captured before/after row deltas) against both agent base classes' current source
+and each agent's own implementing file. Output: `test-evidence/pt-13/observability.json` (24
+file:line-cited findings across three parts — no new live invocation, a source/prior-evidence
+cross-reference pass).
+
+**Run-log completeness:** 6 canonical agents (AG-13, AG-14, AG-16, AG-24, AG-25 Disaster Response,
+plus AutonomousDigestAgent's decision-logging specifically) confirmed by zero-match source grep to
+never write to `agent_runs`/`agent_decisions` for some or all of their real executions — not a PT-09
+measurement gap. AG-14 (`worker/dd-request-processor.ts`) is the worst case: its real, most-common
+production failure (a missing RPC) is `console.error`-only, indistinguishable from an empty queue,
+with zero DB trace anywhere. Both `BaseAgent` and `AutonomousAgent`'s completion-logging methods
+discard their own UPDATE/INSERT errors unchecked — the `AutonomousAgent` pattern already caused the
+real, documented AG-10 "stuck at running forever" incident (2026-08-03 session), and the code is
+unchanged today.
+
+**Error-surfacing:** no autonomous agent automatically alerts on its own failure — `failRun()` never
+calls `createNotification()`, and `severity:"error"` (a real option) is never actually passed by any
+real call site. A fully-built threshold-alerting engine (`alerting.ts`'s `checkAlerts()`) has zero
+callers anywhere, self-documented as dead in `form-filler-agent.ts`'s own comment. `WebhookNotifier`
+is real but customer-opt-in only, no built-in Benavora-ops destination. `worker/index.ts`'s
+`processAgentQueue()` crash handler console.errors only — unlike the sibling uncaught-exception
+handlers, it never marks `worker_status='error'`, so the agent-queue processor can die silently while
+the worker still reports "online."
+
+**Monitoring reality:** `worker_status`/heartbeat and `/admin/system` are genuinely real. Everything
+else is thinner than described or doesn't exist: `STANDING_DIRECTIVES.md` Directive 6's described
+daily test suite (`test_runs` table, `/platform/test-results` dashboard) doesn't exist — the real
+`daily-tests.yml` only runs `pnpm test:unit`. No error-tracking SDK, no external uptime monitor, no
+health-check endpoint anywhere. New finding this session: `/admin/system`'s one metric meant to catch
+AG-14's stuck-queue failure queries `donor_discovery_requests.status='pending'`, a value that does
+not exist in the real enum (`queued`/`enumerating`/`enriching`/`scoring`/`complete`/`failed` per
+migration 067) — it reads `0` forever regardless of real backlog.
+
+**Gate:** `node scripts/audit/verify-pt13-002.mjs` — PASS. Requires ≥1 `unloggedExecution:true` and
+≥1 `absentErrorSurfacing:true` finding, both `wired` and non-`wired` monitoring statuses present,
+explicit `test-evidence/pt-09/` citation, summary counts cross-checked against the findings arrays,
+every cited file confirmed to exist on disk.
+
+---
 
 Full census of every `try/catch` and `.catch()` across `src/`, `worker/`, `scripts/`, `e2e/`,
 `tests/`, `audit/` — directly motivated by the `.Handle` discovery (a real failure silently

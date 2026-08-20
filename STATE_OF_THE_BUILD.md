@@ -1,5 +1,94 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-13: run-log completeness + monitoring reality.**
+
+Follow-up to the same-day silent-catch-block census below. Cross-referenced `test-evidence/pt-09/`'s
+already-committed, real-execution proof (44 canonical agent invocations, each with a captured
+before/after row delta) against the current source of both agent base classes and each agent's own
+implementing file, to answer three questions with real evidence, not assumption: are agent
+executions logged completely, do background failures actually reach a human, and what production
+monitoring genuinely runs today versus is only described in governance docs. Output:
+`test-evidence/pt-13/observability.json` (24 findings, all file:line-cited, none re-invoking a live
+system — this was a source-code and prior-evidence cross-reference pass, not a new live run).
+
+**Run-log completeness — real, confirmed gaps, not PT-09 measurement noise.** Of PT-09's 44
+canonical execution rows, 4 have no code to invoke (PENDING-SCOPE: AG-12/31/33/34) and 34 have a
+directly-confirmed `agent_runs` delta ≥1. Of the remaining 6 where PT-09's own evidence file didn't
+track an `agent_runs` key, this session read each agent's real source directly rather than treating
+the gap as inconclusive: AG-07 (`recursive-learning.ts`, extends `BaseAgent`) and AG-38
+(`self-improvement-agent.ts`, writes a bespoke platform-level `agent_runs` row since
+`organization_id` must be null) do use the logging framework — PT-09 simply didn't check that key.
+**AG-13 (`foundation-scraper.ts`), AG-14 (`worker/dd-request-processor.ts`), AG-16
+(`digital-twin-builder.ts`), and AG-25 Disaster Response (`disaster-response-agent.ts`, whose own
+header comment says outright "nothing logged to agent_runs") never write to `agent_runs` anywhere in
+their source — confirmed by zero-match greps, not inference.** AG-14 is the most consequential:
+it's a continuous-poll worker processor confirmed STARTED in production (PT-08), and its real,
+most-common failure mode (the `donor_discovery_claim_request` RPC is missing in production) is caught
+into a bare `console.error` and returns `null`, indistinguishable at every layer above it from an
+empty queue — a real user's donor-discovery request today sits in `status='queued'` forever with
+zero trace anywhere in the database. Separately, AG-24 (`/api/intelligence/outreach/generate`) is a
+registered canonical agent whose real invocation (real Claude call, real HTTP 200) writes to no table
+at all, including `agent_runs`, because it was never built on either agent base class. Both base
+classes also carry a structural risk independent of any specific agent: `BaseAgent.logStart()`/
+`update()` (`src/lib/agents/base-agent.ts:159-190`) discard their own INSERT/UPDATE errors with zero
+checking and zero console output, and `AutonomousAgent.completeRun()`/`failRun()`
+(`src/lib/agents/autonomous-base.ts:158-204`) do the same — the latter is not hypothetical: this
+exact unchecked-update pattern is what caused the real, already-documented AG-10 incident earlier
+this build (2026-08-03 session below: `GrantDnaAgent` runs stuck at `status='running'` forever
+because `output_payload` was missing and the update silently failed, with `AutonomousDigestAgent` and
+`StrategicAdvisorAgent` flagged as likely also affected). The code that caused it is unchanged today.
+
+**Error-surfacing paths — traced, not assumed.** The only automatic path from an agent's own failure
+to anything a human would see is a human manually visiting `/admin/system` or `/alerts` — no
+autonomous agent automatically raises an alert on its own failure. `AutonomousAgent.failRun()` is
+explicitly documented to "never throw" and never calls `createNotification()`; a grep across every
+real `createNotification()` call site in `src/lib/agents/` confirms `severity: "error"` (a real,
+defined option) is never actually passed anywhere — every real call is a business-outcome notice
+(morning digest ready, board packet ready, compliance blocked), never an agent-infrastructure-failure
+notice. A fully-built threshold-alerting engine, `src/lib/autoapply/alerting.ts`'s `checkAlerts()`
+(worker-offline, low-success-rate, cost-overrun, tenant-anomaly detection), has zero callers anywhere
+in the codebase — confirmed by grep and by the codebase's own comment in `form-filler-agent.ts:184`
+stating exactly that. `WebhookNotifier` is real and fires on real AutoApply events including
+`submission_failed`, but delivery is gated on each org having pre-configured its own webhook — there
+is no built-in destination for Benavora's own operations team. `worker/index.ts`'s
+`processAgentQueue()` crash handler (`worker/index.ts:144-146`) only `console.error`s — unlike the
+`uncaughtException`/`unhandledRejection` handlers a few lines above it, it does not mark
+`worker_status.status='error'`, meaning the agent-queue processor can die silently while the worker
+still reports "online" on every dashboard.
+
+**Monitoring/alerting reality — documented, not assumed.** `worker_status` + `worker/heartbeat.ts`'s
+30-second tick (with its own already-fixed self-healing re-registration on a failed or zero-row
+update) and `/admin/system`'s pull-based dashboard (worker health, running-agent count, queue depths,
+a 24h `system_errors` count, average run duration) are genuinely real and current. Everything past
+that is thinner than governance docs describe or is outright non-functional: `STANDING_DIRECTIVES.md`
+Directive 6 describes a 10-category daily test suite writing to a Supabase `test_runs` table with a
+`/platform/test-results` dashboard — neither exists (`test_runs` has zero references anywhere in
+`src/`/`worker/`; the real `.github/workflows/daily-tests.yml` only runs `pnpm test:unit`, nothing
+else, and persists nothing). No error-tracking/APM SDK (Sentry, Bugsnag, etc.) appears in
+`package.json`. No external uptime-monitoring reference or dedicated health-check endpoint exists
+anywhere in the codebase. And a genuine, previously-undocumented finding made this session, not
+carried from PT-09: **the one `/admin/system` metric that exists specifically to catch AG-14's
+stuck-queue failure mode is itself broken** — it queries
+`donor_discovery_requests.status = 'pending'` (`src/app/api/admin/system/route.ts:70-73`), but
+`'pending'` is not a real value in `donor_discovery_request_status` (the enum, defined in
+`supabase/migrations/067_donor_discovery_foundation.sql:14-16`, is `queued`/`enumerating`/
+`enriching`/`scoring`/`complete`/`failed`; the real create-route confirms every request starts life
+at `'queued'`, never `'pending'`). This metric structurally reads `0` forever regardless of how many
+requests are genuinely stuck — the exact scenario PT-09 already reproduced live. This project's own
+governance record (`STANDING_DIRECTIVES.md` DIRECTIVE-019) independently corroborates that a
+scheduled-CI failure silently going unnoticed for an extended period is not hypothetical here either:
+a sibling scheduled workflow (`deploy-check.yml`) ran 50 failures out of its last 51 runs before a
+manual audit — not GitHub's own notification system — caught it.
+
+**Gate:** `node scripts/audit/verify-pt13-002.mjs` — PASS. Confirms `observability.json` cites
+`test-evidence/pt-09/` evidence explicitly, contains at least one `unloggedExecution:true` and one
+`absentErrorSurfacing:true` finding (per the task's own instruction that these are findings, not
+optional edge cases), contains both `wired` and non-`wired` monitoring-status entries (so the report
+can't be one-sided), cross-checks its own summary counts against a fresh recomputation from the
+findings arrays, and confirms every cited file path exists on disk.
+
+---
+
 **Updated: August 20, 2026 — audit PT-13 COMPLETE: silent catch-block census.**
 
 Full codebase census of every `try/catch` and `.catch()` in `src/`, `worker/`, `scripts/`, `e2e/`,
