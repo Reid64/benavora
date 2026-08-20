@@ -1,6 +1,42 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-04-002: budget reconciliation + deadline reminder-offset
+**Updated: August 20, 2026 — audit PT-04-003: draft confidence / AutoApply eligibility / match-fit
+scoring hand-verification.** These are the three model-adjacent scores that drive user-visible
+recommendations (draft confidence badge, AutoApply "ready to submit" gate, opportunity
+apply/consider/skip recommendation), so a wrong threshold, inverted boolean, or mis-weighted factor
+here is high-value to catch. Unlike PT-04-001/002 (which pulled or seeded real production rows),
+this pass used chosen, known synthetic inputs specifically built to stress the documented branch
+boundaries — not whatever real data happened to exist — since the goal was exhausting the threshold
+space, not sampling live state. For each of the three functions, read the real source
+(`src/lib/drafts/generator.ts`'s `computeConfidence()`, `src/lib/autoapply/submission-validator.ts`'s
+`SubmissionValidator.checkOrgReadiness()`, `src/lib/intelligence/grant-probability-engine.ts`'s
+`computeGrantProbability()`), independently hand-derived the expected result from the documented
+weights/thresholds/penalties, then called the real, unmodified, imported function with a minimal
+mock Supabase query-builder supplying the exact known row set per scenario (`checkOrgReadiness`/
+`computeGrantProbability` both take a live client; `computeConfidence` is a pure function, called
+directly with no mock needed). 11 scenarios total: 4 for draft confidence (zero-KB branch vs. base-92
+branch, dual-penalty stacking, no-penalty full score, a 40-marker clamp-to-zero stress test), 3 for
+AutoApply eligibility (fully-ready/score 100, a multi-gap case that stacks both blocker strings, and
+a profile-only-gap case that specifically proves the second, generic blocker is correctly
+*suppressed* when nothing else is missing — the `missing_required.some(m => m !== "...")` check is
+exactly the kind of boolean logic an inverted condition would silently break), and 4 for match/fit
+scoring (a mid-range "consider" case, an all-null-data case exercising every neutral-fallback
+constant at once — score 28, which independently corroborates this same file's own 2026-08-18
+observation that "11 of 15 listed opportunities carry the score floor of 28" for real production
+data with no eligibility/outcomes/deadline/twin signal — a medium-confidence case, and an exact
+score=70 boundary case verifying the recommendation comparator is `>=70`, not `>70`). **Result: all
+11 scenarios matched exactly, delta 0 on every field, across all three functions.** No wrong
+threshold, inverted boolean, or mis-weighted factor found in any of the three — a genuine clean
+result, not an unexamined one, since the verifier (`scripts/audit/verify-pt04-003.mjs`)
+independently re-derives every `delta`/`match` flag from the recorded `expected`/`actual` pairs (not
+just checking the fields are present) and separately re-checks the recommendation-threshold
+consistency of every `expected` block on its own terms. Full input/expected/actual/delta capture in
+`test-evidence/pt-04/scoring.json`; regenerate via `node --import tsx
+scripts/audit/pt04-003-scoring.mjs`.
+
+---
+
+**Prior update: August 20, 2026 — audit PT-04-002: budget reconciliation + deadline reminder-offset
 hand-verification. Two independent live checks against the real running system (`next dev` on a
 local port, pointed at the real production database), both run through the dedicated "Benavora E2E
 Test Org" (`bf75d362-473c-4039-9e28-e09ef44ee862`, `owner.e2e@benavora-test.dev`) — never a real

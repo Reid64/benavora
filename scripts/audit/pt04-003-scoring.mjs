@@ -1,0 +1,644 @@
+// PT-04-003 — draft confidence / AutoApply eligibility / match-fit scoring
+// hand-verification.
+//
+// These are the three "model-adjacent" scores that drive user-visible
+// recommendations across the platform:
+//   1. Draft confidence score      -> shown on every generated grant draft
+//   2. AutoApply org readiness     -> gates whether AutoApply can submit
+//   3. Grant probability (match)   -> "apply/consider/skip" on /opportunities
+//
+// Unlike PT-04-001 (grant-probability.json), which pulled real, already-
+// persisted production rows for one specific opportunity/org pair, this
+// script deliberately uses CHOSEN, KNOWN synthetic inputs for every
+// scenario -- built specifically to stress the documented thresholds
+// (branch boundaries, clamp behavior, boolean-filter logic) rather than
+// whatever real data happened to exist. No live database connection is
+// used or required.
+//
+// For each scenario:
+//   - "expected" is computed independently in THIS script, by literally
+//     re-deriving the arithmetic from the documented formula (quoted in the
+//     documented_formula block per function, read directly from source).
+//   - "actual" is produced by calling the REAL, unmodified, imported source
+//     functions (src/lib/drafts/generator.ts's computeConfidence();
+//     src/lib/autoapply/submission-validator.ts's
+//     SubmissionValidator.checkOrgReadiness(); src/lib/intelligence/
+//     grant-probability-engine.ts's computeGrantProbability()) -- not a
+//     hand-copied reimplementation. checkOrgReadiness() and
+//     computeGrantProbability() both take a Supabase client; a minimal mock
+//     query-builder below supplies the exact known row set per scenario
+//     (ignoring .eq() filter arguments, since the caller already supplies
+//     the post-filter row set directly -- this is legitimate because we are
+//     choosing the inputs, not testing the database's own filtering).
+//
+// Any mismatch between "expected" and "actual" is a real logic bug (wrong
+// threshold, inverted boolean, mis-weighted factor) in the real source file,
+// not a bug in this script -- the arithmetic and branch logic below are
+// written independently from the modules under test.
+//
+// Usage: node --import tsx scripts/audit/pt04-003-scoring.mjs
+
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { differenceInCalendarDays, addDays } from "date-fns";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.join(__dirname, "..", "..");
+const evidenceDir = path.join(repoRoot, "test-evidence", "pt-04");
+const evidencePath = path.join(evidenceDir, "scoring.json");
+
+// ---------------------------------------------------------------------------
+// Minimal mock Supabase query builder. Chosen-inputs style: caller supplies
+// the exact post-filter row set for each `.from(table)` call in a scenario;
+// .eq()/.select() are no-ops (recorded filters are not re-applied, since the
+// scenario's row set is already the intended post-filter result). Supports
+// both terminal methods (.single()/.maybeSingle()/.upsert()) AND being
+// awaited directly without a terminal call (supabase-js query builders are
+// themselves thenable) -- matching exactly how each real function under
+// test actually calls its client.
+// ---------------------------------------------------------------------------
+class MockQueryBuilder {
+  constructor(rows) {
+    this._rows = rows;
+  }
+  select() {
+    return this;
+  }
+  eq() {
+    return this;
+  }
+  single() {
+    return Promise.resolve({
+      data: this._rows[0] ?? null,
+      error: this._rows.length ? null : { message: "no rows (mock)" },
+    });
+  }
+  maybeSingle() {
+    return Promise.resolve({ data: this._rows[0] ?? null, error: null });
+  }
+  upsert() {
+    return Promise.resolve({ data: null, error: null });
+  }
+  then(resolve, reject) {
+    return Promise.resolve({ data: this._rows, error: null }).then(resolve, reject);
+  }
+}
+
+function makeMockSupabase(tableRows) {
+  return {
+    from(table) {
+      return new MockQueryBuilder(tableRows[table] ?? []);
+    },
+  };
+}
+
+function deepEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// =============================================================================
+// 1. Draft Confidence Scoring
+// src/lib/drafts/generator.ts -> export function computeConfidence(draftText, kbCount, provenCount)
+// =============================================================================
+
+const DRAFT_CONFIDENCE_FORMULA = {
+  source_file: "src/lib/drafts/generator.ts",
+  function: "computeConfidence(draftText, kbCount, provenCount)",
+  needs_input_marker_regex: "/\\[NEEDS INPUT/gi",
+  branch_zero_kb: "if (kbCount === 0) return max(55, 65 - needsInput*3)",
+  branch_else: {
+    base: 92,
+    penalty_zero_proven: "-4 if provenCount === 0",
+    penalty_thin_kb: "-12 if kbCount < 3",
+    penalty_per_needs_input: "-3 per [NEEDS INPUT marker",
+    clamp: "max(0, min(100, score))",
+  },
+  note:
+    "This is the raw computeConfidence() output only. The persisted draft_versions.confidence_score additionally subtracts a compliance penalty (fail*5 + warning*2) inside generateDraft(); that post-processing step is documented but out of scope for this scenario set since it requires a full ComplianceLibrary.checkCompliance() call, not a pure function.",
+};
+
+function repeatMarker(n) {
+  let s = "";
+  for (let i = 0; i < n; i++) s += `[NEEDS INPUT: field ${i}] `;
+  return s.trim();
+}
+
+function buildDraftConfidenceScenarios() {
+  return [
+    {
+      scenario: "zero-KB branch (65-ceiling formula, not the 92-base formula)",
+      input: {
+        draftText:
+          "This section needs work. [NEEDS INPUT: specific program name] and also [NEEDS INPUT: budget amount] here.",
+        kbCount: 0,
+        provenCount: 3,
+      },
+      expected_reasoning:
+        "kbCount===0 short-circuits to the zero-KB branch regardless of provenCount. needsInput = 2 (regex counts both '[NEEDS INPUT' occurrences). expected = max(55, 65 - 2*3) = max(55, 59) = 59.",
+      expected: 59,
+    },
+    {
+      scenario: "both penalties stack (provenCount===0 AND kbCount<3) plus one needsInput marker",
+      input: {
+        draftText: "One placeholder [NEEDS INPUT: EIN number] remains.",
+        kbCount: 1,
+        provenCount: 0,
+      },
+      expected_reasoning:
+        "kbCount=1 (>0, so base-92 branch). needsInput=1. score = 92 - 4 (provenCount===0) - 12 (kbCount<3) - 3*1 (needsInput) = 92-4-12-3 = 73.",
+      expected: 73,
+    },
+    {
+      scenario: "no penalties (kbCount>=3, provenCount>0, zero markers) -> full base score",
+      input: {
+        draftText: "Fully grounded narrative with zero placeholders.",
+        kbCount: 5,
+        provenCount: 2,
+      },
+      expected_reasoning:
+        "kbCount=5 (>=3, no -12). provenCount=2 (>0, no -4). needsInput=0 (no -3n). score = 92 - 0 - 0 - 0 = 92.",
+      expected: 92,
+    },
+    {
+      scenario: "clamp-to-zero stress test (40 needs-input markers should floor at 0, not go negative)",
+      input: {
+        draftText: repeatMarker(40),
+        kbCount: 5,
+        provenCount: 0,
+      },
+      expected_reasoning:
+        "kbCount=5 (>=3, no -12). provenCount=0 (-4). needsInput=40 (-3*40=-120). raw = 92 - 4 - 120 = -32. clamp(max(0, min(100, -32))) = 0.",
+      expected: 0,
+    },
+  ];
+}
+
+async function runDraftConfidence() {
+  const { computeConfidence } = await import(
+    "../../src/lib/drafts/generator.ts"
+  );
+
+  const scenarios = buildDraftConfidenceScenarios();
+  for (const s of scenarios) {
+    const actual = computeConfidence(s.input.draftText, s.input.kbCount, s.input.provenCount);
+    s.actual = actual;
+    s.delta = actual - s.expected;
+    s.match = actual === s.expected;
+  }
+
+  const allMatch = scenarios.every((s) => s.match);
+  const finding = allMatch
+    ? `MATCH: all ${scenarios.length} draft-confidence scenarios (zero-KB branch, dual-penalty stacking, no-penalty base case, negative-clamp) produced the exact hand-computed expected value. No threshold, penalty-weight, or clamp defect found in computeConfidence().`
+    : `MISMATCH: ${scenarios.filter((s) => !s.match).length} of ${scenarios.length} draft-confidence scenarios diverged from the hand-computed expected value -- see per-scenario delta.`;
+
+  return {
+    source_file: DRAFT_CONFIDENCE_FORMULA.source_file,
+    function: DRAFT_CONFIDENCE_FORMULA.function,
+    documented_formula: DRAFT_CONFIDENCE_FORMULA,
+    scenarios,
+    all_scenarios_match: allMatch,
+    finding,
+  };
+}
+
+// =============================================================================
+// 2. AutoApply Eligibility Logic (org readiness)
+// src/lib/autoapply/submission-validator.ts ->
+//   SubmissionValidator.checkOrgReadiness(orgId, supabase)
+// =============================================================================
+
+const AUTOAPPLY_ELIGIBILITY_FORMULA = {
+  source_file: "src/lib/autoapply/submission-validator.ts",
+  function: "SubmissionValidator.checkOrgReadiness(orgId, supabase)",
+  required_kb_fields: ["mission_statement", "ein", "address_line1", "founder_name", "contact_email"],
+  recommended_kb_fields: ["phone"],
+  required_docs: [
+    { key: "501c3_letter", regex: "/501|determination|exempt/i", scope: "documents.category === 'tax_documents' only" },
+    { key: "form_990", regex: "/\\b990\\b/i", scope: "documents.category === 'tax_documents' only" },
+  ],
+  recommended_docs: [
+    { key: "board_list", regex: "/board/i", scope: "all documents regardless of category" },
+  ],
+  other_required: "programs table is RECOMMENDED, not required (missing_recommended.push if 0 programs)",
+  profile_required: "at least 1 request_profiles row with active=true is REQUIRED; its absence also pushes a blocker string",
+  ready: "missing_required.length === 0",
+  totals: {
+    totalRequired: "kbRequired.length(5) + docRequired.length(2) + 1(profile) = 8",
+    totalRecommended: "kbRecommended.length(1) + 1(programs) + docRecommended.length(1) = 3",
+  },
+  score_formula:
+    "round( (metRequired/totalRequired)*70 + (metRecommended/totalRecommended)*30 ), clamped [0,100]",
+  blockers_logic: [
+    "if 0 active request_profiles: push 'No active request profiles...'",
+    "if missing_required has ANY entry OTHER than the profile-only entry ('At least one active request profile'): push a second, generic 'Required organization information is incomplete...' blocker",
+  ],
+};
+
+function buildAutoApplyEligibilityScenarios() {
+  return [
+    {
+      scenario: "fully ready org: all required + all recommended present",
+      input: {
+        organizations: [
+          {
+            mission_statement: "We serve the community",
+            ein: "12-3456789",
+            address_line1: "123 Main St",
+            founder_name: "Jane Doe",
+            contact_email: "jane@org.org",
+            phone: "555-1234",
+          },
+        ],
+        programs: [{ id: "p1" }],
+        documents: [
+          { file_name: "501c3-determination-letter.pdf", category: "tax_documents" },
+          { file_name: "irs-form-990.pdf", category: "tax_documents" },
+          { file_name: "board-member-list.pdf", category: "governance" },
+        ],
+        request_profiles: [{ id: "rp1" }],
+      },
+      expected_reasoning:
+        "All 5 required KB fields present. Both required docs matched (501c3-determination-letter.pdf matches /501|determination|exempt/i; irs-form-990.pdf matches /\\b990\\b/i since '990' is bounded by hyphen/dot, both non-word chars). 1 active profile present. -> missing_required=[] -> ready=true, no blockers. phone present, 1 program present, board-member-list.pdf matches /board/i -> missing_recommended=[]. metRequired=8/8, metRecommended=3/3. score = round(70+30) = 100.",
+      expected: {
+        ready: true,
+        score: 100,
+        missing_required: [],
+        missing_recommended: [],
+        blockers: [],
+      },
+    },
+    {
+      scenario:
+        "mostly-not-ready org: missing EIN, missing both required docs, no active profile, missing all 3 recommended items -- tests dual-blocker stacking",
+      input: {
+        organizations: [
+          {
+            mission_statement: "We serve the community",
+            ein: "",
+            address_line1: "123 Elm St",
+            founder_name: "John Smith",
+            contact_email: "john@org2.org",
+            phone: null,
+          },
+        ],
+        programs: [],
+        documents: [],
+        request_profiles: [],
+      },
+      expected_reasoning:
+        "ein='' -> missing_required += 'EIN...'. documents=[] -> neither required doc regex matches -> missing_required += '501(c)(3) determination letter', 'IRS Form 990'. request_profiles=[] -> missing_required += 'At least one active request profile', blockers += 'No active request profiles...'. Second blocker check: missing_required has 3 non-profile entries (EIN, 501c3, 990) so .some(m => m !== 'At least one active request profile') is TRUE -> blockers += 'Required organization information is incomplete...' (2 blockers total). phone=null -> missing_recommended += 'Organization phone number'. programs=[] -> missing_recommended += 'Program descriptions'. documents=[] -> board regex fails -> missing_recommended += 'Board member list' (3 recommended missing). ready = missing_required.length(4)===0 -> false. metRequired=8-4=4, metRecommended=3-3=0. score = round((4/8)*70 + (0/3)*30) = round(35+0) = 35.",
+      expected: {
+        ready: false,
+        score: 35,
+        missing_required: [
+          "EIN (Employer Identification Number)",
+          "501(c)(3) determination letter",
+          "IRS Form 990",
+          "At least one active request profile",
+        ],
+        missing_recommended: ["Organization phone number", "Program descriptions", "Board member list"],
+        blockers: [
+          "No active request profiles — AutoApply cannot determine what to request from funders",
+          "Required organization information is incomplete — form filling will produce inaccurate submissions",
+        ],
+      },
+    },
+    {
+      scenario:
+        "only the profile check fails, nothing else -- tests that the second (generic) blocker is correctly SUPPRESSED when missing_required contains only the profile entry",
+      input: {
+        organizations: [
+          {
+            mission_statement: "We serve the community",
+            ein: "98-7654321",
+            address_line1: "456 Oak Ave",
+            founder_name: "Ada Lee",
+            contact_email: "ada@org3.org",
+            phone: "555-9876",
+          },
+        ],
+        programs: [{ id: "p1" }],
+        documents: [
+          { file_name: "501c3-determination-letter.pdf", category: "tax_documents" },
+          { file_name: "irs-form-990.pdf", category: "tax_documents" },
+          { file_name: "board-member-list.pdf", category: "governance" },
+        ],
+        request_profiles: [],
+      },
+      expected_reasoning:
+        "All 5 required KB fields present, both required docs matched, all 3 recommended items present -> missing_recommended=[]. request_profiles=[] -> missing_required=['At least one active request profile'] only, blockers += 'No active request profiles...'. Second blocker check: missing_required.some(m => m !== 'At least one active request profile') -> the ONLY entry equals that string, so .some() is FALSE -> the generic 'incomplete' blocker is NOT added (1 blocker total, not 2). ready = missing_required.length(1)===0 -> false. metRequired=8-1=7, metRecommended=3-0=3. score = round((7/8)*70 + (3/3)*30) = round(61.25+30) = round(91.25) = 91.",
+      expected: {
+        ready: false,
+        score: 91,
+        missing_required: ["At least one active request profile"],
+        missing_recommended: [],
+        blockers: ["No active request profiles — AutoApply cannot determine what to request from funders"],
+      },
+    },
+  ];
+}
+
+async function runAutoApplyEligibility() {
+  const { SubmissionValidator } = await import(
+    "../../src/lib/autoapply/submission-validator.ts"
+  );
+  const validator = new SubmissionValidator();
+
+  const scenarios = buildAutoApplyEligibilityScenarios();
+  for (const s of scenarios) {
+    const mockSb = makeMockSupabase(s.input);
+    const actual = await validator.checkOrgReadiness("mock-org-id", mockSb);
+    s.actual = actual;
+    s.delta = {
+      score_delta: actual.score - s.expected.score,
+      ready_matches: actual.ready === s.expected.ready,
+      missing_required_matches: deepEqual(actual.missing_required, s.expected.missing_required),
+      missing_recommended_matches: deepEqual(actual.missing_recommended, s.expected.missing_recommended),
+      blockers_matches: deepEqual(actual.blockers, s.expected.blockers),
+    };
+    s.match =
+      s.delta.score_delta === 0 &&
+      s.delta.ready_matches &&
+      s.delta.missing_required_matches &&
+      s.delta.missing_recommended_matches &&
+      s.delta.blockers_matches;
+  }
+
+  const allMatch = scenarios.every((s) => s.match);
+  const finding = allMatch
+    ? `MATCH: all ${scenarios.length} AutoApply eligibility scenarios (fully-ready, multi-gap-with-dual-blocker, profile-only-gap-with-suppressed-second-blocker) produced the exact hand-computed ready/score/missing_required/missing_recommended/blockers. No threshold, weighting, or boolean-filter defect found in checkOrgReadiness().`
+    : `MISMATCH: ${scenarios.filter((s) => !s.match).length} of ${scenarios.length} AutoApply eligibility scenarios diverged from the hand-computed expected result -- see per-scenario delta.`;
+
+  return {
+    source_file: AUTOAPPLY_ELIGIBILITY_FORMULA.source_file,
+    function: AUTOAPPLY_ELIGIBILITY_FORMULA.function,
+    documented_formula: AUTOAPPLY_ELIGIBILITY_FORMULA,
+    scenarios,
+    all_scenarios_match: allMatch,
+    finding,
+  };
+}
+
+// =============================================================================
+// 3. Match / Fit Scoring -- Grant Probability Engine
+// src/lib/intelligence/grant-probability-engine.ts ->
+//   computeGrantProbability(opportunityId, orgId, supabase)
+// =============================================================================
+
+const MATCH_FIT_FORMULA = {
+  source_file: "src/lib/intelligence/grant-probability-engine.ts",
+  function: "computeGrantProbability(opportunityId, orgId, supabase)",
+  weights: {
+    eligibility_score: 0.3,
+    category_win_rate: 0.25,
+    deadline_proximity: 0.2,
+    twin_completeness: 0.25,
+  },
+  neutral_fallbacks: {
+    eligibility_score: "0.5 if opportunities.eligibility_score is null",
+    category_win_rate: "0.3 if outcomes is empty/null",
+    deadline_proximity: "0 (NOT a neutral constant) if opportunities.deadline is null",
+    twin_completeness: "0.2 if organizational_digital_twins row is null or twin_completeness_score is null",
+  },
+  deadline_step_function:
+    "days = differenceInCalendarDays(deadline, now); value = days>=30 ? 1.0 : days>=15 ? 0.5 : days>=0 ? 0.1 : 0",
+  aggregation: "score = round(clamp(sum(weight_i * value_i * 100), 0, 100))",
+  confidence:
+    "realDataCount = count of {eligibility_score!=null, outcomes.length>0, deadline!=null, twin.twin_completeness_score!=null}; ==4 'high', >=2 'medium', else 'low'",
+  recommendation: "score>=70 'apply', score>=40 'consider', else 'skip'",
+};
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+
+async function runMatchFitScoring() {
+  const now = new Date();
+
+  const { computeGrantProbability } = await import(
+    "../../src/lib/intelligence/grant-probability-engine.ts"
+  );
+
+  // ---- Scenario A: all 4 data sources real, mid-range score ("consider") ----
+  const deadlineA = addDays(now, 20);
+  const daysA = differenceInCalendarDays(deadlineA, now);
+
+  // ---- Scenario D: all 4 data sources real, exact boundary score 70 ("apply") ----
+  const deadlineD = addDays(now, 35);
+  const daysD = differenceInCalendarDays(deadlineD, now);
+
+  const scenarios = [
+    {
+      scenario:
+        "all 4 data sources real, mid-range weighted sum -> 'high' confidence + 'consider' recommendation",
+      input: {
+        opportunities: [
+          { id: "opp-a", category: "housing", deadline: deadlineA.toISOString(), eligibility_score: 80 },
+        ],
+        organizational_digital_twins: [{ twin_completeness_score: 60 }],
+        outcomes: [{ result: "awarded" }, { result: "awarded" }, { result: "awarded" }, { result: "denied" }],
+        opportunity_probability_scores: [],
+      },
+      expected_reasoning:
+        `eligibility: raw=80 -> value=0.8, contribution=0.3*0.8*100=24. ` +
+        `category_win_rate: 3 of 4 outcomes awarded -> value=0.75, contribution=0.25*0.75*100=18.75. ` +
+        `deadline_proximity: deadline ${daysA} days out (>=15,<30) -> value=0.5, contribution=0.2*0.5*100=10. ` +
+        `twin_completeness: raw=60 -> value=0.6, contribution=0.25*0.6*100=15. ` +
+        `sum=24+18.75+10+15=67.75 -> round=68. realDataCount=4 (all real) -> confidence='high'. 68<70,>=40 -> recommendation='consider'.`,
+      expected: {
+        score: 68,
+        confidence: "high",
+        recommendation: "consider",
+        factors: [
+          { name: "eligibility_score", weight: 0.3, value: 0.8, contribution: 24 },
+          { name: "category_win_rate", weight: 0.25, value: 0.75, contribution: 18.75 },
+          { name: "deadline_proximity", weight: 0.2, value: 0.5, contribution: 10 },
+          { name: "twin_completeness", weight: 0.25, value: 0.6, contribution: 15 },
+        ],
+      },
+    },
+    {
+      scenario:
+        "all 4 data sources null/absent -- verifies neutral-fallback values (0.5/0.3/0/0.2, NOT a uniform default) -- 'low' confidence + 'skip' recommendation",
+      input: {
+        opportunities: [{ id: "opp-b", category: null, deadline: null, eligibility_score: null }],
+        organizational_digital_twins: [],
+        outcomes: [],
+        opportunity_probability_scores: [],
+      },
+      expected_reasoning:
+        "eligibility: null -> NEUTRAL 0.5, contribution=0.3*0.5*100=15. category_win_rate: category is null so the outcomes query is never made (short-circuits to {data:null}) -> NEUTRAL 0.3, contribution=0.25*0.3*100=7.5. deadline_proximity: null -> value=0 (explicit 0, NOT the 0.2/0.3/0.5 neutral pattern used elsewhere) -> contribution=0.2*0*100=0. twin_completeness: no twin row -> NEUTRAL 0.2, contribution=0.25*0.2*100=5. sum=15+7.5+0+5=27.5 -> round=28 (JS Math.round rounds .5 up). realDataCount=0 -> confidence='low'. 28<40 -> recommendation='skip'.",
+      expected: {
+        score: 28,
+        confidence: "low",
+        recommendation: "skip",
+        factors: [
+          { name: "eligibility_score", weight: 0.3, value: 0.5, contribution: 15 },
+          { name: "category_win_rate", weight: 0.25, value: 0.3, contribution: 7.5 },
+          { name: "deadline_proximity", weight: 0.2, value: 0, contribution: 0 },
+          { name: "twin_completeness", weight: 0.25, value: 0.2, contribution: 5 },
+        ],
+      },
+    },
+    {
+      scenario:
+        "exactly 2 of 4 data sources real (eligibility + outcomes), 0-win-rate outcomes -- 'medium' confidence + 'skip' recommendation",
+      input: {
+        opportunities: [{ id: "opp-c", category: "education", deadline: null, eligibility_score: 45 }],
+        organizational_digital_twins: [],
+        outcomes: [{ result: "denied" }, { result: "denied" }, { result: "denied" }],
+        opportunity_probability_scores: [],
+      },
+      expected_reasoning:
+        "eligibility: raw=45 -> value=0.45, contribution=0.3*0.45*100=13.5. category_win_rate: 3 outcomes present, 0 awarded -> value=0/3=0, contribution=0.25*0*100=0 (present-but-zero, NOT the neutral 0.3 fallback, since outcomes.length>0). deadline_proximity: null -> value=0, contribution=0. twin_completeness: no twin row -> NEUTRAL 0.2, contribution=0.25*0.2*100=5. sum=13.5+0+0+5=18.5 -> round=19 (Math.round(18.5)=19, rounds half up). realDataCount = eligibility(real)+outcomes(real,length>0)+deadline(null,not real)+twin(null,not real) = 2 -> confidence='medium'. 19<40 -> recommendation='skip'.",
+      expected: {
+        score: 19,
+        confidence: "medium",
+        recommendation: "skip",
+        factors: [
+          { name: "eligibility_score", weight: 0.3, value: 0.45, contribution: 13.5 },
+          { name: "category_win_rate", weight: 0.25, value: 0, contribution: 0 },
+          { name: "deadline_proximity", weight: 0.2, value: 0, contribution: 0 },
+          { name: "twin_completeness", weight: 0.25, value: 0.2, contribution: 5 },
+        ],
+      },
+    },
+    {
+      scenario:
+        "exact score=70 boundary, all 4 real -- verifies recommendation uses >=70 (not >70) for 'apply'",
+      input: {
+        opportunities: [
+          { id: "opp-d", category: "health", deadline: deadlineD.toISOString(), eligibility_score: 100 },
+        ],
+        organizational_digital_twins: [{ twin_completeness_score: 30 }],
+        outcomes: [{ result: "awarded" }, { result: "denied" }],
+        opportunity_probability_scores: [],
+      },
+      expected_reasoning:
+        `eligibility: raw=100 -> value=1.0, contribution=0.3*1.0*100=30. ` +
+        `category_win_rate: 1 of 2 awarded -> value=0.5, contribution=0.25*0.5*100=12.5. ` +
+        `deadline_proximity: ${daysD} days out (>=30) -> value=1.0, contribution=0.2*1.0*100=20. ` +
+        `twin_completeness: raw=30 -> value=0.3, contribution=0.25*0.3*100=7.5. ` +
+        `sum=30+12.5+20+7.5=70.0 -> round=70. realDataCount=4 -> confidence='high'. 70>=70 -> recommendation='apply' (boundary check: if the real code used a strict '>' comparator instead of '>=', this exact-70 case would incorrectly fall through to 'consider').`,
+      expected: {
+        score: 70,
+        confidence: "high",
+        recommendation: "apply",
+        factors: [
+          { name: "eligibility_score", weight: 0.3, value: 1.0, contribution: 30 },
+          { name: "category_win_rate", weight: 0.25, value: 0.5, contribution: 12.5 },
+          { name: "deadline_proximity", weight: 0.2, value: 1.0, contribution: 20 },
+          { name: "twin_completeness", weight: 0.25, value: 0.3, contribution: 7.5 },
+        ],
+      },
+    },
+  ];
+
+  for (const s of scenarios) {
+    const mockSb = makeMockSupabase(s.input);
+    const oppId = s.input.opportunities[0].id;
+    const actualFull = await computeGrantProbability(oppId, "mock-org-id", mockSb);
+    const actual = {
+      score: actualFull.score,
+      confidence: actualFull.confidence,
+      recommendation: actualFull.recommendation,
+      factors: actualFull.factors.map((f) => ({
+        name: f.name,
+        weight: f.weight,
+        value: round2(f.value),
+        contribution: round2(f.contribution),
+      })),
+    };
+    s.actual = actual;
+
+    const perFactor = s.expected.factors.map((ef) => {
+      const af = actual.factors.find((f) => f.name === ef.name) ?? null;
+      return {
+        name: ef.name,
+        expected_value: ef.value,
+        actual_value: af ? af.value : null,
+        value_delta: af ? round2(af.value - ef.value) : null,
+        expected_contribution: ef.contribution,
+        actual_contribution: af ? af.contribution : null,
+        contribution_delta: af ? round2(af.contribution - ef.contribution) : null,
+      };
+    });
+
+    s.delta = {
+      score_delta: actual.score - s.expected.score,
+      confidence_matches: actual.confidence === s.expected.confidence,
+      recommendation_matches: actual.recommendation === s.expected.recommendation,
+      per_factor: perFactor,
+    };
+
+    s.match =
+      s.delta.score_delta === 0 &&
+      s.delta.confidence_matches &&
+      s.delta.recommendation_matches &&
+      perFactor.every((pf) => pf.value_delta === 0 && pf.contribution_delta === 0);
+  }
+
+  const allMatch = scenarios.every((s) => s.match);
+  const finding = allMatch
+    ? `MATCH: all ${scenarios.length} match/fit-scoring scenarios (mid-range 'consider', all-null neutral-fallback 'skip' floor, medium-confidence 'skip', exact-70-boundary 'apply') produced the exact hand-computed factors/score/confidence/recommendation. The all-null floor score of 28 independently corroborates STATE_OF_THE_BUILD.md's 2026-08-18 observation that "11 of 15 listed opportunities carry the score floor of 28" for real production data with no eligibility/outcomes/deadline/twin data. No threshold, weight, neutral-fallback-value, or recommendation-comparator defect found in computeGrantProbability().`
+    : `MISMATCH: ${scenarios.filter((s) => !s.match).length} of ${scenarios.length} match/fit-scoring scenarios diverged from the hand-computed expected result -- see per-scenario delta.per_factor.`;
+
+  return {
+    source_file: MATCH_FIT_FORMULA.source_file,
+    function: MATCH_FIT_FORMULA.function,
+    documented_formula: MATCH_FIT_FORMULA,
+    scenarios,
+    all_scenarios_match: allMatch,
+    finding,
+  };
+}
+
+// =============================================================================
+// Main
+// =============================================================================
+
+async function main() {
+  const draft_confidence = await runDraftConfidence();
+  const autoapply_eligibility = await runAutoApplyEligibility();
+  const match_fit_scoring = await runMatchFitScoring();
+
+  const allFunctionsMatch =
+    draft_confidence.all_scenarios_match &&
+    autoapply_eligibility.all_scenarios_match &&
+    match_fit_scoring.all_scenarios_match;
+
+  const evidence = {
+    generated_at: new Date().toISOString(),
+    method:
+      "Every 'actual' value below was produced by importing and calling the real, unmodified exported functions from the three source files (computeConfidence, SubmissionValidator.checkOrgReadiness, computeGrantProbability) with chosen, known synthetic inputs -- not a live database read and not a reimplementation. checkOrgReadiness() and computeGrantProbability() were called with a minimal mock Supabase query-builder that returns the exact known row set per scenario (see scripts/audit/pt04-003-scoring.mjs). Every 'expected' value was independently hand-computed from the documented formula (quoted per function in documented_formula, read directly from source) in this same script, kept structurally separate from the calls to the real functions.",
+    functions: {
+      draft_confidence,
+      autoapply_eligibility,
+      match_fit_scoring,
+    },
+    all_functions_verified: allFunctionsMatch,
+    overall_finding: allFunctionsMatch
+      ? "All three scoring functions (draft confidence, AutoApply eligibility, match/fit probability) produced hand-verified-correct output across every chosen scenario, including branch boundaries, penalty stacking, neutral-fallback values, and exact recommendation-threshold edges. No wrong threshold, inverted boolean, or mis-weighted factor found."
+      : "At least one scoring function produced output that diverges from its own documented formula in at least one scenario -- see the per-function 'finding' strings and per-scenario 'delta' blocks above for the exact mismatch.",
+  };
+
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2) + "\n", "utf8");
+
+  console.log(`Wrote ${evidencePath}`);
+  console.log(`  draft_confidence:      ${draft_confidence.all_scenarios_match ? "MATCH" : "MISMATCH"} (${draft_confidence.scenarios.length} scenarios)`);
+  console.log(`  autoapply_eligibility: ${autoapply_eligibility.all_scenarios_match ? "MATCH" : "MISMATCH"} (${autoapply_eligibility.scenarios.length} scenarios)`);
+  console.log(`  match_fit_scoring:     ${match_fit_scoring.all_scenarios_match ? "MATCH" : "MISMATCH"} (${match_fit_scoring.scenarios.length} scenarios)`);
+  console.log(`  all_functions_verified: ${allFunctionsMatch}`);
+
+  process.exit(allFunctionsMatch ? 0 : 1);
+}
+
+main().catch((err) => {
+  console.error("PT-04-003 generator failed:", err);
+  process.exit(1);
+});

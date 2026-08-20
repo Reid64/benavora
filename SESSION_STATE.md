@@ -1,11 +1,65 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-04-002: budget reconciliation + deadline reminder-offset
-hand-verification. Both checks run live against the real system (a local `next dev` instance on the
-real production database) via the dedicated Benavora E2E Test Org — real budget/expenses created and
-reconciled through the live API, real deadlines seeded across distinct `deadline_type` values and
-checked through the live reminder-threshold route. No arithmetic mismatch found in either check (both
-match their documented formulas exactly, delta 0). All seeded rows deleted, pre-existing deadline
-flags reverted, zero residue confirmed. Evidence in `test-evidence/pt-04/budget-deadline.json`.
+## Last Updated: August 20, 2026 — audit PT-04-003: draft confidence / AutoApply eligibility /
+match-fit scoring hand-verification. Hand-computed expected output for `computeConfidence()`,
+`SubmissionValidator.checkOrgReadiness()`, and `computeGrantProbability()` from their documented
+formulas against 11 chosen synthetic scenarios stressing branch boundaries (zero-KB vs. base-92
+branch, dual-penalty stacking, clamp-to-zero; fully-ready vs. multi-gap vs. profile-only-gap with the
+second blocker correctly suppressed; all-null neutral-fallback floor score 28, medium confidence,
+exact score=70 `>=` boundary), then called the real, unmodified functions with a minimal mock
+Supabase client supplying each scenario's known rows. All 11 matched exactly, delta 0 — no wrong
+threshold, inverted boolean, or mis-weighted factor found in any of the three. Evidence in
+`test-evidence/pt-04/scoring.json`; verifier at `scripts/audit/verify-pt04-003.mjs` re-derives every
+delta/match flag independently rather than trusting the recorded fields.
+
+## SESSION — August 20, 2026 (audit PT-04-003: draft confidence / AutoApply eligibility / match-fit scoring)
+
+**Focus:** hand-verify the three "model-adjacent" scores that drive user-visible recommendations —
+draft confidence, AutoApply org readiness, and grant probability (match/fit) — per the task's own
+framing that a wrong threshold or inverted comparison here is high-value to catch. Chose known,
+synthetic inputs (not live DB pulls) specifically to exercise documented branch boundaries: the
+zero-KB vs. base-92 confidence formula split, `checkOrgReadiness()`'s dual-blocker-suppression
+boolean logic (`missing_required.some(m => m !== "At least one active request profile")`), and
+`computeGrantProbability()`'s four independent neutral-fallback constants plus its `>=70`/`>=40`
+recommendation comparators.
+
+**Method:** for each function, read the real source file directly (not from memory), wrote the
+documented formula into the evidence file verbatim (weights, thresholds, penalty amounts), then
+independently hand-derived the expected result per scenario before ever calling the real code.
+`computeConfidence()` is a pure function — imported and called directly via
+`node --import tsx` (path-alias-resolved `@/lib/...` imports confirmed working this way before
+committing to the approach — tested first with a throwaway script, since `generator.ts`'s import
+chain pulls in `need-statement-engine.ts` which constructs an `Anthropic` client at module-eval time;
+loading `.env.local` via `dotenv` before the dynamic `import()` avoided that failing).
+`checkOrgReadiness()` and `computeGrantProbability()` both take a Supabase client; built a ~20-line
+mock query-builder (`select()`/`eq()` no-ops, `single()`/`maybeSingle()`/`upsert()` resolve
+immediately, and the builder itself is thenable so it works whether or not the real code calls a
+terminal method — matching supabase-js's own real chaining behavior) that returns the exact known row
+set supplied per scenario. This tests the real, unmodified function against controlled data, not a
+reimplementation — the only reimplementation in this pass is the "expected" arithmetic, written
+independently in the generator script and never copy-pasted from the source under test.
+
+**Result: 11/11 scenarios matched, delta 0 on every field.** The all-null match/fit scenario (score
+28) independently corroborates this doc's own 2026-08-18 note that real production data with no
+eligibility/outcomes/deadline/twin signal floors at exactly 28 — a genuine cross-check between a
+synthetic hand-computation and previously-observed real system behavior, not just internal
+consistency. No bug found in any of the three functions this pass — a legitimate audit outcome, not
+every audit finds a defect, and the verifier's own independent delta-recomputation (not just
+presence-checking) is what gives that "no bug found" result some weight rather than being a rubber
+stamp. Full per-scenario `input`/`expected_reasoning`/`expected`/`actual`/`delta`/`match` in
+`test-evidence/pt-04/scoring.json`; regenerate via
+`node --import tsx scripts/audit/pt04-003-scoring.mjs`, re-check via
+`node scripts/audit/verify-pt04-003.mjs`. Verifier was itself tested against a deliberately tampered
+copy of the evidence (a dishonest `score_delta`) and correctly failed before being run against the
+real, clean evidence.
+
+**Scoped commit:** `test-evidence/pt-04/scoring.json` (new), `scripts/audit/pt04-003-scoring.mjs`
+(new, the evidence generator), `scripts/audit/verify-pt04-003.mjs` (new, the CI-style verifier),
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Left untouched (pre-existing, unrelated dirty state):
+`.claude/worktrees/agent-*`, `MIGRATION_IDEMPOTENCY_AUDIT.md`, `SOAK_TEST_AUTOAPPLY_RESULTS.md`,
+`next.config.mjs`, `supabase/.temp/cli-latest`, `tsconfig.json`, and the many untracked build
+logs/scratch directories from other sessions.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-04-002: budget reconciliation + deadline reminder-offset)
 
