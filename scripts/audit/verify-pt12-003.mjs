@@ -2,15 +2,27 @@
 // PT-12-003 verifier — sustained soak + memory-growth (leak) tracking
 // evidence.
 //
+// v2: soak-memory.json is now written incrementally (rewritten in full after
+// every sample, see pt12-003-soak-memory.mjs), so it carries an explicit
+// `status` field ("in_progress" | "complete"). This verifier requires
+// status === "complete" -- an "in_progress" file is a valid partial record
+// left behind by a run that was killed mid-soak (that's the whole point of
+// writing it incrementally: something real is still on disk), but it is NOT
+// a passing audit result, since the soak didn't run long enough to reach a
+// verdict. MIN_SAMPLES was also raised from 4 to 10, per this audit step's
+// >=10-timestamped-samples-per-process requirement.
+//
 // Exits non-zero unless:
 //   1. test-evidence/pt-12/soak-memory.json exists, is valid JSON.
+//   1b. status === "complete" (not "in_progress" -- a killed/incomplete run).
 //   2. The evidence records an explicit non-production-target assertion
 //      (target.isProductionTarget === false, and target.branchProjectRef
 //      !== the production ref) -- this soak must not have run against
 //      production.
 //   3. `memorySeries.next` and `memorySeries.worker` are BOTH present arrays
-//      with at least MIN_SAMPLES entries each -- a real time series, not a
-//      single before/after point (a leak is a trend, not a two-point diff).
+//      with at least MIN_SAMPLES (10) entries each -- a real time series,
+//      not a single before/after point (a leak is a trend, not a two-point
+//      diff).
 //   4. Every sample in both series has a numeric, non-negative `t` (ms since
 //      soak start) and `t` is non-decreasing across the series (a real
 //      ordered time series), and at least MIN_USABLE_FRACTION of the samples
@@ -39,7 +51,7 @@ const RESULTS_JSON = path.join(OUT_DIR, "soak-memory.json");
 const RESULTS_TXT = path.join(OUT_DIR, "soak-memory.txt");
 
 const PRODUCTION_REF = "vbjplpquqxxfbpazyalt";
-const MIN_SAMPLES = 4;
+const MIN_SAMPLES = 10;
 const MIN_USABLE_FRACTION = 0.8;
 
 let errors = 0;
@@ -73,6 +85,16 @@ if (!fs.existsSync(RESULTS_JSON)) {
 }
 
 if (data) {
+  // --- 1b. run must have completed, not been left mid-soak -------------------
+  if (data.status !== "complete") {
+    hardFail(
+      `${RESULTS_JSON}.status is "${JSON.stringify(data.status)}", not "complete" -- this is a valid partial ` +
+        `record left behind by a soak that was killed or otherwise did not finish (that's expected behavior for ` +
+        `an incrementally-written evidence file, not a bug in the writer), but it means no verdict was reached. ` +
+        `Re-run scripts/audit/pt12-003-soak-memory.mjs to completion.`,
+    );
+  }
+
   // --- 2. explicit non-production-target assertion ---------------------------
   if (!data.target || typeof data.target !== "object") {
     hardFail(`${RESULTS_JSON}.target object is missing.`);

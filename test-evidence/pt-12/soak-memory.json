@@ -1,0 +1,340 @@
+{
+  "recordedAt": "2026-08-20T19:57:15.157Z",
+  "schemaNote": "This file is rewritten in full after every memory sample (see status field). status='in_progress' means the soak was still running as of recordedAt -- a valid, complete-so-far partial record, not a failure. status='complete' means the soak finished normally and analysis/findings below are final.",
+  "status": "complete",
+  "startedAt": "2026-08-20T19:53:22.276Z",
+  "target": {
+    "supabaseUrl": "https://ffghpazvipsqrypkryfj.supabase.co",
+    "branchProjectRef": "ffghpazvipsqrypkryfj",
+    "parentProjectRef": "vbjplpquqxxfbpazyalt",
+    "productionRef": "vbjplpquqxxfbpazyalt",
+    "isProductionTarget": false
+  },
+  "safetyCheck": {
+    "submissionQueueRowsChecked": 6,
+    "pendingRowsFound": 0,
+    "passed": true
+  },
+  "processes": {
+    "next": {
+      "role": "next-server",
+      "pid": 87588,
+      "port": 3414,
+      "distDir": ".next-pt12-soak-v2",
+      "readyAfterMs": 17119,
+      "bothProcessesUpAt": "2026-08-20T19:53:49.030Z",
+      "exitedDuringSoak": false,
+      "exitInfo": {
+        "code": 1,
+        "signal": null,
+        "atIso": "2026-08-20T19:57:14.148Z"
+      }
+    },
+    "worker": {
+      "role": "autoapply-worker",
+      "pid": 124396,
+      "workerId": "pt12-soak-worker-v2",
+      "streamPort": 8098,
+      "settleMs": 8000,
+      "bothProcessesUpAt": "2026-08-20T19:53:49.030Z",
+      "exitedDuringSoak": false,
+      "exitInfo": {
+        "code": 1,
+        "signal": null,
+        "atIso": "2026-08-20T19:57:14.149Z"
+      },
+      "bootOutputTail": "[StreamServer] Stream server listening on port 8098\n[QueueProcessor] Starting â€” worker=pt12-soak-worker-v2\n[ProxyManager] PROXY_LIST env var is empty — no proxies loaded, running direct\n[DdRequestProcessor] Starting\n[KnowledgeIndexerProcessor] Starting\n[gmail-confirmation-monitor] Starting — polling every 5 minute(s)\n[gmail-confirmation-monitor] Skipping cycle — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN not fully configured. This requires a one-time human OAuth consent as apply@benavora.com — see AUTOAPPLY_ARCHITECTURE_V2.md §10A.\n[AgentQueueProcessor] Started.\n[Worker] AutoApply Worker started — id=pt12-soak-worker-v2 at 2026-08-20T19:53:47.733Z\n[QueueProcessor] Proxy pool ready â€” 0/0 active\n[DdRequestProcessor] Queue empty, sleeping 15s\n"
+    }
+  },
+  "soak": {
+    "warmupRequestsSent": 7,
+    "startedAt": "2026-08-20T19:53:51.473Z",
+    "endedAt": "2026-08-20T19:57:13.712Z",
+    "sampledDurationMsTarget": 180000,
+    "sampledDurationMsActual": 202239,
+    "sampleIntervalMsTarget": 10000,
+    "virtualUsers": 6,
+    "requestPaths": [
+      {
+        "path": "/",
+        "weight": 0.25,
+        "requiresAuth": false
+      },
+      {
+        "path": "/login",
+        "weight": 0.15,
+        "requiresAuth": false
+      },
+      {
+        "path": "/pricing",
+        "weight": 0.15,
+        "requiresAuth": false
+      },
+      {
+        "path": "/how-it-works",
+        "weight": 0.1,
+        "requiresAuth": false
+      },
+      {
+        "path": "/dashboard",
+        "weight": 0.15,
+        "requiresAuth": true
+      },
+      {
+        "path": "/opportunities",
+        "weight": 0.1,
+        "requiresAuth": true
+      },
+      {
+        "path": "/settings",
+        "weight": 0.1,
+        "requiresAuth": true
+      }
+    ],
+    "totalRequestsSent": 1928,
+    "totalRequestErrors": 0,
+    "requestErrorRate": 0
+  },
+  "memorySeries": {
+    "next": [
+      {
+        "t": 4,
+        "atIso": "2026-08-20T19:53:51.477Z",
+        "rssBytes": 55693312
+      },
+      {
+        "t": 11502,
+        "atIso": "2026-08-20T19:54:02.975Z",
+        "rssBytes": 55635968
+      },
+      {
+        "t": 22525,
+        "atIso": "2026-08-20T19:54:13.998Z",
+        "rssBytes": 55635968
+      },
+      {
+        "t": 33644,
+        "atIso": "2026-08-20T19:54:25.117Z",
+        "rssBytes": 55635968
+      },
+      {
+        "t": 44767,
+        "atIso": "2026-08-20T19:54:36.240Z",
+        "rssBytes": 55648256
+      },
+      {
+        "t": 55968,
+        "atIso": "2026-08-20T19:54:47.441Z",
+        "rssBytes": 55648256
+      },
+      {
+        "t": 67003,
+        "atIso": "2026-08-20T19:54:58.476Z",
+        "rssBytes": 55648256
+      },
+      {
+        "t": 78071,
+        "atIso": "2026-08-20T19:55:09.544Z",
+        "rssBytes": 55648256
+      },
+      {
+        "t": 89147,
+        "atIso": "2026-08-20T19:55:20.620Z",
+        "rssBytes": 55648256
+      },
+      {
+        "t": 100217,
+        "atIso": "2026-08-20T19:55:31.690Z",
+        "rssBytes": 55648256
+      },
+      {
+        "t": 111238,
+        "atIso": "2026-08-20T19:55:42.711Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 122539,
+        "atIso": "2026-08-20T19:55:54.012Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 133655,
+        "atIso": "2026-08-20T19:56:05.128Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 144920,
+        "atIso": "2026-08-20T19:56:16.393Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 157527,
+        "atIso": "2026-08-20T19:56:29.000Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 168561,
+        "atIso": "2026-08-20T19:56:40.034Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 179581,
+        "atIso": "2026-08-20T19:56:51.054Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 190483,
+        "atIso": "2026-08-20T19:57:01.956Z",
+        "rssBytes": 28487680
+      },
+      {
+        "t": 201365,
+        "atIso": "2026-08-20T19:57:12.838Z",
+        "rssBytes": 28487680
+      }
+    ],
+    "worker": [
+      {
+        "t": 4,
+        "atIso": "2026-08-20T19:53:51.477Z",
+        "rssBytes": 43954176
+      },
+      {
+        "t": 11502,
+        "atIso": "2026-08-20T19:54:02.975Z",
+        "rssBytes": 43954176
+      },
+      {
+        "t": 22525,
+        "atIso": "2026-08-20T19:54:13.998Z",
+        "rssBytes": 43917312
+      },
+      {
+        "t": 33644,
+        "atIso": "2026-08-20T19:54:25.117Z",
+        "rssBytes": 43917312
+      },
+      {
+        "t": 44767,
+        "atIso": "2026-08-20T19:54:36.240Z",
+        "rssBytes": 43917312
+      },
+      {
+        "t": 55968,
+        "atIso": "2026-08-20T19:54:47.441Z",
+        "rssBytes": 43909120
+      },
+      {
+        "t": 67003,
+        "atIso": "2026-08-20T19:54:58.476Z",
+        "rssBytes": 43909120
+      },
+      {
+        "t": 78071,
+        "atIso": "2026-08-20T19:55:09.544Z",
+        "rssBytes": 43909120
+      },
+      {
+        "t": 89147,
+        "atIso": "2026-08-20T19:55:20.620Z",
+        "rssBytes": 43909120
+      },
+      {
+        "t": 100217,
+        "atIso": "2026-08-20T19:55:31.690Z",
+        "rssBytes": 43909120
+      },
+      {
+        "t": 111238,
+        "atIso": "2026-08-20T19:55:42.711Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 122539,
+        "atIso": "2026-08-20T19:55:54.012Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 133655,
+        "atIso": "2026-08-20T19:56:05.128Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 144920,
+        "atIso": "2026-08-20T19:56:16.393Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 157527,
+        "atIso": "2026-08-20T19:56:29.000Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 168561,
+        "atIso": "2026-08-20T19:56:40.034Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 179581,
+        "atIso": "2026-08-20T19:56:51.054Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 190483,
+        "atIso": "2026-08-20T19:57:01.956Z",
+        "rssBytes": 24358912
+      },
+      {
+        "t": 201365,
+        "atIso": "2026-08-20T19:57:12.838Z",
+        "rssBytes": 24358912
+      }
+    ]
+  },
+  "analysis": {
+    "next": {
+      "sampleCount": 19,
+      "usableSampleCount": 19,
+      "warmupSamplesExcluded": 2,
+      "steadyStateSampleCount": 17,
+      "firstBytes": 55693312,
+      "lastBytes": 28487680,
+      "firstWindowAvgBytes": 55642112,
+      "lastWindowAvgBytes": 28487680,
+      "growthPercent": -0.4880194339136516,
+      "monotonicityRatio": 0.9375,
+      "regressionSlopeBytesPerSec": -213547.42660182223,
+      "thresholds": {
+        "climbThresholdPercent": 0.15,
+        "climbMonotonicityThreshold": 0.6
+      },
+      "verdict": "flat",
+      "note": "Steady-state memory changed -48.8% (first-quarter avg 53MB -> last-quarter avg 27MB), monotonicity 94% -- below the \"climbing\" bar (needs >15% growth AND >60% monotonicity). Classified flat."
+    },
+    "worker": {
+      "sampleCount": 19,
+      "usableSampleCount": 19,
+      "warmupSamplesExcluded": 2,
+      "steadyStateSampleCount": 17,
+      "firstBytes": 43954176,
+      "lastBytes": 24358912,
+      "firstWindowAvgBytes": 43915264,
+      "lastWindowAvgBytes": 24358912,
+      "growthPercent": -0.4453201510982605,
+      "monotonicityRatio": 0.875,
+      "regressionSlopeBytesPerSec": -153777.98753159624,
+      "thresholds": {
+        "climbThresholdPercent": 0.15,
+        "climbMonotonicityThreshold": 0.6
+      },
+      "verdict": "flat",
+      "note": "Steady-state memory changed -44.5% (first-quarter avg 42MB -> last-quarter avg 23MB), monotonicity 88% -- below the \"climbing\" bar (needs >15% growth AND >60% monotonicity). Classified flat."
+    }
+  },
+  "findings": {
+    "next": "flat",
+    "worker": "flat",
+    "overallVerdict": "PASS_NO_LEAK",
+    "note": "No memory leak detected in either process over the 202s sampled, loaded soak window. Next.js: Steady-state memory changed -48.8% (first-quarter avg 53MB -> last-quarter avg 27MB), monotonicity 94% -- below the \"climbing\" bar (needs >15% growth AND >60% monotonicity). Classified flat. Worker: Steady-state memory changed -44.5% (first-quarter avg 42MB -> last-quarter avg 23MB), monotonicity 88% -- below the \"climbing\" bar (needs >15% growth AND >60% monotonicity). Classified flat."
+  }
+}

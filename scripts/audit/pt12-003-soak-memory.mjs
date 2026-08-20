@@ -5,14 +5,39 @@
 // test-evidence/pt-12/branch.txt, created by pt12-001-record-load-branch.mjs)
 // — never production.
 //
-// Unlike PT-12-002 (which drove PostgREST directly, no app processes
-// involved), this script boots the ACTUAL processes this audit is about:
+// v2 (this file): the first run of this script was killed at t=11s of a
+// 360s soak by the harness's execution window, before the ORIGINAL version
+// ever wrote soak-memory.json/.txt (both were only written once, at the very
+// end, after the full soak + shutdown completed) -- so a mid-run kill left
+// ZERO evidence behind despite real sampling having happened. Two changes
+// fix this:
+//   1. The soak window is now 180s (not 360s) -- sized to reliably complete,
+//      boot+warmup+shutdown included, inside a single execution window,
+//      while still being a genuine sustained-load test (18 x 10s samples per
+//      process, well above the >=10-sample bar this audit requires).
+//   2. Evidence is now written INCREMENTALLY: after every single memory
+//      sample (every ~10s), the full soak-memory.json is rewritten from
+//      scratch with whatever data exists so far (status:"in_progress" until
+//      the run completes normally, then status:"complete" with the full
+//      flat-vs-climbing analysis). soak-memory.txt is rewritten the same way.
+//      This means the JSON file is a valid, parseable, self-describing
+//      partial record at every point in time -- if this process is killed at
+//      any t, the most recent successful write is still on disk and still
+//      tells you exactly how much of the soak actually ran. SIGTERM/SIGINT
+//      handlers also do a best-effort final incremental write + child-process
+//      cleanup before exiting, for the case where the kill signal is
+//      catchable rather than a hard SIGKILL.
+//
+// Everything else (process boot, safety check, load generator, verdict
+// method) is unchanged from the original design -- see the method comments
+// below.
+//
+// This script boots the ACTUAL processes this audit is about:
 //   - `next dev`, spawned directly via `node <next/dist/bin/next> dev -p PORT`
-//     (no shell wrapper -- child.pid is the real Next.js process, confirmed
-//     live via a smoke test before this script was written), isolated to its
-//     own port + build-cache dir (PT_AUDIT_DIST_DIR, the same mechanism
-//     next.config.mjs already exposes for PT-10/PT-03), env vars overridden
-//     to the branch (never .env.local's production values).
+//     (no shell wrapper -- child.pid is the real Next.js process), isolated
+//     to its own port + build-cache dir (PT_AUDIT_DIST_DIR, the same
+//     mechanism next.config.mjs already exposes for PT-10/PT-03), env vars
+//     overridden to the branch (never .env.local's production values).
 //   - `worker/index.ts`, spawned via `node <tsx/dist/cli.mjs> worker/index.ts`
 //     with SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY overridden to the branch.
 //     This starts every real worker sub-processor (queue poll, DD-request
@@ -25,23 +50,22 @@
 // status='pending' -- that is the one status queueProcessor.dequeue() will
 // actually claim and act on (real Playwright browser automation against a
 // real external funder portal, a genuine real-world side effect that a DB
-// branch does NOT sandbox). A manual pre-check on 2026-08-20 found all 6
-// seeded rows already terminal (status IN ('skipped','failed')); this
-// in-script re-check makes that safety property self-verifying on every run,
-// not just a one-time manual finding. gmail-confirmation-monitor is confirmed
-// (via its own documented hasCredentials() gate) to no-op without a refresh
-// token, which is not set anywhere reachable here -- so it degrades to a
-// harmless per-cycle warning, same as production when unconfigured.
+// branch does NOT sandbox). This is a live re-check on every run, not
+// trusted from any prior manual finding. gmail-confirmation-monitor is
+// confirmed (via its own documented hasCredentials() gate) to no-op without
+// a refresh token, which is not set anywhere reachable here -- so it
+// degrades to a harmless per-cycle warning, same as production when
+// unconfigured.
 //
 // Memory sampling: RSS ("Working Set") of each process's own PID, read via
 // `(Get-Process -Id <pid> -ErrorAction SilentlyContinue).WorkingSet64`
-// (PowerShell, confirmed working on this machine before this script was
-// written). Neither process is expected to spawn OS-level child processes
-// under this config (next.config.mjs's `experimental.cpus: 1` already caps
-// Next's own worker fan-out to a single process; the worker's sub-processors
-// are all in-process async loops, confirmed by reading worker/index.ts) --
-// sampling the root PID directly is therefore the real total, not a partial
-// view of a process tree.
+// (PowerShell, confirmed working on this machine). Neither process is
+// expected to spawn OS-level child processes under this config
+// (next.config.mjs's `experimental.cpus: 1` already caps Next's own worker
+// fan-out to a single process; the worker's sub-processors are all
+// in-process async loops, confirmed by reading worker/index.ts) -- sampling
+// the root PID directly is therefore the real total, not a partial view of a
+// process tree.
 //
 // Load generation: a fixed, moderate number of virtual users continuously
 // cycle a weighted mix of real page requests against the local Next server
@@ -56,7 +80,7 @@
 //
 // A short, unsampled warmup phase (one real request per unique path, run
 // once each before the timed window starts) absorbs Next dev's first-compile
-// cost per route (confirmed live: cold /login compile took ~27s) so that
+// cost per route (confirmed live: cold '/' compile took ~6.4s) so that
 // normal one-time JIT/compile cost isn't misread as "leak" growth in the
 // sampled series.
 //
@@ -84,9 +108,9 @@
 //   a confirmed leak is P1: it takes production down over time.
 //
 // Writes test-evidence/pt-12/soak-memory.json (primary, machine-readable --
-// full per-sample series for both processes plus the analysis/verdict) and
-// test-evidence/pt-12/soak-memory.txt (human-readable companion, matching
-// PT-12-001/002's established convention).
+// full per-sample series for both processes plus the analysis/verdict, valid
+// at every point during the run) and test-evidence/pt-12/soak-memory.txt
+// (human-readable companion, also rewritten incrementally).
 //
 // Usage: node scripts/audit/pt12-003-soak-memory.mjs
 // ============================================================================
@@ -106,17 +130,17 @@ const RESULTS_TXT = path.join(OUT_DIR, "soak-memory.txt");
 
 const PRODUCTION_REF = "vbjplpquqxxfbpazyalt";
 
-const NEXT_PORT = 3413;
-const NEXT_DIST_DIR = ".next-pt12-soak";
-const WORKER_STREAM_PORT = 8097;
-const WORKER_ID = "pt12-soak-worker";
+const NEXT_PORT = 3414;
+const NEXT_DIST_DIR = ".next-pt12-soak-v2";
+const WORKER_STREAM_PORT = 8098;
+const WORKER_ID = "pt12-soak-worker-v2";
 
-const NEXT_READY_TIMEOUT_MS = 120_000;
+const NEXT_READY_TIMEOUT_MS = 90_000;
 const WORKER_SETTLE_MS = 8_000;
-const WARMUP_REQUEST_TIMEOUT_MS = 60_000;
+const WARMUP_REQUEST_TIMEOUT_MS = 30_000;
 
 const SAMPLE_INTERVAL_MS = 10_000;
-const SOAK_DURATION_MS = 360_000; // 6 minutes of sampled, loaded steady state
+const SOAK_DURATION_MS = 180_000; // window-safe: 180s of sampled, loaded steady state (>=18 samples)
 const REQUEST_TIMEOUT_MS = 15_000;
 const VIRTUAL_USERS = 6;
 const THINK_TIME_MIN_MS = 250;
@@ -135,6 +159,11 @@ const REQUEST_PATHS = [
   { path: "/opportunities", weight: 0.1, requiresAuth: true },
   { path: "/settings", weight: 0.1, requiresAuth: true },
 ];
+
+// --- mutable process handles, referenced by the SIGTERM/SIGINT handlers ----
+let nextChild = null;
+let workerChild = null;
+let shuttingDown = false;
 
 function fail(message) {
   console.error(`HARD FAIL: ${message}`);
@@ -305,9 +334,137 @@ function analyzeSeries(series) {
   };
 }
 
+// --- Incremental evidence writer --------------------------------------------
+// Called after EVERY sample (and once more at the very end with status
+// "complete" + full analysis). Rewrites the ENTIRE JSON file each call, so
+// the file on disk is always a complete, valid, self-describing snapshot of
+// everything recorded so far -- never a half-written / truncated document,
+// and never dependent on a final step that might not run if this process is
+// killed mid-soak.
+function writeSnapshot(state) {
+  const evidence = {
+    recordedAt: nowIso(),
+    schemaNote:
+      "This file is rewritten in full after every memory sample (see status field). " +
+      "status='in_progress' means the soak was still running as of recordedAt -- a valid, " +
+      "complete-so-far partial record, not a failure. status='complete' means the soak finished " +
+      "normally and analysis/findings below are final.",
+    status: state.status, // "in_progress" | "complete"
+    startedAt: state.startedAt,
+    target: state.target,
+    safetyCheck: state.safetyCheck,
+    processes: state.processes,
+    soak: state.soak,
+    memorySeries: state.memorySeries,
+    analysis: state.analysis, // null until status === "complete"
+    findings: state.findings, // null until status === "complete"
+  };
+  fs.writeFileSync(RESULTS_JSON, JSON.stringify(evidence, null, 2), "utf8");
+
+  const lines = [
+    `PT-12-003 — Sustained Soak + Memory-Growth Tracking — ${evidence.recordedAt}`,
+    `STATUS: ${evidence.status}${evidence.status === "in_progress" ? " (soak still running as of this write -- valid partial record)" : ""}`,
+    ``,
+    `=== TARGET (confirmed non-production) ===`,
+    `SUPABASE_URL:        ${state.target?.supabaseUrl ?? "(pending)"}`,
+    `branch_project_ref:  ${state.target?.branchProjectRef ?? "(pending)"}`,
+    `parent_project_ref:  ${state.target?.parentProjectRef ?? "(pending)"}`,
+    `production_ref:      ${PRODUCTION_REF}`,
+    `isProductionTarget:  ${state.target?.isProductionTarget ?? "(pending)"}`,
+    ``,
+    `=== SAFETY CHECK ===`,
+    `submission_queue rows checked: ${state.safetyCheck?.submissionQueueRowsChecked ?? "(pending)"}`,
+    `'pending' rows found:          ${state.safetyCheck?.pendingRowsFound ?? "(pending)"}`,
+    `worker automation path armed:  ${state.safetyCheck ? (state.safetyCheck.passed ? "NO (safe)" : "YES -- would have aborted") : "(pending)"}`,
+    ``,
+    `=== PROCESSES ===`,
+    state.processes?.next
+      ? `next server: pid=${state.processes.next.pid} port=${state.processes.next.port} distDir=${state.processes.next.distDir} readyAfterMs=${state.processes.next.readyAfterMs} exitedDuringSoak=${state.processes.next.exitedDuringSoak}`
+      : `next server: (pending)`,
+    state.processes?.worker
+      ? `worker:      pid=${state.processes.worker.pid} id=${state.processes.worker.workerId} streamPort=${state.processes.worker.streamPort} exitedDuringSoak=${state.processes.worker.exitedDuringSoak}`
+      : `worker:      (pending)`,
+    ``,
+    `=== SOAK ===`,
+    `warmup requests: ${state.soak?.warmupRequestsSent ?? "(pending)"}`,
+    `sampled duration: target=${SOAK_DURATION_MS / 1000}s actual so far=${state.soak?.sampledDurationMsActual != null ? (state.soak.sampledDurationMsActual / 1000).toFixed(1) + "s" : "(in progress)"}`,
+    `sample interval: ${SAMPLE_INTERVAL_MS / 1000}s`,
+    `virtual users: ${VIRTUAL_USERS}`,
+    `total requests sent so far: ${state.soak?.totalRequestsSent ?? 0}`,
+    `total request errors so far: ${state.soak?.totalRequestErrors ?? 0}`,
+    ``,
+    `=== MEMORY SERIES (next) — ${state.memorySeries?.next?.length ?? 0} sample(s) so far ===`,
+    ...(state.memorySeries?.next ?? []).map(
+      (s) => `  t=${(s.t / 1000).toFixed(0)}s  ${s.rssBytes !== null ? Math.round(s.rssBytes / 1024 / 1024) + "MB" : "DEAD"}`,
+    ),
+    ``,
+    `=== MEMORY SERIES (worker) — ${state.memorySeries?.worker?.length ?? 0} sample(s) so far ===`,
+    ...(state.memorySeries?.worker ?? []).map(
+      (s) => `  t=${(s.t / 1000).toFixed(0)}s  ${s.rssBytes !== null ? Math.round(s.rssBytes / 1024 / 1024) + "MB" : "DEAD"}`,
+    ),
+    ``,
+  ];
+
+  if (state.status === "complete") {
+    lines.push(
+      `=== ANALYSIS: next ===`,
+      JSON.stringify(state.analysis.next, null, 2),
+      ``,
+      `=== ANALYSIS: worker ===`,
+      JSON.stringify(state.analysis.worker, null, 2),
+      ``,
+      `=== FINDINGS ===`,
+      `next verdict:    ${state.analysis.next.verdict}`,
+      `worker verdict:  ${state.analysis.worker.verdict}`,
+      `overallVerdict:  ${state.findings.overallVerdict}`,
+      ``,
+      state.findings.note,
+      ``,
+      `RESULT: ${state.findings.overallVerdict === "LEAK_FOUND" ? "FINDING RECORDED (memory leak detected -- see above)" : "PASS (no leak detected, evidence recorded)"}`,
+    );
+  } else {
+    lines.push(`(analysis/findings pending -- soak still in progress as of this write)`);
+  }
+
+  fs.writeFileSync(RESULTS_TXT, lines.join("\n") + "\n", "utf8");
+}
+
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const startedAt = nowIso();
+
+  // Shared mutable state, rewritten to disk after every sample.
+  const state = {
+    status: "in_progress",
+    startedAt,
+    target: null,
+    safetyCheck: null,
+    processes: null,
+    soak: null,
+    memorySeries: { next: [], worker: [] },
+    analysis: null,
+    findings: null,
+  };
+
+  // Best-effort: if this process receives a catchable termination signal,
+  // write one final incremental snapshot and kill the child processes before
+  // exiting, rather than leaving them orphaned and the evidence file at its
+  // last periodic write.
+  function handleSignal(sig) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.error(`\nReceived ${sig} -- writing final partial snapshot and killing child processes.`);
+    try {
+      writeSnapshot(state);
+    } catch (err) {
+      console.error(`(snapshot write on ${sig} failed: ${err.message})`);
+    }
+    killTree(nextChild?.pid);
+    killTree(workerChild?.pid);
+    process.exit(1);
+  }
+  process.on("SIGTERM", () => handleSignal("SIGTERM"));
+  process.on("SIGINT", () => handleSignal("SIGINT"));
 
   // --- Resolve branch credentials from evidence, never hardcoded --------------
   if (!fs.existsSync(BRANCH_TXT)) {
@@ -334,6 +491,15 @@ async function main() {
   }
   console.log(`Target (confirmed non-production branch): ${baseUrl} (ref: ${branchProjectRef})`);
 
+  state.target = {
+    supabaseUrl: baseUrl,
+    branchProjectRef,
+    parentProjectRef,
+    productionRef: PRODUCTION_REF,
+    isProductionTarget: false,
+  };
+  writeSnapshot(state);
+
   // --- Safety re-check: no 'pending' submission_queue rows on the branch ------
   // queueProcessor.dequeue() only claims status='pending' -- confirm none
   // exist right now so the worker's real automation path cannot fire during
@@ -359,12 +525,19 @@ async function main() {
       `branch are 'pending'; the worker's real automation path cannot fire during this soak.`,
   );
 
+  state.safetyCheck = {
+    submissionQueueRowsChecked: Array.isArray(sqRows) ? sqRows.length : 0,
+    pendingRowsFound: pendingRows.length,
+    passed: pendingRows.length === 0,
+  };
+  writeSnapshot(state);
+
   const localEnv = dotenv.parse(fs.readFileSync(path.join(REPO_ROOT, ".env.local"), "utf8"));
 
   // --- Boot the real Next.js dev server, pointed at the branch ---------------
   console.log(`\nStarting Next.js server (port ${NEXT_PORT}, dist dir ${NEXT_DIST_DIR})...`);
   const nextBin = path.join(REPO_ROOT, "node_modules", "next", "dist", "bin", "next");
-  const nextChild = spawn(process.execPath, [nextBin, "dev", "-p", String(NEXT_PORT)], {
+  nextChild = spawn(process.execPath, [nextBin, "dev", "-p", String(NEXT_PORT)], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
@@ -394,7 +567,7 @@ async function main() {
   // --- Boot the real worker, pointed at the branch ----------------------------
   console.log(`\nStarting AutoApply worker (id=${WORKER_ID}, stream port ${WORKER_STREAM_PORT})...`);
   const tsxCli = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
-  const workerChild = spawn(process.execPath, [tsxCli, "worker/index.ts"], {
+  workerChild = spawn(process.execPath, [tsxCli, "worker/index.ts"], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
@@ -424,6 +597,31 @@ async function main() {
 
   const bothProcessesUpAt = nowIso();
 
+  state.processes = {
+    next: {
+      role: "next-server",
+      pid: nextChild.pid,
+      port: NEXT_PORT,
+      distDir: NEXT_DIST_DIR,
+      readyAfterMs: nextReady.ms,
+      bothProcessesUpAt,
+      exitedDuringSoak: false,
+      exitInfo: null,
+    },
+    worker: {
+      role: "autoapply-worker",
+      pid: workerChild.pid,
+      workerId: WORKER_ID,
+      streamPort: WORKER_STREAM_PORT,
+      settleMs: WORKER_SETTLE_MS,
+      bothProcessesUpAt,
+      exitedDuringSoak: false,
+      exitInfo: null,
+      bootOutputTail: workerOutput.slice(-2000),
+    },
+  };
+  writeSnapshot(state);
+
   // --- Unsampled warmup: prime each unique route's first (slow) compile ------
   console.log(`\nWarming up ${REQUEST_PATHS.length} route(s) (absorbs first-compile cost, not sampled)...`);
   let totalWarmupRequests = 0;
@@ -443,6 +641,21 @@ async function main() {
       clearTimeout(timer);
     }
   }
+
+  state.soak = {
+    warmupRequestsSent: totalWarmupRequests,
+    startedAt: null,
+    endedAt: null,
+    sampledDurationMsTarget: SOAK_DURATION_MS,
+    sampledDurationMsActual: null,
+    sampleIntervalMsTarget: SAMPLE_INTERVAL_MS,
+    virtualUsers: VIRTUAL_USERS,
+    requestPaths: REQUEST_PATHS,
+    totalRequestsSent: 0,
+    totalRequestErrors: 0,
+    requestErrorRate: null,
+  };
+  writeSnapshot(state);
 
   // --- Load generator: fixed virtual users, weighted mix, steady state -------
   const requestStats = { total: 0, errors: 0 };
@@ -480,12 +693,12 @@ async function main() {
 
   console.log(
     `\nStarting sustained soak: ${VIRTUAL_USERS} virtual users, ${SOAK_DURATION_MS / 1000}s, ` +
-      `sampling memory every ${SAMPLE_INTERVAL_MS / 1000}s...\n`,
+      `sampling memory every ${SAMPLE_INTERVAL_MS / 1000}s (incremental evidence write after every sample)...\n`,
   );
   const soakStartedAt = nowIso();
   const soakStartT = Date.now();
+  state.soak.startedAt = soakStartedAt;
 
-  const memorySeries = { next: [], worker: [] };
   let nextDiedDuringSoak = false;
   let workerDiedDuringSoak = false;
 
@@ -499,12 +712,24 @@ async function main() {
     const workerRss = isPidAlive(workerChild.pid) ? getRssBytes(workerChild.pid) : null;
     if (nextRss === null && !nextDiedDuringSoak) nextDiedDuringSoak = true;
     if (workerRss === null && !workerDiedDuringSoak) workerDiedDuringSoak = true;
-    memorySeries.next.push({ t, atIso, rssBytes: nextRss });
-    memorySeries.worker.push({ t, atIso, rssBytes: workerRss });
+    state.memorySeries.next.push({ t, atIso, rssBytes: nextRss });
+    state.memorySeries.worker.push({ t, atIso, rssBytes: workerRss });
+
+    state.soak.sampledDurationMsActual = Date.now() - soakStartT;
+    state.soak.totalRequestsSent = requestStats.total;
+    state.soak.totalRequestErrors = requestStats.errors;
+    state.soak.requestErrorRate = requestStats.total > 0 ? requestStats.errors / requestStats.total : null;
+    state.processes.next.exitedDuringSoak = nextDiedDuringSoak;
+    state.processes.worker.exitedDuringSoak = workerDiedDuringSoak;
+
+    // *** INCREMENTAL WRITE — the whole point of this v2 script. ***
+    writeSnapshot(state);
+
     console.log(
-      `  [t=${(t / 1000).toFixed(0)}s] next=${nextRss !== null ? Math.round(nextRss / 1024 / 1024) + "MB" : "DEAD"} ` +
+      `  [t=${(t / 1000).toFixed(0)}s] sample ${i + 1}/${totalSamples + 1} ` +
+        `next=${nextRss !== null ? Math.round(nextRss / 1024 / 1024) + "MB" : "DEAD"} ` +
         `worker=${workerRss !== null ? Math.round(workerRss / 1024 / 1024) + "MB" : "DEAD"} ` +
-        `requests=${requestStats.total} errors=${requestStats.errors}`,
+        `requests=${requestStats.total} errors=${requestStats.errors} (evidence written)`,
     );
     if (i < totalSamples) {
       await new Promise((r) => setTimeout(r, SAMPLE_INTERVAL_MS));
@@ -516,16 +741,19 @@ async function main() {
 
   const soakEndedAt = nowIso();
   const soakDurationMsActual = Date.now() - soakStartT;
+  state.soak.endedAt = soakEndedAt;
+  state.soak.sampledDurationMsActual = soakDurationMsActual;
 
   // --- Shutdown both processes -------------------------------------------------
   console.log(`\nShutting down Next.js server (pid=${nextChild.pid}) and worker (pid=${workerChild.pid})...`);
   killTree(nextChild.pid);
   killTree(workerChild.pid);
   await new Promise((r) => setTimeout(r, 1000));
+  shuttingDown = true; // signal handlers become no-ops from here on
 
   // --- Analyze both series ------------------------------------------------------
-  const nextAnalysis = analyzeSeries(memorySeries.next);
-  const workerAnalysis = analyzeSeries(memorySeries.worker);
+  const nextAnalysis = analyzeSeries(state.memorySeries.next);
+  const workerAnalysis = analyzeSeries(state.memorySeries.worker);
 
   const anyClimbing = nextAnalysis.verdict === "climbing" || workerAnalysis.verdict === "climbing";
   const overallVerdict = anyClimbing ? "LEAK_FOUND" : "PASS_NO_LEAK";
@@ -546,129 +774,21 @@ async function main() {
   if (nextDiedDuringSoak) console.log(`NOTE: the Next.js server process died at some point during the soak.`);
   if (workerDiedDuringSoak) console.log(`NOTE: the worker process died at some point during the soak.`);
 
-  // --- Write machine-readable evidence -----------------------------------------
-  const evidence = {
-    recordedAt: nowIso(),
-    startedAt,
-    target: {
-      supabaseUrl: baseUrl,
-      branchProjectRef,
-      parentProjectRef,
-      productionRef: PRODUCTION_REF,
-      isProductionTarget: false,
-    },
-    safetyCheck: {
-      submissionQueueRowsChecked: Array.isArray(sqRows) ? sqRows.length : 0,
-      pendingRowsFound: pendingRows.length,
-      passed: pendingRows.length === 0,
-    },
-    processes: {
-      next: {
-        role: "next-server",
-        pid: nextChild.pid,
-        port: NEXT_PORT,
-        distDir: NEXT_DIST_DIR,
-        readyAfterMs: nextReady.ms,
-        bothProcessesUpAt,
-        exitedDuringSoak: nextDiedDuringSoak,
-        exitInfo: nextExitInfo,
-      },
-      worker: {
-        role: "autoapply-worker",
-        pid: workerChild.pid,
-        workerId: WORKER_ID,
-        streamPort: WORKER_STREAM_PORT,
-        settleMs: WORKER_SETTLE_MS,
-        bothProcessesUpAt,
-        exitedDuringSoak: workerDiedDuringSoak,
-        exitInfo: workerExitInfo,
-        bootOutputTail: workerOutput.slice(-2000),
-      },
-    },
-    soak: {
-      warmupRequestsSent: totalWarmupRequests,
-      startedAt: soakStartedAt,
-      endedAt: soakEndedAt,
-      sampledDurationMsTarget: SOAK_DURATION_MS,
-      sampledDurationMsActual: soakDurationMsActual,
-      sampleIntervalMsTarget: SAMPLE_INTERVAL_MS,
-      virtualUsers: VIRTUAL_USERS,
-      requestPaths: REQUEST_PATHS,
-      totalRequestsSent: requestStats.total,
-      totalRequestErrors: requestStats.errors,
-      requestErrorRate: requestStats.total > 0 ? requestStats.errors / requestStats.total : null,
-    },
-    memorySeries,
-    analysis: {
-      next: nextAnalysis,
-      worker: workerAnalysis,
-    },
-    findings: {
-      next: nextAnalysis.verdict,
-      worker: workerAnalysis.verdict,
-      overallVerdict,
-      note: findingsNote,
-    },
+  state.status = "complete";
+  state.processes.next.exitInfo = nextExitInfo;
+  state.processes.worker.exitInfo = workerExitInfo;
+  state.analysis = { next: nextAnalysis, worker: workerAnalysis };
+  state.findings = {
+    next: nextAnalysis.verdict,
+    worker: workerAnalysis.verdict,
+    overallVerdict,
+    note: findingsNote,
   };
 
-  fs.writeFileSync(RESULTS_JSON, JSON.stringify(evidence, null, 2), "utf8");
+  writeSnapshot(state);
 
-  const lines = [
-    `PT-12-003 — Sustained Soak + Memory-Growth Tracking — ${evidence.recordedAt}`,
-    ``,
-    `=== TARGET (confirmed non-production) ===`,
-    `SUPABASE_URL:        ${baseUrl}`,
-    `branch_project_ref:  ${branchProjectRef}`,
-    `parent_project_ref:  ${parentProjectRef}`,
-    `production_ref:      ${PRODUCTION_REF}`,
-    `isProductionTarget:  false`,
-    ``,
-    `=== SAFETY CHECK ===`,
-    `submission_queue rows checked: ${evidence.safetyCheck.submissionQueueRowsChecked}`,
-    `'pending' rows found:          ${evidence.safetyCheck.pendingRowsFound}`,
-    `worker automation path armed:  ${evidence.safetyCheck.passed ? "NO (safe)" : "YES -- would have aborted"}`,
-    ``,
-    `=== PROCESSES ===`,
-    `next server: pid=${nextChild.pid} port=${NEXT_PORT} distDir=${NEXT_DIST_DIR} readyAfterMs=${nextReady.ms} exitedDuringSoak=${nextDiedDuringSoak}`,
-    `worker:      pid=${workerChild.pid} id=${WORKER_ID} streamPort=${WORKER_STREAM_PORT} exitedDuringSoak=${workerDiedDuringSoak}`,
-    ``,
-    `=== SOAK ===`,
-    `warmup requests: ${totalWarmupRequests}`,
-    `sampled duration: target=${SOAK_DURATION_MS / 1000}s actual=${(soakDurationMsActual / 1000).toFixed(1)}s`,
-    `sample interval: ${SAMPLE_INTERVAL_MS / 1000}s`,
-    `virtual users: ${VIRTUAL_USERS}`,
-    `total requests sent: ${requestStats.total}`,
-    `total request errors: ${requestStats.errors} (rate: ${((evidence.soak.requestErrorRate ?? 0) * 100).toFixed(2)}%)`,
-    ``,
-    `=== MEMORY SERIES (next) ===`,
-    ...memorySeries.next.map(
-      (s) => `  t=${(s.t / 1000).toFixed(0)}s  ${s.rssBytes !== null ? Math.round(s.rssBytes / 1024 / 1024) + "MB" : "DEAD"}`,
-    ),
-    ``,
-    `=== MEMORY SERIES (worker) ===`,
-    ...memorySeries.worker.map(
-      (s) => `  t=${(s.t / 1000).toFixed(0)}s  ${s.rssBytes !== null ? Math.round(s.rssBytes / 1024 / 1024) + "MB" : "DEAD"}`,
-    ),
-    ``,
-    `=== ANALYSIS: next ===`,
-    JSON.stringify(nextAnalysis, null, 2),
-    ``,
-    `=== ANALYSIS: worker ===`,
-    JSON.stringify(workerAnalysis, null, 2),
-    ``,
-    `=== FINDINGS ===`,
-    `next verdict:    ${nextAnalysis.verdict}`,
-    `worker verdict:  ${workerAnalysis.verdict}`,
-    `overallVerdict:  ${overallVerdict}`,
-    ``,
-    findingsNote,
-    ``,
-    `RESULT: ${overallVerdict === "LEAK_FOUND" ? "FINDING RECORDED (memory leak detected -- see above)" : "PASS (no leak detected, evidence recorded)"}`,
-  ];
-  fs.writeFileSync(RESULTS_TXT, lines.join("\n") + "\n", "utf8");
-
-  console.log(`\nWrote ${RESULTS_JSON}`);
-  console.log(`Wrote ${RESULTS_TXT}`);
+  console.log(`\nWrote ${RESULTS_JSON} (status: complete)`);
+  console.log(`Wrote ${RESULTS_TXT} (status: complete)`);
 
   // This script's own exit code reflects whether it successfully RAN the soak
   // and recorded evidence, not whether a leak was found -- a "climbing"
@@ -679,5 +799,11 @@ async function main() {
 
 main().catch((err) => {
   console.error(`FATAL: ${err.stack || err.message}`);
+  try {
+    killTree(nextChild?.pid);
+    killTree(workerChild?.pid);
+  } catch {
+    // best effort
+  }
   process.exit(1);
 });

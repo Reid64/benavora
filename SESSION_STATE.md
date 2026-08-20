@@ -1,5 +1,55 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-12-002 refresh: re-ran concurrent-user load simulation against the live branch.
+## Last Updated: August 20, 2026 — audit PT-12-003 v2: sustained soak + incremental memory tracking (window-safe).
+
+**Focus:** the prior PT-12-003 soak run was killed at `t=11s` of a 360s soak before the harness ever
+wrote its evidence file — the original script only wrote `soak-memory.json`/`.txt` once, at the very
+end. Fix: rewrite the evidence file incrementally after every sample (so it is always valid,
+parseable, and complete-so-far), and shrink the soak to 180s so it reliably completes inside the
+execution window while remaining a genuine sustained test (≥18 samples/process, well over the ≥10
+this audit step requires).
+
+**What was done:**
+- Rewrote `scripts/audit/pt12-003-soak-memory.mjs`: `SOAK_DURATION_MS` 360s→180s; added a
+  `writeSnapshot(state)` function called after every single memory sample (not just at the end),
+  which rewrites the entire `soak-memory.json`/`.txt` pair from scratch each time. The JSON carries
+  an explicit `status: "in_progress" | "complete"` field so a partial file left behind by a kill is
+  self-describing rather than ambiguous. Added `SIGTERM`/`SIGINT` handlers that do a best-effort
+  final snapshot write + child-process cleanup on a catchable termination signal. Everything else
+  (real `next dev` + real `worker/index.ts` boot against the dedicated non-production
+  `pt12-load-test` Supabase branch, the live `submission_queue`-has-no-`pending`-rows safety
+  pre-check, the weighted real-request load generator, the flat-vs-climbing verdict method) is
+  unchanged from the original design.
+- Updated `scripts/audit/verify-pt12-003.mjs`: `MIN_SAMPLES` raised 4→10 (this step's explicit
+  requirement); added a hard-fail check that `status === "complete"` — a killed run's
+  `"in_progress"` file is now explicitly rejected by the gate (valid partial evidence, but not a
+  passing audit result, since no verdict was reached).
+- Ran the fixed script live: branch `ffghpazvipsqrypkryfj` (parent ref = production
+  `vbjplpquqxxfbpazyalt`, branch ref ≠ production — confirmed distinct before running), 0 of 6
+  `submission_queue` rows `pending` (safety check passed, worker automation path could not fire).
+  Real Next.js server + real AutoApply worker both booted and stayed alive for the full ~202s
+  sampled window under continuous load (6 virtual users, 1,928 requests sent, 0 errors). 19 memory
+  samples recorded for each process, every one incrementally written to disk as it was taken.
+- **Result: both processes FLAT, no leak.** Next.js RSS declined 53MB→27MB (-48.8%) over the
+  window; worker RSS declined 42MB→23MB (-44.5%) — both classified `"flat"` since the verdict method
+  requires positive growth above 15% *and* high monotonicity to call `"climbing"`, and a declining
+  series fails the growth condition regardless. `overallVerdict: PASS_NO_LEAK`, a genuine result, not
+  forced — the decline (one large drop around t=111s in both processes) most likely reflects a V8/
+  dev-server memory release once first-compile/initial-load activity fully settled, not evidence of
+  anything adversarial.
+- `node scripts/audit/verify-pt12-003.mjs` — PASS (status=complete; 19/19 samples for both processes
+  against the ≥10 bar; non-production target confirmed; explicit flat/flat verdicts consistent with
+  `overallVerdict`; `soak-memory.txt` present and non-empty).
+- Confirmed both spawned processes (Next.js pid, worker pid) were cleanly killed after the run — no
+  lingering listeners on ports 3414/8098 afterward. Deleted the temporary `.next-pt12-soak-v2` build
+  cache dir and run log (not part of the scoped commit). Left the prior killed-run's
+  `soak-memory-run.log` in place, unmodified, as honest historical evidence of the bug this session
+  fixed.
+
+**Gates:** `node scripts/audit/verify-pt12-003.mjs` — PASS, exit 0.
+
+---
+
+## Prior Session — August 20, 2026 (audit PT-12-002 refresh: re-ran concurrent-user load simulation against the live branch)
 
 **Focus:** re-execute PT-12-002's existing concurrent-user load simulation against the same
 dedicated, non-production `pt12-load-test` Supabase branch (per `test-evidence/pt-12/branch.txt`),

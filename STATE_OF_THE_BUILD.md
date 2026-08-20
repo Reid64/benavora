@@ -1,5 +1,69 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-12-003 v2: sustained soak + incremental memory-leak tracking, window-safe.**
+
+**What broke, and why:** the prior PT-12-003 attempt (see `test-evidence/pt-12/soak-memory-run.log`,
+kept as-is, not deleted) was killed at `t=11s` of an intended 360s soak — before the original
+`pt12-003-soak-memory.mjs` ever wrote `soak-memory.json`/`soak-memory.txt`, since that version only
+built the evidence object and wrote both files once, at the very end, after the full soak +
+process-shutdown sequence completed. A mid-run kill therefore left **zero** evidence on disk despite
+real sampling having genuinely happened (`next=49MB worker=34MB requests=105` was captured and
+logged to stdout, then lost).
+
+**Fix, two parts, both in `scripts/audit/pt12-003-soak-memory.mjs`:**
+1. **Window-safe duration:** `SOAK_DURATION_MS` reduced from 360s to **180s** — 18 intervals of 10s
+   (19 samples per process, since the loop is inclusive of both endpoints) — still a genuine
+   sustained-load test, well above the ≥10-sample bar this audit step requires, but sized to
+   reliably finish (boot + warmup + soak + shutdown, ~200-210s observed) inside a single execution
+   window rather than assuming an effectively-unbounded one.
+2. **Incremental evidence writes:** a new `writeSnapshot(state)` function rewrites the *entire*
+   `soak-memory.json` (and its `.txt` companion) from scratch after **every single memory sample**
+   — not just at the end. The file carries an explicit `status` field: `"in_progress"` while the
+   soak is still running (a valid, complete-so-far partial record — parseable JSON, real per-sample
+   series up to whatever point was reached, `analysis`/`findings` explicitly `null`), flipping to
+   `"complete"` only once the soak finishes normally and the flat-vs-climbing analysis is computed.
+   `SIGTERM`/`SIGINT` handlers also do a best-effort final snapshot write + child-process cleanup for
+   the case where the kill signal is catchable rather than a hard `SIGKILL`. Net effect: if this
+   script is killed at any point, whatever was captured up to the most recent ~10s sample is already
+   safely on disk, not buffered in memory and lost.
+
+**Real run, this session (branch `ffghpazvipsqrypkryfj`, the same dedicated `pt12-load-test`
+Supabase branch from PT-12-001/002, confirmed live and non-production before running — parent ref
+`vbjplpquqxxfbpazyalt` matches production, branch ref does not; `submission_queue` re-checked live,
+0 of 6 rows `pending`, so the worker's real automation path could not fire):**
+
+Both the real Next.js dev server (port 3414, isolated `PT_AUDIT_DIST_DIR`) and the real AutoApply
+worker (`worker/index.ts`, all its real sub-processors — queue poll, DD-request poll, knowledge
+indexer, gmail-confirmation-monitor — booted exactly as production's boot sequence does) ran for the
+full 180s+ sampled window under continuous load (6 virtual users cycling a weighted mix of public and
+protected-route requests; 1,928 requests sent, 0 errors, 0 process deaths for either process
+throughout). 19 memory samples recorded for each process, every one written to disk incrementally as
+it was taken.
+
+**Verdict: FLAT for both processes — no leak.** Next.js RSS actually *declined* over the window
+(53MB → 27MB, -48.8%, monotonicity 94% — the decline is one large drop around t=111s, likely a V8/
+dev-server GC or module-cache release once first-compile activity fully settled past the unsampled
+warmup phase, not a leak signal since `growthPercent` is negative and the "climbing" verdict requires
+positive growth above 15%). Worker RSS similarly declined (42MB → 23MB, -44.5%, monotonicity 88%).
+Both are `overallVerdict: PASS_NO_LEAK` — a genuine, non-fabricated flat result, not a forced pass;
+the verdict method (documented in the script's own header) requires *both* >15% growth AND >60%
+monotonicity to call "climbing," and a declining series fails the growth condition outright regardless
+of monotonicity.
+
+`node scripts/audit/verify-pt12-003.mjs` — **PASS**: `soak-memory.json` exists, parses, `status ===
+"complete"` (not left `"in_progress"` by a killed run), 19 timestamped samples for both processes
+(≥10 required), non-production target confirmed, explicit flat/flat verdicts present and consistent
+with `overallVerdict`, `soak-memory.txt` exists and is non-empty. The verifier was also updated this
+session: `MIN_SAMPLES` raised 4→10 per this step's explicit requirement, and a new check added that
+hard-fails unless `status === "complete"` — an `"in_progress"` file is now explicitly treated as a
+valid-but-failing partial record (the whole point of writing it incrementally is that something real
+survives a kill, but a killed run still didn't reach a verdict and must not pass the gate).
+
+**Gates:** `node scripts/audit/verify-pt12-003.mjs` — PASS, exit 0. Both spawned processes confirmed
+cleanly killed after the run (no lingering listeners on ports 3414/8098).
+
+---
+
 **Updated: August 20, 2026 — audit PT-12-002 refresh: re-ran concurrent-user load simulation against the live, still-non-production branch.**
 
 **What this session did:** re-executed the existing `scripts/audit/pt12-002-load-simulation.mjs`

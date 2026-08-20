@@ -1,0 +1,119 @@
+PT-12-003 — Sustained Soak + Memory-Growth Tracking — 2026-08-20T19:57:15.157Z
+STATUS: complete
+
+=== TARGET (confirmed non-production) ===
+SUPABASE_URL:        https://ffghpazvipsqrypkryfj.supabase.co
+branch_project_ref:  ffghpazvipsqrypkryfj
+parent_project_ref:  vbjplpquqxxfbpazyalt
+production_ref:      vbjplpquqxxfbpazyalt
+isProductionTarget:  false
+
+=== SAFETY CHECK ===
+submission_queue rows checked: 6
+'pending' rows found:          0
+worker automation path armed:  NO (safe)
+
+=== PROCESSES ===
+next server: pid=87588 port=3414 distDir=.next-pt12-soak-v2 readyAfterMs=17119 exitedDuringSoak=false
+worker:      pid=124396 id=pt12-soak-worker-v2 streamPort=8098 exitedDuringSoak=false
+
+=== SOAK ===
+warmup requests: 7
+sampled duration: target=180s actual so far=202.2s
+sample interval: 10s
+virtual users: 6
+total requests sent so far: 1928
+total request errors so far: 0
+
+=== MEMORY SERIES (next) — 19 sample(s) so far ===
+  t=0s  53MB
+  t=12s  53MB
+  t=23s  53MB
+  t=34s  53MB
+  t=45s  53MB
+  t=56s  53MB
+  t=67s  53MB
+  t=78s  53MB
+  t=89s  53MB
+  t=100s  53MB
+  t=111s  27MB
+  t=123s  27MB
+  t=134s  27MB
+  t=145s  27MB
+  t=158s  27MB
+  t=169s  27MB
+  t=180s  27MB
+  t=190s  27MB
+  t=201s  27MB
+
+=== MEMORY SERIES (worker) — 19 sample(s) so far ===
+  t=0s  42MB
+  t=12s  42MB
+  t=23s  42MB
+  t=34s  42MB
+  t=45s  42MB
+  t=56s  42MB
+  t=67s  42MB
+  t=78s  42MB
+  t=89s  42MB
+  t=100s  42MB
+  t=111s  23MB
+  t=123s  23MB
+  t=134s  23MB
+  t=145s  23MB
+  t=158s  23MB
+  t=169s  23MB
+  t=180s  23MB
+  t=190s  23MB
+  t=201s  23MB
+
+=== ANALYSIS: next ===
+{
+  "sampleCount": 19,
+  "usableSampleCount": 19,
+  "warmupSamplesExcluded": 2,
+  "steadyStateSampleCount": 17,
+  "firstBytes": 55693312,
+  "lastBytes": 28487680,
+  "firstWindowAvgBytes": 55642112,
+  "lastWindowAvgBytes": 28487680,
+  "growthPercent": -0.4880194339136516,
+  "monotonicityRatio": 0.9375,
+  "regressionSlopeBytesPerSec": -213547.42660182223,
+  "thresholds": {
+    "climbThresholdPercent": 0.15,
+    "climbMonotonicityThreshold": 0.6
+  },
+  "verdict": "flat",
+  "note": "Steady-state memory changed -48.8% (first-quarter avg 53MB -> last-quarter avg 27MB), monotonicity 94% -- below the \"climbing\" bar (needs >15% growth AND >60% monotonicity). Classified flat."
+}
+
+=== ANALYSIS: worker ===
+{
+  "sampleCount": 19,
+  "usableSampleCount": 19,
+  "warmupSamplesExcluded": 2,
+  "steadyStateSampleCount": 17,
+  "firstBytes": 43954176,
+  "lastBytes": 24358912,
+  "firstWindowAvgBytes": 43915264,
+  "lastWindowAvgBytes": 24358912,
+  "growthPercent": -0.4453201510982605,
+  "monotonicityRatio": 0.875,
+  "regressionSlopeBytesPerSec": -153777.98753159624,
+  "thresholds": {
+    "climbThresholdPercent": 0.15,
+    "climbMonotonicityThreshold": 0.6
+  },
+  "verdict": "flat",
+  "note": "Steady-state memory changed -44.5% (first-quarter avg 42MB -> last-quarter avg 23MB), monotonicity 88% -- below the \"climbing\" bar (needs >15% growth AND >60% monotonicity). Classified flat."
+}
+
+=== FINDINGS ===
+next verdict:    flat
+worker verdict:  flat
+overallVerdict:  PASS_NO_LEAK
+
+No memory leak detected in either process over the 202s sampled, loaded soak window. Next.js: Steady-state memory changed -48.8% (first-quarter avg 53MB -> last-quarter avg 27MB), monotonicity 94% -- below the "climbing" bar (needs >15% growth AND >60% monotonicity). Classified flat. Worker: Steady-state memory changed -44.5% (first-quarter avg 42MB -> last-quarter avg 23MB), monotonicity 88% -- below the "climbing" bar (needs >15% growth AND >60% monotonicity). Classified flat.
+
+RESULT: PASS (no leak detected, evidence recorded)
