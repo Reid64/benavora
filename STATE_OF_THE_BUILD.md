@@ -32,6 +32,81 @@ URL this phase (prod-safe/static-read-only scope). Full detail:
 `test-evidence/pt-08/PHASE-08-SUMMARY.md`; short version for review: `test-evidence/pt-08/
 REVIEW-PACK.md`. See "SESSION — August 20, 2026 (audit PT-08 COMPLETE)" entry below.**
 
+## SESSION — August 19, 2026 (audit PT-06: preflight, read-only DB connection proof, migration-file
+inventory across both parallel migrations directories)
+
+**Scope:** PT-06 preflight and its first evidence step (PT-06-001). Confirmed PT-00 artifacts exist
+(`test-evidence/pt-00/route-manifest.json`, `test-evidence/_register/WIRING_GAP_REGISTER.md`,
+`scripts/audit/evidence-lib.mjs`) before proceeding, per this phase's own HALT-if-missing gate — all
+three present, no halt. Note this session runs out of numeric order relative to the already-COMPLETE
+PT-08 above; both are independent audit phases and this doesn't revise or depend on PT-08's findings.
+
+**Read-only Postgres connection, proved not just requested.** Per DIRECTIVE-017's `DATABASE_URL`
+pattern (`.env.local`, loaded via the established `pg` + manual `.env.local` parser convention this
+repo already uses in `scripts/apply-migration-140-2026-08-18.mjs`, never via literal shell `$VAR`
+expansion, which this session's sandbox blocks). The literal `select 1` alone would only prove
+connectivity, not safety, so the connection script (`scripts/audit/pt06-001-readonly-connection.mjs`)
+does four things in sequence, all captured live to `test-evidence/pt-06/connection-proof.txt`: (1)
+connects and confirms `current_database`/`current_user`/server address/time; (2) runs `SET
+default_transaction_read_only = on` for the session and reads it back via `SHOW`; (3) runs `select 1`
+and confirms the returned value; (4) — the part that actually proves "read-only-safe" rather than
+just claiming it — attempts a real write (`CREATE TABLE pt06_readonly_probe_should_never_exist`)
+inside its own transaction and confirms Postgres itself rejects it with SQLSTATE `25006`
+(`read_only_sql_transaction`), then rolls back the aborted transaction to leave the connection clean.
+Live result: connected as `postgres` against `db.vbjplpquqxxfbpazyalt.supabase.co`, `select 1`
+returned `1`, the `CREATE TABLE` attempt was rejected with the exact expected SQLSTATE and message
+(`cannot execute CREATE TABLE in a read-only transaction`) — the safety property is enforced by the
+database engine itself for the rest of the session, not by application-level discipline alone. No
+table was created (the whole point of testing via a guaranteed-rejected statement). Had any of these
+four steps failed, the script halts non-zero and does not write a PASS result — this did not happen.
+
+**Migration-file inventory, both known parallel directories, plus a search for any others.** Per the
+PT-02 "two parallel migrations directories" collision this phase was asked to enumerate precisely
+(rather than describe generally, as prior sessions had): `scripts/audit/pt06-002-migration-inventory.mjs`
+walked `src/supabase/migrations` (57 files) and `supabase/migrations` (142 files) — 199 files total —
+recording filename, extracted numeric prefix, directory, byte size, and a sha256 content hash per
+file, written to `test-evidence/pt-06/migration-files.json`. Also ran a repo-wide search for any other
+directory literally named `migrations`: found 6 more, all under `.claude/worktrees/**` — confirmed via
+`git worktree list` to be other branches' working checkouts of this exact repository, not independent
+migration sources that could have reached production — recorded and explicitly excluded from the
+collision analysis, not silently dropped from the evidence file.
+
+**Real findings, quantified for the first time (previously only described qualitatively as "which
+directory is live is UNRESOLVED" in project memory):**
+- **56 cross-directory numeric-prefix collisions** — the identical migration number is used for a
+  *different, unrelated* migration in each directory. E.g. `072` is
+  `donor_discovery_taxonomy_aliases.sql` in `src/supabase/migrations` but
+  `foundation_directory_990_enrichment.sql` in `supabase/migrations`; `075` is `agent_marketplace.sql`
+  in `src/` but `donor_discovery_taxonomy_aliases.sql` in `supabase/` (the same content that was `072`
+  in the other tree, one number over — direct evidence the two trees drifted independently and are
+  not offset copies of one another, they diverged at different points and reused numbers
+  unrelatedly). This means a bare filename+number alone can never disambiguate which tree's version of
+  a given number a piece of code, a doc, or a person means — the two trees are not append-only
+  siblings, they are genuinely divergent numbering sequences that happen to overlap.
+- **8 within-directory duplicate-prefix cases** — even a single directory's own numbering isn't
+  unique: `supabase/migrations` has 7 (e.g. `002_phases_2_5.sql` and `002_register_organization.sql`
+  both `002`), `src/supabase/migrations` has 1 (`111_ag27_board_packet.sql` and
+  `111_ag29_knowledge_indexer_enum.sql`).
+- **5 sequence gaps** in `supabase/migrations`' numbering (missing `019, 029, 030, 031, 032` between
+  its real min `001` and max `140`); `src/supabase/migrations` has 0 gaps across its real range
+  (`072`-`127`).
+- Which directory's copy of a colliding number, if either, is what actually ran against the live
+  production schema **is not determined by this step** — that would need cross-referencing against a
+  real applied-migrations ledger in the database (e.g. a `schema_migrations`-style tracking table, if
+  one exists), which is outside this step's explicit scope (inventory + flag collisions/gaps, not
+  resolve them). Flagged as the natural next step for whoever picks up migration-tree reconciliation,
+  not attempted here.
+
+**Verification:** `scripts/audit/verify-pt06-001.mjs` (task step 5) checks both evidence files
+structurally — `connection-proof.txt` must show a `select 1` success AND the SQLSTATE `25006`
+write-rejection evidence (not just a bare "it worked" claim), `migration-files.json` must be non-empty
+with every file entry carrying a directory and a 64-hex-char sha256, and both known directories must
+be present and marked `exists: true`. Ran clean: `PASS` on both.
+
+**Gates:** no application code touched; `scripts/audit/*.mjs` are Node ESM, no build/lint gate
+applies. No production writes made or attempted to succeed (the one write attempt was deliberately
+designed to be rejected, and was).
+
 ## SESSION — August 20, 2026 (audit PT-08 COMPLETE: jobs/queues audit, review pack ready)
 
 Consolidation of the three PT-08 sub-audits (worker boot inventory, cron registration

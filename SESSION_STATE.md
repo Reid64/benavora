@@ -17,6 +17,53 @@ re-verified against the live URL. Full detail: `test-evidence/pt-08/PHASE-08-SUM
 version for review: `test-evidence/pt-08/REVIEW-PACK.md`. See "Current Session — August 20, 2026"
 below.
 
+## Session — August 19, 2026 (audit PT-06: preflight, read-only DB connection proof, migration-file
+inventory across both parallel migrations directories)
+
+**Focus:** PT-06 preflight + PT-06-001. Confirmed PT-00 artifacts present before proceeding (no
+halt), established a read-only-proven connection to production Postgres, and inventoried every
+migration file across the two known parallel `migrations` directories PT-02 had flagged as a
+collision but never enumerated concretely. Runs out of numeric order after PT-08 (already COMPLETE
+above) — independent phase, no dependency either direction.
+
+**Read-only connection — proved with a real rejected write, not just a claim.**
+`scripts/audit/pt06-001-readonly-connection.mjs` connects via `DATABASE_URL` (`.env.local`, per
+DIRECTIVE-017), sets `default_transaction_read_only = on` for the session, runs `select 1`, then
+deliberately attempts `CREATE TABLE pt06_readonly_probe_should_never_exist` and confirms Postgres
+rejects it with SQLSTATE `25006` (`read_only_sql_transaction`) before rolling back the aborted
+transaction. This is the actual safety proof the task asked for — the CREATE TABLE was designed to
+fail, and did, meaning the read-only property is enforced by the database engine for the whole
+session, not by this script's own discipline. Live result: connected as `postgres` against
+`db.vbjplpquqxxfbpazyalt.supabase.co`, all four steps passed. Evidence:
+`test-evidence/pt-06/connection-proof.txt`.
+
+**Migration inventory — both directories, plus a search for any others.**
+`scripts/audit/pt06-002-migration-inventory.mjs` walked `src/supabase/migrations` (57 files) and
+`supabase/migrations` (142 files) — 199 total — recording filename/directory/numeric prefix/byte
+size/sha256 per file. A repo-wide search for other `migrations`-named directories found 6 more, all
+under `.claude/worktrees/**` — confirmed via `git worktree list` to be other branches' checkouts of
+this same repo, not independent sources; excluded from the analysis but recorded, not silently
+dropped. Evidence: `test-evidence/pt-06/migration-files.json`.
+
+**Real findings, quantified for the first time:** 56 cross-directory numeric-prefix collisions where
+the SAME number is a COMPLETELY DIFFERENT migration in each directory (e.g. `072` =
+`donor_discovery_taxonomy_aliases.sql` in `src/` vs `foundation_directory_990_enrichment.sql` in
+`supabase/`; `075` in `supabase/` is the very file that was `072` in `src/`, proving the two trees
+diverged independently rather than being offset copies of each other). 8 within-directory duplicate
+prefixes (7 in `supabase/migrations`, 1 in `src/supabase/migrations`). 5 sequence gaps in
+`supabase/migrations` (`019, 029, 030, 031, 032` missing between real min `001` and max `140`); 0
+gaps in `src/supabase/migrations`. Which directory's version of a colliding number actually reached
+production is NOT determined by this step — that needs a real applied-migrations ledger
+cross-reference, out of this step's explicit scope, flagged for a future session.
+
+**Verification:** `scripts/audit/verify-pt06-001.mjs` checks both evidence files are non-empty and
+structurally complete (connection proof shows both the `select 1` success and the SQLSTATE `25006`
+rejection evidence; migration inventory has a directory+sha256 for every file and both known
+directories present). Ran clean: `PASS` on both checks.
+
+**Gates:** no application code touched, no production writes made or succeeded (the one write
+attempt was designed to fail, and did).
+
 ## Current Session — August 20, 2026 (audit PT-08 COMPLETE: jobs/queues audit, review pack ready)
 
 **Focus:** consolidate the three PT-08 sub-audits below (worker boot inventory, cron registration

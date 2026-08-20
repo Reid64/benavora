@@ -1,0 +1,2667 @@
+{
+  "generatedAt": "2026-08-20T03:14:59.805Z",
+  "knownDirectories": [
+    "src/supabase/migrations",
+    "supabase/migrations"
+  ],
+  "perDirectory": [
+    {
+      "directory": "src/supabase/migrations",
+      "exists": true,
+      "fileCount": 57,
+      "files": [
+        {
+          "filename": "072_donor_discovery_taxonomy_aliases.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "072",
+          "prefixNumeric": 72,
+          "bytes": 614,
+          "sha256": "7013acc6eef2e0242b50c81567e4d089a8609d9392f8972df0bcc455278a8ff7"
+        },
+        {
+          "filename": "073_adapter_usage_log.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "073",
+          "prefixNumeric": 73,
+          "bytes": 599,
+          "sha256": "ff7af53b756df67e43a31129ebafab3d4fa4b6ed0e6ff3f6304e3c5b3130e464"
+        },
+        {
+          "filename": "074_donor_discovery_geocache.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "074",
+          "prefixNumeric": 74,
+          "bytes": 339,
+          "sha256": "311c1059d842fc327a1f78a43c4bc06c94a7b40c704176c5ae4418cb946a339f"
+        },
+        {
+          "filename": "075_agent_marketplace.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "075",
+          "prefixNumeric": 75,
+          "bytes": 2132,
+          "sha256": "ff174037049ff664e59030e9ae8b78ee68aecb67dd8a2e89ec83f5d94f3e3a4a"
+        },
+        {
+          "filename": "076_reputation_intelligence.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "076",
+          "prefixNumeric": 76,
+          "bytes": 1854,
+          "sha256": "8f5c10d5f66931d3401b7882dcd1acf605d2045064ef1287ea3cec8b4a7039db"
+        },
+        {
+          "filename": "077_intelligence_graph.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "077",
+          "prefixNumeric": 77,
+          "bytes": 1608,
+          "sha256": "c373cd87cb05130a19a4fbd4767392389ff18b93a6fee9e6d8454071e0939d2e"
+        },
+        {
+          "filename": "078_forecast_board.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "078",
+          "prefixNumeric": 78,
+          "bytes": 2437,
+          "sha256": "7b74609b1460a1b30ce5ead6fd44a1387b08f55f2c0f4f541b8b7a1877e69f5c"
+        },
+        {
+          "filename": "079_disaster_response.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "079",
+          "prefixNumeric": 79,
+          "bytes": 935,
+          "sha256": "1ae7cc717b11343ec5a103616a226af0b18aaab6983b0dad0cf60d43e14a7495"
+        },
+        {
+          "filename": "080_autonomous_agent_infrastructure.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "080",
+          "prefixNumeric": 80,
+          "bytes": 5762,
+          "sha256": "c813af0f7b3fb80bf98633a236f914cfa4ddbe270b643399c8a2b1dbb8862e34"
+        },
+        {
+          "filename": "081_application_followups.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "081",
+          "prefixNumeric": 81,
+          "bytes": 2668,
+          "sha256": "40044fee0c96192108199665eac244e613c33556eba547c824e2ee20ac023bd3"
+        },
+        {
+          "filename": "082_ag08_ag12_autonomous_agents.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "082",
+          "prefixNumeric": 82,
+          "bytes": 1568,
+          "sha256": "2e790361082a0ae357507e6381422b8889701cacf20ca8f63fd1ea71f3bcf2bc"
+        },
+        {
+          "filename": "083_global_learning_network.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "083",
+          "prefixNumeric": 83,
+          "bytes": 2269,
+          "sha256": "4695a8417bba26af7b034e874c3b81781a27e2b90a98d1d2bbf9ff400391c31a"
+        },
+        {
+          "filename": "084_learning_network_draft_integration.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "084",
+          "prefixNumeric": 84,
+          "bytes": 526,
+          "sha256": "82d0a5bd8a37691abb36238c324ddab0e68e115715acd35a4d7ec30affdd76f1"
+        },
+        {
+          "filename": "085_fundraising_simulator.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "085",
+          "prefixNumeric": 85,
+          "bytes": 4087,
+          "sha256": "a5ff0d707d06f2f902fa9b2f32e18f8edde54a1a11d0c8ec5ea25907560b7fe5"
+        },
+        {
+          "filename": "086_strategic_advisor.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "086",
+          "prefixNumeric": 86,
+          "bytes": 2182,
+          "sha256": "f8550f6dcafab282e33da20bd9d112d9df9236ad0ce7b1a3468cdf500ce54e5e"
+        },
+        {
+          "filename": "087_continuous_improvement.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "087",
+          "prefixNumeric": 87,
+          "bytes": 1508,
+          "sha256": "77f67ff11d36c3a1a42a9e48b001579ab9d90c176e511f3d8b812f6ac162117d"
+        },
+        {
+          "filename": "088_self_improvement_agent.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "088",
+          "prefixNumeric": 88,
+          "bytes": 2653,
+          "sha256": "92f2b63b49b53aaa68fedd3cab159996e9df6d6776613f45a0991ac51ddd44ea"
+        },
+        {
+          "filename": "089_roi_optimizer.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "089",
+          "prefixNumeric": 89,
+          "bytes": 1895,
+          "sha256": "ae3d006c29e5a85aa322feec92a67cb6321203c87015f15fa0c9a51acad9ae9d"
+        },
+        {
+          "filename": "090_community_need_prediction.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "090",
+          "prefixNumeric": 90,
+          "bytes": 1962,
+          "sha256": "d3da6fba7d2b4094822c416aa78c6c65de72cd500f4dd1200fe264352e014c9a"
+        },
+        {
+          "filename": "091_fundability_intelligence_score.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "091",
+          "prefixNumeric": 91,
+          "bytes": 2256,
+          "sha256": "22bdb711a453642ec7c2f3cb4ecec9904b1f178ff0ae53b174694fc887fafb14"
+        },
+        {
+          "filename": "092_autoapply_autonomous_orchestrator.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "092",
+          "prefixNumeric": 92,
+          "bytes": 995,
+          "sha256": "e1a3700632e016a84b4c2bd9f9eed7de721cdebb666d7ecf3897a495f61cd4b0"
+        },
+        {
+          "filename": "093_donor_intent_engine.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "093",
+          "prefixNumeric": 93,
+          "bytes": 2956,
+          "sha256": "4c095d144eef89c00d16e7350a165a776b93d619adedb60bbe40135ccdfe3353"
+        },
+        {
+          "filename": "094_twin_powered_draft_generation.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "094",
+          "prefixNumeric": 94,
+          "bytes": 4422,
+          "sha256": "c34a0acfe135dc12cc3f68f554d8fc956844610f6b6f6a058dc2f8de85106467"
+        },
+        {
+          "filename": "095_autoapply_portal_type.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "095",
+          "prefixNumeric": 95,
+          "bytes": 798,
+          "sha256": "8358c89e046969c5cfe571119b229dd0130f6fb517042ce1e74aeace3e738a00"
+        },
+        {
+          "filename": "096_ag19_relationship_builder_enum.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "096",
+          "prefixNumeric": 96,
+          "bytes": 760,
+          "sha256": "9fda14a756fbd5f5263f24fd72d595e12633a745e8359556661360e87a06ea94"
+        },
+        {
+          "filename": "097_deadline_prediction_agent.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "097",
+          "prefixNumeric": 97,
+          "bytes": 3316,
+          "sha256": "eab4d4fcfe65c34e3d04a77bb0e324191be46542b77f07db3f75aca07a68e292"
+        },
+        {
+          "filename": "098_digest_agent_upgrade.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "098",
+          "prefixNumeric": 98,
+          "bytes": 3441,
+          "sha256": "7101b1262b253346097148ff640afa8eb861a325b6eec4b5d189ff288841280c"
+        },
+        {
+          "filename": "099_learning_network_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "099",
+          "prefixNumeric": 99,
+          "bytes": 2024,
+          "sha256": "93c8e6dda646032d9d82128f3e93d2818a930a7611e51a6c61ec3f1eb88343e3"
+        },
+        {
+          "filename": "100_self_improvement_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "100",
+          "prefixNumeric": 100,
+          "bytes": 2646,
+          "sha256": "cd6f19f1e7a75a6db2e9989a359bce3b674a8297aa769a793d9b19c7889bef88"
+        },
+        {
+          "filename": "101_orchestrator_enterprise_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "101",
+          "prefixNumeric": 101,
+          "bytes": 3605,
+          "sha256": "ca035af42cf4cf084e488dc5654b3a8f1197cc2e0315c75ffa1b6b167e1949c6"
+        },
+        {
+          "filename": "102_twin_auto_populate_log.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "102",
+          "prefixNumeric": 102,
+          "bytes": 1246,
+          "sha256": "d26bee1fb5935a0be33b817af4e97900b560d558d6abf826287e47e2fc0bc1cf"
+        },
+        {
+          "filename": "103_narrative_humanizer.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "103",
+          "prefixNumeric": 103,
+          "bytes": 1607,
+          "sha256": "63caa6f1935953e1afb47942aee4f410a8b1d3094e97f3d22607f63fe326f50c"
+        },
+        {
+          "filename": "104_agent_decisions_missing_columns.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "104",
+          "prefixNumeric": 104,
+          "bytes": 2064,
+          "sha256": "42b248c8aff3dacf0509f71167ff6f73f4dd139ca4f7aaa977dab043315641e8"
+        },
+        {
+          "filename": "105_ag23_26_27_41_42_rls.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "105",
+          "prefixNumeric": 105,
+          "bytes": 3402,
+          "sha256": "c6d6270adc2326dd2cc7fa1eaffce07c326f2ec6d4c84b1888151fc3c894d797"
+        },
+        {
+          "filename": "106_funder_dna_profiles.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "106",
+          "prefixNumeric": 106,
+          "bytes": 2169,
+          "sha256": "f52ca9214fd83ccbba3836645abf526b31ce0ef83db5ebb8ccc22d8cf032f75f"
+        },
+        {
+          "filename": "107_ag29_embedding_columns.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "107",
+          "prefixNumeric": 107,
+          "bytes": 960,
+          "sha256": "a15702923e49b3fd905324eeb9cd83cf9afec1676eed477ea36a90ed488389af"
+        },
+        {
+          "filename": "108_ag10_grant_dna_enum.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "108",
+          "prefixNumeric": 108,
+          "bytes": 557,
+          "sha256": "7fb170b87801229f189f1a9a268ad2fe6983212e15b0753f31868ea61842534b"
+        },
+        {
+          "filename": "109_agent_runs_output_payload.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "109",
+          "prefixNumeric": 109,
+          "bytes": 1236,
+          "sha256": "57d1e7a80ed05863ef211da22c250fa2f8d22ca31c608037377bac1a47777eb3"
+        },
+        {
+          "filename": "110_ag26_funding_forecast.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "110",
+          "prefixNumeric": 110,
+          "bytes": 1515,
+          "sha256": "a0210e025cb52d0f6df973128e5607811ca46a4efc4410012418436bf1b2f00b"
+        },
+        {
+          "filename": "111_ag27_board_packet.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "111",
+          "prefixNumeric": 111,
+          "bytes": 1878,
+          "sha256": "a09ce68bacf217b9faf38f72e3f071de925bc375df354077cf673a749af616d5"
+        },
+        {
+          "filename": "111_ag29_knowledge_indexer_enum.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "111",
+          "prefixNumeric": 111,
+          "bytes": 1526,
+          "sha256": "4c6c33d6c3f79179cde9da7ee60475e0e56a3152d83cc6b98548e0b382649e0d"
+        },
+        {
+          "filename": "112_ag41_impact_simulation.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "112",
+          "prefixNumeric": 112,
+          "bytes": 1208,
+          "sha256": "68b2ba0c0fc17c8a6513ff99ce36e8ebf2c3255040c4b8306d58fe8edb5c4e03"
+        },
+        {
+          "filename": "113_ag42_change_monitor.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "113",
+          "prefixNumeric": 113,
+          "bytes": 1198,
+          "sha256": "56d8a8a554df93ebc89e8664a138d056287c1e2e2eb4fe9719c62cbe465d3a84"
+        },
+        {
+          "filename": "114_gmail_confirmation_monitor.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "114",
+          "prefixNumeric": 114,
+          "bytes": 3588,
+          "sha256": "1628ba558dafee474e49e421fd6a3aa19199f9b2724c94f68f0b0ef9f95ffb54"
+        },
+        {
+          "filename": "115_autoapply_captcha_pause_columns.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "115",
+          "prefixNumeric": 115,
+          "bytes": 1687,
+          "sha256": "c6f64b58f68b9752267b4557428896886a1c81516548880e05cff4854235b848"
+        },
+        {
+          "filename": "116_review_queue_rpc_functions.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "116",
+          "prefixNumeric": 116,
+          "bytes": 5873,
+          "sha256": "1b445c31c238522fca912b7cf31280af61c45bd48ffcc3410896dbbfb84e4ebf"
+        },
+        {
+          "filename": "117_submission_queue_status_check_fix.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "117",
+          "prefixNumeric": 117,
+          "bytes": 2522,
+          "sha256": "c7d165ad2296965edeee598772893ca8fde982980eb8be073d8efc0ce915cdf4"
+        },
+        {
+          "filename": "118_priority_security_tables_rls_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "118",
+          "prefixNumeric": 118,
+          "bytes": 7923,
+          "sha256": "40ffa9a9343290216161d95321e06bf4b86ed1f037549d951b8e66a0f970d651"
+        },
+        {
+          "filename": "119_org_scoped_tables_rls_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "119",
+          "prefixNumeric": 119,
+          "bytes": 10429,
+          "sha256": "51767caabaf0e7ba9579e43115f893c40aaf2af758194e8e9442dde8912383b8"
+        },
+        {
+          "filename": "120_autoapply_screenshots_join_rls_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "120",
+          "prefixNumeric": 120,
+          "bytes": 2144,
+          "sha256": "8b1ec2f53a5820b9e3e94c419812d796d4d8f3d57b20b9e0eeca43f2f7a0127e"
+        },
+        {
+          "filename": "121_shared_reference_tables_rls_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "121",
+          "prefixNumeric": 121,
+          "bytes": 6195,
+          "sha256": "e8533adf7129f39a757c0d29975c2909bd4e7567cbca5c97eb7c80eff055bf35"
+        },
+        {
+          "filename": "122_lockdown_no_authenticated_read_path_rls_hardening.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "122",
+          "prefixNumeric": 122,
+          "bytes": 7753,
+          "sha256": "d3212f65e6f219156b0c3f5d5f5d8e53e0d6db194be35dd43ea4481bd0fee2bc"
+        },
+        {
+          "filename": "123_knowledge_engine_draft_integration.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "123",
+          "prefixNumeric": 123,
+          "bytes": 1066,
+          "sha256": "03b99a12a44b2dfa17de6365d908c03d52fe957a54c98d78a2f587bb817ee880"
+        },
+        {
+          "filename": "124_auto_deploy_disaster_response.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "124",
+          "prefixNumeric": 124,
+          "bytes": 759,
+          "sha256": "bdeaa491539d9e36fa1de3e76d5534d16d2065376fb8b97c0f89d69738bdee65"
+        },
+        {
+          "filename": "125_donation_marketplace.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "125",
+          "prefixNumeric": 125,
+          "bytes": 8282,
+          "sha256": "fcf5d273a300a4c607d76053d145e496cb7328355ed17756cb97a7f56bd6abfb"
+        },
+        {
+          "filename": "126_outreach_template_content_variants.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "126",
+          "prefixNumeric": 126,
+          "bytes": 5547,
+          "sha256": "88d2c8928580b6e49c179b8247aa67bc800932e4ac43e776ce3bbe508426669f"
+        },
+        {
+          "filename": "127_fix_marketplace_rls_recursion.sql",
+          "directory": "src/supabase/migrations",
+          "prefixRaw": "127",
+          "prefixNumeric": 127,
+          "bytes": 4343,
+          "sha256": "56af04ef8be6284dbe44c6579f306e99b1fe7e50c8d01bd71216a217ec3c4d94"
+        }
+      ],
+      "withinDirectoryDuplicates": [
+        {
+          "prefix": "111",
+          "filenames": [
+            "111_ag27_board_packet.sql",
+            "111_ag29_knowledge_indexer_enum.sql"
+          ]
+        }
+      ],
+      "sequenceGaps": {
+        "min": 72,
+        "max": 127,
+        "missing": []
+      }
+    },
+    {
+      "directory": "supabase/migrations",
+      "exists": true,
+      "fileCount": 142,
+      "files": [
+        {
+          "filename": "001_initial_schema.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "001",
+          "prefixNumeric": 1,
+          "bytes": 30316,
+          "sha256": "b0ce361f92afdc2cfc879bbf6e0f8be606df7dcad077998794e9a83c302b860d"
+        },
+        {
+          "filename": "002_phases_2_5.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "002",
+          "prefixNumeric": 2,
+          "bytes": 15771,
+          "sha256": "a1d8b85f8b156f0b7fe3871b547949b78dae50ff8d9ccbf4cdc72db2ced1caa5"
+        },
+        {
+          "filename": "002_register_organization.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "002",
+          "prefixNumeric": 2,
+          "bytes": 2620,
+          "sha256": "1fc1395907ab280044f24dbcc07d175310bf91d7ed118d99c3a4330052db307a"
+        },
+        {
+          "filename": "003_onboarding.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "003",
+          "prefixNumeric": 3,
+          "bytes": 1548,
+          "sha256": "d14aaa2b4ae2c1680e4761cbb08426ee5c74e92134f76feb4cd68699549717b7"
+        },
+        {
+          "filename": "004_research_cron.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "004",
+          "prefixNumeric": 4,
+          "bytes": 3558,
+          "sha256": "499b6c61dad3a8d4d96e83fb819c0981854eab5316ac8ce43c4695269fcffdec"
+        },
+        {
+          "filename": "005_browser_automation_agent_type.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "005",
+          "prefixNumeric": 5,
+          "bytes": 926,
+          "sha256": "72e44d6f6f70abc08e18234cb97a83c5135cc6bd50ede3ab31eefa228d78abe2"
+        },
+        {
+          "filename": "006_email_matching_agent_type.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "006",
+          "prefixNumeric": 6,
+          "bytes": 1166,
+          "sha256": "1f2fd5ff0384c05b17a2e4e729157b3d31e8d647301f78297cda37df660bb332"
+        },
+        {
+          "filename": "007_email_campaign_agent.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "007",
+          "prefixNumeric": 7,
+          "bytes": 1736,
+          "sha256": "cc00026a2104989c0779d11f955cdc386eb32ccd570020c7edf466184dab7eac"
+        },
+        {
+          "filename": "008_stripe_billing.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "008",
+          "prefixNumeric": 8,
+          "bytes": 2842,
+          "sha256": "b4bdf32e7bc33bfc5a19a9c4d3205d083c64a66d1d8c13f831b974074268fa9e"
+        },
+        {
+          "filename": "009_draft_versions.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "009",
+          "prefixNumeric": 9,
+          "bytes": 4237,
+          "sha256": "5436a4389bb7617c7de07c1268dfb3c7f621d5fe1d3956e40944f1341a02898e"
+        },
+        {
+          "filename": "010_opportunity_source_type.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "010",
+          "prefixNumeric": 10,
+          "bytes": 1836,
+          "sha256": "c6cb2f8d7339d4ef7f15672b2356bb8d4d07d554304550e1175267bfddd5203b"
+        },
+        {
+          "filename": "011_search_profile_configuration.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "011",
+          "prefixNumeric": 11,
+          "bytes": 2981,
+          "sha256": "d57a0411e22a5ec78fd6c0f3569a52f5b38969e88a3ee91dc46c7338c1055763"
+        },
+        {
+          "filename": "012_opportunity_match_percentage.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "012",
+          "prefixNumeric": 12,
+          "bytes": 2370,
+          "sha256": "c923a29161ea49aca23a4d0541a6e308f04f3cff3926a811aacc82a09ef6565e"
+        },
+        {
+          "filename": "013_alerts.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "013",
+          "prefixNumeric": 13,
+          "bytes": 5261,
+          "sha256": "d58060a9a7fdeb2f87f165f9055a9f05ea48878bef096e0ac6570d273052beef"
+        },
+        {
+          "filename": "014_validations.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "014",
+          "prefixNumeric": 14,
+          "bytes": 4909,
+          "sha256": "6a3d9385e68f9ebf7dea75b858870808b3d227c5161354775622dc2383b06162"
+        },
+        {
+          "filename": "015_funder_intelligence.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "015",
+          "prefixNumeric": 15,
+          "bytes": 2599,
+          "sha256": "c41906e3dd57234d0b9380af89da5986bbbd2f8e4063cf75eb804a1536235f8b"
+        },
+        {
+          "filename": "016_renewals.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "016",
+          "prefixNumeric": 16,
+          "bytes": 4509,
+          "sha256": "a67da780913bc1ee80d6934b2e9d94636457d39e4b8a7a57740bb25f53893272"
+        },
+        {
+          "filename": "017_success_patterns.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "017",
+          "prefixNumeric": 17,
+          "bytes": 431,
+          "sha256": "f41dd4caf89a387b722602a13df5bd8ebe597c5fa265101c97062cabdb08d33c"
+        },
+        {
+          "filename": "018_email_activity.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "018",
+          "prefixNumeric": 18,
+          "bytes": 2590,
+          "sha256": "17d0d966d8831922f2f344d4aae98d9f38c4b75721f01250b15d44cef5d81e48"
+        },
+        {
+          "filename": "020_automation_sessions.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "020",
+          "prefixNumeric": 20,
+          "bytes": 4237,
+          "sha256": "85da18d72f7e1b333d627ceb62901529528b197cb9cdea94a6dcd3b8babc8bfc"
+        },
+        {
+          "filename": "021_billing_tables.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "021",
+          "prefixNumeric": 21,
+          "bytes": 680,
+          "sha256": "133d6b6d16c95963973ca7889b08e3ad032f9863363111545ee984ec63f6001f"
+        },
+        {
+          "filename": "022_fix_model_name.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "022",
+          "prefixNumeric": 22,
+          "bytes": 79,
+          "sha256": "2395bd966f1e5ebd08345eb2e1ba0fec427ff003bda45604efe905a533e3665c"
+        },
+        {
+          "filename": "022_usage_tracking.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "022",
+          "prefixNumeric": 22,
+          "bytes": 2494,
+          "sha256": "12666de523116f21284f44b5dd71370b33f66d145714b8c7d2dcf80222756dc1"
+        },
+        {
+          "filename": "023_onboarding_step.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "023",
+          "prefixNumeric": 23,
+          "bytes": 996,
+          "sha256": "14ed37a95fcc0e9907bfe940fb00e2de33117f9f6d9f901cd930bf085333b5cd"
+        },
+        {
+          "filename": "024_audit_logs.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "024",
+          "prefixNumeric": 24,
+          "bytes": 2391,
+          "sha256": "d4b0aef484afd30c851851ba7c4512691d9aa8f077224db95e21475f051f8677"
+        },
+        {
+          "filename": "025_fix_alerts.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "025",
+          "prefixNumeric": 25,
+          "bytes": 4619,
+          "sha256": "89071bbbb05d5413515bc454f2b3505007dc27099b913a324bc9b6356028f6e7"
+        },
+        {
+          "filename": "026_fix_alerts_schema.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "026",
+          "prefixNumeric": 26,
+          "bytes": 5093,
+          "sha256": "d598167ba1a5747eaae9bb1c0c0f9ae06d90874601bc40470aef4398567fe2d7"
+        },
+        {
+          "filename": "027_missing_columns.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "027",
+          "prefixNumeric": 27,
+          "bytes": 1717,
+          "sha256": "2bef50f0e292f91307795807afca21dd4db505bd5910484f567f0760dc4d19fb"
+        },
+        {
+          "filename": "028_increase_tokens.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "028",
+          "prefixNumeric": 28,
+          "bytes": 238,
+          "sha256": "a3b8b966d55a91ccaeb047725109ea56fb2df77cbff58feee86b1c66a1d0766e"
+        },
+        {
+          "filename": "033_integration_keys.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "033",
+          "prefixNumeric": 33,
+          "bytes": 3094,
+          "sha256": "438aadce95ced0c4b4f02e5fc266d2bcc1197fab82202560693bf72712aa4283"
+        },
+        {
+          "filename": "034_custom_connections.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "034",
+          "prefixNumeric": 34,
+          "bytes": 3380,
+          "sha256": "95b1e99233c1ba479fb510bbbcfa673bed35bcaf3ff90f6c24dd5631f279906e"
+        },
+        {
+          "filename": "035_automation_queue.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "035",
+          "prefixNumeric": 35,
+          "bytes": 2746,
+          "sha256": "29b6ffcfbdf9ecb7eb9a600a27c28a8e844e005a50278d8f43c6dcd681437b2b"
+        },
+        {
+          "filename": "036_automation_notifications.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "036",
+          "prefixNumeric": 36,
+          "bytes": 1429,
+          "sha256": "8ed79c97cac4c09218e2ea632564e10ac7f699c5dc090e1eba40cfa37bae82d7"
+        },
+        {
+          "filename": "037_giving_history.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "037",
+          "prefixNumeric": 37,
+          "bytes": 1205,
+          "sha256": "a6c7df595c3abc508e3f905a91861fa02a3d4eed07d6689ae204502616251121"
+        },
+        {
+          "filename": "038_intelligence_tables.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "038",
+          "prefixNumeric": 38,
+          "bytes": 4001,
+          "sha256": "a83343958b49a374ca5564d8ab0d4c6b70ba9274caf056ccbbdd4cd518f44934"
+        },
+        {
+          "filename": "039_funder_relationship_agent.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "039",
+          "prefixNumeric": 39,
+          "bytes": 578,
+          "sha256": "4bdf62ef7d108ca9a0dd8f84cffb1a7ff0f6fbb1a98e3cd67fe85fb677b3a014"
+        },
+        {
+          "filename": "040_competitor_intel_agent.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "040",
+          "prefixNumeric": 40,
+          "bytes": 945,
+          "sha256": "76e1fe4640d5fc4bfd7d8b42fa5c6d98c6df52df52b704d0c2f23146aa1f223b"
+        },
+        {
+          "filename": "041_scraping_targets.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "041",
+          "prefixNumeric": 41,
+          "bytes": 1117,
+          "sha256": "30f91d93d7ecc2bd5ac3f40c8c702737f463ccd0584d62d92d356cc4fb6f8dff"
+        },
+        {
+          "filename": "042_historical_awards.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "042",
+          "prefixNumeric": 42,
+          "bytes": 1820,
+          "sha256": "fada430858ad2e02f5f5f4830871067e92329811627951be7bbdccdecdb62fa2"
+        },
+        {
+          "filename": "043_opportunity_documents.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "043",
+          "prefixNumeric": 43,
+          "bytes": 724,
+          "sha256": "6e4ab5e64051103737e1b757ebfa8339c15ecb6fa1e58b014e7ee2904d10e0b4"
+        },
+        {
+          "filename": "044_nofa_pdfs_bucket.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "044",
+          "prefixNumeric": 44,
+          "bytes": 1450,
+          "sha256": "0cdef5130f9e09a39565db72470870fab8816529d13683d64e610f39b34b14c0"
+        },
+        {
+          "filename": "045_autoapply_tables.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "045",
+          "prefixNumeric": 45,
+          "bytes": 5909,
+          "sha256": "c71d45bab85b30a0b606d21b90ea5e70ff9dae7107b8c8a7354c1a5471db42f0"
+        },
+        {
+          "filename": "046_foundation_directory.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "046",
+          "prefixNumeric": 46,
+          "bytes": 1224,
+          "sha256": "edbf17929d67a73e2d595e327fe21192f4de021c0ae4084f73965627676b2eaf"
+        },
+        {
+          "filename": "047_worker_status.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "047",
+          "prefixNumeric": 47,
+          "bytes": 742,
+          "sha256": "68c3e8279ae504d8309fbc9fb86c13ebf05739d732082455766dc5aa907ef50e"
+        },
+        {
+          "filename": "048_grant_intelligence.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "048",
+          "prefixNumeric": 48,
+          "bytes": 5533,
+          "sha256": "b4cc963d7c05163c2610f9219386edd39c637d157d2054cf2010c0b8c05e74ac"
+        },
+        {
+          "filename": "049_auto_queue_config.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "049",
+          "prefixNumeric": 49,
+          "bytes": 1097,
+          "sha256": "a9ed368581bd45a0a6d34aaa36a5c4d04079b0bb142c95ad3fca9ad92c03eaaa"
+        },
+        {
+          "filename": "050_funder_credentials.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "050",
+          "prefixNumeric": 50,
+          "bytes": 6057,
+          "sha256": "98921b4e19a79506a1a021d9338d873ac2f79dd5093cdc8c1e3d5c8b47d6cb7d"
+        },
+        {
+          "filename": "051_submission_intelligence.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "051",
+          "prefixNumeric": 51,
+          "bytes": 5128,
+          "sha256": "ee2279fe44b8dec4ba62aea53116de85eb5b294f2ee9e8b72a9e2d0eed26ff63"
+        },
+        {
+          "filename": "052_governance_layer.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "052",
+          "prefixNumeric": 52,
+          "bytes": 3576,
+          "sha256": "5775a6ed6717eaa7ade5df56c217736542f74bef3e22c3558b83ef805f3ad413"
+        },
+        {
+          "filename": "052_webhook_configs.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "052",
+          "prefixNumeric": 52,
+          "bytes": 914,
+          "sha256": "547d3558f836ea9869b8273a2d337296dc01ca39100b86b99aec9b8c6c3433fa"
+        },
+        {
+          "filename": "053_autoapply_missing_columns.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "053",
+          "prefixNumeric": 53,
+          "bytes": 2334,
+          "sha256": "b03392eea50c716c1b44501365ebbbeeef9d3ea28d9bdc12525b8563107e61e0"
+        },
+        {
+          "filename": "053_multichannel_analytics.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "053",
+          "prefixNumeric": 53,
+          "bytes": 1939,
+          "sha256": "dd9c32e6f5d99735f5b3261a6d33abf73799fbbaeddcca23fe8a9c271963bad5"
+        },
+        {
+          "filename": "054_email_calendar_integration.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "054",
+          "prefixNumeric": 54,
+          "bytes": 9087,
+          "sha256": "965903c60317eecb00651269001faad080d572444db421137593ffb0a065aa4a"
+        },
+        {
+          "filename": "054_funders_contact_email.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "054",
+          "prefixNumeric": 54,
+          "bytes": 447,
+          "sha256": "ba237bd48029d3c435ec6f26b3292f08711ec68e76144066cf3e28582a8519f8"
+        },
+        {
+          "filename": "055_admin_sales_outreach.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "055",
+          "prefixNumeric": 55,
+          "bytes": 4457,
+          "sha256": "89c6e1e4b6bd564018c51a76f98a05bcfb877f78355eabfa1d7a231fb4a5cab7"
+        },
+        {
+          "filename": "055_sequence_enrollment_variables.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "055",
+          "prefixNumeric": 55,
+          "bytes": 354,
+          "sha256": "85fb77ea9b1d5d9db143cf2bb941234d4b59992d340eb41b3a7b6b0f2015c1e6"
+        },
+        {
+          "filename": "056_four_tier_admin_system.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "056",
+          "prefixNumeric": 56,
+          "bytes": 6198,
+          "sha256": "22cc21dd0180e182d5bd789c69c218d6d72b8f9aa4aef826dac7c86a4e4a5d5a"
+        },
+        {
+          "filename": "057_draft_automation_pipeline.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "057",
+          "prefixNumeric": 57,
+          "bytes": 3188,
+          "sha256": "a4eac292293269e1b274af2a661baf39fd395751938bf00637a03c6c5b867274"
+        },
+        {
+          "filename": "058_backfill_opportunity_deadlines.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "058",
+          "prefixNumeric": 58,
+          "bytes": 1051,
+          "sha256": "af3888179573e40fd785286eb798ac520497ae062751bd73c0f142f82d0046dc"
+        },
+        {
+          "filename": "058_lead_enrichment_system.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "058",
+          "prefixNumeric": 58,
+          "bytes": 3507,
+          "sha256": "0cca4ac8a7009e4674171b07523e79209cc778d04f65300268965fd7e8805f2c"
+        },
+        {
+          "filename": "059_budget_patterns.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "059",
+          "prefixNumeric": 59,
+          "bytes": 11049,
+          "sha256": "e216f47e0897aea46bb6591ac43ccd6e5303d9d5ed7a3f4a8f1293357dd5c3b9"
+        },
+        {
+          "filename": "060_grantmaker_profiles.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "060",
+          "prefixNumeric": 60,
+          "bytes": 2325,
+          "sha256": "884f57dabf7c535dd1231a84ed764558d3bbfc9e95894f0442c4148c50dee76b"
+        },
+        {
+          "filename": "061_corporate_giving_targets.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "061",
+          "prefixNumeric": 61,
+          "bytes": 574,
+          "sha256": "6988129e8c7b3f520649e751491edaa4a50bf4ecf87e1564d86c69323b75dc15"
+        },
+        {
+          "filename": "062_community_foundations.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "062",
+          "prefixNumeric": 62,
+          "bytes": 483,
+          "sha256": "d9a6276bc4565d290ff802ce0cca293032494f0f9096412d6c42af02efe5bb78"
+        },
+        {
+          "filename": "063_white_label.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "063",
+          "prefixNumeric": 63,
+          "bytes": 90,
+          "sha256": "e09075662d7b7c85601880f6f50965f6a2c337fa727257ebbe3ec2b4d977d6f0"
+        },
+        {
+          "filename": "064_drop_orphaned_email_tables.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "064",
+          "prefixNumeric": 64,
+          "bytes": 758,
+          "sha256": "848769819de68c44fc620ade94e7939425d8214da68be81b7e6f6794734b259a"
+        },
+        {
+          "filename": "065_autoapply_follow_ups.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "065",
+          "prefixNumeric": 65,
+          "bytes": 3386,
+          "sha256": "fe78f39dab2e65cca3a67505adbe1456f6d77d01f19e45b5303218a30da39fb4"
+        },
+        {
+          "filename": "066_fix_autoapply_rls_policies.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "066",
+          "prefixNumeric": 66,
+          "bytes": 4778,
+          "sha256": "ae18f9b00cc55940782d4bf02bfc5a871f0a4bb1ee3231216c773d7348d36928"
+        },
+        {
+          "filename": "067_donor_discovery_foundation.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "067",
+          "prefixNumeric": 67,
+          "bytes": 7959,
+          "sha256": "e8550fe9793f74b10364f9ccc39ac4ef27b36e34e414c0c0c13b56816bb1399a"
+        },
+        {
+          "filename": "068_donor_discovery_crawler_core.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "068",
+          "prefixNumeric": 68,
+          "bytes": 1732,
+          "sha256": "984a490559d929403802201fe7e0e4061a6fbc3ad3d8bbf5379ebb3a1972c44c"
+        },
+        {
+          "filename": "069_donor_discovery_places_adapter.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "069",
+          "prefixNumeric": 69,
+          "bytes": 4540,
+          "sha256": "1eb6755636935bff50a07c140d17e8fee7266c97caab160639f40c0861108e5a"
+        },
+        {
+          "filename": "070_donor_discovery_request_claim.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "070",
+          "prefixNumeric": 70,
+          "bytes": 1135,
+          "sha256": "5a29cd79050a7545a5621ff06de43496e7a54e62218b43466d8eb8c73d09624e"
+        },
+        {
+          "filename": "071_donor_discovery_directory_dedup.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "071",
+          "prefixNumeric": 71,
+          "bytes": 7492,
+          "sha256": "8a67b9e1e9f2032173a3d2397d36591b5e90264f449a15955e7d434f3d131342"
+        },
+        {
+          "filename": "072_foundation_directory_990_enrichment.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "072",
+          "prefixNumeric": 72,
+          "bytes": 1568,
+          "sha256": "1d5989c9cd3cb4f8a486d239cf754210bf6b17e257e2c2f5cd442727efb19579"
+        },
+        {
+          "filename": "073_onboarding_progress.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "073",
+          "prefixNumeric": 73,
+          "bytes": 1170,
+          "sha256": "9ad43af0f9a01fa95510864732dd3e85e33915123ae7551ce389c8c124bf5448"
+        },
+        {
+          "filename": "074_donor_discovery_foundation_linkage_and_scoring.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "074",
+          "prefixNumeric": 74,
+          "bytes": 4131,
+          "sha256": "f63b92b709d4e5e96a2edda5c72f143cba0d6cb4756721e3424615ae83242ec3"
+        },
+        {
+          "filename": "075_donor_discovery_taxonomy_aliases.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "075",
+          "prefixNumeric": 75,
+          "bytes": 1246,
+          "sha256": "0e38f5a917f934ddc2004b501eca9c56bec2b367ee0547ff46c69974973fe581"
+        },
+        {
+          "filename": "076_adapter_usage_log.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "076",
+          "prefixNumeric": 76,
+          "bytes": 2583,
+          "sha256": "8348cef67b447db1e888cbff29abd8f44d96571fe26562cf049825a2d80ac436"
+        },
+        {
+          "filename": "077_donor_discovery_geocache.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "077",
+          "prefixNumeric": 77,
+          "bytes": 1433,
+          "sha256": "2730c70e26b4fa12cd1ad51c911c42e74d83e9db73aec4152fa35eda2abdc9a6"
+        },
+        {
+          "filename": "078_donor_discovery_prospects_scored_at.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "078",
+          "prefixNumeric": 78,
+          "bytes": 1100,
+          "sha256": "0c04f8d5387b49fc6bd662453db53de04c5e6039503b3a45c5704f7f6a3b29e4"
+        },
+        {
+          "filename": "079_donor_discovery_prospects_enrichment_private.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "079",
+          "prefixNumeric": 79,
+          "bytes": 1010,
+          "sha256": "2d981429e2516571701edf30a9fdc5f8722323f2c6f978e7b09186e1a2ddfe8b"
+        },
+        {
+          "filename": "080_org_settings.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "080",
+          "prefixNumeric": 80,
+          "bytes": 1208,
+          "sha256": "6416c164b76140b04118c62904d619be1492cf70f343b0eb43952505822464dc"
+        },
+        {
+          "filename": "081_foundation_profiles.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "081",
+          "prefixNumeric": 81,
+          "bytes": 723,
+          "sha256": "bc1d5dbe208b1447d72f4a9f1cd96937d3087f9e0d9c10620c5d9019b3783a05"
+        },
+        {
+          "filename": "082_outreach_templates.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "082",
+          "prefixNumeric": 82,
+          "bytes": 956,
+          "sha256": "34fe83c2112117ab1b9df955d414f1c6287e095902f0dc2e941ba4ac7c8a500e"
+        },
+        {
+          "filename": "083_followup_sequences.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "083",
+          "prefixNumeric": 83,
+          "bytes": 1783,
+          "sha256": "34602b34dfebf7b481802b0e018f70874cd98ebf216a782d9d2bce9a05ef7411"
+        },
+        {
+          "filename": "084_grant_financials.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "084",
+          "prefixNumeric": 84,
+          "bytes": 1724,
+          "sha256": "bfc9f51207d293800c659168c8f9a03653cd2147701108a134212e73ffd475c1"
+        },
+        {
+          "filename": "085_compliance_requirements.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "085",
+          "prefixNumeric": 85,
+          "bytes": 1295,
+          "sha256": "7120d492c6a8f5be1d3c195a9b55f9c1665c2d0ecbde87c0297c5adf9ab2f82a"
+        },
+        {
+          "filename": "086_white_label.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "086",
+          "prefixNumeric": 86,
+          "bytes": 1173,
+          "sha256": "2a7166d7f34f9868b86c83bbb7fca485baaa7ea7bd945734f9a709e1a656e07d"
+        },
+        {
+          "filename": "087_notification_preferences.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "087",
+          "prefixNumeric": 87,
+          "bytes": 1255,
+          "sha256": "533903f24ced7b9c723615b5dd88f7252c5c8f6d77c792c04d51530443d1e8b9"
+        },
+        {
+          "filename": "088_foundation_profiles_enrichment.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "088",
+          "prefixNumeric": 88,
+          "bytes": 1313,
+          "sha256": "09275f13c62df74018ff677375075f25dbd334a042ee8f8872107da12b82a58b"
+        },
+        {
+          "filename": "089_financial_reconciliation.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "089",
+          "prefixNumeric": 89,
+          "bytes": 2324,
+          "sha256": "efcffc3f689fc4acb57bdc213c67be151176b50d894bd15676c3cea52a2b33f6"
+        },
+        {
+          "filename": "090_compliance_calendar.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "090",
+          "prefixNumeric": 90,
+          "bytes": 1275,
+          "sha256": "d4fe495a9c13470864b0ec50c389af8ea1ee05ac5b680af5db1bba93434ffff8"
+        },
+        {
+          "filename": "091_funder_relationship_events.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "091",
+          "prefixNumeric": 91,
+          "bytes": 3439,
+          "sha256": "ad8507e3fba97ad398c9b878ea86d4e171799e08d1d162e9dae768100a716fd1"
+        },
+        {
+          "filename": "092_consultant_client_access_check.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "092",
+          "prefixNumeric": 92,
+          "bytes": 554,
+          "sha256": "28d86735c89dbddb9ba425dbe1536589ce15fcbcd60025fcc5a36fbe9209cbfc"
+        },
+        {
+          "filename": "093_digital_twins.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "093",
+          "prefixNumeric": 93,
+          "bytes": 4119,
+          "sha256": "9f0820474ce290136a931af84a30b3883685bb96d90dde6e684b8de0175362f4"
+        },
+        {
+          "filename": "094_agent_registry.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "094",
+          "prefixNumeric": 94,
+          "bytes": 3369,
+          "sha256": "ee45c3dc69b062513240816700331fa14c7c4c83ee9559c22cd83baa7d548f7e"
+        },
+        {
+          "filename": "095_discovery_matches.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "095",
+          "prefixNumeric": 95,
+          "bytes": 3707,
+          "sha256": "532c658794b1672811ded5e61262ef5c3173beb262a7c626df8de8d83c23fa60"
+        },
+        {
+          "filename": "096_knowledge_engine.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "096",
+          "prefixNumeric": 96,
+          "bytes": 3502,
+          "sha256": "39a615421b90933b68a8853b7b14397ac9b3de423b4daf241951d6330eb250fc"
+        },
+        {
+          "filename": "097_funding_sources.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "097",
+          "prefixNumeric": 97,
+          "bytes": 2458,
+          "sha256": "b1d4393de732edc9f05ea3d3ec0afcd18ad7082fa7a55b8e55aaa809fe05231a"
+        },
+        {
+          "filename": "098_nonprofits_bmf.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "098",
+          "prefixNumeric": 98,
+          "bytes": 897,
+          "sha256": "69b49b53ac7badc901ad2310a318c8932764d09f2afd400df1c0d4b8f3a30a08"
+        },
+        {
+          "filename": "099_nonprofits_enrichment.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "099",
+          "prefixNumeric": 99,
+          "bytes": 3409,
+          "sha256": "ce7d29da2250e16c5363e72f4cd79746d8732ae811de9cc8221af9903b08820b"
+        },
+        {
+          "filename": "100_prospects_contact_fields.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "100",
+          "prefixNumeric": 100,
+          "bytes": 874,
+          "sha256": "186c6a956a1b3ce59dc954a317a3642bd4991e1cb48b45d502b150720c6bbc44"
+        },
+        {
+          "filename": "101_twin_auto_populate_log.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "101",
+          "prefixNumeric": 101,
+          "bytes": 951,
+          "sha256": "ecf513a79c4b7a6cc26399cdd3a77fa73fac36b6353b63566f46b98cf6bd8f67"
+        },
+        {
+          "filename": "102_org_portal_accounts.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "102",
+          "prefixNumeric": 102,
+          "bytes": 1953,
+          "sha256": "c5e85d6d23f244d8c8579c16939dde31f9eca5d4dfdf8b4d44dbd1aa11248827"
+        },
+        {
+          "filename": "103_schoolfunder.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "103",
+          "prefixNumeric": 103,
+          "bytes": 3197,
+          "sha256": "6bd17d83a6085e13fa43900bc0c46d137464e93ffa79e48b2317dcba608c6b11"
+        },
+        {
+          "filename": "104_organizations_extended_profile.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "104",
+          "prefixNumeric": 104,
+          "bytes": 2193,
+          "sha256": "0f2c6ce683de62ab89886eea819681189be57344c57d934eb838b2f79c2eda9a"
+        },
+        {
+          "filename": "105_applications_metadata_column.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "105",
+          "prefixNumeric": 105,
+          "bytes": 866,
+          "sha256": "c98d7ecbdb2b52fca753a7cac116542d04b93e0d2e5d9865dc10ee5666571bdb"
+        },
+        {
+          "filename": "106_intelligence_library_schema_upgrade.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "106",
+          "prefixNumeric": 106,
+          "bytes": 4060,
+          "sha256": "eca05092a1d3ea93203bd2d917344e31a10240ed0b05a927ed1cf7bd52ff79ca"
+        },
+        {
+          "filename": "107_corporate_prospects.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "107",
+          "prefixNumeric": 107,
+          "bytes": 3744,
+          "sha256": "7cdda932a192ae162741f7f4f2dd65b85a7468ad1d7225add99d44c0ec5e597a"
+        },
+        {
+          "filename": "108_corporate_prospects_ea06_ea10.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "108",
+          "prefixNumeric": 108,
+          "bytes": 993,
+          "sha256": "57e0f1c66ec8ba3ea989a84b550621d8134019e7e9c71884d380b463e368b39b"
+        },
+        {
+          "filename": "109_corporate_prospects_ag22_propensity_scoring.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "109",
+          "prefixNumeric": 109,
+          "bytes": 964,
+          "sha256": "5a952bbe6485fc276487b39aa36a73a98985739a486c307d793a4a219fbb33e1"
+        },
+        {
+          "filename": "110_scrape_jobs_universal_scraper.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "110",
+          "prefixNumeric": 110,
+          "bytes": 3513,
+          "sha256": "7647142c3e0d08ed928e6e22453b999b3f08d1a6625a0cc591c7e4a750611b88"
+        },
+        {
+          "filename": "111_corporate_prospects_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "111",
+          "prefixNumeric": 111,
+          "bytes": 2464,
+          "sha256": "a3b002bc7a3b059dabd80805f6474a74aa5121ee0b14739f5b98e79f8225b0cf"
+        },
+        {
+          "filename": "112_foundation_directory_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "112",
+          "prefixNumeric": 112,
+          "bytes": 3543,
+          "sha256": "6387b9428651a21ed62f650ed87aeabc71f438d68c67104120af1210a115f9da"
+        },
+        {
+          "filename": "113_revoke_anon_truncate_batch.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "113",
+          "prefixNumeric": 113,
+          "bytes": 3244,
+          "sha256": "838d2a994ff04e6ba0099476aaac747438432d6eacf769fb6f95981ba6ffa4db"
+        },
+        {
+          "filename": "114_nonprofits_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "114",
+          "prefixNumeric": 114,
+          "bytes": 2524,
+          "sha256": "0261da6541e543552588f01584d28b4424c665d657fb5d1b17c090b13986e316"
+        },
+        {
+          "filename": "115_form_templates_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "115",
+          "prefixNumeric": 115,
+          "bytes": 2067,
+          "sha256": "da8df910ddfa05e6e1d60bf0908562ddf87d247e01f4fc339ed061dc43760ff2"
+        },
+        {
+          "filename": "116_organizational_digital_twins_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "116",
+          "prefixNumeric": 116,
+          "bytes": 1855,
+          "sha256": "d249fe285ea93d27306b0eb149f33e1ab9b24ceab73ba221860d07da61ce292f"
+        },
+        {
+          "filename": "117_intelligence_budget_patterns_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "117",
+          "prefixNumeric": 117,
+          "bytes": 1494,
+          "sha256": "5dd0918ad89bfd77b659a9f0b533cc05b339c9278f7d640f05a5134a5aa5f432"
+        },
+        {
+          "filename": "118_donor_discovery_directory_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "118",
+          "prefixNumeric": 118,
+          "bytes": 1689,
+          "sha256": "64a1e32529a79157cd14ff1db3f4dc8553c2d698fc6d99fec12b029881f4b744"
+        },
+        {
+          "filename": "119_intelligence_funded_proposals_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "119",
+          "prefixNumeric": 119,
+          "bytes": 2263,
+          "sha256": "791ba82edc34eb6cd05dece3a98e7a896528220c337ec7d857d8a006638f1072"
+        },
+        {
+          "filename": "120_donor_discovery_taxonomy_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "120",
+          "prefixNumeric": 120,
+          "bytes": 1394,
+          "sha256": "4b6eb115bdb14ef00a8812f450f91d8995ffa9adcf26c80c4ec7df6ab393d946"
+        },
+        {
+          "filename": "121_opportunity_probability_scores_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "121",
+          "prefixNumeric": 121,
+          "bytes": 2407,
+          "sha256": "c9f64b9748daf78c13b32ca833cb49fff4c8539ffde8e59d1fcba34dd7581cac"
+        },
+        {
+          "filename": "122_intelligence_proposal_sections_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "122",
+          "prefixNumeric": 122,
+          "bytes": 1783,
+          "sha256": "2fe35254b455280e5279cedfd3fcc8146a4f04dec09a5723f932d996b43af012"
+        },
+        {
+          "filename": "123_knowledge_patterns_rls_hardening.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "123",
+          "prefixNumeric": 123,
+          "bytes": 1531,
+          "sha256": "d90054188779fc4f68deb246888c45fffdae2f7e3a63f5a870169aea1e19b55d"
+        },
+        {
+          "filename": "124_custom_api_connections_error_count.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "124",
+          "prefixNumeric": 124,
+          "bytes": 999,
+          "sha256": "99ef821c9ffc6e5dc9bd8c471f21f9da9c476f3377731e9d6b4341e9ef746d2b"
+        },
+        {
+          "filename": "125_submission_queue_error_visibility.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "125",
+          "prefixNumeric": 125,
+          "bytes": 2715,
+          "sha256": "11e7abdf479b02d174a1121e64798c38816beb1cb0dc379f116ac8d6c9175d25"
+        },
+        {
+          "filename": "126_form_templates_automation_assessment.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "126",
+          "prefixNumeric": 126,
+          "bytes": 1423,
+          "sha256": "9e27f573f0ab5ff9bf96790e05a1dc429d2c081e13d937ca5ba8963fdb64f386"
+        },
+        {
+          "filename": "127_relationship_memory.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "127",
+          "prefixNumeric": 127,
+          "bytes": 6203,
+          "sha256": "556e530ed3e756855fb6fd36bda4b4620bd47aac28b9afd2c8e2466d770d4aa7"
+        },
+        {
+          "filename": "128_agent_configurations_org_id_drift.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "128",
+          "prefixNumeric": 128,
+          "bytes": 2452,
+          "sha256": "32c4e9087ed2a000c5e889611d26846a7b3d48dbf77bf97207ec3efcc98ddd00"
+        },
+        {
+          "filename": "129_agent_registry_avg_tokens_column.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "129",
+          "prefixNumeric": 129,
+          "bytes": 956,
+          "sha256": "084c5b5217965eb2452fe74fda3684a2336a4fc15d9a86e915a92f15a1916b44"
+        },
+        {
+          "filename": "130_funder_relationship_scores_unique_constraint.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "130",
+          "prefixNumeric": 130,
+          "bytes": 1128,
+          "sha256": "4f9497883fab538fc12049782bbd252fddae98cd23c2834d360afd879d37d811"
+        },
+        {
+          "filename": "131_profiles_command_center_layout.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "131",
+          "prefixNumeric": 131,
+          "bytes": 927,
+          "sha256": "608057827eb63375272890dd03617d49b326df9232616fe90789b8a5e01e2943"
+        },
+        {
+          "filename": "132_custom_connector_allowlist.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "132",
+          "prefixNumeric": 132,
+          "bytes": 2664,
+          "sha256": "b92c9d21596aa6323cd25bd23e88300abcb1437cb209932ed3cb3aa8e942bb46"
+        },
+        {
+          "filename": "133_foundation_profiles_grant_history.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "133",
+          "prefixNumeric": 133,
+          "bytes": 638,
+          "sha256": "1c01ffed1df75ad8030f62aeeb821cf9e9b5d9f96cd7b0222a2a543a3cc694bc"
+        },
+        {
+          "filename": "134_automation_notifications_missing_columns.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "134",
+          "prefixNumeric": 134,
+          "bytes": 1228,
+          "sha256": "89a1832705946343e9d5f435dc2f6a1b25697eb7b12d5e38a8401a32e5cbdc3b"
+        },
+        {
+          "filename": "135_opportunities_eligibility_columns.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "135",
+          "prefixNumeric": 135,
+          "bytes": 1063,
+          "sha256": "76b267f67b2e6830ef87976dbf2dbaae2c55f843b4607539f98b21a3e268f207"
+        },
+        {
+          "filename": "136_contact_outreach_tasks.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "136",
+          "prefixNumeric": 136,
+          "bytes": 1893,
+          "sha256": "a7ae3468d869314ef301ab115fa7b90a497b761e7b978399b8840b1dacc24132"
+        },
+        {
+          "filename": "137_funder_signal_monitoring.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "137",
+          "prefixNumeric": 137,
+          "bytes": 3790,
+          "sha256": "133e4bd516d9c826752bff7ee2b104b82a56d724f7f2c4634bc451f180c9e69a"
+        },
+        {
+          "filename": "138_demo_account_scope.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "138",
+          "prefixNumeric": 138,
+          "bytes": 5961,
+          "sha256": "5e5a78d7096c668b83cc08ddf0fb1d4ac1d2c2a36e766b3709effb8fa5ba688d"
+        },
+        {
+          "filename": "139_investor_demo_ui_pass_fixes_2026-08-16.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "139",
+          "prefixNumeric": 139,
+          "bytes": 7400,
+          "sha256": "47e6dc3797108a3f9fd0b49b2ad06db8145f89149afc26ecae6fbc9812b32b81"
+        },
+        {
+          "filename": "140_org_branding_public_bucket.sql",
+          "directory": "supabase/migrations",
+          "prefixRaw": "140",
+          "prefixNumeric": 140,
+          "bytes": 2310,
+          "sha256": "8211549c179da0c3afd370535c7e4311d44f50bc5b6184d715e84097dd6a7fe3"
+        }
+      ],
+      "withinDirectoryDuplicates": [
+        {
+          "prefix": "002",
+          "filenames": [
+            "002_phases_2_5.sql",
+            "002_register_organization.sql"
+          ]
+        },
+        {
+          "prefix": "022",
+          "filenames": [
+            "022_fix_model_name.sql",
+            "022_usage_tracking.sql"
+          ]
+        },
+        {
+          "prefix": "052",
+          "filenames": [
+            "052_governance_layer.sql",
+            "052_webhook_configs.sql"
+          ]
+        },
+        {
+          "prefix": "053",
+          "filenames": [
+            "053_autoapply_missing_columns.sql",
+            "053_multichannel_analytics.sql"
+          ]
+        },
+        {
+          "prefix": "054",
+          "filenames": [
+            "054_email_calendar_integration.sql",
+            "054_funders_contact_email.sql"
+          ]
+        },
+        {
+          "prefix": "055",
+          "filenames": [
+            "055_admin_sales_outreach.sql",
+            "055_sequence_enrollment_variables.sql"
+          ]
+        },
+        {
+          "prefix": "058",
+          "filenames": [
+            "058_backfill_opportunity_deadlines.sql",
+            "058_lead_enrichment_system.sql"
+          ]
+        }
+      ],
+      "sequenceGaps": {
+        "min": 1,
+        "max": 140,
+        "missing": [
+          19,
+          29,
+          30,
+          31,
+          32
+        ]
+      }
+    }
+  ],
+  "crossDirectoryCollisions": [
+    {
+      "prefix": "072",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "072_donor_discovery_taxonomy_aliases.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "072_foundation_directory_990_enrichment.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "073",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "073_adapter_usage_log.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "073_onboarding_progress.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "074",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "074_donor_discovery_geocache.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "074_donor_discovery_foundation_linkage_and_scoring.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "075",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "075_agent_marketplace.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "075_donor_discovery_taxonomy_aliases.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "076",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "076_reputation_intelligence.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "076_adapter_usage_log.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "077",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "077_intelligence_graph.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "077_donor_discovery_geocache.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "078",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "078_forecast_board.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "078_donor_discovery_prospects_scored_at.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "079",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "079_disaster_response.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "079_donor_discovery_prospects_enrichment_private.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "080",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "080_autonomous_agent_infrastructure.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "080_org_settings.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "081",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "081_application_followups.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "081_foundation_profiles.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "082",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "082_ag08_ag12_autonomous_agents.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "082_outreach_templates.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "083",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "083_global_learning_network.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "083_followup_sequences.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "084",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "084_learning_network_draft_integration.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "084_grant_financials.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "085",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "085_fundraising_simulator.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "085_compliance_requirements.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "086",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "086_strategic_advisor.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "086_white_label.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "087",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "087_continuous_improvement.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "087_notification_preferences.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "088",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "088_self_improvement_agent.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "088_foundation_profiles_enrichment.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "089",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "089_roi_optimizer.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "089_financial_reconciliation.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "090",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "090_community_need_prediction.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "090_compliance_calendar.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "091",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "091_fundability_intelligence_score.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "091_funder_relationship_events.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "092",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "092_autoapply_autonomous_orchestrator.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "092_consultant_client_access_check.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "093",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "093_donor_intent_engine.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "093_digital_twins.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "094",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "094_twin_powered_draft_generation.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "094_agent_registry.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "095",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "095_autoapply_portal_type.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "095_discovery_matches.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "096",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "096_ag19_relationship_builder_enum.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "096_knowledge_engine.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "097",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "097_deadline_prediction_agent.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "097_funding_sources.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "098",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "098_digest_agent_upgrade.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "098_nonprofits_bmf.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "099",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "099_learning_network_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "099_nonprofits_enrichment.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "100",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "100_self_improvement_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "100_prospects_contact_fields.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "101",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "101_orchestrator_enterprise_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "101_twin_auto_populate_log.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "102",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "102_twin_auto_populate_log.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "102_org_portal_accounts.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "103",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "103_narrative_humanizer.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "103_schoolfunder.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "104",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "104_agent_decisions_missing_columns.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "104_organizations_extended_profile.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "105",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "105_ag23_26_27_41_42_rls.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "105_applications_metadata_column.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "106",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "106_funder_dna_profiles.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "106_intelligence_library_schema_upgrade.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "107",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "107_ag29_embedding_columns.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "107_corporate_prospects.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "108",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "108_ag10_grant_dna_enum.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "108_corporate_prospects_ea06_ea10.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "109",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "109_agent_runs_output_payload.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "109_corporate_prospects_ag22_propensity_scoring.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "110",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "110_ag26_funding_forecast.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "110_scrape_jobs_universal_scraper.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "111",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "111_ag27_board_packet.sql",
+            "111_ag29_knowledge_indexer_enum.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "111_corporate_prospects_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "112",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "112_ag41_impact_simulation.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "112_foundation_directory_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "113",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "113_ag42_change_monitor.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "113_revoke_anon_truncate_batch.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "114",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "114_gmail_confirmation_monitor.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "114_nonprofits_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "115",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "115_autoapply_captcha_pause_columns.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "115_form_templates_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "116",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "116_review_queue_rpc_functions.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "116_organizational_digital_twins_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "117",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "117_submission_queue_status_check_fix.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "117_intelligence_budget_patterns_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "118",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "118_priority_security_tables_rls_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "118_donor_discovery_directory_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "119",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "119_org_scoped_tables_rls_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "119_intelligence_funded_proposals_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "120",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "120_autoapply_screenshots_join_rls_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "120_donor_discovery_taxonomy_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "121",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "121_shared_reference_tables_rls_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "121_opportunity_probability_scores_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "122",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "122_lockdown_no_authenticated_read_path_rls_hardening.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "122_intelligence_proposal_sections_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "123",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "123_knowledge_engine_draft_integration.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "123_knowledge_patterns_rls_hardening.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "124",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "124_auto_deploy_disaster_response.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "124_custom_api_connections_error_count.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "125",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "125_donation_marketplace.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "125_submission_queue_error_visibility.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "126",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "126_outreach_template_content_variants.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "126_form_templates_automation_assessment.sql"
+          ]
+        }
+      ]
+    },
+    {
+      "prefix": "127",
+      "entries": [
+        {
+          "directory": "src/supabase/migrations",
+          "filenames": [
+            "127_fix_marketplace_rls_recursion.sql"
+          ]
+        },
+        {
+          "directory": "supabase/migrations",
+          "filenames": [
+            "127_relationship_memory.sql"
+          ]
+        }
+      ]
+    }
+  ],
+  "otherMigrationDirectoriesFound": {
+    "note": "Repo-wide search for any directory literally named 'migrations'. Git worktree checkouts (.claude/worktrees/**) are OTHER BRANCHES' working copies of this same repository (confirmed via `git worktree list`), not independent migration sources that could have reached production -- listed here for transparency, excluded from the collision/gap analysis above.",
+    "gitWorktreeCopiesExcluded": [
+      "C:\\Users\\manag\\Documents\\benavora\\.claude\\worktrees\\agent-a5a7c8e114d2a9a1d\\supabase\\migrations",
+      "C:\\Users\\manag\\Documents\\benavora\\.claude\\worktrees\\agent-a8310486b42731693\\supabase\\migrations",
+      "C:\\Users\\manag\\Documents\\benavora\\.claude\\worktrees\\agent-ace630d375e8c2646\\supabase\\migrations",
+      "C:\\Users\\manag\\Documents\\benavora\\.claude\\worktrees\\agent-add08418d726b438b\\supabase\\migrations",
+      "C:\\Users\\manag\\Documents\\benavora\\.claude\\worktrees\\agent-ade687a65de24f71c\\supabase\\migrations",
+      "C:\\Users\\manag\\Documents\\benavora\\.claude\\worktrees\\agent-ae0a4ed90bcb0e4dc\\supabase\\migrations"
+    ],
+    "otherDirectoriesNotYetKnown": []
+  },
+  "summary": {
+    "totalFilesAcrossKnownDirectories": 199,
+    "crossDirectoryCollisionCount": 56,
+    "withinDirectoryDuplicateCount": 8,
+    "sequenceGapCountByDirectory": {
+      "src/supabase/migrations": 0,
+      "supabase/migrations": 5
+    }
+  }
+}

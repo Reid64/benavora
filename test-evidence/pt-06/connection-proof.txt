@@ -1,0 +1,22 @@
+PT-06-001 read-only connection proof
+Generated: 2026-08-20T03:14:48.275Z
+Connection string (redacted): postgresql://postgres:***@db.vbjplpquqxxfbpazyalt.supabase.co:5432/postgres
+
+Step 1 -- connect(): SUCCESS
+  database: postgres
+  connected as: postgres
+  server address: 2600:1f18:38df:9505:3ccb:c220:e4e9:b8f3/128
+  server time: Wed Aug 19 2026 22:14:50 GMT-0500 (Central Daylight Time)
+
+Step 2 -- SET default_transaction_read_only = on: SUCCESS
+  SHOW default_transaction_read_only => on
+
+Step 3 -- select 1: SUCCESS (result: {"ok":1})
+
+Step 4 -- write-rejection probe: REJECTED AS EXPECTED
+  Postgres error code: 25006
+  Postgres error message: cannot execute CREATE TABLE in a read-only transaction
+
+Connection closed cleanly.
+
+RESULT: PASS -- connection established, session forced to default_transaction_read_only=on, select 1 succeeded, and a real write attempt (CREATE TABLE) was rejected by Postgres with SQLSTATE 25006 (read_only_sql_transaction), proving the read-only property is enforced by the database engine, not merely by application-level discipline.
