@@ -1,6 +1,60 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-10: dependency-outage simulation. 5 real findings across 3 scenarios: middleware degrades cleanly on a hard DB outage but two page/route paths never resolve (no timeout) under sustained DB latency; a killed worker leaves a submission_queue row permanently stuck at 'processing' with zero automatic or manual reclaim path; 2 of 6 third-party integration parsers crash uncaught on a malformed response with no protecting try/catch at their immediate call site.**
+**Updated: August 20, 2026 — audit PT-10 COMPLETE: error handling + recovery, review pack ready. 21 real findings across malformed-payload fuzz + dependency-outage simulation (16 + 5); zero white-screens, zero raw crash pages, zero data corruption anywhere; highest-severity finding is a killed worker permanently stranding a submission_queue row with no reclaim path.**
+
+## SESSION — August 20, 2026 (audit PT-10 COMPLETE: error handling + recovery, review pack ready)
+
+Consolidation of the two PT-10 audit passes below (PT-10-001 malformed-payload fuzz; PT-10-002
+dependency-outage simulation) — no new live investigation this pass, both evidence files
+(`test-evidence/pt-10/malformed-payloads.json`, `outage-simulation.json`) were already complete and
+verifier-clean going in. Wrote `test-evidence/pt-10/PHASE-10-SUMMARY.md` and
+`test-evidence/pt-10/REVIEW-PACK.md` for the first time this phase (neither existed before this
+pass), consolidating both evidence files into one document each, then registered PT-10-002's
+findings (PT-10-001's were already registered as `WGR-121`/`WGR-122` by the prior session).
+
+**Register work this pass:** 6 new rows, **`WGR-123` through `WGR-128`**
+(`scripts/audit/pt10-003-register-findings.mjs`) — `WGR-123` (P3, `CONFIRMED-OK`: a hard DB outage
+degrades cleanly, no crash, one latent risk noted — zero error boundaries exist anywhere in this
+app), `WGR-124` (P1, `CONFIRMED-BROKEN`: sustained DB latency, not a full outage, hangs `/dashboard`
+and `/api/notifications` for the full 30s harness bound with zero timeout anywhere in the stack —
+worse in practice than a clean outage), `WGR-125` (P1, `CONFIRMED-BROKEN`, the phase's single most
+severe finding: a worker `SIGKILL`ed right after claiming a `submission_queue` row leaves it
+permanently stuck at `status='processing'` forever — no automatic reclaim, no cron sweep, and the
+existing "Clear Stuck Jobs" admin action doesn't even touch this table), `WGR-126`/`WGR-127` (both
+P2, `CONFIRMED-BROKEN`: Grants.gov and SAM.gov client parsers both throw uncaught on a malformed API
+response via an identical missing-null-guard bug; Grants.gov is contained one layer up by a per-org
+try/catch, SAM.gov has zero protection at any layer), `WGR-128` (P3, `CONFIRMED-OK`: 7 of 9
+scenario-3 parser fuzz cases — ProPublica, IRS 990 XML, CA Grants Portal — handled malformed input
+cleanly). Register now runs `WGR-001` through `WGR-128`, unbroken (2 rows from PT-10-001, 6 from
+this consolidation's PT-10-002 registration pass).
+
+**Net phase result, both sub-passes:** 21 real findings total (16 from the 72-case malformed-payload
+fuzz across 18 real mutation routes; 5 from the 3-scenario outage simulation). The headline is what
+did NOT happen: zero blank/white-screen responses, zero raw unhandled-crash pages reached a real
+client, and zero data corruption or duplication anywhere across every fault this phase injected —
+checked explicitly per case, not assumed. Within that, real gaps in both directions: 8 routes
+5xx-crash on malformed-but-plausible input (one leaking a raw PostgreSQL error string to the client,
+`WGR-121`), the same middleware-redirects-before-auth-check gap PT-14 already found (`WGR-111`)
+reproduced a third way against a bearer-token-authenticated route (`WGR-122`), no timeout anywhere on
+the Supabase call path (`WGR-124`), one genuinely permanent corrupt-state row with zero recovery path
+(`WGR-125`), and 2 of 6 third-party integration parsers with no null-guard on a malformed response
+(`WGR-126`/`127`). An observed baseline anomaly (`GET /api/notifications` 500s even with no fault
+injected) was investigated and attributed to this session's disposable local Supabase stack missing
+the `automation_notifications` table entirely — the same already-documented "intentionally minimal
+local schema" characteristic PT-09 established (`WGR-024`), not a new production bug — noted in the
+summary rather than silently dropped, but deliberately not given its own register row.
+
+**Gate:** `node scripts/audit/verify-pt10-003.mjs` — PASS. Confirms `PHASE-10-SUMMARY.md` and
+`REVIEW-PACK.md` are both present, non-empty, and reference both sub-passes' real finding counts and
+WGR ids, and that `WIRING_GAP_REGISTER.md` contains the pre-consolidation last row (`WGR-122`) plus
+all 6 of this consolidation's new rows (`WGR-123` through `WGR-128`), with the register's total row
+count consistent with a clean, non-duplicated append (128 rows total).
+
+**Scoped commit:** `test-evidence/` (summary, review pack, register update, register-append script,
+this consolidation's verifier), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` — commit "audit PT-10
+COMPLETE: error handling + recovery, review pack ready".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-10: dependency-outage simulation)
 

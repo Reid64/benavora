@@ -1,5 +1,40 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-10: dependency-outage simulation. 5 real findings (2 scenario 1, 1 scenario 2, 2 scenario 3), verify-pt10-002.mjs 27/27 passing.
+## Last Updated: August 20, 2026 — audit PT-10 COMPLETE: error handling + recovery review pack ready, 21 real findings (16 + 5), register WGR-001 through WGR-128.
+
+## SESSION — August 20, 2026 (audit PT-10 COMPLETE: error handling + recovery, review pack ready)
+
+**Focus:** consolidate the two PT-10 passes below (malformed-payload fuzz; dependency-outage
+simulation) into the phase's required deliverables -- neither `PHASE-10-SUMMARY.md` nor
+`REVIEW-PACK.md` existed before this pass. No new live investigation -- both evidence files were
+already complete and verifier-clean going in. Full detail, every finding's exact evidence path, and
+the real per-scenario numbers are in `STATE_OF_THE_BUILD.md`'s matching entry and in
+`test-evidence/pt-10/PHASE-10-SUMMARY.md` / `REVIEW-PACK.md` themselves -- summary here.
+
+**Register:** 6 new rows, `WGR-123` through `WGR-128` (`scripts/audit/pt10-003-register-findings.mjs`),
+registering PT-10-002's dependency-outage findings for the first time (PT-10-001's own findings were
+already registered as `WGR-121`/`WGR-122` by the prior session). Register now runs `WGR-001` through
+`WGR-128`, unbroken.
+
+**Phase result:** 21 real findings total across both sub-passes (16 from a 72-case malformed-payload
+fuzz across 18 real mutation routes; 5 from a 3-scenario dependency-outage simulation). Zero
+white-screens, zero raw unhandled-crash pages, and zero data corruption/duplication anywhere --
+checked explicitly per case. Highest-severity result: a worker `SIGKILL`ed right after claiming a
+`submission_queue` row leaves it permanently stuck with zero automatic or manual reclaim path
+(`WGR-125`, P1) -- a real grant application silently stranded forever. Also real: sustained (not
+total) DB latency hangs two real page/route paths for a full 30s with no timeout anywhere in the
+stack (`WGR-124`, P1); 8 routes 5xx-crash on malformed-but-plausible input, one leaking a raw
+PostgreSQL error string to the client (`WGR-121`, P2); the same middleware-redirects-before-auth
+gap PT-14 found (`WGR-111`) reproduced a third way against a bearer-token route (`WGR-122`, P1); and
+2 of 6 third-party integration parsers (Grants.gov, SAM.gov) crash uncaught on a malformed response
+via an identical missing-null-guard bug (`WGR-126`/`127`, P2). A full DB outage, by contrast, degrades
+cleanly (`WGR-123`, `CONFIRMED-OK`) and 7 of 9 parser-fuzz cases handled garbage input correctly
+(`WGR-128`, `CONFIRMED-OK`).
+
+**Gate:** `node scripts/audit/verify-pt10-003.mjs` -- PASS. Confirms both consolidation docs
+present/non-empty and reference both sub-passes' real numbers, and the register contains `WGR-122`
+plus all 6 new rows (`WGR-123`-`WGR-128`) with a consistent row count (128 total).
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-10: dependency-outage simulation)
 
