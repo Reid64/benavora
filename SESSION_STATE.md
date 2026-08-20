@@ -1,13 +1,55 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-03-005: kanban stage-transition enforcement + auth flows.
-All 12 documented pipeline stages driven for real across 3 application journeys; `getTransitionRule()`
-correctly rejects all 6 illegal stage-skip cases tested, but nothing downstream enforces it — a direct
-`executeTransition()` call, a raw DB write, and a "viewer"-role session all persisted illegal/
-unauthorized stage changes with zero rejection (3 findings: 2×P0 + 1×P1). Magic-link login and
-session-persistence-across-reload both pass for real; password reset fails on a real, root-caused bug
-(`ResetPasswordPageClient.tsx`'s `useEffect` has no idempotency guard, and `reactStrictMode: true`
-double-invokes `exchangeCodeForSession()` in `next dev`, so a genuinely valid reset link is shown as
-invalid) — 1×P0, confirmed dev-mode-specific, not verified against a production build.
+## Last Updated: August 20, 2026 — audit PT-03 COMPLETE: E2E workflows, review pack ready. 6 real
+findings (WGR-129 through WGR-134: 4×P0 + 1×P1 + 1×P3), register WGR-001 through WGR-134.
+
+## SESSION — August 20, 2026 (audit PT-03 COMPLETE: E2E workflows, review pack ready)
+
+**Focus:** consolidate the four PT-03 passes below (journey environment; core signup-to-deadline
+journey; AutoApply + Donor Discovery journeys; kanban transitions + auth flows) into the phase's
+required deliverables -- neither `PHASE-03-SUMMARY.md` nor `REVIEW-PACK.md` existed before this
+pass. No new live investigation this pass -- all four evidence files (`environment.txt`/
+`environment-session.json`, `core-journey.json` + its two supporting diagnostics, `autoapply-donor-
+journeys.json`, `kanban-auth.json`) were already complete and each already had its own passing
+verifier (`verify-pt03-001.mjs` through `verify-pt03-004.mjs`) going in -- all four were re-run this
+pass and confirmed still passing. Full detail, every finding's exact evidence path, and the real
+per-stage/per-journey numbers are in `STATE_OF_THE_BUILD.md`'s matching entry and in
+`test-evidence/pt-03/PHASE-03-SUMMARY.md` / `REVIEW-PACK.md` themselves -- summary here.
+
+**Register work this pass:** 5 new rows, `WGR-130` through `WGR-134`
+(`scripts/audit/pt03-005-register-findings.mjs`), registering the 4 kanban-transition/auth-flow
+findings (`PT03-KA-F01`..`F04`, already captured in `kanban-auth.json` but never appended to the
+register) and the 1 AutoApply queue-panel finding (`PT03-004-F01`, from `autoapply-donor-
+journeys.json`, also never appended). `WGR-129` (the core-journey draft-persistence finding) was
+already registered by an earlier session in this phase. Register now runs `WGR-001` through
+`WGR-134`, unbroken.
+
+**Phase result:** 6 real findings total across all four passes. The core signup-to-deadline loop and
+the Donor Discovery -> AutoApply hand-off both work end to end, including a real agent-driven
+discovery run against live Grants.gov/SAM.gov/Federal Register data, a real Claude-generated grant
+narrative, and a real, independently-re-queried database row confirming the hand-off between the two
+journeys is genuine, not two isolated passes. Within that: a fully successful AI draft generation can
+silently persist zero `draft_versions` rows while still returning a real `200` (`WGR-129`, P0); the
+kanban pipeline's documented 12-stage transition graph is enforced in exactly one place (a React
+modal's pre-submit check) -- a direct `executeTransition()` call, a raw `applications.update({stage})`
+call, and a viewer-role session all persisted illegal/unauthorized stage changes with zero rejection,
+despite the underlying rule itself being correct across 144 documented transitions and 23/23 real
+legal-transition steps (`WGR-130`/`WGR-131`, P0; `WGR-132`, P1); a genuinely valid password-reset
+link is falsely rejected due to a React Strict Mode double-invoke race in `next dev`
+(`WGR-133`, P0); and AutoApply's QUEUE mini-panel silently shows "Queue is empty" on a real load
+error instead of surfacing it (`WGR-134`, P3). 2 of 3 auth flows (magic-link login, session
+persistence across a real reload) pass cleanly. A test-harness-only failure (the pipeline stage's
+original `waitForURL`/`router.push()` mismatch) was root-caused, retried, and confirmed NOT an app
+defect -- correctly left out of the register.
+
+**Gate:** `node scripts/audit/verify-pt03-005.mjs` -- PASS. Confirms `PHASE-03-SUMMARY.md` and
+`REVIEW-PACK.md` are both present, non-empty, and that `WIRING_GAP_REGISTER.md` contains PT-10's own
+last row (`WGR-128`) plus all 6 of PT-03's own rows (`WGR-129` through `WGR-134`), each present as a
+well-formed 7-column table row, not just a bare substring match.
+
+**Scoped commit:** `test-evidence/` (summary, review pack, register update), `STATE_OF_THE_BUILD.md`,
+`SESSION_STATE.md` -- commit "audit PT-03 COMPLETE: E2E workflows, review pack ready".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-03-005: kanban stage-transition enforcement + auth flows)
 

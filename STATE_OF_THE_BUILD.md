@@ -1,20 +1,94 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-03-005: kanban stage-transition enforcement + auth flows,
-driven end-to-end against the real app (local/non-production). All 12 documented pipeline stages
-reached across 3 real application journeys; the transition-RULE function (`getTransitionRule`)
-correctly rejects every one of 6 illegal stage-skip cases tested — but nothing downstream of that
-one React-component-level check actually stops an illegal write from persisting: a direct
-`executeTransition()` call, a raw `applications.update({stage})` call, and a "viewer"-role session
-all successfully wrote illegal/unauthorized stage changes with zero rejection (3 real findings, 2×P0
-+ 1×P1). Of the 3 auth flows exercised for real (password reset via a genuine Mailpit-delivered
-email, self-service magic-link login, session persistence across a real page reload): magic-link
-login and reload-persistence both pass; password reset fails on a real, precisely root-caused bug —
-`ResetPasswordPageClient.tsx`'s `useEffect` calls `exchangeCodeForSession()` with no idempotency
-guard, and this app's `reactStrictMode: true` double-invokes it in `next dev`, so a real, valid
-reset link is shown as "no longer valid" even though the underlying PKCE exchange genuinely succeeds
-server-side (1×P0, confirmed not a production-build-verified claim — Strict Mode's double-invoke is
-dev-only).**
+**Updated: August 20, 2026 — audit PT-03 COMPLETE: E2E workflows, review pack ready. 6 real findings
+across 4 evidence passes (WGR-129 through WGR-134: 4×P0 + 1×P1 + 1×P3). The core signup-to-deadline
+loop and the Donor Discovery→AutoApply hand-off both work end to end against the real app
+(local/non-production); the kanban pipeline's documented 12-stage transition graph is enforced in
+exactly one place (a React modal's pre-submit check) — a direct `executeTransition()` call, a raw
+`applications.update({stage})` call, and a viewer-role session all persisted illegal/unauthorized
+stage changes with zero rejection; a fully successful, fully-paid-for AI draft generation can
+silently lose all of its output while still returning `200`; and a genuinely valid password-reset
+link is falsely rejected due to a React Strict Mode double-invoke race in `next dev`. Register now
+runs WGR-001 through WGR-134, unbroken.**
+
+## SESSION — August 20, 2026 (audit PT-03 COMPLETE: E2E workflows, review pack ready)
+
+**Focus:** consolidate the four PT-03 audit passes below (journey environment establishment; the
+core signup-to-deadline journey; the AutoApply + Donor Discovery hand-off journey; kanban
+transitions + auth flows) into this phase's required deliverables. Neither
+`test-evidence/pt-03/PHASE-03-SUMMARY.md` nor `REVIEW-PACK.md` existed before this session — all
+four underlying evidence files were already complete, and each already had its own passing verifier
+(`verify-pt03-001.mjs` through `verify-pt03-004.mjs`); all four were re-run this session and
+confirmed still clean (exit 0) before writing either consolidation document, rather than trusted from
+memory.
+
+**Full detail lives in the two new documents themselves** (`test-evidence/pt-03/PHASE-03-SUMMARY.md`
+— every stage's before/after DB state, every finding's exact root cause and evidence path, cited
+verifier output; `REVIEW-PACK.md` — the short, prioritized version) and is not re-derived here.
+Summary of what those documents establish:
+
+- **Core journey (signup → onboarding → discovery → draft → pipeline → deadline): 5 of 6 stages
+  pass.** Real signup, a real 7-step onboarding wizard, a real agent-driven discovery run against
+  live Grants.gov/SAM.gov/Federal Register data (20 real opportunities persisted), a real 4-step
+  Draft Generator wizard producing a real 31,727-byte Claude-generated grant narrative, a real
+  create-application-then-move-through-the-pipeline sequence (retried once after a test-harness-only
+  `waitForURL`/`router.push()` mismatch, root-caused and confirmed not an app defect), and a real
+  Predicted Deadlines add-then-complete cycle. **One real P0 finding**: the draft stage's real,
+  successful, well-under-budget Claude call (`agent_runs.status='completed'`, `tokens_used=7783`)
+  persisted zero `draft_versions` rows while `/api/ai/draft` still returned a genuine `200` with the
+  full narrative — `generateDraft()`'s insert is deliberately best-effort and never throws on
+  failure, and the client never checks the response for confirmation of a real save before advancing
+  the wizard, so a silently-lost draft is visually indistinguishable from a saved one until the page
+  is reloaded (**WGR-129**).
+- **AutoApply + Donor Discovery journeys: 7 of 7 stages pass, and the hand-off between them is
+  real.** Donor Discovery's real "Queue in AutoApply" button click creates the exact `funders`/
+  `submission_queue` rows the AutoApply journey then drives to a terminal `completed` state —
+  independently re-queried at the seam, not assumed connected. AutoApply's `session`/`form_fill`/
+  `submit` stages are explicitly SAFE-SIMULATED (real DB writes mirroring
+  `worker/queue-processor.ts`'s exact column shapes, zero real HTTP calls to any external donation
+  portal — checked via a machine-readable `external_http_calls_made: 0` field on every stage, not
+  assumed). **One real P3 finding**: the AutoApply dashboard's QUEUE mini-panel shows "Queue is
+  empty." on any `loadQueue()` failure, not just a genuine empty queue — it never checks
+  `queueError`, unlike the Session List table on the same page (**WGR-134**).
+- **Kanban transitions + auth flows: the transition rule is correct; enforcement below the UI is
+  absent; 2 of 3 auth flows pass.** The full 144-pair (12×12) transition matrix and 3 full journeys
+  (23 real transition steps, all 12 documented stages reached, 0 failures) confirm
+  `getTransitionRule()` and the legal-transition write path both work correctly. But 3 targeted
+  enforcement-gap tests — a direct `executeTransition()` call with an illegal stage-skip target, a
+  raw `applications.update({stage})` call bypassing `executeTransition()` entirely, and a real
+  `viewer`-role session performing an owner/admin-only transition — all persisted with zero
+  rejection, because the transition rule is checked in exactly one place: `StageTransitionModal.tsx`'s
+  client-side pre-submit code. There is no API route for stage mutation and no database constraint
+  on the `stage` column's value or reachability (**WGR-130**/**WGR-131**, P0; **WGR-132**, P1, the
+  narrower role-gate variant of the same root cause). Magic-link login and session persistence
+  across a real page reload both pass cleanly. Password reset fails: a real, valid recovery link is
+  rejected as invalid because `ResetPasswordPageClient.tsx`'s mount effect calls
+  `exchangeCodeForSession()` with no idempotency guard, and this app's `reactStrictMode: true`
+  double-invokes it in `next dev`, racing the single-use PKCE verifier — reproduced deterministically
+  across three runs, confirmed as a real `next dev` defect, not independently verified against a
+  production build (**WGR-133**, P0).
+
+**Register work this session:** 5 new rows, **`WGR-130` through `WGR-134`**
+(`scripts/audit/pt03-005-register-findings.mjs`), registering the 4 kanban/auth findings
+(`PT03-KA-F01`..`F04`, already captured in `kanban-auth.json` but never appended to
+`WIRING_GAP_REGISTER.md`) and the AutoApply queue-panel finding (`PT03-004-F01`, from
+`autoapply-donor-journeys.json`, likewise captured but never appended). `WGR-129` was already
+registered by an earlier session in this phase (`scripts/audit/pt03-003-register-findings.mjs`).
+Register now runs `WGR-001` through `WGR-134`, unbroken — confirmed by direct row count (134 `WGR-`
+rows) and by re-checking each of PT-03's own 6 rows individually resolves to a real, well-formed
+7-column table row, not a stray substring match.
+
+**Gate:** `node scripts/audit/verify-pt03-005.mjs` — PASS. Confirms `PHASE-03-SUMMARY.md` and
+`REVIEW-PACK.md` are both present and non-empty, that the register contains PT-10's own last row
+(`WGR-128`, confirming this is the same register PT-10 closed with, not a truncated one) plus all 6
+of PT-03's own rows (`WGR-129` through `WGR-134`), and that every one of those 6 rows is a real,
+well-formed table row.
+
+**Scoped commit:** `test-evidence/` (the two new consolidation documents, the register update),
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` — commit "audit PT-03 COMPLETE: E2E workflows, review
+pack ready".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-03-005: kanban stage-transition enforcement + auth flows)
 
