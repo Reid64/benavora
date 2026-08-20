@@ -1,6 +1,40 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-06-005 COMPLETE: dup/null data-quality on the large tables
+**Updated: August 20, 2026 — audit PT-06 COMPLETE. Schema truth established; awaiting Reid's
+review before any migration is applied.** All six PT-06 steps (connection proof + migration-file
+inventory, applied-vs-on-disk drift map, code-vs-live-schema mismatch audit, constraint/FK/orphan
+integrity, dup/null data-quality + migration idempotency, and this consolidation) are done and
+consolidated into two new docs: **`test-evidence/pt-06/PHASE-06-SUMMARY.md`** (every number, cited
+to its evidence file) and **`test-evidence/pt-06/REVIEW-PACK.md`** (the short read — start there).
+**The headline correction**: the real, settled drift number is **57 of 165 checkable migrations
+(34.5%) unapplied**, not the stale "28 of 108" `MIGRATION_AUDIT.md` figure from July — determined
+by live-object-existence checking since this project has **no migration-tracking table at all**
+(every migration was applied by hand via direct `DATABASE_URL` connection, never via the Supabase
+CLI). **The two migration directories' numbering diverged completely from file `072` through `127`**
+(56 straight numbers, both trees reusing the same number for unrelated content), plus **8
+same-directory duplicate-prefix pairs** (e.g. `052_governance_layer.sql`/`052_webhook_configs.sql`).
+**14 of the 57 unapplied files are missing an entire table** — 4 already cause a known production
+500 (PT-02's WGR-005/006/008/009); a separate, independent code-vs-schema cross-reference (1,070
+files, 11,474 column references) confirms **21 missing tables / 50 column mismatches** referenced by
+real, live, non-test code, 53 of 57 unapplied files with a confirmed real call site already waiting
+on them. Everything else came back clean or contained: **267 live FKs, zero orphaned rows**; **0
+tables without a primary key**; the two `ein`-based unique indexes are genuinely enforced (zero
+duplicates at 133,812 and 1,978,526 rows); but **13 of 120 tenant-scoped tables have no live FK back
+to `organizations`** (feeds PT-05 directly, with a named table list) and **6 identifier-shaped
+columns have no unique index against real duplicate data**. Migration idempotency was actually run
+(not left PENDING) against a disposable local database: **6 of 7 sampled files are NOT idempotent**
+— 5 fail loudly and safely on re-apply (P2), but **`003_onboarding.sql` silently corrupted a real
+seeded row's state on a second run, with zero error** (P1) — a real operational hazard given there's
+no tracking table to prevent an accidental double-apply. Register grew from WGR-040 (PT-08's last
+row) to **WGR-070** — 30 new rows, the largest single-phase contribution to date, including a fix to
+13 pre-existing rows (WGR-041–053) that had an invalid Scope Tag value. **WGR-007's product decision
+(apply `followup_sequences` vs. retire for `application_followups`) is still owed — not resolved by
+this phase either.** **Recommendation: PT-05 (tenant isolation) next**, using this phase's 13-table
+tenant-FK-gap list as the concrete target — not PT-08, which is already complete with its own
+summary/review pack recommending PT-09. Nothing in this phase was applied to production; every
+finding is diagnosis only, per this audit program's standing read-only rule.
+
+**Prior: August 20, 2026 — audit PT-06-005 COMPLETE: dup/null data-quality on the large tables
 (read-only prod) + migration idempotency (local-only, never prod). **Data quality:** measured
 duplicate rates on natural keys and null rates on "app treats as required" columns for the three
 large tables named in the task — `foundation_directory` (133,812 rows, PT-01's anchor),
@@ -71,6 +105,60 @@ one carrying the exact SQL query and live count that produced it. Full detail:
 queries, present and well-formed — PASS). See "SESSION — August 20, 2026 (audit PT-06-004: constraint/
 FK/orphan integrity audit)" entry below. (PT-06-003's code-vs-schema headline and PT-06-002's
 migration-drift headline are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-06 COMPLETE: DB integrity + migration drift map, review pack ready)
+
+Consolidation of the five PT-06 sub-audits (connection proof + migration-file inventory, applied-vs-
+on-disk drift map, code-vs-live-schema mismatch audit, constraint/FK/orphan integrity, dup/null
+data-quality + migration idempotency — each already detailed in its own session entry below) into
+`test-evidence/pt-06/PHASE-06-SUMMARY.md` (every number cites its evidence file) and
+`test-evidence/pt-06/REVIEW-PACK.md` (the short read for Reid). No new live testing was performed
+this session — this was consolidation, register reconciliation, and write-up only, following the
+same `PHASE-0X-SUMMARY.md`/`REVIEW-PACK.md` pattern PT-00/PT-02/PT-08 already established.
+
+**Register reconciliation, not just confirmation.** Found the register was NOT already complete for
+PT-06: WGR-041 through WGR-062 (migration-drift + schema-mismatch findings from the five sub-audits)
+were already present, but the constraint/FK/orphan integrity audit (`integrity.json`), the dup/null
+data-quality audit (`data-quality.json`), the migration idempotency test (`idempotency.json`), the
+`appliedNotOnDisk` finding (2 live tables with no matching migration file), and the read-only
+connection proof (`connection-proof.txt`) had zero register rows referencing them at all — confirmed
+by grepping the register for each evidence filename before writing anything. Added **8 new rows,
+WGR-063 through WGR-070**, covering all five: FK-orphan check (0 findings, CONFIRMED-OK), tenant FK
+gap (13 findings, CONFIRMED-BROKEN, feeds PT-05 directly), unique-index gaps (6 findings), duplicate-
+rate findings (3 tables), null-rate findings (3 tables), the migration idempotency test result (RAN,
+not PENDING — the `003_onboarding.sql` silent-data-corruption-on-reapply finding is the single worst
+finding of this whole phase), the 2 `appliedNotOnDisk` tables (PENDING-SCOPE, needs a human call on
+whether to backfill a migration file or document as intentionally hand-managed), and the connection-
+proof traceability row. Register grew from 62 to **70 rows total**, continuing numbering cleanly from
+PT-08's last row (WGR-040) through PT-06's own WGR-041–070.
+
+**Also fixed a real defect found while reading the register, not part of the original task list**:
+rows WGR-041 through WGR-053 (13 rows) had `PT-06` in their Scope Tag cell — not one of the 5 values
+the register's own legend defines (`CONFIRMED-BROKEN`/`UNVERIFIED`/`PENDING-SCOPE`/`CONFIRMED-OK`/
+`RESOLVED`). Corrected all 13 to `CONFIRMED-BROKEN`, matching every sibling migration-drift row and
+the substance of each finding (all are live-verified drift, confirmed via direct `DATABASE_URL`
+queries). Verified the fix and the 8 new rows both by re-parsing the markdown table's pipe count
+(8 pipes = 7 valid columns) for every touched/added row, not just eyeballing the rendered text.
+
+**Cross-linked the unapplied migrations to PT-02's 5 known 500s, as this task required.** 4 of the 5
+(WGR-006/007/008/009) already cited their causing migration file by number in their own row text from
+the PT-02 session; confirmed this held rather than assumed. `PHASE-06-SUMMARY.md`'s PT-06-002 table
+extends this into a full 14-row table of every missing-whole-table migration found this phase, marking
+"None captured" plainly for the 10 that don't correspond to any of PT-00's 5 originally-captured 500s
+— not implying those 10 are harmless, only that PT-00's specific smoke-sweep methodology didn't happen
+to reach a route surfacing them, while `consumer-check.json` independently confirms 53 of 57 unapplied
+files (not just these 14) already have a real, live, non-test call site waiting on them.
+
+**Created `scripts/audit/verify-pt06-006.mjs`**, following the exact pattern
+`scripts/audit/verify-pt02-006.mjs`/`verify-pt08-004.mjs` established: exits non-zero unless
+`PHASE-06-SUMMARY.md` and `REVIEW-PACK.md` both exist non-empty, and `WIRING_GAP_REGISTER.md`
+contains both PT-02's last row (WGR-032 — the register's real last row before PT-08/PT-06, confirmed
+by reading the file directly) and PT-06's own first row (WGR-041), proving the register has grown with
+real PT-06 findings, not just been left at its pre-PT-06 state. Ran clean:
+`node scripts/audit/verify-pt06-006.mjs` — PASS.
+
+**Scoped commit:** `test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` only — matching this
+task's explicit instruction, not `git add -A`.
 
 ## SESSION — August 20, 2026 (audit PT-06-005: dup/null data-quality + migration idempotency)
 
