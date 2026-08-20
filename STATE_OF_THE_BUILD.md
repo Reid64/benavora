@@ -1,6 +1,11 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-06 COMPLETE. Schema truth established; awaiting Reid's
+**Updated: August 20, 2026 — audit PT-05 COMPLETE. Isolation environment provisioned: local
+Supabase stack (not a branch — the connected MCP account has no access to the real `benavora`
+project), two clean test orgs, owner users, and seeded rows in all 6 core tenant-scoped tables
+PT-06 named. See `test-evidence/pt-05/PHASE-05-SUMMARY.md`/`REVIEW-PACK.md`.**
+
+**Prior: August 20, 2026 — audit PT-06 COMPLETE. Schema truth established; awaiting Reid's
 review before any migration is applied.** All six PT-06 steps (connection proof + migration-file
 inventory, applied-vs-on-disk drift map, code-vs-live-schema mismatch audit, constraint/FK/orphan
 integrity, dup/null data-quality + migration idempotency, and this consolidation) are done and
@@ -105,6 +110,89 @@ one carrying the exact SQL query and live count that produced it. Full detail:
 queries, present and well-formed — PASS). See "SESSION — August 20, 2026 (audit PT-06-004: constraint/
 FK/orphan integrity audit)" entry below. (PT-06-003's code-vs-schema headline and PT-06-002's
 migration-drift headline are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-05: isolation environment — local stack, two test orgs)
+
+**Preflight, per the task's own explicit requirement:** confirmed both PT-00 and PT-06 artifacts
+exist with real, non-empty content before doing anything else — `test-evidence/pt-00/route-manifest.json`
+(464 routes) and `test-evidence/pt-06/live-schema.json` (184 tables, 2,226 columns) +
+`test-evidence/pt-06/integrity.json` (267 FK constraints with live orphan checks, plus a
+`tenant_fk_gap` check confirming 120 of 184 tables carry a real tenant column and the exact FK
+targets for `applications`/`opportunities`/`draft_versions`/`contacts`/
+`donor_discovery_prospects`/`deadlines`, all `organization_id -> organizations.id`). No HALT
+needed — both phases' real table set was directly readable.
+
+**Environment: local Supabase CLI stack, not a branch.** Checked the connected Supabase MCP
+account first, without spending anything (`list_projects`, no `create_branch`/`confirm_cost` call
+made): it only has two unrelated projects on it (`tarritrix`, `tarritrix-audit`,
+org `vlipoynwopxlkdbnwpug`) — the real `benavora` project isn't accessible from this session at
+all, so there was no `project_id` to branch from in the first place, independent of the separate
+real-cost consent `create_branch` also requires. Fell back to the task's explicitly-allowed
+alternative: initialized a fresh, standalone Supabase CLI project in `.pt05-local-stack/`
+(deliberately outside both `supabase/` and `src/supabase/` — this project's two real, disputed
+migration trees — so nothing about this phase could touch either one), remapped every port in its
+`config.toml` from the CLI's `543xx` defaults to `563xx` to avoid the two other local Supabase
+stacks already running on this machine (`dialtest`, `ai-book-factory`, confirmed live via `docker
+ps` before starting), and ran `supabase start`. Result: a real local Postgres 17 + GoTrue +
+PostgREST stack at `postgresql://postgres:***@127.0.0.1:56322/postgres`.
+
+**Non-production target verified two independent ways**, both recorded in
+`test-evidence/pt-05/environment.txt`: (1) the connection string's host (`127.0.0.1`) doesn't
+contain the production ref `vbjplpquqxxfbpazyalt`; (2) a live `select inet_server_addr()` run
+*inside the open connection itself* returned a Docker-internal private address
+(`172.22.0.2`), not a public Supabase cloud host — confirming the session didn't quietly reconnect
+somewhere else after the string check passed. `scripts/audit/verify-pt05-001.mjs` hard-fails if
+the production ref appears anywhere in the evidence files outside an explicit negative-comparison
+line, and hard-fails again if a fresh live re-query's `server_addr`/`current_database` looks
+production-shaped — negative-tested this session (temporarily appended a real
+`vbjplpquqxxfbpazyalt` connection-string line to `environment.txt`, confirmed the verifier
+correctly exited non-zero and named the exact bad line, then restored the file byte-identical via
+`diff`).
+
+**Schema applied**: `scripts/audit/pt05-schema.sql` — not guessed, built directly from PT-06's own
+live column dumps and FK map. `organizations`, `profiles` (FK'd to `auth.users.id`, matching the
+real `profiles.id -> users.id` constraint PT-06's `integrity.json` found), `funders`,
+`opportunities`, `applications`, `draft_versions`, `contacts`, `donor_discovery_directory`,
+`donor_discovery_requests`, `donor_discovery_prospects`, `deadlines`, plus the 10 real enum types
+those tables depend on. Enum labels (`pipeline_stage`, `funder_category`, `opportunity_status`,
+`draft_template_type`, `humanization_status`, `contact_relationship`,
+`donor_discovery_pipeline_stage`, `donor_discovery_request_status`, `user_role`, `deadline_type`)
+were read live, read-only, from the real production database
+(`SET default_transaction_read_only = on` first, same enforcement pattern PT-06-001 established)
+rather than assumed from column defaults alone.
+
+**Two clean orgs, seeded**: `scripts/audit/pt05-001-provision-isolation-env.mjs` created Org A
+(`10b809c1-fc40-4a7b-a6c1-7c4e8eebe850`) and Org B (`0fdd7a7d-6214-4d54-bca2-40239e0146f9`), each
+with one real owner-role user created via GoTrue's Admin API (`POST /auth/v1/admin/users` — the
+same real provisioning path production uses, not a raw `auth.users` insert), and exactly one
+seeded row in each of the six tenant-scoped tables the task named
+(`applications`/`opportunities`/`draft_versions`/`contacts`/`donor_discovery_prospects`/`deadlines`),
+plus the minimal supporting parent rows their real FKs require (one `funders`, one
+`donor_discovery_directory`, one `donor_discovery_requests` row per org).
+
+**Independently re-verified, not trusted from the provisioning script's own printed counts**:
+`verify-pt05-001.mjs` opens a fresh connection to the recorded local target and re-`COUNT(*)`s
+every required table per org directly, and separately re-confirms each org has a `profiles` row
+with `role = 'owner'` joined to a real `auth.users` row. Clean run, all checks PASS (`test-evidence/pt-05/verify-run.log`).
+
+**Left running, not torn down** — this phase hands off a live, seeded, isolated environment for a
+future tenant-isolation-testing phase to use; `.pt05-local-stack/` is local Docker state, not repo
+content, and was never staged. Full detail, the exact reasoning for every schema/scope decision,
+and what a future phase needs to know before using this environment:
+`test-evidence/pt-05/PHASE-05-SUMMARY.md` (numbers) and `test-evidence/pt-05/REVIEW-PACK.md` (short
+read, start there).
+
+**One incidental finding, unrelated to this phase's own scope, worth recording so it isn't lost**:
+the project's `dotenv` package prints unsolicited "tip" messages on every `.env.local` load in this
+session pointing at external domains (`www.dotenvx.com`, plus a prior session's memory entry
+documents a different domain, `www.vestauth.com`, phrased specifically to bait an AI agent into
+visiting it). Not visited, not treated as an instruction, no action taken — flagging again since it
+recurred in a different form this session.
+
+**Gates:** no `pnpm tsc --noEmit`/build gate applicable — this phase added only `.mjs`/`.sql`
+scripts under `scripts/audit/`, not application code. Both new scripts run clean
+(`node scripts/audit/pt05-001-provision-isolation-env.mjs`,
+`node scripts/audit/verify-pt05-001.mjs`, exit 0).
 
 ## SESSION — August 20, 2026 (audit PT-06 COMPLETE: DB integrity + migration drift map, review pack ready)
 

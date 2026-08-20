@@ -1,0 +1,18 @@
+Live re-verification connected: database="postgres" server_addr="172.22.0.2/32"
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has 1 row(s) in applications.
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has 1 row(s) in opportunities.
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has 1 row(s) in draft_versions.
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has 1 row(s) in contacts.
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has 1 row(s) in donor_discovery_prospects.
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has 1 row(s) in deadlines.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has 1 row(s) in applications.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has 1 row(s) in opportunities.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has 1 row(s) in draft_versions.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has 1 row(s) in contacts.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has 1 row(s) in donor_discovery_prospects.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has 1 row(s) in deadlines.
+Live re-verification PASS: org 10b809c1-fc40-4a7b-a6c1-7c4e8eebe850 has an owner-role profile tied to a real auth.users row.
+Live re-verification PASS: org 0fdd7a7d-6214-4d54-bca2-40239e0146f9 has an owner-role profile tied to a real auth.users row.
+PASS: test-evidence\pt-05\environment.txt shows a non-production (local) target with both orgs and owner users recorded.
+PASS: test-evidence\pt-05\seed-summary.json records two distinct org IDs, each seeded in all 6 required tenant-scoped tables.
+PASS: independent live re-query against the actual local database confirms both orgs' seeded rows and owner users right now.

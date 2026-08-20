@@ -1,5 +1,13 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-06 COMPLETE. Schema truth established; awaiting
+## Last Updated: August 20, 2026 — audit PT-05 COMPLETE. Isolation environment provisioned: a
+local Supabase CLI stack (the connected Supabase MCP account has no access to the real `benavora`
+project, so branching wasn't available), two clean test orgs, real owner-role users, and seeded
+rows in all 6 tenant-scoped tables PT-06 named. Non-production target verified two independent
+ways and negative-tested (deliberately injected a production-ref line, confirmed the verifier
+hard-fails and names it, then restored the file byte-identical). See
+`test-evidence/pt-05/PHASE-05-SUMMARY.md`/`REVIEW-PACK.md`.
+
+## Prior — August 20, 2026 — audit PT-06 COMPLETE. Schema truth established; awaiting
 Reid's review before any migration is applied. Consolidated all six PT-06 steps into
 `test-evidence/pt-06/PHASE-06-SUMMARY.md` (numbers, cited) and `test-evidence/pt-06/REVIEW-PACK.md`
 (the short read — start there). **Real, settled drift number: 57 of 165 checkable migrations
@@ -72,6 +80,51 @@ plus 4 smaller P2s including `profiles.email`, 1 duplicate pair). **19 total fin
 every one with the exact live query and count. Gate: `node scripts/audit/verify-pt06-004.mjs` — PASS.
 See "Current Session — August 20, 2026 (audit PT-06-004)" below. (PT-06-003's code-vs-schema headline
 and PT-06-002's migration-drift headline are preserved in their own session entries.)
+
+## Current Session — August 20, 2026 (audit PT-05: isolation environment — local stack, two test orgs)
+
+**Preflight:** confirmed PT-00's `route-manifest.json` (464 routes) and PT-06's `live-schema.json`
+(184 tables)/`integrity.json` (267 FK constraints, `tenant_fk_gap` check with the exact FK targets
+for all 6 tables this task named) both exist with real content — no HALT needed.
+
+**Environment: local Supabase CLI stack, not a branch.** `mcp__claude_ai_Supabase__list_projects`
+returned only two unrelated projects (`tarritrix`, `tarritrix-audit`) — the real `benavora`
+project isn't on the connected account at all, so there was no `project_id` to pass to
+`create_branch`, independent of the separate real-cost `confirm_cost` consent that call also
+requires. Docker Desktop was already running two other local stacks on this machine; initialized a
+third, standalone one in `.pt05-local-stack/` (outside both real migration trees), remapped its
+ports to `563xx` to avoid collisions, and ran `supabase start` — a real local Postgres 17 + GoTrue
++ PostgREST stack at `127.0.0.1:56321`/`56322`.
+
+**Non-production target verified two ways**, both in `test-evidence/pt-05/environment.txt`: the
+connection string's host doesn't contain the production ref `vbjplpquqxxfbpazyalt`, and a live
+`inet_server_addr()` query run *inside the open connection* returned a Docker-internal address, not
+a Supabase cloud host. `scripts/audit/verify-pt05-001.mjs` hard-fails on either the production ref
+appearing outside a negative-comparison line, or a live re-query looking production-shaped —
+negative-tested this session (temporarily injected a real production connection-string line,
+confirmed the verifier caught it and named the exact line, restored the file byte-identical via
+`diff`).
+
+**Schema**: `scripts/audit/pt05-schema.sql`, built directly from PT-06's own live column dumps and
+FK map (`organizations`, `profiles`, `funders`, `opportunities`, `applications`, `draft_versions`,
+`contacts`, `donor_discovery_directory`, `donor_discovery_requests`, `donor_discovery_prospects`,
+`deadlines` + 10 real enum types, labels read live/read-only from production).
+
+**Two orgs seeded**: Org A (`10b809c1-fc40-4a7b-a6c1-7c4e8eebe850`) and Org B
+(`0fdd7a7d-6214-4d54-bca2-40239e0146f9`), each with a real owner-role user created via GoTrue's
+Admin API and one row in each of `applications`/`opportunities`/`draft_versions`/`contacts`/
+`donor_discovery_prospects`/`deadlines`. Independently re-verified by a fresh query against the
+live database (not the provisioning script's own counts) — clean PASS.
+
+**Left running** for a future tenant-isolation-testing phase to use — `.pt05-local-stack/` is
+local Docker state, never staged. Full detail: `test-evidence/pt-05/PHASE-05-SUMMARY.md` (numbers)
+and `test-evidence/pt-05/REVIEW-PACK.md` (short read).
+
+**Gates:** no `tsc`/build gate applicable (scripts-only phase). Both new scripts run clean, exit 0.
+
+**Commit:** "audit PT-05: isolation environment (branch/local, two test orgs)" — scoped add of
+`test-evidence/`, `scripts/audit/` (only this phase's 3 new files), `STATE_OF_THE_BUILD.md`,
+`SESSION_STATE.md`.
 
 ## Current Session — August 20, 2026 (audit PT-06 COMPLETE: consolidation, review pack ready)
 
