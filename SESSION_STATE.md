@@ -1,7 +1,39 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-15-002: restore drill (PROVEN) + rate-limiting posture (WGR-153) + deploy-verifier re-confirmation.
+## Last Updated: August 20, 2026 — AUDIT PROGRAM COMPLETE (PT-00 through PT-15). See banner below.
 
-## Current Session — August 20, 2026 (audit PT-15-002: restore drill + rate limiting + deploy verifier)
+---
+
+## ⚠️ AUDIT PROGRAM COMPLETE (PT-00 → PT-15) — `test-evidence/_register/WIRING_GAP_REGISTER.md` is now the single source of truth for platform status
+
+**As of commit `5c747ee174c0abd83bff2cd266d825c511ebba5f`, the PT-00 through PT-15 audit program is
+complete.** Every phase's findings are consolidated into one register,
+`test-evidence/_register/WIRING_GAP_REGISTER.md` (153 rows, WGR-001..WGR-153, each with a severity,
+real evidence path, reproduction command, and scope tag, sorted P0→P3). **That register — not this
+prose session log — is now authoritative for "is X currently working."** The session entries below
+this banner are kept as historical narrative only; several are directly contradicted by this audit's
+live re-execution (see the register's Autonomous-Agent-execution-proof rows, WGR-077..WGR-095, several
+of which re-examine a prior session's own "BUILT — VERIFIED" claim and find zero output rows despite
+clean completion). Where they disagree, trust the register.
+
+**Closing verdict and fix plan, both under `test-evidence/pt-15/`:**
+- **`GO-NO-GO.md`** — **NO-GO**. 16 open P0 (real SSRF surface, an application-pipeline
+  authorization/state-machine bypass, silent draft-generation data loss, a broken password-reset
+  flow, every external funding-source integration confirmed broken, total WebKit failure), 66 open
+  P1, 28 open P2, 8 open P3.
+- **`REMEDIATION-BACKLOG.md`** — the ranked fix plan (Wave 0→3), with root-cause batching for the two
+  largest clusters (a ≈21-row migration/schema-drift batch, a ≈15-row autonomous-agent
+  execution-proof batch).
+
+**Resolved this consolidation pass, real commits, live-reverified before being marked RESOLVED:**
+WGR-012/WGR-017 (commit `d5500cd`, `/donor-discovery/prospects/[id]` blank-render crash); WGR-029/
+WGR-030/WGR-031/WGR-032 (commit `5c747ee`, four API routes silently truncated at PostgREST's 1000-row
+cap — fixed via a new shared `src/lib/supabase/select-all-pages.ts` pagination helper plus, for the
+two id-list-filter cases, a PostgREST `!inner` embed instead of a client-side id list). Full detail in
+`STATE_OF_THE_BUILD.md`'s matching banner.
+
+---
+
+## Prior Session — August 20, 2026 (audit PT-15-002: restore drill + rate limiting + deploy verifier)
 
 **Focus:** three production-readiness ops checks. (1) Prove backup+restore actually works on a
 branch/copy, not just in theory — census + basic integrity check on the restored data, or record

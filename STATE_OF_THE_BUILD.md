@@ -1,6 +1,59 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-15-002: restore drill (PROVEN, real Supabase branch restore) + rate-limiting posture (real gap found, WGR-153) + deploy-verifier false-PASS fix re-confirmed live.**
+**Updated: August 20, 2026 — AUDIT PROGRAM COMPLETE (PT-00 through PT-15). See banner below.**
+
+---
+
+## ⚠️ AUDIT PROGRAM COMPLETE (PT-00 → PT-15) — `test-evidence/_register/WIRING_GAP_REGISTER.md` is now the single source of truth for platform status
+
+**As of 2026-08-20 (commit `5c747ee174c0abd83bff2cd266d825c511ebba5f`), the PT-00 through PT-15 audit
+program is complete.** Every finding from every phase has been consolidated into one register:
+**`test-evidence/_register/WIRING_GAP_REGISTER.md`** — 153 rows (WGR-001..WGR-153), each carrying a
+severity (P0/P1/P2/P3), a real evidence path under `test-evidence/`, an exact reproduction command,
+and a scope tag (CONFIRMED-BROKEN / UNVERIFIED / PENDING-SCOPE / CONFIRMED-OK / RESOLVED), sorted
+P0→P3.
+
+**This register — not the prose session log below — is the authoritative statement of what is
+currently broken, working, or unresolved on this platform.** The dozens of session entries below
+this banner (July–August 2026) are preserved as historical narrative (what was built, when, by whom,
+with what evidence) but are **not** load-bearing for "is X currently working" going forward — several
+of this audit's own findings directly contradict specific claims made in entries below (e.g. multiple
+"BUILT — VERIFIED" agent claims below are re-examined, and in several cases found to write zero
+output rows despite clean completion, in the register's Autonomous-Agent-execution-proof findings,
+WGR-077 through WGR-095). Where the two disagree, trust the register — it was produced by live
+re-execution against real production/branch data specifically to check inherited claims, not by
+reading prior session write-ups.
+
+**Companion closing documents, all under `test-evidence/pt-15/`:**
+- **`GO-NO-GO.md`** — the honest production-readiness verdict derived from the register: **NO-GO**,
+  16 open P0 findings (real live SSRF surface, an authorization/state-machine bypass on the
+  applications pipeline, silent data loss on AI draft generation, a broken password-reset flow, every
+  external funding-source integration confirmed broken, and total failure on the WebKit browser
+  engine), 66 open P1, 28 open P2, 8 open P3. Full counts, the open-P0/P1 finding tables, known
+  platform limits, and the reasoning behind the verdict are all there — not duplicated here.
+- **`REMEDIATION-BACKLOG.md`** — the ranked, actionable fix plan that follows from the register:
+  Wave 0 (P0, fix immediately) through Wave 3 (P3, track), with root-cause batching where multiple
+  findings share one fix (a ≈21-row migration/schema-drift cluster and a ≈15-row autonomous-agent
+  execution-proof cluster are each one systemic root cause, not 36 independent bugs). This is the
+  input to whatever remediation build phase follows this audit.
+
+**Resolved during this consolidation pass, with real commits, live-reverified against production
+data before being marked RESOLVED in the register:**
+- WGR-012, WGR-017 — commit `d5500cd` (2026-08-19): `/donor-discovery/prospects/[id]` blank-render
+  crash on incomplete `enrichment` jsonb (`ProspectDetail.tsx` reading `.length` unguarded).
+- WGR-029, WGR-030, WGR-031, WGR-032 — commit `5c747ee` (2026-08-20): four API routes
+  (`/api/donor-discovery/requests/[id]`, `/api/donor-discovery/pipeline`,
+  `/api/intelligence/proposals`, `/api/donor-discovery/prospects`) silently truncated at PostgREST's
+  1000-row response cap on an unbounded `.select()` — live-reproduced undercounting a real
+  133,812-linked production request by 99.3% and understating a real average by ~37x. Fixed by
+  paginating own-table aggregates (`src/lib/supabase/select-all-pages.ts`, new shared helper) and, for
+  the two id-list-filter cases, pushing the filter into the query itself as a PostgREST `!inner` embed
+  rather than ever collecting a client-side id list — necessary at this org's real scale, since a
+  fully-paginated 133,812-entry `.in()` list would itself exceed any practical request-size limit.
+  `tsc --noEmit` and `npm run build` both exit 0; every fix independently live-verified via direct
+  read-only PostgREST calls against real production data before committing.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-15-002: restore drill + rate limiting + deploy verifier)
 
