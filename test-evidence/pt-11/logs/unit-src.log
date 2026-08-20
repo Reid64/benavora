@@ -1,0 +1,211 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | src/__tests__/unit/relationship-scorer.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+[90mstdout[2m | src/__tests__/unit/outcome-analyzer.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[90mstdout[2m | src/__tests__/unit/regressions.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | src/__tests__/unit/grant-probability-engine.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+[90mstdout[2m | src/__tests__/unit/knowledge-engine.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌁ auth for agents [www.vestauth.com]
+
+[90mstdout[2m | src/__tests__/unit/naics-labels.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[90mstdout[2m | src/__tests__/unit/deadline-predictor.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ override existing { override: true }
+
+[90mstdout[2m | src/__tests__/unit/success-probability.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[90mstdout[2m | src/__tests__/unit/semantic-matcher.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | src/__tests__/unit/samgov-client.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[90mstdout[2m | src/__tests__/unit/board-report.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | src/__tests__/unit/propublica-client.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[90mstdout[2m | src/__tests__/unit/digital-twin-builder.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mreturns score 0 and momentum 'stable' for an empty event list
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22msums the weight of every known event type
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mtreats an unrecognized event_type as weight 0
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mclamps the score at 100 when weighted sum exceeds 100
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mfloors the score at 0 when weighted sum is negative
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mreports momentum 'rising' when the last-90-day weight exceeds the prior-90-day weight
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mreports momentum 'declining' when the last-90-day weight is less than the prior-90-day weight
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mreports momentum 'stable' when the last-90-day weight equals the prior-90-day weight
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mscoreFromEvents[2m > [22mincludes events older than 180 days in the total score but excludes them from both momentum windows
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mcomputeRelationshipScore[2m > [22mfetches funder_relationship_events for the given funder and org, then scores them
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mcomputeRelationshipScore[2m > [22mtreats a null data response as no events
+ [32m✓[39m src/__tests__/unit/relationship-scorer.test.ts[2m > [22mcomputeRelationshipScore[2m > [22mthrows when the underlying query returns an error
+ [32m✓[39m src/__tests__/unit/semantic-matcher.test.ts[2m > [22mmatchFunders[2m > [22mreturns an empty array when no foundations exist
+ [32m✓[39m src/__tests__/unit/semantic-matcher.test.ts[2m > [22mmatchFunders[2m > [22mreturns an empty array when the query resolves with null data
+ [32m✓[39m src/__tests__/unit/semantic-matcher.test.ts[2m > [22mmatchFunders[2m > [22mreturns scores that are always between 0 and 1
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mnaicsLabel[2m > [22mreturns the friendly label for a known code
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mnaicsLabel[2m > [22mreturns the code unchanged for an unknown code
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mNAICS_FRIENDLY_LABELS[2m > [22mcontains entries for the core consumer-facing sectors
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mNAICS_FRIENDLY_LABELS[2m > [22mhas no empty or blank labels
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mNAICS_CATEGORIES[2m > [22mgives every category a non-empty label and a non-empty codes array
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mNAICS_CATEGORIES[2m > [22mplaces every NAICS_FRIENDLY_LABELS code in exactly one category
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mNAICS_CATEGORIES[2m > [22mdoes not reference any code that isn't in NAICS_FRIENDLY_LABELS
+ [32m✓[39m src/__tests__/unit/naics-labels.test.ts[2m > [22mNAICS_CATEGORIES[2m > [22mhas no duplicate codes across different categories
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mqueries knowledge_patterns ordered by success_rate desc and limited to 10
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mfilters the patterns query by non-stopword keywords longer than 2 characters
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mdoes not filter the patterns query when every word is a stopword
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mfilters the proposals query by the trimmed query with commas/parens/percent stripped
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mdoes not filter the proposals query when the trimmed query is empty
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mreturns the resolved patterns and proposals
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mtreats a null data response from either query as an empty array
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mbuilds an insight from the top pattern including its success rate, stored 0-1 and displayed as a percent
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22momits the success rate suffix from the top pattern insight when success_rate is null
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mbuilds an insight listing deduplicated funder names from up to 5 proposals
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mreturns a fallback insight when no patterns or proposals are found
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mlogs the query to knowledge_queries with result counts
+ [32m✓[39m src/__tests__/unit/knowledge-engine.test.ts[2m > [22mqueryKnowledgeEngine[2m > [22mdoes not throw when logging the query fails
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mreturns a twin object with all required top-level fields
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mthrows when the organization is not found
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mcomputes a twin_completeness_score of 0 when the org has no data at all
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mcomputes a twin_completeness_score of 100 when all ten completeness factors are present
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mfalls back to city + state for service_areas when org.service_area is not set
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22msplits org.service_area on commas when it is set
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22monly includes proven_narrative_patterns for is_proven KB entries whose funder_categories overlap an awarded outcome's category
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mreturns an empty proven_narrative_patterns array when there are no awarded outcomes
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mpersists the twin to organizational_digital_twins via upsert
+ [32m✓[39m src/__tests__/unit/digital-twin-builder.test.ts[2m > [22mbuildDigitalTwin[2m > [22mthrows when persisting the twin fails
+ [32m✓[39m src/__tests__/unit/board-report.test.ts[2m > [22mgenerateBoardReport[2m > [22mreturns all required BoardReportSummary fields
+ [32m✓[39m src/__tests__/unit/board-report.test.ts[2m > [22mgenerateBoardReport[2m > [22mhandles a period with no activity gracefully
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mreturns null on HTTP error (non-ok response)
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mreturns null on network error
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mreturns null on JSON parse failure
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mreturns null when the EIN has no digits
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mstrips non-digit characters from the EIN before requesting
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mextracts totrevenue and totassetsend from the most recent filing
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mreturns null financial fields when there are no filings
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22mfetchProPublicaFinancials[2m > [22mreturns null for non-numeric filing values instead of throwing
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mreturns null on HTTP error (non-ok response)
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mreturns null on network error
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mreturns null on JSON parse failure
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mreturns null when the EIN has no digits
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mextracts identity fields and the latest filing's financials
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mfalls back to tax_prd_yr when the filing has no fiscal_period
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mreturns all-null identity and financial fields when organization and filings are absent
+ [32m✓[39m src/__tests__/unit/propublica-client.test.ts[2m > [22menrichFoundationFromProPublica[2m > [22mcoerces non-finite filing financial values to null
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mreturns an empty array when SAM_GOV_API_KEY is unset
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mreturns an empty array on network error
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mreturns an empty array on HTTP error (non-ok response)
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mreturns an empty array on JSON parse failure
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mreturns an empty array when opportunitiesData is missing
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mincludes the API key, ptype=o, and limit in the request URL
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mmaps a valid hit to the normalized opportunity shape, decoding HTML entities in the title
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mdrops hits missing a noticeId or title
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mmaps a zero or negative award amount to null
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mreturns a null deadline when responseDeadLine is absent or unparseable
+ [32m✓[39m src/__tests__/unit/samgov-client.test.ts[2m > [22msearchSamGovOpportunities[2m > [22mparses a full ISO datetime without a leading date match via the Date fallback
+ [32m✓[39m src/__tests__/unit/success-probability.test.ts[2m > [22mcomputeSuccessProbability[2m > [22mreturns a score between 0 and 100 when all factors have real data
+ [32m✓[39m src/__tests__/unit/success-probability.test.ts[2m > [22mcomputeSuccessProbability[2m > [22mdefaults the category_success_rate factor to 0.5 when there is no outcomes history
+ [32m✓[39m src/__tests__/unit/success-probability.test.ts[2m > [22mcomputeSuccessProbability[2m > [22mreturns a deadline_proximity factor value of 0 when the deadline is under 15 days away
+ [32m✓[39m src/__tests__/unit/success-probability.test.ts[2m > [22mcomputeSuccessProbability[2m > [22mreports confidence 'high' when all four factors have real underlying data
+ [32m✓[39m src/__tests__/unit/success-probability.test.ts[2m > [22mcomputeSuccessProbability[2m > [22mthrows when the opportunity is not found
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mreturns an integer score between 0 and 100
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mrecommends 'apply' and reports high confidence when every factor scores at its maximum with real data
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mrecommends 'skip' when every factor scores at its minimum despite having real data
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mrecommends 'consider' when factors land in the middle of the range
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mreports confidence 'low' when none of the four factors have real underlying data
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mreturns a deadline_proximity factor value of 0 when the deadline has already passed
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mdefaults the twin_completeness factor to a neutral value when no Digital Twin exists
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mthrows when the opportunity is not found
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mpersists the computed score to opportunity_probability_scores via upsert
+ [32m✓[39m src/__tests__/unit/grant-probability-engine.test.ts[2m > [22mcomputeGrantProbability[2m > [22mthrows when persisting the score fails
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mreturns an empty array and does not query funder history when there are no undated opportunities
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mpredicts from funder history by averaging day-of-year across past deadlines
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mcaps funder-history confidence at 0.9 regardless of sample size
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mdefaults government_grant opportunities with no funder history to fiscal year-end (Sept 30) at confidence 0.4
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mdefaults private_foundation opportunities with no funder history to the nearest quarter end at confidence 0.3
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mdefaults corporate_* categories with no funder history to a 90-day rolling estimate
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mfalls back to a low-confidence 90-day rolling estimate for unrecognized or missing categories
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mreturns results sorted by predicted deadline ascending
+ [32m✓[39m src/__tests__/unit/deadline-predictor.test.ts[2m > [22mpredictDeadlines[2m > [22mfalls back to the category default when the opportunity has a funder_id but that funder has no dated history
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mreturns zeroed values for an empty array
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mreturns null rates below MIN_OUTCOMES_FOR_RATE (5) even with real data
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mcomputes successRate and fundedRate once total reaches MIN_OUTCOMES_FOR_RATE (5)
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mcomputes dollarEfficiency as total awarded / total requested, null with no requests
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mtreats null awarded/requested amounts as 0 rather than throwing
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mgroups by funder_category, sorted by total descending, with averageAward over funded outcomes only
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mignores outcomes with a null funder_category when grouping by funder category
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mgroups by opportunity_category independently of funder_category
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mbuckets outcomes into monthly points sorted ascending by month
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mexcludes outcomes with missing or unparseable recorded_at from overTime but still counts them in the summary
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22manalyzeOutcomes[2m > [22mgroups denial reasons, falling back to 'Unspecified', sorted by count descending
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mreturns an empty array for no narratives
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mcomputes effectiveness from success/failure counts when effectiveness_score is null
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mtreats a narrative with zero uses as untested with a null effectiveness score
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mpulls the failure count for a narrative's funder_category from the provided map
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mtreats a null funder_category as zero failures even when the map has other categories
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mreports the 'moderate' tier between the retirement threshold (0.3) and the high threshold (0.66)
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22muses a stored effectiveness_score instead of recomputing it when present
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22msorts by effectiveness score descending, then by success count descending
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mrespects the limit parameter, defaulting to 5
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mbuilds a single-line excerpt, collapsing whitespace and leaving short text untouched
+ [32m✓[39m src/__tests__/unit/outcome-analyzer.test.ts[2m > [22mrankNarratives[2m > [22mtruncates a narrative excerpt longer than 160 characters with an ellipsis
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: funders.automation_level missing column (AutoApply org-readiness check)[2m > [22mmigration 052 adds funders.automation_level so the AutoApply funder lookup does not error
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: funders.automation_level missing column (AutoApply org-readiness check)[2m > [22mworker/queue-processor.ts selects automation_level from the real funders columns
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: checkOrgReadiness() querying nonexistent organizations.contact_name column[2m > [22morganizations table has no contact_name column — founder_name is the real primary-contact field
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: checkOrgReadiness() querying nonexistent organizations.contact_name column[2m > [22mcheckOrgReadiness() selects founder_name, not contact_name, from organizations
+ [31m×[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: IRS 990 XML fetch using dead S3 URL / wrong fetch method (fetchPage vs fetchRaw)[2m > [22mresolves a filing via fetchRaw() on the direct XML URL and never calls fetchPage()
+[31m   → expected { …(2) } to deeply equal { Object (website, phone) }[39m
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: IRS 990 XML fetch using dead S3 URL / wrong fetch method (fetchPage vs fetchRaw)[2m > [22mnever constructs the dead s3.amazonaws.com/irs-form-990 fallback URL
+[90mstdout[2m | src/__tests__/unit/regressions.test.ts[2m > [22m[2mregression: scripts/enrich-foundations-990.ts EIN column fallback off-by-one (FEATURE_REGISTRY_v2.md row D2)[2m > [22m[2mparses EIN/object_id/xml_batch_id correctly via normal header-name lookup
+[22m[39m◇ injected env (7) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: scripts/enrich-foundations-990.ts EIN column fallback off-by-one (FEATURE_REGISTRY_v2.md row D2)[2m > [22mparses EIN/object_id/xml_batch_id correctly via normal header-name lookup
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: scripts/enrich-foundations-990.ts EIN column fallback off-by-one (FEATURE_REGISTRY_v2.md row D2)[2m > [22mparses EIN/object_id/xml_batch_id correctly via the positional fallback (header lookup fails)
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: AutonomousAgentResult.matched/.found nonexistent field references[2m > [22mAutonomousAgentResult's real shape uses itemsFound/itemsProcessed/itemsQueued, not matched/found
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: AutonomousAgentResult.matched/.found nonexistent field references[2m > [22mworker/autonomous-orchestrator.ts never re-references result.matched or result.found
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: storage bucket created without storage.objects RLS policy[2m > [22mevery bucket inserted into storage.buckets in a migration has a matching storage.objects policy
+ [32m✓[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: storage bucket created without storage.objects RLS policy[2m > [22mmigration 044's nofa-pdfs bucket has insert, update, and read policies
+
+[31m⎯⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 1 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/__tests__/unit/regressions.test.ts[2m > [22mregression: IRS 990 XML fetch using dead S3 URL / wrong fetch method (fetchPage vs fetchRaw)[2m > [22mresolves a filing via fetchRaw() on the direct XML URL and never calls fetchPage()
+[31m[1mAssertionError[22m: expected { …(2) } to deeply equal { Object (website, phone) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  Object {[22m
+[2m    "phone": "5125551234",[22m
+[32m-   "website": "https://example.org",[39m
+[31m+   "website": "https://example.org/",[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/__tests__/unit/regressions.test.ts:[2m184:20[22m[39m
+    [90m182| [39m    [34mexpect[39m(fetchRaw)[33m.[39m[34mtoHaveBeenCalledWith[39m(directUrl)[33m;[39m
+    [90m183| [39m    [34mexpect[39m(fetchPage)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()[33m;[39m
+    [90m184| [39m    [34mexpect[39m(result)[33m.[39m[34mtoEqual[39m({ website[33m:[39m [32m"https://example.org"[39m[33m,[39m phone[33m:[39m [32m"5[39m…
+    [90m   | [39m                   [31m^[39m
+    [90m185| [39m  })[33m;[39m
+    [90m186| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[90m (13)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m132 passed[39m[22m[90m (133)[39m
+[2m   Start at [22m 03:16:45
+[2m   Duration [22m 5.71s[2m (transform 1.82s, setup 1.54s, collect 14.17s, tests 544ms, environment 3ms, prepare 6.31s)[22m
+
+exit_code=1

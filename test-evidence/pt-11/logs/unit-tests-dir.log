@@ -1,0 +1,26 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | tests/unit/autonomous-base.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌁ auth for agents [www.vestauth.com]
+
+[90mstdout[2m | tests/unit/draft-generation.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+ [32m✓[39m tests/unit/autonomous-base.test.ts[2m > [22mAUTONOMOUS_HARD_LIMITS[2m > [22mhas every hard limit set to its locked value
+ [32m✓[39m tests/unit/autonomous-base.test.ts[2m > [22mAutonomousAgent#logDecision[2m > [22mforces required_human_review=true when confidence is below MIN_CONFIDENCE_TO_ACT, even if the caller said false
+ [32m✓[39m tests/unit/autonomous-base.test.ts[2m > [22mAutonomousAgent#logDecision[2m > [22mrespects the caller's requiredHumanReview when confidence meets MIN_CONFIDENCE_TO_ACT
+ [32m✓[39m tests/unit/autonomous-base.test.ts[2m > [22mAutonomousAgent#logDecision[2m > [22mdefaults required_human_review to false at exactly the confidence threshold when the caller omits it
+ [32m✓[39m tests/unit/autonomous-base.test.ts[2m > [22mAutonomousAgent#startRun[2m > [22mcreates an agent_runs record with status running
+ [32m✓[39m tests/unit/autonomous-base.test.ts[2m > [22mAutonomousAgent#completeRun[2m > [22mupdates the agent_runs row to status completed
+ [32m✓[39m tests/unit/draft-generation.test.ts[2m > [22mDraftGenerationAgent — hard limits[2m > [22mnever sets submitted_at on the created application
+ [32m✓[39m tests/unit/draft-generation.test.ts[2m > [22mDraftGenerationAgent — hard limits[2m > [22malways sets pending_review=true and auto_generated=true on created applications
+ [32m✓[39m tests/unit/draft-generation.test.ts[2m > [22mDraftGenerationAgent — hard limits[2m > [22mstops at max_auto_drafts_per_night and creates no draft
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 03:17:05
+[2m   Duration [22m 1.67s[2m (transform 259ms, setup 138ms, collect 710ms, tests 22ms, environment 0ms, prepare 318ms)[22m
+
+exit_code=0

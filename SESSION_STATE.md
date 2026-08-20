@@ -1,4 +1,48 @@
 # BENAVORA — Session State
+## Last Updated: August 20, 2026 — audit PT-11: core suites executed with real numbers.
+
+Ran, for real, the 9 unit/smoke/api/migration suite records the PT-11-001 inventory (below) flagged
+as `unknown`/stale-claim-only or that only had prior-day evidence: `unit-src`, `unit-tests-dir`,
+`lib-tests`, `api-tests`, `smoke-vitest-api`, `smoke-playwright-public`, `smoke-playwright-e2e-root`,
+`smoke-platform-script`, `migration-idempotency`. Real, dated pass/fail/skip counts + raw captured
+stdout/stderr for every one now live at `test-evidence/pt-11/suite-results-core.json` and
+`test-evidence/pt-11/logs/*.log`.
+
+**Caught a real, critical environment problem mid-run rather than reporting a false pass:** the only
+listening port at session start (`:3000`) was serving an unrelated project ("AFS"), not Benavora. The
+first vitest smoke-API attempt trivially "passed" against it (non-500/503 is satisfied by any server's
+404); the first Playwright public-smoke attempt correctly failed, but against AFS's real homepage.
+Started Benavora's own `next dev -p 3100` in the background, confirmed it was really Benavora
+(`curl | grep Benavora`), and re-ran both suites against it via env-var overrides. Tore the temporary
+server down afterward and confirmed the port was free again before finishing.
+
+**3 of 9 suites surfaced real, reproducing findings — none fabricated, none glossed over:**
+- `unit-src`: 132/133 — one regression test now fails for real (`regressions.test.ts`'s IRS-990
+  fetch test expects `"https://example.org"`, real code now returns the same URL with a trailing
+  slash).
+- `smoke-playwright-public`: 0/1 — the spec's expected H1 (`/Win More Grants/`) no longer matches the
+  real, current landing-page copy ("Your mission deserves every dollar available to it."), confirmed
+  against the real captured page snapshot (not the wrong-server AFS page from the pre-correction run).
+- `smoke-platform-script`: 26 PASS / 2 WARN / 1 FAIL — the one FAIL is a documented, expected miss (a
+  table that has never existed; its real analog passed separately).
+
+The other 6 (`unit-tests-dir`, `lib-tests`, `api-tests`, `smoke-vitest-api`, `smoke-playwright-e2e-root`,
+`migration-idempotency`) ran clean. `lib-tests` also **corrects** a stale same-day inventory claim
+(carried from a 2026-07-06 log) that `compliance.test.ts` fails on a missing env var — it does not, in
+this real run.
+
+Deliberately did not re-execute `scripts/audit/pt00-005-smoke-suite.mjs` (the separate, already
+one-day-fresh 464-route PT-00 smoke sweep) — stated explicitly in
+`suite-results-core.json.not_reexecuted_this_session`, not silently dropped.
+
+**New gate**, `scripts/audit/verify-pt11-002.mjs`: fails unless every suite record carries a real
+`run_command`, an existing non-empty `log_path` whose content actually contains a completion marker
+matching the recorded `exit_code`, a `counts` object with real numeric values, and a stated `finding`.
+Cross-checks against `suite-inventory.json` so no unit/smoke/api/migration suite can be silently
+dropped from the report. Confirmed: `node scripts/audit/verify-pt11-002.mjs` → PASS.
+
+---
+
 ## Last Updated: August 20, 2026 — audit PT-11: test-suite inventory.
 Inventoried every existing test suite in the repo (unit, smoke, api, visual-regression,
 cross-browser, soak, migration) across `src/__tests__/`, `tests/`, `e2e/`, and `scripts/` — 19 suite

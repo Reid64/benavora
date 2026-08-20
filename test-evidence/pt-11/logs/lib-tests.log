@@ -1,0 +1,111 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | tests/lib/directory.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+[90mstdout[2m | tests/lib/warmup-engine.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/lib/unsubscribe-agent.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[90mstdout[2m | tests/lib/template-engine.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌁ auth for agents [www.vestauth.com]
+
+[90mstdout[2m | tests/lib/encryption.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/lib/google-places.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/lib/compliance.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ override existing { override: true }
+
+[90mstdout[2m | tests/lib/rubric-extractor.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/lib/crawler-core.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ override existing { override: true }
+
+ [32m✓[39m tests/lib/rubric-extractor.test.ts[2m > [22mextractRubricFromText[2m > [22mparses Claude response correctly
+ [32m✓[39m tests/lib/rubric-extractor.test.ts[2m > [22mextractRubricFromText[2m > [22mhandles markdown-wrapped JSON from Claude
+ [32m✓[39m tests/lib/rubric-extractor.test.ts[2m > [22mextractRubricFromText[2m > [22mthrows when Claude returns a non-text block
+ [32m✓[39m tests/lib/rubric-extractor.test.ts[2m > [22mextractRubricFromOpportunity[2m > [22mreturns null for combined text under 100 chars
+ [32m✓[39m tests/lib/rubric-extractor.test.ts[2m > [22mextractRubricFromOpportunity[2m > [22mreturns null when Supabase returns no data
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.renderTemplate[2m > [22mreplaces all variables in subject and body
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.renderTemplate[2m > [22mthrows on missing required variable
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.renderTemplate[2m > [22mreplaces the same variable used multiple times
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.validateTemplate[2m > [22midentifies all variable placeholders
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.validateTemplate[2m > [22mwarns on unrecognized variables
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.validateTemplate[2m > [22maccepts custom_ prefixed variables without error
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.validateTemplate[2m > [22mreturns valid=true when all variables are standard
+ [32m✓[39m tests/lib/template-engine.test.ts[2m > [22mEmailTemplateEngine.validateTemplate[2m > [22mdeduplicates repeated variable placeholders
+ [32m✓[39m tests/lib/warmup-engine.test.ts[2m > [22mWarmupEngine.advanceWarmup[2m > [22mwarmup schedule matches spec (5→10→20→35→50)
+ [32m✓[39m tests/lib/warmup-engine.test.ts[2m > [22mWarmupEngine.advanceWarmup[2m > [22mhigh bounce rate (>3%) freezes warmup at current limit
+ [32m✓[39m tests/lib/warmup-engine.test.ts[2m > [22mWarmupEngine.advanceWarmup[2m > [22mvery high bounce rate (>5%) regresses one tier
+ [32m✓[39m tests/lib/warmup-engine.test.ts[2m > [22mWarmupEngine.advanceWarmup[2m > [22mdoes not advance a paused domain
+ [32m✓[39m tests/lib/warmup-engine.test.ts[2m > [22mWarmupEngine.getDailyBudget[2m > [22mcounts today's sends correctly and returns remaining budget
+ [32m✓[39m tests/lib/warmup-engine.test.ts[2m > [22mWarmupEngine.getDailyBudget[2m > [22mclamps remaining to zero when sends exceed limit
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mreturns null for null, undefined, and empty/whitespace input
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mstrips the http/https protocol
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mstrips a leading www.
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mstrips path, query string, and fragment
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mstrips a port number
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mlowercases the host
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mhandles a bare domain with no protocol or www
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mtrims surrounding whitespace before normalizing
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mnormalizeDomain[2m > [22mtreats different paths on the same host as the same domain
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mupsertDirectoryRecord[2m > [22mcalls the merge-upsert RPC with the normalized param shape
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mupsertDirectoryRecord[2m > [22mdefaults optional fields to null/empty when omitted (merge-friendly no-ops)
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mupsertDirectoryRecord[2m > [22mmaps the returned row, parsing the Postgres point geo string as {lat, lng}
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mupsertDirectoryRecord[2m > [22mthrows a descriptive error when the RPC returns an error
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mupsertDirectoryRecord[2m > [22mthrows when the RPC returns no row and no error
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mfindOrCreateProspect[2m > [22mreuses an existing prospect for the same (organization_id, directory_id) instead of inserting
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mfindOrCreateProspect[2m > [22minserts a new prospect when none exists for (organization_id, directory_id)
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mfindOrCreateProspect[2m > [22mfalls back to the winner's row on a unique-violation race instead of failing
+ [32m✓[39m tests/lib/directory.test.ts[2m > [22mfindOrCreateProspect[2m > [22mthrows (does not swallow) a non-race insert error
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22mrejects deceptive subject starting with RE:
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22mrejects deceptive subject starting with FW:
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22madds unsubscribe link if missing and returns modified_body
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22madds physical address if missing and returns modified_body
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22mcompliant email passes all checks with no violations
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine unsubscribe token[2m > [22mgenerateUnsubscribeToken/verifyUnsubscribeToken round-trips
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine unsubscribe token[2m > [22mfails verification with a wrong token
+ [32m✓[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine unsubscribe token[2m > [22mnormalises email to lowercase before hashing
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.classifyReply[2m > [22midentifies "unsubscribe me" as unsubscribe intent
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.classifyReply[2m > [22midentifies "tell me more" as positive intent
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.classifyReply[2m > [22midentifies "out of office" as auto_reply intent
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.classifyReply[2m > [22mstrips JSON code fences before parsing
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.classifyReply[2m > [22mreturns classification_failed when Anthropic throws
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.processIncomingReply — unsubscribe suppresses prospect[2m > [22madds email to suppression_list, marks prospect suppressed, and returns action=unsubscribed
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.processIncomingReply — unsubscribe suppresses prospect[2m > [22mdoes not suppress when confidence is at or below 0.7
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.processIncomingReply — unsubscribe suppresses prospect[2m > [22mreturns send_not_found when the send record does not exist
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.processIncomingReply — positive reply pauses sequence[2m > [22mmarks prospect has_replied, cancels queued sends, stamps send as replied
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.processIncomingReply — positive reply pauses sequence[2m > [22mdoes NOT add email to suppression_list on positive reply
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts[2m > [22mUnsubscribeAgent.processIncomingReply — positive reply pauses sequence[2m > [22mrecords reply without suppressing for auto_reply intent
+ [32m✓[39m tests/lib/google-places.test.ts[2m > [22mgoogle-places enumerate() budget guard[2m > [22mproceeds and records spend when well under the monthly budget
+ [32m✓[39m tests/lib/google-places.test.ts[2m > [22mgoogle-places enumerate() budget guard[2m > [22mhard-stops with DdBudgetExceededError before making a request once spend is at the cap
+ [32m✓[39m tests/lib/google-places.test.ts[2m > [22mgoogle-places enumerate() budget guard[2m > [22mhard-stops when spend is close enough to the cap that one more request would exceed it
+ [32m✓[39m tests/lib/google-places.test.ts[2m > [22mgoogle-places enumerate() budget guard[2m > [22mresets the budget on a new calendar month
+ [32m✓[39m tests/lib/google-places.test.ts[2m > [22mgoogle-places enumerate() budget guard[2m > [22mfalls back to the $200 default budget when DD_PLACES_MONTHLY_BUDGET_USD is unset
+ [32m✓[39m tests/lib/crawler-core.test.ts[2m > [22mDomainRateLimiter[2m > [22mresolves the first acquire for a domain immediately
+ [32m✓[39m tests/lib/crawler-core.test.ts[2m > [22mDomainRateLimiter[2m > [22menforces per-domain spacing: a second acquire for the same domain waits the full interval
+ [32m✓[39m tests/lib/crawler-core.test.ts[2m > [22mDomainRateLimiter[2m > [22ma third acquire for the same domain waits for its own full interval from the second
+ [32m✓[39m tests/lib/crawler-core.test.ts[2m > [22mDomainRateLimiter[2m > [22mindependent domains do not block each other
+ [32m✓[39m tests/lib/crawler-core.test.ts[2m > [22mDomainRateLimiter[2m > [22ma busy domain does not delay a concurrent acquire on a different domain
+ [32m✓[39m tests/lib/crawler-core.test.ts[2m > [22mDomainRateLimiter[2m > [22mrespects a per-call intervalMs override instead of the constructor default
+ [32m✓[39m tests/lib/encryption.test.ts[2m > [22mencryptToken / decryptToken[2m > [22mround-trips plaintext through encrypt then decrypt
+ [32m✓[39m tests/lib/encryption.test.ts[2m > [22mencryptToken / decryptToken[2m > [22mencrypted output differs from plaintext
+ [32m✓[39m tests/lib/encryption.test.ts[2m > [22mencryptToken / decryptToken[2m > [22mencrypted output has the expected v1 prefix format
+ [32m✓[39m tests/lib/encryption.test.ts[2m > [22mencryptToken / decryptToken[2m > [22mtwo encryptions of the same plaintext produce different ciphertexts (random IV)
+ [32m✓[39m tests/lib/encryption.test.ts[2m > [22mencryptToken / decryptToken[2m > [22mdecryptToken with wrong key throws an authentication error
+ [32m✓[39m tests/lib/encryption.test.ts[2m > [22mencryptToken / decryptToken[2m > [22mdecryptToken passes through a non-v1 string unchanged
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m73 passed[39m[22m[90m (73)[39m
+[2m   Start at [22m 03:17:13
+[2m   Duration [22m 1.74s[2m (transform 1.16s, setup 668ms, collect 1.99s, tests 429ms, environment 2ms, prepare 1.68s)[22m
+
+exit_code=0

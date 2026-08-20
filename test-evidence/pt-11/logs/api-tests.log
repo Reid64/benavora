@@ -1,0 +1,169 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | tests/api/analytics.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/api/autoapply.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/api/calendar.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+[90mstdout[2m | tests/api/grants.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ override existing { override: true }
+
+[90mstdout[2m | tests/api/auth.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/api/admin-sales.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/api/intelligence.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/api/donor-discovery-requests.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+[90mstdout[2m | tests/api/research.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/api/email.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ [32m✓[39m tests/api/calendar.test.ts[2m > [22mPOST /api/calendar/sync[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/calendar.test.ts[2m > [22mPOST /api/calendar/sync[2m > [22mreturns 404 when no active calendar connection exists
+ [32m✓[39m tests/api/calendar.test.ts[2m > [22mPOST /api/calendar/sync[2m > [22mreturns 500 when the calendar_connections lookup returns a DB error
+ [32m✓[39m tests/api/calendar.test.ts[2m > [22mPOST /api/calendar/sync[2m > [22mcalls GCalSyncEngine.syncDeadlinesOut and returns 200 on success
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mGET /api/auth/callback[2m > [22mredirects to /login when no code query param
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mGET /api/auth/callback[2m > [22mredirects to /login when code exchange fails
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mGET /api/auth/callback[2m > [22mredirects to /login when register_organization RPC fails
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mGET /api/auth/callback[2m > [22mredirects to /dashboard on successful code exchange and RPC
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mPOST /api/auth/log-event[2m > [22mreturns 401 when no authenticated session
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mPOST /api/auth/log-event[2m > [22mreturns 400 for invalid event value
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mPOST /api/auth/log-event[2m > [22mreturns 400 for malformed JSON body
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mPOST /api/auth/log-event[2m > [22mreturns 403 when profile cannot be resolved
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mPOST /api/auth/log-event[2m > [22mreturns 204 for a valid login event
+ [32m✓[39m tests/api/auth.test.ts[2m > [22mPOST /api/auth/log-event[2m > [22mreturns 204 for a valid logout event
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 403 for viewer role (writer required)
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 400 for an invalid agentType
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 400 for a missing agentType (no body field)
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 400 for sources array with no valid source keys
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 400 for malformed JSON body
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 403 when research_agents feature flag is disabled (agentType flow)
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22msucceeds and returns runId + status for a valid agentType
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22msucceeds for agentType=all (parallel mode)
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22msucceeds for multi-source flow (sources array — no feature flag required)
+ [32m✓[39m tests/api/research.test.ts[2m > [22mPOST /api/agents/research[2m > [22mreturns 429 when the per-org rate limit is exceeded
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mreturns 400 when funder_ids is absent
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mreturns 400 when funder_ids is an empty array
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mreturns 422 when batch size exceeds the tier cap (free tier: cap=5)
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mqueues new funders and returns queued count
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mskips funders that are already pending or processing
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/queue[2m > [22mconsultant tier has no batch cap (null)
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mGET /api/autoapply/controls[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mGET /api/autoapply/controls[2m > [22mreturns 200 with controls list
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mreturns 400 when control_type is absent
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mreturns 400 when reason is absent
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mreturns 401 when unauthenticated (owner-level tenant control)
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mreturns 403 when caller lacks admin role for platform control
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mreturns 400 when control_type is unknown
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mreturns 400 when tenant control is missing target_id
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mpauses a tenant queue and returns ok=true
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mPOST /api/autoapply/controls[2m > [22mpauses a funder and returns ok=true
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mDELETE /api/autoapply/controls[2m > [22mreturns 400 when control_type is absent
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mDELETE /api/autoapply/controls[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mDELETE /api/autoapply/controls[2m > [22mresumes a tenant queue and returns ok=true
+ [32m✓[39m tests/api/autoapply.test.ts[2m > [22mDELETE /api/autoapply/controls[2m > [22mresumes the platform queue and returns ok=true
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mPOST /api/donor-discovery/requests[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mPOST /api/donor-discovery/requests[2m > [22mreturns 403 for a viewer role (writer required)
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mPOST /api/donor-discovery/requests[2m > [22mcreates the request scoped to the caller's organization_id from the session, not the body
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mPOST /api/donor-discovery/requests[2m > [22mreturns 400 when taxonomy_ids is missing/empty
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mPOST /api/donor-discovery/requests[2m > [22mreturns 400 for an invalid geography shape
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mGET /api/donor-discovery/requests[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mGET /api/donor-discovery/requests[2m > [22mscopes the list query to the caller's organization_id
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mGET /api/donor-discovery/requests/[id][2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mGET /api/donor-discovery/requests/[id][2m > [22mreturns the request detail with progress when it belongs to the caller's org
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mGET /api/donor-discovery/requests/[id][2m > [22mreturns 404 when the request belongs to a different organization (cross-org access)
+ [32m✓[39m tests/api/donor-discovery-requests.test.ts[2m > [22mGET /api/donor-discovery/requests/[id][2m > [22mreturns 404 when the request id does not exist at all
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22mreturns 401 when requireRole rejects the caller
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22mreturns 400 for an invalid source value
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22mreturns 400 when source=manual and text is absent
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22mreturns 400 when source=url and url is absent
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22mreturns 422 when extractSections returns no usable sections
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22mingests manual text and returns proposal_id with sections_extracted
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/ingest[2m > [22minvokes ingestNihProposals and returns its result for source=nih
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 401 when no authenticated user
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 400 when category is absent
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 400 when program_description is absent
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 400 when organization_id is absent
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 403 when user does not belong to the requested org
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mgenerates and returns a logic model with success=true
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22msaves the model to the library when save_to_library=true
+ [32m✓[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mdoes not call admin insert when save_to_library is absent
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22madmin routes: non-admin access returns 403[2m > [22mPOST /api/admin/domains returns 403
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22madmin routes: non-admin access returns 403[2m > [22mPOST /api/admin/prospects returns 403
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22madmin routes: non-admin access returns 403[2m > [22mPOST /api/admin/campaigns returns 403
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/domains[2m > [22mreturns 400 when domain is missing
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/domains[2m > [22mreturns 400 when api_key is missing
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/domains[2m > [22mcreates domain via DomainManager and returns 201
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/domains[2m > [22mreturns 500 when DomainManager throws
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/prospects (CSV import)[2m > [22mreturns 400 when no file is attached
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/prospects (CSV import)[2m > [22mreturns 400 when list_name is absent
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/prospects (CSV import)[2m > [22mimports CSV and returns 201 with result stats
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/prospects (CSV import)[2m > [22mreturns 500 when ProspectManager throws
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/campaigns[2m > [22mreturns 400 when required fields are missing
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/campaigns[2m > [22mreturns 400 when steps is not an array
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/campaigns[2m > [22mcreates campaign and returns 201 with id
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mPOST /api/admin/campaigns[2m > [22mreturns 500 when SalesCampaignEngine.createCampaign throws
+ [32m✓[39m tests/api/email.test.ts[2m > [22mGET /api/email/auth[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/email.test.ts[2m > [22mGET /api/email/auth[2m > [22mreturns 400 when redirect_uri query param is absent
+ [32m✓[39m tests/api/email.test.ts[2m > [22mGET /api/email/auth[2m > [22mreturns OAuth URL when authenticated with a redirect_uri
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/sync[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/sync[2m > [22mreturns 404 when no active email connection exists
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/sync[2m > [22mruns full sync when connection has no cursor
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/sync[2m > [22mruns incremental sync when a cursor is present
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/sync[2m > [22mforces full sync when full_sync=true even if cursor exists
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/link[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/link[2m > [22mreturns 400 when thread_id is missing
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/link[2m > [22mruns bulk auto-link when thread_id=auto
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/link[2m > [22mlinks thread to funder manually and returns linked=true with method=manual
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/send[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/send[2m > [22mreturns 400 when to array is absent
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/send[2m > [22mreturns 400 when subject is absent
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/send[2m > [22mreturns 400 when body is absent
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/send[2m > [22mreturns 429 when the 20-sends-per-minute rate limit is reached
+ [32m✓[39m tests/api/email.test.ts[2m > [22mPOST /api/email/send[2m > [22mreturns 200 with success=true when email sends successfully
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mSalesCampaignEngine.processQueuedSends — suppression check[2m > [22mmarks send as suppressed and increments skipped_suppressed when email is in suppression list
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mSalesCampaignEngine.processQueuedSends — suppression check[2m > [22mcase-insensitively matches suppressed emails
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mSalesCampaignEngine.processQueuedSends — suppression check[2m > [22mdoes not suppress when email is not in suppression list
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mSalesCampaignEngine.processQueuedSends — daily budget enforcement[2m > [22mskips send and increments skipped_budget when domain remaining is 0
+ [32m✓[39m tests/api/admin-sales.test.ts[2m > [22mSalesCampaignEngine.processQueuedSends — daily budget enforcement[2m > [22mdoes not skip send when domain still has budget remaining
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mreturns grants scoped to the org_id
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mreturns 400 for invalid source_type enum value
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mreturns 400 for invalid eligibility_flag
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mapplies source_type filter as category .in() query
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mrespects page and limit query params
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mcaps limit at 100
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants[2m > [22mreturns empty data with zero total for an org with no grants
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mreturns 403 for viewer role (writer required)
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mreturns 400 when no updatable fields are provided
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mreturns 400 for invalid source_type enum
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mreturns 400 for invalid status enum
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mreturns 404 for a non-uuid grant id
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mPATCH /api/grants/[id][2m > [22mupdates grant fields and returns the updated grant
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants/[id][2m > [22mreturns 401 when unauthenticated
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants/[id][2m > [22mreturns the grant when found in the org
+ [32m✓[39m tests/api/grants.test.ts[2m > [22mGET /api/grants/[id][2m > [22mreturns 404 for a non-uuid id
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (10)[39m
+[2m      Tests [22m [1m[32m128 passed[39m[22m[2m | [22m[90m13 todo[39m[90m (141)[39m
+[2m   Start at [22m 03:17:22
+[2m   Duration [22m 1.94s[2m (transform 1.69s, setup 763ms, collect 4.53s, tests 352ms, environment 3ms, prepare 2.01s)[22m
+
+exit_code=0

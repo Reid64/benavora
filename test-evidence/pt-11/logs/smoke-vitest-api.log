@@ -1,0 +1,19 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | src/__tests__/smoke/api-smoke.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+ [32m✓[39m src/__tests__/smoke/api-smoke.test.ts[2m > [22mAPI smoke tests[2m > [22mGET /api/alerts does not return 500 or 503[33m 1800[2mms[22m[39m
+ [32m✓[39m src/__tests__/smoke/api-smoke.test.ts[2m > [22mAPI smoke tests[2m > [22mGET /api/opportunities does not return 500 or 503
+ [32m✓[39m src/__tests__/smoke/api-smoke.test.ts[2m > [22mAPI smoke tests[2m > [22mGET /api/funders does not return 500 or 503
+ [32m✓[39m src/__tests__/smoke/api-smoke.test.ts[2m > [22mAPI smoke tests[2m > [22mGET /api/agents/research/status does not return 500 or 503
+ [32m✓[39m src/__tests__/smoke/api-smoke.test.ts[2m > [22mAPI smoke tests[2m > [22mGET /api/automation/stats does not return 500 or 503
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 03:19:29
+[2m   Duration [22m 3.41s[2m (transform 101ms, setup 105ms, collect 15ms, tests 2.20s, environment 0ms, prepare 184ms)[22m
+
+exit_code=0

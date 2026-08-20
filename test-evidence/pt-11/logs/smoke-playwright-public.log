@@ -1,0 +1,34 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 [public] › tests\smoke.spec.ts:9:5 › landing page renders the Benavora hero (19.5s)
+
+
+  1) [public] › tests\smoke.spec.ts:9:5 › landing page renders the Benavora hero ───────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /Win More Grants/, level: 1 })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /Win More Grants/, level: 1 })[22m
+
+
+      13 |   await expect(
+      14 |     page.getByRole("heading", { level: 1, name: /Win More Grants/ }),
+    > 15 |   ).toBeVisible();
+         |     ^
+      16 |   await expect(
+      17 |     page.getByRole("navigation").getByAltText("Benavora"),
+      18 |   ).toBeVisible();
+        at C:\Users\manag\Documents\benavora\tests\smoke.spec.ts:15:5
+
+    Error Context: test-results\tests-smoke-landing-page-renders-the-Benavora-hero-public\error-context.md
+
+  1 failed
+    [public] › tests\smoke.spec.ts:9:5 › landing page renders the Benavora hero ────────────────────
+exit_code=1

@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-08-20T08:23:18Z",
+  "method": "Every suite below was actually executed this session (not summarized from prior claims). Vitest suites ran via `npx vitest run <path> --reporter=verbose`, redirecting combined stdout+stderr to a log file under test-evidence/pt-11/logs/ and appending a literal `exit_code=N` line captured from the shell's own $? immediately after the process exited. Playwright suites ran via `npx playwright test <spec> --project=<name> --reporter=list` with the same log+exit_code capture. The migration suite ran via `npx tsx scripts/check-migration-idempotency.ts` (static analysis + live BEGIN/ROLLBACK spot-check against the real DATABASE_URL — no data was committed). The custom platform smoke script ran via `npx tsx scripts/platform-smoke-test.ts` (read-only live Supabase queries). counts.passed/failed/skipped are parsed directly from each tool's own final summary line, quoted verbatim in `summary_line_verbatim` for independent verification against the raw log.",
+  "environment_finding": "CRITICAL, discovered mid-run, not pre-existing knowledge applied blindly: the only listening port on this machine at session start was :3000, and it was serving a completely unrelated project (\"AFS — Architectural Flashing Supply\"), not Benavora. The first attempt at smoke-vitest-api (unauthenticated GET requests, which trivially return non-500/503 from ANY server) produced a misleading PASS against the wrong app, and the first attempt at smoke-playwright-public failed against AFS's real homepage content (captured in the now-superseded run before correction). Both were re-run for real after starting Benavora's own `next dev -p 3100` in the background (confirmed via `curl http://localhost:3100 | grep Benavora`) and pointing each tool at it via NEXT_PUBLIC_APP_URL / PLAYWRIGHT_BASE_URL. All results below reflect the corrected, port-3100 runs. The temporary dev server was stopped (`taskkill /F /PID 13960`) before this file was written; port 3100 is confirmed no longer listening.",
+  "suites": [
+    {
+      "id": "unit-src",
+      "category": "unit",
+      "run_command": "npx vitest run src/__tests__/unit --reporter=verbose",
+      "log_path": "test-evidence/pt-11/logs/unit-src.log",
+      "exit_code": 1,
+      "status": "ran_to_completion_with_failures",
+      "counts": { "test_files_passed": 12, "test_files_failed": 1, "test_files_total": 13, "tests_passed": 132, "tests_failed": 1, "tests_skipped": 0, "tests_total": 133 },
+      "summary_line_verbatim": "Test Files  1 failed | 12 passed (13) / Tests  1 failed | 132 passed (133)",
+      "finding": "REAL FAILURE (not a fabrication, not stale): src/__tests__/unit/regressions.test.ts — \"regression: IRS 990 XML fetch using dead S3 URL / wrong fetch method (fetchPage vs fetchRaw)\" > \"resolves a filing via fetchRaw() on the direct XML URL and never calls fetchPage()\". Expected website \"https://example.org\" but the code now returns \"https://example.org/\" (a trailing slash was added somewhere in the real fetchRaw/normalization path since this regression test was written). This is a genuine, currently-reproducing test/code drift, not a flake — same result on inspection of the raw log."
+    },
+    {
+      "id": "unit-tests-dir",
+      "category": "unit",
+      "run_command": "npx vitest run tests/unit --reporter=verbose",
+      "log_path": "test-evidence/pt-11/logs/unit-tests-dir.log",
+      "exit_code": 0,
+      "status": "ran_to_completion_all_passed",
+      "counts": { "test_files_passed": 2, "test_files_failed": 0, "test_files_total": 2, "tests_passed": 9, "tests_failed": 0, "tests_skipped": 0, "tests_total": 9 },
+      "summary_line_verbatim": "Test Files  2 passed (2) / Tests  9 passed (9)",
+      "finding": "None. Real, clean pass."
+    },
+    {
+      "id": "lib-tests",
+      "category": "unit (lib)",
+      "run_command": "npx vitest run tests/lib --reporter=verbose",
+      "log_path": "test-evidence/pt-11/logs/lib-tests.log",
+      "exit_code": 0,
+      "status": "ran_to_completion_all_passed",
+      "counts": { "test_files_passed": 9, "test_files_failed": 0, "test_files_total": 9, "tests_passed": 73, "tests_failed": 0, "tests_skipped": 0, "tests_total": 73 },
+      "summary_line_verbatim": "Test Files  9 passed (9) / Tests  73 passed (73)",
+      "finding": "The suite-inventory.json entry for this suite (built 2026-08-20, same day, from a stale 2026-07-06 log) claimed tests/lib/compliance.test.ts failed on a missing UNSUBSCRIBE_HMAC_SECRET env var. That is NOT what happened in this real run — all 9 files including compliance.test.ts passed cleanly. Either the env var is now supplied by tests/.env.test or the code no longer requires it at test time; either way, the inventory's stale claim is now superseded by this real, dated run."
+    },
+    {
+      "id": "api-tests",
+      "category": "api",
+      "run_command": "npx vitest run tests/api --reporter=verbose",
+      "log_path": "test-evidence/pt-11/logs/api-tests.log",
+      "exit_code": 0,
+      "status": "ran_to_completion_all_passed",
+      "counts": { "test_files_passed": 9, "test_files_failed": 0, "test_files_skipped": 1, "test_files_total": 10, "tests_passed": 128, "tests_failed": 0, "tests_todo": 13, "tests_total": 141 },
+      "summary_line_verbatim": "Test Files  9 passed | 1 skipped (10) / Tests  128 passed | 13 todo (141)",
+      "finding": "None failing. One file skipped, 13 tests marked todo (placeholders, not failures) — real, unchanged behavior of the suite as authored, not evidence of a broken run."
+    },
+    {
+      "id": "smoke-vitest-api",
+      "category": "smoke",
+      "run_command": "NEXT_PUBLIC_APP_URL=http://localhost:3100 npx vitest run src/__tests__/smoke --reporter=verbose",
+      "log_path": "test-evidence/pt-11/logs/smoke-vitest-api.log",
+      "exit_code": 0,
+      "status": "ran_to_completion_all_passed",
+      "counts": { "test_files_passed": 1, "test_files_failed": 0, "test_files_total": 1, "tests_passed": 5, "tests_failed": 0, "tests_skipped": 0, "tests_total": 5 },
+      "summary_line_verbatim": "Test Files  1 passed (1) / Tests  5 passed (5)",
+      "finding": "First attempt (superseded, not counted here) ran against the wrong server (port 3000 = unrelated 'AFS' project) and produced a meaningless pass, since this test only checks for non-500/503 status — any server answering 404 satisfies it trivially. Re-run for real against Benavora's own dev server on port 3100 via NEXT_PUBLIC_APP_URL override. All 5 routes (/api/alerts, /api/opportunities, /api/funders, /api/agents/research/status, /api/automation/stats) returned genuinely reachable, non-500/503 responses from the real app (unauthenticated, so likely 401s — still a legitimate pass per this test's own stated scope)."
+    },
+    {
+      "id": "smoke-playwright-public",
+      "category": "smoke",
+      "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 npx playwright test tests/smoke.spec.ts --project=public --reporter=list",
+      "log_path": "test-evidence/pt-11/logs/smoke-playwright-public.log",
+      "exit_code": 1,
+      "status": "ran_to_completion_with_failures",
+      "counts": { "tests_passed": 0, "tests_failed": 1, "tests_total": 1 },
+      "summary_line_verbatim": "1 failed",
+      "finding": "REAL FAILURE, correctly reproduced against Benavora's own real server (confirmed via error-context.md's captured page snapshot — real Benavora nav/logo/CTA content, not the wrong-server AFS page from the pre-correction attempt). The test asserts an H1 heading matching /Win More Grants/; the landing page's actual, current H1 is \"Your mission deserves every dollar available to it.\" This is a genuine, currently-reproducing stale test expectation (the homepage copy changed at some point and this spec was never updated to match) — not a flake, not an environment artifact. Full page snapshot preserved at test-results/tests-smoke-landing-page-renders-the-Benavora-hero-public/error-context.md."
+    },
+    {
+      "id": "smoke-playwright-e2e-root",
+      "category": "smoke",
+      "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 npx playwright test e2e/smoke.spec.ts --project=critical-paths --reporter=list",
+      "log_path": "test-evidence/pt-11/logs/smoke-playwright-e2e-root.log",
+      "exit_code": 0,
+      "status": "ran_to_completion_all_passed",
+      "counts": { "tests_passed": 3, "tests_failed": 0, "tests_total": 3 },
+      "summary_line_verbatim": "3 passed (1.4m)",
+      "finding": "None. Includes the real \"setup\" project dependency (2 tests: authenticate+seed the dedicated E2E test org, authenticate the mid-onboarding account) plus the actual smoke spec — a real login against the dedicated owner.e2e@benavora-test.dev account followed by real navigation to /dashboard, /funders, /contacts, /opportunities, /applications, /draft-generator, /documents, /knowledge-base, /deadlines, /analytics (or its fallback), /autoapply, /intelligence-library, /email, /settings, /settings/integrations, asserting each has no 500/Error content and a visible main container. All passed against the real running app on port 3100."
+    },
+    {
+      "id": "smoke-platform-script",
+      "category": "smoke",
+      "run_command": "npx tsx scripts/platform-smoke-test.ts",
+      "log_path": "test-evidence/pt-11/logs/smoke-platform-script.log",
+      "exit_code": 1,
+      "status": "ran_to_completion_with_failures",
+      "counts": { "passed": 26, "warned": 2, "failed": 1, "total": 29 },
+      "summary_line_verbatim": "PASS: 26  WARN: 2  FAIL: 1  TOTAL: 29",
+      "finding": "The one FAIL (`ff:knowledge_base_profiles`, \"Could not find the table 'public.knowledge_base_profiles' in the schema cache\") is explicitly documented in this script's own header comment as an EXPECTED miss — that literal table has never existed anywhere in the repo (not even in the unapplied duplicate migrations tree); every real agent reads the analog `organizational_digital_twins.twin_completeness_score` instead, which is checked separately and PASSED (twin_completeness_score=70). Not treated as a hidden pass — the script itself still exits 1 on this FAIL, and that exit code is recorded honestly above rather than rounded up to \"all clean.\" The 2 WARNs (`platform_learning_patterns` count=0) reflect a real, empty table in production today, not a script defect. Real live data confirmed: 130 organizations, 1252 opportunities, 24360 agent_runs, FAITH Foundation org present with 325 real opportunities and 494 real agent_runs."
+    },
+    {
+      "id": "migration-idempotency",
+      "category": "migration",
+      "run_command": "npx tsx scripts/check-migration-idempotency.ts",
+      "log_path": "test-evidence/pt-11/logs/migration-idempotency.log",
+      "exit_code": 0,
+      "status": "ran_to_completion",
+      "counts": {
+        "root_supabase_migrations": { "files": 142, "ddl_statements_classified": 1026, "non_idempotent": 383, "files_fully_clean": 89 },
+        "src_supabase_migrations": { "files": 57, "ddl_statements_classified": 309, "non_idempotent": 76, "files_fully_clean": 48 },
+        "live_spot_check_root": { "migrations_re_run_live": 5, "clean_noop": 2, "expected_error": 3, "unexpected_error": 0 },
+        "live_spot_check_src": { "migrations_re_run_live": 5, "clean_noop": 4, "expected_error": 1, "unexpected_error": 0 }
+      },
+      "summary_line_verbatim": "root supabase/migrations/: 142 files, 1026 DDL statements classified, 383 non-idempotent, 89/142 files fully clean / src/supabase/migrations/: 57 files, 309 DDL statements classified, 76 non-idempotent, 48/57 files fully clean",
+      "finding": "This is not a pass/fail test framework — it's a real static-analysis + live-rollback-transaction audit tool. It ran to genuine completion (exit 0) against the real, live DATABASE_URL: 10 already-applied migrations (5 per directory) were re-executed inside BEGIN;...;ROLLBACK; against production — 6 clean no-ops, 4 expected (\"already exists\"-class, harmless) errors, 0 unexpected errors. Nothing was committed to production; this matches the already-established safe pattern for this script. File counts here (142/57) differ slightly from the 2026-08-08 figures cited in suite-inventory.json (135/57 root, 57/57 src) because more migration files have been added to the root directory since that prior run — a real, current, dated count, not a discrepancy to be alarmed about. Wrote (overwrote) MIGRATION_IDEMPOTENCY_AUDIT.md at the repo root — left out of this session's scoped commit per the task's explicit file-scope instruction (test-evidence/, scripts/audit/, STATE_OF_THE_BUILD.md, SESSION_STATE.md only)."
+    }
+  ],
+  "not_reexecuted_this_session": [
+    {
+      "id": "smoke-pt-audit-suite",
+      "category": "smoke (PT-series audit tooling, not an application test suite)",
+      "reason": "This is the separate PT-00 464-route real-browser smoke sweep (scripts/audit/pt00-005-smoke-suite.mjs), already run to genuine completion with real, dated evidence exactly one day before this session (test-evidence/pt-00/smoke-results.json, generatedAt 2026-08-19T06:38:29.451Z, 464 routes, per-route status/rendered_ok results). It is flagged in suite-inventory.json's own category text as audit tooling distinct from the application's own unit/smoke/api/migration test suites this task scopes to, and re-running a 464-route full-application Playwright sweep (each with up to a 30s per-route timeout) was judged disproportionate given it already has real, current, one-day-old dated evidence on disk. This is a deliberate scope decision, stated here rather than silently omitted or falsely claimed as freshly re-run this session."
+    }
+  ]
+}

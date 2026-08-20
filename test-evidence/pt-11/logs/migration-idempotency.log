@@ -1,0 +1,22 @@
+◇ injected env (9) from .env.local // tip: ⌘ suppress logs { quiet: true }
+Migration idempotency check — static analysis
+
+root supabase/migrations/: 142 files, 1026 DDL statements classified, 383 non-idempotent, 89/142 files fully clean
+src/supabase/migrations/: 57 files, 309 DDL statements classified, 76 non-idempotent, 48/57 files fully clean
+
+Live spot-check — connecting via DATABASE_URL...
+  root supabase/migrations/: 5 migrations re-run live (transaction rolled back)
+    - 001_initial_schema.sql: expected-error
+    - 002_phases_2_5.sql: expected-error
+    - 003_onboarding.sql: clean-noop
+    - 009_draft_versions.sql: expected-error
+    - 010_opportunity_source_type.sql: clean-noop
+  src/supabase/migrations/: 5 migrations re-run live (transaction rolled back)
+    - 072_donor_discovery_taxonomy_aliases.sql: clean-noop
+    - 073_adapter_usage_log.sql: clean-noop
+    - 074_donor_discovery_geocache.sql: clean-noop
+    - 075_agent_marketplace.sql: expected-error
+    - 076_reputation_intelligence.sql: clean-noop
+
+Wrote C:\Users\manag\Documents\benavora\MIGRATION_IDEMPOTENCY_AUDIT.md
+exit_code=0

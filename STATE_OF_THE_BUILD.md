@@ -1,5 +1,85 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-11: core suites executed with real numbers.** Followed up on
+the PT-11 test-suite inventory (immediately below) by actually *running* the 9 real
+unit/smoke/api/migration suite records it identified as "unknown"/"stale claim only" plus the two
+that already had real (but stale) evidence — real, dated pass/fail/skip counts and raw captured
+output now live at `test-evidence/pt-11/suite-results-core.json` +
+`test-evidence/pt-11/logs/*.log`, not a re-summary of prior claims.
+
+**Critical environment finding, caught mid-run rather than assumed away:** the only port listening
+on this machine at session start was `:3000`, and it was serving a completely unrelated project
+("AFS — Architectural Flashing Supply"), not Benavora — the same collision this project's own memory
+has documented before. The first attempt at the vitest API smoke test (`src/__tests__/smoke/api-smoke.test.ts`)
+produced a misleading PASS against the wrong server, since that test only asserts non-500/503 and any
+server's 404 satisfies it trivially; the first attempt at the Playwright public smoke spec correctly
+failed, but against AFS's real homepage, not Benavora's. Both were re-run for real after starting
+Benavora's own `next dev -p 3100` in the background (confirmed via `curl http://localhost:3100 | grep
+Benavora`) and pointing each tool at it via `NEXT_PUBLIC_APP_URL`/`PLAYWRIGHT_BASE_URL`. The temporary
+server was torn down (`taskkill /F /PID 13960`, confirmed no longer listening) before this entry was
+written.
+
+**Real results, 9 suites executed, 3 with genuine failures/findings (not fabricated, not glossed
+over):**
+- **unit-src** (`src/__tests__/unit`, 13 files): 132/133 passed. **Real regression-test failure**:
+  `regressions.test.ts`'s IRS-990-fetch test expects `website: "https://example.org"` but the real
+  code now returns `"https://example.org/"` — a trailing slash was introduced somewhere in the real
+  fetch/normalization path since this regression test was written, and it currently reproduces, not a
+  flake.
+- **unit-tests-dir** (`tests/unit`, 2 files): 9/9 passed, clean.
+- **lib-tests** (`tests/lib`, 9 files): 73/73 passed, clean. **Corrects a stale claim from the
+  same-day PT-11-001 inventory**, itself carried from a 2026-07-06 log, that `compliance.test.ts`
+  fails on a missing `UNSUBSCRIBE_HMAC_SECRET` — it does not, in this real, current run.
+- **api-tests** (`tests/api`, 10 files): 128/128 real tests passed (1 file skipped, 13 todo
+  placeholders — not failures), clean.
+- **smoke-vitest-api** (`src/__tests__/smoke`, 1 file, re-run against the real port-3100 server):
+  5/5 passed — all 5 API routes genuinely reachable and non-500/503.
+- **smoke-playwright-public** (`tests/smoke.spec.ts`, re-run against the real port-3100 server): **1/1
+  real, reproducing failure.** The spec asserts an H1 matching `/Win More Grants/`; the landing page's
+  actual current H1 is "Your mission deserves every dollar available to it." — genuinely stale test
+  copy, not an environment artifact (confirmed via the real page snapshot in
+  `test-results/tests-smoke-landing-page-renders-the-Benavora-hero-public/error-context.md`, showing
+  real Benavora nav/logo/CTA content).
+- **smoke-playwright-e2e-root** (`e2e/smoke.spec.ts`, critical-paths project incl. its `setup`
+  dependency, re-run against the real port-3100 server): 3/3 passed — real login as the dedicated
+  `owner.e2e@benavora-test.dev` account, then every one of 15 critical pages loaded without a 500/Error
+  and with a visible main container.
+- **smoke-platform-script** (`scripts/platform-smoke-test.ts`, live read-only Supabase queries): 26
+  PASS / 2 WARN / 1 FAIL (exit 1). The one FAIL (`knowledge_base_profiles` table not found) is
+  explicitly documented in the script's own header as an *expected* miss — no such table has ever
+  existed, and the real analog (`organizational_digital_twins.twin_completeness_score=70`) passed
+  separately. Real live counts confirmed: 130 organizations, 1,252 opportunities, 24,360 agent_runs,
+  FAITH Foundation org present with 325 real opportunities.
+- **migration-idempotency** (`scripts/check-migration-idempotency.ts`, static analysis + live
+  BEGIN/ROLLBACK spot-check against the real `DATABASE_URL`, nothing committed): ran clean (exit 0).
+  Root `supabase/migrations/`: 142 files, 1,026 DDL statements classified, 383 non-idempotent, 89/142
+  files fully clean. `src/supabase/migrations/`: 57 files, 309 classified, 76 non-idempotent, 48/57
+  clean. Live spot-check of 10 already-applied migrations (5 per directory) inside a rolled-back
+  transaction: 6 clean no-ops, 4 expected/harmless "already exists" errors, 0 unexpected errors. File
+  counts (142 vs. the 2026-08-08 audit's 135) reflect real migration files added to the root directory
+  since then, not a discrepancy. This run regenerated `MIGRATION_IDEMPOTENCY_AUDIT.md` at the repo
+  root — left out of this session's scoped commit (test-evidence/, scripts/audit/,
+  STATE_OF_THE_BUILD.md, SESSION_STATE.md only), per explicit task scope.
+
+**Deliberately not re-executed this session, stated rather than silently dropped:**
+`scripts/audit/pt00-005-smoke-suite.mjs` (the separate PT-00 464-route real-browser smoke sweep) —
+already has genuine, dated evidence from exactly one day earlier
+(`test-evidence/pt-00/smoke-results.json`, generated 2026-08-19T06:38:29Z). Re-running a 464-route
+full-app Playwright sweep (up to 30s timeout per route) was judged disproportionate given it already
+has real, current, one-day-old evidence on disk and is documented in its own inventory entry as audit
+tooling distinct from the application's unit/smoke/api/migration test suites this task scopes to.
+
+**New gate:** `scripts/audit/verify-pt11-002.mjs` — fails unless `suite-results-core.json` records,
+per suite, a real `run_command`, an existing non-empty `log_path` containing a recognizable
+completion marker matching the recorded `exit_code`, a `counts` object with at least one real numeric
+value, and a stated `finding` (including "none"). Also cross-checks every unit/smoke/api/migration
+suite named in `suite-inventory.json` is accounted for — either executed or explicitly, reasonedly
+deferred — so nothing can be silently dropped from the report. Confirmed passing:
+`node scripts/audit/verify-pt11-002.mjs` — "9 suites executed... 1 suite explicitly deferred... All
+checks passed. PT-11-002 gate: PASS."
+
+---
+
 **Updated: August 20, 2026 — audit PT-11: test-suite inventory.** Full inventory of every test
 suite that exists in the repo — unit, smoke, api, visual-regression, cross-browser, soak, and
 migration tests — across `src/__tests__/`, `tests/`, `e2e/`, and `scripts/`, written to

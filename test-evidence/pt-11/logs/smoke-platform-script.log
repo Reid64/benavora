@@ -1,0 +1,66 @@
+◇ injected env (9) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+==============================================================================
+BENAVORA — Platform Smoke Test
+==============================================================================
+
+==============================================================================
+1. DATABASE CONNECTIVITY
+==============================================================================
+[PASS] table:organizations — count=130
+[PASS] table:opportunities — count=1252
+[PASS] table:applications — count=10
+[PASS] table:intelligence_funded_proposals — count=3489
+[WARN] table:platform_learning_patterns — count=0 (expected >= 1)
+[PASS] table:agent_runs — count=24360
+[PASS] table:strategic_recommendations — count=0
+[PASS] table:fundability_scores — count=0
+
+==============================================================================
+2. AGENT IMPORT VERIFICATION
+==============================================================================
+[PASS] agent:OpportunityDiscoveryAgent — instantiated
+[PASS] agent:ProbabilityScoringAgent — instantiated
+[PASS] agent:DraftGenerationAgent — instantiated
+[PASS] agent:FundabilityScorerAgent — instantiated
+[PASS] agent:DonorIntentMonitorAgent — instantiated
+[PASS] agent:CommunityNeedPredictorAgent — instantiated
+[PASS] agent:StrategicAdvisorAgent — instantiated
+[PASS] agent:SelfImprovementAgent — instantiated
+[PASS] agent:RoiOptimizerAgent — instantiated
+
+==============================================================================
+3. FAITH FOUNDATION DATA CHECK
+==============================================================================
+[PASS] ff:organizations — name=FAITH Foundation
+[FAIL] ff:knowledge_base_profiles (literal, expected miss) — Could not find the table 'public.knowledge_base_profiles' in the schema cache
+[PASS] ff:organizational_digital_twins (real analog) — twin_completeness_score=70
+[PASS] ff:org_autonomous_config — row present
+[PASS] ff:opportunities count — count=325
+[PASS] ff:agent_runs count — count=494
+
+==============================================================================
+4. INTELLIGENCE LIBRARY CHECK
+==============================================================================
+[PASS] lib:category breakdown — {"health":606,"research":590,"chronic_disease":5,"community_health":6,"hiv_prevention":2,"maternal_child_health":3,"aging":5,"rural_development":6,"broadband":1,"digital_equity":3,"education":318,"community":308,"behavioral_health":4,"housing":18,"homelessness":7,"supportive_housing":2,"affordable_housing":2,"preservation":1,"family_services":4,"food_access":3,"cooperative":2,"B":10,"private_foundation":26,"college_access":1,"youth":13,"domestic_violence":2,"transitional_housing":2,"homeownership":2,"community_land_trust":2,"justice":5,"violence_prevention":2,"public_safety":1,"reentry":2,"workforce_development":9,"E":9,"government_grant":28,"health_equity":3,"juvenile_justice":2,"restorative_justice":2,"drug_court":1,"treatment_coordination":1,"victim_services":1,"rural":1,"emergency_services":1,"community_facilities":1,"agriculture":1,"F":1,"mental_health":2,"substance_use":1,"rural_health":7,"telehealth":2,"migrant_health":1,"disability_services":2,"palliative_care":1,"education_grant":4,"literacy":1,"k12":2,"after_school":1,"corporate_foundation":14,"adult_literacy":1,"early_childhood":1,"childcare":1,"stem":1,"special_education":1,"ell":1,"family_engagement":1,"cte":1,"library_services":1,"P":10,"human_services":10,"hunger":1,"housing_grant":8,"child_welfare":1,"senior_services":1,"immigrant_services":1,"refugee_services":1,"financial_assistance":3,"economic_mobility":3,"L":10,"voucher_administration":1,"capital_project":1,"foster_care":1,"veterans":7,"foreclosure_prevention":1,"rental_assistance":1,"eviction_prevention":1,"displacement_prevention":1,"rural_housing":1,"manufactured_housing":1,"A":8,"arts":8,"community_arts":1,"cultural_access":2,"arts_education":1,"historic_preservation":1,"cultural_heritage":2,"museum_education":1,"performing_arts":1,"theatre":1,"public_art":1,"placemaking":1,"folk_arts":1,"media_arts":1,"C":8,"environment":8,"urban_greening":1,"environmental_justice":1,"watershed_protection":1,"water_quality":1,"environmental_education":1,"community_gardens":1,"wildlife_conservation":1,"habitat_restoration":1,"climate_resilience":1,"coastal_flooding":1,"recycling":1,"waste_diversion":1,"clean_energy":1,"energy_equity":1,"S":10,"community_development":8,"economic_development":1,"small_business":2,"neighborhood_revitalization":1,"technology_access":1,"civic_engagement":2,"volunteer_programs":1,"capacity_building":1,"W":6,"ptsd_treatment":1,"veteran_employment":1,"caregiver_support":1,"O":6,"mentoring":1,"youth_development":3,"summer_programming":1,"sports":1,"gang_prevention":1,"youth_leadership":1,"D":4,"animal_welfare":4,"animal_shelter":1,"spay_neuter":1,"wildlife_rehabilitation":1,"pet_adoption":1,"benchmark_data":2}
+[PASS] lib:full_text >= 200 words — 873/1000 rows (87.3%, want >= 80%)
+[PASS] lib:reviewer_comments populated (no success_factors column exists) — 0/1000 rows
+
+==============================================================================
+5. PLATFORM LEARNING PATTERNS
+==============================================================================
+[WARN] plp:count — count=0
+[PASS] plp:success_rate populated — 0/0 rows
+[PASS] plp:pattern_content populated — 0/0 rows
+
+==============================================================================
+SUMMARY
+==============================================================================
+PASS: 26  WARN: 2  FAIL: 1  TOTAL: 29
+
+Failures:
+  - ff:knowledge_base_profiles (literal, expected miss): Could not find the table 'public.knowledge_base_profiles' in the schema cache
+
+Warnings:
+  - table:platform_learning_patterns: count=0 (expected >= 1)
+  - plp:count: count=0
+exit_code=1

@@ -1,0 +1,167 @@
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3100
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · cpus
+
+ ✓ Starting...
+ ✓ Ready in 2.9s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1625ms (125 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 19.9s (568 modules)
+ GET / 200 in 963ms
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (102kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (243kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ GET / 200 in 69ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1469ms (678 modules)
+ GET /login 200 in 1707ms
+ GET /login 200 in 94ms
+ GET /login 200 in 77ms
+ GET /login 200 in 86ms
+ GET /login 200 in 56ms
+ GET / 200 in 104ms
+ GET /login 200 in 61ms
+ GET /login 200 in 86ms
+ GET /login 200 in 73ms
+ ○ Compiling /api/auth/log-event ...
+ ✓ Compiled /api/auth/log-event in 898ms (421 modules)
+ POST /api/auth/log-event 204 in 3208ms
+ POST /api/auth/log-event 204 in 3411ms
+ ○ Compiling /onboarding ...
+ ✓ Compiled /onboarding in 3.3s (1133 modules)
+ GET /login 200 in 176ms
+ POST /api/auth/log-event 204 in 308ms
+ ✓ Compiled /api/scraper/status in 296ms (648 modules)
+ GET /dashboard 200 in 700ms
+ ✓ Compiled (723 modules)
+ ○ Compiling /funders ...
+ ✓ Compiled /funders in 815ms (1232 modules)
+ GET /api/notifications?unread_only=true 200 in 494ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/nav-counts 200 in 495ms
+ GET /api/nav-counts 200 in 495ms
+ GET /api/nav-counts 200 in 516ms
+ GET /api/scraper/status 200 in 497ms
+ GET /funders 200 in 1886ms
+ ○ Compiling /contacts ...
+ ✓ Compiled /contacts in 830ms (1252 modules)
+ GET /api/nav-counts 200 in 933ms
+ GET /api/nav-counts 200 in 950ms
+ GET /api/nav-counts 200 in 1093ms
+ GET /api/nav-counts 200 in 1097ms
+ GET /api/notifications?unread_only=true 200 in 1098ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /contacts 200 in 1635ms
+ ○ Compiling /opportunities ...
+ ✓ Compiled /opportunities in 928ms (1272 modules)
+ GET /api/nav-counts 200 in 1061ms
+ GET /api/nav-counts 200 in 1133ms
+ GET /api/nav-counts 200 in 1148ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/notifications?unread_only=true 200 in 1150ms
+ GET /api/nav-counts 200 in 1157ms
+ GET /opportunities 200 in 1757ms
+ ○ Compiling /applications ...
+ ✓ Compiled /applications in 895ms (1290 modules)
+ GET /api/nav-counts 200 in 1106ms
+ GET /api/nav-counts 200 in 1110ms
+ GET /api/nav-counts 200 in 1114ms
+ GET /api/notifications?unread_only=true 200 in 1174ms
+ GET /api/nav-counts 200 in 1131ms
+ GET /applications 200 in 1902ms
+ ○ Compiling /draft-generator ...
+ ✓ Compiled /draft-generator in 7.4s (2543 modules)
+ GET /api/nav-counts 200 in 7659ms
+ GET /api/notifications?unread_only=true 200 in 7673ms
+ GET /api/nav-counts 200 in 7974ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/nav-counts 200 in 8029ms
+ GET /api/nav-counts 200 in 7618ms
+ GET /draft-generator 200 in 8643ms
+ ○ Compiling /api/intelligence/match-feed ...
+ ✓ Compiled /api/intelligence/match-feed in 999ms (2572 modules)
+ GET /api/nav-counts 200 in 1558ms
+ GET /api/nav-counts 200 in 1378ms
+ GET /api/nav-counts 200 in 1764ms
+ GET /api/notifications?unread_only=true 200 in 1579ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/intelligence/match-feed?limit=500 200 in 1657ms
+ GET /documents 200 in 1941ms
+ ○ Compiling /knowledge-base ...
+ ✓ Compiled /knowledge-base in 1280ms (2590 modules)
+ GET /api/nav-counts 200 in 1379ms
+ GET /api/nav-counts 200 in 1386ms
+ GET /api/nav-counts 200 in 1418ms
+ GET /api/nav-counts 200 in 1371ms
+ GET /api/notifications?unread_only=true 200 in 1615ms
+ GET /knowledge-base 200 in 2028ms
+ ○ Compiling /deadlines ...
+ ✓ Compiled /api/knowledge-base in 1976ms (2726 modules)
+ GET /api/nav-counts 200 in 2113ms
+ GET /api/nav-counts 200 in 2479ms
+ GET /api/notifications?unread_only=true 200 in 2455ms
+ GET /api/nav-counts 200 in 2476ms
+ GET /api/knowledge-base 200 in 2745ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/nav-counts 200 in 263ms
+ GET /deadlines 200 in 3658ms
+ ○ Compiling /api/integrations/google/calendar ...
+ ✓ Compiled /api/integrations/google/calendar in 799ms (2729 modules)
+ ✓ Compiled (3833 modules)
+ GET /api/nav-counts 200 in 16226ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/notifications?unread_only=true 200 in 16229ms
+ GET /api/nav-counts 200 in 16228ms
+ GET /api/nav-counts 200 in 16229ms
+ GET /api/integrations/google/calendar 200 in 16131ms
+ GET /analytics 404 in 18082ms
+ ○ Compiling /outcomes/analytics ...
+ ✓ Compiled /outcomes/analytics in 1484ms (3859 modules)
+ GET /outcomes/analytics 200 in 1986ms
+ ○ Compiling /autoapply ...
+ ✓ Compiled /autoapply in 2.8s (3964 modules)
+ GET /api/nav-counts 200 in 2740ms
+ GET /api/nav-counts 200 in 2743ms
+ GET /api/nav-counts 200 in 2820ms
+ GET /api/nav-counts 200 in 2935ms
+ GET /api/notifications?unread_only=true 200 in 2936ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /autoapply 200 in 3506ms
+ ○ Compiling /intelligence-library ...
+ ✓ Compiled /api/autoapply/mode in 1763ms (3980 modules)
+ GET /api/nav-counts 200 in 2162ms
+ GET /api/nav-counts 200 in 2272ms
+ GET /api/notifications?unread_only=true 200 in 2315ms
+ GET /api/autoapply/mode 200 in 2380ms
+ GET /api/nav-counts 200 in 2382ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /intelligence-library 200 in 3290ms
+ ○ Compiling /email ...
+ ✓ Compiled /api/intelligence/proposals in 2s (3993 modules)
+ GET /api/nav-counts 200 in 1937ms
+ GET /api/nav-counts 200 in 1939ms
+ GET /api/nav-counts 200 in 1957ms
+ GET /api/notifications?unread_only=true 200 in 2030ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /api/intelligence/proposals?page=1 200 in 2158ms
+ GET /email 200 in 2758ms
+ ○ Compiling /settings ...
+ ✓ Compiled /api/email/threads in 1747ms (3991 modules)
+ GET /api/email/threads?filter=all&search= 200 in 1686ms
+ GET /api/nav-counts 200 in 1746ms
+ GET /api/nav-counts 200 in 1762ms
+ GET /api/nav-counts 200 in 1776ms
+ GET /api/notifications?unread_only=true 200 in 1859ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /settings 200 in 2418ms
+ ○ Compiling /settings/integrations ...
+ ✓ Compiled /settings/integrations in 1707ms (4007 modules)
+ GET /api/nav-counts 200 in 1688ms
+ GET /api/notifications?unread_only=true 200 in 1701ms
+ GET /api/nav-counts 200 in 1706ms
+ GET /api/nav-counts 200 in 1715ms
+ GET /api/nav-counts 200 in 1774ms
+ GET /settings/integrations 200 in 2483ms
+[?25h
