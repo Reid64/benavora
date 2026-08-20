@@ -1,11 +1,52 @@
 # BENAVORA — Session State
-## Last Updated: August 19, 2026 — audit PT-08 (worker boot inventory) done. Headline: 26
-processors/consumers inventoried from `worker/index.ts`'s real boot code, reconciled against a
-live Railway production boot log — 24 STARTED, 2 DEFINED-NOT-STARTED (the documented dead-code
-class), 0 REFERENCED-ONLY. One real P1 finding: `worker/enrichment-processor.ts` (EA-01..EA-10
-corporate enrichment + AG-22 propensity scoring) is a complete, real processor never registered
-anywhere — unreachable by any path, contradicting `WORKER_ARCHITECTURE_v2.md`'s own documented
-boot sequence. See "PT-08 — worker boot inventory" below.
+## Last Updated: August 19, 2026 — audit PT-08-002 (cron registration reconciliation) done.
+Headline: of 11 real `/api/cron/*` route handlers, 5 are registered in `vercel.json` and matched
+to a documented claim (no gap). Of the other 6: 4 are real, unfixed P1 gaps (`draft-automation`,
+`sales-sends` — including a real, live, admin-clickable action that queues rows nothing ever
+sends — `follow-ups`, `email-sequences`); 1 (`draft-queue-check`) is unregistered but functionally
+redundant with the registered `research` cron; 1 (`campaigns`) was intentionally retired
+2026-08-13. Separately, WGR-023 (already filed) was re-confirmed to affect all 11 routes,
+including all 5 registered ones — middleware 307-redirects every one before its own CRON_SECRET
+check runs, at least in local-dev testing; whether production behaves the same way is unresolved.
+Filed WGR-035 through WGR-039. See "PT-08-002 — cron registration reconciliation" below.
+
+## PT-08-002 — cron registration reconciliation (August 19, 2026)
+
+**Task:** reconcile three sets — crons documented anywhere, crons registered in `vercel.json`,
+crons registered in `worker/scheduler.ts` — record documented-but-unregistered (won't fire),
+registered-but-undocumented (surprise jobs), and `/api/cron/*` handlers with no schedule entry.
+Cross-check WGR-023's middleware-redirect finding against the cron routes specifically. Every
+documented-but-unregistered cron backing a real feature filed as a P1 register finding. Prod-safe:
+static reads + reuse of existing evidence only, no live production network calls.
+
+**Result:** 5/11 handlers matched (autoapply, grantsgov, reminders, research, domain-warmup — all
+registered + documented, no gap). 6/11 unregistered, with three distinct real dispositions —
+4 genuine P1 gaps (WGR-035 draft-automation, WGR-036 sales-sends, WGR-037 follow-ups, WGR-038
+email-sequences), 1 unregistered-but-functionally-covered (WGR-039 draft-queue-check, P3 — its one
+job already runs via the registered `research` cron's own inline call), 1 intentionally retired
+(campaigns, 2026-08-13, documented decision). Zero registered-but-undocumented jobs found — all 5
+vercel.json crons and all 13 worker/scheduler.ts jobs (independently re-derived and cross-checked
+against the live files) have a documented source. Full per-route evidence, reasoning, and the
+WGR-023 middleware cross-check (independently re-confirmed against `src/middleware.ts` directly,
+not just the register's prose) in `test-evidence/pt-08/cron-reconciliation.json` and the matching
+`STATE_OF_THE_BUILD.md` session entry — not duplicated here.
+
+**Real, live-verified finding worth calling out specifically:** `sales-sends`'s producer is not
+hypothetical — `PATCH /api/admin/campaigns/[id]` `{action:'schedule'}` is a real admin UI action
+that inserts real `sales_sends` rows with `status:'queued'`, and the only code path that ever reads
+and sends them is the unregistered `/api/cron/sales-sends` route. This is the highest-confidence
+finding in the set.
+
+**Unresolved, flagged not fixed:** whether production's `src/middleware.ts` behavior matches the
+local-dev 307-redirect this session (re-)confirmed for all 11 cron routes, including all 5
+registered ones (WGR-023, already P0, already filed) — Reid's own report of a `401` in production
+(WGR-003) remains an open discrepancy. No live prod curl was performed this session (out of scope:
+prod-safe/static+read only, no production URL/credentials supplied). Recommended verification
+command recorded in the evidence file.
+
+**Gate:** `node scripts/audit/verify-pt08-002.mjs` — PASS, independently re-derives both
+`vercel.json`'s real crons array and a real directory listing of `src/app/api/cron/` and fails if
+the evidence file has drifted from either. No application code changed this session.
 
 ## PT-08 — worker boot inventory (August 19, 2026)
 

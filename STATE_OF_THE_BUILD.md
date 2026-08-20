@@ -1,15 +1,149 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 — audit PT-08 (worker boot inventory) done. Headline: worker/index.ts
-starts 7 top-level processors at boot (heartbeat, AutoApply queue processor, donor-discovery
-request processor, knowledge indexer, Gmail confirmation monitor, scheduler, agent-queue
-processor) plus a WebSocket stream server, all live-confirmed via a real production boot log.
-The scheduler in turn fires 13 registered jobs, all confirmed reaching their target functions via
-a 5-day live log sweep. One real P1 dead-code finding: `worker/enrichment-processor.ts` (the
-EA-01..EA-10 corporate-enrichment pipeline + AG-22 propensity scoring) is a complete, real
-processor that is never registered anywhere — confirmed unreachable by any path, continuous or
-on-demand, and directly contradicts WORKER_ARCHITECTURE_v2.md's own documented boot sequence. See
-the "SESSION — August 19, 2026 (audit PT-08: worker boot inventory)" entry below.**
+**Updated: August 19, 2026 — audit PT-08-002 (cron registration reconciliation) done. Headline:
+of 11 real `/api/cron/*` route handlers, only 5 are registered in `vercel.json`
+(autoapply/grantsgov/reminders/research/domain-warmup — all matched to a documented claim, no
+gaps). The other 6 are registered nowhere (not `vercel.json`, not `worker/scheduler.ts`, a wholly
+separate scheduling mechanism that never calls these HTTP routes at all): 4 are real, unfixed P1
+gaps whose automation genuinely never runs — `draft-automation` (deadline-driven draft
+auto-queueing + bulk generation), `sales-sends` (a real, live, admin-clickable "Schedule" action on
+Sales Outreach campaigns queues `sales_sends` rows that then sit forever unsent), `follow-ups`
+(AutoApply's 14/30/60-day donation follow-up system — doubly dead, since its own producer function
+is never called either), and `email-sequences` (an already-publicly-documented gap, now given its
+first WGR register entry). 1 (`draft-queue-check`) is unregistered but functionally redundant —
+its one job already runs automatically via the registered `research` cron's own inline call. 1
+(`campaigns`) was intentionally retired 2026-08-13, not a bug. Separately, independently
+re-confirmed WGR-023 (P0, already filed): `src/middleware.ts` 307-redirects every one of these 11
+routes to `/login` before their own `CRON_SECRET` check ever runs, in local-dev testing — including
+all 5 *registered* crons — meaning vercel.json registration alone may not be sufficient for a cron
+to actually succeed in production; whether production behaves the same way remains unresolved (Reid
+reports prod returns 401, not 307 — not independently re-tested this session, prod-safe/static+read
+scope only). Filed WGR-035 through WGR-039. See the "SESSION — August 19, 2026 (audit PT-08-002:
+cron registration reconciliation)" entry below.**
+
+## SESSION — August 19, 2026 (audit PT-08-002: cron registration reconciliation)
+
+**Scope:** reconcile three sets of "what should run on a schedule" — anything documented as a cron
+anywhere (governance docs, in-file header comments, `FEATURE_REGISTRY_v2.md`), what's actually
+registered in `vercel.json`'s `crons` array, and what's actually wired into `worker/scheduler.ts` (a
+wholly separate scheduling mechanism from Vercel Cron — it never invokes `/api/cron/*` HTTP routes
+at all, it directly calls functions inside `worker/autonomous-orchestrator.ts`/`src/lib/scraper/*`).
+Record documented-but-unregistered crons (won't fire), registered-but-undocumented crons (surprise
+jobs), and `/api/cron/*` route handlers that exist with no schedule entry pointing at them at all.
+Cross-check PT-02's WGR-023 middleware-redirect finding against the cron routes specifically.
+Prod-safe: static file reads + reuse of already-committed evidence only, no live network calls
+against production.
+
+**Method:** enumerated all 11 files under `src/app/api/cron/*/route.ts` directly, read each one's
+own header comment for an explicit "Vercel Cron hits this..." claim, and grepped its underlying
+engine/function (`DraftQueueEngine`, `DraftAutoGenerator`, `SalesCampaignEngine`, `sequenceEngine`,
+`follow-up-scheduler.ts`, `WarmupEngine`) for every other call site in `src/`, to detect whether the
+same capability is secretly already reachable via a different, registered path before classifying a
+route as a genuine gap — this caught one false positive (`draft-queue-check`, see below). Read
+`vercel.json`'s `crons` array and `worker/scheduler.ts`'s `jobs` array verbatim. Cross-referenced
+`AGENTS_v2.md`, `WORKFLOW_PAGE_PLAN_2026-08-15.md`, `NOT_BUILT_MASTER_INVENTORY.md`,
+`OUTREACH_CONSOLIDATION_AUDIT.md`, and `SESSION_STATE.md` for external documentation of each route.
+Independently re-read `src/middleware.ts`'s `isPublicPath()`/`PUBLIC_PATHS` to confirm WGR-023's
+root-cause claim directly rather than trust the register's prose. Deliberately excluded
+`.claude/worktrees/agent-*/` content (separate, dirty, uncommitted agent worktrees, not part of this
+branch's canonical governance surface) from the "documented" set — one such worktree file mentions a
+`/api/cron/follow-ups` schedule claim that the current, canonical `STATE_OF_THE_BUILD.md` does not
+carry.
+
+**Result — 5 of 11 route handlers matched (registered + documented, no gap); 6 unregistered, split
+across three real dispositions:**
+
+1. **4 real, unfixed P1 gaps, each verified at the code level, not assumed from a doc claim alone:**
+   - **`/api/cron/draft-automation`** (WGR-035) — its own header comment explicitly claims "Vercel
+     Cron hits GET daily at 06:00 CT," citing BEHAVIORAL_CONTRACTS §28/CLAUDE.md §DEPLOYMENT, but
+     it's in neither `vercel.json` nor `worker/scheduler.ts`. Calls
+     `DraftQueueEngine.processDeadlineApproaching()` (auto-queue opportunities with an approaching
+     deadline) and `DraftAutoGenerator.processQueue()` (unbounded-batch draft generation) — neither
+     is reachable any other way. The registered `research` cron's own inline call only reaches
+     `processNewOpportunities()`, a *different* queueing criterion (newly-discovered, not
+     deadline-approaching), and never generates a draft at all. The one substitute,
+     `POST /api/drafts/queue/trigger`, is a manual, writer-role-gated route capped at 3 items —
+     its own comment ("uses the same generation code path as the daily cron") shows the code itself
+     still believes a daily cron exists.
+   - **`/api/cron/sales-sends`** (WGR-036) — highest-confidence finding: the producer side is
+     confirmed genuinely live and interactive, not dormant. `PATCH /api/admin/campaigns/[id]`
+     `{action:'schedule'}` (a real admin UI action) calls `SalesCampaignEngine.scheduleSends(id)`,
+     which really inserts `sales_sends` rows with `status:'queued'`. The *only* code path anywhere
+     in the repo that reads and sends those rows is `SalesCampaignEngine.processQueuedSends()`,
+     reachable exclusively via this one unregistered route. An admin clicking "Schedule" on a real
+     Sales Outreach campaign today produces rows that will sit `queued` forever.
+   - **`/api/cron/follow-ups`** (WGR-037) — a two-layer gap, and a genuine same-project naming trap:
+     this is the AutoApply 14/30/60-day donation follow-up system (`autoapply_follow_ups` table,
+     `src/lib/autoapply/follow-up-scheduler.ts`), *not* the same thing as AG-28's
+     `application_followups` sweep, which really is wired (via `worker/scheduler.ts`'s nightly job
+     calling the near-identically-named `processFollowups` in `src/worker/jobs/process-followups.ts`
+     — two unrelated systems, confusingly close names, worth flagging for future readers). This
+     route's own consumer (`processFollowUps()`) is unregistered like the others above — but its
+     producer (`scheduleFollowUps()`, which would insert a row when an AutoApply submission
+     completes) has **zero call sites anywhere in `src/`** (a grep for the literal call
+     `scheduleFollowUps(` matches only its own definition). Even registering this cron today would
+     likely find nothing to process, since nothing schedules a follow-up in the first place.
+   - **`/api/cron/email-sequences`** (WGR-038) — already publicly known and documented as a gap
+     *before* this audit (`WORKFLOW_PAGE_PLAN_2026-08-15.md`: "Do not claim automatic scheduled
+     mail-merge sends until `/api/cron/email-sequences` is actually registered";
+     `NOT_BUILT_MASTER_INVENTORY.md` item 9), but had never been given a `WIRING_GAP_REGISTER.md`
+     entry with a backing evidence file until now. This audit reconfirms the underlying code is
+     unchanged — `sequenceEngine.processScheduledSends()` still has no call site outside this one
+     unregistered route.
+2. **1 unregistered-but-not-a-gap:** `/api/cron/draft-queue-check` (WGR-039, P3, `CONFIRMED-OK`) —
+   its entire body is one call to `DraftQueueEngine.processNewOpportunities(organizationId)`, the
+   *exact same method* the registered `research` cron already fire-and-forgets after every
+   successful agent run (`research/route.ts:361-368`). An orphaned duplicate entry point, same
+   class as the pre-existing WGR-034 (`process-discovery-request.ts`) — logged for traceability so a
+   future session doesn't re-flag it as a P1 without checking, not because it backs a broken
+   feature.
+3. **1 unregistered-and-intentional:** `/api/cron/campaigns` — deliberately removed from
+   `vercel.json` on 2026-08-13 after confirming 0 orgs had the relevant feature flag enabled
+   (`SESSION_STATE.md`, `OUTREACH_CONSOLIDATION_AUDIT.md` Item 5); the manual trigger
+   `POST/PUT /api/agents/campaigns[...]` remains live by design. One small, cosmetic finding worth
+   naming: the route's own header comment still claims "Vercel Cron hits this... every 2 hours (see
+   vercel.json)," which is now false and was never updated when the cron was retired.
+
+**Registered-but-undocumented: zero found.** All 5 `vercel.json` entries and all 13
+`worker/scheduler.ts` jobs have either an explicit in-file header comment or an external
+governance-doc citation (`AGENTS_v2.md` for `/api/cron/autoapply` specifically, which has no header
+claim of its own). No surprise scheduled job was found running with zero documentation anywhere.
+`worker/scheduler.ts`'s 13 jobs were all independently re-confirmed to have actually fired live in
+production via `test-evidence/pt-08/railway-scheduler-jobs-fired.json` (PT-08-001 evidence, reused,
+not re-collected this session).
+
+**WGR-023 cross-check (task step 3):** independently re-read `src/middleware.ts` directly (not just
+trusted the register's own prose) and confirmed `isPublicPath()`/`PUBLIC_PATHS` has no exemption for
+`/api/cron/*` of any kind — grepped for the prefix, zero matches. Re-read
+`test-evidence/pt-02/unauth-sweep.json` and pulled the exact per-route rows for all 11
+`/api/cron/*` paths: every single one, including all 5 that ARE registered in `vercel.json`, returns
+`307` to `/login` with zero cookies in the local-dev-server sweep, before the route's own
+`CRON_SECRET` bearer check ever executes. Practical implication stated plainly: Vercel Cron's
+server-to-server GET invocation carries no session cookie, identical to an anonymous curl — if
+production's middleware behaves the same as local dev, then being registered in `vercel.json` is
+*necessary but not sufficient* for a cron to actually succeed; all 5 registered crons (nightly
+AutoApply queue population, daily Grants.gov sync, daily deadline reminders, daily domain warmup,
+daily research sweep) could themselves be silently redirected and never run. **This was NOT resolved
+this session** — WGR-003's already-logged discrepancy (Reid reports production returns `401`, not a
+redirect, for an unauthenticated cron-route hit) remains open. No live curl was made against
+production this session (prod-safe/static+read scope; no production URL/credentials were provided).
+This is flagged as the single highest-leverage open question in the whole reconciliation — full
+detail, including the exact recommended verification command, in
+`test-evidence/pt-08/cron-reconciliation.json`'s `middlewareCrossCheck` object.
+
+**Evidence + tooling:** `test-evidence/pt-08/cron-reconciliation.json` (the full reconciliation, all
+three sets, all 11 handler classifications, and every finding). `scripts/audit/verify-pt08-002.mjs`
+independently re-derives both ground-truth sets from the live repo (`vercel.json`'s real `crons`
+array, and a real `readdirSync` of `src/app/api/cron/`) and fails if the JSON evidence has drifted
+from either — not just a structural/shape check. Filed `WGR-035` through `WGR-039` in
+`test-evidence/_register/WIRING_GAP_REGISTER.md`, cross-referencing the pre-existing `WGR-023` (P0,
+middleware) and `WGR-033`/`WGR-034` (P1/P3, the worker-boot-side dead-code findings from PT-08-001 —
+`WGR-033`'s `worker/enrichment-processor.ts` gap is independently corroborated by
+`WORKER_ARCHITECTURE_v2.md`'s stale node-cron example doc, which separately names
+`runCorporateEnrichmentBatch`/`runPropensityScoringBatch` as jobs that were meant to exist).
+
+**Gate:** `node scripts/audit/verify-pt08-002.mjs` — PASS. No application code was changed this
+session (audit/evidence-only pass).
 
 ## SESSION — August 19, 2026 (audit PT-08: worker boot inventory)
 
