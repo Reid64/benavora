@@ -1,5 +1,71 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-13 COMPLETE: silent catch-block census.**
+
+Full codebase census of every `try/catch` and `.catch()` in `src/`, `worker/`, `scripts/`, `e2e/`,
+`tests/`, and `audit/` — the class of bug directly relevant after the `.Handle` discovery earlier
+this audit sequence (a real failure quietly absorbed with no log line and no surfaced error). Built
+`scripts/audit/census-silent-catches.mjs`, a heuristic static scanner (brace/paren-matching
+tokenizer, string/template/comment aware — not a full TS AST parse) rather than a manual read of
+2,365 individual sites, which would not have been feasible at this scale. Output:
+`test-evidence/pt-13/silent-catches.json`.
+
+**Real numbers:** 1,382 files scanned, **2,365 total catch sites** (1,687 `try/catch`, 678
+`.catch()`). Of those, 1,048 swallow the error with no recognized logging/rethrow/forwarding
+signal; 83 of those are explicitly documented as intentional (a preceding or in-body comment using
+language like "best-effort", "non-fatal", "silently skip", "must never block"); 889 are undocumented
+silent swallows. Restricting to files on a real data/agent path (`src/lib/agents/`,
+`src/lib/autoapply/`, `src/lib/scraper*/`, `src/lib/intelligence/`, `src/lib/enrichment/`,
+`src/lib/sources/`, `src/app/api/`, `worker/`, `scripts/` excluding `scripts/audit/`) — the scope
+this task asked findings to be scoped to — yields **427 undocumented silent swallows**, split into
+**4 P1** (the enclosing try-block or promise chain performs a real mutation — insert/update/delete/
+file-write/unlink — whose failure is then fully discarded) and **423 P2** (silent, on a real path,
+but no mutation detected in the immediate enclosing block).
+
+**The 4 P1 findings, each independently read and confirmed real, not a heuristic artifact:**
+1. `src/lib/agents/form-filler.ts:253` — `page.setInputFiles(...).catch(() => undefined)` during
+   AutoApply's autonomous form fill. A file-upload failure for a required document attachment is
+   silently discarded; the form can proceed and submit without the file, with nothing downstream
+   ever aware the upload failed.
+2. `src/lib/email/sequence-engine.ts:230` — the per-enrollment send-and-`update()` block's `catch`
+   only does `failed++;` — the real error (why this specific enrollment's send failed) is fully
+   discarded; only an aggregate count survives. Same failure class already documented elsewhere in
+   this project's history for AG-29's cold-start anomaly (`benavora-ag29-coldstart-anomaly-
+   unrecoverable` memory) — "logging gap discards the real error, only a count survives."
+3. `worker/queue-processor.ts:1508` — `fs.unlink(capturedRecordingPath).catch(() => {})`, a
+   temp-file cleanup after session recording. Lower real-world stakes (a stray temp file, not lost
+   application data) but still an unhandled mutation failure with zero visibility.
+4. `scripts/security-test-main.mjs:92` — `serviceClient.auth.admin.deleteUser(p.id).catch(() =>
+   {})` during test-org cleanup sweep. Scoped to test-harness cleanup, not production data, but
+   matches the same pattern (a real mutation's failure fully discarded).
+
+**Heuristic refinement, not a first-pass dump.** The scanner's first pass flagged 1,651 non-test
+"silent holes" — reviewed a sample and found real false positives (errors pushed into a `warnings`
+array via a template string with no exact-match logging call name; errors forwarded as a function
+argument to a retry/failure handler; errors assigned to a result object's field; errors returned as
+part of an `{ ok: false, error }`-shaped object). Fixed by adding a `paramForwardedInCall()` check
+(does the caught error binding get used inside a call, assignment, or return in the catch body —
+excluding the `void err;` explicit-discard idiom) and broadening the "surfaced" pattern set
+(`success: false`, `error:`, HTTP `4xx/5xx` status, `NextResponse.json`, etc.). This dropped the
+non-test silent-hole count from 1,651 to 889 and the on-real-path P1/P2 finding count from ~592 to
+427 — a meaningful accuracy pass, not a rubber stamp. Verified by hand-reading a stratified sample
+of P1 and P2 entries after each refinement round.
+
+**Explicitly not claimed:** this is a static heuristic scan, not a full compiler-grade AST
+classification — regex-based brace/paren matching can misjudge unusual formatting, and the
+"documented" check is keyword-based (a comment explaining intent in different words than the
+tracked phrase list won't be recognized as documentation). The 423 P2 entries are not individually
+hand-verified the way the 4 P1s are; they are a real, reproducible census output suitable for
+triage, not a claim that all 423 are equally severe or equally worth fixing.
+
+**Gate:** `node scripts/audit/verify-pt13-001.mjs` — PASS. Checks every one of the 2,365 entries
+carries a valid `file`+`line`+`kind`+full classification field set, cross-verifies the JSON's own
+summary counts against a fresh recomputation from the `findings` array (catches a stale/hand-edited
+summary), enforces a 2,000-site floor (catches a partial/broken scan), and confirms every P1/P2
+finding's file path actually exists on disk.
+
+---
+
 **Updated: August 20, 2026 — audit PT-11 COMPLETE: regression suites, review pack ready.**
 Consolidation of the three PT-11 sub-audits (test-suite inventory, core suites executed with real
 numbers, visual/cross-browser/soak executed) into `test-evidence/pt-11/PHASE-11-SUMMARY.md` (every

@@ -1,5 +1,36 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-11 COMPLETE: regression suites, review pack ready.
+## Last Updated: August 20, 2026 — audit PT-13 COMPLETE: silent catch-block census.
+
+Full census of every `try/catch` and `.catch()` across `src/`, `worker/`, `scripts/`, `e2e/`,
+`tests/`, `audit/` — directly motivated by the `.Handle` discovery (a real failure silently
+absorbed with no log/surface). Built `scripts/audit/census-silent-catches.mjs`, a heuristic
+static scanner (string/template/comment-aware brace/paren matcher), since a manual read of the
+2,365 real catch sites in this codebase was not feasible. Output:
+`test-evidence/pt-13/silent-catches.json`.
+
+**Numbers:** 2,365 total catch sites (1,687 `try/catch`, 678 `.catch()`) across 1,382 files. 1,048
+swallow with no recognized log/rethrow/forward signal; 83 of those are documented as intentional
+(comment language like "best-effort"/"non-fatal"/"silently skip"); 889 are undocumented. Scoped to
+real data/agent paths (agents, autoapply, scraper, intelligence, enrichment, sources, API routes,
+worker, scripts) per the task's finding scope: **427 findings — 4 P1** (enclosing block performs a
+real mutation whose failure is fully discarded) **and 423 P2**. All 4 P1s hand-read and confirmed
+real, not scanner artifacts — see `STATE_OF_THE_BUILD.md`'s matching entry for the full list and
+file:line detail.
+
+The scanner's first pass over-flagged (1,651 non-test silent holes before refinement) on real
+false positives — errors forwarded via `.push()` on a template string, passed as a handler
+argument, assigned to a result field, or returned inside an `{ok:false, error}` object, none of
+which matched the initial narrow logging-call regex. Added a `paramForwardedInCall()` check
+(does the caught error binding get used in a call/assignment/return, excluding the `void err;`
+explicit-discard idiom) and broadened the surfaced-pattern set, dropping the count to 889/427 —
+verified against a hand-read sample after each refinement round, not shipped on the first pass.
+
+**Gate:** `node scripts/audit/verify-pt13-001.mjs` — PASS. Confirms every one of 2,365 entries has
+file/line/kind/full classification fields, cross-checks the JSON's own summary against a fresh
+recomputation from `findings`, enforces a 2,000-site floor, and confirms every P1/P2 finding's file
+path exists on disk.
+
+---
 
 Consolidated all three PT-11 sub-audits into `test-evidence/pt-11/PHASE-11-SUMMARY.md` (real dated
 pass/fail numbers per suite, every number cited to a raw log under `test-evidence/pt-11/logs/`) and
