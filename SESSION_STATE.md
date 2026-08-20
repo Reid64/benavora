@@ -1,15 +1,67 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-04-003: draft confidence / AutoApply eligibility /
-match-fit scoring hand-verification. Hand-computed expected output for `computeConfidence()`,
-`SubmissionValidator.checkOrgReadiness()`, and `computeGrantProbability()` from their documented
-formulas against 11 chosen synthetic scenarios stressing branch boundaries (zero-KB vs. base-92
-branch, dual-penalty stacking, clamp-to-zero; fully-ready vs. multi-gap vs. profile-only-gap with the
-second blocker correctly suppressed; all-null neutral-fallback floor score 28, medium confidence,
-exact score=70 `>=` boundary), then called the real, unmodified functions with a minimal mock
-Supabase client supplying each scenario's known rows. All 11 matched exactly, delta 0 — no wrong
-threshold, inverted boolean, or mis-weighted factor found in any of the three. Evidence in
-`test-evidence/pt-04/scoring.json`; verifier at `scripts/audit/verify-pt04-003.mjs` re-derives every
-delta/match flag independently rather than trusting the recorded fields.
+## Last Updated: August 20, 2026 — audit PT-04 COMPLETE: business-logic verification, review pack
+ready. Closing pass of the PT-04 phase — `test-evidence/pt-04/PHASE-04-SUMMARY.md` and
+`REVIEW-PACK.md` written, `node scripts/audit/verify-pt04-004.mjs` exits 0. Six business-logic
+functions checked across four evidence artifacts: five clean (draft confidence, AutoApply
+readiness, budget reconciliation, deadline reminders, match/fit engine's own arithmetic — 21
+scenarios, 0 mismatches). The sixth found a real, live bug: `computeGrantProbability()`'s persisted
+`opportunity_probability_scores` rows never recompute when the underlying data changes — one real
+opportunity's stored score (42) is 5 points off what the documented formula produces against its
+*current* real data (47), because its `eligibility_score` was populated 17 days after the score was
+computed and nothing ever re-ran the computation. Confirmed not a one-off: 3 of 9 real production
+rows sampled show the identical pattern, all one org, all computed before that org's eligibility
+scoring ran. Registered **WGR-135** (P1, CONFIRMED-BROKEN) plus **WGR-136**/**WGR-137** (P3,
+CONFIRMED-OK, for the five clean results). Register grown from PT-03's last row (WGR-134) to
+WGR-137.
+
+## SESSION — August 20, 2026 (audit PT-04-004: consolidation, review pack, register closeout)
+
+**Focus:** close out the PT-04 phase — write `PHASE-04-SUMMARY.md` (every business-logic function
+checked, expected-vs-actual, any wrong-number findings, every number cited to evidence) and
+`REVIEW-PACK.md` (which computed numbers users see are correct vs. wrong, highest-severity item
+first, a next-phase note), register PT-04's findings into `WIRING_GAP_REGISTER.md` continuing from
+PT-03's last row (WGR-134), and write a closing verifier.
+
+**What this session did, concretely:**
+1. Re-read all four PT-04 evidence artifacts already on disk from PT-04-001/002/003
+   (`grant-probability.json`, `candidates-raw.json`, `budget-deadline.json`, `scoring.json`) and
+   re-ran their three existing gate scripts (`verify-pt04-001.mjs`, `-002.mjs`, `-003.mjs`) fresh —
+   all three still exit 0, confirming the underlying evidence hasn't drifted since it was produced.
+2. Independently re-derived the "is this staleness pattern isolated or systemic" question directly
+   from `candidates-raw.json`'s 9 real rows (comparing each row's stored `eligibility_score` factor
+   value against its *current* `opportunities.eligibility_score` column) rather than just repeating
+   `grant-probability.json`'s single deep-dived example — found the same stale-neutral-fallback
+   pattern on 3 of 9 rows (all one org), and confirmed the other org's 6 rows show no drift because
+   their stored factor value already equals their current column value exactly, not because
+   recomputation is working.
+3. Wrote `scripts/audit/pt04-004-register-findings.mjs` (same `appendFindingRow()` pattern as prior
+   phases' `-register-findings.mjs` scripts) and ran it, appending WGR-135 (the real staleness bug,
+   P1, CONFIRMED-BROKEN, evidence: `grant-probability.json` + `candidates-raw.json`), WGR-136 (the
+   11-scenario pure-function verification, P3, CONFIRMED-OK, evidence: `scoring.json`), and WGR-137
+   (budget reconciliation + deadline reminders, P3, CONFIRMED-OK, evidence: `budget-deadline.json`).
+4. Wrote `test-evidence/pt-04/PHASE-04-SUMMARY.md` and `REVIEW-PACK.md` per the format established
+   by PT-03's closing pass (`test-evidence/pt-03/PHASE-03-SUMMARY.md`/`REVIEW-PACK.md`) — the
+   summary cites every number to its source artifact and includes a full comparison table for the
+   9-row staleness check; the review pack leads with WGR-135 as the one thing to fix, states plainly
+   that everything else checked out, and adds a next-phase note flagging that other persisted
+   (non-recomputed) scores elsewhere in the codebase were not swept for the same architectural gap.
+5. Wrote `scripts/audit/verify-pt04-004.mjs`, modeled directly on `verify-pt03-005.mjs`: fails
+   unless both markdown deliverables exist and are non-empty, and unless the register contains both
+   PT-03's own last row (WGR-134, proving this is the same register PT-03 closed with) and all three
+   of PT-04's new rows as well-formed 7-column table rows (not just a bare substring match). Ran it:
+   exit 0.
+
+**Gates:** `node scripts/audit/verify-pt04-001.mjs` exit 0 (re-run, unchanged). `node
+scripts/audit/verify-pt04-002.mjs` exit 0 (re-run, unchanged). `node
+scripts/audit/verify-pt04-003.mjs` exit 0 (re-run, unchanged). `node
+scripts/audit/verify-pt04-004.mjs` exit 0 (new).
+
+**Not done this session, flagged rather than silently skipped:** no new business-logic functions
+were checked beyond the six PT-04-001/002/003 already covered — this session's job was
+consolidation and registration of what PT-04-001/002/003 already found, not additional
+verification passes. The candidates-raw.json 9-row cross-check is new analysis performed this
+session (not present in any prior PT-04 artifact or commit), but it re-uses existing evidence
+rather than issuing new live queries against production.
 
 ## SESSION — August 20, 2026 (audit PT-04-003: draft confidence / AutoApply eligibility / match-fit scoring)
 

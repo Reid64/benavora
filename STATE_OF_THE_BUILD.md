@@ -1,6 +1,36 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-04-003: draft confidence / AutoApply eligibility / match-fit
+**Updated: August 20, 2026 — audit PT-04 COMPLETE: business-logic verification, review pack
+ready.** Closing pass of the PT-04 phase (`PHASE-04-SUMMARY.md`/`REVIEW-PACK.md` in
+`test-evidence/pt-04/`, `node scripts/audit/verify-pt04-004.mjs` exit 0). Six business-logic
+functions checked across four evidence artifacts: five came back clean on hand-verification
+(draft-narrative confidence, AutoApply organizational-readiness scoring, budget reconciliation,
+deadline-reminder thresholds, and the match/fit probability engine's own internal arithmetic — 21
+scenarios total, 0 mismatches). The sixth found a real, live, currently-reproducing bug:
+`computeGrantProbability()`'s persisted `opportunity_probability_scores` rows are never recomputed
+when the real data they're built from changes. One opportunity's `eligibility_score` was populated
+17 days after its probability row was computed; the documented formula applied to the opportunity's
+*current* data produces `overall_score=47`, but the row `opportunities/page.tsx`'s own header
+comment confirms the UI reads verbatim (never recomputing) still shows 42 — a 5-point discrepancy a
+real user sees today. A live re-query of 9 real production `opportunity_probability_scores` rows
+found the identical pinned-at-neutral-fallback pattern on 3 of 9 (33%), all belonging to the same
+org, all computed before that org's later eligibility-scoring pass ran — not a cherry-picked
+one-off. Root cause confirmed two independent ways: no code path (trigger, on-write hook, cron
+sweep) anywhere re-invokes the scoring function on data change, and the stale row's own
+`key_risks` array still contains a string (`"No eligibility score computed for this opportunity
+yet."`) that `buildKeyRisks()` only emits when `eligibility_score IS NULL` — directly contradicting
+the column's current non-null value. In the confirmed instance the `recommendation` category itself
+did not flip (both "consider"), so this is a wrong displayed number rather than (yet, in the
+confirmed case) a wrong recommendation — but nothing in the formula prevents a larger real-world
+drift from crossing the apply/consider/skip thresholds for other, unsampled opportunities, and
+nothing in the UI signals staleness. Registered as **WGR-135 (P1, CONFIRMED-BROKEN)**; the five
+clean results registered as **WGR-136** and **WGR-137** (both P3, CONFIRMED-OK) so the register
+records what was checked and found correct, not only what was found broken. Register grown from
+PT-03's last row (WGR-134) to WGR-137, verified via `node scripts/audit/verify-pt04-004.mjs`.
+
+---
+
+**Prior update: August 20, 2026 — audit PT-04-003: draft confidence / AutoApply eligibility / match-fit
 scoring hand-verification.** These are the three model-adjacent scores that drive user-visible
 recommendations (draft confidence badge, AutoApply "ready to submit" gate, opportunity
 apply/consider/skip recommendation), so a wrong threshold, inverted boolean, or mis-weighted factor
