@@ -1,0 +1,18 @@
+{
+  "finding": "WGR-139",
+  "capturedAt": "2026-08-20T22:34:58.679Z",
+  "request": "as-coded (no postedFrom/postedTo)",
+  "response": {
+    "url": "https://api.sam.gov/opportunities/v2/search?api_key=REDACTED&ptype=o&limit=100",
+    "status": 429,
+    "statusText": "Too Many Requests",
+    "elapsedMs": 658,
+    "bodySample": "{\"code\":\"900804\",\"message\":\"Message throttled out\",\"description\":\"You have exceeded your quota .You can access API after 2026-Aug-21 00:00:00+0000 UTC\",\"nextAccessTime\":\"2026-Aug-21 00:00:00+0000 UTC\"}",
+    "bodyJson": {
+      "code": "900804",
+      "message": "Message throttled out",
+      "description": "You have exceeded your quota .You can access API after 2026-Aug-21 00:00:00+0000 UTC",
+      "nextAccessTime": "2026-Aug-21 00:00:00+0000 UTC"
+    }
+  }
+}

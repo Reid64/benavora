@@ -7,8 +7,7 @@
 
 import { decodeHtmlEntities } from "@/lib/utils/formatters";
 
-const GRANTS_GOV_SEARCH_URL =
-  "https://api.grants.gov/grantsws/rest/opportunities/search/v2";
+const GRANTS_GOV_SEARCH_URL = "https://api.grants.gov/v1/api/search2";
 
 const DEFAULT_ROWS = 100;
 
@@ -27,14 +26,18 @@ export interface GrantsGovNormalizedOpportunity {
 
 interface RawOppHit {
   id?: unknown;
-  oppTitle?: unknown;
-  synopsis?: unknown;
-  awardCeiling?: unknown;
+  title?: unknown;
   closeDate?: unknown;
 }
 
+// The real v1/api/search2 response wraps hits under `data.oppHits`, not a
+// top-level `oppHits` field. Hits carry only summary fields (id, title,
+// dates) — no synopsis/description or award amount is available from this
+// search endpoint at all.
 interface GrantsGovSearchResponse {
-  oppHits?: RawOppHit[];
+  data?: {
+    oppHits?: RawOppHit[];
+  };
 }
 
 function toStr(val: unknown): string {
@@ -68,14 +71,16 @@ function toIsoDate(val: unknown): string | null {
 
 function mapHit(hit: RawOppHit): GrantsGovNormalizedOpportunity | null {
   const externalId = toStr(hit.id);
-  const name = decodeHtmlEntities(toStr(hit.oppTitle));
+  const name = decodeHtmlEntities(toStr(hit.title));
   if (!externalId || !name) return null;
 
   return {
     externalId,
     name,
-    description: toStr(hit.synopsis) || null,
-    amount: toAmount(hit.awardCeiling),
+    // search2 hits carry no synopsis/award-ceiling field — not available
+    // without a separate per-opportunity detail call.
+    description: null,
+    amount: null,
     deadline: toIsoDate(hit.closeDate),
     category: "Government Federal",
     source: "grants_gov",
@@ -121,7 +126,7 @@ export async function searchGrantsGovOpportunities(
     return [];
   }
 
-  const hits = Array.isArray(body.oppHits) ? body.oppHits : [];
+  const hits = Array.isArray(body.data?.oppHits) ? body.data.oppHits : [];
   const mapped: GrantsGovNormalizedOpportunity[] = [];
   for (const hit of hits) {
     const opp = mapHit(hit);

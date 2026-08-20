@@ -52,6 +52,66 @@ data before being marked RESOLVED in the register:**
   fully-paginated 133,812-entry `.in()` list would itself exceed any practical request-size limit.
   `tsc --noEmit` and `npm run build` both exit 0; every fix independently live-verified via direct
   read-only PostgREST calls against real production data before committing.
+- WGR-138 — commit `cde8cd9` (2026-08-20): Grants.gov (`src/lib/sources/grantsgov-client.ts`)
+  pointed at a dead endpoint (real HTTP 403) and, even against the real current one, read the wrong
+  response wrapper and stale field names. Fixed and **live-verified through the real, fixed
+  `searchGrantsGovOpportunities()` function**: 100 real records returned, 100% shape-valid.
+
+**Fix applied, live-verification still pending (NOT marked RESOLVED — see register for why):**
+- WGR-139, WGR-142, WGR-143 — commit `cde8cd9` (2026-08-20): the three SAM.gov integration bugs
+  (`src/lib/sources/samgov-client.ts` missing mandatory `postedFrom`/`postedTo`;
+  `src/lib/donor-discovery/adapters/samgov-adapter.ts` sending an `activeDate` param the real Entity
+  API v3 rejects; and reading `awardee` at the wrong nesting level for Award Notices) are all fixed in
+  code, `tsc`/`pnpm run build` both pass, and the pre-fix bugs are each freshly reproduced live
+  (`test-evidence/remediation/int-fix/wgr-13{9,42,43-award-notices}-live-before.json`). **Live proof
+  that the fixed functions return real, non-zero, correctly-parsed data could not be completed this
+  session** — SAM.gov's real per-key daily quota was exhausted mid-remediation (`HTTP 429 "Message
+  throttled out" ... resets 2026-08-21T00:00:00Z`, confirmed via a direct live call, not assumed).
+  Register rows carry `FIX-APPLIED-PENDING-VERIFICATION`, not `RESOLVED`. **Next session: after
+  2026-08-21T00:00:00Z, run `npx tsx scripts/audit/int-fix-live-after.mjs`, confirm each of the three
+  returns > 0 real records, save the results over the existing `*-live-after.json` files (currently
+  real 429 captures, not successes), and flip WGR-139/142/143 to RESOLVED.**
+
+---
+
+## SESSION — August 20, 2026 (remediation: WGR-138/139/142/143, funding-source integration parsers)
+
+**Scope:** fix the four P0 integration-parser findings that break the funding-source pipeline —
+Grants.gov (`searchGrantsGovOpportunities()`) and three separate SAM.gov call sites
+(`searchSamGovOpportunities()`, `searchEntitiesByNaics()`, `searchRecentAwardRecipients()`). Ground
+truth for every fix came from a real live call to the current third-party API, captured before
+touching code (`test-evidence/remediation/int-fix/*-live-before.json`), not from assumptions.
+
+**WGR-138 (Grants.gov) — RESOLVED, fully live-verified.** `GRANTS_GOV_SEARCH_URL` was pointed at a
+dead AWS API Gateway path (`.../grantsws/rest/opportunities/search/v2`, real HTTP 403 "Missing
+Authentication Token" on every call). Switched to the real current endpoint
+(`https://api.grants.gov/v1/api/search2`). That alone was insufficient — the real response wraps hits
+in `data.oppHits` (app read top-level `oppHits`, always `undefined`) and hits carry `title`, not
+`oppTitle`, with no `synopsis`/`awardCeiling` field at all — both fixed. `description`/`amount` now
+map to `null` honestly rather than reading fields that never existed on this endpoint. Live-verified
+through the real, fixed `searchGrantsGovOpportunities('housing')` function: **100 real records**,
+100% shape-valid.
+
+**WGR-139/142/143 (SAM.gov ×3) — fix applied, live-verification blocked by a real daily quota, not
+marked RESOLVED.** `searchSamGovOpportunities()` now sends the mandatory `postedFrom`/`postedTo`
+(MM/dd/yyyy, trailing 365 days); `searchEntitiesByNaics()` no longer sends the `activeDate` param the
+real Entity Management API v3 rejects outright; `normalizeAwardee()` now reads the awardee block at
+`raw.award.awardee` (real nesting) instead of `raw.awardee` (top-level, always empty). All three
+pre-fix bugs reproduced fresh, live, this session before any code changed. Attempting to live-verify
+the fixed functions this same session hit SAM.gov's real per-key daily quota (`HTTP 429 "Message
+throttled out"`, `nextAccessTime: 2026-Aug-21 00:00:00+0000 UTC`) — a genuine external constraint, not
+a code failure; `tsc`/`pnpm run build` both pass clean on all four fixes. Per this task's own standard
+("a fix that compiles but still returns zero real records is NOT done"), these three rows are recorded
+as `FIX-APPLIED-PENDING-VERIFICATION`, not `RESOLVED`, until a post-quota-reset run of
+`scripts/audit/int-fix-live-after.mjs` shows > 0 real records through each fixed function.
+
+**Evidence:** `test-evidence/remediation/int-fix/` (8 files: one `-live-before.json` and one
+`-live-after.json` per finding — WGR-142/143's `-live-after.json` currently record the real 429, not a
+success, and must be re-run and overwritten before those rows can be marked RESOLVED).
+**Reproduction:** `node scripts/audit/int-fix-live-before.mjs` (pre-fix repro, all four still
+reproduce against the old code via `git show`); `npx tsx scripts/audit/int-fix-live-after.mjs`
+(post-fix verification against the current code — run after 2026-08-21T00:00:00Z for the SAM.gov
+three). `pnpm run build` exit 0 (`build-int-fix-2026-08-20.log`).
 
 ---
 

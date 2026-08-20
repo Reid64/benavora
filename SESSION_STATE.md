@@ -28,8 +28,46 @@ clean completion). Where they disagree, trust the register.
 WGR-012/WGR-017 (commit `d5500cd`, `/donor-discovery/prospects/[id]` blank-render crash); WGR-029/
 WGR-030/WGR-031/WGR-032 (commit `5c747ee`, four API routes silently truncated at PostgREST's 1000-row
 cap — fixed via a new shared `src/lib/supabase/select-all-pages.ts` pagination helper plus, for the
-two id-list-filter cases, a PostgREST `!inner` embed instead of a client-side id list). Full detail in
-`STATE_OF_THE_BUILD.md`'s matching banner.
+two id-list-filter cases, a PostgREST `!inner` embed instead of a client-side id list); WGR-138
+(commit `cde8cd9`, Grants.gov dead endpoint + wrong response shape, live-verified 100 real records).
+Full detail in `STATE_OF_THE_BUILD.md`'s matching banner.
+
+**Fix applied but NOT marked RESOLVED — live-verification pending an external quota reset:**
+WGR-139/WGR-142/WGR-143 (commit `cde8cd9`, the three SAM.gov integration bugs — missing mandatory
+date-range params, an invalid `activeDate` param, and a wrong awardee nesting path). All three fixed
+in code, compile clean, and the pre-fix bugs are freshly live-reproduced — but SAM.gov's real per-key
+daily quota was exhausted mid-session (`HTTP 429`, resets 2026-08-21T00:00:00Z) before the post-fix
+live call could confirm > 0 real records through the fixed functions. **Next session: re-run
+`npx tsx scripts/audit/int-fix-live-after.mjs` after that time and flip these three to RESOLVED once
+confirmed.** See `WIRING_GAP_REGISTER.md` rows WGR-139/142/143 (`FIX-APPLIED-PENDING-VERIFICATION`).
+
+---
+
+## Prior Session — August 20, 2026 (remediation: WGR-138/139/142/143, funding-source integration parsers)
+
+**Focus:** fix the four P0 funding-source integration-parser findings (Grants.gov dead endpoint +
+wrong response shape; SAM.gov missing mandatory date params, an invalid `activeDate` param, and a
+wrong awardee nesting path). Ground truth for every fix came from a real live call to each current
+third-party API before touching code.
+
+**WGR-138 (Grants.gov): RESOLVED, fully live-verified — 100 real records** through the fixed
+`searchGrantsGovOpportunities('housing')`. Fixed the dead endpoint URL
+(`https://api.grants.gov/v1/api/search2`), the response wrapper (`data.oppHits`, not top-level), and
+stale hit field names (`title` not `oppTitle`); `description`/`amount` now map to `null` honestly
+since search2 list hits never carried those fields.
+
+**WGR-139/142/143 (SAM.gov ×3): fix applied, NOT marked RESOLVED.** `searchSamGovOpportunities()` now
+sends mandatory `postedFrom`/`postedTo`; `searchEntitiesByNaics()` no longer sends the `activeDate`
+param the real Entity API v3 rejects; `normalizeAwardee()` now reads `raw.award.awardee` (real
+nesting) instead of `raw.awardee`. Pre-fix bugs freshly reproduced live. Post-fix live verification
+blocked by a real SAM.gov daily quota exhaustion (`HTTP 429`, resets 2026-08-21T00:00:00Z) hit mid-
+session — `tsc`/`pnpm run build` both pass, but per this task's own standard a fix that compiles
+without a proven non-zero real result is not done. Register rows carry
+`FIX-APPLIED-PENDING-VERIFICATION`.
+
+**Evidence:** `test-evidence/remediation/int-fix/` (before/after JSON per finding).
+**Reproduction:** `node scripts/audit/int-fix-live-before.mjs`; `npx tsx scripts/audit/int-fix-live-after.mjs`
+(re-run after quota reset for the SAM.gov three). `pnpm run build` exit 0.
 
 ---
 

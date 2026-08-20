@@ -139,8 +139,6 @@ function normalizeEntity(raw: RawEntity, naicsCode: string): RawProspect | null 
 }
 
 export interface SearchEntitiesOptions {
-  /** MM/dd/yyyy. Defaults to today — "currently active as of" per SAM's convention. */
-  activeDate?: string;
   /** Entity API page size. Default 100 (single page — see file header on pagination scope). */
   size?: number;
 }
@@ -167,7 +165,9 @@ export async function searchEntitiesByNaics(
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("purposeOfRegistrationCode", "Z2");
   url.searchParams.set("naicsCode", naicsCode);
-  url.searchParams.set("activeDate", opts.activeDate ?? toSamDate(new Date()));
+  // The real Entity Management API v3 rejects "activeDate" outright
+  // ("The search parameter, activeDate does not exist.") — not a valid
+  // param on this endpoint, despite SAM's own convention elsewhere.
   url.searchParams.set("size", String(opts.size ?? 100));
 
   const response = await fetch(url.toString());
@@ -222,7 +222,10 @@ interface RawAwardee {
 interface RawAwardOpportunity {
   title?: string | null;
   naicsCode?: string | null;
-  awardee?: RawAwardee | null;
+  // The real API nests the awardee block under `award`, not top-level.
+  award?: {
+    awardee?: RawAwardee | null;
+  } | null;
 }
 
 interface RawOpportunitySearchResponse {
@@ -239,13 +242,13 @@ function formatAwardeeAddress(location: RawAwardee["location"]): string | null {
 }
 
 function normalizeAwardee(raw: RawAwardOpportunity): RawProspect | null {
-  const legalName = raw.awardee?.name?.trim();
+  const legalName = raw.award?.awardee?.name?.trim();
   if (!legalName) return null;
 
   return {
     legal_name: legalName,
     website: null, // Award Notices don't carry a website field.
-    hq_address: formatAwardeeAddress(raw.awardee?.location),
+    hq_address: formatAwardeeAddress(raw.award?.awardee?.location),
     geo: null,
     phone: null,
     naics_codes: raw.naicsCode ? [raw.naicsCode] : [],

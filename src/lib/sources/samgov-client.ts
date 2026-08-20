@@ -14,6 +14,9 @@ import { decodeHtmlEntities } from "@/lib/utils/formatters";
 const SAM_GOV_SEARCH_URL = "https://api.sam.gov/opportunities/v2/search";
 
 const DEFAULT_LIMIT = 100;
+// postedFrom/postedTo are mandatory on every real opportunities/v2/search
+// call; SAM.gov caps the range at 1 year, so poll the trailing year.
+const DEFAULT_DAYS_BACK = 365;
 
 export interface SamGovNormalizedOpportunity {
   /** SAM.gov noticeId — the natural external identifier for dedup. */
@@ -50,6 +53,21 @@ function toAmount(val: unknown): number | null {
   if (val === null || val === undefined || val === "") return null;
   const n = Number(val);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// SAM.gov date params are MM/dd/yyyy, not ISO — required on every
+// opportunities/v2/search call (postedFrom/postedTo are mandatory).
+function toSamDate(date: Date): string {
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const yyyy = date.getUTCFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function daysAgo(days: number): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d;
 }
 
 // SAM.gov deadlines arrive as ISO datetimes with an offset
@@ -98,6 +116,8 @@ export async function searchSamGovOpportunities(): Promise<
     api_key: apiKey,
     ptype: "o",
     limit: String(DEFAULT_LIMIT),
+    postedFrom: toSamDate(daysAgo(DEFAULT_DAYS_BACK)),
+    postedTo: toSamDate(new Date()),
   });
 
   let response: Response;

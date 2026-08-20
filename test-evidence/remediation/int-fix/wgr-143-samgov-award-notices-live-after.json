@@ -1,0 +1,9 @@
+{
+  "capturedAt": "2026-08-20T22:39:42.250Z",
+  "finding": "WGR-143",
+  "function": "searchRecentAwardRecipients(90)",
+  "count": 0,
+  "error": "SAM.gov award recipient search HTTP 429.",
+  "sample": [],
+  "shapeOk": true
+}

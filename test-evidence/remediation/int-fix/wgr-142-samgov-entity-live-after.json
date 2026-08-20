@@ -1,0 +1,9 @@
+{
+  "capturedAt": "2026-08-20T22:39:41.962Z",
+  "finding": "WGR-142",
+  "function": "searchEntitiesByNaics('236220')",
+  "count": 0,
+  "error": "SAM.gov entity search HTTP 429 for NAICS 236220.",
+  "sample": [],
+  "shapeOk": true
+}

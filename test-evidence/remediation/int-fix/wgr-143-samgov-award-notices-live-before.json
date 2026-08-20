@@ -1,0 +1,15 @@
+{
+  "finding": "WGR-143",
+  "capturedAt": "2026-08-20T22:34:59.061Z",
+  "request": "as-coded (normalizeAwardee reads raw.awardee, real data at raw.award.awardee)",
+  "response": {
+    "url": "https://api.sam.gov/opportunities/v2/search?api_key=REDACTED&ptype=a&limit=1000&postedFrom=05%2F22%2F2026&postedTo=08%2F20%2F2026",
+    "status": 429,
+    "statusText": "Too Many Requests",
+    "elapsedMs": 148,
+    "hitsReturned": 0,
+    "hitsWithTopLevelAwardee": 0,
+    "hitsWithNestedAwardAwardee": 0,
+    "firstHitSample": null
+  }
+}

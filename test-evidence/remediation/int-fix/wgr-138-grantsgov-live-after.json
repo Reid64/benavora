@@ -1,0 +1,36 @@
+{
+  "capturedAt": "2026-08-20T22:39:39.176Z",
+  "finding": "WGR-138",
+  "function": "searchGrantsGovOpportunities('housing')",
+  "count": 100,
+  "sample": [
+    {
+      "externalId": "362827",
+      "name": "FAIR HOUSING INITIATIVES PROGRAM PRIVATE ENFORCEMENT INITIATIVE",
+      "description": null,
+      "amount": null,
+      "deadline": "2026-11-02",
+      "category": "Government Federal",
+      "source": "grants_gov"
+    },
+    {
+      "externalId": "362880",
+      "name": "Fair Housing Initiatives Program - Education and Outreach Initiative",
+      "description": null,
+      "amount": null,
+      "deadline": "2026-11-02",
+      "category": "Government Federal",
+      "source": "grants_gov"
+    },
+    {
+      "externalId": "362364",
+      "name": "Authority to Accept Unsolicited Proposals for Research Partnerships Notice of Intent (NOI)",
+      "description": null,
+      "amount": null,
+      "deadline": "2027-06-09",
+      "category": "Government Federal",
+      "source": "grants_gov"
+    }
+  ],
+  "shapeOk": true
+}

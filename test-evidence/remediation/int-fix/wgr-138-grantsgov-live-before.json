@@ -1,0 +1,15 @@
+{
+  "finding": "WGR-138",
+  "capturedAt": "2026-08-20T22:34:58.009Z",
+  "request": "as-coded",
+  "response": {
+    "url": "https://api.grants.gov/grantsws/rest/opportunities/search/v2",
+    "status": 403,
+    "statusText": "Forbidden",
+    "elapsedMs": 662,
+    "bodySample": "{\"message\":\"Missing Authentication Token\"}",
+    "bodyJson": {
+      "message": "Missing Authentication Token"
+    }
+  }
+}
