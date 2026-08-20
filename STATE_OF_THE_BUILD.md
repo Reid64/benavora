@@ -1,6 +1,95 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-12-004: connection-pool + rate-limiter behavior under real DB contention (real finding: statement_timeout under mild concurrency, not graceful queueing).**
+**Updated: August 20, 2026 — audit PT-12 v2 COMPLETE: load + concurrency, load-test branch torn down, review pack ready for PT-15.**
+
+## SESSION — August 20, 2026 (audit PT-12 v2 COMPLETE: teardown, summary, review pack)
+
+**Scope:** close out the PT-12 v2 load-and-concurrency audit chain (PT-12-001 branch creation
+through PT-12-004 pool/rate-limiter contention, all summarized in prior session entries directly
+below this one). This closing pass: (1) tear down the dedicated `pt12-load-test` Supabase branch —
+a real, billed 2.14M-row production clone that had been running since 2026-08-20T18:44 UTC; (2)
+write a consolidated `test-evidence/pt-12/PHASE-12-SUMMARY.md` covering breaking point, latency
+percentiles, soak memory verdict, and pool/rate-limiter behavior, every number cited to its
+evidence file; (3) confirm findings in `test-evidence/_register/WIRING_GAP_REGISTER.md` (WGR-149
+through WGR-152); (4) write `test-evidence/pt-12/REVIEW-PACK.md` to feed PT-15; (5) add a verifier,
+`scripts/audit/verify-pt12-005.mjs`.
+
+**Branch teardown — confirmed gone, not just "delete command ran clean."** Ran
+`supabase branches delete pt12-load-test --project-ref vbjplpquqxxfbpazyalt --yes` (exit 0,
+`Deleted preview branch: ffghpazvipsqrypkryfj`), then independently re-ran
+`supabase branches list --project-ref vbjplpquqxxfbpazyalt --output-format json` — the response now
+contains exactly one branch (`main`, `project_ref === parent_project_ref`, i.e. the production
+default, not a real clone) and zero entries named `pt12-load-test`. Both the raw delete output and
+the full post-delete branch list are captured verbatim in `test-evidence/pt-12/teardown.txt`.
+
+**PHASE-12-SUMMARY.md — every number traced to its source evidence file, not restated from
+memory:**
+- **Breaking point: concurrency = 600** (p95=5027ms, p99=5823ms, errorRate=0.00%) — above the
+  reasonable target of 250 concurrent users for this infra tier. Zero request errors were observed
+  at any tested concurrency level, 5 through 1000 — every degradation mode found was latency, never
+  dropped/failed requests. Real completed-request throughput plateaus at ~180 req/s starting around
+  concurrency=150 (`throughputPlateauConcurrency: 150`, `maxObservedThroughputRps: 179.7`) — the
+  more actionable capacity number, reached well before the 600-concurrency latency-SLA ceiling.
+  Source: `test-evidence/pt-12/load-results.json`/`.txt` (PT-12-002, already committed in a prior
+  session).
+- **Soak memory verdict: `PASS_NO_LEAK`, flat on both processes.** Next.js: first-quarter avg 53MB
+  → last-quarter avg 27MB (−48.8%, monotonicity 93.75%, regression slope −213,547 bytes/s). Worker:
+  42MB → 23MB (−44.5%, monotonicity 87.5%, slope −153,778 bytes/s). Both processes trend
+  *decreasing*, the opposite direction a leak would move, well clear of the leak bar (>15% growth
+  AND >60% monotonicity in the growing direction). 202.2s sustained load, 1,928 requests, 0 errors,
+  automation confirmed disarmed beforehand (0 `pending` `submission_queue` rows). Source:
+  `test-evidence/pt-12/soak-memory.json`/`.txt` (PT-12-003, already committed).
+- **Pool + rate-limiter behavior under real contention:** every tested concurrency level (2/5/10/
+  20/40) on a deliberately worst-case query (leading-wildcard `ILIKE` seq-scan over 1.97M rows)
+  produced 100% `statement_timeout_error`/0% success — Postgres hard-cancels the query via its own
+  `statement_timeout` GUC (~8.1–8.5s consistent cutoff through concurrency=20, doubling to ~16.2s
+  wall-clock at concurrency=40, confirming real queueing underneath the fixed-timeout
+  cancellations) rather than gracefully queueing to completion, even at the lowest tested
+  concurrency of 2. `pool_exhaustion_error` was 0 at every level — the pool itself never refused a
+  connection; the statement-timeout GUC is what fires. In the same contention burst, the real
+  `RateLimiter.canSubmitToDomain()` logic produced 0 false-allows and 0 false-blocks across 100
+  replica calls — confirmed correct even while the pool-stress side of the same burst was actively
+  failing. Source: `test-evidence/pt-12/pool-ratelimit.json` (PT-12-004, already committed).
+
+**Register updated — 4 new rows, WGR-149 through WGR-152, continuing the existing sequence (last
+prior entry was WGR-148):**
+- **WGR-149 (P2, CONFIRMED-BROKEN)** — the real, load-bearing finding from this phase: Postgres
+  hard-cancels moderately expensive queries via `statement_timeout` under mild concurrency (2
+  simultaneous callers) instead of queueing them gracefully. Graded P2, not higher, because it was
+  exercised via a deliberately worst-case synthetic query shape on a smaller/free-tier branch
+  compute instance, not a confirmed real application code path or production compute — but the
+  qualitative mechanism (Postgres's statement_timeout hard-canceling under contention) is real and
+  not branch-specific.
+- **WGR-150 (P3, CONFIRMED-OK)** — breaking point (600) clears the reasonable target (250) with
+  zero errors at any level; throughput plateau (~180 req/s @ concurrency≈150) logged as the more
+  actionable capacity number. Not a defect — logged as capacity-planning data.
+- **WGR-151 (P3, CONFIRMED-OK)** — no memory leak in either the Next.js server or the worker
+  process under sustained real load. Investigated and confirmed not a gap.
+- **WGR-152 (P3, CONFIRMED-OK)** — the AutoApply rate limiter's fail-open design produced zero
+  false-allows/false-blocks even while WGR-149's pool-contention failures were actively firing in
+  the same test burst.
+
+**REVIEW-PACK.md written for PT-15** (`test-evidence/pt-12/REVIEW-PACK.md`), answering directly:
+platform handles realistic concurrent load with margin (breaking point 2.4× the reasonable
+target, zero errors at any tested level); breaking point is 600 but the more actionable capacity
+ceiling is ~180 req/s at concurrency≈150; no memory leak; highest-severity finding is WGR-149
+(ungraceful DB-contention failure mode under a worst-case query shape, real mechanism but not yet
+tied to a confirmed real application query path — flagged as a follow-up, not resolved here); and
+a note that any future load/soak/pool test needs a fresh Supabase branch created first, since
+`pt12-load-test` is now torn down.
+
+**Verifier:** `scripts/audit/verify-pt12-005.mjs` — fails unless `teardown.txt` records the delete
+command's exit-0 output AND an explicit "CONFIRMED GONE" verdict from a re-list showing the branch
+absent; `PHASE-12-SUMMARY.md` and `REVIEW-PACK.md` both exist and are non-trivially non-empty; and
+the register file's total WGR-row count is strictly greater than it was before this session (148 →
+152).
+
+**Gates:** no application source code was changed this session (evidence/docs/verifier-script
+only) — `pnpm tsc --noEmit`/`pnpm run build` not applicable to this session's changes.
+
+---
+
+## SESSION — August 20, 2026 (audit PT-12-004: connection-pool + rate-limiter behavior under real DB contention)
 
 **Scope:** two sub-tests against the same dedicated, non-production `pt12-load-test` Supabase branch
 (`ffghpazvipsqrypkryfj`, parent ref = production `vbjplpquqxxfbpazyalt`, branch ref confirmed

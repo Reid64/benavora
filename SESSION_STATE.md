@@ -1,5 +1,45 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-12-004: connection-pool + rate-limiter behavior under real DB contention.
+## Last Updated: August 20, 2026 — audit PT-12 v2 COMPLETE: load-test branch torn down, review pack ready.
+
+## Current Session — August 20, 2026 (audit PT-12 v2 COMPLETE: teardown, summary, review pack)
+
+**Focus:** close out PT-12 v2 (branch creation → load simulation → soak → pool/rate-limiter
+contention, prior session entries below). Tear down the billed `pt12-load-test` branch, write
+`test-evidence/pt-12/PHASE-12-SUMMARY.md` and `test-evidence/pt-12/REVIEW-PACK.md`, confirm
+findings in the wiring-gap register (WGR-149 through WGR-152), add a verifier. Full narrative in
+`STATE_OF_THE_BUILD.md`'s matching entry — summary here.
+
+**What was done:**
+- Teardown: `supabase branches delete pt12-load-test --project-ref vbjplpquqxxfbpazyalt --yes`
+  (exit 0), confirmed via a follow-up `supabase branches list` — response now shows only `main`
+  (production default), zero entries named `pt12-load-test`. Both captured verbatim in
+  `test-evidence/pt-12/teardown.txt`.
+- `PHASE-12-SUMMARY.md`: breaking point (concurrency=600, p95=5027ms, p99=5823ms, above the
+  250-user reasonable target, 0% errors at every tested level 5–1000); real throughput plateau
+  (~180 req/s @ concurrency≈150, the more actionable capacity number); soak memory verdict
+  (`PASS_NO_LEAK`, both processes trend −44% to −49% over the sampled window, not growing); pool
+  contention (100% `statement_timeout_error` at every tested concurrency 2–40 on a worst-case
+  query, 0% `pool_exhaustion_error` — a hard-cancel, not a graceful queue); rate-limiter contention
+  (0 false-allows, 0 false-blocks across 100 replica calls in the same contention burst). Every
+  number cites its source evidence file (`load-results.json`, `soak-memory.json`,
+  `pool-ratelimit.json`, all already committed by prior PT-12 sessions).
+- `WIRING_GAP_REGISTER.md`: 4 new rows, WGR-149 (P2, CONFIRMED-BROKEN — the statement_timeout
+  hard-cancel finding) through WGR-152 (P3, CONFIRMED-OK — rate limiter sound under contention),
+  continuing the sequence from the prior last entry, WGR-148.
+- `REVIEW-PACK.md`: answers "can the platform handle realistic concurrent load" (yes, with
+  margin — breaking point is 2.4× the target, zero errors at any level), states the breaking point
+  and the (more actionable) throughput ceiling separately, states the no-leak verdict, and names
+  WGR-149 as the phase's highest-severity finding with its own severity reasoning (worst-case
+  synthetic query, not yet a confirmed real application code path) — written for PT-15 to consume.
+- New verifier `scripts/audit/verify-pt12-005.mjs`.
+- Scoped commit (`test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`) — not `git add -A`.
+
+**Gates:** no application source code changed this session — nothing to re-run against
+`pnpm tsc --noEmit`/`pnpm run build`.
+
+---
+
+## Prior Session — August 20, 2026 (audit PT-12-004: connection-pool + rate-limiter behavior under real DB contention)
 
 **Focus:** two bounded sub-tests against the existing dedicated non-production `pt12-load-test`
 branch (no new branch created) — DB connection-pool contention behavior, and

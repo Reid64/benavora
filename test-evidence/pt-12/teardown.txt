@@ -1,0 +1,26 @@
+PT-12-005 — Load-Test Branch Teardown — 2026-08-20T20:18:52.000Z
+
+=== PRE-TEARDOWN STATE ===
+branch_name:          pt12-load-test
+branch_id:            cb26d5f5-8c36-4ace-89e3-89056e629d52
+branch_project_ref:   ffghpazvipsqrypkryfj
+parent_project_ref:   vbjplpquqxxfbpazyalt (production)
+created_at:           2026-08-20T18:44:33.489493+00:00
+status before delete: FUNCTIONS_DEPLOYED / ACTIVE_HEALTHY (confirmed via live 'supabase branches list' immediately before this run)
+
+=== DELETE COMMAND ===
+$ supabase branches delete pt12-load-test --project-ref vbjplpquqxxfbpazyalt --yes
+
+=== DELETE COMMAND OUTPUT (raw, ANSI spinner chars stripped) ===
+│
+◒  Deleting branch◐  Deleting branch◓  Deleting branch◑  Deleting branch◒  Deleting branch◐  Deleting branch◓  Deleting branch◑  Deleting branch◒  Deleting branch.◐  Deleting branch.◓  Deleting branch.◑  Deleting branch.◒  Deleting branch.◐  Deleting branch.◓  Deleting branch.◑  Deleting branch.◒  Deleting branch..◐  Deleting branch..◓  Deleting branch..◑  Deleting branch..◒  Deleting branch..◐  Deleting branch..◓  Deleting branch..◑  Deleting branch..◒  Deleting branch...◐  Deleting branch...◓  Deleting branch...◑  Deleting branch...◒  Deleting branch...◐  Deleting branch...◓  Deleting branch...◑  Deleting branch...◒  Deleting branch...◐  Deleting branch◓  Deleting branchDeleted preview branch: ffghpazvipsqrypkryfj
+delete_command_exit_code: 0
+
+=== FOLLOW-UP: supabase branches list --project-ref vbjplpquqxxfbpazyalt --output-format json ===
+{"branches":[{"id":"8f28a3df-41e5-4f0a-af9c-0e46dfb320d6","name":"main","project_ref":"vbjplpquqxxfbpazyalt","parent_project_ref":"vbjplpquqxxfbpazyalt","is_default":true,"persistent":false,"status":"FUNCTIONS_DEPLOYED","created_at":"2026-08-20T18:44:31.247891+00:00","updated_at":"2026-08-20T18:44:31.247891+00:00","with_data":false,"preview_project_status":"ACTIVE_HEALTHY"}],"message":""}
+
+
+=== VERIFICATION ===
+branches matching name 'pt12-load-test' in post-delete list: 0
+RESULT: pt12-load-test branch is CONFIRMED GONE. Only 'main' (the production default, project_ref === vbjplpquqxxfbpazyalt itself, not a real preview branch/clone) remains in the branches list.
+RESULT: PASS
