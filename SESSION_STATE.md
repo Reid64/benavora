@@ -1,5 +1,83 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-10: malformed-payload fuzz, 13 routes-return-500 + 1 middleware finding filed (WGR-121/122), register WGR-001 through WGR-122.
+## Last Updated: August 20, 2026 — audit PT-10: dependency-outage simulation. 5 real findings (2 scenario 1, 1 scenario 2, 2 scenario 3), verify-pt10-002.mjs 27/27 passing.
+
+## SESSION — August 20, 2026 (audit PT-10: dependency-outage simulation)
+
+**Focus:** simulate three real dependency-outage failure modes -- Supabase slow/unavailable, a worker
+killed mid-job (ties to PT-08 queue semantics), and malformed third-party responses fed into real
+integration parsers -- and confirm the app degrades gracefully (no crash, no white screen, no
+permanent corrupt state) rather than failing hard. Full detail, every finding's exact evidence path,
+and root-cause detail for each is in `STATE_OF_THE_BUILD.md`'s matching entry -- summary here.
+
+**Gates:** `node --check scripts/audit/pt10-002-outage-simulation.mjs` clean. `node
+scripts/audit/verify-pt10-002.mjs` -- 27/27 checks passed against `test-evidence/pt-10/outage-simulation.json`.
+
+**Real methodology fix, not glossed over:** the first full attempt hit every fault-mode target with no
+session cookie and found identical (unaffected) behavior across all three modes -- turned out
+`supabase-js`'s `getUser()` (what `middleware.ts` calls on every request) never makes a network call at
+all when there's no session token to check. Fixed by provisioning a real throwaway user/session before
+injecting any fault, same technique `pt10-001-malformed-payloads.mjs` already established. With a real
+session, the fault proxy's injected conditions immediately produced real, differentiated, decisively
+timed behavior (a `slow`-mode hit took exactly the 15.2s injected delay; a `down`-mode hit failed in
+under 200ms).
+
+**Scenario 1 (Supabase slow/unavailable) -- 2 real findings, plus one genuine graceful-degrade
+confirmation.** Under a hard outage, `middleware.ts`'s `getUser()` resolves to a null user rather than
+throwing (library-internal handling, not this app's own code -- a pure code read alone would have
+wrongly predicted a crash, since the function has zero try/catch anywhere), so protected routes cleanly
+307-redirect to `/login` -- no crash. But under **sustained latency** (Supabase reachable, just slow),
+both `/dashboard` and `/api/notifications` **timed out at a 30-second bounded wait with zero response**
+-- neither Supabase client construction anywhere in this app (`server.ts`/`admin.ts`) sets any fetch
+timeout, and no `error.tsx`/`loading.tsx` boundary exists anywhere in `src/app` (confirmed by direct
+search) to catch or soften this. This is the live-reproduced, previously-`UNVERIFIED` version of
+PT-08's own `WGR-040` finding ("no per-item timeout... would hang indefinitely," never live-tested
+there because a real hang would have hung that test run -- this session's bounded-wait design is what
+let it be confirmed safely). The app recovered cleanly once the injected outage ended.
+
+**Scenario 2 (worker killed mid-job) -- 1 real P1 finding, ties directly to PT-08.** PT-08 covered
+`agent_queue`'s retry lifecycle via a faithful SQL reimplementation, not a real process kill; this
+scenario targets the separate, actually-continuously-running `submission_queue` (the real Railway
+worker's own queue) with a genuine `SIGKILL`. Seeded a real row, let a real standalone child process
+genuinely claim it (same two-step predicate as `worker/queue-processor.ts`'s real `dequeue()`,
+confirmed claimed via the DB, not the child's own stdout), then killed it 4s into a 20s simulated work
+window -- before any terminal write. **The row is left permanently stuck at `status='processing'`,
+`completed_at: null`, with zero automatic reclaim (no stale-claim timeout, no cron sweep -- confirmed
+by direct code read and repo-wide grep) and zero manual remedy either** (the one "Clear Stuck Jobs"
+admin action only touches `agent_runs`, never `submission_queue` -- confirmed by direct code read of
+`src/app/api/admin/system/route.ts`). A real worker crash today silently strands a real funder
+application forever. Post-failure integrity check confirmed: exactly one row, no duplication, every
+other field unchanged from the original insert -- the row isn't corrupted, just permanently
+unreachable.
+
+**Scenario 3 (malformed third-party responses) -- 2 real P2 findings out of 9 cases across 5
+parsers.** `grantsgov-client.ts` and `samgov-client.ts` (identical bug in both) crash uncaught on a
+response shaped like `{"oppHits":[null,{...}]}` -- their per-hit mapping loop has no null guard and
+sits outside both files' own try/catch. Confirmed by code read: grants.gov's real call site
+(`grantsgov-sync.ts`) has zero protection around this, so one malformed response silently aborts an
+entire org's keyword sync for that run (contained to that org by the cron route's own per-org
+try/catch, not a full crash); SAM.gov's route handler (`/api/sources/samgov/route.ts`) has literally
+zero try/catch anywhere in it, so the exception escapes the route entirely. The other 4 parsers
+(ProPublica 990 x2, IRS 990 XML x4 garbage variants, CA Grants Portal RSS) all degrade cleanly --
+IRS 990's hand-rolled regex "parser" is defensive by construction (garbage text just fails to match,
+returns null); the RSS client's real `fast-xml-parser` call has no try/catch of its own but its one
+real CLI caller (`scripts/ingest-ca-grants-portal.ts`) does wrap it, confirmed by code read (not
+empirically forced this run, since the tested payload didn't actually throw).
+
+**Real cleanup bug found and fixed mid-session:** the scenario 1 test session's own teardown initially
+failed -- `deleteUser()` 500'd and the organization delete hit a real Postgres FK violation
+(`profiles_organization_id_fkey`), both because the `profiles` row wasn't deleted first. Root-caused
+live by attempting each delete directly and reading the real error text; fixed by reordering cleanup to
+delete `profiles` before `organizations`/the auth user, in both the upfront leftover-sweep and the
+end-of-run cleanup. The one org this left behind was cleaned up manually with the corrected order;
+confirmed zero `PT-10-002`-named orgs remain in the local stack afterward.
+
+**New harness (all LOCAL/BRANCH ONLY per `test-evidence/pt-02/BRANCH_STRATEGY.md`):**
+`scripts/audit/pt10-002-fault-proxy.mjs` (dependency-free HTTP proxy, live-controllable via a mode
+file to inject connection-reset or latency without restarting the app), `scripts/audit/pt10-002-queue-claim-worker.mjs`
+(standalone child process for the real process-kill scenario), `scripts/audit/pt10-002-outage-simulation.mjs`
+(orchestrator, writes `test-evidence/pt-10/outage-simulation.json`), and
+`scripts/audit/verify-pt10-002.mjs` (the gate: fails unless every scenario recorded real behavior plus
+a real post-failure integrity check).
 
 ## SESSION — August 20, 2026 (audit PT-10: malformed-payload fuzz)
 

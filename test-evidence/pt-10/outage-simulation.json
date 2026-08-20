@@ -1,0 +1,546 @@
+{
+  "generatedAt": "2026-08-20T12:25:59.912Z",
+  "note": "PT-10-002. LOCAL/BRANCH ONLY. Real dependency-outage simulation across three failure modes -- see each scenario's own `description` field for exact methodology. No production system, real third-party network endpoint, or shared dev-server instance was touched at any point.",
+  "localSupabaseStackUrl": "http://127.0.0.1:56321",
+  "scenarios": {
+    "scenario1_db_outage": {
+      "description": "Injects connection-reset ('down') and added latency ('slow') on the real DB path via a local fault-injection proxy in front of the real local Supabase stack, with an isolated next dev server's NEXT_PUBLIC_SUPABASE_URL pointed at that proxy for the whole run (no server restart between fault modes -- only the proxy's own live-reread mode file changes). Targets middleware.ts (runs on every non-static request, calls supabase.auth.getUser() with no try/catch anywhere in the function -- src/middleware.ts lines ~117-119) plus a protected dashboard page and a real API route, to see whether an unhandled exception there produces a raw framework crash or a designed degrade path. Repo-wide check before running: no app/error.tsx, app/global-error.tsx, or a (dashboard)/error.tsx or loading.tsx exists anywhere in src/app -- there is no React error boundary configured anywhere in this app that could catch a Server Component/middleware throw.",
+      "hasErrorBoundary": false,
+      "proxyLog": null,
+      "cases": [
+        {
+          "phase": "baseline_normal",
+          "target": "public_home",
+          "path": "/",
+          "note": "public path; middleware still constructs a Supabase client and calls getUser() before the isPublic check short-circuits (src/middleware.ts lines ~95-120). A real session cookie is attached so getUser() actually has a token to revalidate against the Auth server over the network -- an EARLIER run of this exact harness with NO cookie at all showed identical (fast, unaffected) behavior across every fault mode, confirming getUser() short-circuits locally with no network call when there is no session to check; this run fixes that gap.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 165,
+            "status": 404,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 11117,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228678902\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228678902\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228678902\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false
+        },
+        {
+          "phase": "baseline_normal",
+          "target": "protected_dashboard_with_session",
+          "path": "/dashboard",
+          "note": "protected path, real writer-role session for a real throwaway org -- this is a genuine authenticated dashboard render that queries Supabase directly in the page's own Server Component in addition to middleware's own getUser() call.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 1432,
+            "status": 200,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 115880,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" as=\"image\" imageSrcSet=\"/_next/image?url=%2Fbenavora_logo.png&amp;w=256&amp;q=75 1x, /_next/image?url=%2Fbenavora_logo.png&amp;w=384&amp;q=75 2x\" fetchPriority=\"high\"/><link rel=\"preload\" as=\"image\" imageSrcSet=\"/_next/image?url=%2Fbenavora_logo.png&amp;w=32&amp;q=75 1x, /_next/image?url=%2Fbenavora_logo.png&amp;w=64&amp;q=75 2x\" fetchPriority=\"high\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228679913\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228679913\"/><script src=\"/_n"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false
+        },
+        {
+          "phase": "baseline_normal",
+          "target": "api_notifications",
+          "path": "/api/notifications",
+          "note": "a real API route (not middleware) -- exercises whether route-level handling degrades better than middleware, with the same real session.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 1401,
+            "status": 500,
+            "location": null,
+            "contentType": "application/json",
+            "bodyLength": 59,
+            "bodySnippet": "{\"error\":\"Could not load notifications.\",\"code\":\"db_error\"}"
+          },
+          "looksLikeCrash": true,
+          "isBlank": false
+        },
+        {
+          "phase": "db_down",
+          "target": "public_home",
+          "path": "/",
+          "note": "public path; middleware still constructs a Supabase client and calls getUser() before the isPublic check short-circuits (src/middleware.ts lines ~95-120). A real session cookie is attached so getUser() actually has a token to revalidate against the Auth server over the network -- an EARLIER run of this exact harness with NO cookie at all showed identical (fast, unaffected) behavior across every fault mode, confirming getUser() short-circuits locally with no network call when there is no session to check; this run fixes that gap.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 122,
+            "status": 404,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 11117,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228682310\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228682310\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228682310\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_down",
+          "target": "protected_dashboard_with_session",
+          "path": "/dashboard",
+          "note": "protected path, real writer-role session for a real throwaway org -- this is a genuine authenticated dashboard render that queries Supabase directly in the page's own Server Component in addition to middleware's own getUser() call.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 16,
+            "status": 307,
+            "location": "/login",
+            "contentType": "",
+            "bodyLength": 6,
+            "bodySnippet": "/login"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_down",
+          "target": "api_notifications",
+          "path": "/api/notifications",
+          "note": "a real API route (not middleware) -- exercises whether route-level handling degrades better than middleware, with the same real session.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 19,
+            "status": 307,
+            "location": "/login",
+            "contentType": "",
+            "bodyLength": 6,
+            "bodySnippet": "/login"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_slow",
+          "target": "public_home",
+          "path": "/",
+          "note": "public path; middleware still constructs a Supabase client and calls getUser() before the isPublic check short-circuits (src/middleware.ts lines ~95-120). A real session cookie is attached so getUser() actually has a token to revalidate against the Auth server over the network -- an EARLIER run of this exact harness with NO cookie at all showed identical (fast, unaffected) behavior across every fault mode, confirming getUser() short-circuits locally with no network call when there is no session to check; this run fixes that gap. Proxy injects 15000ms of added latency before forwarding; bounded client wait 30000ms.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 15169,
+            "status": 404,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 11117,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228698034\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228698034\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228698034\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_slow",
+          "target": "protected_dashboard_with_session",
+          "path": "/dashboard",
+          "note": "protected path, real writer-role session for a real throwaway org -- this is a genuine authenticated dashboard render that queries Supabase directly in the page's own Server Component in addition to middleware's own getUser() call. Proxy injects 15000ms of added latency before forwarding; bounded client wait 30000ms.",
+          "response": {
+            "outcome": "timed_out",
+            "elapsedMs": 30006,
+            "error": "The operation was aborted due to timeout"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "FINDING_SLOW_NO_TIMEOUT_HANDLING"
+        },
+        {
+          "phase": "db_slow",
+          "target": "api_notifications",
+          "path": "/api/notifications",
+          "note": "a real API route (not middleware) -- exercises whether route-level handling degrades better than middleware, with the same real session. Proxy injects 15000ms of added latency before forwarding; bounded client wait 30000ms.",
+          "response": {
+            "outcome": "timed_out",
+            "elapsedMs": 30003,
+            "error": "The operation was aborted due to timeout"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "FINDING_SLOW_NO_TIMEOUT_HANDLING"
+        }
+      ],
+      "recovery": {
+        "response": {
+          "outcome": "responded",
+          "elapsedMs": 183,
+          "status": 404,
+          "location": null,
+          "contentType": "text/html; charset=utf-8",
+          "bodyLength": 11117,
+          "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228758755\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228758755\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228758755\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+        },
+        "verdict": "PASS"
+      },
+      "nextDevLogTail": " ⨯ Failed to start server\nError: listen EADDRINUSE: address already in use :::3299\n    at Server.setupListenHandle [as _listen2] (node:net:1908:16)\n    at listenInCluster (node:net:1965:12)\n    at Server.listen (node:net:2067:7)\n    at C:\\Users\\manag\\Documents\\benavora\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@18.3.1_react@18.3.1__react@18.3.1\\node_modules\\next\\dist\\server\\lib\\start-server.js:280:16\n    at new Promise (<anonymous>)\n    at startServer (C:\\Users\\manag\\Documents\\benavora\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@18.3.1_react@18.3.1__react@18.3.1\\node_modules\\next\\dist\\server\\lib\\start-server.js:191:11)\n    at C:\\Users\\manag\\Documents\\benavora\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@18.3.1_react@18.3.1__react@18.3.1\\node_modules\\next\\dist\\server\\lib\\start-server.js:310:52\n    at Span.traceAsyncFn (C:\\Users\\manag\\Documents\\benavora\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@18.3.1_react@18.3.1__react@18.3.1\\node_modules\\next\\dist\\trace\\trace.js:154:26)\n    at process.<anonymous> (C:\\Users\\manag\\Documents\\benavora\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@18.3.1_react@18.3.1__react@18.3.1\\node_modules\\next\\dist\\server\\lib\\start-server.js:310:35)\n    at process.emit (node:events:524:28) {\n  code: 'EADDRINUSE',\n  errno: -4091,\n  syscall: 'listen',\n  address: '::',\n  port: 3299\n}\n\u001b[?25h\n",
+      "behavior": [
+        {
+          "phase": "baseline_normal",
+          "target": "public_home",
+          "path": "/",
+          "note": "public path; middleware still constructs a Supabase client and calls getUser() before the isPublic check short-circuits (src/middleware.ts lines ~95-120). A real session cookie is attached so getUser() actually has a token to revalidate against the Auth server over the network -- an EARLIER run of this exact harness with NO cookie at all showed identical (fast, unaffected) behavior across every fault mode, confirming getUser() short-circuits locally with no network call when there is no session to check; this run fixes that gap.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 165,
+            "status": 404,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 11117,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228678902\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228678902\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228678902\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false
+        },
+        {
+          "phase": "baseline_normal",
+          "target": "protected_dashboard_with_session",
+          "path": "/dashboard",
+          "note": "protected path, real writer-role session for a real throwaway org -- this is a genuine authenticated dashboard render that queries Supabase directly in the page's own Server Component in addition to middleware's own getUser() call.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 1432,
+            "status": 200,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 115880,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" as=\"image\" imageSrcSet=\"/_next/image?url=%2Fbenavora_logo.png&amp;w=256&amp;q=75 1x, /_next/image?url=%2Fbenavora_logo.png&amp;w=384&amp;q=75 2x\" fetchPriority=\"high\"/><link rel=\"preload\" as=\"image\" imageSrcSet=\"/_next/image?url=%2Fbenavora_logo.png&amp;w=32&amp;q=75 1x, /_next/image?url=%2Fbenavora_logo.png&amp;w=64&amp;q=75 2x\" fetchPriority=\"high\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228679913\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228679913\"/><script src=\"/_n"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false
+        },
+        {
+          "phase": "baseline_normal",
+          "target": "api_notifications",
+          "path": "/api/notifications",
+          "note": "a real API route (not middleware) -- exercises whether route-level handling degrades better than middleware, with the same real session.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 1401,
+            "status": 500,
+            "location": null,
+            "contentType": "application/json",
+            "bodyLength": 59,
+            "bodySnippet": "{\"error\":\"Could not load notifications.\",\"code\":\"db_error\"}"
+          },
+          "looksLikeCrash": true,
+          "isBlank": false
+        },
+        {
+          "phase": "db_down",
+          "target": "public_home",
+          "path": "/",
+          "note": "public path; middleware still constructs a Supabase client and calls getUser() before the isPublic check short-circuits (src/middleware.ts lines ~95-120). A real session cookie is attached so getUser() actually has a token to revalidate against the Auth server over the network -- an EARLIER run of this exact harness with NO cookie at all showed identical (fast, unaffected) behavior across every fault mode, confirming getUser() short-circuits locally with no network call when there is no session to check; this run fixes that gap.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 122,
+            "status": 404,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 11117,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228682310\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228682310\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228682310\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_down",
+          "target": "protected_dashboard_with_session",
+          "path": "/dashboard",
+          "note": "protected path, real writer-role session for a real throwaway org -- this is a genuine authenticated dashboard render that queries Supabase directly in the page's own Server Component in addition to middleware's own getUser() call.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 16,
+            "status": 307,
+            "location": "/login",
+            "contentType": "",
+            "bodyLength": 6,
+            "bodySnippet": "/login"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_down",
+          "target": "api_notifications",
+          "path": "/api/notifications",
+          "note": "a real API route (not middleware) -- exercises whether route-level handling degrades better than middleware, with the same real session.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 19,
+            "status": 307,
+            "location": "/login",
+            "contentType": "",
+            "bodyLength": 6,
+            "bodySnippet": "/login"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_slow",
+          "target": "public_home",
+          "path": "/",
+          "note": "public path; middleware still constructs a Supabase client and calls getUser() before the isPublic check short-circuits (src/middleware.ts lines ~95-120). A real session cookie is attached so getUser() actually has a token to revalidate against the Auth server over the network -- an EARLIER run of this exact harness with NO cookie at all showed identical (fast, unaffected) behavior across every fault mode, confirming getUser() short-circuits locally with no network call when there is no session to check; this run fixes that gap. Proxy injects 15000ms of added latency before forwarding; bounded client wait 30000ms.",
+          "response": {
+            "outcome": "responded",
+            "elapsedMs": 15169,
+            "status": 404,
+            "location": null,
+            "contentType": "text/html; charset=utf-8",
+            "bodyLength": 11117,
+            "bodySnippet": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_53f2d8 __variable_4a860e\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1787228698034\" data-precedence=\"next_static/css/app/layout.css\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack.js?v=1787228698034\"/><script src=\"/_next/static/chunks/main-app.js?v=1787228698034\" async=\"\"></script><script src=\"/_next/static/chunks/app-pages-internals.js\" async=\"\"></script><meta name=\"robots\" content=\"noindex\"/><title>404: This page could not be found.</title><meta name=\"theme-color\" content=\"#B88A2E\"/><title>Benavora — AI Grant Automation for Nonprofits</title><meta name=\"description\" content=\"Benavor"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "PASS"
+        },
+        {
+          "phase": "db_slow",
+          "target": "protected_dashboard_with_session",
+          "path": "/dashboard",
+          "note": "protected path, real writer-role session for a real throwaway org -- this is a genuine authenticated dashboard render that queries Supabase directly in the page's own Server Component in addition to middleware's own getUser() call. Proxy injects 15000ms of added latency before forwarding; bounded client wait 30000ms.",
+          "response": {
+            "outcome": "timed_out",
+            "elapsedMs": 30006,
+            "error": "The operation was aborted due to timeout"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "FINDING_SLOW_NO_TIMEOUT_HANDLING"
+        },
+        {
+          "phase": "db_slow",
+          "target": "api_notifications",
+          "path": "/api/notifications",
+          "note": "a real API route (not middleware) -- exercises whether route-level handling degrades better than middleware, with the same real session. Proxy injects 15000ms of added latency before forwarding; bounded client wait 30000ms.",
+          "response": {
+            "outcome": "timed_out",
+            "elapsedMs": 30003,
+            "error": "The operation was aborted due to timeout"
+          },
+          "looksLikeCrash": false,
+          "isBlank": false,
+          "verdict": "FINDING_SLOW_NO_TIMEOUT_HANDLING"
+        }
+      ],
+      "findingCount": 2,
+      "overallVerdict": "FINDINGS_PRESENT"
+    },
+    "scenario2_worker_killed_mid_job": {
+      "description": "Kills (SIGKILL) a real, standalone child process after it has genuinely claimed a real submission_queue row via the exact two-step claim predicate worker/queue-processor.ts's dequeue() uses, mid-way through the simulated in-flight-work window (before any terminal status write), then checks whether the row is reclaimed, cleanly failed, or left permanently in a half-done state.",
+      "behavior": {
+        "childPid": 131668,
+        "claimConfirmedBeforeKill": true,
+        "killedAt": "2026-08-20T12:24:35.382Z",
+        "childExitCode": null,
+        "childExitSignal": "SIGKILL",
+        "childLogTail": "CLAIM_WORKER_CLAIMED cb4fcca3-6cf1-430f-8d2c-f78ac7576521\n",
+        "postKillStatus": "processing",
+        "postKillCompletedAt": null,
+        "postKillErrorMessage": null,
+        "stillStuckAtProcessingWithNoTerminalState": true,
+        "reclaimableViaNormalDequeuePredicate": false
+      },
+      "postFailureIntegrityCheck": {
+        "performed": true,
+        "method": "Direct service-role SELECT of the exact queue row (by primary key) and every other submission_queue row sharing this test's throwaway organization_id, run after confirming the child process actually exited (not just signalled). Checks (a) exactly one row exists for this test -- no duplication from a botched claim/retry, (b) every field the row was created with is unchanged except the claim's own started_at/status write -- no partial/corrupted write, (c) whether the exact real dequeue() claim predicate (status='pending') can find this row again -- confirms it is neither silently reclaimed nor double-claimable.",
+        "rowCountForTestOrg": 1,
+        "expectedRowCount": 1,
+        "rowCountMatchesExpected": true,
+        "fieldDriftFromOriginalInsert": [],
+        "noUnexpectedFieldDrift": true,
+        "finalRow": {
+          "id": "cb4fcca3-6cf1-430f-8d2c-f78ac7576521",
+          "status": "processing",
+          "started_at": "2026-08-20T12:24:30.981+00:00",
+          "completed_at": null,
+          "error_message": null
+        },
+        "reclaimableViaNormalDequeuePredicate": false
+      },
+      "codeReadNotes": [
+        {
+          "claim": "worker/queue-processor.ts's dequeue() (lines ~420-459) has no stale-claim timeout: it only ever selects status='pending' rows. A row already at status='processing' is invisible to every future dequeue() call, forever, regardless of how long ago it was claimed.",
+          "verifiedBy": "direct read of worker/queue-processor.ts this session"
+        },
+        {
+          "claim": "No cron/scheduled sweep anywhere in worker/scheduler.ts reaps stale submission_queue rows (grepped the whole worker/ and src/ tree for stuck/stale/reclaim/orphan job-sweep logic touching submission_queue specifically -- none found).",
+          "verifiedBy": "repo-wide grep this session"
+        },
+        {
+          "claim": "The one existing manual admin remedy, POST /api/admin/system {action:'clear_stuck_jobs'} (src/app/api/admin/system/route.ts lines ~157-189), only clears agent_runs rows stuck at status='running' for over 2 hours. It contains zero references to submission_queue and cannot reach this row even if an admin clicks 'Clear Stuck Jobs' on /admin/system.",
+          "verifiedBy": "direct read of src/app/api/admin/system/route.ts this session"
+        },
+        {
+          "claim": "A separate, older AutoApply system (automation_queue / AutomationWorkerAgent, src/lib/agents/automation-worker.ts) DOES implement a real reapTimedOutItems() (5-minute budget, lines ~106,268-275) -- but it only runs when a human/cron hits POST /api/automation/process, and operates on a completely different table (automation_queue), not submission_queue. It provides no protection for the scenario tested here.",
+          "verifiedBy": "direct read of src/lib/agents/automation-worker.ts and src/app/api/automation/process/route.ts this session"
+        }
+      ],
+      "verdict": "FINDING",
+      "findingCount": 1,
+      "findings": [
+        {
+          "id": "PT10-002-S2-001",
+          "severity": "P1",
+          "layer": "Worker/Queue",
+          "description": "A submission_queue row that was claimed (status set to 'processing') by a worker process that is then killed mid-job (crash, OOM, host eviction, deploy restart) is left permanently stuck at status='processing' with completed_at never set. No automatic reclaim exists (dequeue() only ever looks for status='pending'), and no manual remedy exists either -- the one 'Clear Stuck Jobs' admin action only touches agent_runs, never submission_queue. The row is a genuine, permanent corrupt half-done state requiring direct DB intervention to recover; the funder application it represents silently never gets submitted, retried, or flagged as failed to anyone.",
+          "evidencePath": "test-evidence/pt-10/outage-simulation.json#scenarios.scenario2_worker_killed_mid_job",
+          "reproduction": "node --import tsx scripts/audit/pt10-002-outage-simulation.mjs (scenario 2 alone reproduces this deterministically: seed a pending submission_queue row, let a worker claim it, SIGKILL the worker before it writes a terminal status, re-read the row).",
+          "scopeTag": "CONFIRMED"
+        }
+      ]
+    },
+    "scenario3_malformed_third_party_responses": {
+      "description": "Feeds genuinely malformed/truncated payloads into 6 real third-party integration parser call sites (2 federal opportunity search clients, 2 ProPublica 990 financial-data cases, 4 IRS-990-XML garbage variants, 1 RSS/XML feed parser) via a monkeypatched global.fetch (never the real internet) or, for the pure-synchronous IRS 990 XML parser, direct in-process calls with no I/O at all. Records whether each parser itself throws an uncaught exception past its own function boundary, and separately (via direct code read of the real call site) whether the immediate caller has a try/catch that would contain that throw before it reaches a whole batch/worker/process boundary.",
+      "behavior": [
+        {
+          "id": "PT10-002-S3-001",
+          "target": "grantsgov-client.searchGrantsGovOpportunities",
+          "note": "mapHit() (grantsgov-client.ts, unexported helper) does `hit.id`/`hit.oppTitle` on every array element with no null guard on the element itself; the outer function only try/catches the fetch() call and response.json() -- the per-hit mapping loop (lines ~126-129) is outside both try/catch blocks.",
+          "outcome": "threw_uncaught",
+          "thrownMessage": "Cannot read properties of null (reading 'id')",
+          "returnedSnippet": null,
+          "callerProtection": {
+            "immediateCaller": "src/lib/sources/grantsgov-sync.ts syncGrantsGovForOrg(), line ~101, `for (const keyword of keywords) { const hits = await searchGrantsGovOpportunities(keyword); ... }`",
+            "hasTryCatchAtImmediateCallSite": false,
+            "nextProtectedLayerUp": "src/app/api/cron/grantsgov/route.ts wraps EACH org's syncGrantsGovForOrg() call in try/catch (line ~50), so one malformed API response fails only that org's entire sync for that run (silently losing every keyword after the failure point, not just the malformed one) -- it does not crash the cron job or other orgs."
+          },
+          "verdict": "FINDING"
+        },
+        {
+          "id": "PT10-002-S3-002",
+          "target": "samgov-client.searchSamGovOpportunities",
+          "note": "Same structural bug as grantsgov-client.ts's mapHit -- identical file shape, same missing null guard on array elements.",
+          "outcome": "threw_uncaught",
+          "thrownMessage": "Cannot read properties of null (reading 'noticeId')",
+          "returnedSnippet": null,
+          "callerProtection": {
+            "immediateCaller": "src/app/api/sources/samgov/route.ts GET() handler, line ~53, `const hits = await searchSamGovOpportunities();` -- the entire GET() function body (checked directly) has NO try/catch anywhere, only explicit early-return checks for specific known conditions (missing auth, missing orgId, a failed opportunities SELECT).",
+            "hasTryCatchAtImmediateCallSite": false,
+            "nextProtectedLayerUp": "None found -- unlike grants.gov's cron route, this route is hit directly by an external cron trigger per the file's own header comment ('SYSTEM job... gated solely by CRON_SECRET'), with no per-org looping wrapper in this codebase. Blast radius is narrower (one HTTP request, not a multi-org loop) but the failure mode is worse: an uncaught exception here propagates out of the route handler entirely, so the caller gets Next.js's own generic error response instead of this route's own clean jsonError() JSON shape every other failure path in this file uses."
+          },
+          "verdict": "FINDING"
+        },
+        {
+          "id": "PT10-002-S3-003",
+          "target": "propublica-990-client.fetchProPublicaFinancials",
+          "note": "Genuinely truncated JSON body (cut off mid-array) -- targets the response.json() try/catch (lines ~57-61).",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": null,
+          "callerProtection": {
+            "immediateCaller": "n/a -- the function's own internal try/catch is expected to handle this",
+            "hasTryCatchAtImmediateCallSite": true
+          },
+          "verdict": "PASS"
+        },
+        {
+          "id": "PT10-002-S3-004",
+          "target": "propublica-990-client.fetchProPublicaFinancials",
+          "note": "filings_with_data present but its one entry is null -- tests the `body.filings_with_data?.[0]` + `!filing` guard (lines ~63-66).",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": "{\"ein\":\"987654321\",\"totalRevenue\":null,\"totalAssets\":null}",
+          "callerProtection": {
+            "immediateCaller": "n/a",
+            "hasTryCatchAtImmediateCallSite": true
+          },
+          "verdict": "PASS"
+        },
+        {
+          "id": "PT10-002-S3-005-empty_string",
+          "target": "irs990.ts IRS990Source.parseXml",
+          "note": "Called directly, in-process, with no network involved -- this is a pure regex-based 'XML parser' (no real XML library), so garbage input should just fail to match any tag and return null.",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": "null (correctly reported no business name found)",
+          "callerProtection": {
+            "immediateCaller": "n/a -- pure synchronous function, no I/O",
+            "hasTryCatchAtImmediateCallSite": true
+          },
+          "verdict": "PASS"
+        },
+        {
+          "id": "PT10-002-S3-005-truncated_mid_tag",
+          "target": "irs990.ts IRS990Source.parseXml",
+          "note": "Called directly, in-process, with no network involved -- this is a pure regex-based 'XML parser' (no real XML library), so garbage input should just fail to match any tag and return null.",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": "null (correctly reported no business name found)",
+          "callerProtection": {
+            "immediateCaller": "n/a -- pure synchronous function, no I/O",
+            "hasTryCatchAtImmediateCallSite": true
+          },
+          "verdict": "PASS"
+        },
+        {
+          "id": "PT10-002-S3-005-binary_garbage",
+          "target": "irs990.ts IRS990Source.parseXml",
+          "note": "Called directly, in-process, with no network involved -- this is a pure regex-based 'XML parser' (no real XML library), so garbage input should just fail to match any tag and return null.",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": "null (correctly reported no business name found)",
+          "callerProtection": {
+            "immediateCaller": "n/a -- pure synchronous function, no I/O",
+            "hasTryCatchAtImmediateCallSite": true
+          },
+          "verdict": "PASS"
+        },
+        {
+          "id": "PT10-002-S3-005-non_xml_html_error_page",
+          "target": "irs990.ts IRS990Source.parseXml",
+          "note": "Called directly, in-process, with no network involved -- this is a pure regex-based 'XML parser' (no real XML library), so garbage input should just fail to match any tag and return null.",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": "null (correctly reported no business name found)",
+          "callerProtection": {
+            "immediateCaller": "n/a -- pure synchronous function, no I/O",
+            "hasTryCatchAtImmediateCallSite": true
+          },
+          "verdict": "PASS"
+        },
+        {
+          "id": "PT10-002-S3-006",
+          "target": "ca-grants-portal-client.fetchCaGrantsPortalFeed",
+          "note": "Genuinely malformed/truncated RSS XML fed to fast-xml-parser's XMLParser.parse() (line ~134-137), which has NO try/catch around it in fetchCaGrantsPortalFeed() itself (only the HTTP status check above it is guarded).",
+          "outcome": "returned_without_throwing",
+          "thrownMessage": null,
+          "returnedSnippet": "[]",
+          "callerProtection": {
+            "immediateCaller": "src/lib/sources/state-portals/ca-grants-portal-sync.ts line ~149, `const opportunities = await fetchCaGrantsPortalFeed();` -- no try/catch in this file either.",
+            "hasTryCatchAtImmediateCallSite": false,
+            "nextProtectedLayerUp": "scripts/ingest-ca-grants-portal.ts main() DOES wrap the equivalent fetchAndTagCaGrantsPortalFeed() call in try/catch (lines ~58-62), calling a fatal() helper that logs a clean message and process.exit(1) -- a genuine crash is prevented at the CLI entry point, though the library function itself remains unprotected for any other/future caller."
+          },
+          "verdict": "PASS"
+        }
+      ],
+      "findingCount": 2,
+      "findings": [
+        {
+          "id": "PT10-002-S3-001",
+          "severity": "P2",
+          "layer": "Integration/Parser",
+          "description": "grantsgov-client.searchGrantsGovOpportunities: a malformed response causes an uncaught exception with no try/catch protecting the immediate real call site (src/lib/sources/grantsgov-sync.ts syncGrantsGovForOrg(), line ~101, `for (const keyword of keywords) { const hits = await searchGrantsGovOpportunities(keyword); ... }`). mapHit() (grantsgov-client.ts, unexported helper) does `hit.id`/`hit.oppTitle` on every array element with no null guard on the element itself; the outer function only try/catches the fetch() call and response.json() -- the per-hit mapping loop (lines ~126-129) is outside both try/catch blocks.",
+          "evidencePath": "test-evidence/pt-10/outage-simulation.json#scenarios.scenario3_malformed_third_party_responses.behavior[id=PT10-002-S3-001]",
+          "reproduction": "node --import tsx scripts/audit/pt10-002-outage-simulation.mjs (scenario 3 case PT10-002-S3-001)",
+          "scopeTag": "CONFIRMED"
+        },
+        {
+          "id": "PT10-002-S3-002",
+          "severity": "P2",
+          "layer": "Integration/Parser",
+          "description": "samgov-client.searchSamGovOpportunities: a malformed response causes an uncaught exception with no try/catch protecting the immediate real call site (src/app/api/sources/samgov/route.ts GET() handler, line ~53, `const hits = await searchSamGovOpportunities();` -- the entire GET() function body (checked directly) has NO try/catch anywhere, only explicit early-return checks for specific known conditions (missing auth, missing orgId, a failed opportunities SELECT).). Same structural bug as grantsgov-client.ts's mapHit -- identical file shape, same missing null guard on array elements.",
+          "evidencePath": "test-evidence/pt-10/outage-simulation.json#scenarios.scenario3_malformed_third_party_responses.behavior[id=PT10-002-S3-002]",
+          "reproduction": "node --import tsx scripts/audit/pt10-002-outage-simulation.mjs (scenario 3 case PT10-002-S3-002)",
+          "scopeTag": "CONFIRMED"
+        }
+      ],
+      "verdict": "FINDINGS_PRESENT"
+    }
+  },
+  "totalFindingCount": 5,
+  "overallVerdict": "FINDINGS_PRESENT"
+}
