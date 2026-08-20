@@ -1,6 +1,61 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-09-003 COMPLETE. Per-agent execution proof, batch 2
+**Updated: August 20, 2026 — audit PT-09 COMPLETE. Consolidation of the three PT-09 sub-audits
+(agent inventory, execution proof batch 1 AG-01..21, execution proof batch 2 AG-22..43) into
+`test-evidence/pt-09/PHASE-09-SUMMARY.md` (the full AG-01..43 verdict table, every row citing its
+own row-delta evidence) and `test-evidence/pt-09/REVIEW-PACK.md` (the short read for Reid). This is
+the phase that most directly answers "is the agentic layer real or aspirational": **26 of 43
+canonical agents (60%) confirmed WORKS — real invocation, real independently-re-queried row delta on
+a real business table, not just a clean `agent_runs` completion.** The other 44%: 12 WIRED-NO-OUTPUT,
+4 PENDING-SCOPE (3 no-code, 1 untestable without real third-party side effects), 1 ERROR-SWALLOWED,
+1 TRIGGER-BROKEN.
+
+**The honest reckoning this phase exists to produce: 13 of 43 canonical agents (30%) that carried a
+BUILT/WIRED-flavored status somewhere in this project's prior governance record — a registry row, a
+`triggerWiredVerdict` of "wired/scheduled/queued," or a `STATE_OF_THE_BUILD.md` session narrative
+describing a prior `agent_runs.status: completed` as success — turned out WIRED-NO-OUTPUT,
+ERROR-SWALLOWED, or TRIGGER-BROKEN when actually invoked and checked against a real database delta.**
+This is the false-pass casualty count the blind checker (registry status + trigger reachability +
+clean completion, the only three signals available before this phase) had been silently passing:
+AG-05, AG-13, AG-14, AG-18, AG-23/AG-32, AG-24, AG-25 (Deadline Prediction), AG-26, AG-30, AG-36,
+AG-40, AG-42, AG-43 — WGR-077 through WGR-089, one row each, all previously filed during the two
+execution-proof sessions. Root causes span real infrastructure gaps (a missing DB constraint on
+AG-26, a missing RPC on AG-14), a structurally-unfit external dependency (AG-18's DuckDuckGo
+Instant-Answer API), plausible-but-unconfirmed seed-data limitations (AG-05/AG-30/AG-42/AG-43 —
+real web searches against synthetic test names finding nothing, stated as ambiguous, not asserted
+broken), a genuine number collision with zero backing code under one of two claimed numbers
+(AG-23/AG-32), one case of registry metadata simply describing the wrong thing (AG-24, not
+agent-framework code at all), and one narrowly-correct idempotent-update result that only fails the
+mechanical WIRED-NO-OUTPUT rule because this specific run had nothing new to contribute (AG-36).
+
+**Five new register rows added this consolidation pass** (WGR-090 through WGR-094, none previously
+filed): AG-20's TRIGGER-BROKEN verdict finally getting its own row (a real 60s-timeout robustness
+defect, distinct from PT-08's WGR-033 boot-wiring gap); AG-31/AG-33/AG-34's confirmed zero
+implementation; AG-12 (AutoApply)'s complete absence of any dry-run/simulation capability anywhere in
+its real send/submit code — meaning the platform's single riskiest automated action (real email
+sends, real third-party form submissions) is structurally unverifiable without genuine external side
+effects; 6 additional, previously-undocumented on-disk agent-number collisions beyond the 3 the
+registry's own seed script already tracks (all 6 live-tested WORKS, invisible to any tooling that
+joins by canonical number); and a governance-doc/registry metadata-drift roundup (4 agents whose
+registry undersells their real automation, AG-19's opposite mismatch, and one stale
+`FEATURE_REGISTRY_v2.md` claim about AG-18 directly contradicted by this phase's own source read).
+`WIRING_GAP_REGISTER.md` now runs WGR-001 through WGR-094, unbroken.
+
+**A qualifier that cuts the other way, stated plainly rather than buried:** the registry does not
+uniformly overclaim. Beyond the 13 false-pass casualties, this phase also confirmed 6 real,
+fully-working, unregistered agents hiding on disk under a canonical number the registry already
+assigned to a different agent (all 6 tested WORKS), plus a 7th real working agent (AG-43) with no
+registry row at all. The registry is an unreliable map in both directions, not a pessimistic or
+optimistic one uniformly — some things it says are running aren't doing anything, and some things
+that are running and working aren't in it at all.
+
+Gates: `node scripts/audit/verify-pt09-004.mjs` confirms `PHASE-09-SUMMARY.md`/`REVIEW-PACK.md` are
+present and non-empty and the register has grown past WGR-089 with real new findings — PASS. No
+application code was changed this phase (inventory/execution-proof audit, not remediation, matching
+every prior phase's own scope discipline). Full detail:
+`test-evidence/pt-09/PHASE-09-SUMMARY.md`, `test-evidence/pt-09/REVIEW-PACK.md`.**
+
+**Prior: August 20, 2026 — audit PT-09-003 COMPLETE. Per-agent execution proof, batch 2
 (AG-22..AG-43 real numbering per PT-09-001, 23 canonical entries incl. two dual-use/on-disk
 collision pairs) plus the suspect deep-dive on PT-09-001's watch-list. Same method as batch 1:
 every entry actually triggered (direct class instantiation or real exported function call, plus a
@@ -312,6 +367,69 @@ one carrying the exact SQL query and live count that produced it. Full detail:
 queries, present and well-formed — PASS). See "SESSION — August 20, 2026 (audit PT-06-004: constraint/
 FK/orphan integrity audit)" entry below. (PT-06-003's code-vs-schema headline and PT-06-002's
 migration-drift headline are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-09 COMPLETE: agent orchestration audit, review pack ready)
+
+Consolidation of the three PT-09 sub-audits (agent inventory — registry vs. code vs. trigger;
+execution proof batch 1, AG-01..21; execution proof batch 2, AG-22..43 — each already detailed in
+its own session entry below) into `test-evidence/pt-09/PHASE-09-SUMMARY.md` (every verdict cites its
+own row-delta evidence) and `test-evidence/pt-09/REVIEW-PACK.md` (the short read for Reid). No new
+live testing was performed this session beyond what the register additions below required — this was
+consolidation, register-completeness reconciliation, and write-up, following the same
+PHASE-0X-SUMMARY.md / REVIEW-PACK.md pattern PT-00/PT-02/PT-06/PT-08 already established.
+
+**The canonical AG-01..43 table (`PHASE-09-SUMMARY.md`), 44 individually-verdicted rows across 43
+canonical slots** (AG-25 and AG-29 are documented dual-use numbers, each covering two distinct real
+agent classes, listed separately; AG-23/AG-32 is one real class answering to both numbers, listed
+once, spanning both slots): **26 WORKS, 12 WIRED-NO-OUTPUT, 4 PENDING-SCOPE, 1 ERROR-SWALLOWED,
+1 TRIGGER-BROKEN.** Reconciles exactly against the two raw batch summaries (51 total result entries)
+once the 7 real-but-unregistered on-disk-collision duplicates (all WORKS, not part of the official
+43-slot roster) are excluded.
+
+**Confirming every PT-09 finding is in `WIRING_GAP_REGISTER.md`, not just the ones already filed
+during the two execution-proof sessions.** WGR-077 through WGR-089 (13 rows, filed during PT-09-002/
+PT-09-003) cover every false-pass casualty. Cross-checking the full evidence set against the register
+this session found **5 real, confirmed, previously-unregistered findings** with no row of their own:
+AG-20's TRIGGER-BROKEN verdict (batch 1 captured the finding but never filed it as its own register
+row — a real 60s-timeout robustness defect in EA-01's retry loop, distinct from PT-08's WGR-033
+boot-wiring gap, since this reproduces even when the missing boot wiring is bypassed entirely and the
+class is invoked directly); AG-31/AG-33/AG-34's confirmed zero implementation (re-grepped fresh this
+session, not carried over from an older claim); AG-12 (AutoApply)'s complete absence of any
+dry-run/simulation mode anywhere in `email-submitter.ts`/`form-filler-agent.ts` — the platform's
+single riskiest automated action (a real email send, a real browser-driven third-party form
+submission) has no safe way to be verified end-to-end; 6 additional, previously-undocumented on-disk
+agent-number collisions found during PT-09-001 (beyond the 3 the registry's own seed script already
+tracks) that were never given their own register row despite all 6 being live-tested WORKS during
+PT-09-002; and a governance-doc/registry metadata-drift roundup (4 agents whose registry
+`trigger_type` says manual but are actually scheduled, AG-19's opposite mismatch — registry says
+scheduled, reality is opt-in-only — and `FEATURE_REGISTRY_v2.md` row #199's stale claim about AG-18
+being "never imported... outside its own file," directly contradicted by this phase's own read of
+`worker/autonomous-orchestrator.ts`). Filed as **WGR-090 through WGR-094**.
+
+**The synthesis this consolidation adds, not present in any single prior PT-09 sub-audit entry: the
+false-pass casualty count itself, framed against the full 43-agent roster rather than left as five
+separate register rows a reader would have to sum by hand.** 13 of 43 (30%) is the number that
+answers the task's real question — how much of the old "BUILT" registry can be trusted. The answer,
+stated in `REVIEW-PACK.md` without hedging: not on its own, not anymore. Every one of the three
+signals available before this phase (registry row exists, trigger path is reachable, a prior
+`agent_runs.status` said `completed`) was individually necessary and none was sufficient — that gap
+is exactly where all 13 false-pass casualties were hiding, and none of the three signals can tell the
+difference between "ran and did the job" and "ran, found nothing, and quietly did nothing." A
+qualifier stated with equal weight, not soft-pedaled: the registry also *undercounts* — 6 real,
+fully-working, unregistered agents share a canonical number with a different registered agent
+(invisible to any registry-driven tooling), and a 7th (AG-43) has no registry row at all despite
+being real, working code.
+
+**Created `scripts/audit/verify-pt09-004.mjs`**, following the exact pattern
+`scripts/audit/verify-pt08-004.mjs` established for PT-08's own closing verifier: exits non-zero
+unless `PHASE-09-SUMMARY.md` and `REVIEW-PACK.md` both exist non-empty, and `WIRING_GAP_REGISTER.md`
+contains both the last row of the register before this consolidation's new findings (WGR-089, PT-09's
+last execution-proof row) and this consolidation's own first new row (WGR-090), proving the register
+grew with real new PT-09-004 findings rather than being left at its pre-consolidation state. Ran
+clean: `node scripts/audit/verify-pt09-004.mjs` — PASS.
+
+**Scoped commit:** `test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` only — matching this
+task's explicit instruction, not `git add -A`.
 
 ## SESSION — August 20, 2026 (audit PT-09-001: authoritative agent inventory — registry vs code vs trigger)
 
