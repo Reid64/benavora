@@ -1,5 +1,57 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-11: test-suite inventory.** Full inventory of every test
+suite that exists in the repo — unit, smoke, api, visual-regression, cross-browser, soak, and
+migration tests — across `src/__tests__/`, `tests/`, `e2e/`, and `scripts/`, written to
+`test-evidence/pt-11/suite-inventory.json` (19 suite records, 96 individual files, cross-referenced
+against `package.json` scripts, `vitest.config.ts`/`playwright.config.ts`, and repo-root evidence
+docs like `*_RESULTS*.md`/`*_AUDIT.md` plus committed run logs). No suite was re-run to produce this
+inventory — every status claim is read from existing repo evidence, not freshly generated.
+
+**Real finding, not just a catalog: `e2e/visual-regression.spec.ts` cannot have passed in its
+current committed state.** Its own header comment says the committed baseline PNGs under
+`e2e/visual-regression.spec.ts-snapshots/` are "the source of truth" that `pnpm test:visual` only
+*compares* against, never regenerates — but no such snapshot directory (or any `*-snapshots`
+directory) exists anywhere under `e2e/` in this checkout. Playwright's `toHaveScreenshot()` fails
+against a missing baseline rather than silently passing or auto-creating one, so either baselines
+were generated once and never committed, or this suite has never been run to a completed pass/fail
+verdict at all. Flagged `ran_to_completion: false` in the inventory — the one suite with affirmative
+evidence against it, as opposed to the more common "unknown, no evidence either way."
+
+**Suites with real, dated evidence of having actually run to completion (8 of 19):** the `tests/api`
+and `tests/lib` vitest suites (stale but real committed run output from 2026-06-21/07-06); the PT-00
+audit's own 464-route smoke sweep; `e2e/critical-paths.spec.ts` both as a standalone spec and as the
+2026-08-13 cross-browser run (10/17 pass — chromium 4/5, firefox 4/5, webkit 0/5 on a reproducible
+post-login navigation race, corroborated by real `test-results/` failure artifacts still on disk);
+the AutoApply queue-processor soak test (0/50 terminal in the 130-min cap — a real, documented rate-
+limiter bottleneck, not a bug); the nonprofit-scraper soak test (0/90 enriched — a real, undocumented
+missing-URL-scheme bug found that session); and the migration-idempotency harness (both its static/
+live-spot-check mode and its newer `--dry-run` mode, the latter halting after file 1/57 on a real
+cross-migration-directory dependency, itself a genuine finding, not a script failure).
+
+**10 of 19 suites have zero discoverable evidence of ever completing a run in this repo** — flagged
+`unknown` rather than assumed passing: `src/__tests__/unit/*` (13 files — recurring governance-doc
+claims describe pre-existing `tsc --noEmit` type errors confined to this directory, but that is a
+different check than actually running the tests, and no vitest pass/fail count for this set was
+found anywhere), both `tests/e2e/authed`/`tests/e2e/public` Playwright directories (18 files total),
+12 of the 15 `e2e/*.spec.ts` files outside `critical-paths`/`visual-regression`, and all four "smoke"
+entry points beyond the PT-00 audit's own script (`src/__tests__/smoke/api-smoke.test.ts`,
+`tests/smoke.spec.ts`, `e2e/smoke.spec.ts`, `scripts/platform-smoke-test.ts` — note two differently-
+scoped files are both literally named `smoke.spec.ts` under different Playwright projects, worth not
+conflating). `src/__tests__/integration/*` (13 files, the suite that exercises the real, live
+production Supabase project, not an isolated test DB) sits in between: no single full-suite run is
+documented, but most individual files have real, dated per-file live-execution evidence scattered
+across prior `STATE_OF_THE_BUILD.md` sessions — recorded as `"partial (file-by-file, never confirmed
+as one suite run)"`.
+
+New gate `scripts/audit/verify-pt11-001.mjs` fails unless every suite record carries a real,
+non-empty `run_command` (the task's explicit gate condition), every listed file actually exists on
+disk, `file_count` matches the real `files[]` length, and all seven named categories (plus the exact
+filename `e2e/visual-regression.spec.ts`) are represented — run and confirmed passing this session.
+Full record: `test-evidence/pt-11/suite-inventory.json`.
+
+---
+
 **Updated: August 20, 2026 — audit PT-09 COMPLETE. Consolidation of the three PT-09 sub-audits
 (agent inventory, execution proof batch 1 AG-01..21, execution proof batch 2 AG-22..43) into
 `test-evidence/pt-09/PHASE-09-SUMMARY.md` (the full AG-01..43 verdict table, every row citing its

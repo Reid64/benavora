@@ -1,5 +1,26 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-09 COMPLETE. Agent orchestration audit consolidated:
+## Last Updated: August 20, 2026 — audit PT-11: test-suite inventory.
+Inventoried every existing test suite in the repo (unit, smoke, api, visual-regression,
+cross-browser, soak, migration) across `src/__tests__/`, `tests/`, `e2e/`, and `scripts/` — 19 suite
+records / 96 files — into `test-evidence/pt-11/suite-inventory.json`, recording for each: files,
+framework, run-command, last-known status claim, and whether it appears to have ever actually run to
+completion, per real repo evidence (committed logs, `*_RESULTS*.md`/`*_AUDIT.md` docs, `test-results/`
+artifacts) — no suite was re-run to produce this. **Key finding: `e2e/visual-regression.spec.ts`
+cannot have passed in its current committed state** — its own header comment says the baseline PNGs
+under `e2e/visual-regression.spec.ts-snapshots/` are the source of truth `pnpm test:visual` only
+compares against, but no such snapshot directory exists anywhere in the checkout, and Playwright's
+`toHaveScreenshot()` fails (does not auto-generate) against a missing baseline. Only 8 of 19 suites
+have real, dated evidence of ever completing a run; 10 have none found at all (`unknown`); the
+`src/__tests__/integration/*` suite (13 files, runs against the real live Supabase project) sits in
+between — no full-suite run documented, but most individual files have real per-file live-execution
+evidence scattered across prior sessions. New gate `scripts/audit/verify-pt11-001.mjs` (fails unless
+`suite-inventory.json` lists every suite with a real run-command, every listed file exists on disk,
+and all seven named categories plus the literal `e2e/visual-regression.spec.ts` filename are
+represented) — run and confirmed **PASS** this session.
+
+---
+
+## Prior — August 20, 2026 — audit PT-09 COMPLETE. Agent orchestration audit consolidated:
 `test-evidence/pt-09/PHASE-09-SUMMARY.md` (full AG-01..43 verdict table) and
 `test-evidence/pt-09/REVIEW-PACK.md` (short read for Reid) written. **26 of 43 canonical agents
 (60%) confirmed WORKS; 13 of 43 (30%) that carried a BUILT/WIRED-flavored status somewhere in this

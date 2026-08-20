@@ -1,0 +1,311 @@
+{
+  "generated_at": "2026-08-20T08:09:08Z",
+  "method": "Direct filesystem inventory of test files under src/__tests__/, tests/, e2e/, and scripts/ (audit + soak + migration scripts), cross-referenced against package.json scripts, vitest.config.ts include patterns, playwright.config.ts project definitions, and repo-root evidence docs (*_RESULTS*.md, *_AUDIT.md) plus committed run logs (*.log, test-results/, vitest-results.txt, vitest-run-output.txt). No suite was re-run to produce this inventory -- status claims are read from existing repo evidence, not freshly generated.",
+  "frameworks_present": {
+    "vitest": "^2.1.9 (no jest present despite tests/api, tests/lib, tests/unit directory naming -- all matched by vitest.config.ts's include patterns and run under vitest)",
+    "playwright": "@playwright/test ^1.60.0"
+  },
+  "suites": [
+    {
+      "id": "unit-src",
+      "category": "unit",
+      "framework": "vitest",
+      "run_command": "pnpm test:unit  (= vitest run; also included in pnpm test:all)",
+      "file_count": 13,
+      "files": [
+        "src/__tests__/unit/board-report.test.ts",
+        "src/__tests__/unit/deadline-predictor.test.ts",
+        "src/__tests__/unit/digital-twin-builder.test.ts",
+        "src/__tests__/unit/grant-probability-engine.test.ts",
+        "src/__tests__/unit/knowledge-engine.test.ts",
+        "src/__tests__/unit/naics-labels.test.ts",
+        "src/__tests__/unit/outcome-analyzer.test.ts",
+        "src/__tests__/unit/propublica-client.test.ts",
+        "src/__tests__/unit/regressions.test.ts",
+        "src/__tests__/unit/relationship-scorer.test.ts",
+        "src/__tests__/unit/samgov-client.test.ts",
+        "src/__tests__/unit/semantic-matcher.test.ts",
+        "src/__tests__/unit/success-probability.test.ts"
+      ],
+      "last_known_status_claim": "No single full clean run of this exact 13-file set is documented anywhere in governance docs. Recurring, repeated claim across many session entries in STATE_OF_THE_BUILD.md/SESSION_STATE.md is that the `pnpm tsc --noEmit` TYPE-CHECK gate (a different check than running these tests) has pre-existing, unfixed compile errors confined to this directory (deadline-predictor.test.ts, outcome-analyzer.test.ts, samgov-client.test.ts, regressions.test.ts named repeatedly, ~38-40 error count cited across sessions) attributed to noUncheckedIndexedAccess array-index issues -- described as 'not this session's concern' every time, never actually fixed as of the newest STATE_OF_THE_BUILD.md entries. Whether `vitest run` itself (as opposed to tsc) passes on these files is not separately documented.",
+      "ran_to_completion_evidence": "NONE FOUND -- no committed log, JSON result, or governance-doc citation of an actual `vitest run` execution against this specific 13-file set completing (pass or fail count reported).",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "unit-tests-dir",
+      "category": "unit",
+      "framework": "vitest",
+      "run_command": "pnpm test:unit  (matched via vitest.config.ts include: \"tests/**/*.test.ts\")",
+      "file_count": 2,
+      "files": [
+        "tests/unit/autonomous-base.test.ts",
+        "tests/unit/draft-generation.test.ts"
+      ],
+      "last_known_status_claim": "No specific status claim found for these two files by name in any governance doc.",
+      "ran_to_completion_evidence": "Possibly covered by the stale vitest-results.txt run (2026-06-21, 14 test files / 161 tests passed, 1 skipped) if that run predates or postdates these files' creation -- file-level attribution inside that run's output was not confirmed for this pair specifically.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "lib-tests",
+      "category": "unit (lib)",
+      "framework": "vitest",
+      "run_command": "pnpm test:unit  (matched via vitest.config.ts include: \"tests/**/*.test.ts\")",
+      "file_count": 9,
+      "files": [
+        "tests/lib/compliance.test.ts",
+        "tests/lib/crawler-core.test.ts",
+        "tests/lib/directory.test.ts",
+        "tests/lib/encryption.test.ts",
+        "tests/lib/google-places.test.ts",
+        "tests/lib/rubric-extractor.test.ts",
+        "tests/lib/template-engine.test.ts",
+        "tests/lib/unsubscribe-agent.test.ts",
+        "tests/lib/warmup-engine.test.ts"
+      ],
+      "last_known_status_claim": "Stale, no current claim in governance docs. Real evidence in vitest-run-output.txt (dated 2026-07-06, well before this repo's most recent sessions): 2 test files failed / 12 passed / 1 skipped (15 total), 10 tests failed / 151 passed / 13 todo (174 total). The failing file (tests/lib/compliance.test.ts) failed on a missing required env var (UNSUBSCRIBE_HMAC_SECRET), i.e. an environment-config gap, not a logic defect -- unknown whether that env var has since been supplied locally.",
+      "ran_to_completion_evidence": "vitest-run-output.txt (repo root, dated 2026-07-06) -- real, captured run output with a final pass/fail summary line.",
+      "ran_to_completion": true
+    },
+    {
+      "id": "api-tests",
+      "category": "api",
+      "framework": "vitest",
+      "run_command": "pnpm test:unit  (matched via vitest.config.ts include: \"tests/**/*.test.ts\")",
+      "file_count": 10,
+      "files": [
+        "tests/api/admin-sales.test.ts",
+        "tests/api/analytics.test.ts",
+        "tests/api/auth.test.ts",
+        "tests/api/autoapply.test.ts",
+        "tests/api/calendar.test.ts",
+        "tests/api/donor-discovery-requests.test.ts",
+        "tests/api/email.test.ts",
+        "tests/api/grants.test.ts",
+        "tests/api/intelligence.test.ts",
+        "tests/api/research.test.ts"
+      ],
+      "last_known_status_claim": "Stale, no current claim in governance docs. Real evidence in vitest-results.txt (dated 2026-06-21): 14 test files passed / 1 skipped (15 total), 161 tests passed / 13 todo (174 total) -- this run's output shows tests/api/email.test.ts, tests/api/admin-sales.test.ts, and tests/api/grants.test.ts test names explicitly, confirming this suite (or a subset of it) was included in that run.",
+      "ran_to_completion_evidence": "vitest-results.txt (repo root, dated 2026-06-21) -- real captured run output with a final pass/fail summary line.",
+      "ran_to_completion": true
+    },
+    {
+      "id": "integration-tests",
+      "category": "integration",
+      "framework": "vitest",
+      "run_command": "pnpm test:unit  (matched via vitest.config.ts include: \"src/**/*.test.ts\"). NOTE: these tests run against the real, live Supabase project referenced in .env.local, not an isolated test database -- per repeated governance-doc convention (no separate test Supabase project has ever been confirmed real/running).",
+      "file_count": 13,
+      "files": [
+        "src/__tests__/integration/ag19-relationship-builder-flag.test.ts",
+        "src/__tests__/integration/agent-runs.test.ts",
+        "src/__tests__/integration/autoapply-compliance.test.ts",
+        "src/__tests__/integration/autoapply-mutual-exclusion.test.ts",
+        "src/__tests__/integration/autoapply-queue.test.ts",
+        "src/__tests__/integration/autoapply-risk-scoring.test.ts",
+        "src/__tests__/integration/corporate-prospects.test.ts",
+        "src/__tests__/integration/form-analyzer-filler.test.ts",
+        "src/__tests__/integration/foundation-directory.test.ts",
+        "src/__tests__/integration/organizations.test.ts",
+        "src/__tests__/integration/platform-config-org-scope.test.ts",
+        "src/__tests__/integration/rls.test.ts",
+        "src/__tests__/integration/storage-rls.test.ts"
+      ],
+      "last_known_status_claim": "No single full-suite run across all 13 files is documented. Per-file live-execution claims exist scattered across STATE_OF_THE_BUILD.md session entries, most recent per file: ag19-relationship-builder-flag.test.ts 3/3 pass (2026-08-13); platform-config-org-scope.test.ts 3/3 pass (2026-08-11); rls.test.ts 71 passed / 5 skipped / 24 failed across 100 discovered org-scoped tables (2026-07-30, later partially remediated by RLS migrations but suite not re-run to confirm 100/100); autoapply-compliance.test.ts 7/7 pass, autoapply-mutual-exclusion.test.ts 4/5 pass, autoapply-queue.test.ts 6/6 pass (most recent, 2026-08-07, after ffmpeg + Anthropic key fixes -- includes the previously-failing 'ready org' case for the first time), autoapply-risk-scoring.test.ts 7/7 pass (post migration 125); form-analyzer-filler.test.ts 0/4 pass as of 2026-08-04 (blocked on a dead local ANTHROPIC_API_KEY and an empty-content Claude 400 -- both later fixed elsewhere in the codebase per 2026-08-06/07 sessions, but this specific suite was not confirmed re-run 4/4 afterward). corporate-prospects.test.ts, foundation-directory.test.ts, organizations.test.ts, agent-runs.test.ts, storage-rls.test.ts have no specific pass/fail count documented.",
+      "ran_to_completion_evidence": "Individual files have real, dated live-execution evidence in STATE_OF_THE_BUILD.md (see per-file claims above); no single command execution log covering the full 13-file directory as one run was found.",
+      "ran_to_completion": "partial (file-by-file, never confirmed as one suite run)"
+    },
+    {
+      "id": "smoke-vitest-api",
+      "category": "smoke",
+      "framework": "vitest",
+      "run_command": "pnpm test:smoke  (= vitest run src/__tests__/smoke)",
+      "file_count": 1,
+      "files": ["src/__tests__/smoke/api-smoke.test.ts"],
+      "last_known_status_claim": "No status claim found in any governance doc for this specific file/script.",
+      "ran_to_completion_evidence": "NONE FOUND.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "smoke-playwright-public",
+      "category": "smoke",
+      "framework": "playwright",
+      "run_command": "pnpm test  or  pnpm test:e2e  (matched by the \"public\" project's testMatch)",
+      "file_count": 1,
+      "files": ["tests/smoke.spec.ts"],
+      "last_known_status_claim": "No status claim found by this file's own path. Note: naming collision with e2e/smoke.spec.ts below -- two differently-scoped 'smoke' specs exist in this repo under different Playwright projects.",
+      "ran_to_completion_evidence": "NONE FOUND specific to this file.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "smoke-playwright-e2e-root",
+      "category": "smoke",
+      "framework": "playwright",
+      "run_command": "pnpm test  or  pnpm test:e2e  (matched by the \"critical-paths\" project's testMatch: e2e/**/*.spec.ts)",
+      "file_count": 1,
+      "files": ["e2e/smoke.spec.ts"],
+      "last_known_status_claim": "No status claim found by this file's own path.",
+      "ran_to_completion_evidence": "NONE FOUND specific to this file.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "smoke-platform-script",
+      "category": "smoke",
+      "framework": "custom (tsx script, not a test framework)",
+      "run_command": "pnpm smoke:platform  (= tsx scripts/platform-smoke-test.ts)",
+      "file_count": 1,
+      "files": ["scripts/platform-smoke-test.ts"],
+      "last_known_status_claim": "No status claim found in governance docs for this specific script's own runs (distinct from the PT-audit smoke sweep below, which is a different, newer script).",
+      "ran_to_completion_evidence": "NONE FOUND.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "smoke-pt-audit-suite",
+      "category": "smoke (PT-series audit tooling, not an application test suite)",
+      "framework": "custom (Node .mjs script)",
+      "run_command": "node scripts/audit/pt00-005-smoke-suite.mjs  (no package.json alias; invoked directly by the PT-00 audit)",
+      "file_count": 1,
+      "files": ["scripts/audit/pt00-005-smoke-suite.mjs"],
+      "last_known_status_claim": "Confirmed ran to completion: test-evidence/pt-00/smoke-results.json records generatedAt 2026-08-19T06:38:29.451Z, totalRoutes: 464, with per-route status/rendered_ok/error results (spot-checked entries all status 200 / rendered_ok true). test-evidence/pt-00/smoke-failures/ directory exists alongside it (implying at least some routes were captured as failures elsewhere in the same run).",
+      "ran_to_completion_evidence": "test-evidence/pt-00/smoke-results.json (real, dated, 464-route result set) + test-evidence/pt-00/PHASE-00-SUMMARY.md + test-evidence/pt-00/REVIEW-PACK.md.",
+      "ran_to_completion": true
+    },
+    {
+      "id": "e2e-authed",
+      "category": "e2e (not separately named in the task's category list, included for completeness)",
+      "framework": "playwright",
+      "run_command": "pnpm test  or  pnpm test:e2e  (matched by the \"authed\" project; depends on the \"setup\" project)",
+      "file_count": 16,
+      "files": [
+        "tests/e2e/authed/automation.spec.ts",
+        "tests/e2e/authed/dashboard.spec.ts",
+        "tests/e2e/authed/deadlines.spec.ts",
+        "tests/e2e/authed/documents.spec.ts",
+        "tests/e2e/authed/draft-generator.spec.ts",
+        "tests/e2e/authed/email-calendar.spec.ts",
+        "tests/e2e/authed/funders.spec.ts",
+        "tests/e2e/authed/knowledge-base.spec.ts",
+        "tests/e2e/authed/onboarding-progress.spec.ts",
+        "tests/e2e/authed/onboarding.spec.ts",
+        "tests/e2e/authed/opportunities.spec.ts",
+        "tests/e2e/authed/pipeline.spec.ts",
+        "tests/e2e/authed/research.spec.ts",
+        "tests/e2e/authed/saas.spec.ts",
+        "tests/e2e/authed/settings.spec.ts",
+        "tests/e2e/authed/ui-redesign.spec.ts"
+      ],
+      "last_known_status_claim": "No status claim found in governance docs for this directory as a set.",
+      "ran_to_completion_evidence": "NONE FOUND for this directory as a whole.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "e2e-public",
+      "category": "e2e (not separately named in the task's category list, included for completeness)",
+      "framework": "playwright",
+      "run_command": "pnpm test  or  pnpm test:e2e  (matched by the \"public\" project)",
+      "file_count": 2,
+      "files": [
+        "tests/e2e/public/auth.spec.ts",
+        "tests/e2e/public/login-theme.spec.ts"
+      ],
+      "last_known_status_claim": "No status claim found in governance docs for these files.",
+      "ran_to_completion_evidence": "NONE FOUND.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "e2e-critical-paths-others",
+      "category": "e2e (not separately named in the task's category list, included for completeness)",
+      "framework": "playwright",
+      "run_command": "pnpm test  or  pnpm test:e2e  (matched by the \"critical-paths\" project's testMatch: e2e/**/*.spec.ts)",
+      "file_count": 12,
+      "files": [
+        "e2e/admin-owner-gate.spec.ts",
+        "e2e/admin-sales.spec.ts",
+        "e2e/autoapply-dashboard.spec.ts",
+        "e2e/billing-gates.spec.ts",
+        "e2e/dashboard.spec.ts",
+        "e2e/donor-discovery-prospects.spec.ts",
+        "e2e/draft-generation.spec.ts",
+        "e2e/email-integration.spec.ts",
+        "e2e/grant-pipeline.spec.ts",
+        "e2e/onboarding.spec.ts",
+        "e2e/opportunities.spec.ts",
+        "e2e/tenant-isolation.spec.ts"
+      ],
+      "last_known_status_claim": "No consolidated status claim found for this group as a whole in governance docs.",
+      "ran_to_completion_evidence": "NONE FOUND covering this group as one run.",
+      "ran_to_completion": "unknown"
+    },
+    {
+      "id": "e2e-critical-paths-main",
+      "category": "e2e (also the cross-browser target -- see cross-browser record below)",
+      "framework": "playwright",
+      "run_command": "pnpm test:e2e:all-browsers  (= playwright test e2e/critical-paths.spec.ts --project=chromium --project=firefox --project=webkit); also runs as part of the plain \"critical-paths\" project via pnpm test / pnpm test:e2e",
+      "file_count": 1,
+      "files": ["e2e/critical-paths.spec.ts"],
+      "last_known_status_claim": "Per the T7/T8 hardening session (2026-08-13), this file was run for real across 3 browser engines: 4/5 passed on chromium, 4/5 on firefox, 0/5 on webkit (10/17 total across all 3 -- see cross-browser record for full detail). A separate governance note ('AutoApply ready-org E2E pass — both bugs fixed, all 6 tests green', commit 5d8d6fa) refers to src/__tests__/integration/autoapply-queue.test.ts, NOT this file -- do not conflate the two.",
+      "ran_to_completion_evidence": "CROSSBROWSER_TEST_RESULTS_20260813.md (repo root); test-results/ directory contains real webkit failure artifacts (error-context.md files) for this exact spec file, e.g. test-results/e2e-critical-paths-Critica-113ba-ogin-redirects-to-dashboard-webkit/.",
+      "ran_to_completion": true
+    },
+    {
+      "id": "visual-regression",
+      "category": "visual-regression",
+      "framework": "playwright (built-in toHaveScreenshot())",
+      "run_command": "pnpm test:visual  (= npx playwright test e2e/visual-regression.spec.ts). Baseline generation requires a separate, explicit, never-automated command: npx playwright test e2e/visual-regression.spec.ts --update-snapshots",
+      "file_count": 1,
+      "files": ["e2e/visual-regression.spec.ts"],
+      "last_known_status_claim": "The spec's own header comment states baselines live under e2e/visual-regression.spec.ts-snapshots/ and are 'the source of truth' that pnpm test:visual only compares against, never regenerates. No governance doc records a pass/fail run of this suite.",
+      "ran_to_completion_evidence": "NONE FOUND. Directly checked: no e2e/visual-regression.spec.ts-snapshots/ directory (or any *-snapshots directory) exists anywhere under e2e/ in this checkout. Since Playwright's toHaveScreenshot() fails on a missing baseline (it does not auto-create one) rather than passing, this suite cannot have completed a real `pnpm test:visual` run producing a pass in its current committed state -- either baselines were generated once and never committed, or the suite has never been run to a completed pass/fail verdict at all.",
+      "ran_to_completion": false
+    },
+    {
+      "id": "cross-browser",
+      "category": "cross-browser",
+      "framework": "playwright (chromium / firefox / webkit projects)",
+      "run_command": "pnpm test:e2e:all-browsers  (= playwright test e2e/critical-paths.spec.ts --project=chromium --project=firefox --project=webkit)",
+      "file_count": 1,
+      "files": ["e2e/critical-paths.spec.ts"],
+      "last_known_status_claim": "2026-08-13 session (STATE_OF_THE_BUILD.md, SESSION_STATE.md, CROSSBROWSER_TEST_RESULTS_20260813.md): first-ever real run across all 3 engines. Result: 10/17 passed overall -- chromium 4/5, firefox 4/5, webkit 0/5. WebKit failed all 5 tests on a reproducible post-login navigation race (page.goto() interrupted by an in-flight router.replace(\"/dashboard\")/router.refresh() redirect) -- not a one-off flake, reproduced on every WebKit test that run. A separate test ('creating an application... adds a row to /applications/list') also failed on both chromium and firefox. Neither defect was fixed as of that session; both flagged as open, previously-undocumented findings.",
+      "ran_to_completion_evidence": "CROSSBROWSER_TEST_RESULTS_20260813.md (repo root, dated 2026-08-13); test-results/ directory contains real per-test failure artifacts matching this exact claim: 4 distinct webkit failure dirs (login-redirects-to-dashboard, page-loads-without-404-or-500, uncaught-client-side-error, renders-real-non-empty-data) plus 2 more (chromium + firefox) for 'adds-a-row-to-applications-list', plus 1 more webkit dir for the same test = matches the documented failure pattern closely.",
+      "ran_to_completion": true
+    },
+    {
+      "id": "soak-autoapply-queue-processor",
+      "category": "soak",
+      "framework": "custom (tsx script driving the real Railway worker via submission_queue rows)",
+      "run_command": "pnpm soak:autoapply  (= tsx scripts/soak-test-autoapply-worker.ts)",
+      "file_count": 1,
+      "files": ["scripts/soak-test-autoapply-worker.ts"],
+      "last_known_status_claim": "2026-08-13 session: 50 real submission_queue rows across 3 disposable test orgs, monitored live against the real deployed Railway worker for the full 130-minute safety cap. Result: 0/50 items reached a terminal status before the cap -- explicitly NOT a hang or bug: worker/queue-processor.ts calls waitBetweenSubmissions() (a random 60-120s sleep) after every single item regardless of outcome, so a full 50-item drain needs 50-100+ minutes minimum even error-free; hitting the 130-min cap is the expected, documented result of this real rate limiter, not evidence of a defect. Zero errors/rate-limit/CAPTCHA/crash/memory issues observed. All disposable test data confirmed deleted afterward.",
+      "ran_to_completion_evidence": "soak-autoapply-run.log (repo root) -- real timestamped snapshot log ending '[...] MAX_RUN_MS (130min) exceeded — stopping monitor, reporting partial run.' followed by real cleanup log lines. SOAK_TEST_AUTOAPPLY_RESULTS.md and SOAK_TEST_AUTOAPPLY_RESULTS_20260813.md (byte-identical per a later governance correction commit b33f804 clarifying these are the same run, not two executions).",
+      "ran_to_completion": true
+    },
+    {
+      "id": "soak-enrichment-scraper",
+      "category": "soak",
+      "framework": "custom (real Chromium/Playwright + Supabase writes, no mocking)",
+      "run_command": "pnpm scrape:nonprofits  (= tsx scripts/run-nonprofit-scraper.ts), soak-driven manually (no dedicated npm alias for the soak variant)",
+      "file_count": 1,
+      "files": ["scripts/run-nonprofit-scraper.ts"],
+      "last_known_status_claim": "2026-08-08 session: ran live for ~14 minutes against the real 124,755-row candidate population. Result: 90 records attempted, 0 enriched -- a real, previously-undocumented bug found: neither this script nor stealth-engine.ts's fetchPage() normalizes the website column's URL scheme before calling Playwright's page.goto(), and a live sample found 95.2% of candidate rows missing the http(s):// prefix, causing 100% of the 268 logged fetch failures. Not fixed as part of that soak-test session (flagged for a separate fix pass); this scraper is confirmed weekly-scheduled in production (worker/scheduler.ts's nonprofit-enrichment-weekly job), so the bug has likely suppressed real weekly enrichment for as long as that job has run.",
+      "ran_to_completion_evidence": "SOAK_TEST_RESULTS.md (repo root, dated 2026-08-08).",
+      "ran_to_completion": true
+    },
+    {
+      "id": "migration-idempotency",
+      "category": "migration",
+      "framework": "custom (tsx script: static SQL-statement analysis + live rollback-transaction spot-check via DATABASE_URL)",
+      "run_command": "pnpm check:migrations  (static analysis + live spot-check); pnpm check:migrations:dry-run  (= tsx scripts/check-migration-idempotency.ts --dry-run, full sequential apply against a disposable database)",
+      "file_count": 1,
+      "files": ["scripts/check-migration-idempotency.ts"],
+      "last_known_status_claim": "2026-08-08 session (non-dry-run mode): static analysis across both migration directories -- root supabase/migrations/: 958 DDL statements classified, 377 non-idempotent (51/135 files affected); src/supabase/migrations/: 309 classified, 76 non-idempotent (9/57 files affected). Live spot-check (5 already-applied migrations per directory, re-run inside BEGIN/ROLLBACK via a real DATABASE_URL connection): all 10 outcomes matched static-analysis predictions exactly, 0 unexpected errors, confirmed nothing was actually mutated afterward. 2026-08-13 session (--dry-run mode, new capability added that day): ran for real against a disposable local Postgres 18.3 instance; halted after file 1 of 57 in src/supabase/migrations/ (072_donor_discovery_taxonomy_aliases.sql) with a real 'relation donor_discovery_taxonomy does not exist' error, proving that directory is not self-contained/replayable from empty on its own -- 56 files were never attempted as a result. The destructive-statement scan (independent of apply success) did cover all 57 files and found zero destructive statements. Production DATABASE_URL was never touched by either mode.",
+      "ran_to_completion_evidence": "MIGRATION_IDEMPOTENCY_AUDIT.md (repo root, dated 2026-08-08, non-dry-run static+spot-check mode) and MIGRATION_DRY_RUN_REPORT.md (repo root, dated 2026-08-13, --dry-run mode -- completed with a real, non-full-coverage result, not a crash).",
+      "ran_to_completion": true
+    }
+  ],
+  "notes": [
+    "This inventory was assembled from filesystem discovery + governance-doc cross-reference, not from freshly executing any suite. 'ran_to_completion' reflects whether existing repo evidence (a committed log, JSON result file, or dated governance-doc narrative with a concrete pass/fail count) demonstrates the suite was run and reached a final result -- not whether every test in it passed.",
+    "Several suites (unit-src, e2e-authed, e2e-public, e2e-critical-paths-others, smoke-vitest-api, smoke-playwright-*, smoke-platform-script) have zero discoverable evidence of ever completing a run in this repo -- flagged 'unknown' rather than assumed passing or failing.",
+    "visual-regression is the one suite with affirmative evidence it CANNOT have passed in its current committed state: no baseline snapshot directory exists on disk, and Playwright's toHaveScreenshot() fails (does not silently pass or auto-generate) against a missing baseline.",
+    "Two files literally named 'smoke' exist under different Playwright projects with different scope: tests/smoke.spec.ts (\"public\" project) and e2e/smoke.spec.ts (\"critical-paths\" project) -- do not conflate them.",
+    "tests/api, tests/lib, and tests/unit are directory names carried over from an earlier Jest-oriented layout, but no Jest dependency exists in package.json today -- all three are matched and run exclusively by vitest.config.ts's include pattern (\"tests/**/*.test.ts\") under vitest, per project convention documented across multiple STATE_OF_THE_BUILD.md sessions."
+  ]
+}
