@@ -1,6 +1,82 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-07: external data-source API probes.** Real, live calls
+**Updated: August 20, 2026 — audit PT-07: Resend/Stripe/Google Calendar comms+billing probes.**
+Three integrations, each with a real check or an explicit, reasoned PENDING-SCOPE per the task's
+own fallback instructions. Before writing any probe code, checked the actual live credential
+surface first — a live `vercel env ls` across every Vercel environment (12 env vars total in the
+whole project) plus a full `.env.local` grep — and found **zero Resend, Stripe, or Google-OAuth
+credentials configured anywhere**, not locally and not in Vercel Production/Preview. This is the
+real, decisive fact that shapes every finding below: none of the three "make a real live call"
+paths were reachable, so each integration's honest status is PENDING-SCOPE backed by concrete
+evidence of why, not a soft skip.
+
+**Resend — confirmed non-functional in production today, not merely untested (WGR-146, P2).**
+`RESEND_API_KEY` is absent from `.env.local` and every Vercel environment. Rather than stop at
+"no key, can't test," called the real, unmodified `sendEmail()`
+(`src/lib/email/resend-client.ts`) with the key deliberately unset in-process — the exact state
+production is in right now — and it returned `{success:false, error:'RESEND_API_KEY not
+configured'}`, its own documented no-key branch. This means every platform-originated
+transactional email (draft-ready, morning digest, urgent alerts, welcome) is confirmed
+non-functional in production, though the failure is graceful (no crash, a clean error) rather than
+silent. Per the task's explicit instruction, no live send was attempted against a benavora.com
+production sending identity (there is no key to send with regardless); the code comment
+documenting that a real test would need Resend's own dedicated test identity
+(`onboarding@resend.dev`), not `notifications@benavora.com`, is preserved as guidance for whoever
+adds the key. `src/app/api/webhooks/resend/route.ts`'s Svix signature verification was read in
+full and is correct — real HMAC-SHA256 over `svix-id.svix-timestamp.body`, `timingSafeEqual`
+comparison, fails closed (500) if `RESEND_WEBHOOK_SECRET` is unset — but is moot without a key to
+ever produce a real webhook call in the first place.
+
+**Stripe — PENDING-SCOPE (billing genuinely undecided), and the webhook signature code is
+functionally verified correct, not just read.** `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are
+absent everywhere, so `isStripeConfigured()` is `false` in production — matches the code's own
+documented design (`src/lib/payments/stripe.ts`'s header comment cites Behavioral Contracts §22's
+free-tier default explicitly; this isn't a bug, it's an intentional MVP state). Checkout-session
+creation needs a real network call to Stripe with a real key, so that half is genuinely
+PENDING-SCOPE — no live charge risk exists because no key exists to make the call at all. The
+webhook signature-verification path is different: `constructEvent()` is a pure local HMAC
+operation with no dependency on the *value* of a real production key, so this session ran a real
+functional test using the exact `stripe` npm package version installed (^22.2.0) — the same
+package `src/app/api/webhooks/stripe/route.ts` imports — generating a validly-signed synthetic
+test webhook via `stripe.webhooks.generateTestHeaderString()` and feeding it through the identical
+`stripe.webhooks.constructEvent()` call the route makes. Three real assertions, all passed: (1) a
+validly-signed payload verifies and decodes to the correct event id/type; (2) a payload tampered
+after signing is rejected; (3) a signature checked against the wrong secret is rejected. A direct
+code read of the route additionally confirmed it fails closed with a `500` when
+`STRIPE_WEBHOOK_SECRET` is unset, a `400` on a missing `stripe-signature` header, a `400` on a bad
+signature, reads the raw body via `request.text()` (never `request.json()`, required since
+signature verification is computed over exact bytes), and is idempotent per `event.id` via the
+`stripe_webhook_events` table (a replayed event is acknowledged without reprocessing). No finding
+was registered for Stripe — there is no broken code here, only an unconfigured integration.
+
+**Google Calendar — confirmed non-functional in production, and confirmed this isn't currently
+stranding any real customer (WGR-147, P3).** `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/
+`GOOGLE_REDIRECT_URI` are absent from `.env.local` and every Vercel environment. Called the real,
+unmodified `getOAuthClient()` (`src/lib/integrations/google/auth.ts`) with these unset and it threw
+`"Missing GOOGLE_CLIENT_ID"` immediately — the same failure any real connect/refresh/sync attempt
+would hit today, reproduced directly rather than inferred from reading the `requiredEnv()` helper.
+Separately, ran a live, service-role query of the real `integrations` table
+(`provider = 'google'`) across every organization in production to check the task's other named
+condition ("if a connected account exists") independent of whether the app-level OAuth client
+could even be constructed: **0 rows** — no organization has ever connected Google Calendar. So
+this is a shipped-but-never-configured feature (Behavioral Contracts §20), not a regression that
+just broke an existing customer's live sync — a materially different and lower-urgency finding
+than it would be with a real stranded connection. Noted as a positive control on the query itself:
+`INTEGRATION_ENCRYPTION_KEY` (the key that would decrypt a stored token, were one to exist) IS
+present in Vercel production, confirming the query ran against the real table with real
+credentials and simply found nothing, not that the whole integration layer is unreachable.
+
+**Evidence:** `test-evidence/pt-07/comms-billing.json`, produced by
+`scripts/audit/pt07-004-comms-billing-probes.mjs` and verified by
+`node scripts/audit/verify-pt07-004.mjs` — confirmed the verifier actually fails on bad evidence
+(a deliberately corrupted copy of the evidence file, restored afterward via a clean re-run) before
+trusting a clean PASS. Findings `WGR-146` (Resend) and `WGR-147` (Google Calendar) registered via
+`scripts/audit/pt07-004-register-findings.mjs`; no finding registered for Stripe (code verified
+correct, only the surrounding config is absent).
+
+---
+
+**Prior update: August 20, 2026 — audit PT-07: external data-source API probes.** Real, live calls
 against every external data source the app depends on — Grants.gov, SAM.gov, USASpending,
 ProPublica, IRS endpoints, and the ScraperAPI proxy rotation used by the stealth scraper — made
 against the exact request shape each app integration file actually sends, not a mocked/monkey-

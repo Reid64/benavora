@@ -1,5 +1,70 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-07: external data-source API probes.
+## Last Updated: August 20, 2026 — audit PT-07: Resend/Stripe/Google Calendar comms+billing probes.
+
+**Focus:** three integrations named in the task, each with a real check or an explicit, reasoned
+PENDING-SCOPE: (1) Resend — confirm a real delivery path works (via a controlled test send, using
+Resend's own dedicated test sending identity, never a benavora.com production domain) or capture
+API-key validity + a dry-run and mark PENDING-SCOPE; (2) Stripe — verify checkout + webhook
+signature handling against Stripe's test mode (never live charges), or if billing scope is
+undecided, record PENDING-SCOPE and confirm the webhook signature-verification code path is
+correct by reading it; (3) Google Calendar — OAuth token validity + a real read/sync probe if a
+connected account exists, else PENDING-SCOPE.
+
+**What was found, before any code was touched:** a live `vercel env ls` (all environments,
+12 env vars total across the whole project) plus a full `.env.local` grep confirmed **zero**
+Resend, Stripe, or Google-OAuth credentials exist anywhere in this deployment — not locally, not
+in Vercel Production/Preview. This reframed the task: none of the three "safe live test" paths
+were reachable, so each integration's real, honest status is PENDING-SCOPE with concrete evidence
+of *why*, per the task's own fallback instructions for exactly this case.
+
+**What was built:** `scripts/audit/pt07-004-comms-billing-probes.mjs` (the real capture script) —
+for Resend, imports and calls the actual, unmodified `sendEmail()` from
+`src/lib/email/resend-client.ts` with the key absent (reproducing the real production no-op path,
+`{success:false, error:'RESEND_API_KEY not configured'}`); for Stripe, since checkout needs a live
+network call with a real key (unavailable) but webhook-signature verification is a pure local HMAC
+operation, runs a real functional test of the exact `stripe` npm package (^22.2.0)
+`constructEvent()`/`generateTestHeaderString()` calls the webhook route uses — valid signature
+accepted, tampered payload rejected, wrong secret rejected, all three real, not asserted — plus a
+code read confirming the route fails closed on a missing secret/signature and is idempotent per
+event id; for Google Calendar, imports and calls the actual `getOAuthClient()` from
+`src/lib/integrations/google/auth.ts` (reproduces its real `"Missing GOOGLE_CLIENT_ID"` throw) and
+separately runs a live, service-role query of the real `integrations` table
+(`provider = 'google'`) across every organization to check for any connected account regardless of
+whether the app-level OAuth client could be constructed. `scripts/audit/verify-pt07-004.mjs`
+(fails unless each of the three sections records a real captured result or an explicit,
+evidence-backed PENDING-SCOPE with a real reason — verified against a deliberately corrupted copy
+of the evidence file to confirm it actually catches failures, not just a rubber stamp) and
+`scripts/audit/pt07-004-register-findings.mjs` (appends `WGR-146`/`WGR-147` to
+`WIRING_GAP_REGISTER.md`).
+
+**Result:**
+- **Resend (WGR-146, P2) — confirmed non-functional in production, not merely untested.** No
+  `RESEND_API_KEY` anywhere; the real `sendEmail()` dry-run reproduces the exact failure every
+  platform-originated email (draft-ready, morning digest, urgent alerts, welcome) hits today. The
+  Svix webhook-signature verification code (`src/app/api/webhooks/resend/route.ts`) was read and
+  is correct (fails closed with 500 if the secret is unset, real HMAC-SHA256 +
+  `timingSafeEqual`), but is unreachable without a key/secret to produce a real webhook.
+- **Stripe — PENDING-SCOPE, not a finding.** No `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
+  anywhere, so billing is genuinely undecided in production (matches the code's own documented
+  free-tier-default design, Behavioral Contracts §22). The webhook signature-verification code
+  path was **functionally verified**, not just read: a real Stripe SDK `constructEvent()` call
+  accepted a validly-signed test payload and rejected both a tampered payload and a wrong-secret
+  signature. No finding registered for Stripe — the code that exists is correct.
+- **Google Calendar (WGR-147, P3) — confirmed non-functional, and confirmed nothing is currently
+  stranded by it.** No `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI` anywhere;
+  the real `getOAuthClient()` throws immediately. A live query of the `integrations` table found
+  **0** rows for `provider='google'` across every organization — no org has ever connected Google
+  Calendar, so this is a shipped-but-never-configured feature, not a regression breaking an
+  existing customer connection. `INTEGRATION_ENCRYPTION_KEY` (needed to decrypt a stored token) IS
+  present in Vercel production — only the three OAuth app credentials are missing.
+
+Full detail in `STATE_OF_THE_BUILD.md`'s matching entry.
+
+**Gates:** `node scripts/audit/verify-pt07-004.mjs` — PASS.
+
+---
+
+## Prior Update — August 20, 2026 — audit PT-07: external data-source API probes.
 
 **Focus:** for each external data source the app depends on — Grants.gov, SAM.gov, USASpending,
 ProPublica, IRS endpoints, and the ScraperAPI proxy rotation used by the stealth scraper — make a

@@ -1,0 +1,139 @@
+{
+  "generated_at": "2026-08-20T17:02:37.573Z",
+  "method": {
+    "vercelEnvQuery": {
+      "queried": true,
+      "rawLineCount": 12,
+      "names": [
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_PLACES_API_KEY",
+        "CRON_SECRET",
+        "UNSUBSCRIBE_HMAC_SECRET",
+        "INTEGRATION_ENCRYPTION_KEY",
+        "PORTAL_ENCRYPT_SECRET",
+        "INTEGRATION_KEY_SECRET",
+        "OPENAI_API_KEY",
+        "SAM_GOV_API_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY"
+      ]
+    }
+  },
+  "resend": {
+    "configured": false,
+    "localKeyPresent": false,
+    "localWebhookSecretPresent": false,
+    "vercelKeyPresent": false,
+    "dedicatedSendingIdentityNote": "Resend uses a dedicated sending identity (e.g. onboarding@resend.dev), not a benavora.com production domain, for any test send -- per task instruction. No send was attempted since no key exists anywhere.",
+    "liveDeliveryTest": {
+      "attempted": false,
+      "reason": "RESEND_API_KEY absent from .env.local and every Vercel environment (confirmed via live `vercel env ls`) -- no real delivery path exists to test."
+    },
+    "dryRun": {
+      "description": "Real, unmodified sendEmail() from src/lib/email/resend-client.ts called with RESEND_API_KEY unset in-process.",
+      "result": {
+        "success": false,
+        "error": "RESEND_API_KEY not configured"
+      }
+    },
+    "webhookReceiver": {
+      "file": "src/app/api/webhooks/resend/route.ts",
+      "exists": true,
+      "verifiesSvixSignature": true,
+      "failsClosedWithoutSecret": true
+    },
+    "verdict": "PENDING-SCOPE",
+    "verdictReason": "No RESEND_API_KEY configured in any environment (local or Vercel) -- confirmed by direct inspection, not assumed. The real production sendEmail() path returns success:false, error:'RESEND_API_KEY not configured' on every call today, reproduced above as a real dry run. This is a confirmed non-functional delivery path in production, not merely an untested one."
+  },
+  "stripe": {
+    "configured": false,
+    "localSecretKeyPresent": false,
+    "localWebhookSecretPresent": false,
+    "vercelStripePresent": false,
+    "checkoutLiveTest": {
+      "attempted": false,
+      "reason": "STRIPE_SECRET_KEY absent from .env.local and every Vercel environment (confirmed via live `vercel env ls`) -- createCheckoutSession() would throw 'STRIPE_SECRET_KEY is not configured.' immediately (isStripeConfigured() === false). No real network call to Stripe is possible."
+    },
+    "webhookSignatureFunctionalTest": {
+      "description": "Real, offline, no-network exercise of the exact stripe npm package (^22.2.0) constructEvent()/generateTestHeaderString() calls used by src/app/api/webhooks/stripe/route.ts, against a synthetic test secret (never a real production secret).",
+      "results": {
+        "validSignature": {
+          "pass": true,
+          "eventId": "evt_pt07004_test",
+          "eventType": "checkout.session.completed"
+        },
+        "tamperedPayload": {
+          "pass": true,
+          "rejectedWith": "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+        },
+        "wrongSecret": {
+          "pass": true,
+          "rejectedWith": "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+        }
+      },
+      "pass": true
+    },
+    "webhookRouteCodeRead": {
+      "file": "src/app/api/webhooks/stripe/route.ts",
+      "exists": true,
+      "checks": {
+        "verifiesBeforeProcessing": true,
+        "rejectsMissingSecret": true,
+        "rejectsMissingSignature": true,
+        "rejectsBadSignature": true,
+        "idempotentOnEventId": true,
+        "usesRawBodyNotJson": true
+      },
+      "allChecksPass": true
+    },
+    "verdict": "PENDING-SCOPE",
+    "verdictReason": "STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET absent in every environment -- billing scope is undecided in production today, confirmed by direct inspection, not assumed. The webhook signature-verification code path was functionally verified (real Stripe SDK constructEvent call, valid signature accepted, tampered payload rejected, wrong secret rejected) and read-confirmed to fail closed on missing secret/signature and to be idempotent per event id."
+  },
+  "googleCalendar": {
+    "oauthAppConfigured": false,
+    "localClientIdPresent": false,
+    "localClientSecretPresent": false,
+    "localRedirectUriPresent": false,
+    "vercelGoogleOAuthPresent": false,
+    "integrationEncryptionKeyPresentInVercel": true,
+    "oauthClientConstructionDryRun": {
+      "description": "Real, unmodified getOAuthClient() from src/lib/integrations/google/auth.ts, called with GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI unset in-process.",
+      "result": {
+        "threw": true,
+        "error": "Missing GOOGLE_CLIENT_ID"
+      }
+    },
+    "connectedAccountsQuery": {
+      "table": "integrations",
+      "filter": "provider = 'google'",
+      "error": null,
+      "totalRowsFound": 0,
+      "activeWithTokenCount": 0,
+      "rows": []
+    },
+    "hasConnectedAccount": false,
+    "liveReadProbe": {
+      "attempted": false,
+      "reason": "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI absent from every environment -- getOAuthClient() throws immediately (reproduced above), so no OAuth2 client can be constructed regardless of any stored token."
+    },
+    "verdict": "PENDING-SCOPE",
+    "verdictReason": "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI are absent from .env.local and every Vercel environment (confirmed via live `vercel env ls`), so no Google OAuth2 client can be constructed in this deployment today, independent of whether any organization has a stored token. Confirmed by reproducing the real getOAuthClient() throw above."
+  },
+  "findings": [
+    {
+      "severity": "P2",
+      "description": "RESEND_API_KEY is not configured in any environment (local or Vercel Production/Preview) -- transactional email delivery (draft-ready, morning digest, urgent alerts, welcome emails) is confirmed non-functional in production today. Real dry-run of sendEmail() returns success:false with a clear, non-crashing error, so the platform degrades gracefully, but zero platform-originated emails can currently be sent."
+    },
+    {
+      "severity": "P3",
+      "description": "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI are not configured in any environment -- Google Calendar sync (Behavioral Contracts §20) cannot be authorized in production today, independent of whether any org has a stored token."
+    }
+  ],
+  "summary": {
+    "resend_verdict": "PENDING-SCOPE",
+    "stripe_verdict": "PENDING-SCOPE",
+    "googleCalendar_verdict": "PENDING-SCOPE",
+    "all_three_have_real_result_or_explicit_pending_scope": true
+  }
+}
