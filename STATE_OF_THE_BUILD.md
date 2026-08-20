@@ -1,5 +1,44 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-12 v2: reused the existing dedicated load-test branch, re-verified non-production.**
+
+**What this session did:** confirmed PT-00/PT-03/PT-09 evidence artifacts are all present
+(`test-evidence/pt-00`, `pt-03`, `pt-09`, each with a real `PHASE-*-SUMMARY.md`/`REVIEW-PACK.md`
+pair and raw evidence files, not stubs) and that `test-evidence/pt-12/` already exists from the
+prior PT-12-001/002/003 session. Confirmed `SUPABASE_ACCESS_TOKEN` is present as a real shell
+environment variable (not in `.env.local` — set at the OS/session level). Ran
+`supabase branches list --project-ref vbjplpquqxxfbpazyalt` live: the `pt12-load-test` branch
+(project ref `ffghpazvipsqrypkryfj`, `with_data: true`) was still present and had progressed from
+the `CREATING_PROJECT` status recorded in the prior session's `branch.txt` to a fully-provisioned
+`FUNCTIONS_DEPLOYED` — **not** `RESTORING`, so no wait/recreate was needed. Per the task's explicit
+instruction, **reused this branch rather than creating a third billed clone**.
+
+Re-ran the existing `scripts/audit/pt12-001-record-load-branch.mjs` (built in the prior PT-12
+session, not rewritten) to refresh `test-evidence/pt-12/branch.txt` and
+`branch-seed-counts.json` with a fresh live snapshot: re-derives the branch by name (not a
+hardcoded ID), hard-fails if `branch_project_ref === vbjplpquqxxfbpazyalt` or
+`parent_project_ref !== vbjplpquqxxfbpazyalt`, and queries the branch's own PostgREST endpoint
+(never production's) via `Prefer: count=exact` for 7 representative tables to prove the clone is
+still intact. Result, confirmed live just now: `branch_project_ref=ffghpazvipsqrypkryfj` (distinct
+from the production ref), `parent_project_ref=vbjplpquqxxfbpazyalt` (genuinely a branch of prod),
+sampled row total **2,138,688** (`nonprofits` 1,978,526 / `foundation_directory` 133,812 /
+`agent_runs` 24,947 / `opportunities` 1,252 / `organizations` 130 / `applications` 10 /
+`submission_queue` 6) — matching the original clone's volume, confirming the data is intact, not
+drifted or emptied.
+
+`scripts/audit/verify-pt12-001.mjs` (already existed from the prior session, does exactly what this
+step required — no rewrite needed) was reviewed line by line to confirm it: (1) hard-fails unless
+`branch.txt` records a `branch_project_ref` distinct from the production ref and a
+`parent_project_ref` equal to it; (2) cross-checks the same assertion independently against
+`branch-seed-counts.json` (`isProductionTarget` must be explicitly `false`); (3) does a live
+re-derivation via `supabase branches list` at verify time (not just trusting the recorded file) and
+hard-fails if the *currently live* branch's `project_ref` is production. Ran it — **PASS**, all
+three checks green against the freshly-refreshed evidence.
+
+**Gates:** `node scripts/audit/verify-pt12-001.mjs` — PASS (0 errors, exit 0).
+
+---
+
 **Updated: August 20, 2026 — audit PT-12-002: concurrent-user load simulation against the dedicated load-test branch (real breaking point found).**
 
 **What this session did:** built `scripts/audit/pt12-002-load-simulation.mjs`, which drives the same

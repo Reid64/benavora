@@ -1,4 +1,31 @@
 # BENAVORA — Session State
+## Last Updated: August 20, 2026 — audit PT-12 v2: reused existing load-test branch, verified non-prod.
+
+**Focus:** confirm PT-00/PT-03/PT-09 evidence artifacts and `test-evidence/pt-12/` already exist;
+confirm `SUPABASE_ACCESS_TOKEN` is available; list branches and reuse the existing `pt12-load-test`
+branch (project ref `ffghpazvipsqrypkryfj`, `with_data: true`, a 2.14M-row prod clone) rather than
+creating a new one, avoiding a third billed clone.
+
+**What was done:**
+- `supabase branches list --project-ref vbjplpquqxxfbpazyalt` confirmed `pt12-load-test` still
+  exists, now `status: FUNCTIONS_DEPLOYED` (fully provisioned, not `RESTORING`) — no recreate or
+  wait needed.
+- Re-ran the existing `scripts/audit/pt12-001-record-load-branch.mjs` to refresh
+  `test-evidence/pt-12/branch.txt` and `branch-seed-counts.json` with a fresh live snapshot: branch
+  host confirmed distinct from the production ref (`vbjplpquqxxfbpazyalt`), confirmed genuinely a
+  branch of prod (`parent_project_ref` matches), and a fresh row-count query against the branch's
+  own PostgREST endpoint confirmed the clone is intact — 2,138,688 sampled rows across
+  `organizations`/`opportunities`/`applications`/`nonprofits`/`foundation_directory`/`agent_runs`/
+  `submission_queue`, matching the original clone volume.
+- `scripts/audit/verify-pt12-001.mjs` already existed and already does exactly what this task
+  required (hard-fails unless `branch.txt` + `branch-seed-counts.json` + a live
+  `supabase branches list` re-derivation all agree the target is non-production) — reviewed, not
+  rewritten. Ran it: **PASS**.
+
+**Gates:** `node scripts/audit/verify-pt12-001.mjs` — PASS.
+
+---
+
 ## Last Updated: August 20, 2026 — audit PT-12-002: concurrent-user load simulation, real breaking point recorded.
 
 **Focus:** simulate realistic concurrent users against the core read+write paths (dashboard load,

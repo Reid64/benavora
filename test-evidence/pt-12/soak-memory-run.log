@@ -1,0 +1,36 @@
+Target (confirmed non-production branch): https://ffghpazvipsqrypkryfj.supabase.co (ref: ffghpazvipsqrypkryfj)
+Safety check: PASS -- 0 of 6 submission_queue row(s) on the branch are 'pending'; the worker's real automation path cannot fire during this soak.
+
+Starting Next.js server (port 3413, dist dir .next-pt12-soak)...
+Next.js server ready in 5967ms (pid=70504, status=200)
+
+Starting AutoApply worker (id=pt12-soak-worker, stream port 8097)...
+Worker settled after 8000ms, still running (pid=75952).
+Worker boot output so far:
+[StreamServer] Stream server listening on port 8097
+[QueueProcessor] Starting â€” worker=pt12-soak-worker
+[ProxyManager] PROXY_LIST env var is empty — no proxies loaded, running direct
+[DdRequestProcessor] Starting
+[KnowledgeIndexerProcessor] Starting
+[gmail-confirmation-monitor] Starting — polling every 5 minute(s)
+[gmail-confirmation-monitor] Skipping cycle — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN not fully configured. This requires a one-time human OAuth consent as apply@benavora.com — see AUTOAPPLY_ARCHITECTURE_V2.md §10A.
+[AgentQueueProcessor] Started.
+[Worker] AutoApply Worker started — id=pt12-soak-worker at 2026-08-20T19:23:20.697Z
+[QueueProcessor] Proxy pool ready â€” 0/0 active
+[DdRequestProcessor] Queue empty, sleeping 15s
+[QueueProcessor] Queue empty, sleeping 15s
+
+
+Warming up 7 route(s) (absorbs first-compile cost, not sampled)...
+  warmup / -> 200 in 6383ms
+  warmup /login -> 200 in 78ms
+  warmup /pricing -> 200 in 596ms
+  warmup /how-it-works -> 200 in 394ms
+  warmup /dashboard -> 307 in 9ms
+  warmup /opportunities -> 307 in 9ms
+  warmup /settings -> 307 in 8ms
+
+Starting sustained soak: 6 virtual users, 360s, sampling memory every 10s...
+
+  [t=0s] next=49MB worker=34MB requests=0 errors=0
+  [t=11s] next=49MB worker=34MB requests=105 errors=0

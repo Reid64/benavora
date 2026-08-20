@@ -1,4 +1,4 @@
-PT-12-001 — Dedicated Load-Test Branch — Recorded 2026-08-20T18:51:50.449Z
+PT-12-001 — Dedicated Load-Test Branch — Recorded 2026-08-20T19:43:59.531Z
 
 === IDENTITY ===
 branch_id:            cb26d5f5-8c36-4ace-89e3-89056e629d52
@@ -7,7 +7,7 @@ branch_project_ref:   ffghpazvipsqrypkryfj
 parent_project_ref:   vbjplpquqxxfbpazyalt
 is_default:           false
 with_data:            true
-status:               CREATING_PROJECT
+status:               FUNCTIONS_DEPLOYED
 preview_project_status: ACTIVE_HEALTHY
 created_at:           2026-08-20T18:44:33.489493+00:00
 updated_at:           2026-08-20T18:44:33.489493+00:00
@@ -26,15 +26,15 @@ POSTGRES_URL (pooled, password redacted):        postgresql://postgres.ffghpazvi
 POSTGRES_URL_NON_POOLING (direct, password redacted): postgresql://******:***@db.ffghpazvipsqrypkryfj.supabase.co:5432/postgres?connect_timeout=10
 note: the Supabase CLI masks the raw database password in all output formats (text/json/env) for this command; the pooled/direct Postgres URLs above are structurally real (correct host, port, user) but the password segment is redacted by the CLI itself, not by this script. The Supabase URL + service-role key above are the real, unredacted, functional credentials used to query this branch (see SEEDED VOLUME below, fetched live via this exact SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY pair).
 
-=== SEEDED VOLUME (confirmed via live PostgREST query against the branch, 2026-08-20T18:51:50.449Z) ===
+=== SEEDED VOLUME (confirmed via live PostgREST query against the branch, 2026-08-20T19:43:59.531Z) ===
 with_data flag (branch cloned from production at creation time): true
   organizations: 130 rows
   opportunities: 1252 rows
   applications: 10 rows
   nonprofits: 1978526 rows
   foundation_directory: 133812 rows
-  agent_runs: 24947 rows
+  agent_runs: 24952 rows
   submission_queue: 6 rows
-  TOTAL (sampled tables, excluding errored ones): 2138683 rows
+  TOTAL (sampled tables, excluding errored ones): 2138688 rows
 
 RESULT: PASS
