@@ -1,5 +1,27 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-05-002 COMPLETE. Cross-tenant read attempts, all
+## Last Updated: August 20, 2026 — audit PT-05-003 COMPLETE. Cross-tenant WRITE attempts (UPDATE,
+DELETE, INSERT tagged with Org B's org_id), all tenant-scoped tables — the more dangerous direction
+than PT-05-002's read test. Authenticated as Org A's real user, attempted three real mutations
+against Org B's data on the same 20 live-tested tables (7 PT-05-001-seeded + all 13 of PT-06's
+`tenant_fk_gap` prime suspects), each via both `@supabase/supabase-js` (API layer) and a raw
+PostgREST fetch: (a) UPDATE a real column on Org B's known row, (b) DELETE that row outright, (c)
+INSERT a new row explicitly tagged `organization_id`/`org_id` = Org B's real org id (using Org B's
+real child-object ids for any required foreign key — the worst-case "attacker already knows Org B's
+internal ids" scenario). After every attempt, Org B's data was independently re-read **as Org B** —
+a second, separately-authenticated real session — both before and after, and compared; the
+attacking request's own reported success/failure was never trusted on its own. The remaining 100
+tables were verified via the same read-only production RLS policy inspection PT-05-002 used, now
+checked per command (INSERT/UPDATE/DELETE separately, not just SELECT). **Result: 0 cross-tenant
+write leaks — 60/60 live mutation attempts blocked (20 tables × 3 operations), across all 120
+tables**, including every prime suspect under extra scrutiny for all three operations. One nuance
+logged, not a leak: 3 tables (`adapter_usage_log`, `knowledge_queries`, `submission_receipts`) have
+no UPDATE policy of any kind in production — not even for the owning org — so their cross-tenant
+UPDATE block is a default-deny-for-everyone artifact rather than a specifically tenant-scoped check;
+still correctly blocked, just for a blunter structural reason. See
+`test-evidence/pt-05/cross-write.json`, `PHASE-05-SUMMARY.md`'s "PT-05-003" section,
+`REVIEW-PACK.md`, `WIRING_GAP_REGISTER.md` WGR-073.
+
+## Prior — August 20, 2026 — audit PT-05-002 COMPLETE. Cross-tenant read attempts, all
 tenant-scoped tables. Authenticated as Org A's real user (real GoTrue JWT), attempted to read
 Org B's known seeded rows across all 120 tenant-scoped tables PT-06 identified
 (`organization_id`/`org_id` column, derived independently from `live-schema.json`). 20 tables

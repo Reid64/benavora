@@ -20,6 +20,21 @@ zero policies at all — deny-all for everyone, not a leak, but an unexplained a
 (WGR-072, PENDING-SCOPE). Full detail: `PHASE-05-SUMMARY.md`'s "PT-05-002" section,
 `test-evidence/pt-05/cross-read.json`.
 
+## PT-05-003 result, up front: zero cross-tenant write leaks (UPDATE/DELETE/INSERT), across all 120 tables
+
+The more dangerous direction — real mutations, not just reads. Authenticated as Org A, attempted
+UPDATE and DELETE on Org B's known rows and INSERT of new rows explicitly tagged with Org B's org
+id, on the same 20 live-tested tables (both request paths, both same as PT-05-002) plus the same
+100-table read-only policy inspection (now checked per-command, not just SELECT). **Result: 0
+leaks — 60/60 live mutation attempts blocked (20 tables × 3 operations).** Every attempt's own
+reported outcome was cross-checked against an independent re-read of Org B's data **as Org B**,
+both before and after — never trusted from the attacking request alone. All 13 prime suspects
+passed on all three operations. One nuance, not a leak: 3 tables have no UPDATE policy at all in
+production (not even for the owning org), so their cross-tenant UPDATE block is a blunter
+default-deny rather than a tenant-scoped check specifically — noted per-table, not hidden. Full
+detail: `PHASE-05-SUMMARY.md`'s "PT-05-003" section, `test-evidence/pt-05/cross-write.json`,
+WGR-073.
+
 ## What exists now
 
 A running local Postgres 17 + GoTrue + PostgREST stack (`.pt05-local-stack/`, Docker containers

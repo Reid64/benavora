@@ -218,3 +218,90 @@ confused with a Tier 1 empirical result.
   prime-suspect table be `live_http_test`'d, not just policy-inspected; cross-checks every
   `row_count` against its own captured `raw_rows` payload; live re-checks the local stack still
   exists).
+
+---
+
+## PT-05-003 — Cross-Tenant WRITE Attempts, All Tenant-Scoped Tables
+
+The more dangerous direction than PT-05-002's read test: authenticated as Org A's real user,
+attempted to **write** into Org B's data — UPDATE an existing row, DELETE an existing row, and
+INSERT a brand-new row explicitly tagged with Org B's org id — on every tenant-scoped table PT-06
+identified. A successful cross-tenant write is the worst class of finding in this program: one
+tenant corrupting, erasing, or forging data inside another tenant's account, not merely reading it.
+
+### Scope and ground truth: reused from PT-05-002, not re-derived
+
+Same 120-table tenant-scoped list (`live-schema.json`, `organization_id`/`org_id` column presence)
+and same 13 `tenant_fk_gap` prime suspects (`integrity.json`). Same real production RLS ground
+truth (`production-rls-policies.json`), this time inspected **per command** (INSERT/UPDATE/DELETE
+separately) rather than only SELECT/ALL, since a table can have a correct SELECT policy and no
+mutation policy at all, or vice versa.
+
+### Tier 1 — live HTTP mutation test, 20 tables (same 20 as PT-05-002)
+
+`scripts/audit/pt05-003-cross-tenant-write.mjs` reused the exact local stack and seeded rows
+PT-05-001/PT-05-002 already provisioned (no new schema or seed data). Logged in as both Org A's
+and Org B's real users via GoTrue password grant (two real, separately-authenticated JWTs — Org
+B's session is the independent re-read channel, not a second copy of Org A's). For each of the 20
+tables:
+
+1. **Positive control** — Org A UPDATEs its OWN row (one shared control covering all three attempt
+   types, rather than three separate destructive controls — a same-org DELETE/INSERT positive
+   control was deliberately not performed, to avoid destroying reusable seed data). Confirms the
+   RLS write path is live for that table.
+2. **(a) UPDATE attempt** — Org A attempts to UPDATE one real column on Org B's known seeded row to
+   a distinguishing marker value, via both `@supabase/supabase-js` ("API layer") and a raw
+   PostgREST `fetch` ("direct"). Org B's row is re-read **as Org B** both immediately before and
+   immediately after the attempt; a PASS requires both "the attempt reported 0 rows affected" AND
+   "Org B's independently re-read row is provably unchanged" (deep-compared, not just row-count).
+3. **(b) DELETE attempt** — same two paths, targeting Org B's known row outright. Org B's row is
+   re-read as Org B before and after; a PASS requires both "0 rows affected" AND "the row still
+   exists" after the attempt.
+4. **(c) INSERT attempt** — Org A attempts to create a brand-new row with the tenant column
+   explicitly set to Org B's real org id (and, for tables with a required foreign key, Org B's real
+   child-object ids too — the worst-case "attacker already knows Org B's internal ids" scenario, not
+   a softer one). Org B's full id list for that table is re-read as Org B before and after; a PASS
+   requires no new id appears in Org B's own post-attempt re-read.
+
+**Result: 60/60 live mutation attempts blocked (20 tables × 3 operations), 0 leaks.** Every UPDATE
+and DELETE returned 0 rows affected on both request paths with Org B's re-read data provably
+unchanged; every INSERT attempt produced 0 new rows visible in Org B's own re-read id list. This
+holds for all 20 tables, including all 13 tenant_fk_gap prime suspects — the same conclusion
+PT-05-002 reached for reads holds for writes too: the missing tenant→organizations foreign key does
+not correspond to a missing or broken mutation policy.
+
+One nuance surfaced by the positive control, reported rather than folded silently into the same
+PASS bucket: 3 of the 20 tables (`adapter_usage_log`, `knowledge_queries`, `submission_receipts`)
+have **no UPDATE policy of any kind** in production — not even for the owning org (confirmed
+against `production-rls-policies.json`: each has only SELECT/INSERT policies). Their cross-tenant
+UPDATE block is therefore a default-deny-for-everyone artifact, not a specifically tenant-scoped
+check — still a correct block, just for a blunter structural reason. Flagged in each table's own
+evidence row rather than silently generalized.
+
+### Tier 2 — production RLS policy inspection, remaining 100 tables
+
+Same read-only production RLS ground truth PT-05-002 fetched, now evaluated per command. For each
+of INSERT/UPDATE/DELETE independently: RLS-disabled would be a P0; a command with zero applicable
+policies is a default-deny (blocked for everyone, not a leak, but distinct from an org-scoped
+policy); a command whose policy's `qual`/`with_check` references the tenant column against a
+current-org lookup is org-scoped. Zero RLS-disabled tables found; every table with an applicable
+policy for a given command is org-scoped.
+
+### Findings
+
+- **WGR-073** (P3, CONFIRMED-OK) — the overall clean result: 0/120 tenant tables show a
+  cross-tenant write leak of any kind (UPDATE, DELETE, or INSERT), including all 13 prime suspects
+  live-tested across all three operations.
+
+### Evidence files
+
+- `test-evidence/pt-05/cross-write.json` — full per-table results, all 120 tables, both tiers, all
+  three attempt types with before/after re-reads captured as Org B.
+- `scripts/audit/pt05-003-cross-tenant-write.mjs` — the live mutation-attempt script (reuses the
+  existing local stack, seed data, and production RLS ground truth; no new provisioning step).
+- `scripts/audit/verify-pt05-003.mjs` — the verifier (independently re-derives the expected table
+  list from `live-schema.json`; requires every prime-suspect table be `live_http_test`'d for all
+  three operations, not just policy-inspected; cross-checks every `rows_affected` against its own
+  captured `raw_rows` payload; requires a real before/after Org-B re-read for every attempt; live
+  re-checks the local stack still exists and independently re-verifies one sampled claim directly
+  against the database, bypassing `cross-write.json`'s own recorded result).

@@ -1,6 +1,19 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-05-002 COMPLETE. Cross-tenant read attempts across all 120
+**Updated: August 20, 2026 — audit PT-05-003 COMPLETE. Cross-tenant WRITE attempts (UPDATE, DELETE,
+INSERT-tagged-with-Org-B's-org_id) across all 120 tenant-scoped tables PT-06 identified, authenticated
+as Org A targeting Org B's data — the more dangerous direction than PT-05-002's read test, since a
+successful cross-tenant write means one tenant can corrupt, erase, or forge another tenant's data.
+Same 20 tables live HTTP-tested with the real production RLS policy predicate reproduced verbatim
+(7 seeded tables + all 13 of PT-06's `tenant_fk_gap` prime suspects), same 100 tables verified via
+read-only inspection of the real production RLS policy state, now per-command (INSERT/UPDATE/DELETE
+separately). Every one of the 60 live mutation attempts (20 tables × 3 operations) was independently
+re-checked by re-reading Org B's data AS ORG B, both before and after — the attacking request's own
+reported success/failure was never trusted alone. Result: 0 cross-tenant write leaks found, across
+all 120 tables and all three operation types. See `test-evidence/pt-05/cross-write.json`,
+`test-evidence/pt-05/PHASE-05-SUMMARY.md`'s "PT-05-003" section, `WIRING_GAP_REGISTER.md` WGR-073.**
+
+**Prior: August 20, 2026 — audit PT-05-002 COMPLETE. Cross-tenant read attempts across all 120
 tenant-scoped tables PT-06 identified (authenticated as Org A, targeting Org B's known rows): 20
 tables live HTTP-tested (7 seeded tables + all 13 of PT-06's `tenant_fk_gap` prime suspects) on a
 locally-extended stack reproducing the real production RLS policy verbatim, 100 tables verified via
