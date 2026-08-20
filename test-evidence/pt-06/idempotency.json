@@ -1,0 +1,900 @@
+{
+  "status": "RAN",
+  "generated_at": "2026-08-20T04:20:36.991Z",
+  "local_target_redacted": "postgresql://postgres:***@127.0.0.1:55322/postgres",
+  "disposable_database": "benavora_pt06_idem_1787199636870",
+  "method": "Created a fresh, disposable database on a local Postgres 17.6 server (a pre-existing local Docker Supabase stack unrelated to this repo, confirmed via three independent checks NOT to be production before anything ran). Applied every file in supabase/migrations/*.sql in order (first-apply pass) to build up realistic schema state, then re-applied a sample of migrations (flagged via static regex scan for bare CREATE TABLE / data-backfill statements) a second time to test idempotency. The disposable database is dropped at the end of this run regardless of outcome.",
+  "first_apply_pass": [
+    {
+      "file": "001_initial_schema.sql",
+      "ok": true,
+      "duration_ms": 92
+    },
+    {
+      "file": "002_phases_2_5.sql",
+      "ok": true,
+      "duration_ms": 53
+    },
+    {
+      "file": "002_register_organization.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "003_onboarding.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "004_research_cron.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "005_browser_automation_agent_type.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "006_email_matching_agent_type.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "007_email_campaign_agent.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "008_stripe_billing.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "009_draft_versions.sql",
+      "ok": true,
+      "duration_ms": 13
+    },
+    {
+      "file": "010_opportunity_source_type.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "011_search_profile_configuration.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "012_opportunity_match_percentage.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "013_alerts.sql",
+      "ok": true,
+      "duration_ms": 12
+    },
+    {
+      "file": "014_validations.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "015_funder_intelligence.sql",
+      "ok": true,
+      "duration_ms": 9
+    },
+    {
+      "file": "016_renewals.sql",
+      "ok": true,
+      "duration_ms": 10
+    },
+    {
+      "file": "017_success_patterns.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "018_email_activity.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "020_automation_sessions.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "021_billing_tables.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "022_fix_model_name.sql",
+      "ok": true,
+      "duration_ms": 1
+    },
+    {
+      "file": "022_usage_tracking.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "023_onboarding_step.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "024_audit_logs.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "025_fix_alerts.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "026_fix_alerts_schema.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "027_missing_columns.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "028_increase_tokens.sql",
+      "ok": true,
+      "duration_ms": 1
+    },
+    {
+      "file": "033_integration_keys.sql",
+      "ok": true,
+      "duration_ms": 10
+    },
+    {
+      "file": "034_custom_connections.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "035_automation_queue.sql",
+      "ok": false,
+      "duration_ms": 3,
+      "error": "22P02: invalid input value for enum automation_status: \"queued\""
+    },
+    {
+      "file": "036_automation_notifications.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "037_giving_history.sql",
+      "ok": true,
+      "duration_ms": 10
+    },
+    {
+      "file": "038_intelligence_tables.sql",
+      "ok": true,
+      "duration_ms": 14
+    },
+    {
+      "file": "039_funder_relationship_agent.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "040_competitor_intel_agent.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "041_scraping_targets.sql",
+      "ok": false,
+      "duration_ms": 1,
+      "error": "42710: policy \"scraping_targets_org\" for table \"scraping_targets\" already exists"
+    },
+    {
+      "file": "042_historical_awards.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "043_opportunity_documents.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "044_nofa_pdfs_bucket.sql",
+      "ok": false,
+      "duration_ms": 1,
+      "error": "42P01: relation \"storage.buckets\" does not exist"
+    },
+    {
+      "file": "045_autoapply_tables.sql",
+      "ok": false,
+      "duration_ms": 3,
+      "error": "42P01: relation \"organization_members\" does not exist"
+    },
+    {
+      "file": "046_foundation_directory.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "047_worker_status.sql",
+      "ok": false,
+      "duration_ms": 4,
+      "error": "42P01: relation \"submission_queue\" does not exist"
+    },
+    {
+      "file": "048_grant_intelligence.sql",
+      "ok": true,
+      "duration_ms": 125
+    },
+    {
+      "file": "049_auto_queue_config.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "050_funder_credentials.sql",
+      "ok": false,
+      "duration_ms": 4,
+      "error": "42P01: relation \"organization_members\" does not exist"
+    },
+    {
+      "file": "051_submission_intelligence.sql",
+      "ok": false,
+      "duration_ms": 10,
+      "error": "42P01: relation \"autoapply_submissions\" does not exist"
+    },
+    {
+      "file": "052_governance_layer.sql",
+      "ok": false,
+      "duration_ms": 10,
+      "error": "42P01: relation \"submission_queue\" does not exist"
+    },
+    {
+      "file": "052_webhook_configs.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "053_autoapply_missing_columns.sql",
+      "ok": false,
+      "duration_ms": 1,
+      "error": "42P01: relation \"form_templates\" does not exist"
+    },
+    {
+      "file": "053_multichannel_analytics.sql",
+      "ok": false,
+      "duration_ms": 3,
+      "error": "42P01: relation \"autoapply_submissions\" does not exist"
+    },
+    {
+      "file": "054_email_calendar_integration.sql",
+      "ok": false,
+      "duration_ms": 24,
+      "error": "42P07: relation \"idx_email_threads_org\" already exists"
+    },
+    {
+      "file": "054_funders_contact_email.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "055_admin_sales_outreach.sql",
+      "ok": true,
+      "duration_ms": 18
+    },
+    {
+      "file": "055_sequence_enrollment_variables.sql",
+      "ok": false,
+      "duration_ms": 2,
+      "error": "42P01: relation \"email_sequence_enrollments\" does not exist"
+    },
+    {
+      "file": "056_four_tier_admin_system.sql",
+      "ok": true,
+      "duration_ms": 29
+    },
+    {
+      "file": "057_draft_automation_pipeline.sql",
+      "ok": true,
+      "duration_ms": 10
+    },
+    {
+      "file": "058_backfill_opportunity_deadlines.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "058_lead_enrichment_system.sql",
+      "ok": true,
+      "duration_ms": 18
+    },
+    {
+      "file": "059_budget_patterns.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "060_grantmaker_profiles.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "061_corporate_giving_targets.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "062_community_foundations.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "063_white_label.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "064_drop_orphaned_email_tables.sql",
+      "ok": true,
+      "duration_ms": 1
+    },
+    {
+      "file": "065_autoapply_follow_ups.sql",
+      "ok": false,
+      "duration_ms": 4,
+      "error": "42P01: relation \"public.autoapply_submissions\" does not exist"
+    },
+    {
+      "file": "066_fix_autoapply_rls_policies.sql",
+      "ok": false,
+      "duration_ms": 1,
+      "error": "42P01: relation \"form_templates\" does not exist"
+    },
+    {
+      "file": "067_donor_discovery_foundation.sql",
+      "ok": true,
+      "duration_ms": 18
+    },
+    {
+      "file": "068_donor_discovery_crawler_core.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "069_donor_discovery_places_adapter.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "070_donor_discovery_request_claim.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "071_donor_discovery_directory_dedup.sql",
+      "ok": true,
+      "duration_ms": 13
+    },
+    {
+      "file": "072_foundation_directory_990_enrichment.sql",
+      "ok": true,
+      "duration_ms": 8
+    },
+    {
+      "file": "073_onboarding_progress.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "074_donor_discovery_foundation_linkage_and_scoring.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "075_donor_discovery_taxonomy_aliases.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "076_adapter_usage_log.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "077_donor_discovery_geocache.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "078_donor_discovery_prospects_scored_at.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "079_donor_discovery_prospects_enrichment_private.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "080_org_settings.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "081_foundation_profiles.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "082_outreach_templates.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "083_followup_sequences.sql",
+      "ok": true,
+      "duration_ms": 8
+    },
+    {
+      "file": "084_grant_financials.sql",
+      "ok": true,
+      "duration_ms": 12
+    },
+    {
+      "file": "085_compliance_requirements.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "086_white_label.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "087_notification_preferences.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "088_foundation_profiles_enrichment.sql",
+      "ok": true,
+      "duration_ms": 8
+    },
+    {
+      "file": "089_financial_reconciliation.sql",
+      "ok": true,
+      "duration_ms": 8
+    },
+    {
+      "file": "090_compliance_calendar.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "091_funder_relationship_events.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "092_consultant_client_access_check.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "093_digital_twins.sql",
+      "ok": true,
+      "duration_ms": 9
+    },
+    {
+      "file": "094_agent_registry.sql",
+      "ok": true,
+      "duration_ms": 8
+    },
+    {
+      "file": "095_discovery_matches.sql",
+      "ok": true,
+      "duration_ms": 11
+    },
+    {
+      "file": "096_knowledge_engine.sql",
+      "ok": true,
+      "duration_ms": 45
+    },
+    {
+      "file": "097_funding_sources.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "098_nonprofits_bmf.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "099_nonprofits_enrichment.sql",
+      "ok": true,
+      "duration_ms": 27
+    },
+    {
+      "file": "100_prospects_contact_fields.sql",
+      "ok": true,
+      "duration_ms": 8
+    },
+    {
+      "file": "101_twin_auto_populate_log.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "102_org_portal_accounts.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "103_schoolfunder.sql",
+      "ok": true,
+      "duration_ms": 14
+    },
+    {
+      "file": "104_organizations_extended_profile.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "105_applications_metadata_column.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "106_intelligence_library_schema_upgrade.sql",
+      "ok": true,
+      "duration_ms": 6
+    },
+    {
+      "file": "107_corporate_prospects.sql",
+      "ok": true,
+      "duration_ms": 10
+    },
+    {
+      "file": "108_corporate_prospects_ea06_ea10.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "109_corporate_prospects_ag22_propensity_scoring.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "110_scrape_jobs_universal_scraper.sql",
+      "ok": true,
+      "duration_ms": 13
+    },
+    {
+      "file": "111_corporate_prospects_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "112_foundation_directory_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "113_revoke_anon_truncate_batch.sql",
+      "ok": false,
+      "duration_ms": 2,
+      "error": "42P01: relation \"agent_decisions\" does not exist"
+    },
+    {
+      "file": "114_nonprofits_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "115_form_templates_rls_hardening.sql",
+      "ok": false,
+      "duration_ms": 1,
+      "error": "42P01: relation \"form_templates\" does not exist"
+    },
+    {
+      "file": "116_organizational_digital_twins_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 5
+    },
+    {
+      "file": "117_intelligence_budget_patterns_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "118_donor_discovery_directory_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "119_intelligence_funded_proposals_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "120_donor_discovery_taxonomy_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "121_opportunity_probability_scores_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "122_intelligence_proposal_sections_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "123_knowledge_patterns_rls_hardening.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "124_custom_api_connections_error_count.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "125_submission_queue_error_visibility.sql",
+      "ok": false,
+      "duration_ms": 1,
+      "error": "42P01: relation \"submission_queue\" does not exist"
+    },
+    {
+      "file": "126_form_templates_automation_assessment.sql",
+      "ok": false,
+      "duration_ms": 2,
+      "error": "42P01: relation \"form_templates\" does not exist"
+    },
+    {
+      "file": "127_relationship_memory.sql",
+      "ok": true,
+      "duration_ms": 15
+    },
+    {
+      "file": "128_agent_configurations_org_id_drift.sql",
+      "ok": false,
+      "duration_ms": 2,
+      "error": "42703: column \"org_id\" does not exist"
+    },
+    {
+      "file": "129_agent_registry_avg_tokens_column.sql",
+      "ok": true,
+      "duration_ms": 3
+    },
+    {
+      "file": "130_funder_relationship_scores_unique_constraint.sql",
+      "ok": true,
+      "duration_ms": 4
+    },
+    {
+      "file": "131_profiles_command_center_layout.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "132_custom_connector_allowlist.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "133_foundation_profiles_grant_history.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "134_automation_notifications_missing_columns.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "135_opportunities_eligibility_columns.sql",
+      "ok": true,
+      "duration_ms": 2
+    },
+    {
+      "file": "136_contact_outreach_tasks.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "137_funder_signal_monitoring.sql",
+      "ok": true,
+      "duration_ms": 7
+    },
+    {
+      "file": "138_demo_account_scope.sql",
+      "ok": true,
+      "duration_ms": 9
+    },
+    {
+      "file": "139_investor_demo_ui_pass_fixes_2026-08-16.sql",
+      "ok": false,
+      "duration_ms": 7,
+      "error": "42P01: relation \"autoapply_review_queue\" does not exist"
+    },
+    {
+      "file": "140_org_branding_public_bucket.sql",
+      "ok": false,
+      "duration_ms": 2,
+      "error": "42P01: relation \"storage.buckets\" does not exist"
+    }
+  ],
+  "sample_results": [
+    {
+      "file": "009_draft_versions.sql",
+      "kind": "create_table",
+      "table": "draft_versions",
+      "second_run": {
+        "ok": false,
+        "duration_ms": 2,
+        "error": "42710: type \"humanization_status\" already exists"
+      },
+      "idempotent": false
+    },
+    {
+      "file": "015_funder_intelligence.sql",
+      "kind": "create_table",
+      "table": "funder_intelligence",
+      "second_run": {
+        "ok": false,
+        "duration_ms": 1,
+        "error": "42P07: relation \"funder_intelligence\" already exists"
+      },
+      "idempotent": false
+    },
+    {
+      "file": "016_renewals.sql",
+      "kind": "create_table",
+      "table": "renewals",
+      "second_run": {
+        "ok": false,
+        "duration_ms": 1,
+        "error": "42P07: relation \"renewals\" already exists"
+      },
+      "idempotent": false
+    },
+    {
+      "file": "018_email_activity.sql",
+      "kind": "create_table",
+      "table": "email_activity",
+      "second_run": {
+        "ok": false,
+        "duration_ms": 1,
+        "error": "42P07: relation \"email_activity\" already exists"
+      },
+      "idempotent": false
+    },
+    {
+      "file": "037_giving_history.sql",
+      "kind": "create_table",
+      "table": "funder_giving_history",
+      "second_run": {
+        "ok": false,
+        "duration_ms": 2,
+        "error": "42P07: relation \"funder_giving_history\" already exists"
+      },
+      "idempotent": false
+    },
+    {
+      "file": "065_autoapply_follow_ups.sql",
+      "kind": "create_table",
+      "table": "autoapply_follow_ups",
+      "skipped": true,
+      "reason": "Did not apply cleanly on the first pass (see first_apply_pass) -- cannot test re-apply of a migration that never succeeded once."
+    },
+    {
+      "file": "003_onboarding.sql",
+      "kind": "backfill",
+      "table": "organizations",
+      "seed_applied": true,
+      "fingerprint_query": "SELECT onboarding_completed FROM organizations WHERE id = '11111111-1111-4111-8111-111111111101';",
+      "fingerprint_field": "onboarding_completed",
+      "before_value": false,
+      "after_value": true,
+      "second_run": {
+        "ok": true,
+        "duration_ms": 4
+      },
+      "idempotent": false,
+      "unintended_data_change": true
+    },
+    {
+      "file": "058_backfill_opportunity_deadlines.sql",
+      "kind": "backfill",
+      "table": "deadlines",
+      "seed_applied": true,
+      "fingerprint_query": "SELECT count(*)::int AS n FROM deadlines WHERE opportunity_id = '22222222-2222-4222-8222-222222222201' AND deadline_type = 'application_deadline';",
+      "fingerprint_field": "n",
+      "establish_run": {
+        "ok": true,
+        "duration_ms": 4
+      },
+      "before_value": 1,
+      "after_value": 1,
+      "second_run": {
+        "ok": true,
+        "duration_ms": 1
+      },
+      "idempotent": true,
+      "unintended_data_change": false
+    }
+  ],
+  "findings": [
+    {
+      "file": "009_draft_versions.sql",
+      "table": "draft_versions",
+      "severity": "P2",
+      "description": "009_draft_versions.sql: CREATE TABLE draft_versions has no IF NOT EXISTS guard. Confirmed live: re-running this migration file against a database that already has it applied fails with a real error (42710: type \"humanization_status\" already exists). This migration cannot be safely re-run/re-applied (e.g. by a migration runner retrying after a partial failure elsewhere in the same deploy, or a human re-running it by hand) without first checking whether it already ran."
+    },
+    {
+      "file": "015_funder_intelligence.sql",
+      "table": "funder_intelligence",
+      "severity": "P2",
+      "description": "015_funder_intelligence.sql: CREATE TABLE funder_intelligence has no IF NOT EXISTS guard. Confirmed live: re-running this migration file against a database that already has it applied fails with a real error (42P07: relation \"funder_intelligence\" already exists). This migration cannot be safely re-run/re-applied (e.g. by a migration runner retrying after a partial failure elsewhere in the same deploy, or a human re-running it by hand) without first checking whether it already ran."
+    },
+    {
+      "file": "016_renewals.sql",
+      "table": "renewals",
+      "severity": "P2",
+      "description": "016_renewals.sql: CREATE TABLE renewals has no IF NOT EXISTS guard. Confirmed live: re-running this migration file against a database that already has it applied fails with a real error (42P07: relation \"renewals\" already exists). This migration cannot be safely re-run/re-applied (e.g. by a migration runner retrying after a partial failure elsewhere in the same deploy, or a human re-running it by hand) without first checking whether it already ran."
+    },
+    {
+      "file": "018_email_activity.sql",
+      "table": "email_activity",
+      "severity": "P2",
+      "description": "018_email_activity.sql: CREATE TABLE email_activity has no IF NOT EXISTS guard. Confirmed live: re-running this migration file against a database that already has it applied fails with a real error (42P07: relation \"email_activity\" already exists). This migration cannot be safely re-run/re-applied (e.g. by a migration runner retrying after a partial failure elsewhere in the same deploy, or a human re-running it by hand) without first checking whether it already ran."
+    },
+    {
+      "file": "037_giving_history.sql",
+      "table": "funder_giving_history",
+      "severity": "P2",
+      "description": "037_giving_history.sql: CREATE TABLE funder_giving_history has no IF NOT EXISTS guard. Confirmed live: re-running this migration file against a database that already has it applied fails with a real error (42P07: relation \"funder_giving_history\" already exists). This migration cannot be safely re-run/re-applied (e.g. by a migration runner retrying after a partial failure elsewhere in the same deploy, or a human re-running it by hand) without first checking whether it already ran."
+    },
+    {
+      "file": "003_onboarding.sql",
+      "table": "organizations",
+      "severity": "P1",
+      "description": "003_onboarding.sql: re-running this backfill migration changed a real, seeded row's onboarding_completed from false to true (query: SELECT onboarding_completed FROM organizations WHERE id = '11111111-1111-4111-8111-111111111101';). This statement has no re-apply guard scoped to \"only rows that need it\" (e.g. WHERE onboarding_completed IS NOT true) -- it unconditionally reprocesses every row on every run, so re-applying it against a database where new, legitimately-different rows have been created since the first run silently corrupts their state."
+    },
+    {
+      "file": "058_backfill_opportunity_deadlines.sql",
+      "table": "deadlines",
+      "severity": "INFO",
+      "description": "058_backfill_opportunity_deadlines.sql: confirmed idempotent against real seeded data -- a second application left deadlines's n unchanged (1 both before and after re-apply, query: SELECT count(*)::int AS n FROM deadlines WHERE opportunity_id = '22222222-2222-4222-8222-222222222201' AND deadline_type = 'application_deadline';). The NOT EXISTS / conditional guard in this file's statement works as intended."
+    }
+  ],
+  "scaffold_applied": {
+    "note": "Minimal Supabase-compatible scaffold applied before the first-apply pass: check_function_bodies=off (works around a real forward-reference in migration 001_initial_schema.sql itself -- current_org_id(), a LANGUAGE SQL function, references public.profiles before that table is created later in the same file) plus a stub auth.users table and auth.uid() function (a fresh CREATE DATABASE does not inherit the local Supabase stack's auth schema the way a real Supabase project/branch would). Recorded here for transparency, not hidden -- see this session's evidence write-up for the isolated repro of each issue.",
+    "sql": "SET check_function_bodies = off;\n      CREATE EXTENSION IF NOT EXISTS pgcrypto;\n      CREATE SCHEMA IF NOT EXISTS auth;\n      CREATE TABLE auth.users (\n        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n        email text\n      );\n      CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;"
+  },
+  "first_apply_failures_note": "The files that failed on this first-apply pass fail almost entirely with 42P01 (relation does not exist), i.e. a missing prerequisite table/column -- e.g. several reference organization_members/submission_queue/autoapply_submissions/form_templates, none of which any file in THIS tree (supabase/migrations) ever creates, consistent with this project's own documented, unresolved split between two parallel migration directories (supabase/migrations vs src/supabase/migrations -- see MIGRATION_AUDIT.md / project memory benavora-two-parallel-migrations-directories). This is expected, pre-existing drift, not a defect introduced by this check, and is out of scope to fix here -- recorded for completeness since it directly explains why 065_autoapply_follow_ups.sql (in the SAMPLE) could not be tested this run.",
+  "summary": {
+    "files_total": 142,
+    "files_applied_ok": 121,
+    "files_failed": 21,
+    "sample_size": 8,
+    "sample_tested": 7,
+    "sample_skipped": 1,
+    "sample_idempotent": 1,
+    "sample_non_idempotent": 6,
+    "total_findings": 7
+  }
+}

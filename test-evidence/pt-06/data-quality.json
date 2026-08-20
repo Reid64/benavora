@@ -1,0 +1,342 @@
+{
+  "generated_at": "2026-08-20T04:12:40.839Z",
+  "database": "postgresql://postgres:***@db.vbjplpquqxxfbpazyalt.supabase.co:5432/postgres",
+  "method": "Live, read-only queries against production Postgres (session forced to default_transaction_read_only=on before any query ran, per the same enforcement proof as pt06-001/002/004). Every duplicate-rate and null-rate result below records the exact SQL that produced it and the actual count/percentage returned, per task instruction 3. Natural-key and 'app treats as required' column selection was grounded against real src/ call sites (cited per-check), not guessed from column names alone.",
+  "tables": {
+    "foundation_directory": {
+      "total_row_count_query": "SELECT count(*)::bigint AS total_rows FROM \"foundation_directory\";",
+      "total_row_count": 133812,
+      "anchor_note": "PT-01-confirmed anchor population: 133,812 rows (re-measured live below, not assumed stale).",
+      "duplicate_rate_checks": [
+        {
+          "label": "ein (exact match)",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT ein AS key_val, count(*) AS cnt\n          FROM \"foundation_directory\"\n          \n          GROUP BY ein\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "Confirmed via pg_indexes before writing this query: foundation_directory_ein_unique is a live UNIQUE index on this column, so a non-zero result here would indicate the index itself is not actually being enforced (e.g. added after dirty data with NOT VALID, or bypassed).",
+          "duration_ms": 730,
+          "duplicate_key_groups": 0,
+          "extra_rows": 0,
+          "population_measured": 133812,
+          "extra_row_rate_pct": 0
+        },
+        {
+          "label": "lower(name) + state (loose real-world identity)",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(name) || '|' || coalesce(state, '') AS key_val, count(*) AS cnt\n          FROM \"foundation_directory\"\n          \n          GROUP BY lower(name) || '|' || coalesce(state, '')\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "No DB constraint covers this combination. Two rows with the same name+state but different EIN either are the same real foundation on two different EINs (application/name-change/data error) or are two genuinely distinct foundations sharing a name -- this measures the raw collision rate; distinguishing the two requires manual review, not automatable here.",
+          "duration_ms": 321,
+          "duplicate_key_groups": 167,
+          "extra_rows": 176,
+          "population_measured": 133812,
+          "extra_row_rate_pct": 0.13
+        }
+      ],
+      "null_rate_checks": [
+        {
+          "column": "website",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"foundation_directory\"\n          WHERE \"website\" IS NULL;",
+          "app_requirement": "src/lib/donor-discovery/foundation-linkage.ts:113,117 -- normalizeDomain(row.website) is one of two signals findsFoundationLinkage() uses to link a donor_discovery_directory prospect to a foundation_directory row; a null website removes this signal entirely for that row (falls back to the RPC name-similarity match only).",
+          "duration_ms": 88,
+          "null_count": 50907,
+          "total_rows": 133812,
+          "null_rate_pct": 38.04
+        },
+        {
+          "column": "giving_total AND asset_amount",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"foundation_directory\"\n          WHERE \"giving_total\" IS NULL AND \"asset_amount\" IS NULL;",
+          "app_requirement": "src/lib/donor-discovery/scoring.ts:75 -- \"Linked foundation's giving capacity (foundation_directory.giving_total, falling back to asset_amount)\" -- when both are null the scoring engine has zero real capacity signal for that foundation.",
+          "duration_ms": 90,
+          "null_count": 13445,
+          "total_rows": 133812,
+          "null_rate_pct": 10.05
+        },
+        {
+          "column": "email",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"foundation_directory\"\n          WHERE \"email\" IS NULL;",
+          "app_requirement": "Outreach/contact surfaces (foundations directory page, funder detail views) read this as the primary contact channel; contact_emails (array) is the enrichment-pipeline-populated fallback, checked separately below for completeness.",
+          "duration_ms": 94,
+          "null_count": 133812,
+          "total_rows": 133812,
+          "null_rate_pct": 100
+        },
+        {
+          "column": "contact_emails",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"foundation_directory\"\n          WHERE cardinality(contact_emails) = 0 OR contact_emails IS NULL;",
+          "app_requirement": "src/lib/scraper/foundation-scraper.ts enrichment writes this array as its primary contact-email output; an empty/null array means the scraper has not yet enriched (or found nothing for) that row.",
+          "duration_ms": 109,
+          "null_count": 133812,
+          "total_rows": 133812,
+          "null_rate_pct": 100
+        }
+      ]
+    },
+    "nonprofits": {
+      "total_row_count_query": "SELECT count(*)::bigint AS total_rows FROM \"nonprofits\";",
+      "total_row_count": 1978526,
+      "anchor_note": "Full IRS BMF import population; row count re-measured live below.",
+      "duplicate_rate_checks": [
+        {
+          "label": "ein (exact match)",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT ein AS key_val, count(*) AS cnt\n          FROM \"nonprofits\"\n          \n          GROUP BY ein\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "Confirmed via pg_indexes before writing this query: nonprofits_ein_key is a live UNIQUE index on this column. Directly relevant to a real app assumption: src/lib/agents/ea-04-foundation-detector.ts:114-116 queries .from(\"nonprofits\").select(...).eq(\"ein\", candidate).maybeSingle() -- maybeSingle() throws a PostgREST error if more than one row matches, which that call site's own try/catch treats as \"no match\" (a silent false-negative), so a non-zero result here would mean real matches are being silently dropped today.",
+          "duration_ms": 16063,
+          "duplicate_key_groups": 0,
+          "extra_rows": 0,
+          "population_measured": 1978526,
+          "extra_row_rate_pct": 0
+        },
+        {
+          "label": "lower(name) + state (loose real-world identity)",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(name) || '|' || coalesce(state, '') AS key_val, count(*) AS cnt\n          FROM \"nonprofits\"\n          \n          GROUP BY lower(name) || '|' || coalesce(state, '')\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "Same loose-identity collision measurement as foundation_directory, at nonprofits' much larger scale.",
+          "duration_ms": 7106,
+          "duplicate_key_groups": 23314,
+          "extra_rows": 264519,
+          "population_measured": 1978526,
+          "extra_row_rate_pct": 13.37
+        }
+      ],
+      "null_rate_checks": [
+        {
+          "column": "website",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"nonprofits\"\n          WHERE \"website\" IS NULL;",
+          "app_requirement": "src/app/(dashboard)/nonprofits/page.tsx:123 -- the page's own \"with website\" stat card is literally .not(\"website\", \"is\", null), i.e. the app already treats this as a segment, not a universal requirement; still measured here since a very high null rate materially shrinks that segment.",
+          "duration_ms": 1616,
+          "null_count": 1481222,
+          "total_rows": 1978526,
+          "null_rate_pct": 74.86
+        },
+        {
+          "column": "officer_email",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"nonprofits\"\n          WHERE \"officer_email\" IS NULL;",
+          "app_requirement": "src/lib/scraper/nonprofit-scraper.ts:67,177-178 -- officer_email is the scraper's primary enrichment output for a contactable individual at the nonprofit; used by src/lib/scraper-v2/templates/nonprofit-contact-template.ts as the field it exists to populate.",
+          "duration_ms": 1626,
+          "null_count": 1978523,
+          "total_rows": 1978526,
+          "null_rate_pct": 100
+        },
+        {
+          "column": "contact_emails",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"nonprofits\"\n          WHERE \"contact_emails\" IS NULL;",
+          "app_requirement": "src/lib/scraper/nonprofit-scraper.ts:19,236 -- \"contact_emails (text, comma-joined dedup set)\" is the scraper's other primary enrichment output alongside officer_email.",
+          "duration_ms": 1853,
+          "null_count": 1978523,
+          "total_rows": 1978526,
+          "null_rate_pct": 100
+        }
+      ]
+    },
+    "donor_discovery_directory": {
+      "total_row_count_query": "SELECT count(*)::bigint AS total_rows FROM \"donor_discovery_directory\";",
+      "total_row_count": 133815,
+      "anchor_note": "Google-Places-sourced corporate prospect directory; row count re-measured live below.",
+      "duplicate_rate_checks": [
+        {
+          "label": "lower(legal_name) (exact match, all rows)",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(legal_name) AS key_val, count(*) AS cnt\n          FROM \"donor_discovery_directory\"\n          \n          GROUP BY lower(legal_name)\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "No DB constraint covers legal_name alone. The table's real dedup index, donor_discovery_directory_dedup_idx, is UNIQUE on (lower(legal_name), donor_discovery_extract_domain(website)) -- a two-part key, not legal_name alone, so this measures what that index does NOT cover by itself.",
+          "duration_ms": 1116,
+          "duplicate_key_groups": 2165,
+          "extra_rows": 3257,
+          "population_measured": 133815,
+          "extra_row_rate_pct": 2.43
+        },
+        {
+          "label": "lower(legal_name) restricted to website IS NULL rows",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(legal_name) AS key_val, count(*) AS cnt\n          FROM \"donor_discovery_directory\"\n          WHERE website IS NULL\n          GROUP BY lower(legal_name)\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "Directly tests whether the real dedup index actually prevents duplicate legal_name rows when website is null. donor_discovery_extract_domain(NULL) evaluates to NULL (confirmed by reading the live function definition via pg_get_functiondef before writing this check), and Postgres unique indexes never treat two NULLs as equal, so if a large share of rows have a null website, the dedup index is structurally unable to catch duplicates among them -- this measures exactly that blind spot, not a hypothetical one.",
+          "duration_ms": 333,
+          "duplicate_key_groups": 2165,
+          "extra_rows": 3257,
+          "population_measured": 133815,
+          "extra_row_rate_pct": 2.43
+        },
+        {
+          "label": "lower(legal_name) + hq_address (stricter compound key)",
+          "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(legal_name) || '|' || coalesce(hq_address, '') AS key_val, count(*) AS cnt\n          FROM \"donor_discovery_directory\"\n          \n          GROUP BY lower(legal_name) || '|' || coalesce(hq_address, '')\n          HAVING count(*) > 1\n        ) dupes;",
+          "note": "A duplicate here (identical name AND address) is a much stronger real-world-duplicate signal than name alone, independent of the website-null blind spot above.",
+          "duration_ms": 290,
+          "duplicate_key_groups": 42,
+          "extra_rows": 45,
+          "population_measured": 133815,
+          "extra_row_rate_pct": 0.03
+        }
+      ],
+      "null_rate_checks": [
+        {
+          "column": "website",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"donor_discovery_directory\"\n          WHERE \"website\" IS NULL;",
+          "app_requirement": "src/lib/donor-discovery/foundation-linkage.ts:113,117 -- normalizeDomain(row.website) is the primary (higher-confidence) linkage signal to foundation_directory; a null website forces every linkage attempt for that row onto the RPC name-similarity fallback only. This column is also the second half of the table's own dedup unique index (see duplicate_keys above), so a high null rate here has a compounding effect: it both weakens linkage AND disables dedup for the affected rows.",
+          "duration_ms": 70,
+          "null_count": 133815,
+          "total_rows": 133815,
+          "null_rate_pct": 100
+        },
+        {
+          "column": "phone",
+          "query": "SELECT count(*)::int AS null_count\n          FROM \"donor_discovery_directory\"\n          WHERE \"phone\" IS NULL;",
+          "app_requirement": "Displayed as the contact channel on prospect-facing surfaces; no code path was found that hard-requires it (optional field throughout), so a high null rate here is a coverage gap, not a silent-failure risk.",
+          "duration_ms": 71,
+          "null_count": 133815,
+          "total_rows": 133815,
+          "null_rate_pct": 100
+        }
+      ]
+    }
+  },
+  "findings": [
+    {
+      "table": "foundation_directory",
+      "check": "duplicate_rate",
+      "key": "ein (exact match)",
+      "severity": "INFO",
+      "description": "foundation_directory: ein (exact match) shows 0 duplicate groups (verified clean, 133812 rows checked). Confirmed via pg_indexes before writing this query: foundation_directory_ein_unique is a live UNIQUE index on this column, so a non-zero result here would indicate the index itself is not actually being enforced (e.g. added after dirty data with NOT VALID, or bypassed).",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT ein AS key_val, count(*) AS cnt\n          FROM \"foundation_directory\"\n          \n          GROUP BY ein\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "foundation_directory",
+      "check": "duplicate_rate",
+      "key": "lower(name) + state (loose real-world identity)",
+      "severity": "P2",
+      "duplicate_key_groups": 167,
+      "extra_rows": 176,
+      "extra_row_rate_pct": 0.13,
+      "description": "foundation_directory: 167 distinct \"lower(name) + state (loose real-world identity)\" value(s) repeat across 133812 row(s) measured, producing 176 extra row(s) (0.13% of the population measured). No DB constraint covers this combination. Two rows with the same name+state but different EIN either are the same real foundation on two different EINs (application/name-change/data error) or are two genuinely distinct foundations sharing a name -- this measures the raw collision rate; distinguishing the two requires manual review, not automatable here.",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(name) || '|' || coalesce(state, '') AS key_val, count(*) AS cnt\n          FROM \"foundation_directory\"\n          \n          GROUP BY lower(name) || '|' || coalesce(state, '')\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "foundation_directory",
+      "check": "null_rate",
+      "column": "email",
+      "severity": "P1",
+      "null_count": 133812,
+      "total_rows": 133812,
+      "null_rate_pct": 100,
+      "description": "foundation_directory.email is NULL on 133812 of 133812 row(s) (100%). Outreach/contact surfaces (foundations directory page, funder detail views) read this as the primary contact channel; contact_emails (array) is the enrichment-pipeline-populated fallback, checked separately below for completeness.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"foundation_directory\"\n          WHERE \"email\" IS NULL;"
+    },
+    {
+      "table": "foundation_directory",
+      "check": "null_rate",
+      "column": "contact_emails",
+      "severity": "P1",
+      "null_count": 133812,
+      "total_rows": 133812,
+      "null_rate_pct": 100,
+      "description": "foundation_directory.contact_emails is NULL on 133812 of 133812 row(s) (100%). src/lib/scraper/foundation-scraper.ts enrichment writes this array as its primary contact-email output; an empty/null array means the scraper has not yet enriched (or found nothing for) that row.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"foundation_directory\"\n          WHERE cardinality(contact_emails) = 0 OR contact_emails IS NULL;"
+    },
+    {
+      "table": "nonprofits",
+      "check": "duplicate_rate",
+      "key": "ein (exact match)",
+      "severity": "INFO",
+      "description": "nonprofits: ein (exact match) shows 0 duplicate groups (verified clean, 1978526 rows checked). Confirmed via pg_indexes before writing this query: nonprofits_ein_key is a live UNIQUE index on this column. Directly relevant to a real app assumption: src/lib/agents/ea-04-foundation-detector.ts:114-116 queries .from(\"nonprofits\").select(...).eq(\"ein\", candidate).maybeSingle() -- maybeSingle() throws a PostgREST error if more than one row matches, which that call site's own try/catch treats as \"no match\" (a silent false-negative), so a non-zero result here would mean real matches are being silently dropped today.",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT ein AS key_val, count(*) AS cnt\n          FROM \"nonprofits\"\n          \n          GROUP BY ein\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "nonprofits",
+      "check": "duplicate_rate",
+      "key": "lower(name) + state (loose real-world identity)",
+      "severity": "P1",
+      "duplicate_key_groups": 23314,
+      "extra_rows": 264519,
+      "extra_row_rate_pct": 13.37,
+      "description": "nonprofits: 23314 distinct \"lower(name) + state (loose real-world identity)\" value(s) repeat across 1978526 row(s) measured, producing 264519 extra row(s) (13.37% of the population measured). Same loose-identity collision measurement as foundation_directory, at nonprofits' much larger scale.",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(name) || '|' || coalesce(state, '') AS key_val, count(*) AS cnt\n          FROM \"nonprofits\"\n          \n          GROUP BY lower(name) || '|' || coalesce(state, '')\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "nonprofits",
+      "check": "null_rate",
+      "column": "website",
+      "severity": "P2",
+      "null_count": 1481222,
+      "total_rows": 1978526,
+      "null_rate_pct": 74.86,
+      "description": "nonprofits.website is NULL on 1481222 of 1978526 row(s) (74.86%). src/app/(dashboard)/nonprofits/page.tsx:123 -- the page's own \"with website\" stat card is literally .not(\"website\", \"is\", null), i.e. the app already treats this as a segment, not a universal requirement; still measured here since a very high null rate materially shrinks that segment.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"nonprofits\"\n          WHERE \"website\" IS NULL;"
+    },
+    {
+      "table": "nonprofits",
+      "check": "null_rate",
+      "column": "officer_email",
+      "severity": "P1",
+      "null_count": 1978523,
+      "total_rows": 1978526,
+      "null_rate_pct": 100,
+      "description": "nonprofits.officer_email is NULL on 1978523 of 1978526 row(s) (100%). src/lib/scraper/nonprofit-scraper.ts:67,177-178 -- officer_email is the scraper's primary enrichment output for a contactable individual at the nonprofit; used by src/lib/scraper-v2/templates/nonprofit-contact-template.ts as the field it exists to populate.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"nonprofits\"\n          WHERE \"officer_email\" IS NULL;"
+    },
+    {
+      "table": "nonprofits",
+      "check": "null_rate",
+      "column": "contact_emails",
+      "severity": "P1",
+      "null_count": 1978523,
+      "total_rows": 1978526,
+      "null_rate_pct": 100,
+      "description": "nonprofits.contact_emails is NULL on 1978523 of 1978526 row(s) (100%). src/lib/scraper/nonprofit-scraper.ts:19,236 -- \"contact_emails (text, comma-joined dedup set)\" is the scraper's other primary enrichment output alongside officer_email.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"nonprofits\"\n          WHERE \"contact_emails\" IS NULL;"
+    },
+    {
+      "table": "donor_discovery_directory",
+      "check": "duplicate_rate",
+      "key": "lower(legal_name) (exact match, all rows)",
+      "severity": "P2",
+      "duplicate_key_groups": 2165,
+      "extra_rows": 3257,
+      "extra_row_rate_pct": 2.43,
+      "description": "donor_discovery_directory: 2165 distinct \"lower(legal_name) (exact match, all rows)\" value(s) repeat across 133815 row(s) measured, producing 3257 extra row(s) (2.43% of the population measured). No DB constraint covers legal_name alone. The table's real dedup index, donor_discovery_directory_dedup_idx, is UNIQUE on (lower(legal_name), donor_discovery_extract_domain(website)) -- a two-part key, not legal_name alone, so this measures what that index does NOT cover by itself.",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(legal_name) AS key_val, count(*) AS cnt\n          FROM \"donor_discovery_directory\"\n          \n          GROUP BY lower(legal_name)\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "donor_discovery_directory",
+      "check": "duplicate_rate",
+      "key": "lower(legal_name) restricted to website IS NULL rows",
+      "severity": "P2",
+      "duplicate_key_groups": 2165,
+      "extra_rows": 3257,
+      "extra_row_rate_pct": 2.43,
+      "description": "donor_discovery_directory: 2165 distinct \"lower(legal_name) restricted to website IS NULL rows\" value(s) repeat across 133815 row(s) measured, producing 3257 extra row(s) (2.43% of the population measured). Directly tests whether the real dedup index actually prevents duplicate legal_name rows when website is null. donor_discovery_extract_domain(NULL) evaluates to NULL (confirmed by reading the live function definition via pg_get_functiondef before writing this check), and Postgres unique indexes never treat two NULLs as equal, so if a large share of rows have a null website, the dedup index is structurally unable to catch duplicates among them -- this measures exactly that blind spot, not a hypothetical one.",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(legal_name) AS key_val, count(*) AS cnt\n          FROM \"donor_discovery_directory\"\n          WHERE website IS NULL\n          GROUP BY lower(legal_name)\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "donor_discovery_directory",
+      "check": "duplicate_rate",
+      "key": "lower(legal_name) + hq_address (stricter compound key)",
+      "severity": "P2",
+      "duplicate_key_groups": 42,
+      "extra_rows": 45,
+      "extra_row_rate_pct": 0.03,
+      "description": "donor_discovery_directory: 42 distinct \"lower(legal_name) + hq_address (stricter compound key)\" value(s) repeat across 133815 row(s) measured, producing 45 extra row(s) (0.03% of the population measured). A duplicate here (identical name AND address) is a much stronger real-world-duplicate signal than name alone, independent of the website-null blind spot above.",
+      "query": "SELECT\n          count(*)::int AS duplicate_key_groups,\n          coalesce(sum(cnt - 1), 0)::int AS extra_rows,\n          coalesce(sum(cnt), 0)::int AS rows_in_duplicate_groups\n        FROM (\n          SELECT lower(legal_name) || '|' || coalesce(hq_address, '') AS key_val, count(*) AS cnt\n          FROM \"donor_discovery_directory\"\n          \n          GROUP BY lower(legal_name) || '|' || coalesce(hq_address, '')\n          HAVING count(*) > 1\n        ) dupes;"
+    },
+    {
+      "table": "donor_discovery_directory",
+      "check": "null_rate",
+      "column": "website",
+      "severity": "P1",
+      "null_count": 133815,
+      "total_rows": 133815,
+      "null_rate_pct": 100,
+      "description": "donor_discovery_directory.website is NULL on 133815 of 133815 row(s) (100%). src/lib/donor-discovery/foundation-linkage.ts:113,117 -- normalizeDomain(row.website) is the primary (higher-confidence) linkage signal to foundation_directory; a null website forces every linkage attempt for that row onto the RPC name-similarity fallback only. This column is also the second half of the table's own dedup unique index (see duplicate_keys above), so a high null rate here has a compounding effect: it both weakens linkage AND disables dedup for the affected rows.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"donor_discovery_directory\"\n          WHERE \"website\" IS NULL;"
+    },
+    {
+      "table": "donor_discovery_directory",
+      "check": "null_rate",
+      "column": "phone",
+      "severity": "P1",
+      "null_count": 133815,
+      "total_rows": 133815,
+      "null_rate_pct": 100,
+      "description": "donor_discovery_directory.phone is NULL on 133815 of 133815 row(s) (100%). Displayed as the contact channel on prospect-facing surfaces; no code path was found that hard-requires it (optional field throughout), so a high null rate here is a coverage gap, not a silent-failure risk.",
+      "query": "SELECT count(*)::int AS null_count\n          FROM \"donor_discovery_directory\"\n          WHERE \"phone\" IS NULL;"
+    }
+  ],
+  "summary": {
+    "tables_checked": 3,
+    "total_findings": 14,
+    "p1_findings": 7,
+    "p2_findings": 5,
+    "info_findings": 2
+  }
+}

@@ -1,6 +1,48 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-06-004 COMPLETE: constraint/FK/orphan data-integrity audit,
+**Updated: August 20, 2026 — audit PT-06-005 COMPLETE: dup/null data-quality on the large tables
+(read-only prod) + migration idempotency (local-only, never prod). **Data quality:** measured
+duplicate rates on natural keys and null rates on "app treats as required" columns for the three
+large tables named in the task — `foundation_directory` (133,812 rows, PT-01's anchor),
+`donor_discovery_directory` (133,815), `nonprofits` (1,978,526). Real, severe findings, all grounded
+against an actual `src/` call site, not guessed from column names: **`foundation_directory.email`
+and `.contact_emails` are 100% null** (133,812/133,812 — the scraper output columns
+`nonprofit-scraper.ts`/enrichment writes have never been populated on this table); **`nonprofits`
+has the same pattern at 1.97M-row scale** (`officer_email`/`contact_emails` null on 1,978,523 of
+1,978,526 rows — only 3 real rows enriched); **`donor_discovery_directory.website` and `.phone` are
+100% null on every one of its 133,815 rows** — a genuinely severe finding since `website` is also
+half of this table's own dedup unique index (`(lower(legal_name),
+donor_discovery_extract_domain(website))`); with `website` always null, that index structurally
+cannot catch duplicate `legal_name` rows (Postgres never treats two NULLs as equal), confirmed live:
+**2,165 duplicate `legal_name` groups / 3,257 extra rows**, all within the null-website population
+(i.e. all of them). `nonprofits` also shows a real **13.37% loose name+state collision rate**
+(23,314 groups / 264,519 extra rows) on top of its DB-enforced-unique EIN. EIN itself is confirmed
+**0% duplicate on both `foundation_directory` and `nonprofits`** (both have a live `UNIQUE` index) —
+recorded as a verified non-finding, not silently skipped, since real app code
+(`ea-04-foundation-detector.ts`, `scoring-engine.ts`) queries EIN with `.maybeSingle()` and would
+silently mis-behave if that uniqueness ever broke. **14 findings (7 P1, 5 P2, 2 INFO)**, every one
+carrying the exact query and count. **Migration idempotency:** no Supabase branch was reachable, but
+a genuine local Postgres 17.6 instance was (a pre-existing, unrelated local Docker Supabase stack on
+this machine) — used it instead of recording a blanket PENDING-SCOPE, per the task's actual intent.
+Applied all 142 `supabase/migrations/*.sql` files in order to a fresh, disposable database (121/142
+applied cleanly; the 21 failures are pre-existing cross-tree dependency drift, already documented,
+not new), then re-ran a sample of 8 migrations flagged by static scan for `CREATE TABLE` with no `IF
+NOT EXISTS` or a data-backfill statement. **6 of 7 tested are confirmed non-idempotent**: 5 bare
+`CREATE TABLE`s correctly error on re-apply (expected, P2 — "can't be safely retried blind"), and
+one real, subtle **P1**: `003_onboarding.sql`'s unconditional `UPDATE organizations SET
+onboarding_completed = true` (no `WHERE`) — seeded a row representing an org created *after* the
+migration's real first run and confirmed live that re-applying it flips that row's flag too,
+silently forcing a legitimately-new org to skip onboarding. One migration
+(`058_backfill_opportunity_deadlines.sql`) is **confirmed genuinely idempotent** against real seeded
+data (its `NOT EXISTS` guard correctly no-ops on the second pass). One sample
+(`065_autoapply_follow_ups.sql`) couldn't be tested — never applied on the first pass due to the
+same pre-existing cross-tree dependency gap. Full detail: **`test-evidence/pt-06/data-quality.json`,
+`test-evidence/pt-06/idempotency.json`**, `scripts/audit/pt06-005-data-quality.mjs`,
+`scripts/audit/pt06-005-idempotency.mjs`, `scripts/audit/verify-pt06-005.mjs` (gate: both files
+present, real per-table/per-migration results with queries — PASS). See "SESSION — August 20, 2026
+(audit PT-06-005: dup/null data-quality + migration idempotency)" entry below.**
+
+**Prior: August 20, 2026 — audit PT-06-004 COMPLETE: constraint/FK/orphan data-integrity audit,
 read-only against production. Enumerated every live FK constraint in `public` via `pg_catalog`
 (**267 FK constraints**, multi-column-safe) and ran a live `NOT EXISTS`-based orphan-row count for
 each one — **zero orphaned rows on any of the 267 declared FKs**, i.e. every FK Postgres is actually
@@ -29,6 +71,141 @@ one carrying the exact SQL query and live count that produced it. Full detail:
 queries, present and well-formed — PASS). See "SESSION — August 20, 2026 (audit PT-06-004: constraint/
 FK/orphan integrity audit)" entry below. (PT-06-003's code-vs-schema headline and PT-06-002's
 migration-drift headline are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-06-005: dup/null data-quality + migration idempotency)
+
+**Scope:** two independent checks. (1) Duplicate/null data-quality audit on the platform's large
+reference tables, read-only against production, using the same `default_transaction_read_only=on`
+enforcement proof established in PT-06-001/002/004. (2) Migration idempotency — explicitly scoped by
+the task to branch/local only, never production; take a sample (especially bare `CREATE TABLE` and
+data-backfill statements) and re-run each to confirm no error and no unintended data change, or
+record `PENDING-SCOPE` with a reason if no such target is reachable.
+
+### (1) Data quality — `scripts/audit/pt06-005-data-quality.mjs`, `test-evidence/pt-06/data-quality.json`
+
+Grounded every "app treats as required" column against a real `src/` call site before writing a
+query for it (not guessed from the column's name) — cited per-check in the evidence file's
+`app_requirement` field. Three tables, all measured live:
+
+- **`foundation_directory`** (133,812 rows). `ein` duplicate check: **0 duplicate groups**
+  (verified — confirmed live via `pg_indexes` before writing the query that
+  `foundation_directory_ein_unique` is a real, live `UNIQUE` index, so this is a genuine,
+  DB-enforced non-finding, recorded as `INFO`, not silently skipped). Looser `lower(name)+state`
+  identity check: 167 duplicate groups / 176 extra rows (0.13%, P2). Null rates:
+  `website` 38.04% null (P2 — weakens `foundation-linkage.ts`'s domain-match signal to
+  `donor_discovery_directory` for that share of rows); `giving_total` AND `asset_amount` **both**
+  null on 10.05% of rows (P1 — `scoring.ts`'s own documented capacity-fallback pattern has zero
+  signal for those rows); **`email` and `contact_emails` are null on 100% of all 133,812 rows** (P1
+  — the scraper's own primary contact-enrichment output columns have never actually been populated
+  on this table).
+- **`nonprofits`** (1,978,526 rows, the IRS BMF import population). `ein`: **0 duplicate groups**
+  (same live-`UNIQUE`-index confirmation as above — directly relevant since
+  `ea-04-foundation-detector.ts:114-116` does `.eq("ein", candidate).maybeSingle()`, which would
+  silently swallow a real match as "no match" if this index were ever not enforcing). Looser
+  `lower(name)+state`: **23,314 duplicate groups / 264,519 extra rows — 13.37% of the table** (P1).
+  Null rates: `website` 74.86% null (P2, the app's own `/nonprofits` page already treats "has
+  website" as a segment via `.not("website","is",null)`, so this is a coverage gap, not a silent
+  wrong-answer risk); **`officer_email` and `contact_emails` null on 1,978,523 of 1,978,526 rows —
+  only 3 real rows in nearly 2M have ever been enriched** (P1 — these are
+  `nonprofit-scraper.ts`'s two primary enrichment outputs).
+- **`donor_discovery_directory`** (133,815 rows, Google-Places-sourced). No EIN column, so two
+  natural-key checks: `lower(legal_name)` alone (2,165 groups / 3,257 extra, 2.43%) and the
+  stricter `lower(legal_name)+hq_address` compound key (42 groups / 45 extra, 0.03%). **The real
+  finding is the connection between the two**: this table's actual dedup mechanism is a live
+  `UNIQUE` index on `(lower(legal_name), donor_discovery_extract_domain(website))` — but
+  `website` is **null on all 133,815 rows** (100%, confirmed both as its own null-rate check and by
+  re-running the `legal_name` duplicate check restricted to `WHERE website IS NULL`, which returned
+  the identical 2,165/3,257 numbers, i.e. the entire duplicate population). Read
+  `donor_discovery_extract_domain()`'s live definition via `pg_get_functiondef()` before asserting
+  this: it returns `NULL` for a `NULL` input, and Postgres unique indexes never treat two `NULL`s as
+  equal — so with `website` always null, this index is **structurally incapable of ever catching a
+  duplicate `legal_name` today**, which is exactly what the numbers show. `P1`, compounding: the
+  same null `website` also removes the higher-confidence signal `foundation-linkage.ts` uses to link
+  a prospect to `foundation_directory`.
+
+**14 findings total (7 P1, 5 P2, 2 INFO)**, every one carrying its exact SQL query and the live
+count/percentage it returned.
+
+### (2) Migration idempotency — `scripts/audit/pt06-005-idempotency.mjs`, `test-evidence/pt-06/idempotency.json`
+
+No Supabase branch was available this session (no `create_branch`/MCP access path, consistent with
+this project's standing history on that front). A genuine local target *was* available, though, and
+using it is squarely inside the task's own instruction ("if a branch/local DB is available") — a
+Postgres 17.6 instance already running in a local Docker container on this machine
+(`public.ecr.aws/supabase/postgres:17.6.1.131`, container `supabase_db_dialtest`), predating this
+session and belonging to an unrelated local dev stack, but reachable, and a real full Supabase
+Postgres image (auth/storage/realtime schemas, the anon/authenticated/service_role roles, and the
+vector/postgis/pg_trgm/pgcrypto/uuid-ossp extensions all present). This script only ever creates and
+later drops its own disposable database on that server (`benavora_pt06_idem_<timestamp>`); it never
+touches anything the "dialtest" project itself uses. **Three independent checks confirm this target
+is not production** (identical to production or not, by connection string, by Supabase project ref,
+and against the known production ref) before anything runs, mirroring the guard already established
+in `scripts/check-migration-idempotency.ts`.
+
+**Method:** applied every file in `supabase/migrations/*.sql` (142 files) in order to the fresh
+disposable database — a real first-apply pass, not a synthetic one. Two real, necessary scaffolding
+issues were found and worked around, both disclosed in the evidence file rather than hidden: (a) a
+fresh `CREATE DATABASE` on this server does not inherit the sibling `postgres` database's Supabase
+schemas (`CREATE DATABASE ... TEMPLATE postgres` itself fails live — that database has other active
+connections from the rest of the local stack), so a minimal stub `auth.users` table and `auth.uid()`
+function were created first; (b) migration `001_initial_schema.sql` itself does not apply cleanly
+against a bare database with Postgres's own default `check_function_bodies=on` — its
+`current_org_id()` function (`LANGUAGE sql`) references `public.profiles` at file line ~86-94, but
+`CREATE TABLE profiles` doesn't appear until line 134, a genuine forward-reference that Postgres
+validates for SQL-language (though not PL/pgSQL) function bodies at `CREATE FUNCTION` time — isolated
+and confirmed by reproducing it with `check_function_bodies=on` alone (no auth-schema issue
+involved), then resolved by turning it off for the session. **121 of 142 files applied cleanly.** The
+other 21 fail almost entirely with `42P01` (missing relation) on tables like `organization_members`/
+`submission_queue`/`autoapply_submissions`/`form_templates` that no file in this tree
+(`supabase/migrations`) ever creates — consistent with, and independent corroboration of, this
+project's own already-documented, unresolved split between two parallel migration directories (see
+project memory `benavora-two-parallel-migrations-directories`). Not fixed here — out of scope for a
+read-evidence audit — but recorded plainly since it directly explains why one sampled migration
+couldn't be tested (below).
+
+**Sample: 8 migrations**, chosen from a full static regex scan of both migration trees for bare
+`CREATE TABLE` (no `IF NOT EXISTS`, 64 matches total across both trees) and data-backfill-shaped
+statements (`UPDATE ... SET` / `INSERT ... SELECT` without `ON CONFLICT`, 14 matches) — the full
+candidate population, not just the sample, is described in the evidence file's own header comment
+for auditability. **7 of 8 were actually re-run** (one, `065_autoapply_follow_ups.sql`, never applied
+on the first pass at all — same cross-tree dependency gap above — so re-applying it would not have
+been a real idempotency test and was correctly skipped, not faked):
+
+- **5 bare `CREATE TABLE`s** (`009_draft_versions.sql`, `015_funder_intelligence.sql`,
+  `016_renewals.sql`, `018_email_activity.sql`, `037_giving_history.sql`) — **all 5 confirmed
+  non-idempotent**: re-running each a second time against the already-migrated database fails with a
+  real, expected error (`42P07 relation already exists` / `42710 type already exists`). `P2` each —
+  none of these can be safely retried blind (e.g. by a migration runner recovering from a partial
+  failure elsewhere in the same deploy, or a human re-running a file by hand) without first checking
+  whether it already ran.
+- **`003_onboarding.sql`** (backfill: `UPDATE organizations SET onboarding_completed = true;`, no
+  `WHERE`) — a row-count-only check would have missed the real risk here, since the statement is a
+  constant assignment (row count never changes either way). Instead seeded a row representing an
+  organization created *after* this migration's real first run (`onboarding_completed = false`, the
+  documented real post-migration default per the file's own header comment), then re-ran the file and
+  checked that specific row's value. **Confirmed: it silently flips to `true`.** `P1` — this
+  migration is not safe to ever re-run in production; doing so would force any org created since its
+  first application to skip onboarding without anyone asking for that.
+- **`058_backfill_opportunity_deadlines.sql`** (backfill: `INSERT INTO deadlines ... SELECT ... FROM
+  opportunities WHERE ... NOT EXISTS (...)`) — seeded a real organization + opportunity with a
+  deadline (so the guard has real matching data to act on, not an empty table trivially "passing"),
+  ran the migration once to establish the real backfilled state (0 → 1 deadline row, correct), then
+  ran it again as the actual idempotency test. **Confirmed: still exactly 1 row — the `NOT EXISTS`
+  guard works as designed.** Recorded as `INFO` (a real, verified pass, not silently omitted).
+
+**Findings: 7 total (1 P1, 5 P2, 1 INFO).** Disposable database dropped at the end of the run
+regardless of outcome; confirmed via a follow-up query that no `probe*`/`pt06`/`benavora_pt06_idem_*`
+database was left behind on the local server afterward.
+
+**Gate:** `scripts/audit/verify-pt06-005.mjs` — confirms `data-quality.json` records both a
+duplicate-rate and a null-rate result set (each with real queries and counts) for all three named
+large tables, and confirms `idempotency.json` is either a real result set (a genuine local/branch
+target, first-apply results, and at least one sampled migration actually re-run with a recorded
+verdict) or an explicit `PENDING-SCOPE` with a reason — never silently absent, never fabricated, and
+independently confirms `idempotency.json`'s target does not reference the known production project
+ref. **PASS.**
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-06-004: constraint/FK/orphan integrity audit)
 
