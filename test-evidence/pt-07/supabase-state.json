@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-08-20T16:20:54.650Z",
+  "pt00Precondition": {
+    "checkedDir": "C:\\Users\\manag\\Documents\\benavora\\test-evidence\\pt-00",
+    "requiredFiles": [
+      "PHASE-00-SUMMARY.md",
+      "README.md",
+      "REVIEW-PACK.md",
+      "build-config.txt",
+      "build-proof.txt",
+      "env-audit.json",
+      "route-manifest.json",
+      "smoke-results.json"
+    ],
+    "missing": [],
+    "ok": true
+  },
+  "supabase_project_url": "https://vbjplpquqxxfbpazyalt.supabase.co",
+  "probes": {
+    "db": {
+      "method": "pg.Client against DATABASE_URL, forced into a read-only session (SET default_transaction_read_only = on), a real `select`, then a real write attempt (CREATE TABLE) that must be rejected by Postgres to prove read-only enforcement is real, not merely requested.",
+      "connectionStringRedacted": "postgresql://postgres:***@db.vbjplpquqxxfbpazyalt.supabase.co:5432/postgres",
+      "realResponse": {
+        "db": "postgres",
+        "usr": "postgres",
+        "server_time": "2026-08-20T16:20:53.964Z",
+        "pg_version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit"
+      },
+      "readOnlySessionConfirmed": true,
+      "selectOneResult": {
+        "ok": 1
+      },
+      "realTableSelect": {
+        "table": "organizations",
+        "rowCount": 130
+      },
+      "writeRejectionProof": {
+        "attempted": true,
+        "rejected": true,
+        "sqlstate": "25006",
+        "message": "cannot execute CREATE TABLE in a read-only transaction",
+        "matchesExpectedReadOnlyCode": true
+      },
+      "verdict": "PASS"
+    },
+    "auth": {
+      "method": "admin.auth.admin.generateLink({type:'magiclink'}) issues a real session for a real existing production user (info@faithfoundationsf.org, the Faith Foundation org owner -- the established safe real-account convention throughout this audit program). The action_link is followed (redirect: manual) to capture the real access_token/refresh_token fragment, then that token is verified via auth.getUser(access_token) on a fresh anon client -- confirming Supabase Auth actually issued and accepts a working session, not just that a redirect occurred.",
+      "email": "info@faithfoundationsf.org",
+      "issue": {
+        "generated": true,
+        "actionLinkHost": "vbjplpquqxxfbpazyalt.supabase.co",
+        "redirectStatus": 303,
+        "gotAccessToken": true,
+        "gotRefreshToken": true
+      },
+      "verify": {
+        "verified": true,
+        "realResponse": {
+          "id": "b3ef4d39-fdc2-4d3a-9e93-1e1888b576b4",
+          "email": "info@faithfoundationsf.org",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "last_sign_in_at": "2026-08-20T16:20:55.073745Z"
+        }
+      },
+      "verdict": "PASS"
+    },
+    "storage": {
+      "method": "A real service-role storage.listBuckets() call against production, cross-referenced against every bucket name this app's own source code references (both static literals and the per-org dynamic `org-${organizationId}` pattern, resolved against a real org id read from FAITH_FOUNDATION_ORG_ID / the DB).",
+      "expectedStaticBuckets": [
+        "documents",
+        "org-documents",
+        "org-branding",
+        "nofa-pdfs",
+        "autoapply-screenshots",
+        "session-recordings"
+      ],
+      "realResponse": [
+        {
+          "id": "documents",
+          "name": "documents",
+          "public": false,
+          "created_at": "2026-06-11T22:01:58.511Z"
+        },
+        {
+          "id": "nofa-pdfs",
+          "name": "nofa-pdfs",
+          "public": true,
+          "created_at": "2026-06-18T20:22:06.831Z"
+        },
+        {
+          "id": "autoapply-screenshots",
+          "name": "autoapply-screenshots",
+          "public": false,
+          "created_at": "2026-06-21T02:51:11.247Z"
+        },
+        {
+          "id": "org-b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+          "name": "org-b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+          "public": false,
+          "created_at": "2026-07-28T19:08:40.426Z"
+        },
+        {
+          "id": "org-documents",
+          "name": "org-documents",
+          "public": false,
+          "created_at": "2026-07-28T19:08:40.610Z"
+        },
+        {
+          "id": "session-recordings",
+          "name": "session-recordings",
+          "public": false,
+          "created_at": "2026-07-28T19:08:41.030Z"
+        },
+        {
+          "id": "org-branding",
+          "name": "org-branding",
+          "public": true,
+          "created_at": "2026-08-18T20:31:48.649Z"
+        }
+      ],
+      "dynamicOrgBucketChecked": "org-b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+      "expectedAllBuckets": [
+        "documents",
+        "org-documents",
+        "org-branding",
+        "nofa-pdfs",
+        "autoapply-screenshots",
+        "session-recordings",
+        "org-b1ab7402-dfc2-4712-869f-70ea3566cc1d"
+      ],
+      "missingExpectedBuckets": [],
+      "unexpectedBuckets": [],
+      "verdict": "PASS"
+    },
+    "realtime": {
+      "method": "A real query against pg_publication_tables for the `supabase_realtime` publication -- the actual, current list of tables Postgres logical replication will emit change events for -- cross-referenced against every table this app's own source code subscribes to via `postgres_changes` (grepped from src/components/autoapply/*.tsx, src/components/command-center/CommandCenterLive.tsx, src/app/api/admin/command-center/route.ts).",
+      "expectedRealtimeTables": [
+        "submission_queue",
+        "autoapply_submissions",
+        "autoapply_review_queue",
+        "worker_status",
+        "agent_runs",
+        "agent_decisions",
+        "applications"
+      ],
+      "publicationExists": true,
+      "realResponse": {
+        "publication": "supabase_realtime",
+        "memberTables": []
+      },
+      "missingFromPublication": [
+        "submission_queue",
+        "autoapply_submissions",
+        "autoapply_review_queue",
+        "worker_status",
+        "agent_runs",
+        "agent_decisions",
+        "applications"
+      ],
+      "verdict": "FINDING",
+      "finding": "7 of 7 tables the app subscribes to via postgres_changes are NOT members of the supabase_realtime publication: submission_queue, autoapply_submissions, autoapply_review_queue, worker_status, agent_runs, agent_decisions, applications. Realtime silently never fires change events for these tables -- no error, no signal, the subscribing component just never updates."
+    }
+  },
+  "findings": [
+    {
+      "area": "realtime_publication",
+      "detail": "7 of 7 tables the app subscribes to via postgres_changes are NOT members of the supabase_realtime publication: submission_queue, autoapply_submissions, autoapply_review_queue, worker_status, agent_runs, agent_decisions, applications. Realtime silently never fires change events for these tables -- no error, no signal, the subscribing component just never updates."
+    }
+  ],
+  "summary": {
+    "db_verdict": "PASS",
+    "auth_verdict": "PASS",
+    "storage_verdict": "PASS",
+    "realtime_verdict": "FINDING",
+    "halted": false,
+    "any_fail": false,
+    "finding_count": 1
+  }
+}

@@ -1,5 +1,50 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-04 COMPLETE: business-logic verification, review pack
+## Last Updated: August 20, 2026 — audit PT-07: Supabase real-state probe.
+
+**Focus:** confirm PT-00 artifacts present (precondition check, not re-verification), then run
+four real, read-only probes against the live production Supabase project and evidence the actual
+responses — no assumed/inferred state.
+
+**What was built:** `scripts/audit/pt07-001-supabase-state-probe.mjs` (the probe itself) and
+`scripts/audit/verify-pt07-001.mjs` (fails unless `test-evidence/pt-07/supabase-state.json`
+records real, captured responses for all four probes — a "FINDING" verdict is not a verifier
+failure, it's the evidenced gap the probe exists to surface).
+
+**Results, all real:**
+- **DB** — real `DATABASE_URL` connection, forced read-only (`SET
+  default_transaction_read_only = on`), proven enforced via a real `CREATE TABLE` rejected with
+  SQLSTATE `25006`; real `select count(*) from organizations` → 130 rows. PASS.
+- **Auth** — real magic-link session issued for `info@faithfoundationsf.org` (the established
+  safe real-account convention) via `admin.auth.admin.generateLink()`, then verified by calling
+  `auth.getUser(access_token)` on a fresh anon client — Supabase Auth returned the real user
+  record. PASS.
+- **Storage** — real `storage.listBuckets()` call cross-referenced against every bucket name
+  grepped from the app's own source (`documents`, `org-documents`, `org-branding`, `nofa-pdfs`,
+  `autoapply-screenshots`, `session-recordings`, plus the real per-org dynamic bucket for Faith
+  Foundation). All 7 expected buckets exist live, zero missing, zero unexplained extras. PASS.
+- **Realtime — FINDING, not fixed, matches the standing 2026-08-07 gap.** Real query against
+  `pg_publication_tables` for `supabase_realtime`: the publication exists but has **zero member
+  tables**. Cross-referenced against every table the app's own source code subscribes to via
+  `postgres_changes` (7 tables across `ManualQueue.tsx`, `QueueMetrics.tsx`, `QueuePanel.tsx`,
+  `ReviewQueue.tsx`, `WorkerStatus.tsx`, `CommandCenterLive.tsx`,
+  `/api/admin/command-center/route.ts`) — all 7 are unpublished. Every one of those subscriptions
+  is silently inert in production; no error surfaces anywhere, the components just never receive
+  a live push and depend on whatever polling fallback they may have.
+
+**Gates:** `node scripts/audit/verify-pt07-001.mjs` — exit 0 (all four probes recorded real data;
+the Realtime finding is expected/evidenced, not a verifier failure). Verifier sanity-checked
+against a deliberately corrupted copy of the evidence file mid-session to confirm it actually
+fails on incomplete data (it did — 3 errors), then the real file was restored from a backup and
+re-verified clean before committing.
+
+**Scoped commit:** `test-evidence/pt-07/`, `scripts/audit/pt07-001-supabase-state-probe.mjs`,
+`scripts/audit/verify-pt07-001.mjs`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` only — confirmed
+via `git status --porcelain` first; the repo has substantial pre-existing unrelated dirty state
+(worktree submodule pointers, build logs, other in-progress work) that was left untouched.
+
+---
+
+**Prior update: August 20, 2026 — audit PT-04 COMPLETE: business-logic verification, review pack
 ready. Closing pass of the PT-04 phase — `test-evidence/pt-04/PHASE-04-SUMMARY.md` and
 `REVIEW-PACK.md` written, `node scripts/audit/verify-pt04-004.mjs` exits 0. Six business-logic
 functions checked across four evidence artifacts: five clean (draft confidence, AutoApply

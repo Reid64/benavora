@@ -1,6 +1,40 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-04 COMPLETE: business-logic verification, review pack
+**Updated: August 20, 2026 — audit PT-07: Supabase real-state probe.** Four real, read-only
+probes run directly against the live production Supabase project (`vbjplpquqxxfbpazyalt`), each
+capturing an actual response rather than assuming one: (1) **DB connectivity** — a direct
+`DATABASE_URL` connection, forced into `default_transaction_read_only = on` and proven
+enforced-at-the-engine-level via a real `CREATE TABLE` rejected with SQLSTATE `25006`, then a real
+`select count(*) from organizations` (130 rows). (2) **Auth** — a real magic-link session issued
+via `admin.auth.admin.generateLink()` for the real Faith Foundation org owner
+(`info@faithfoundationsf.org`, the established safe real-account convention across PT-00/01/04),
+then verified by calling `auth.getUser(access_token)` on a fresh anon client — Supabase Auth
+returned the real user record for the token, confirming the session was both genuinely issued and
+genuinely valid, not just that a redirect fired. (3) **Storage** — a real
+`storage.listBuckets()` call cross-referenced against every bucket name this app's own source
+code actually references (grepped, not assumed): `documents`, `org-documents`, `org-branding`,
+`nofa-pdfs`, `autoapply-screenshots`, `session-recordings`, plus the per-org dynamic
+`org-${organizationId}` pattern resolved against the real Faith Foundation org id. **All 7
+expected buckets exist live** — zero missing, zero unexplained extras. (4) **Realtime** — a real
+query against `pg_publication_tables` for the `supabase_realtime` publication, cross-referenced
+against every table this app's own source code subscribes to via `postgres_changes` (grepped from
+`ManualQueue.tsx`, `QueueMetrics.tsx`, `QueuePanel.tsx`, `ReviewQueue.tsx`, `WorkerStatus.tsx`,
+`CommandCenterLive.tsx`, `/api/admin/command-center/route.ts`). **Finding, reconfirmed live, not
+resolved since the 2026-08-07 session that first found it**: the publication exists but has
+**zero member tables** — none of the 7 tables the app subscribes to
+(`submission_queue`, `autoapply_submissions`, `autoapply_review_queue`, `worker_status`,
+`agent_runs`, `agent_decisions`, `applications`) are actually published. Every one of those
+`postgres_changes` subscriptions is silently inert in production today — no error, no console
+warning, the component just never receives a live update and depends entirely on its own
+polling/safety-net fallback (several of the components above have one; `WorkerStatus.tsx`'s
+reliance was not independently re-checked this session). Evidence:
+`test-evidence/pt-07/supabase-state.json`, verified via `node scripts/audit/verify-pt07-001.mjs`
+(exit 0 — all four probes recorded real, captured responses; the Realtime finding is an evidenced
+gap the verifier is designed to surface, not a probe failure).
+
+---
+
+**Prior update: August 20, 2026 — audit PT-04 COMPLETE: business-logic verification, review pack
 ready.** Closing pass of the PT-04 phase (`PHASE-04-SUMMARY.md`/`REVIEW-PACK.md` in
 `test-evidence/pt-04/`, `node scripts/audit/verify-pt04-004.mjs` exit 0). Six business-logic
 functions checked across four evidence artifacts: five came back clean on hand-verification
