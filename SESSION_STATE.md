@@ -1,5 +1,36 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-13: run-log completeness + monitoring reality.
+## Last Updated: August 20, 2026 — audit PT-13 COMPLETE: observability, review pack ready.
+
+Consolidation of the two PT-13 passes below — no new investigation, cross-referenced both already-
+committed evidence files (`silent-catches.json` 2,365-site census, `observability.json` 24 findings)
+against the existing 107-row `WIRING_GAP_REGISTER.md` to find genuinely new findings, then wrote
+`test-evidence/pt-13/PHASE-13-SUMMARY.md` and `test-evidence/pt-13/REVIEW-PACK.md`.
+
+**Seven new register rows, WGR-101 through WGR-107**, each confirmed not already covered by an
+existing row under a different framing. Two P1s specifically because each masks an already-known,
+already-registered bug from the surface built to catch it: **WGR-105** — `/admin/system`'s
+donor-discovery-stuck-requests metric filters on `status='pending'`, a value that has never existed
+in the real enum, reading `0` forever and hiding WGR-079's real, confirmed-broken AG-14 stuck-queue
+bug from the one dashboard meant to surface it. **WGR-104** — `worker/index.ts:144`'s
+`agentQueueDone` catch is the one boot-sequence sub-process not wired to mark
+`worker_status.status='error'` on failure, so a healthy heartbeat can coexist with a fully dead
+agent-queue processor. Also registered: **WGR-101** (P1, AutoApply file-upload failure silently
+swallowed in `src/lib/agents/form-filler.ts:253` — submission proceeds as if the attachment
+succeeded), **WGR-102** (P2, `src/lib/autoapply/form-filler-agent.ts` — a second, separate
+form-filler file — has 36 undocumented real-agent-path swallows, the densest concentration in the
+census), **WGR-103** (P2, `sequence-engine.ts`'s bare `catch { failed++; }` discards email-send
+error detail, currently dormant per WGR-038's unregistered cron), **WGR-106** (P2, `checkAlerts()`
+threshold-alerting engine has zero callers anywhere), **WGR-107** (P2, `AutonomousAgent.completeRun()`/
+`failRun()`'s unchecked `.update()` error is the exact pattern that already caused the documented
+AG-10 incident, unchanged today, live for 32 agent classes). Register now runs WGR-001 through
+WGR-107, unbroken.
+
+**Gate:** `node scripts/audit/verify-pt13-003.mjs` — PASS. Confirms both new docs present/non-empty
+and the register contains WGR-100 plus all of WGR-101 through WGR-107 with a consistent row count.
+
+---
+
+## Prior — August 20, 2026 — audit PT-13: run-log completeness + monitoring reality.
 
 Cross-referenced `test-evidence/pt-09/`'s already-committed real-execution proof (44 canonical agent
 invocations with captured before/after row deltas) against both agent base classes' current source

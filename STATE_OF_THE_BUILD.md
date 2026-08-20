@@ -1,5 +1,51 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-13 COMPLETE: observability, review pack ready.**
+
+Consolidation of the two PT-13 audit passes below (silent catch-block census, run-log completeness
++ monitoring reality). No new live investigation this pass — cross-referenced both already-committed
+evidence files (`test-evidence/pt-13/silent-catches.json`, 2,365-site census;
+`test-evidence/pt-13/observability.json`, 24 findings) against each other and against
+`WIRING_GAP_REGISTER.md` to find genuinely new, evidenced findings not already covered by an
+existing WGR row under a different framing, then wrote `test-evidence/pt-13/PHASE-13-SUMMARY.md`
+(every number cited to a `summary` field in one of the two evidence files, independently recomputed
+from the raw `findings` arrays and reconfirmed to match) and `test-evidence/pt-13/REVIEW-PACK.md`
+(the short-form answer: are background failures visible in production today — direct answer: mostly
+no, for the specific failure modes traced, and one already-documented real incident, AG-10
+2026-08-03, is direct evidence this isn't hypothetical).
+
+**Seven new register rows this pass, WGR-101 through WGR-107** — each checked against the existing
+107-row-before-this-pass register first to confirm it wasn't already covered (PT-09's WGR-079/082
+already cover AG-14/AG-24's *execution* proof; these new rows are the *observability* angle — does a
+trace get left, does it reach a human). Two are graded P1 specifically because each one is currently
+*masking* an already-known, already-registered bug from the one surface built to catch it:
+**WGR-105** — `/admin/system`'s donor-discovery-stuck-requests dashboard metric filters on a
+`status` value (`'pending'`) that has never existed in the real Postgres enum (real values:
+`queued`/`enumerating`/`enriching`/`scoring`/`complete`/`failed`), so it reads `0` forever regardless
+of real backlog, hiding WGR-079's real, live, confirmed-broken AG-14 stuck-queue bug from the
+dashboard built specifically to surface it. **WGR-104** — the one worker boot-sequence sub-process
+(`agentQueueDone`'s catch, `worker/index.ts:144`) not wired to mark `worker_status.status='error'`
+on failure, meaning a healthy heartbeat can coexist with a fully dead agent-queue processor. Also
+registered: **WGR-101** (P1, a real AutoApply file-upload failure silently swallowed —
+`src/lib/agents/form-filler.ts:253` — the agent submits as if the attachment succeeded), **WGR-102**
+(P2, `src/lib/autoapply/form-filler-agent.ts` — a second, separate form-filler implementation — has
+36 undocumented real-agent-path swallows, the single densest concentration in the entire 2,365-site
+census), **WGR-103** (P2, `sequence-engine.ts`'s bare `catch { failed++; }` discards email-send
+error detail — currently dormant since its only caller is unregistered per WGR-038, but a real gap
+for whenever that's fixed), **WGR-106** (P2, `checkAlerts()` — a fully-built worker-offline/
+low-success-rate/cost-overrun/tenant-anomaly threshold engine — has zero callers anywhere), and
+**WGR-107** (P2, `AutonomousAgent.completeRun()`/`failRun()`'s unchecked `.update()` error path is
+the exact code pattern that already caused the documented AG-10 incident and remains unchanged
+today, live for all 32 agent classes extending it). `WIRING_GAP_REGISTER.md` now runs WGR-001
+through WGR-107, unbroken.
+
+**Gate:** `node scripts/audit/verify-pt13-003.mjs` — PASS. Confirms `PHASE-13-SUMMARY.md` and
+`REVIEW-PACK.md` are both present and non-empty, and that `WIRING_GAP_REGISTER.md` contains the
+pre-pass last row (WGR-100) plus all seven of this pass's new rows (WGR-101 through WGR-107), with
+the register's total row count consistent with a clean append (no dropped/duplicated rows).
+
+---
+
 **Updated: August 20, 2026 — audit PT-13: run-log completeness + monitoring reality.**
 
 Follow-up to the same-day silent-catch-block census below. Cross-referenced `test-evidence/pt-09/`'s
