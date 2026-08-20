@@ -1,5 +1,32 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-05-004 COMPLETE. Demo write-protection + admin
+## Last Updated: August 20, 2026 — audit PT-05 COMPLETE. Tenant isolation audit consolidated,
+review pack ready, awaiting Reid's review before PT-14. **Isolation result: clean.** Zero
+cross-tenant leaks across all 120 tenant-scoped tables PT-06 identified, on every operation
+tested — reads, UPDATE, DELETE, and INSERT explicitly tagged with another org's id. 20 tables
+(7 seeded + all 13 of PT-06's `tenant_fk_gap` prime suspects, the tables most likely to leak) got a
+real, live HTTP test under the real production RLS policy predicate; the other 100 got a read-only
+inspection of the real, live production RLS policy state. 0/120 leaked reading, 0/120 leaked
+writing (60/60 live mutation attempts blocked). PT-06's own `tenant_fk_gap` finding (WGR-064) is
+explicitly **not** closed by this — the missing foreign key is a separate, still-open
+referential-integrity gap; RLS enforcement was what PT-05 tested, and it holds, but a malformed
+tenant id in those 13 tables still isn't caught by the database itself. **The one real P0 this
+phase found is not a tenant-isolation leak**: admin impersonation
+(`POST /api/admin/orgs/[id]/impersonate`) sets a cookie nothing else in the app reads — the real
+gate on every owner-scoped admin route is role-only (`profiles.role='owner'`, 70 real users), so any
+owner reaches any org through the admin surface with zero dependency on impersonation state.
+**WGR-074, P0**, fix direction: add a real org-scoping check on the admin routes, or drop the
+impersonation framing if unrestricted owner access across orgs was always the intent — that's
+Reid's call, not a mechanical fix. Its dedicated audit table (`impersonation_log`) is separately
+broken for every real caller via a foreign-key violation the route silently swallows — **WGR-075,
+P1**. Demo-account write protection re-verified and holds (WGR-076). Register grew from PT-06's
+last row (WGR-070) to WGR-076 — 6 new findings this phase, all with evidence + reproduction.
+Consolidated in `test-evidence/pt-05/PHASE-05-SUMMARY.md` and `REVIEW-PACK.md` — start with the
+review pack; it has the per-table breakdown and both P0/P1 fix directions. **Recommendation: go to
+PT-14 (security) next** — it now has a settled tenant-isolation baseline plus two concrete,
+already-diagnosed findings to build the security pass around, rather than starting from a blank
+"go check isolation" instruction the way PT-06 originally left it.
+
+## Prior — August 20, 2026 — audit PT-05-004 COMPLETE. Demo write-protection + admin
 impersonation scoping/audit-logging. **Demo write-protection** (migration
 `138_demo_account_scope.sql`): a fresh read-only production query (going beyond PT-06's own
 column-existence-only drift methodology) confirmed all 3 real functions and all 6 real triggers

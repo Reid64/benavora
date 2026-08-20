@@ -1,4 +1,4 @@
-# PT-05 — Phase 05 Summary (Isolation Environment: Branch/Local, Two Test Orgs)
+# PT-05 — Phase 05 Summary (Tenant Isolation Audit)
 
 Consolidated numbers for the PT-05 phase. Every number below cites the evidence artifact it came
 from — re-run the cited verifier or read the cited file directly to reproduce it; nothing here is
@@ -6,14 +6,34 @@ asserted from memory.
 
 ## Scope
 
-PT-05 provisions a real, isolated database environment — separate from production
-(`vbjplpquqxxfbpazyalt`) — seeded with two clean test organizations, each with an owner-role user
-and rows in the core tenant-scoped tables PT-06 confirmed exist in the real schema (`applications`,
-`opportunities`, `draft_versions`, `contacts`, `donor_discovery_prospects`, `deadlines`). This is
-infrastructure for a later phase to run real cross-tenant isolation tests against, not itself a
-findings-producing audit step — no rows were added to `WIRING_GAP_REGISTER.md`.
+PT-06 found 13 of 120 tenant-scoped tables with no live foreign key back to `organizations` and
+flagged this as the concrete input PT-05 needed: a named table list to test cross-org access
+against, not a general "go check isolation" instruction. PT-05 answers the resulting question
+directly, against real behavior, not code inspection: **can one tenant actually reach, modify, or
+forge another tenant's data**, and, separately, **are the platform's privileged-access surfaces
+(demo-account write protection, admin impersonation) correctly bounded and audit-logged**.
 
-## Preflight
+Five steps, each producing its own evidence file under `test-evidence/pt-05/`:
+
+1. **PT-05-001 — Isolation environment.** Provisioned a real, isolated database — a local Supabase
+   stack, not production and not a Supabase branch (the connected MCP account has no access to the
+   real `benavora` project) — seeded with two clean test organizations, each with a real owner-role
+   user and rows in the six core tenant-scoped tables PT-06 confirmed exist in the real schema.
+   Infrastructure only, no findings-producing audit step on its own — no `WIRING_GAP_REGISTER.md`
+   rows from this step.
+2. **PT-05-002 — Cross-tenant READ attempts, all 120 tenant-scoped tables.** Authenticated as Org
+   A, attempted to read Org B's data everywhere PT-06 said a tenant column exists.
+3. **PT-05-003 — Cross-tenant WRITE attempts, all 120 tenant-scoped tables.** The more dangerous
+   direction: UPDATE, DELETE, and INSERT-tagged-with-Org-B's-org-id, the same scope as PT-05-002.
+4. **PT-05-004 — Demo write-protection + admin impersonation scoping/audit-logging.** Two
+   privileged-access questions distinct from tenant isolation: does the demo-account
+   write-protection migration actually block writes, and is platform-admin impersonation of
+   another org bounded to that org and audit-logged.
+5. **PT-05-005 — This consolidation.** Register reconciliation, summary, review pack.
+
+## PT-05-001 — Isolation Environment (Branch/Local, Two Test Orgs)
+
+### Preflight
 
 PT-00's `test-evidence/pt-00/route-manifest.json` (464 routes, generated 2026-08-19) and PT-06's
 `test-evidence/pt-06/live-schema.json` (184 tables / 2,226 columns, live-queried 2026-08-20) and
@@ -22,7 +42,7 @@ PT-00's `test-evidence/pt-00/route-manifest.json` (464 routes, generated 2026-08
 and non-empty before this phase started. Both PT-00 and PT-06 have real content — no HALT was
 needed.
 
-## Environment decision: local Supabase CLI stack, not a Supabase branch
+### Environment decision: local Supabase CLI stack, not a Supabase branch
 
 The task's preferred path — `Supabase:create_branch` via the connected MCP server — was checked and
 found unavailable this session, for a concrete, verifiable reason, not skipped by choice:
@@ -41,7 +61,7 @@ of the repo's two real migration trees), remapped every port in its `config.toml
 `supabase start`. Result: a real, running Postgres 17 + GoTrue + PostgREST stack at
 `postgresql://postgres:***@127.0.0.1:56322/postgres` (`API_URL` `http://127.0.0.1:56321`).
 
-## Target verification — not the production ref
+### Target verification — not the production ref
 
 Verified the local stack is not production two independent ways, both recorded in
 `environment.txt`:
@@ -57,7 +77,7 @@ Verified the local stack is not production two independent ways, both recorded i
 or `seed-summary.json` outside an explicit negative-comparison line, and hard-fails if a live
 re-query's `server_addr`/`current_database` looks production-shaped.
 
-## Schema applied
+### Schema applied
 
 `scripts/audit/pt05-schema.sql` — a real-shaped subset of the production `public` schema, built
 directly from PT-06's own live column dumps (`live-schema.json`) and FK map (`integrity.json`), not
@@ -71,7 +91,7 @@ guessed: `organizations`, `profiles` (FK'd to `auth.users.id`, matching the real
 real production database (`SET default_transaction_read_only = on` before the query, same
 enforcement pattern PT-06-001 established) rather than assumed.
 
-## Two test orgs, seeded
+### Two test orgs, seeded
 
 `scripts/audit/pt05-001-provision-isolation-env.mjs` created:
 
@@ -97,14 +117,14 @@ org, one `donor_discovery_directory` row, one `donor_discovery_requests` row):
 | `donor_discovery_prospects` | 1 | 1 |
 | `deadlines` | 1 | 1 |
 
-## Independent re-verification, not trusted from the provisioning script's own output
+### Independent re-verification, not trusted from the provisioning script's own output
 
 `verify-pt05-001.mjs` does not read `seed-summary.json`'s counts as the final answer — it opens a
 fresh connection to the recorded local target and re-`COUNT(*)`s each table per org directly, and
 separately re-confirms each org has a `profiles` row with `role = 'owner'` joined to a real
 `auth.users` row. All checks passed on a fresh run (see `verify-run.log`).
 
-## Evidence files
+### Evidence files
 
 - `test-evidence/pt-05/environment.txt` — target proof (string + live check), org/user creation log.
 - `test-evidence/pt-05/seed-summary.json` — machine-readable org IDs, user IDs, per-table counts.
@@ -115,7 +135,7 @@ separately re-confirms each org has a `profiles` row with `role = 'owner'` joine
   aren't unique-constrained — intentional, matches every other provisioning script in this repo).
 - `scripts/audit/verify-pt05-001.mjs` — the verifier.
 
-## Left running, not torn down
+### Left running, not torn down
 
 The local stack (`.pt05-local-stack/`, Docker containers suffixed `_pt05-local-stack`) was left
 running after this phase, on the assumption a later phase will run real isolation tests against it.
@@ -421,3 +441,73 @@ the concrete condition the task's own severity table maps to P1.
   impersonation result with both `bounded_to_org` and `audit_logged` verdicts backed by real
   evidence arrays, not bare strings; cross-checks severity registration against the recorded
   verdicts).
+
+## PT-05-005 — Consolidation (this pass)
+
+### The headline result, stated once, plainly
+
+Across all 120 tenant-scoped tables PT-06 identified — 20 live-HTTP-tested under the real
+production RLS policy predicate (7 originally-seeded + all 13 of PT-06's `tenant_fk_gap` prime
+suspects), 100 verified via read-only inspection of the real, live production RLS policy state —
+**zero cross-tenant leaks were found on any operation**: 0/120 on read (WGR-071), 0/120 on write
+across UPDATE/DELETE/INSERT (WGR-073). PT-06's 13 named prime suspects — tables with no live FK
+back to `organizations` — were the ones under the most scrutiny and all 13 passed on both reads and
+all three write operations. The missing FK itself is not resolved by this result and remains open
+as its own, narrower finding (WGR-064, updated this pass to cross-reference WGR-071/073 directly) —
+referential-integrity enforcement and RLS enforcement are separate mechanisms, and only the latter
+was under test here.
+
+That clean isolation result sits next to a genuinely bad one from a different surface: admin
+impersonation (`POST /api/admin/orgs/[id]/impersonate`) does not actually bound an admin to the org
+they nominally started impersonating — the real authorization gate for every owner-scoped admin
+route is role-only (`profiles.role='owner'`, held by 70 real production users), with zero
+dependency on any impersonation state. This is not a PT-05-002/003-class RLS leak (ordinary
+tenant-scoped RLS is intact and was independently reconfirmed as a contrast case) — it is the
+platform's own owner-gated admin surface, which by design reads via `createAdminClient()` and
+bypasses org scoping entirely, with "impersonation" adding no restriction on top of that. WGR-074,
+P0. Its purpose-built audit trail (`impersonation_log`) is separately broken for every real caller
+via a foreign-key violation the route silently swallows — WGR-075, P1. Demo-account write
+protection, the other privileged-access surface tested, holds correctly (WGR-076).
+
+### Register coverage
+
+All PT-05 findings are recorded in `test-evidence/_register/WIRING_GAP_REGISTER.md` as rows
+**WGR-071 through WGR-076** (6 rows), continuing numbering from PT-06's last row (WGR-070). Every
+row cites a real evidence file under `test-evidence/pt-05/` and a reproduction command. WGR-064
+(PT-06's tenant-FK-gap finding, the table list this whole phase tested against) was updated this
+pass to cross-reference WGR-071/073 directly and to state precisely what PT-05's clean result does
+and does not resolve about that finding — it remains open, unchanged severity, since the FK gap
+itself is a real, independent data-integrity issue PT-05 did not test or fix. No PT-05 finding from
+this phase exists outside the register.
+
+### Verifier status
+
+```
+node scripts/audit/verify-pt05-001.mjs
+  -> PASS: environment.txt confirms the local target is not production (string check + a live
+     inet_server_addr() query). seed-summary.json/verify-run.log confirm two real orgs, two real
+     GoTrue-provisioned owner users, and 1 row per org in all 6 named tenant-scoped tables,
+     independently re-COUNT(*)'d, not trusted from the provisioning script's own output.
+
+node scripts/audit/verify-pt05-002.mjs
+  -> PASS: cross-read.json covers all 120 tenant-scoped tables (independently re-derived from
+     live-schema.json, not trusted from the file's own table list). All 13 tenant_fk_gap prime
+     suspects are live_http_test'd, not just policy-inspected. Every row_count cross-checked
+     against its own captured raw_rows payload. 0/120 leaks.
+
+node scripts/audit/verify-pt05-003.mjs
+  -> PASS: cross-write.json covers the same 120 tables, all 13 prime suspects live_http_test'd for
+     all three operations (UPDATE/DELETE/INSERT), every rows_affected cross-checked against its own
+     raw_rows payload, every attempt backed by a real before/after Org-B re-read. One sampled claim
+     independently re-verified directly against the database, bypassing the file's own recorded
+     result. 0/120 leaks on any operation.
+
+node scripts/audit/verify-pt05-004.mjs
+  -> PASS: privileged-access.json records a real demo write-protection behavioral test (8 real
+     writes, blocked + allowed + negative-control + independent re-read) and a real admin
+     impersonation result with both bounded_to_org and audit_logged verdicts backed by evidence
+     arrays. Severity registration cross-checked: UNBOUNDED verdict has a P0 finding
+     (WGR-074), non-FULL audit_logged verdict has a P1 finding (WGR-075).
+
+node scripts/audit/verify-pt05-005.mjs   -> this phase's closing verifier (see REVIEW-PACK.md)
+```

@@ -1,6 +1,34 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-05-004 COMPLETE. Demo-account write-protection (migration
+**Updated: August 20, 2026 — audit PT-05 COMPLETE. Tenant isolation audit: zero cross-tenant leaks
+found across all 120 tenant-scoped tables, on every operation tested (read, UPDATE, DELETE,
+INSERT-tagged-with-another-org's-id). Isolation truth established, awaiting Reid's review.**
+Consolidated numbers, per-table breakdown, and the human-review recommendation are in
+`test-evidence/pt-05/PHASE-05-SUMMARY.md` and `test-evidence/pt-05/REVIEW-PACK.md` — start with the
+review pack. The headline result is genuinely clean on isolation: 20 tables live-HTTP-tested (7
+seeded + all 13 of PT-06's `tenant_fk_gap` prime suspects) under the real production RLS policy
+predicate reproduced verbatim on a local stack, 100 tables verified via read-only inspection of the
+real, live production RLS policy state — 0/120 leaked on reads (WGR-071), 0/120 leaked on writes
+across all three operation types, 60/60 live mutation attempts blocked (WGR-073). PT-06's own
+`tenant_fk_gap` finding (WGR-064, the missing-FK table list this whole phase tested against) is
+**not** resolved by this clean result and stays open at its own severity — referential-integrity
+enforcement and RLS enforcement are separate mechanisms, and only the latter was under test; WGR-064
+was updated this pass to state that precisely rather than implying PT-05 closed it. Sitting next to
+that clean isolation result: **admin impersonation is genuinely broken, and it is not a tenant-
+isolation leak** — `POST /api/admin/orgs/[id]/impersonate`'s scoping cookie is read by zero other
+code in the app; the real gate on every owner-scoped admin route is role-only
+(`profiles.role='owner'`, held by 70 real users), so any owner reaches any org through the admin
+surface regardless of which org they "impersonated." **WGR-074, P0** — fix direction: add a real
+org-scoping check to the admin routes, or drop the impersonation framing if unrestricted access was
+always the intent. Its dedicated audit table (`impersonation_log`) is separately unwritable for
+every real caller (FK to a near-empty `platform_admins` table), silently swallowed by the route —
+**WGR-075, P1**. Demo-account write protection holds correctly (WGR-076, CONFIRMED-OK). 6 findings
+added to the register this phase (WGR-071 through WGR-076), continuing from PT-06's last row
+(WGR-070). Recommendation for the next phase: PT-14 (security) now has a settled isolation baseline
+to build from and two concrete, real findings (the impersonation scoping gap and its broken audit
+trail) to verify further and help design the fix for.
+
+**Prior: August 20, 2026 — audit PT-05-004 COMPLETE. Demo-account write-protection (migration
 `138_demo_account_scope.sql`) re-verified live, HOLDS. Admin impersonation
 (`POST /api/admin/orgs/[id]/impersonate`) is UNBOUNDED (P0) and its dedicated audit trail is
 BROKEN for every real user (P1).** Demo protection: beyond PT-06's own column-existence-only

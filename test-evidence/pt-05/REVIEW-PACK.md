@@ -1,113 +1,149 @@
 # PT-05 Review Pack — read this one, not the raw evidence, unless you want the raw evidence
 
-For the full detail and how each number was produced, see `PHASE-05-SUMMARY.md` in this same
-directory. This doc is the short version: what environment now exists, why it's a local stack
-instead of a Supabase branch, and what a future phase needs to know to use it.
+For the full numbers and how each was produced, see `PHASE-05-SUMMARY.md` in this same directory.
+This doc is the short version: the direct answer to "can one tenant reach another's data," the one
+real P0 this phase found (which is not that), its fix direction, and what we recommend next.
 
-## PT-05-002 result, up front: zero cross-tenant read leaks, across all 120 tenant-scoped tables
+## The question you actually care about: can one tenant reach another tenant's data?
 
-Authenticated as Org A's real user, attempted to read Org B's rows on all 120 tenant-scoped tables
-PT-06 identified — 20 via a real, live HTTP test (7 originally-seeded tables + all 13 of PT-06's
-`tenant_fk_gap` "missing tenant FK" prime suspects, extended into this local stack with the real
-production RLS policy reproduced verbatim), 100 via read-only inspection of the real, live
-production RLS policy state. **Result: 0 leaks.** Every cross-tenant attempt on the 20 live-tested
-tables returned zero rows on both the `@supabase/supabase-js` and raw-PostgREST paths, while a
-same-org positive control on the identical table correctly returned the org's own row — confirming
-the block is real tenant isolation, not a broken/globally-denying policy. All 13 prime suspects
-passed, including under extra scrutiny. One secondary, non-leak finding: 4 tables
+**No — not on any of the 120 tenant-scoped tables PT-06 identified, on any operation tested.**
+Authenticated as a real user in Org A, we tried to read, update, delete, and forge-insert Org B's
+data. Every attempt was blocked. This was checked two ways, not one:
+
+- **20 tables, live HTTP test** (real GoTrue session, real requests via both the app's own
+  `@supabase/supabase-js` client and a raw PostgREST call, against a local stack running the real
+  production RLS policy predicate verbatim) — the 7 tables PT-05-001 seeded, plus all 13 tables
+  PT-06 flagged as missing their foreign key back to `organizations` (`tenant_fk_gap`, WGR-064) —
+  the tables where a leak was most plausible, given extra scrutiny for exactly that reason.
+- **100 tables, read-only inspection of the real, live production RLS policy text** — not a live
+  request, but the actual `pg_class.relrowsecurity`/`pg_policies` state governing every real
+  request today.
+
+| Table | Read (Org A → Org B) | Write: UPDATE | Write: DELETE | Write: INSERT-as-Org-B | Missing tenant FK (WGR-064)? |
+|---|---|---|---|---|---|
+| `funders` | No | No | No | No | |
+| `opportunities` | No | No | No | No | |
+| `applications` | No | No | No | No | |
+| `draft_versions` | No | No | No | No | |
+| `contacts` | No | No | No | No | |
+| `donor_discovery_prospects` | No | No | No | No | |
+| `deadlines` | No | No | No | No | |
+| `adapter_usage_log` | No | No¹ | No | No | yes |
+| `agent_configurations` | No | No | No | No | yes |
+| `autoapply_review_queue` | No | No | No | No | yes |
+| `board_meetings` | No | No | No | No | yes |
+| `board_meeting_packets` | No | No | No | No | yes |
+| `discovery_matches` | No | No | No | No | yes |
+| `funding_forecasts` | No | No | No | No | yes |
+| `impact_simulations` | No | No | No | No | yes |
+| `knowledge_queries` | No | No¹ | No | No | yes |
+| `opportunity_probability_scores` | No | No | No | No | yes |
+| `organizational_digital_twins` | No | No | No | No | yes |
+| `pitch_cache` | No | No | No | No | yes |
+| `submission_receipts` | No | No¹ | No | No | yes |
+
+¹ These 3 tables have no UPDATE policy at all in production, not even for the owning org — their
+cross-tenant UPDATE block is a default-deny-for-everyone artifact, not a specifically tenant-scoped
+check. Still correctly blocked; noted so it isn't misread as "extra-hardened" when it's actually
+"nobody can UPDATE this table via the normal client, owner included." See WGR-073.
+
+**The remaining 100 tables** (not individually live-tested — full list in `cross-read.json`/
+`cross-write.json`): 96 carry a correctly org-scoped policy on every command checked. The other 4
 (`ai_usage_log`, `enrichment_jobs`, `kb_extended_needs`, `system_errors`) have RLS enabled with
-zero policies at all — deny-all for everyone, not a leak, but an unexplained availability question
-(WGR-072, PENDING-SCOPE). Full detail: `PHASE-05-SUMMARY.md`'s "PT-05-002" section,
-`test-evidence/pt-05/cross-read.json`.
+**zero policies at all** — deny-all for everyone, including the owning org. Not a leak (the
+opposite failure mode), but an open, unanswered question: intentional service-role-only tables, or
+a missing policy nobody wrote yet. **WGR-072, PENDING-SCOPE — needs a product answer, not a fix.**
 
-## PT-05-003 result, up front: zero cross-tenant write leaks (UPDATE/DELETE/INSERT), across all 120 tables
+Full per-table raw results (all 120, both tiers, every request/response captured): `cross-read.json`,
+`cross-write.json`. WGR-071 (read), WGR-072 (zero-policy tables), WGR-073 (write).
 
-The more dangerous direction — real mutations, not just reads. Authenticated as Org A, attempted
-UPDATE and DELETE on Org B's known rows and INSERT of new rows explicitly tagged with Org B's org
-id, on the same 20 live-tested tables (both request paths, both same as PT-05-002) plus the same
-100-table read-only policy inspection (now checked per-command, not just SELECT). **Result: 0
-leaks — 60/60 live mutation attempts blocked (20 tables × 3 operations).** Every attempt's own
-reported outcome was cross-checked against an independent re-read of Org B's data **as Org B**,
-both before and after — never trusted from the attacking request alone. All 13 prime suspects
-passed on all three operations. One nuance, not a leak: 3 tables have no UPDATE policy at all in
-production (not even for the owning org), so their cross-tenant UPDATE block is a blunter
-default-deny rather than a tenant-scoped check specifically — noted per-table, not hidden. Full
-detail: `PHASE-05-SUMMARY.md`'s "PT-05-003" section, `test-evidence/pt-05/cross-write.json`,
-WGR-073.
+## The one real P0 this phase found — and it is NOT a tenant-isolation leak
 
-## PT-05-004 result, up front: demo write-protection HOLDS; admin impersonation is UNBOUNDED (P0) and its dedicated audit trail is broken (P1)
+**Admin impersonation is unbounded.** `POST /api/admin/orgs/[id]/impersonate` sets a cookie
+(`impersonation_org_id`) that is read by **zero other code paths anywhere in the app** — confirmed
+by a live, repo-wide `git grep`. The actual authorization gate protecting every owner-scoped admin
+route, including the org-detail page the impersonation button lives on, is `profiles.role='owner'`
+— a check with no org-id parameter at all. Any of the platform's 70 real `owner`-role users can
+reach any org's admin data through this same gate, whether or not they've clicked "impersonate," and
+whichever org they clicked impersonate *for* makes no difference to what they can reach.
 
-Two privileged-access questions, separate from PT-05-002/003's tenant-isolation testing. **Demo
-write-protection** (migration `138_demo_account_scope.sql`): re-verified live beyond PT-06's
-column-only methodology — all 3 real functions and 6 real triggers confirmed live in production
-(joined to the correct function, not just name-matched), and a live behavioral test (8 real writes
-via real GoTrue sessions) confirmed 8/8 expected outcomes: every protected write blocked (`42501`),
-the one explicitly-allowed branding column (`logo_url`) still writable, a negative-control
-unrestricted profile unaffected, and an independent re-read confirming no blocked write mutated
-anything. Migration 138 is in PT-06's *applied* bucket, not its unapplied one — not the P1 gap the
-task flagged as a possibility. **Admin impersonation** (`POST /api/admin/orgs/[id]/impersonate`):
-the cookie it sets is read by zero other code paths anywhere in the repo (repo-wide grep, run
-live) — the real authorization gate for every owner-scoped admin route is role-only
-(`profiles.role='owner'`, held by 70 real users today, not a distinct platform-admin population)
-with no org-id dependency at all, so an admin "impersonating" org A can reach org B with zero
-additional restriction — live-reproduced with RLS-scoped-vs-admin-path contrast to rule out a
-PT-05-002/003-class RLS regression. **WGR-074, P0.** Separately, the dedicated `impersonation_log`
-audit table is unwritable for every real caller: its `admin_id` FK targets `platform_admins`, which
-has only 1 row and 0 overlap with any of the 70 real `owner`-role profiles — every real insert fails
-`23503`, silently swallowed by the route (never checks `{error}`), confirmed by `impersonation_log`
-holding 0 rows in production. A separate, generic `audit_logs` write does succeed per call, so this
-is not fully unlogged — but the purpose-built trail is broken for every real user. **WGR-075, P1.**
-Full detail: `PHASE-05-SUMMARY.md`'s "PT-05-004" section, `test-evidence/pt-05/privileged-access.json`,
-`test-evidence/pt-05/pt05-004-production-investigation.json`.
+This is deliberately distinguished from PT-05-002/003's clean result above, not a contradiction of
+it: ordinary tenant RLS is intact and was independently re-confirmed in the same test (the identical
+admin user's own RLS-scoped session correctly gets 0 rows reading another org directly). The gap is
+specific to the owner-gated **admin** surface, which reads via a service-role client
+(`createAdminClient()`) by design and has simply never had an org-scoping check layered on top of
+role. "Impersonation" as currently built is UI framing around a capability the role check already
+grants unconditionally — it restricts nothing.
 
-## What exists now
+**Fix direction:** add an actual org-scoping check to the admin routes gated behind impersonation —
+either (a) require every admin route that reads/writes a specific org's data to verify the
+requesting admin's `impersonation_org_id` cookie (once it's actually read somewhere) matches the org
+in the URL, and reject/no-op if it doesn't, or (b) if the intent is that any `owner`-role user should
+in fact be able to reach any org through this admin surface with no per-org restriction, then the
+"impersonate" framing and the unread cookie are misleading and should either be removed or
+re-labeled as what they are (an audit-trail stamp, not an access boundary) — that's a product
+decision, not a code fix, and belongs to whoever owns this feature's intended scope. Either way, the
+current state — a cookie nothing reads, sitting next to UI copy that implies scoping — should not
+ship as-is.
 
-A running local Postgres 17 + GoTrue + PostgREST stack (`.pt05-local-stack/`, Docker containers
-suffixed `_pt05-local-stack`), reachable at `postgresql://postgres:postgres@127.0.0.1:56322/postgres`
-and `http://127.0.0.1:56321`. It is **not** production and independently verified as such two ways
-(connection-string check + a live `inet_server_addr()` query from inside the open session) — see
-`environment.txt`.
+**WGR-074, P0.**
 
-Two clean orgs, each with a real owner-role user (created via GoTrue's admin API, not a raw
-`auth.users` insert) and one seeded row in each of the six tenant-scoped tables the task named:
-`applications`, `opportunities`, `draft_versions`, `contacts`, `donor_discovery_prospects`,
-`deadlines`. Both orgs' data was re-confirmed by a fresh, independent query in
-`verify-pt05-001.mjs` — not just trusted from the provisioning script's own printed counts.
+## A second finding on the same surface, lower severity: the impersonation audit trail is broken
 
-## Why local, not a Supabase branch
+Separately from the scoping question: the dedicated `impersonation_log` table this feature exists
+to populate (`SCHEMA_REGISTRY §55`) cannot be written by any real user today. Its `admin_id` column
+has a foreign key to `platform_admins`, a table with exactly 1 row — 0 of the platform's 70 real
+`owner`-role profiles are in it. Every real impersonation attempt's insert into `impersonation_log`
+therefore fails a foreign-key constraint (`23503`, reproduced live against a local copy of the same
+constraint), and the route never checks the error on that insert — the caller still gets
+`{ ok: true }`, and `impersonation_log` sits at 0 rows in production, consistent with a
+100%-reproducible failure rather than a feature nobody's tried. A separate, generic `audit_logs`
+insert on the same call path does succeed, so this is not a fully silent action — but the
+purpose-built trail for exactly this action is dead for every real caller.
 
-The MCP-connected Supabase account genuinely does not have the `benavora` project on it — only two
-unrelated projects (`tarritrix`, `tarritrix-audit`). There was no `project_id` to pass to
-`create_branch` at all, so this wasn't a judgment call about whether to spend real money on a branch
-— the credential path simply isn't available to this session. The task explicitly names "local
-stack" as the fallback for exactly this case.
+**Fix direction:** either populate `platform_admins` with the real set of users who should be
+allowed to impersonate (turning the FK from broken to correct, and incidentally giving WGR-074's fix
+a real population to scope against), or change `impersonation_log.admin_id`'s FK target to
+`profiles` (the table `requireRole("owner")` actually authorizes against today). Also fix the route
+to check `{error}` on this insert regardless of which fix is chosen — a silently-swallowed write
+failure on an audit table is its own small bug independent of the FK mismatch.
 
-## What a future phase should know before using this environment
+**WGR-075, P1.**
 
-- **This is a hand-built minimal schema, not a full production replica.** It has 11 tables (the 6
-  named tenant-scoped tables + `organizations`, `profiles`, `funders`, `donor_discovery_directory`,
-  `donor_discovery_requests`) out of production's real 184. If a later phase needs a table this
-  environment doesn't have, extend `pt05-schema.sql` using the same method this phase used — read
-  the real columns/types/FKs straight out of `test-evidence/pt-06/live-schema.json` and
-  `integrity.json` rather than guessing, and read any enum labels live and read-only from production
-  the same way (see the `pg_enum` query in `PHASE-05-SUMMARY.md`).
-- **No RLS policies were applied.** This phase's task was org/user/row provisioning only; row-level
-  security enforcement (if a future phase needs to test it) is a separate build step against this
-  same schema.
-- **It was deliberately left running, not torn down**, since the whole point of this phase is to
-  hand a live, seeded, isolated environment to whatever comes next. `docker ps` will show it
-  alongside two unrelated pre-existing local stacks on this machine (`dialtest`,
-  `ai-book-factory`) — don't confuse them; only the `_pt05-local-stack`-suffixed containers belong
-  to this phase.
-- **Re-running the provisioning script against the same stack will create a second pair of orgs**,
-  not upsert the first — org names aren't unique-constrained in this schema (matching production).
-  If a future phase wants a truly clean slate, either `supabase stop && supabase start` from inside
-  `.pt05-local-stack/` first, or read `environment.txt`/`seed-summary.json` to reuse the org/user
-  IDs that already exist.
+## What holds correctly, not just "no news"
 
-## Recommendation
+**Demo-account write protection** (migration `138_demo_account_scope.sql`) works as designed. Beyond
+PT-06's own column-existence-only drift check, this phase confirmed all 3 real functions and all 6
+real triggers are live in production and wired to the correct function (not just name-matched), then
+ran 8 real writes through real authenticated sessions: every protected write blocked, the one
+explicitly-allowed branding column still writable, an unrestricted negative-control profile
+unaffected, and an independent re-read confirming every blocked attempt genuinely mutated nothing.
+**WGR-076, CONFIRMED-OK.**
 
-Nothing needs Reid's decision here — this phase produced infrastructure, not a finding. The one
-thing worth flagging: whichever phase comes next and actually exercises this environment for
-cross-tenant isolation testing should decide up front whether it needs RLS policies applied to this
-schema, since none exist yet.
+## What a future phase should know before building on this
+
+- **PT-06's tenant-FK-gap finding (WGR-064) is not resolved by this phase's clean result and should
+  not be closed.** RLS enforcement and referential-integrity enforcement are separate mechanisms —
+  PT-05 tested and cleared the former on all 13 flagged tables; the missing foreign key itself is
+  still there, and still means a malformed tenant id in one of those 13 tables' `org_id` columns
+  would go uncaught by the database. Narrower risk than a leak, but a real, open, distinct gap.
+- **The local isolation environment (`.pt05-local-stack/`) is still running**, per PT-05-001's own
+  note — a real Postgres 17 + GoTrue + PostgREST stack, seeded with two orgs and the real production
+  RLS policy applied to the 20 live-tested tables. Reusable for a future phase without re-provisioning
+  from scratch; see PHASE-05-SUMMARY.md's PT-05-001 section for exactly what's on it and what isn't
+  (11 of production's 184 tables, no RLS on tables beyond the 20 this phase extended).
+
+## Recommendation for the next phase
+
+**PT-14 (security) now has PT-05's isolation results as a real starting point, not an open
+question.** Cross-tenant reach — the question a security review would otherwise have to establish
+from scratch — is settled: clean, across all 120 tables, on every operation. That means PT-14 can
+spend its effort on the two things PT-05 actually found broken rather than re-proving tenant
+isolation: **the admin-impersonation scoping gap (WGR-074, P0)** and its broken audit trail
+(WGR-075, P1) are exactly the class of finding a security-focused pass should verify further and
+help design the fix for — specifically, whether `owner` role should ever have been an
+org-independent superuser grant on this platform, or whether that was always meant to be bounded and
+simply never got built. WGR-072's 4 zero-policy tables are a smaller, cheaper follow-up in the same
+pass: a quick application-code check (does anything read `ai_usage_log`/`enrichment_jobs`/
+`kb_extended_needs`/`system_errors` via a normal authenticated session, or only via service role?)
+would resolve that PENDING-SCOPE tag either way.
