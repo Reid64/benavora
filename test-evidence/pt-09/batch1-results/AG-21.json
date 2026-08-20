@@ -1,0 +1,52 @@
+{
+  "canonicalNumber": "AG-21",
+  "registryAgentId": "ea08_executive_biography_analyzer",
+  "implementingFile": "src/lib/agents/ea-08-executive-biography-analyzer.ts (writes via src/lib/agents/corporate-enrichment-shared.ts)",
+  "writeTargetTables": [
+    "corporate_prospects",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new EA08ExecutiveBiographyAnalyzerAgent({ client, organizationId }).run({ prospectId }) against a seeded corporate_prospects row (distinct from AG-20's target row). Confirmed no upstream EA-0X dependency from the file's own header before running standalone. Real StealthEngine/Playwright fetch attempts against the seeded website's 2 candidate paths (/leadership, /about/team); a real Claude call only fires if at least one page is fetched.",
+  "before": {
+    "id": "d3c38480-f631-4fe8-8217-47a4fef8cc0c",
+    "legal_name": "Hill Country Logistics LLC",
+    "website": "https://hillcountry-logistics.example",
+    "enrichment": {},
+    "enrichment_version": 0
+  },
+  "after": {
+    "id": "d3c38480-f631-4fe8-8217-47a4fef8cc0c",
+    "legal_name": "Hill Country Logistics LLC",
+    "website": "https://hillcountry-logistics.example",
+    "enrichment": {
+      "board_members": [],
+      "linkedin_profiles": [],
+      "decision_maker_names": [],
+      "decision_maker_titles": []
+    },
+    "enrichment_version": 1
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "enrichment_version_delta": 1,
+    "enrichment_changed": true
+  },
+  "sampleWrittenRow": {
+    "id": "d3c38480-f631-4fe8-8217-47a4fef8cc0c",
+    "legal_name": "Hill Country Logistics LLC",
+    "enrichment": {
+      "board_members": [],
+      "linkedin_profiles": [],
+      "decision_maker_names": [],
+      "decision_maker_titles": []
+    },
+    "enrichment_version": 1,
+    "enrichment_completed_at": "2026-08-20T06:40:04.575Z"
+  },
+  "triggerLog": "Target corporate_prospects row: d3c38480-f631-4fe8-8217-47a4fef8cc0c (legal_name=Hill Country Logistics LLC, website=https://hillcountry-logistics.example, enrichment_version=0). Deliberately distinct row from AG-20's target to avoid write collisions between the two scripts.\nConfirmed via file header: EA-08 has no upstream EA-0X dependency (unlike some other EA agents), so this is a valid standalone invocation.\nagent.run() resolved: runId=a03bcebf-a22c-4780-87e0-627feb950b37 tokensUsed=0 durationMs=57172\ndata: {\"decisionMakerNames\":[],\"decisionMakerTitles\":[],\"boardMembers\":[],\"linkedinProfiles\":[],\"pagesFound\":0}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "agent_runs row written, corporate_prospects.enrichment genuinely patched (enrichment_version 0 -> 1) via a real BaseAgent execute() pass -- matches AG-21/EA-08's documented intent (always-patch-once-a-website-exists, so EA-10's gate never blocks forever). Result: decisionMakerNames=[], pagesFound=0. NOTE: the seeded prospect's website (https://hillcountry-logistics.example) is a synthetic *.example domain and did not resolve, so this run exercised the zero-pages-found branch (empty arrays written) -- real, intentional, documented behavior per the file's own header, not a stub, but a narrower proof than a resolvable real-world website with real leadership pages would give.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: NOT-WIRED (DEFINED-NOT-STARTED per PT-08) -- same enrichment-processor finding as AG-20 (worker/enrichment-processor.ts's EA-01..EA-10 pipeline is a documented boot step never actually started/reachable via any queue). FEATURE_REGISTRY_v2.md row #90 ('Corporate Enrichment Agents EA-01 to EA-10 (AG-20/AG-21 + 8 more)'): status 'BUILT — VERIFIED (EA-01/EA-08); BUILT — UNVERIFIED (EA-02–07/09/10)' -- \"Re-verified live 2026-08-03: EA08ExecutiveBiographyAnalyzerAgent.run({prospectId}) ... complete[s] cleanly against a real SAM.gov-sourced prospect (correctly took the documented no-website graceful path). The independent accuracy defect found July 30 is unchanged: both agents' hardcoded candidate-path lists missed real content for 2-3 of 3 test companies (EA-08 0/6 hits) ... Caveat unchanged: this orchestrator is not called from worker/index.ts's boot sequence -- on-demand only.\"",
+  "falsePassCasualty": false
+}

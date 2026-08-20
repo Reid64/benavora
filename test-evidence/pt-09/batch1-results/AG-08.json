@@ -1,0 +1,63 @@
+{
+  "canonicalNumber": "AG-08",
+  "registryAgentId": "ag-08-nofa-parser",
+  "implementingFile": "src/lib/agents/nofa-parser.ts",
+  "writeTargetTables": [
+    "opportunities",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new NofaParserAgent({ client, organizationId }).run({ opportunityId }), with opportunities.opportunity_documents pre-seeded to point at a throwaway local HTTP server (127.0.0.1, ephemeral port) serving a crafted HTML NOFA announcement so the run exercises a real HTTP download + HTML text extraction + real Claude structured-extraction call end to end, without depending on an unstable third-party URL's exact document shape. Real trigger path (per pt09-001/agent-inventory.json) is WIRED-SUBROUTINE (invoked directly by its caller elsewhere in the research/import pipeline) -- this is that same construction pattern.",
+  "before": {
+    "opportunities": 3,
+    "agent_runs": 3
+  },
+  "after": {
+    "opportunities": 3,
+    "agent_runs": 4
+  },
+  "rowDelta": {
+    "opportunities": 0,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "opportunities_patched": {
+      "id": "b1a414f2-2a67-44fd-a055-d0d016621562",
+      "name": "PT-09 Test Opportunity 2",
+      "application_method": "Online portal submission via Grants.gov",
+      "recurrence": "Annual",
+      "geographic_restrictions": "Central Texas counties only",
+      "amount_available": "500000",
+      "updated_at": "2026-08-20T06:17:17.019Z"
+    },
+    "agent_runs_row": {
+      "id": "167f1a65-3704-4789-bf57-af8ca798bf42",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "government_research",
+      "status": "completed",
+      "input_params": {
+        "opportunityId": "b1a414f2-2a67-44fd-a055-d0d016621562"
+      },
+      "output_summary": "NOFA parser: stored 0 PDF(s), parsed 1 for opportunity b1a414f2-2a67-44fd-a055-d0d016621562; enriched fields: amount_available, geographic_restrictions, application_method, recurrence.",
+      "items_found": 1,
+      "items_processed": 4,
+      "error_message": null,
+      "tokens_used": 550,
+      "duration_ms": 4552,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:27:32.697Z",
+      "completed_at": "2026-08-20T06:27:37.248Z",
+      "created_at": "2026-08-20T06:27:32.356Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "Started local test-fixture HTTP server at http://127.0.0.1:52296/pt09-nofa.html\nSeeded opportunities.opportunity_documents = [{ title, url: http://127.0.0.1:52296/pt09-nofa.html }]\nagent.run() resolved: runId=167f1a65-3704-4789-bf57-af8ca798bf42 tokensUsed=550 durationMs=4552\ndata: {\"opportunityId\":\"b1a414f2-2a67-44fd-a055-d0d016621562\",\"enrichedFields\":[\"amount_available\",\"geographic_restrictions\",\"application_method\",\"recurrence\"],\"pdfsProcessed\":1,\"storedCount\":0,\"tokensUsed\":550}\nClosed local test-fixture HTTP server.",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "agent_runs row written (real BaseAgent logging), real HTTP download + HTML strip + Claude extraction ran, and opportunities row patched with genuinely new fields (amount_available, geographic_restrictions, application_method, recurrence) that were previously null -- matches AG-08's documented intent (enrich an opportunity from a NOFA document, only filling empty fields).",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md has NO row titled \"NOFA Parser\" -- the only AG-08-numbered row is #208: \"AG-08 Renewal Tracker | BUILT | Monthly. Auto-creates renewal opportunity records for recurring grants.\", a DIFFERENT feature description than what src/lib/agents/nofa-parser.ts actually implements (NOFA/PDF field extraction, not renewal-record creation). This is an honest registry/code-identity mismatch, consistent with agent-inventory.json's own note that registry agent_id 'ag-08-nofa-parser' matches no real agentType literal this class ever logs (real literal is 'government_research', shared with 2 unrelated classes). Cannot confirm row #208 describes this file at all; flagging rather than guessing.",
+  "falsePassCasualty": false
+}

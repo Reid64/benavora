@@ -1,0 +1,145 @@
+{
+  "canonicalNumber": "AG-06",
+  "registryAgentId": "ag-06-draft-generator",
+  "implementingFile": "src/lib/agents/draft-generation-agent.ts",
+  "writeTargetTables": [
+    "applications",
+    "agent_runs",
+    "agent_decisions",
+    "alerts"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack, reproducing the real chain contract: seeded one agent_queue row (org_id, agent_id='ag-05-draft' -- the real on-disk literal, not the registry's 'ag-06-draft-generator' -- status='processing', input_payload={opportunityId, score, title, funderId} matching what probability-scoring-agent.ts's queueChainedAgent call actually enqueues) since DraftGenerationAgent.run() takes only a triggerSource. Then: new DraftGenerationAgent(orgId, supabase).run('manual'). Local schema patch applied first: applications.metadata jsonb column added (was missing from the PT-09-002 schema-extension pass; a real production column per this agent's own header, not an app bug).",
+  "before": {
+    "applications": 5,
+    "agent_runs": 12,
+    "agent_decisions": 7,
+    "alerts": 0
+  },
+  "after": {
+    "applications": 6,
+    "agent_runs": 17,
+    "agent_decisions": 38,
+    "alerts": 2
+  },
+  "rowDelta": {
+    "applications": 1,
+    "agent_runs": 5,
+    "agent_decisions": 31,
+    "alerts": 2
+  },
+  "sampleWrittenRow": {
+    "applications_created": {
+      "id": "f9e45ae6-43e3-48ef-8f33-661296dcba21",
+      "opportunity_id": "eb3a490b-9f05-4b1e-a668-227f49d9161a",
+      "stage": "drafting",
+      "auto_generated": true,
+      "pending_review": true,
+      "draft_source": "autonomous",
+      "draft_confidence_score": 55,
+      "twin_powered": true,
+      "twin_completeness": 100,
+      "platform_patterns_applied": 0,
+      "compliance_check_result": {
+        "passed": true,
+        "warnings": [],
+        "checkedAt": "2026-08-20T06:31:09.055Z",
+        "wordCount": 2211,
+        "wordLimit": null,
+        "withinWordLimit": null,
+        "missingOrThinSections": [],
+        "prohibitedLanguageFound": [],
+        "budgetSectionReferencesAmount": true
+      },
+      "draft_content_excerpt": "## Executive Summary\n\nEvery thriving regional economy rests on a foundation of stable households and a ready workforce. When families lack secure housing, they cannot hold jobs. When workers are displaced, they cannot sustain the local spending and productivity that businesses — and the financial institutions that serve them — depend on. We exist to break that cycle in Central Texas, and we invite PT-09 Regional Bank Giving to join us as a community investment partner in that work.\n\nFounded by Jordan Rivera and operating with a $1.25 million annual budget, we deliver housing placement and work",
+      "draft_content_length": 15957,
+      "metadata": {
+        "humanization_score": 70,
+        "humanization_breakdown": {
+          "top_concerns": [],
+          "narrative_flow": 70,
+          "ai_phrase_absence": 70,
+          "human_voice_authenticity": 70,
+          "organization_specificity": 70
+        },
+        "style_guide_violations": [
+          {
+            "type": "missing_business_case_lead",
+            "severity": "warning",
+            "originalText": "Every thriving regional economy rests on a foundation of stable households and a",
+            "suggestedReplacement": "Open with the business case — how supporting this organization benefits the company, its employees, or its community standing."
+          },
+          {
+            "type": "exceeds_word_count",
+            "severity": "warning",
+            "originalText": "",
+            "suggestedReplacement": "Tighten to at most 1500 words (currently 2192)."
+          },
+          {
+            "type": "missing_roi_framing",
+            "severity": "info",
+            "originalText": "",
+            "suggestedReplacement": "Frame the request in terms of return on investment for the company where possible."
+          }
+        ],
+        "style_guide_suggestions": [
+          "Narrative does not lead with a business case for the corporate funder.",
+          "Narrative is 2192 words — corporate proposals should stay under 1500 words.",
+          "No ROI framing found — corporate funders respond to a clear business return."
+        ],
+        "intelligence_pattern_analysis": {
+          "funder_types_matched": [],
+          "reference_narrative_count": 0,
+          "winning_phrases_applied_count": 0
+        },
+        "knowledge_engine_patterns_applied": []
+      },
+      "created_at": "2026-08-20T06:32:24.967Z"
+    },
+    "agent_runs_row": {
+      "id": "1cfe17d4-609a-4a97-a7bb-feb85724fed9",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-05-draft",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "{\"draftCreated\":true,\"applicationId\":\"f9e45ae6-43e3-48ef-8f33-661296dcba21\",\"confidence\":55,\"requiresReview\":true,\"patternsApplied\":0,\"compliancePassed\":true,\"complianceWarnings\":0,\"humanizationScore\":70,\"styleGuideViolations\":3,\"criticalStyleViolations\":0}",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 9076,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:30:41.137Z",
+      "completed_at": "2026-08-20T06:32:25.494Z",
+      "created_at": "2026-08-20T06:30:41.118Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": 55,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "agent_decisions_row": {
+      "id": "ef8c3e74-45bc-4b97-a147-5477a7f37be0",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-05-draft",
+      "decision_type": "draft_generated",
+      "entity_type": "application",
+      "entity_id": "f9e45ae6-43e3-48ef-8f33-661296dcba21",
+      "reasoning": "Auto-generated draft for PT-09 Test Opportunity 3 (probability: 85%). Confidence: 55% (base 50%, twin completeness 100%). Platform learning patterns applied: 0 (0 high-confidence). Intelligence Library: 0 reference narrative(s), 0 winning phrase(s) applied. Compliance check: passed. Humanization score: 70. Style guide: 3 violation(s), 0 critical.",
+      "confidence_score": 55,
+      "action_taken": "created_draft_pending_review",
+      "required_human_review": true,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:32:24.991Z",
+      "agent_run_id": "1cfe17d4-609a-4a97-a7bb-feb85724fed9",
+      "action_payload": {},
+      "human_reviewer_id": null
+    }
+  },
+  "triggerLog": "Seeded agent_queue row e23b0dfc-7bbf-4f85-b0f2-ecfa081b4bcf (status=processing, agent_id=ag-05-draft, input_payload={opportunityId, score:85, title, funderId})\nagent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"a5c5ea72-6c70-4a1b-9956-20a617b7b6fe\",\"4a56157e-9d85-4d43-9453-ad4eba7a6692\",\"ef8c3e74-45bc-4b97-a147-5477a7f37be0\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "A real applications row was created via a full 5-phase Claude pipeline (narrative strategy -> per-section drafting -> compliance check -> humanization -> confidence scoring): draft_content is 15957 characters of real Claude-generated grant narrative across all 6 sections, stage='drafting', auto_generated=true, pending_review=true (HARD LIMIT honored -- never auto-submitted), draft_confidence_score=55, compliance_check_result populated. Matches AG-06/AG-05's documented intent exactly: an autonomous, human-review-gated draft generator.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #197: 'AG-05 Autonomous Draft Generation | BUILT | Auto-drafts above threshold. pending_review=true. Never submits.' (this is the registry row for the code this class actually is -- see file header on the ag-05-draft vs ag-06-draft-generator agent_id mismatch; agent-inventory.json's registryName for canonical AG-06 is 'AG-06 -- Draft Generator Agent').",
+  "falsePassCasualty": false
+}

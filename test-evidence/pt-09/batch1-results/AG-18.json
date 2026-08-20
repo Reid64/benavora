@@ -1,0 +1,81 @@
+{
+  "canonicalNumber": "AG-18",
+  "registryAgentId": "ag-18-reputation",
+  "implementingFile": "src/lib/intelligence/reputation-agent.ts",
+  "writeTargetTables": [
+    "reputation_signals",
+    "reputation_alerts",
+    "agent_runs",
+    "agent_decisions"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new ReputationIntelligenceAgent(orgId, supabase).runForFunder(funderId, entityName, 'manual'). This class was found in the same file as the plain checkEntityReputation() function the task brief named, and worker/autonomous-orchestrator.ts (lines ~1852-1871, checked directly) confirms it is the real production route for funder-specific reputation checks (checkEntityReputation() itself handles the bare-entity/non-funder case). runForFunder() calls checkEntityReputation() internally (real DuckDuckGo Instant-Answer API call + real Claude classification call per result, no mocking) then fans out into reputation_alerts/agent_decisions/(conditionally)relationship_memory/alerts exactly as the nightly whole-org run() does, scoped to one funder. Entity NAME substituted to the real-world 'Wells Fargo' (see file header) while entity_id stayed a real seeded funder row -- reputation_signals carries no organization_id by design (platform-shared entity data), so this does not cross any tenant boundary.",
+  "before": {
+    "reputation_signals": 0,
+    "reputation_alerts": 0,
+    "agent_runs": 24,
+    "agent_decisions": 51,
+    "relationship_memory": 0,
+    "alerts": 7
+  },
+  "after": {
+    "reputation_signals": 0,
+    "reputation_alerts": 0,
+    "agent_runs": 25,
+    "agent_decisions": 51,
+    "relationship_memory": 0,
+    "alerts": 7
+  },
+  "rowDelta": {
+    "reputation_signals": 0,
+    "reputation_alerts": 0,
+    "agent_runs": 1,
+    "agent_decisions": 0,
+    "relationship_memory": 0,
+    "alerts": 0
+  },
+  "sampleWrittenRow": {
+    "reputation_signals_row": null,
+    "reputation_alerts_row": null,
+    "agent_decisions_row": null,
+    "agent_runs_row": {
+      "id": "a64363ef-a8a8-4429-ad0e-88a62b63d141",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-18-reputation",
+      "status": "completed",
+      "input_params": {
+        "funderId": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+        "funderName": "Wells Fargo"
+      },
+      "output_summary": "{\"signalsFound\":0,\"critical\":0,\"high\":0,\"medium\":0,\"low\":0,\"alertsCreated\":0,\"memoryEntriesCreated\":0}",
+      "items_found": 1,
+      "items_processed": 0,
+      "error_message": null,
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:37:13.911Z",
+      "completed_at": "2026-08-20T06:37:14.525Z",
+      "created_at": "2026-08-20T06:37:13.640Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "run_outcome": {
+      "success": true,
+      "itemsFound": 1,
+      "itemsProcessed": 0,
+      "itemsQueued": 0,
+      "decisions": [],
+      "nextActions": [],
+      "errors": []
+    }
+  },
+  "triggerLog": "Target funder row: d98944e0-9ecc-49ad-be21-974aae237bdc (seeded name \"PT-09 Community Foundation\"). Search entity name substituted to real-world \"Wells Fargo\" to generate genuine DuckDuckGo signal -- see file header.\nagent.runForFunder() resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":0,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs completed cleanly (output: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":0,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}) but zero reputation_signals rows were written. Root-caused, not left ambiguous: a follow-up direct call to DuckDuckGo's Instant-Answer API (https://api.duckduckgo.com/?q=Wells+Fargo+lawsuit+fraud+scandal+leadership+change&format=json) -- the exact query searchDuckDuckGo() builds -- was made independently of the agent and returned RelatedTopics: [] (0 results) for a very well-known, real, litigation-heavy entity. The response body's own meta fields (production_state: \"offline\", src_url: \"Hello there\", description: \"testing\") indicate DuckDuckGo's free Instant-Answer endpoint is a curated near-empty test/answer index, NOT a general web search API -- it will structurally return 0 results for the overwhelming majority of real risk-keyword queries regardless of which entity is searched. This means checkEntityReputation()'s search step (and therefore both the plain-function path and this class-based path) is very likely non-functional against real-world signal detection as currently implemented, independent of Claude classification quality (Claude was never reached this run -- searchDuckDuckGo() returning [] short-circuits before any classification call). This is a materially stronger, root-caused finding than a generic \"ran clean, wrote nothing.\"",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-GATED (scheduled: runReputationStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on auto_reputation_enabled). FEATURE_REGISTRY_v2.md row #199 ('AG-18 Autonomous Reputation Intelligence'): status BUILT -- \"Severity classification. Instant CRITICAL alerts. Correction, July 30 2026: 'Auto memory entries' does not describe the live path. That behavior (writing relationship_memory rows for HIGH/CRITICAL signals) exists only in a separate, undocumented ReputationIntelligenceAgent class ... that is never imported or instantiated anywhere outside its own file -- the actual nightly path (runReputationStep()) calls the plain checkEntityReputation() function directly and writes only reputation_signals + reputation_alerts + a critical-severity alerts row, with no relationship_memory write.\" NOTE: that row's own claim ('never imported or instantiated anywhere outside its own file') is now stale/superseded by this session's own direct read of autonomous-orchestrator.ts, which DOES instantiate and call ReputationIntelligenceAgent for funders (lines ~1852-1871) -- worth re-flagging as a registry-vs-code drift distinct from this agent's WORKS/WIRED-NO-OUTPUT verdict above.",
+  "falsePassCasualty": true
+}

@@ -1,0 +1,72 @@
+{
+  "canonicalNumber": "AG-16",
+  "registryAgentId": "ag-16-digital-twin",
+  "implementingFile": "src/lib/intelligence/digital-twin-builder.ts",
+  "writeTargetTables": [
+    "organizational_digital_twins"
+  ],
+  "triggerMethod": "Direct function invocation via tsx against the local pt05-local-stack: buildDigitalTwin(orgId, supabase). Not a class -- a plain exported async function, matching its real callers (src/app/api/intelligence/digital-twin/route.ts manual rebuild, src/app/api/knowledge-base/route.ts rebuild-on-save) which both call it the same way.",
+  "before": {
+    "organizational_digital_twins": 0
+  },
+  "after": {
+    "organizational_digital_twins": 1
+  },
+  "rowDelta": {
+    "organizational_digital_twins": 1
+  },
+  "sampleWrittenRow": {
+    "organizational_digital_twins_row": {
+      "id": "dbc3e0f5-46b4-46c5-8fee-53ff9d6fb225",
+      "org_id": null,
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "mission": "PT-09 batch-1 dedicated test org, non-Faith, for agent execution proof.",
+      "vision": null,
+      "service_areas": [
+        "Central Texas"
+      ],
+      "programs": [
+        {
+          "title": null,
+          "description": "Our flagship program places 200 families per year into stable housing paired with job training."
+        }
+      ],
+      "financial_profile": {
+        "total_staff": 12,
+        "annual_budget": 1250000,
+        "total_volunteers": 40
+      },
+      "board_composition": [
+        {
+          "bio": null,
+          "name": "Alex Chen",
+          "email": null,
+          "title": "Board Chair"
+        },
+        {
+          "bio": null,
+          "name": "Priya Nair",
+          "email": null,
+          "title": "Treasurer"
+        }
+      ],
+      "proven_narrative_patterns": [],
+      "key_strengths": [
+        "50% award rate across 2 recorded outcomes.",
+        "1 documented program.",
+        "2 active board members on record."
+      ],
+      "known_weaknesses": null,
+      "twin_completeness_score": 60,
+      "last_rebuilt_at": "2026-08-20T06:28:37.810Z",
+      "created_at": "2026-08-20T06:28:37.386Z",
+      "updated_at": "2026-08-20T06:28:37.386Z"
+    }
+  },
+  "triggerLog": "buildDigitalTwin() resolved: twin_completeness_score=60\ntwin: {\"organization_id\":\"600fe8e5-c716-4b11-a9d2-da884df84016\",\"mission\":\"PT-09 batch-1 dedicated test org, non-Faith, for agent execution proof.\",\"service_areas\":[\"Central Texas\"],\"programs\":[{\"title\":null,\"description\":\"Our flagship program places 200 families per year into stable housing paired with job training.\"}],\"financial_profile\":{\"annual_budget\":1250000,\"total_staff\":12,\"total_volunteers\":40},\"board_composition\":[{\"name\":\"Alex Chen\",\"title\":\"Board Chair\",\"bio\":null,\"email\":null},{\"name\":\"Priya Nair\",\"title\":\"Treasurer\",\"bio\":null,\"email\":null}],\"proven_narrative_patterns\":[],\"key_strengths\":[\"50% award rate across 2 recorded outcomes.\",\"1 documented program.\",\"2 active board members on record.\"],\"twin_completeness_score\":60,\"last_rebuilt_at\":\"2026-08-20T06:28:37.810Z\",\"stats\":{\"outcomes_count\":2,\"kb_entries_count\":2,\"applications_count\":3,\"applications_by_stage\":{\"drafting\":2,\"awarded\":1},\"most_applied_categories\":[{\"category\":\"private_foundation\",\"count\":2},{\"category\":\"government_grant\",\"count\":1}]}}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "organizational_digital_twins row upserted with real content genuinely derived from this org's seeded data: mission=\"PT-09 batch-1 dedicated test org, non-Faith, for agent execution proof.\", 2 board member(s), twin_completeness_score=60 -- matches AG-16's documented intent (assemble and persist an organizational profile twin). Note: this function has no agent_runs logging of its own (it is not a BaseAgent/AutonomousAgent subclass), so agent_runs is correctly not among its write targets.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #107: \"Digital Twin Builder (AG-16) | BUILT — VERIFIED | ... buildDigitalTwin() compiles clean ... a live read of organizational_digital_twins for the real Faith Foundation org confirmed a genuine, data-rich, already-built twin (twin_completeness_score: 70, real mission statement, real board members with real bios) — not a stub or seed row. Event-driven (KB save, onboarding, manual API), not schedule-driven.\" Consistent with this run's WORKS verdict (twin_completeness_score: 60 for this smaller test org, same real-content shape).",
+  "falsePassCasualty": false
+}

@@ -1,0 +1,88 @@
+{
+  "canonicalNumber": "AG-08 (on-disk collision, unregistered)",
+  "registryAgentId": null,
+  "implementingFile": "src/lib/agents/renewal-tracker-agent.ts",
+  "writeTargetTables": [
+    "opportunities",
+    "agent_runs",
+    "agent_decisions"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new RenewalTrackerAgent(orgId, supabase).run('manual'). Matches its real (scheduled, gated) trigger path minus the isFirstOfMonthChicago() gate, which is a scheduling condition external to the agent's own logic.",
+  "before": {
+    "opportunities": 3,
+    "agent_runs": 5,
+    "agent_decisions": 0
+  },
+  "after": {
+    "opportunities": 4,
+    "agent_runs": 6,
+    "agent_decisions": 1
+  },
+  "rowDelta": {
+    "opportunities": 1,
+    "agent_runs": 1,
+    "agent_decisions": 1
+  },
+  "sampleWrittenRow": {
+    "opportunities_created": {
+      "id": "097c768f-0ff5-4a3c-a2f7-e79ee174da9f",
+      "name": "PT-09 Test Opportunity 1 -- Renewal 2027",
+      "funder_id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "category": "private_foundation",
+      "status": "open",
+      "source": "agent",
+      "deadline": "2027-08-30T00:00:00.000Z",
+      "description": "Auto-created by Renewal Tracker Agent. Original opportunity \"PT-09 Test Opportunity 1\" was awarded and recurs (rolling)."
+    },
+    "agent_runs_row": {
+      "id": "05ee1a7c-78b2-4252-bf6a-d8f38364ec40",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-08-renewal-tracker",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "{\"opportunitiesEvaluated\":1,\"renewalsCreated\":1}",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:28:49.629Z",
+      "completed_at": "2026-08-20T06:28:49.793Z",
+      "created_at": "2026-08-20T06:28:50.806Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 1,
+      "output_payload": {}
+    },
+    "agent_decisions_row": {
+      "id": "fb4aab7d-a7eb-43fc-98f2-70991c71bb4b",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-08-renewal-tracker",
+      "decision_type": "renewal_opportunity_created",
+      "entity_type": "opportunity",
+      "entity_id": "097c768f-0ff5-4a3c-a2f7-e79ee174da9f",
+      "reasoning": "An awarded application exists against opportunity \"PT-09 Test Opportunity 1\" (category: private_foundation), and its recurrence is \"rolling\", which qualifies it as a recurring funding cycle rather than a one-time award. A new renewal opportunity \"PT-09 Test Opportunity 1 -- Renewal 2027\" was created with a target deadline of 2027-08-30 (365 days after the original opportunity's deadline, or from today if no deadline was on file). Before creating it, this agent checked for an existing opportunity with the exact same name for this funder to avoid inserting a duplicate on a later monthly run. This is a deterministic record-creation action - no AI model is used - and it only creates a new opportunity for a human to review and pursue; it never auto-applies or auto-submits anything.",
+      "confidence_score": 92,
+      "action_taken": "created_renewal_opportunity",
+      "required_human_review": false,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:28:50.921Z",
+      "agent_run_id": "05ee1a7c-78b2-4252-bf6a-d8f38364ec40",
+      "action_payload": {
+        "deadline": "2027-08-30",
+        "renewalName": "PT-09 Test Opportunity 1 -- Renewal 2027",
+        "sourceOpportunityId": "88365eb3-b324-4c0d-bb10-a7802d540965"
+      },
+      "human_reviewer_id": null
+    }
+  },
+  "triggerLog": "Pre-condition: seeded an application (stage='awarded') against opportunity 88365eb3-b324-4c0d-bb10-a7802d540965 (recurrence='rolling', category='private_foundation') so this agent has a real awarded+recurring cycle to create a renewal for.\nagent.run() resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":1,\"decisions\":[\"fb4aab7d-a7eb-43fc-98f2-70991c71bb4b\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "A new opportunities row was created (\"PT-09 Test Opportunity 1 -- Renewal 2027\") -- a real renewal record, not an empty stub -- with a real agent_decisions reasoning entry explaining the renewal logic. Matches the agent's documented intent exactly: deterministic record creation for a recurring, awarded funding cycle.",
+  "registryPriorStatus": "No registry entry (inRegistry: false per agent-inventory.json). FEATURE_REGISTRY_v2.md row #208: 'AG-08 Renewal Tracker | BUILT | Monthly. Auto-creates renewal opportunity records for recurring grants.' -- this row's description matches THIS file's real behavior exactly (unlike the registry's own ag-08-nofa-parser agent_id, which is a different class).",
+  "falsePassCasualty": false
+}

@@ -1,0 +1,227 @@
+{
+  "canonicalNumber": "AG-11 (on-disk collision, unregistered)",
+  "registryAgentId": null,
+  "implementingFile": "src/lib/agents/knowledge-gap-agent.ts",
+  "writeTargetTables": [
+    "agent_decisions",
+    "alerts",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new KnowledgeGapAgent(orgId, supabase).run('manual'). Matches its real (scheduled, Sunday-gated) trigger path minus the isSundayChicago() gate.",
+  "before": {
+    "agent_decisions": 38,
+    "alerts": 2,
+    "agent_runs": 20,
+    "agent_queue": 26
+  },
+  "after": {
+    "agent_decisions": 47,
+    "alerts": 3,
+    "agent_runs": 21,
+    "agent_queue": 26
+  },
+  "rowDelta": {
+    "agent_decisions": 9,
+    "alerts": 1,
+    "agent_runs": 1,
+    "agent_queue": 0
+  },
+  "sampleWrittenRow": {
+    "agent_decisions_rows": [
+      {
+        "id": "5a4f054e-4070-4421-a84b-af27049ec0be",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"organizational_history\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Write a chronological narrative of your organization's founding, key milestones, and growth that includes your founding year, the specific problem that prompted your creation, major program expansions or pivots, and any awards, evaluations, or recognition that establish your credibility and track record. This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.849Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "organizational_history",
+          "suggestion": "Write a chronological narrative of your organization's founding, key milestones, and growth that includes your founding year, the specific problem that prompted your creation, major program expansions or pivots, and any awards, evaluations, or recognition that establish your credibility and track record."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "fbd5382a-f7d3-4bd9-b4cc-f54d43f67807",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"budget_justification\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Provide a line-item breakdown of your program budget that ties each expense category directly to a program activity and explains why the cost is necessary, reasonable, and accurately priced (e.g., \"Childcare coordinator salary at $42,000 reflects the local market rate for a licensed social worker managing 80 families monthly\"). This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.843Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "budget_justification",
+          "suggestion": "Provide a line-item breakdown of your program budget that ties each expense category directly to a program activity and explains why the cost is necessary, reasonable, and accurately priced (e.g., \"Childcare coordinator salary at $42,000 reflects the local market rate for a licensed social worker managing 80 families monthly\")."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "67265d44-e7e3-4e92-a859-4f2cdfb98267",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"partnerships\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Name each current partner organization individually and describe the specific, formalized role each plays in your program delivery — such as a signed MOU, a referral pipeline, co-facilitation responsibilities, or in-kind contributions — rather than listing affiliations in general terms. This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.836Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "partnerships",
+          "suggestion": "Name each current partner organization individually and describe the specific, formalized role each plays in your program delivery — such as a signed MOU, a referral pipeline, co-facilitation responsibilities, or in-kind contributions — rather than listing affiliations in general terms."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "41c921c7-4610-4ebc-8e57-f9af2d240ac2",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"sustainability\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Explain how your programs will remain funded after a grant ends by naming the specific revenue streams — such as earned income, multi-year contracts, individual donors, or government funding — along with the current dollar amounts or percentages each stream contributes to your overall budget. This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.829Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "sustainability",
+          "suggestion": "Explain how your programs will remain funded after a grant ends by naming the specific revenue streams — such as earned income, multi-year contracts, individual donors, or government funding — along with the current dollar amounts or percentages each stream contributes to your overall budget."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "a8cd6710-cd3b-4008-b138-8055e5f2f3a1",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"capacity\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Describe your organization's operational capacity by specifying your current number of full-time and part-time staff, key leadership credentials, volunteer infrastructure, physical facilities or technology systems, and any relevant accreditations or licenses that demonstrate your ability to deliver programs at scale. This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.823Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "capacity",
+          "suggestion": "Describe your organization's operational capacity by specifying your current number of full-time and part-time staff, key leadership credentials, volunteer infrastructure, physical facilities or technology systems, and any relevant accreditations or licenses that demonstrate your ability to deliver programs at scale."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "9dd90fea-3074-43d9-ad94-bb97dae29561",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"impact\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: List your three to five most recent, concrete program outcomes with exact numbers, such as the count of individuals served, percentage of participants who achieved a defined milestone, and the time period and data collection method used to measure those results. This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.816Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "impact",
+          "suggestion": "List your three to five most recent, concrete program outcomes with exact numbers, such as the count of individuals served, percentage of participants who achieved a defined milestone, and the time period and data collection method used to measure those results."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "8542aa0e-1bd5-467a-9a3f-d09c7008a89c",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"need_statement\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Describe the documented, localized problem your programs address by citing at least two current statistics — such as census data, a community needs assessment, or government reports — that quantify the scale and urgency of the issue for your specific target population. This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.807Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "need_statement",
+          "suggestion": "Describe the documented, localized problem your programs address by citing at least two current statistics — such as census data, a community needs assessment, or government reports — that quantify the scale and urgency of the issue for your specific target population."
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "3f732b89-e80d-48c5-ac59-c069a9a3d9fa",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "agent_id": "ag-11-knowledge-gap",
+        "decision_type": "knowledge_gap_identified",
+        "entity_type": "knowledge_base_category",
+        "entity_id": null,
+        "reasoning": "The \"vision\" Knowledge Base category has zero entries for this organization, out of 10 standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. Suggestion for this category: Add a one-sentence aspirational statement describing the specific, measurable long-term change your organization exists to create in the world (e.g., \"A county where every child under five has access to nutritious food within one mile of home\"). This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
+        "confidence_score": 90,
+        "action_taken": "flagged_knowledge_gap",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T06:33:33.796Z",
+        "agent_run_id": "a78b68c8-8f34-4a71-80e2-7d55b7d7bad5",
+        "action_payload": {
+          "category": "vision",
+          "suggestion": "Add a one-sentence aspirational statement describing the specific, measurable long-term change your organization exists to create in the world (e.g., \"A county where every child under five has access to nutritious food within one mile of home\")."
+        },
+        "human_reviewer_id": null
+      }
+    ],
+    "alerts_row": {
+      "id": "8cc452fd-d7ce-44da-a44b-e4f6235aa7cb",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "type": "system",
+      "severity": "info",
+      "message": "Knowledge Base gaps identified: 8 standard categories are missing from your Knowledge Base: vision, need_statement, impact, capacity, sustainability, partnerships, budget_justification, organizational_history.",
+      "link": null,
+      "is_read": false,
+      "read_at": null,
+      "is_dismissed": false,
+      "dismissed_at": null,
+      "snoozed_until": null,
+      "opportunity_id": null,
+      "application_id": null,
+      "deadline_id": null,
+      "dedup_key": "autonomous:ag-11-knowledge-gap:knowledge_gap:ce145c6a-45c5-4664-98c2-54aae7b93c72",
+      "created_by": null,
+      "created_at": "2026-08-20T06:33:33.789Z",
+      "updated_at": "2026-08-20T06:33:33.789Z"
+    }
+  },
+  "triggerLog": "Pre-condition check: knowledge_base rows for this org = 2 (expect all 10 standard categories missing).\nagent.run() resolved: {\"success\":true,\"itemsFound\":10,\"itemsProcessed\":8,\"itemsQueued\":8,\"decisions\":[\"3f732b89-e80d-48c5-ac59-c069a9a3d9fa\",\"8542aa0e-1bd5-467a-9a3f-d09c7008a89c\",\"9dd90fea-3074-43d9-ad94-bb97dae29561\",\"a8cd6710-cd3b-4008-b138-8055e5f2f3a1\",\"41c921c7-4610-4ebc-8e57-f9af2d240ac2\",\"67265d44-e7e3-4e92-a859-4f2cdfb98267\",\"fbd5382a-f7d3-4bd9-b4cc-f54d43f67807\",\"5a4f054e-4070-4421-a84b-af27049ec0be\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "8 agent_decisions row(s) written, one per missing KB category, each with a real Claude-generated category-specific suggestion (not boilerplate) embedded in its reasoning/action_payload, plus one real alerts row. Confirmed: agent_queue delta is 0 -- this agent genuinely never calls queueChainedAgent() in this code path, matching direct source inspection (the inventory's speculation about an agent_queue write does not hold). Counted WORKS because this agent's real documented output IS agent_decisions + a notification -- it has no dedicated business table to write, by design (it only surfaces gaps for a human, per its own header comment), and both real writes carry substantive, non-stub content.",
+  "registryPriorStatus": "No registry entry (inRegistry: false per agent-inventory.json). FEATURE_REGISTRY_v2.md row #211: 'AG-11 Knowledge Gap Detector | BUILT | Weekly. Identifies missing KB categories with specific fill-in prompts.' -- this row's description matches THIS file's real behavior exactly (unlike the registry's own cold_outreach agent_id, which is a different class).",
+  "falsePassCasualty": false
+}

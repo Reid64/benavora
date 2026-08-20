@@ -1,5 +1,53 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-09-001 COMPLETE. Authoritative AG-01..AG-43 agent
+## Last Updated: August 20, 2026 — audit PT-09-002 COMPLETE. Per-agent execution proof, batch 1
+(AG-01..AG-21 real numbering per PT-09-001, 28 real agent-code entries incl. on-disk collisions
+and non-canonical duplicates). Executed via 4 parallel background agents plus the main session
+(AG-01 as the validated template; AG-12 hand-determined PENDING-SCOPE), each given the same
+grounded environment: a real, live, local, non-production Supabase stack (`pt05-local-stack`,
+already running from PT-05), a schema extension auto-generated from the real production schema
+snapshot (`test-evidence/pt-06/live-schema.json`, `scripts/audit/pt09-002-schema-extension.sql`
+— two documented simplifications: enums stored as `text`, all non-`id` columns nullable, so a
+scaffolding gap can never masquerade as a real agent defect), and one dedicated, non-Faith test
+org (`test-evidence/pt-09/environment.json`). Every agent was actually triggered via its real
+invocation contract — direct class instantiation, a real exported function call, or a real
+private class method invoked via bracket notation (TS `private` has no runtime enforcement) —
+never a mock. Before/after row counts came from a raw `pg` connection independent of whatever
+client the agent's own code used.
+
+**Result: 22 WORKS / 3 WIRED-NO-OUTPUT / 1 ERROR-SWALLOWED / 1 TRIGGER-BROKEN / 1 PENDING-SCOPE.
+4 of the 5 non-WORKS entries are `falsePassCasualty: true`** — their registered trigger status
+implied a working path; this proof found the real write target empty or the failure invisible.
+Four new P1 findings registered (`WGR-077` through `WGR-080`, `test-evidence/_register/
+WIRING_GAP_REGISTER.md`, layer "Autonomous Agents"), each root-caused past "it didn't work":
+AG-05 (research family, 1-of-~10 member tested) and AG-13 (foundation scraper) both ran clean and
+wrote zero rows — AG-13's cause is concrete and reproducible (Google search fallback hits a real
+CAPTCHA wall with no `TWOCAPTCHA_API_KEY` configured, independent of which foundation is
+targeted). AG-14 (donor-discovery poll processor) is the session's most severe finding: the real
+production RPC `donor_discovery_claim_request` and the `donor_discovery_taxonomy` table both do
+not exist in production, and the poll loop's own error handling treats the resulting RPC failure
+exactly like an empty queue — a real submitted request sits queued forever with zero visible
+error anywhere in the product. AG-18 (reputation intelligence) ran clean and wrote nothing because
+its DuckDuckGo Instant-Answer search dependency is a curated near-empty test index (independently
+confirmed via a direct call for "Wells Fargo," a real litigation-heavy entity, returning 0
+results) — structurally near-useless for the feature's purpose, not a one-off. AG-12 (AutoApply)
+was never fired at all: confirmed via direct source read that it sends real outbound email
+(`submitViaEmail()`, a real provider messageId) and drives real third-party form submission via
+Playwright, with no dry-run mode anywhere in the codebase — the same caution this project's own
+2026-08-13 AutoApply soak test already applied. AG-20 (EA-01) is TRIGGER-BROKEN but the failure is
+real and visible, not swallowed: `BaseAgent`'s 60s ceiling trips on 3 candidate-URL fetches × 3
+retries against an unreachable site.
+
+**Also found during execution, worth carrying forward**: `agent-inventory.json`'s writesTo[]
+claims were wrong for several on-disk-collision agents, corrected in-place per result —
+`document-expiry-agent.ts` (AG-10 collision) writes `agent_decisions`+`alerts`, never `documents`;
+`search-profile-optimizer-agent.ts` (AG-12 collision) never touches `search_profiles` at all (its
+own header comment states a hard limit); `outcome-analyzer-agent.ts` (AG-09 collision) writes
+`organizations.analytics`, reads (not writes) `outcomes` — the reverse of the prior claim.
+Full record: `test-evidence/pt-09/execution-batch1.json` (28 entries, merged from
+`test-evidence/pt-09/batch1-results/*.json`), gated by `scripts/audit/verify-pt09-002.mjs` —
+**verified this session, exits 0, clean pass, 28/28 required entries present.**
+
+## Prior — August 20, 2026 — audit PT-09-001 COMPLETE. Authoritative AG-01..AG-43 agent
 inventory built and gated. **Prerequisite check passed**: PT-00 and PT-08 artifacts confirmed
 present before any work began (halt condition not triggered). Live `agent_registry` table
 (43 rows, read-only DATABASE_URL query) cross-referenced against every real `agentId`/`agentType`

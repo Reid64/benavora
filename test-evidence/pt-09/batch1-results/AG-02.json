@@ -1,0 +1,65 @@
+{
+  "canonicalNumber": "AG-02",
+  "registryAgentId": "eligibility_scoring",
+  "implementingFile": "src/lib/agents/eligibility-scorer.ts",
+  "writeTargetTables": [
+    "opportunities",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new EligibilityScorer({ client, organizationId }).run({ opportunityId }). Real trigger path (per pt09-001/agent-inventory.json) is the nightly autonomous pipeline (worker/autonomous-orchestrator.ts runEligibilityScoringStep(), gated on org_autonomous_config.auto_score_enabled) and routeQueueItem() case 'eligibility_scoring' -- both ultimately construct and call this same class/method, so direct invocation is a faithful proof of the real write path.",
+  "before": {
+    "opportunities": 3,
+    "agent_runs": 1
+  },
+  "after": {
+    "opportunities": 3,
+    "agent_runs": 2
+  },
+  "rowDelta": {
+    "opportunities": 0,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "opportunities_patched": {
+      "id": "eb3a490b-9f05-4b1e-a668-227f49d9161a",
+      "name": "PT-09 Test Opportunity 3",
+      "eligibility_score": 85,
+      "recommendation": "apply",
+      "recommendation_reasoning": "Mission alignment is reasonable as the organization is a dedicated test entity focused on execution proof, matching the funder's stated seed opportunity purpose for PT-09 batch-1. Geographic match is strong, as the organization explicitly serves Central Texas, which is the required service area. Tax-status qualification is met, as the organization holds 501(c)3 status, satisfying the 501(c)(3) registration requirement. Budget appropriateness is acceptable; with an annual budget of $1,250,000, the award range of $15,000–$75,000 represents roughly 1–6% of operating budget, a proportionate and reasonable ask. Program relevance is adequate given that the funder's stated goal is execution proof for PT-09 batch-1 and the organization is explicitly described as a PT-09 batch-1 dedicated test org, creating a direct alignment.",
+      "match_percentage": 85,
+      "is_high_priority": true,
+      "match_mismatch_reasons": null,
+      "updated_at": "2026-08-20T06:26:28.852Z"
+    },
+    "agent_runs_row": {
+      "id": "d794d148-b067-47fb-8985-a4c9fe969dac",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "eligibility_scoring",
+      "status": "completed",
+      "input_params": {
+        "opportunityId": "eb3a490b-9f05-4b1e-a668-227f49d9161a"
+      },
+      "output_summary": "Scored \"PT-09 Test Opportunity 3\" 85% match → apply.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 703,
+      "duration_ms": 5558,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:26:23.324Z",
+      "completed_at": "2026-08-20T06:26:28.881Z",
+      "created_at": "2026-08-20T06:26:23.342Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run() resolved: runId=d794d148-b067-47fb-8985-a4c9fe969dac tokensUsed=703 durationMs=5558\ndata: {\"opportunityId\":\"eb3a490b-9f05-4b1e-a668-227f49d9161a\",\"eligibilityScore\":85,\"recommendation\":\"apply\",\"recommendationReasoning\":\"Mission alignment is reasonable as the organization is a dedicated test entity focused on execution proof, matching the funder's stated seed opportunity purpose for PT-09 batch-1. Geographic match is strong, as the organization explicitly serves Central Texas, which is the required service area. Tax-status qualification is met, as the organization holds 501(c)3 status, satisfying the 501(c)(3) registration requirement. Budget appropriateness is acceptable; with an annual budget of $1,250,000, the award range of $15,000–$75,000 represents roughly 1–6% of operating budget, a proportionate and reasonable ask. Program relevance is adequate given that the funder's stated goal is execution proof for PT-09 batch-1 and the organization is explicitly described as a PT-09 batch-1 dedicated test org, creating a direct alignment.\",\"matchPercentage\":85,\"isHighPriority\":true,\"mismatchReasons\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "agent_runs row written (real BaseAgent logging), opportunities.eligibility_score/recommendation/match_percentage/is_high_priority patched with a real Claude-derived score (85 -> apply) -- matches AG-02's documented intent (score fit, write recommendation + reasoning).",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #203: \"AG-02 Autonomous Eligibility Scoring | BUILT | Auto-scores new discoveries. Chains qualified opps to AG-15.\" (also row #141 \"Enhanced Eligibility Scoring | Tier 2 | BUILT\"). Consistent with this run's WORKS verdict. Also see test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-GATED+QUEUE.",
+  "falsePassCasualty": false
+}

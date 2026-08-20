@@ -1,0 +1,50 @@
+{
+  "canonicalNumber": "AG-13",
+  "registryAgentId": "ag-13-foundation-enrichment",
+  "implementingFile": "src/lib/scraper/foundation-scraper.ts",
+  "writeTargetTables": [
+    "foundation_directory"
+  ],
+  "triggerMethod": "Direct invocation via tsx against the local pt05-local-stack: enrichSingleFoundation(foundationId) -- the exported single-row entry point this file's own header documents as AG-42 Change Monitor's real chain target, reusing the same processFoundation()/buildEinIndex() waterfall the weekly 'foundation-enrichment-weekly' scheduled job (worker/scheduler.ts) uses. Real network calls throughout: IRS 990 index/XML download (apps.irs.gov), Google search fallback, and a real Playwright/Chromium-driven contact-page crawl via StealthEngine (chromium launch verified working in this sandbox before running). No mocking.",
+  "before": {
+    "id": "6540e5b0-965e-43f5-8a77-0ac98a732e6d",
+    "name": "PT-09 Seed Foundation",
+    "ein": null,
+    "website": null,
+    "email": null,
+    "phone": null,
+    "enriched_web_at": null
+  },
+  "after": {
+    "id": "6540e5b0-965e-43f5-8a77-0ac98a732e6d",
+    "name": "PT-09 Seed Foundation",
+    "ein": null,
+    "website": null,
+    "email": null,
+    "phone": null,
+    "enriched_web_at": null
+  },
+  "rowDelta": {
+    "foundation_directory_website_changed": false,
+    "foundation_directory_email_changed": false,
+    "foundation_directory_phone_changed": false,
+    "foundation_directory_enriched_web_at_changed": false
+  },
+  "sampleWrittenRow": {
+    "id": "6540e5b0-965e-43f5-8a77-0ac98a732e6d",
+    "name": "PT-09 Seed Foundation",
+    "ein": null,
+    "website": null,
+    "email": null,
+    "phone": null,
+    "enrichment": {},
+    "enriched_web_at": null,
+    "website_discovered_via": null
+  },
+  "triggerLog": "Target foundation_directory row: 6540e5b0-965e-43f5-8a77-0ac98a732e6d (name=PT-09 Seed Foundation, ein=null, website=null, email=null, phone=null).\nENABLE_SCRAPER=true set for trigger-path fidelity (not read by enrichSingleFoundation() itself, only by the scheduler wrapper that normally calls it weekly).\nenrichSingleFoundation() resolved: {\"enriched\":false,\"strategy\":\"none\"}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "enrichSingleFoundation() ran to completion cleanly (no throw) and returned enriched=false, strategy=\"none\" -- meaning none of the three waterfall strategies patched foundation_directory. Root-caused per-strategy from the captured console output, not left ambiguous: Strategy 1 (IRS 990 XML) never ran a real lookup because this seed row's ein is null (loadEinsMissingWebsite() only adds non-empty EINs to its needed-set, so buildEinIndex() correctly short-circuited to an empty map rather than downloading the full IRS index for nothing) -- this is a seed-data limitation (real, BMF-imported foundation_directory rows in production do carry an EIN), not a code defect, so Strategy 1 was NOT meaningfully exercised this run. Strategy 2 (Google search fallback) WAS exercised for real and hit a genuine, generalizable, non-seed-specific wall: 'CAPTCHA detected (recaptcha_v2) — no TWOCAPTCHA_API_KEY configured, skipping page' on all 3 attempts. Since this local .env.local (loaded via setupLocalEnv()) has no TWOCAPTCHA_API_KEY configured, Strategy 2 is confirmed non-functional as currently deployed whenever Google serves a CAPTCHA challenge -- a real, reproducible finding independent of which foundation is being enriched. Strategy 3 (contact-page extraction) never ran since it requires a website, which neither Strategy 1 nor 2 produced. Net: a genuine \"ran clean, wrote nothing\" result, with Strategy 2's CAPTCHA/no-solver-key wall as the most actionable, generalizable cause found.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-ENV-GATED ('foundation-enrichment-weekly' worker/scheduler.ts job, hour 3 Sunday, gated on ENABLE_SCRAPER='true'; CONFIRMED STARTED per boot-inventory + confirmedFiringLive per cron-reconciliation). FEATURE_REGISTRY_v2.md row S2 ('Foundation Enrichment Scraper'): status BUILT -- \"src/lib/scraper/foundation-scraper.ts — StealthEngine-based waterfall (homepage fetch -> contact-page discovery -> extraction) against foundation_directory. Wired into worker/scheduler.ts's foundation-enrichment-weekly job (Sunday 3AM CST, gated behind ENABLE_SCRAPER=true) ... Pagination bug fixed 2026-08-14/15 ... Not live-verified this session: a fresh confirmation run was blocked by a tool-permission gate on live network+secret calls before it could execute -- the fix is code-verified ... but not yet observed against production data.\" This session's run IS a real, live-network confirmation (the thing that row explicitly says was still missing) -- and found a different, new gap (Strategy 2's CAPTCHA/no-solver-key wall) than the pagination bug that row already tracks.",
+  "falsePassCasualty": true
+}

@@ -1,0 +1,174 @@
+{
+  "canonicalNumber": "AG-06 (non-canonical duplicate)",
+  "registryAgentId": "ag-06-budget-builder",
+  "implementingFile": "src/lib/agents/budget-builder-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "applications (UPDATE budget_data)"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack, reproducing the real production contract: seeded one agent_queue row (org_id, agent_id='ag-06-budget-builder', status='processing', input_payload={applicationId}) since BudgetBuilderAgent.run() takes only a triggerSource and reads its target application off that queue row (mirrors worker/autonomous-orchestrator.ts routeQueueItem() case 'budget_builder'). Then: new BudgetBuilderAgent(orgId, supabase).run('event').",
+  "before": {
+    "agent_runs": 18,
+    "agent_decisions": 38,
+    "applications_budget_data_before": null
+  },
+  "after": {
+    "agent_runs": 21,
+    "agent_decisions": 39,
+    "applications_budget_data_after": "see sampleWrittenRow"
+  },
+  "rowDelta": {
+    "agent_runs": 3,
+    "agent_decisions": 1
+  },
+  "sampleWrittenRow": {
+    "applications_updated": {
+      "id": "94f79d2e-d8ec-4802-9395-ee251f298c0e",
+      "opportunity_id": "88365eb3-b324-4c0d-bb10-a7802d540965",
+      "stage": "drafting",
+      "budget_data": {
+        "total": 0,
+        "lineItems": [
+          {
+            "amount": 0,
+            "category": "Personnel",
+            "description": "Project Lead / Program Staff (partial FTE)",
+            "justification": "[NEEDS INPUT: No salary data, staff titles, FTE allocations, or hourly rates on file. Please provide the name/title of the staff member(s) assigned to this project, their annual salary or hourly rate, and the percentage of time dedicated to this grant-funded project.]"
+          },
+          {
+            "amount": 0,
+            "category": "Personnel",
+            "description": "Fringe Benefits",
+            "justification": "[NEEDS INPUT: No fringe benefit rate or policy on file. Please provide the organization's fringe benefit rate (as a percentage of salary) or a breakdown of benefit costs (e.g., health insurance, payroll taxes, retirement contributions) applicable to grant-funded staff.]"
+          },
+          {
+            "amount": 0,
+            "category": "Program Delivery",
+            "description": "Direct Program Costs (supplies, materials, participant costs)",
+            "justification": "[NEEDS INPUT: No program delivery cost data, unit costs, participant numbers, or material requirements on file. Please provide a description of program activities, anticipated number of participants or sessions, and associated per-unit or per-participant costs.]"
+          },
+          {
+            "amount": 0,
+            "category": "Materials & Equipment",
+            "description": "Program Materials and Supplies",
+            "justification": "[NEEDS INPUT: No materials or equipment specifications, vendor quotes, or unit pricing on file. Please provide a list of required materials or equipment with estimated quantities and costs per unit.]"
+          },
+          {
+            "amount": 0,
+            "category": "Contractual / Consultants",
+            "description": "External Consultants or Subcontractors",
+            "justification": "[NEEDS INPUT: No consultant agreements, scopes of work, or hourly/project rates on file. If consultants or subcontractors are required for this project, please provide their role, rate, and estimated hours or deliverables.]"
+          },
+          {
+            "amount": 0,
+            "category": "Evaluation",
+            "description": "Program Evaluation and Data Collection",
+            "justification": "[NEEDS INPUT: No evaluation methodology, evaluator contracts, or associated costs on file. Please provide details on how program outcomes will be measured, who will conduct the evaluation, and the estimated cost.]"
+          },
+          {
+            "amount": 0,
+            "category": "Administrative Overhead / Indirect Costs",
+            "description": "Indirect/Administrative Overhead",
+            "justification": "[NEEDS INPUT: No negotiated indirect cost rate (NICRA) or organization indirect cost policy on file. Please provide the organization's approved indirect cost rate or confirm whether the funder permits an overhead allocation and at what percentage. Note: PT-09 Batch1 Test Org's annual operating budget is $1,250,000, which may support an overhead rate calculation, but no rate has been established in the Knowledge Base.]"
+          }
+        ],
+        "narrative": "This budget is intended to support project activities funded through the PT-09 Test Opportunity 1 grant (award range $15,000–$75,000) for PT-09 Batch1 Test Org (annual operating budget: $1,250,000). However, no budget justification entries are currently on file in the Knowledge Base, and therefore no dollar figures can be responsibly assigned to any line item without risking fabrication of unverified costs. All line items have been flagged with [NEEDS INPUT] markers specifying exactly what information is required. Once the organization provides verified salary data, fringe rates, program delivery costs, materials specifications, consultant agreements, evaluation methodology costs, and an indirect cost rate, this budget can be completed and brought within the $15,000–$75,000 award range. This output must be reviewed and completed by authorized staff before submission."
+      },
+      "updated_at": "2026-08-20T06:17:17.023Z"
+    },
+    "agent_runs_row": {
+      "id": "7439230c-979c-47a6-b03c-046f20ff5a6e",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-06-budget-builder",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Generated budget for \"PT-09 Test Opportunity 1\": 7 line items, total $0.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 1360,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:33:05.297Z",
+      "completed_at": "2026-08-20T06:33:24.230Z",
+      "created_at": "2026-08-20T06:33:06.669Z",
+      "trigger_source": "event",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "agent_decisions_row": {
+      "id": "e02041db-27c3-414f-abed-1f57a531e60f",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-06-budget-builder",
+      "decision_type": "budget_generated",
+      "entity_type": "application",
+      "entity_id": "94f79d2e-d8ec-4802-9395-ee251f298c0e",
+      "reasoning": "Generated a draft budget for application 94f79d2e-d8ec-4802-9395-ee251f298c0e against the opportunity \"PT-09 Test Opportunity 1\": 7 line item(s) totaling $0, drawn from 0 Knowledge Base budget-justification entries and the organization's verified financial profile. This budget is intended to support project activities funded through the PT-09 Test Opportunity 1 grant (award range $15,000–$75,000) for PT-09 Batch1 Test Org (annual operating budget: $1,250,000). However, no budget justification entries are currently on file in the Knowledge Base, and therefore no dollar figures can be responsibly assigned to any line item without risking fabrication of unverified costs. All line items have been flagged with [NEEDS INPUT] markers specifying exactly what information is required. Once the organization provides verified salary data, fringe rates, program delivery costs, materials specifications, consultant agreements, evaluation methodology costs, and an indirect cost rate, this budget can be completed and brought within the $15,000–$75,000 award range. This output must be reviewed and completed by authorized staff before submission. Any figure that could not be grounded in verified data was flagged with a [NEEDS INPUT: ...] marker in its justification rather than fabricated. Per hard limit, this budget is written to applications.budget_data for human review only - it is never treated as final or used to auto-submit anything, hence required_human_review is forced true regardless of confidence.",
+      "confidence_score": 80,
+      "action_taken": "budget_data_populated",
+      "required_human_review": true,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:33:24.123Z",
+      "agent_run_id": "7439230c-979c-47a6-b03c-046f20ff5a6e",
+      "action_payload": {
+        "total": 0,
+        "lineItems": [
+          {
+            "amount": 0,
+            "category": "Personnel",
+            "description": "Project Lead / Program Staff (partial FTE)",
+            "justification": "[NEEDS INPUT: No salary data, staff titles, FTE allocations, or hourly rates on file. Please provide the name/title of the staff member(s) assigned to this project, their annual salary or hourly rate, and the percentage of time dedicated to this grant-funded project.]"
+          },
+          {
+            "amount": 0,
+            "category": "Personnel",
+            "description": "Fringe Benefits",
+            "justification": "[NEEDS INPUT: No fringe benefit rate or policy on file. Please provide the organization's fringe benefit rate (as a percentage of salary) or a breakdown of benefit costs (e.g., health insurance, payroll taxes, retirement contributions) applicable to grant-funded staff.]"
+          },
+          {
+            "amount": 0,
+            "category": "Program Delivery",
+            "description": "Direct Program Costs (supplies, materials, participant costs)",
+            "justification": "[NEEDS INPUT: No program delivery cost data, unit costs, participant numbers, or material requirements on file. Please provide a description of program activities, anticipated number of participants or sessions, and associated per-unit or per-participant costs.]"
+          },
+          {
+            "amount": 0,
+            "category": "Materials & Equipment",
+            "description": "Program Materials and Supplies",
+            "justification": "[NEEDS INPUT: No materials or equipment specifications, vendor quotes, or unit pricing on file. Please provide a list of required materials or equipment with estimated quantities and costs per unit.]"
+          },
+          {
+            "amount": 0,
+            "category": "Contractual / Consultants",
+            "description": "External Consultants or Subcontractors",
+            "justification": "[NEEDS INPUT: No consultant agreements, scopes of work, or hourly/project rates on file. If consultants or subcontractors are required for this project, please provide their role, rate, and estimated hours or deliverables.]"
+          },
+          {
+            "amount": 0,
+            "category": "Evaluation",
+            "description": "Program Evaluation and Data Collection",
+            "justification": "[NEEDS INPUT: No evaluation methodology, evaluator contracts, or associated costs on file. Please provide details on how program outcomes will be measured, who will conduct the evaluation, and the estimated cost.]"
+          },
+          {
+            "amount": 0,
+            "category": "Administrative Overhead / Indirect Costs",
+            "description": "Indirect/Administrative Overhead",
+            "justification": "[NEEDS INPUT: No negotiated indirect cost rate (NICRA) or organization indirect cost policy on file. Please provide the organization's approved indirect cost rate or confirm whether the funder permits an overhead allocation and at what percentage. Note: PT-09 Batch1 Test Org's annual operating budget is $1,250,000, which may support an overhead rate calculation, but no rate has been established in the Knowledge Base.]"
+          }
+        ],
+        "narrative": "This budget is intended to support project activities funded through the PT-09 Test Opportunity 1 grant (award range $15,000–$75,000) for PT-09 Batch1 Test Org (annual operating budget: $1,250,000). However, no budget justification entries are currently on file in the Knowledge Base, and therefore no dollar figures can be responsibly assigned to any line item without risking fabrication of unverified costs. All line items have been flagged with [NEEDS INPUT] markers specifying exactly what information is required. Once the organization provides verified salary data, fringe rates, program delivery costs, materials specifications, consultant agreements, evaluation methodology costs, and an indirect cost rate, this budget can be completed and brought within the $15,000–$75,000 award range. This output must be reviewed and completed by authorized staff before submission."
+      },
+      "human_reviewer_id": null
+    }
+  },
+  "triggerLog": "Seeded agent_queue row 50a051c3-39a6-4603-90ae-ffbe72a655eb (status=processing, agent_id=ag-06-budget-builder, input_payload.applicationId=94f79d2e-d8ec-4802-9395-ee251f298c0e)\nagent.run(\"event\") resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"e02041db-27c3-414f-abed-1f57a531e60f\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "applications.budget_data was updated in place (UPDATE, not INSERT -- confirmed by comparing the same row id before/after) from null to a real Claude-generated structured budget: 7 line item(s) totaling $0, grounded in this org's annual_budget and (absent) KB budget-justification entries. agent_decisions logged with requiredHumanReview=true (HARD LIMIT honored -- budget generated for human review only). Matches AG-06 Budget Builder's documented intent exactly.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #207: 'AG-06 Autonomous Budget Builder | BUILT | Event-driven on drafting stage. Generates budget for human review.' Note per agent-inventory.json: THREE distinct budget-generating implementations exist on disk sharing overlapping identity (budget-agent.ts, budget-builder.ts, budget-builder-agent.ts) -- this result covers only budget-builder-agent.ts, the one actually queue-wired via routeQueueItem().",
+  "falsePassCasualty": false
+}

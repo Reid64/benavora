@@ -1,0 +1,103 @@
+{
+  "canonicalNumber": "AG-04",
+  "registryAgentId": "ag-04-fit-analysis",
+  "implementingFile": "src/lib/agents/fit-analysis-agent.ts",
+  "writeTargetTables": [
+    "applications",
+    "agent_runs",
+    "agent_decisions"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack, reproducing the real production contract exactly: seeded one agent_queue row (org_id, agent_id='ag-04-fit-analysis', status='processing', input_payload={opportunityId}) since FitAnalysisAgent.run() takes only a triggerSource and reads its target opportunity off that queue row (mirrors the manual API route at src/app/api/ai/fit-analysis/ per agent-inventory.json's WIRED-MANUAL-API-ONLY verdict -- this class itself has no scheduled/queue caller). Then: new FitAnalysisAgent(orgId, supabase).run('manual').",
+  "before": {
+    "applications": 4,
+    "agent_runs": 8,
+    "agent_decisions": 2
+  },
+  "after": {
+    "applications": 5,
+    "agent_runs": 10,
+    "agent_decisions": 3
+  },
+  "rowDelta": {
+    "applications": 1,
+    "agent_runs": 2,
+    "agent_decisions": 1
+  },
+  "sampleWrittenRow": {
+    "applications_created": {
+      "id": "b724dc65-92f8-4408-bee0-45d931491c1c",
+      "opportunity_id": "eb3a490b-9f05-4b1e-a668-227f49d9161a",
+      "stage": "discovered",
+      "fit_analysis": {
+        "reasoning": "PT-09 Batch1 Test Org presents a reasonable fit for this corporate donation opportunity based on several converging factors. On program alignment, the organization's mission serving low-income families and displaced workers in Central Texas maps cleanly onto the eligibility requirements, which center on registered 501(c)(3) status and a Central Texas service area — the 85/100 eligibility score reflects this strong baseline match. The opportunity's description as a seed opportunity suggests it may be oriented toward organizations demonstrating proof of concept or early-stage capacity, which aligns with the org's positioning. On competitive landscape, corporate donation pools in the $15,000–$75,000 range are typically moderately competitive, with local and regional nonprofits as primary competitors; the organization's geographic specificity to Central Texas is an asset here, as many corporate funders in this category prioritize community proximity. On effort versus reward, this is where the case for applying is clearest: the effort estimate is low, meaning staff burden is minimal relative to a potential award ceiling of $75,000. Even at the floor of $15,000, the return on a low-lift application is favorable given an annual budget of $1,250,000 — a mid-range award of $45,000 would represent approximately 3.6% of annual budget, a meaningful but not transformative sum, which is appropriate given the low effort threshold. On historical success rate, there are no recorded outcomes in this funder category for this organization, and the sample size is zero — well below the three-outcome minimum needed to treat this as a meaningful signal in either direction. Per analytical protocol, this data absence is explicitly noted as neutral and is not being used to either support or undermine the recommendation. The recommendation therefore rests on alignment strength, low application burden, and favorable ROI calculus. A conditional 'apply' rather than 'strong_apply' reflects uncertainty introduced by the absence of any track record with corporate funders and the somewhat sparse opportunity description, which limits confidence in funder priorities and selection criteria.",
+        "conditions": [
+          "Confirm the organization holds active 501(c)(3) status and that registration documentation is current and readily available for submission.",
+          "Clarify funder's specific programmatic priorities beyond the seed opportunity description to ensure narrative framing targets corporate donor values (e.g., workforce development, economic mobility) rather than defaulting to generic mission language.",
+          "If staff capacity is constrained in the application window, prioritize this over higher-effort opportunities given the low lift — do not allow scope creep to inflate the effort level beyond the low estimate."
+        ],
+        "confidence": 72,
+        "expectedROI": "Estimated award range of $15,000–$75,000 against approximately 4 staff hours of effort yields a favorable ROI even at the floor. Mid-range award of ~$45,000 represents roughly 3.6% of annual budget — meaningful incremental funding for a low-income family and displaced worker focus area. ROI confidence is moderate given absence of historical funder category data.",
+        "recommendation": "apply",
+        "timeEstimateHours": 4
+      },
+      "created_at": "2026-08-20T06:29:40.896Z"
+    },
+    "agent_runs_row": {
+      "id": "62ce40ed-b6f5-4966-a042-a5129b48f698",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-04-fit-analysis",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Fit analysis for \"PT-09 Test Opportunity 3\": apply (72% confidence).",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 1250,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:29:23.576Z",
+      "completed_at": "2026-08-20T06:29:41.240Z",
+      "created_at": "2026-08-20T06:29:24.656Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "agent_decisions_row": {
+      "id": "45c4dad3-031d-4a9a-95e6-439420555af1",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-04-fit-analysis",
+      "decision_type": "fit_analysis_complete",
+      "entity_type": "opportunity",
+      "entity_id": "eb3a490b-9f05-4b1e-a668-227f49d9161a",
+      "reasoning": "Fit analysis for \"PT-09 Test Opportunity 3\" (category: Corporate Donation, estimated effort: low) concluded \"apply\" at 72% confidence, with an estimated time commitment of 4 hours and expected ROI of \"Estimated award range of $15,000–$75,000 against approximately 4 staff hours of effort yields a favorable ROI even at the floor. Mid-range award of ~$45,000 represents roughly 3.6% of annual budget — meaningful incremental funding for a low-income family and displaced worker focus area. ROI confidence is moderate given absence of historical funder category data.\". PT-09 Batch1 Test Org presents a reasonable fit for this corporate donation opportunity based on several converging factors. On program alignment, the organization's mission serving low-income families and displaced workers in Central Texas maps cleanly onto the eligibility requirements, which center on registered 501(c)(3) status and a Central Texas service area — the 85/100 eligibility score reflects this strong baseline match. The opportunity's description as a seed opportunity suggests it may be oriented toward organizations demonstrating proof of concept or early-stage capacity, which aligns with the org's positioning. On competitive landscape, corporate donation pools in the $15,000–$75,000 range are typically moderately competitive, with local and regional nonprofits as primary competitors; the organization's geographic specificity to Central Texas is an asset here, as many corporate funders in this category prioritize community proximity. On effort versus reward, this is where the case for applying is clearest: the effort estimate is low, meaning staff burden is minimal relative to a potential award ceiling of $75,000. Even at the floor of $15,000, the return on a low-lift application is favorable given an annual budget of $1,250,000 — a mid-range award of $45,000 would represent approximately 3.6% of annual budget, a meaningful but not transformative sum, which is appropriate given the low effort threshold. On historical success rate, there are no recorded outcomes in this funder category for this organization, and the sample size is zero — well below the three-outcome minimum needed to treat this as a meaningful signal in either direction. Per analytical protocol, this data absence is explicitly noted as neutral and is not being used to either support or undermine the recommendation. The recommendation therefore rests on alignment strength, low application burden, and favorable ROI calculus. A conditional 'apply' rather than 'strong_apply' reflects uncertainty introduced by the absence of any track record with corporate funders and the somewhat sparse opportunity description, which limits confidence in funder priorities and selection criteria. Historical data for this funder category is insufficient (0 recorded outcome(s), below the 3 needed for a reliable rate), so this factor was weighted conservatively rather than guessed. A discovered-stage application was created for human review since the recommendation was not an outright pass.",
+      "confidence_score": 72,
+      "action_taken": "created_application_discovered_stage",
+      "required_human_review": false,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:29:40.913Z",
+      "agent_run_id": "62ce40ed-b6f5-4966-a042-a5129b48f698",
+      "action_payload": {
+        "reasoning": "PT-09 Batch1 Test Org presents a reasonable fit for this corporate donation opportunity based on several converging factors. On program alignment, the organization's mission serving low-income families and displaced workers in Central Texas maps cleanly onto the eligibility requirements, which center on registered 501(c)(3) status and a Central Texas service area — the 85/100 eligibility score reflects this strong baseline match. The opportunity's description as a seed opportunity suggests it may be oriented toward organizations demonstrating proof of concept or early-stage capacity, which aligns with the org's positioning. On competitive landscape, corporate donation pools in the $15,000–$75,000 range are typically moderately competitive, with local and regional nonprofits as primary competitors; the organization's geographic specificity to Central Texas is an asset here, as many corporate funders in this category prioritize community proximity. On effort versus reward, this is where the case for applying is clearest: the effort estimate is low, meaning staff burden is minimal relative to a potential award ceiling of $75,000. Even at the floor of $15,000, the return on a low-lift application is favorable given an annual budget of $1,250,000 — a mid-range award of $45,000 would represent approximately 3.6% of annual budget, a meaningful but not transformative sum, which is appropriate given the low effort threshold. On historical success rate, there are no recorded outcomes in this funder category for this organization, and the sample size is zero — well below the three-outcome minimum needed to treat this as a meaningful signal in either direction. Per analytical protocol, this data absence is explicitly noted as neutral and is not being used to either support or undermine the recommendation. The recommendation therefore rests on alignment strength, low application burden, and favorable ROI calculus. A conditional 'apply' rather than 'strong_apply' reflects uncertainty introduced by the absence of any track record with corporate funders and the somewhat sparse opportunity description, which limits confidence in funder priorities and selection criteria.",
+        "conditions": [
+          "Confirm the organization holds active 501(c)(3) status and that registration documentation is current and readily available for submission.",
+          "Clarify funder's specific programmatic priorities beyond the seed opportunity description to ensure narrative framing targets corporate donor values (e.g., workforce development, economic mobility) rather than defaulting to generic mission language.",
+          "If staff capacity is constrained in the application window, prioritize this over higher-effort opportunities given the low lift — do not allow scope creep to inflate the effort level beyond the low estimate."
+        ],
+        "confidence": 72,
+        "expectedROI": "Estimated award range of $15,000–$75,000 against approximately 4 staff hours of effort yields a favorable ROI even at the floor. Mid-range award of ~$45,000 represents roughly 3.6% of annual budget — meaningful incremental funding for a low-income family and displaced worker focus area. ROI confidence is moderate given absence of historical funder category data.",
+        "recommendation": "apply",
+        "timeEstimateHours": 4
+      },
+      "human_reviewer_id": null
+    }
+  },
+  "triggerLog": "Seeded agent_queue row 5900c89a-9235-40d3-870a-95092d3b4642 (status=processing, agent_id=ag-04-fit-analysis, input_payload.opportunityId=eb3a490b-9f05-4b1e-a668-227f49d9161a)\nagent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"45c4dad3-031d-4a9a-95e6-439420555af1\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "agent_runs + agent_decisions rows written, and a real applications row was created in the 'discovered' stage with fit_analysis populated (recommendation=\"apply\", confidence=72) -- matches AG-04's documented intent: a deep second-pass fit/ROI analysis that creates a discovered-stage application for human review on any non-\"pass\" verdict.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #206: 'AG-04 Autonomous Fit Analysis | BUILT | Fires at eligibility >= 70. Creates discovered-stage application.'",
+  "falsePassCasualty": false
+}

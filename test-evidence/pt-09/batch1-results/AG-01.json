@@ -1,0 +1,63 @@
+{
+  "canonicalNumber": "AG-01",
+  "registryAgentId": "grant_summary",
+  "implementingFile": "src/lib/agents/grant-summary.ts",
+  "writeTargetTables": [
+    "opportunities",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new GrantSummaryAgent({ client, organizationId }).run({ opportunityId, rawText }). Matches AG-01's real trigger path (subroutine, instantiated directly by its caller) per pt09-001.",
+  "before": {
+    "opportunities": 3,
+    "agent_runs": 0
+  },
+  "after": {
+    "opportunities": 3,
+    "agent_runs": 1
+  },
+  "rowDelta": {
+    "opportunities": 0,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "opportunities_patched": {
+      "id": "88365eb3-b324-4c0d-bb10-a7802d540965",
+      "name": "PT-09 Test Opportunity 1",
+      "description": "The PT-09 Community Foundation Housing Stability Grant supports 501(c)(3) nonprofits in Central Texas with awards ranging from $15,000 to $75,000. Funds are intended for transitional housing services and workforce training programs. Applications are accepted on a rolling basis and require a completed application, Form 990, and board list.",
+      "amount_min": "15000",
+      "amount_max": "75000",
+      "updated_at": "2026-08-20T06:21:10.424Z"
+    },
+    "agent_runs_row": {
+      "id": "d10df3be-166d-4222-a636-eef053a4322b",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "grant_summary",
+      "status": "completed",
+      "input_params": {
+        "rawText": "The PT-09 Community Foundation Housing Stability Grant provides $15,000-$75,000 to 501(c)(3) organizations serving Central Texas. Applicants must submit a completed application, most recent Form 990, and a current board list. Deadline is rolling. Funds may be used for transitional housing services and workforce training programs.",
+        "opportunityId": "88365eb3-b324-4c0d-bb10-a7802d540965"
+      },
+      "output_summary": "Summarized \"PT-09 Test Opportunity 1\" and updated 8 field(s).",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 656,
+      "duration_ms": 3689,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:21:06.757Z",
+      "completed_at": "2026-08-20T06:21:10.446Z",
+      "created_at": "2026-08-20T06:21:06.323Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run() resolved: runId=d10df3be-166d-4222-a636-eef053a4322b tokensUsed=656 durationMs=3689\ndata: {\"opportunityId\":\"88365eb3-b324-4c0d-bb10-a7802d540965\",\"needsManualEntry\":false,\"summary\":{\"funderName\":\"PT-09 Community Foundation\",\"programName\":\"Housing Stability Grant\",\"amountMin\":15000,\"amountMax\":75000,\"amountAvailable\":0,\"deadline\":null,\"eligibilityRequirements\":\"Must be a 501(c)(3) organization serving Central Texas\",\"requiredDocuments\":[\"Completed application\",\"Most recent Form 990\",\"Current board list\"],\"applicationMethod\":null,\"geographicRestrictions\":\"Central Texas\",\"recurrence\":\"rolling\",\"summary\":\"The PT-09 Community Foundation Housing Stability Grant supports 501(c)(3) nonprofits in Central Texas with awards ranging from $15,000 to $75,000. Funds are intended for transitional housing services and workforce training programs. Applications are accepted on a rolling basis and require a completed application, Form 990, and board list.\"},\"updatedFields\":[\"description\",\"amount_min\",\"amount_max\",\"amount_available\",\"eligibility_requirements\",\"required_documents\",\"geographic_restrictions\",\"recurrence\"]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "agent_runs row written (real BaseAgent logging), opportunities.description patched with Claude-extracted content, updatedFields populated -- matches AG-01's documented intent (patch an opportunity with structured extraction).",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SUBROUTINE (code exists, real write target, no autonomous trigger -- a manually-invoked subroutine).",
+  "falsePassCasualty": false
+}

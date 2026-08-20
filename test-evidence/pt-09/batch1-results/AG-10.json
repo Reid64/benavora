@@ -1,0 +1,224 @@
+{
+  "canonicalNumber": "AG-10",
+  "registryAgentId": "ag-10-grant-dna",
+  "implementingFile": "src/lib/agents/grant-dna-agent.ts",
+  "writeTargetTables": [
+    "funder_dna_profiles",
+    "agent_runs",
+    "agent_decisions"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new GrantDnaAgent(orgId, supabase).run('manual'), which internally routes to loadScheduledScope() (org-wide funder scan) since 'manual' !== 'event'. Matches AG-10's real weekly-schedule trigger path minus the cron timing.",
+  "before": {
+    "funder_dna_profiles": 0,
+    "agent_runs": 15,
+    "agent_decisions": 32
+  },
+  "after": {
+    "funder_dna_profiles": 3,
+    "agent_runs": 16,
+    "agent_decisions": 35
+  },
+  "rowDelta": {
+    "funder_dna_profiles": 3,
+    "agent_runs": 1,
+    "agent_decisions": 3
+  },
+  "sampleWrittenRow": {
+    "funder_dna_profiles_rows": [
+      {
+        "id": "0174eb33-8d51-4bcd-9c43-9bb00847c6ed",
+        "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "funder_id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+        "requirement_patterns": {
+          "awardRange": {
+            "max": 75000,
+            "min": 15000,
+            "median": 45000
+          },
+          "commonDocuments": [
+            {
+              "type": "Completed application",
+              "frequency": 1
+            },
+            {
+              "type": "Most recent Form 990",
+              "frequency": 1
+            },
+            {
+              "type": "Current board list",
+              "frequency": 1
+            }
+          ],
+          "recurrenceDistribution": {
+            "rolling": 1,
+            "unknown": 1
+          }
+        },
+        "reward_patterns": {
+          "themes": [
+            "Serving Central Texas families aligns directly with funder's stated geographic eligibility, suggesting strong geographic specificity is rewarded",
+            "Demonstrated track record with the target population (Central Texas families) appears valued"
+          ],
+          "matchedByName": 0,
+          "sizeCorrelation": "Positive correlation suggested between established track record serving the funder's target population and higher award ratios (90% funded), though this is based on a single awarded outcome and cannot be confirmed as a reliable pattern"
+        },
+        "typical_award_range_min": "15000",
+        "typical_award_range_max": "75000",
+        "common_eligibility_themes": [
+          "Serving Central Texas families aligns directly with funder's stated geographic eligibility, suggesting strong geographic specificity is rewarded",
+          "Demonstrated track record with the target population (Central Texas families) appears valued"
+        ],
+        "common_required_documents": [
+          "Completed application",
+          "Most recent Form 990",
+          "Current board list"
+        ],
+        "sample_size": 1,
+        "confidence": "18",
+        "last_analyzed_at": "2026-08-20T06:31:45.079Z",
+        "created_at": "2026-08-20T06:31:45.215Z",
+        "updated_at": "2026-08-20T06:31:45.079Z"
+      },
+      {
+        "id": "b9e43071-e95a-40a6-83ec-960d8892a8cb",
+        "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "funder_id": "01bf8906-088c-4495-8fed-fe970d05671e",
+        "requirement_patterns": {
+          "awardRange": {
+            "max": 75000,
+            "min": 15000,
+            "median": 45000
+          },
+          "commonDocuments": [
+            {
+              "type": "Form 990",
+              "frequency": 1
+            },
+            {
+              "type": "Board list",
+              "frequency": 1
+            }
+          ],
+          "recurrenceDistribution": {
+            "unknown": 1
+          }
+        },
+        "reward_patterns": {},
+        "typical_award_range_min": "15000",
+        "typical_award_range_max": "75000",
+        "common_eligibility_themes": [],
+        "common_required_documents": [
+          "Form 990",
+          "Board list"
+        ],
+        "sample_size": 0,
+        "confidence": null,
+        "last_analyzed_at": "2026-08-20T06:31:41.385Z",
+        "created_at": "2026-08-20T06:31:41.824Z",
+        "updated_at": "2026-08-20T06:31:41.385Z"
+      },
+      {
+        "id": "58e11c8a-618f-4ec6-a5f1-b6adf8d62bc0",
+        "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "funder_id": "6a753f84-47d5-45e3-8cd6-3910de2c767f",
+        "requirement_patterns": {
+          "awardRange": {
+            "max": 75000,
+            "min": 15000,
+            "median": 45000
+          },
+          "commonDocuments": [
+            {
+              "type": "Form 990",
+              "frequency": 1
+            },
+            {
+              "type": "Board list",
+              "frequency": 1
+            }
+          ],
+          "recurrenceDistribution": {
+            "Annual": 1
+          }
+        },
+        "reward_patterns": {
+          "themes": [],
+          "matchedByName": 0,
+          "sizeCorrelation": null
+        },
+        "typical_award_range_min": "15000",
+        "typical_award_range_max": "75000",
+        "common_eligibility_themes": [],
+        "common_required_documents": [
+          "Form 990",
+          "Board list"
+        ],
+        "sample_size": 1,
+        "confidence": "4",
+        "last_analyzed_at": "2026-08-20T06:31:41.357Z",
+        "created_at": "2026-08-20T06:31:41.799Z",
+        "updated_at": "2026-08-20T06:31:41.357Z"
+      }
+    ],
+    "agent_decisions_sample": {
+      "id": "1477c144-3f73-4907-ad6f-2bf45624e1fa",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-10-grant-dna",
+      "decision_type": "funder_dna_updated",
+      "entity_type": "funder",
+      "entity_id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "reasoning": "Recomputed funder DNA for \"PT-09 Community Foundation\" from 2 opportunity/ies and 1 outcome(s) (0 funder record(s) pooled cross-org by name match). Requirement patterns are deterministic aggregates over structured columns; reward patterns come from a Claude synthesis over outcome/feedback text, confidence 18 (capped at 40 — sample size 1 is below the 3-outcome floor for an uncapped score).",
+      "confidence_score": 18,
+      "action_taken": "updated_dna_profile_with_reward_patterns",
+      "required_human_review": true,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:31:45.220Z",
+      "agent_run_id": "9fd1768c-b302-45c6-8921-b3f35ac626a4",
+      "action_payload": {
+        "sampleSize": 1,
+        "matchedByName": 0,
+        "rewardPatterns": {
+          "themes": [
+            "Serving Central Texas families aligns directly with funder's stated geographic eligibility, suggesting strong geographic specificity is rewarded",
+            "Demonstrated track record with the target population (Central Texas families) appears valued"
+          ],
+          "matchedByName": 0,
+          "sizeCorrelation": "Positive correlation suggested between established track record serving the funder's target population and higher award ratios (90% funded), though this is based on a single awarded outcome and cannot be confirmed as a reliable pattern"
+        },
+        "requirementPatterns": {
+          "awardRange": {
+            "max": 75000,
+            "min": 15000,
+            "median": 45000
+          },
+          "commonDocuments": [
+            {
+              "type": "Completed application",
+              "frequency": 1
+            },
+            {
+              "type": "Most recent Form 990",
+              "frequency": 1
+            },
+            {
+              "type": "Current board list",
+              "frequency": 1
+            }
+          ],
+          "recurrenceDistribution": {
+            "rolling": 1,
+            "unknown": 1
+          }
+        }
+      },
+      "human_reviewer_id": null
+    }
+  },
+  "triggerLog": "SCHEMA PATCH (safety rule 5): first run failed for every funder with 'there is no unique or exclusion constraint matching the ON CONFLICT specification' on the funder_dna_profiles upsert (onConflict: 'organization_id,funder_id'). The real production migration (src/supabase/migrations/106_funder_dna_profiles.sql:30) DOES define 'UNIQUE(organization_id, funder_id)' on this table -- it was simply not carried into the pt09-002 local schema-extension script. A scaffolding gap, not an application bug. Patched locally via ALTER TABLE funder_dna_profiles ADD CONSTRAINT ... UNIQUE (organization_id, funder_id), matching migration 106 exactly, then re-ran.\nagent.run() resolved: {\"success\":true,\"itemsFound\":3,\"itemsProcessed\":3,\"itemsQueued\":0,\"decisions\":[\"0349acf5-7167-4b58-a693-b8a238b51eef\",\"78dd2be8-a5db-43ca-b180-4fc6d8639510\",\"1477c144-3f73-4907-ad6f-2bf45624e1fa\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "3 funder_dna_profiles row(s) written -- requirement_patterns computed deterministically for every funder with opportunities on file, and at least one profile (funder d98944e0-9ecc-49ad-be21-974aae237bdc) has a real Claude-generated reward_patterns.themes array from its seeded outcome, with a small-sample confidence cap correctly applied (confidence=18). A matching agent_decisions row was logged with substantive per-funder reasoning. Matches AG-10's documented intent exactly.",
+  "registryPriorStatus": "test-evidence/pt-08/boot-inventory.json: 'AG-10 grant DNA weekly pipeline' -> STARTED; test-evidence/pt-08/cron-reconciliation.json setC entry present -- confirmed live-scheduled per PT-08. No dedicated FEATURE_REGISTRY_v2.md pillar row found by name search for 'Grant DNA' / 'AG-10' (only a passing mention at line 34 that it was build-verified in the 2026-08-02–08-06 AGENT_VERIFICATION_LOG chain) -- reporting this honestly rather than guessing a row match.",
+  "falsePassCasualty": false
+}

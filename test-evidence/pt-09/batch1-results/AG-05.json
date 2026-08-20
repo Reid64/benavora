@@ -1,0 +1,71 @@
+{
+  "canonicalNumber": "AG-05",
+  "registryAgentId": "ag-05-research",
+  "implementingFile": "src/lib/agents/research/corporate-giving.ts (ONE representative member of the ag-05-research family -- see verdictReasoning for what was NOT tested)",
+  "writeTargetTables": [
+    "opportunities",
+    "funders",
+    "agent_runs",
+    "opportunity_keywords"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new CorporateGivingResearchAgent({ client, organizationId }).run({}) against a freshly seeded active search_profiles row (corporate_donation category, Central Texas). Matches the real manual-API trigger path (src/app/api/agents/research/route.ts) per agent-inventory.json triggerWiredVerdict WIRED-MANUAL-API. Makes real, live outbound web-search/fetch calls (search-engine.ts -> Google results page scrape) and, if any candidate page is fetched, a real Claude extraction call (result-parser.ts) -- no mocking.",
+  "before": {
+    "opportunities": 24,
+    "funders": 3,
+    "agent_runs": 19,
+    "opportunity_keywords": 0
+  },
+  "after": {
+    "opportunities": 24,
+    "funders": 3,
+    "agent_runs": 20,
+    "opportunity_keywords": 0
+  },
+  "rowDelta": {
+    "opportunities": 0,
+    "funders": 0,
+    "agent_runs": 1,
+    "opportunity_keywords": 0
+  },
+  "sampleWrittenRow": {
+    "opportunities_inserted": null,
+    "funders_inserted": {
+      "id": "01bf8906-088c-4495-8fed-fe970d05671e",
+      "name": "PT-09 Regional Bank Giving",
+      "category": "corporate_donation",
+      "notes": null
+    },
+    "agent_runs_row": {
+      "id": "7ac72e8f-7d7e-4b05-803e-6226eacb83fe",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "corporate_research",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Corporate giving research across 2 profile(s) (PT-09 Audit Corporate Giving Profile, PT-09 Audit Corporate Giving Profile): fetched 0 page(s), found 0 opportunities, created 0 new and 0 new funder(s).",
+      "items_found": 0,
+      "items_processed": 0,
+      "error_message": null,
+      "tokens_used": 0,
+      "duration_ms": 1676,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:33:09.049Z",
+      "completed_at": "2026-08-20T06:33:10.725Z",
+      "created_at": "2026-08-20T06:33:10.202Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "search_profiles_after": {
+      "last_run_at": "2026-08-20T06:33:10.714Z",
+      "results_count": 0
+    }
+  },
+  "triggerLog": "Seeded search_profiles row a325d9e4-2b3e-4fed-8017-f2625b238330 (corporate_donation, Central Texas, active).\nagent.run() resolved: runId=7ac72e8f-7d7e-4b05-803e-6226eacb83fe tokensUsed=0 durationMs=1676\ndata: {\"opportunitiesFound\":0,\"opportunitiesCreated\":0,\"fundersCreated\":0}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs row was written and the run resolved cleanly (profilesRun/opportunitiesFound in data: {\"opportunitiesFound\":0,\"opportunitiesCreated\":0,\"fundersCreated\":0}), but zero opportunities/funders were created. This is expected/plausible given the run's real dependency on scraping live Google search results (see triggerLog) -- a CAPTCHA/bot-block or zero qualifying candidate pages on this run would produce exactly this shape. Flagged as the dangerous \"ran clean, wrote nothing\" class per the taxonomy regardless of the plausible external cause. IMPORTANT SCOPE NOTE: only 1 of the ~10 files that make up the ag-05-research umbrella (per agent-inventory.json's note) was directly executed this run -- src/lib/agents/research/corporate-giving.ts. NOT executed: src/lib/agents/research/foundation-grants.ts, src/lib/agents/research/government-grants.ts, src/lib/agents/research/local-sponsorship.ts, src/lib/agents/research/grants-gov.ts, src/lib/agents/research/sam-gov.ts, src/lib/agents/research/nofa-parser.ts, src/lib/agents/research/usaspending.ts, src/lib/agents/research/simpler-grants.ts, src/lib/agents/research/state-portal.ts, src/lib/agents/research/custom-api.ts. Per agent-inventory.json's own prior finding (STATE_OF_THE_BUILD.md 2026-08-04), several of those siblings have their own DISTINCT, documented breakage (grants_gov_research hangs indefinitely, simpler_grants_research 401s, state_portal 404s, custom_api_research schema error) not exercised or re-verified by this single-member test. This result speaks ONLY to corporate-giving.ts.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-MANUAL-API (manual: src/app/api/agents/research/route.ts, plus /status and /quality sibling routes). grep of FEATURE_REGISTRY_v2.md for this specific agent found NO clean match -- FEATURE_REGISTRY_v2.md's own 'AG-05' numbering (rows #110/#197, 'AG-05 Autonomous Draft Generation') refers to an entirely different agent (draft generation, not research) than agent-inventory.json's canonicalNumber AG-05 ('ag-05-research'/corporate-giving.ts) -- a numbering collision between the two documents, noted honestly rather than papered over. The closest generic match is row #138: 'Parallel Research Agents | Tier 2 | BUILT' (no per-file detail, not corporate-giving.ts-specific).",
+  "falsePassCasualty": true
+}

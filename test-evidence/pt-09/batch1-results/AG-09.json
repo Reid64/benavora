@@ -1,0 +1,86 @@
+{
+  "canonicalNumber": "AG-09",
+  "registryAgentId": "email_parser",
+  "implementingFile": "src/lib/agents/email-parser.ts",
+  "writeTargetTables": [
+    "email_activity",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new EmailParserAgent({ client, organizationId }).run({ emails }) with a synthetic realistic award-notification email. Matches AG-09's real (manual, human-pasted) trigger path.",
+  "before": {
+    "email_activity": 0,
+    "agent_runs": 6
+  },
+  "after": {
+    "email_activity": 1,
+    "agent_runs": 8
+  },
+  "rowDelta": {
+    "email_activity": 1,
+    "agent_runs": 2
+  },
+  "sampleWrittenRow": {
+    "email_activity_row": {
+      "id": "0a8fdf4a-f65a-48ff-a9ab-abd70dc9f83b",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "funder_id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "opportunity_id": null,
+      "application_id": null,
+      "email_type": "award_notification",
+      "subject": "Congratulations - Housing Stability Grant Award",
+      "sender": "grants@pt09communityfoundation.example.org",
+      "received_at": "2026-08-20T06:29:15.122Z",
+      "summary": "Type: award notification. Funder: PT-09 Community Foundation. Re: Housing Stability Grant. Action: Reply within 10 business days with organization W-9 and direct deposit information to process disbursement",
+      "action_required": true,
+      "action_description": "Flagged for outcome recording: award notification. Reply within 10 business days with organization W-9 and direct deposit information to process disbursement",
+      "urgency": "high",
+      "thread_id": "pt09-thread-award-001",
+      "processed_at": "2026-08-20T06:29:19.342Z",
+      "created_at": "2026-08-20T06:29:19.342Z"
+    },
+    "agent_runs_row": {
+      "id": "bbddaaa3-df73-4398-9e34-8067ff594b39",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "email_parser",
+      "status": "completed",
+      "input_params": {
+        "emails": [
+          {
+            "to": "info@pt09-test-org.example",
+            "body": "Dear PT-09 Test Org team,\n\nOn behalf of the PT-09 Community Foundation, we are pleased to inform you that your application for the Housing Stability Grant has been approved for an award of $45,000. Please reply within 10 business days with your organization's W-9 and direct deposit information so we can process the disbursement. Congratulations again on this well-deserved award.\n\nWarm regards,\nGrants Team",
+            "date": "2026-08-20T06:29:15.122Z",
+            "from": "grants@pt09communityfoundation.example.org",
+            "subject": "Congratulations - Housing Stability Grant Award",
+            "thread_id": "pt09-thread-award-001"
+          }
+        ]
+      },
+      "output_summary": "Parsed 1 email. 1 funder match. 1 flagged for outcome recording.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 572,
+      "duration_ms": 2816,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:29:15.123Z",
+      "completed_at": "2026-08-20T06:29:17.938Z",
+      "created_at": "2026-08-20T06:29:14.360Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "matched_funder": {
+      "id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "name": "PT-09 Community Foundation",
+      "notes": "[2026-08-20] Email from grants@pt09communityfoundation.example.org - \"Congratulations - Housing Stability Grant Award\": Type: award notification. Funder: PT-09 Community Foundation. Re: Housing Stability Grant. Action: Reply within 10 business days with organization W-9 and direct deposit information to process disbursement"
+    }
+  },
+  "triggerLog": "agent.run() resolved: runId=bbddaaa3-df73-4398-9e34-8067ff594b39 tokensUsed=572 durationMs=2816\ndata: {\"processed\":1,\"results\":[{\"emailIndex\":0,\"from\":\"grants@pt09communityfoundation.example.org\",\"subject\":\"Congratulations - Housing Stability Grant Award\",\"emailType\":\"award_notification\",\"funderName\":\"PT-09 Community Foundation\",\"matchedFunderId\":\"d98944e0-9ecc-49ad-be21-974aae237bdc\",\"matchedFunderName\":\"PT-09 Community Foundation\",\"opportunityReference\":\"Housing Stability Grant\",\"actionRequired\":true,\"actionDescription\":\"Reply within 10 business days with organization W-9 and direct deposit information to process disbursement\",\"urgency\":\"high\",\"sentiment\":\"positive\",\"flaggedForOutcomeRecording\":true,\"emailActivityId\":\"0a8fdf4a-f65a-48ff-a9ab-abd70dc9f83b\"}]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "email_activity row written with a real Claude-classified email_type ('award_notification'), correctly fuzzy-matched to the real funder (\"PT-09 Community Foundation\") via ilike, and funders.notes was appended with a summary note -- matches AG-09's documented intent (classify, match, log, and flag for outcome recording).",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #38: 'Email Parsing Agent | Tier 3 | BUILT — PARTIAL (see 2026-08-13 addendum: extract/classify + summarize confirmed working live; Gmail-webhook auto-trigger and auto-reply/respond both confirmed absent)'.",
+  "falsePassCasualty": false
+}

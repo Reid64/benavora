@@ -1,0 +1,105 @@
+{
+  "canonicalNumber": "AG-07",
+  "registryAgentId": "recursive_learning",
+  "implementingFile": "src/lib/agents/recursive-learning.ts",
+  "writeTargetTables": [
+    "knowledge_base",
+    "proven_narratives",
+    "agent_runs"
+  ],
+  "triggerMethod": "Seeded one real outcomes row (organization_id, application_id, result='awarded', funder_category, narrative_snapshot with real 4-section grant-narrative prose) via direct pg insert -- reproducing the real event this agent fires on (OutcomeForm.tsx's client-side fetch on every real outcomes insert, per agent-inventory.json's WIRED-EVENT-CLIENT-TRIGGERED verdict). Then: new RecursiveLearningAgent({ client, organizationId }).run({ outcomeId }) -- BaseAgent pattern, same shape as AG-01/grant-summary.ts, not the AutonomousAgent agent_queue-polling shape the other 4 agents in this batch use.",
+  "before": {
+    "knowledge_base": 2,
+    "proven_narratives": 0
+  },
+  "after": {
+    "knowledge_base": 2,
+    "proven_narratives": 4
+  },
+  "rowDelta": {
+    "knowledge_base": 0,
+    "proven_narratives": 4
+  },
+  "sampleWrittenRow": {
+    "proven_narratives_created": {
+      "id": "b3e5eea5-718e-4573-8a74-81b00de4dc43",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "outcome_id": "4660158e-68a9-4019-b085-d8edd1b2a58a",
+      "knowledge_base_id": null,
+      "narrative_text": "The requested $45,000 will fund one full-time case manager position and direct rental assistance for approximately 12 families over the grant period, calculated against our verified average rental subsidy cost of $2,800 per family.",
+      "section_type": "budget_justification",
+      "funder_category": "private_foundation",
+      "success_count": 1,
+      "effectiveness_score": "1",
+      "last_used_at": "2026-08-20T06:34:24.323Z",
+      "created_at": "2026-08-20T06:34:24.540Z",
+      "success_patterns": {
+        "losing_patterns": [],
+        "recommendations": [
+          "Lead every narrative with the exact grant amount, funder name, and a one-sentence statement explicitly connecting your mission language to the funder's stated priority language, as seen in this winning example.",
+          "Anchor all budget line items to a verified, sourced unit cost (e.g., average cost per client or per service unit) so reviewers can validate your math and trust your projections.",
+          "Define your service model with specific components and bounded timeframes — name the service elements and the duration — rather than describing programming in general terms.",
+          "Express projected impact as a concrete, countable output (number of families, individuals, units) that is mathematically traceable back to the requested budget amount.",
+          "Frame organizational capacity around the specific governance and financial management skills needed for the grant size and type, not just the organization's history or general strengths."
+        ],
+        "winning_patterns": [
+          {
+            "example": "Our mission -- stabilizing housing for vulnerable working families -- is a direct match for this funder's Housing Stability Grant priorities.",
+            "description": "The narrative opens with an explicit dollar amount and direct mission-to-funder alignment statement, leaving no ambiguity about fit."
+          },
+          {
+            "example": "calculated against our verified average rental subsidy cost of $2,800 per family",
+            "description": "Concrete, verified unit-cost data is used to justify the budget request rather than vague estimates."
+          },
+          {
+            "example": "a dedicated case manager, access to job-readiness training, and up to six months of rental subsidy while they stabilize employment",
+            "description": "The program description specifies a multi-component service model with clear timelines, making the intervention tangible and credible."
+          },
+          {
+            "example": "direct rental assistance for approximately 12 families over the grant period",
+            "description": "The narrative anchors projected impact to a specific, countable output tied directly to the requested funds."
+          },
+          {
+            "example": "board of directors brings deep expertise in nonprofit finance, housing policy, and workforce development, giving this organization the governance capacity to manage a grant of this size responsibly",
+            "description": "Organizational credibility is framed around governance capacity relevant to grant stewardship, not just general reputation."
+          },
+          {
+            "example": "respectfully requests $45,000 from the PT-09 Community Foundation to expand transitional housing services for displaced workers and low-income families across Central Texas",
+            "description": "The executive summary immediately names the funder, dollar amount, and geographic scope, signaling audience awareness and precision."
+          }
+        ]
+      }
+    },
+    "knowledge_base_flagged": [],
+    "agent_runs_row": {
+      "id": "cd76ec27-c3ff-4466-9f37-81a35707298b",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "recursive_learning",
+      "status": "completed",
+      "input_params": {
+        "outcomeId": "4660158e-68a9-4019-b085-d8edd1b2a58a"
+      },
+      "output_summary": "awarded outcome: extracted 4 section(s), 4 new / 0 updated proven narrative(s), flagged 0 KB entries, patterns analyzed.",
+      "items_found": 4,
+      "items_processed": 4,
+      "error_message": null,
+      "tokens_used": 2100,
+      "duration_ms": 16835,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:34:20.064Z",
+      "completed_at": "2026-08-20T06:34:36.899Z",
+      "created_at": "2026-08-20T06:34:20.719Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "Seeded outcomes row 4660158e-68a9-4019-b085-d8edd1b2a58a (result=awarded, funder_category=private_foundation, application_id=94f79d2e-d8ec-4802-9395-ee251f298c0e, real narrative_snapshot with 4 sections) -- this is the real event OutcomeForm.tsx's client-side call fires on.\nagent.run({ outcomeId }) resolved: runId=cd76ec27-c3ff-4466-9f37-81a35707298b tokensUsed=2100 durationMs=16835\ndata: {\"outcomeId\":\"4660158e-68a9-4019-b085-d8edd1b2a58a\",\"result\":\"awarded\",\"sectionsExtracted\":4,\"provenCreated\":4,\"provenUpdated\":0,\"knowledgeBaseFlagged\":[],\"narrativesRescored\":4,\"patternsAnalyzed\":true}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "A real awarded outcome was recorded and the agent extracted 4 narrative section(s) from the narrative_snapshot, writing 4 new proven_narratives row(s) (section_type='budget_justification', funder_category='private_foundation', real Claude-extracted narrative_text) and rescoring 4 narrative(s)' effectiveness. No KB entries crossed the is_proven threshold yet (proven_count still below PROVEN_NARRATIVE_THRESHOLD after this single awarded use). Matches AG-07's documented intent: closing the learning loop from a real awarded outcome into reusable proven narratives.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #14: 'Recursive Learning | BUILT | Analyzes awarded applications. Extracts proven narratives. Updates effectiveness scores. Flags winning patterns for reuse.'",
+  "falsePassCasualty": false
+}

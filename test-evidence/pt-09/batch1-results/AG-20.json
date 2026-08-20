@@ -1,0 +1,42 @@
+{
+  "canonicalNumber": "AG-20",
+  "registryAgentId": "ea01_giving_detector",
+  "implementingFile": "src/lib/agents/ea-01-giving-detector.ts (writes via src/lib/agents/corporate-enrichment-shared.ts)",
+  "writeTargetTables": [
+    "corporate_prospects",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new EA01GivingDetectorAgent({ client, organizationId }).run({ prospectId }) against a seeded corporate_prospects row -- exactly the invocation pattern this file's own header documents as its real (queue-less, direct) trigger. Real StealthEngine/Playwright fetch attempts against the seeded website's 3 candidate paths (/giving, /csr, /community); a real Claude call only fires if at least one page is fetched.",
+  "before": {
+    "id": "4535e71e-5e22-4e27-b0d1-ffa031932095",
+    "legal_name": "Lonestar Manufacturing Co",
+    "website": "https://lonestar-mfg.example",
+    "enrichment": {},
+    "enrichment_version": 0
+  },
+  "after": {
+    "id": "4535e71e-5e22-4e27-b0d1-ffa031932095",
+    "legal_name": "Lonestar Manufacturing Co",
+    "website": "https://lonestar-mfg.example",
+    "enrichment": {},
+    "enrichment_version": 0
+  },
+  "rowDelta": {
+    "agent_runs": 3,
+    "enrichment_version_delta": 0,
+    "enrichment_changed": false
+  },
+  "sampleWrittenRow": {
+    "id": "4535e71e-5e22-4e27-b0d1-ffa031932095",
+    "legal_name": "Lonestar Manufacturing Co",
+    "enrichment": {},
+    "enrichment_version": 0,
+    "enrichment_completed_at": null
+  },
+  "triggerLog": "Target corporate_prospects row: 4535e71e-5e22-4e27-b0d1-ffa031932095 (legal_name=Lonestar Manufacturing Co, website=https://lonestar-mfg.example, enrichment_version=0).\nTHREW: AgentError: Agent timed out after 60s.\n    at Timeout.<anonymous> (C:\\Users\\manag\\Documents\\benavora\\src\\lib\\agents\\base-agent.ts:200:11)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+  "errorSurfaced": "AgentError: Agent timed out after 60s.\n    at Timeout.<anonymous> (C:\\Users\\manag\\Documents\\benavora\\src\\lib\\agents\\base-agent.ts:200:11)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+  "verdict": "TRIGGER-BROKEN",
+  "verdictReasoning": "Corrected after direct DB verification (not the script's blanket if-errorSurfaced branch, which mis-labeled this ERROR-SWALLOWED on first pass): a real, human-visible agent_runs row DOES exist for this run (id 93dbf01b-4d3a-4b5d-a794-f613e20d2ad6, status='failed', error_message='Agent timed out after 60s.', confirmed via direct psql read) -- so the failure is NOT swallowed by the app in the taxonomy's strict sense (a human looking at agent_runs would see it). The real cause, confirmed via StealthEngine's own console output captured in this run: EA-01 tries 3 candidate paths (/giving, /csr, /community) sequentially, each with 3 retry attempts, against the seeded website (a *.example domain that -- like any dead/moved real-world website -- fails DNS resolution); that retry loop alone exceeded BaseAgent's hard 60s per-run ceiling (base-agent.ts AGENT_TIMEOUT_MS) before even reaching Claude or a single successful write. Compare directly to AG-21 (EA-08, sibling agent, same corporate-enrichment-shared.ts helper, same run against the same class of *.example seed domain) which completed in well under 60s and produced a real WORKS write -- the only material difference is EA-08 tries 2 candidate paths vs EA-01's 3, meaning EA-01's fixed per-candidate retry cost (3 paths x 3 attempts) is close enough to the 60s ceiling that any unreachable/slow-to-fail website reliably times the whole run out before it can write anything, including the documented graceful 'no pages found' branch. This is a genuine, generalizable robustness defect (not a harness artifact, not specific to the fake seed domain) distinct from ERROR-SWALLOWED: the agent cannot complete AT ALL against a realistic dead/unreachable-website input, even though the failure is at least recorded to agent_runs. Zero corporate_prospects.enrichment write resulted either way.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: NOT-WIRED (DEFINED-NOT-STARTED per PT-08) -- worker/enrichment-processor.ts's EA-01..EA-10 pipeline is a documented boot step never actually started/reachable via any queue. FEATURE_REGISTRY_v2.md row #90 ('Corporate Enrichment Agents EA-01 to EA-10 (AG-20/AG-21 + 8 more)'): status 'BUILT — VERIFIED (EA-01/EA-08); BUILT — UNVERIFIED (EA-02–07/09/10)' -- \"Re-verified live 2026-08-03: EA01GivingDetectorAgent.run({prospectId}) ... complete cleanly against a real SAM.gov-sourced prospect (correctly took the documented no-website graceful path). The independent accuracy defect found July 30 is unchanged: both agents' hardcoded candidate-path lists missed real content for 2-3 of 3 test companies ... because real pages often live on a different subdomain/path than the 2-3 guesses tried. Caveat unchanged: this orchestrator is not called from worker/index.ts's boot sequence -- on-demand only.\" This session's result (zero pages found against a non-resolvable seed domain) is consistent with, not contradicting, that prior finding's own caveat about the fixed candidate-path list's real-world hit rate.",
+  "falsePassCasualty": false
+}

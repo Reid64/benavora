@@ -1,0 +1,98 @@
+{
+  "canonicalNumber": "AG-09 (on-disk collision, unregistered)",
+  "registryAgentId": null,
+  "implementingFile": "src/lib/agents/outcome-analyzer-agent.ts",
+  "writeTargetTables": [
+    "organizations",
+    "agent_runs",
+    "agent_decisions"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new OutcomeAnalyzerAgent(orgId, supabase).run('manual'). Matches its real (scheduled, Sunday-gated) trigger path minus the isSundayChicago() gate, an external scheduling condition.",
+  "before": {
+    "organizations_analytics": {},
+    "agent_runs": 11,
+    "agent_decisions": 5,
+    "outcomes": 2
+  },
+  "after": {
+    "organizations_analytics": {
+      "computedAt": "2026-08-20T06:30:24.689Z",
+      "totalOutcomes": 2,
+      "insightSummary": "**Funding Performance Summary**\n\nThere simply isn't enough data here to draw meaningful conclusions about this organization's fundraising performance. With only two recorded grant outcomes and no funder category breakdown available, any pattern we might describe would be more storytelling than analysis. What we can say is that when awards have come through, they've averaged $45,000 — a solid grant size — but the dollar efficiency of 56 cents awarded for every dollar requested suggests there may be room to better align ask amounts with what funders are prepared to give, or that some applications have come back unfunded. As more outcomes are tracked over time, the platform will be able to surface genuinely useful insights about which funder types are the best fit and where to focus energy. Keep logging your grant activity — the picture will get clearer quickly.",
+      "averageAwardSize": 45000,
+      "dollarEfficiency": 0.563,
+      "successRateByCategory": {}
+    },
+    "agent_runs": 12,
+    "agent_decisions": 6,
+    "outcomes": 2
+  },
+  "rowDelta": {
+    "organizations_analytics_changed": true,
+    "agent_runs": 1,
+    "agent_decisions": 1,
+    "outcomes": 0
+  },
+  "sampleWrittenRow": {
+    "organizations_analytics": {
+      "computedAt": "2026-08-20T06:30:24.689Z",
+      "totalOutcomes": 2,
+      "insightSummary": "**Funding Performance Summary**\n\nThere simply isn't enough data here to draw meaningful conclusions about this organization's fundraising performance. With only two recorded grant outcomes and no funder category breakdown available, any pattern we might describe would be more storytelling than analysis. What we can say is that when awards have come through, they've averaged $45,000 — a solid grant size — but the dollar efficiency of 56 cents awarded for every dollar requested suggests there may be room to better align ask amounts with what funders are prepared to give, or that some applications have come back unfunded. As more outcomes are tracked over time, the platform will be able to surface genuinely useful insights about which funder types are the best fit and where to focus energy. Keep logging your grant activity — the picture will get clearer quickly.",
+      "averageAwardSize": 45000,
+      "dollarEfficiency": 0.563,
+      "successRateByCategory": {}
+    },
+    "agent_runs_row": {
+      "id": "6dad630c-2e6e-4cd9-93f7-7771154dbf0b",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-09-outcome-analyzer",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "**Funding Performance Summary**\n\nThere simply isn't enough data here to draw meaningful conclusions about this organization's fundraising performance. With only two recorded grant outcomes and no funder category breakdown available, any pattern we might describe would be more storytelling than analysis. What we can say is that when awards have come through, they've averaged $45,000 — a solid grant size — but the dollar efficiency of 56 cents awarded for every dollar requested suggests there may be room to better align ask amounts with what funders are prepared to give, or that some applications have come back unfunded. As more outcomes are tracked over time, the platform will be able to surface genuinely useful insights about which funder types are the best fit and where to focus energy. Keep logging your grant activity — the picture will get clearer quickly.",
+      "items_found": 2,
+      "items_processed": 2,
+      "error_message": null,
+      "tokens_used": 447,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:30:24.653Z",
+      "completed_at": "2026-08-20T06:30:30.593Z",
+      "created_at": "2026-08-20T06:30:25.944Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "agent_decisions_row": {
+      "id": "10b6ca87-fe83-4a04-8690-df7e679d64f0",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-09-outcome-analyzer",
+      "decision_type": "funding_analytics_updated",
+      "entity_type": "organization",
+      "entity_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "reasoning": "Recomputed funding analytics from 2 recorded outcome(s): average award size $45,000, dollar efficiency 56.3% (awarded dollars versus requested dollars), and a success rate computed for 0 funder categories that had at least 3 outcomes on file (categories below that threshold were excluded to avoid an unreliable rate). **Funding Performance Summary**\n\nThere simply isn't enough data here to draw meaningful conclusions about this organization's fundraising performance. With only two recorded grant outcomes and no funder category breakdown available, any pattern we might describe would be more storytelling than analysis. What we can say is that when awards have come through, they've averaged $45,000 — a solid grant size — but the dollar efficiency of 56 cents awarded for every dollar requested suggests there may be room to better align ask amounts with what funders are prepared to give, or that some applications have come back unfunded. As more outcomes are tracked over time, the platform will be able to surface genuinely useful insights about which funder types are the best fit and where to focus energy. Keep logging your grant activity — the picture will get clearer quickly. This analytics snapshot is merged into organizations.analytics for the dashboard and does not itself change any application, opportunity, or Knowledge Base record - it is purely a read-and-summarize pass over the outcomes table.",
+      "confidence_score": 85,
+      "action_taken": "updated_organization_analytics",
+      "required_human_review": false,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:30:31.465Z",
+      "agent_run_id": "6dad630c-2e6e-4cd9-93f7-7771154dbf0b",
+      "action_payload": {
+        "computedAt": "2026-08-20T06:30:24.689Z",
+        "totalOutcomes": 2,
+        "averageAwardSize": 45000,
+        "dollarEfficiency": 0.563,
+        "successRateByCategory": {}
+      },
+      "human_reviewer_id": null
+    }
+  },
+  "triggerLog": "Pre-condition: seeded 2 outcomes rows (1 awarded $45,000/$50,000 requested, 1 declined) via _seed-groupc.mjs so this agent's aggregation has real signal (the code short-circuits to a zero-item completion with no organizations write when outcomes.length === 0).\nSCHEMA PATCH (safety rule 5): local `organizations` table was missing the `analytics` jsonb column this agent writes to. That column is a real production column added by migration 082 (src/supabase/migrations/082_ag08_ag12_autonomous_agents.sql:21, 'ALTER TABLE organizations ADD COLUMN IF NOT EXISTS analytics jsonb DEFAULT ...') that was simply not carried into the pt09-002 local schema-extension script -- a scaffolding gap, not an application bug. Patched locally via the exact same ALTER TABLE ... ADD COLUMN IF NOT EXISTS statement from migration 082.\nagent.run() resolved: {\"success\":true,\"itemsFound\":2,\"itemsProcessed\":2,\"itemsQueued\":0,\"decisions\":[\"10b6ca87-fe83-4a04-8690-df7e679d64f0\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "organizations.analytics was updated with a real computed successRateByCategory/averageAwardSize/dollarEfficiency snapshot plus a real Claude-generated insightSummary (not boilerplate), and a matching agent_decisions row with substantive reasoning was logged. This matches the agent's actual documented behavior (aggregate outcomes -> summarize -> persist to organizations.analytics) -- note this is NOT what the task prompt / inventory claimed the write target was ('outcomes'); the real target is organizations.analytics, verified by reading the source directly.",
+  "registryPriorStatus": "No registry entry (inRegistry: false per agent-inventory.json). FEATURE_REGISTRY_v2.md row #209: 'AG-09 Outcome Analyzer | BUILT | Weekly + event-driven. Updates analytics and proven narrative status.' -- the 'updates analytics' part matches this file's real behavior; the 'proven narrative status' part does NOT (this file's own header states it deliberately does not write is_proven/proven_count, leaving that to recursive-learning.ts per Behavioral Contracts §8/§10 single-writer rule) -- a registry overclaim on a sub-detail, not on the core write target this test verifies.",
+  "falsePassCasualty": false
+}

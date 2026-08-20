@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-08-20T06:17:17.377Z",
+  "target": {
+    "host": "127.0.0.1",
+    "port": "56322",
+    "is_production": false,
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt",
+    "local_api_url": "http://127.0.0.1:56321",
+    "env_override_for_agent_invocation": {
+      "NEXT_PUBLIC_SUPABASE_URL": "http://127.0.0.1:56321",
+      "SUPABASE_SERVICE_ROLE_KEY": "see LOCAL_SERVICE_ROLE_KEY in this script (local-stack demo key, not a secret)"
+    }
+  },
+  "org": {
+    "orgId": "600fe8e5-c716-4b11-a9d2-da884df84016",
+    "userId": "f30f6d63-cf4b-410e-bef9-f2425bf9976c",
+    "email": "pt09-owner@benavora-pt09-test.local"
+  },
+  "funders": [
+    {
+      "id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "name": "PT-09 Community Foundation",
+      "category": "private_foundation"
+    },
+    {
+      "id": "6a753f84-47d5-45e3-8cd6-3910de2c767f",
+      "name": "PT-09 Federal Housing Program",
+      "category": "government_grant"
+    },
+    {
+      "id": "01bf8906-088c-4495-8fed-fe970d05671e",
+      "name": "PT-09 Regional Bank Giving",
+      "category": "corporate_donation"
+    }
+  ],
+  "opportunities": [
+    {
+      "id": "88365eb3-b324-4c0d-bb10-a7802d540965",
+      "funderId": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "name": "PT-09 Test Opportunity 1"
+    },
+    {
+      "id": "b1a414f2-2a67-44fd-a055-d0d016621562",
+      "funderId": "6a753f84-47d5-45e3-8cd6-3910de2c767f",
+      "name": "PT-09 Test Opportunity 2"
+    },
+    {
+      "id": "eb3a490b-9f05-4b1e-a668-227f49d9161a",
+      "funderId": "01bf8906-088c-4495-8fed-fe970d05671e",
+      "name": "PT-09 Test Opportunity 3"
+    }
+  ],
+  "applications": [
+    {
+      "id": "94f79d2e-d8ec-4802-9395-ee251f298c0e",
+      "opportunityId": "88365eb3-b324-4c0d-bb10-a7802d540965"
+    },
+    {
+      "id": "0159bcb9-f0fb-49ea-925e-bcfd121318ca",
+      "opportunityId": "b1a414f2-2a67-44fd-a055-d0d016621562"
+    }
+  ],
+  "boardMembers": [
+    "f18c27f7-1470-44a5-8f2e-9d8c05acfe2c",
+    "2c3b0a79-0806-42f6-9631-ee0e5414e8c5"
+  ],
+  "corporateProspects": [
+    "4535e71e-5e22-4e27-b0d1-ffa031932095",
+    "d3c38480-f631-4fe8-8217-47a4fef8cc0c"
+  ],
+  "foundationDirectory": [
+    "6540e5b0-965e-43f5-8a77-0ac98a732e6d"
+  ]
+}

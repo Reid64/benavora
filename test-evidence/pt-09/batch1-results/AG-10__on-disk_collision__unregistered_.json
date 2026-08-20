@@ -1,0 +1,77 @@
+{
+  "canonicalNumber": "AG-10 (on-disk collision, unregistered)",
+  "registryAgentId": null,
+  "implementingFile": "src/lib/agents/document-expiry-agent.ts",
+  "writeTargetTables": [
+    "agent_decisions",
+    "alerts",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new DocumentExpiryAgent(orgId, supabase).run('manual'). Matches its real (scheduled, unconditional-nightly) trigger path minus the cron timing.",
+  "before": {
+    "agent_decisions": 35,
+    "alerts": 0,
+    "agent_runs": 16,
+    "documents": 1
+  },
+  "after": {
+    "agent_decisions": 36,
+    "alerts": 1,
+    "agent_runs": 17,
+    "documents": 1
+  },
+  "rowDelta": {
+    "agent_decisions": 1,
+    "alerts": 1,
+    "agent_runs": 1,
+    "documents": 0
+  },
+  "sampleWrittenRow": {
+    "agent_decisions_row": {
+      "id": "296e0dca-34db-47c1-9a11-4d9647a06438",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-10-document-expiry",
+      "decision_type": "document_expiring_flagged",
+      "entity_type": "document",
+      "entity_id": "64a5ba8f-e1f8-47e2-8472-f7bcd095e447",
+      "reasoning": "Document \"PT-09 Test Org - Certificate of Insurance.pdf\" (id 64a5ba8f-e1f8-47e2-8472-f7bcd095e447) has an expiration_date of 2026-08-30, which falls within the 30-day advance-warning window checked on every nightly run. An expired document attached to a compliance-required category can silently break an in-progress application, so this agent surfaces it proactively as an in-app notification rather than waiting for a submission to fail. Before notifying, this agent checked agent_decisions for a \"document_expiring_flagged\" entry against this same document id within the last 7 days and found none, so this is not a repeat notification for the same expiring document. This is a deterministic date comparison - no AI model is used - and it only creates a notification, never modifies or deletes the document itself.",
+      "confidence_score": 95,
+      "action_taken": "created_expiry_notification",
+      "required_human_review": false,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:32:12.207Z",
+      "agent_run_id": "3a0a15ea-2517-4e83-b797-3d25af9aacbb",
+      "action_payload": {
+        "expirationDate": "2026-08-30"
+      },
+      "human_reviewer_id": null
+    },
+    "alerts_row": {
+      "id": "8266b350-01fc-459a-953f-0c60dad571aa",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "type": "system",
+      "severity": "info",
+      "message": "Document expiring soon: PT-09 Test Org - Certificate of Insurance.pdf expires on 2026-08-30. Update this document before it affects your applications.",
+      "link": null,
+      "is_read": false,
+      "read_at": null,
+      "is_dismissed": false,
+      "dismissed_at": null,
+      "snoozed_until": null,
+      "opportunity_id": null,
+      "application_id": null,
+      "deadline_id": null,
+      "dedup_key": "autonomous:ag-10-document-expiry:document_expiring:316706b7-1466-40d6-b677-8260574377ba",
+      "created_by": null,
+      "created_at": "2026-08-20T06:32:12.202Z",
+      "updated_at": "2026-08-20T06:32:12.202Z"
+    }
+  },
+  "triggerLog": "Pre-condition: seeded a documents row (file_name='PT-09 Test Org - Certificate of Insurance.pdf', expiration_date=today+10 days) via _seed-groupc.mjs, inside this agent's 30-day EXPIRY_WINDOW_DAYS.\nagent.run() resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":1,\"decisions\":[\"296e0dca-34db-47c1-9a11-4d9647a06438\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "A real agent_decisions row was logged with specific reasoning naming the exact expiring document and its expiration date, and a real alerts row was created (this schema's substitute for a notifications table). documents itself is correctly unchanged (this agent only reads it) -- matches its documented intent exactly: proactively surface an expiring document, never touch it.",
+  "registryPriorStatus": "No registry entry (inRegistry: false per agent-inventory.json). FEATURE_REGISTRY_v2.md row #210: 'AG-10 Document Expiry Monitor | BUILT | Nightly. 30-day expiry notifications.' -- this row's description matches THIS file's real behavior exactly (unlike the registry's own ag-10-grant-dna agent_id, which is a different class).",
+  "falsePassCasualty": false
+}

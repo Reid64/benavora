@@ -1,0 +1,80 @@
+{
+  "canonicalNumber": "AG-03",
+  "registryAgentId": "deadline_extraction",
+  "implementingFile": "src/lib/agents/deadline-extractor.ts",
+  "writeTargetTables": [
+    "deadlines",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new DeadlineExtractor({ client, organizationId }).run({ opportunityId }). Real trigger path (per pt09-001/agent-inventory.json) is routeQueueItem() case 'deadline_extraction' in worker/autonomous-orchestrator.ts, which constructs and calls this same class/method -- direct invocation is a faithful proof of the real write path. No scheduled/nightly trigger path was found for this agent.",
+  "before": {
+    "deadlines": 3,
+    "agent_runs": 2
+  },
+  "after": {
+    "deadlines": 6,
+    "agent_runs": 3
+  },
+  "rowDelta": {
+    "deadlines": 3,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "deadlines_inserted_for_opportunity": [
+      {
+        "id": "9c7df905-fbcc-45ae-83fd-59ad070d3b63",
+        "deadline_type": "follow_up_date",
+        "due_date": "2026-09-09T05:00:00.000Z",
+        "title": "30-day check: PT-09 Test Opportunity 3"
+      },
+      {
+        "id": "d61dc5f2-88f5-4617-bcfb-20f9ccd3c9af",
+        "deadline_type": "follow_up_date",
+        "due_date": "2026-09-25T05:00:00.000Z",
+        "title": "14-day check: PT-09 Test Opportunity 3"
+      },
+      {
+        "id": "55b9f788-c045-4577-978c-6c522e9e5c09",
+        "deadline_type": "follow_up_date",
+        "due_date": "2026-10-02T05:00:00.000Z",
+        "title": "7-day check: PT-09 Test Opportunity 3"
+      },
+      {
+        "id": "cb9d7f8d-65e2-4d3b-99ee-8c0bb0b800b5",
+        "deadline_type": "application_deadline",
+        "due_date": "2026-10-09T05:00:00.000Z",
+        "title": "Deadline for PT-09 Test Opportunity 3"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "df58049c-2ff6-40c0-aae5-fb19d5fca128",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "deadline_extraction",
+      "status": "completed",
+      "input_params": {
+        "opportunityId": "eb3a490b-9f05-4b1e-a668-227f49d9161a"
+      },
+      "output_summary": "Created 3 deadline(s) for \"PT-09 Test Opportunity 3\".",
+      "items_found": 4,
+      "items_processed": 3,
+      "error_message": null,
+      "tokens_used": 0,
+      "duration_ms": 176,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:26:55.475Z",
+      "completed_at": "2026-08-20T06:26:55.652Z",
+      "created_at": "2026-08-20T06:26:55.388Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run() resolved: runId=df58049c-2ff6-40c0-aae5-fb19d5fca128 tokensUsed=0 durationMs=176\ndata: {\"opportunityId\":\"eb3a490b-9f05-4b1e-a668-227f49d9161a\",\"created\":[{\"deadlineType\":\"follow_up_date\",\"dueDate\":\"2026-09-09\",\"title\":\"30-day check: PT-09 Test Opportunity 3\"},{\"deadlineType\":\"follow_up_date\",\"dueDate\":\"2026-09-25\",\"title\":\"14-day check: PT-09 Test Opportunity 3\"},{\"deadlineType\":\"follow_up_date\",\"dueDate\":\"2026-10-02\",\"title\":\"7-day check: PT-09 Test Opportunity 3\"}],\"noDeadline\":false}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "agent_runs row written (real BaseAgent logging), 3 real deadlines row(s) inserted for the opportunity including an application_deadline anchored to its real deadline date -- matches AG-03's documented deterministic intent.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #204: \"AG-03 Autonomous Deadline Extraction | BUILT | Creates deadline records for all new opportunities.\" Consistent with this run's WORKS verdict. Also see test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-QUEUE.",
+  "falsePassCasualty": false
+}

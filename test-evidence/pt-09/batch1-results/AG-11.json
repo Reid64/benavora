@@ -1,0 +1,74 @@
+{
+  "canonicalNumber": "AG-11",
+  "registryAgentId": "cold_outreach",
+  "implementingFile": "src/lib/agents/cold-outreach.ts",
+  "writeTargetTables": [
+    "outreach_contacts",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new ColdOutreachAgent({ client, organizationId }).run({ companyName, websiteUrl }) against a real, publicly reachable company website. Matches AG-11's real (manual, user-initiated) trigger path.",
+  "before": {
+    "outreach_contacts": 0,
+    "agent_runs": 17
+  },
+  "after": {
+    "outreach_contacts": 1,
+    "agent_runs": 18
+  },
+  "rowDelta": {
+    "outreach_contacts": 1,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "outreach_contacts_rows": [
+      {
+        "id": "506c69c2-7df3-406d-beec-9eb5fec0b6df",
+        "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "company_name": "Georgetown Chamber of Commerce",
+        "contact_name": null,
+        "email": null,
+        "phone": "(512) 930-3535",
+        "contact_form_url": "https://www.georgetownchamber.org/contact",
+        "source_url": "https://www.georgetownchamber.org",
+        "company_type": "Chamber of Commerce",
+        "giving_likelihood": "high",
+        "campaign_id": null,
+        "status": "new",
+        "converted_to_funder_id": null,
+        "created_at": "2026-08-20T06:32:41.653Z",
+        "updated_at": "2026-08-20T06:32:41.653Z"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "463949fe-3f40-4757-ae43-40c78b2168fd",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "cold_outreach",
+      "status": "completed",
+      "input_params": {
+        "websiteUrl": "https://www.georgetownchamber.org",
+        "companyName": "Georgetown Chamber of Commerce"
+      },
+      "output_summary": "Extracted 1 outreach contact for Georgetown Chamber of Commerce.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 2023,
+      "duration_ms": 3482,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:32:37.342Z",
+      "completed_at": "2026-08-20T06:32:40.824Z",
+      "created_at": "2026-08-20T06:32:38.425Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run() resolved: runId=463949fe-3f40-4757-ae43-40c78b2168fd tokensUsed=2023 durationMs=3482\ndata: {\"companyName\":\"Georgetown Chamber of Commerce\",\"contactsCreated\":1,\"contacts\":[{\"contactName\":null,\"email\":null,\"phone\":\"(512) 930-3535\",\"contactFormUrl\":\"https://www.georgetownchamber.org/contact\",\"companyType\":\"Chamber of Commerce\",\"givingLikelihood\":\"high\"}]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "1 outreach_contacts row(s) written with real extracted channel data (email/phone/contact form/name) from a live fetch of the company's real website -- matches AG-11's documented intent exactly.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #15: 'Cold Outreach | Extract contacts from companies without giving pages. Outreach contact table. Convert to funder. | BUILT'.",
+  "falsePassCasualty": false
+}

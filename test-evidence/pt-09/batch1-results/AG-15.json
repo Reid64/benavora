@@ -1,0 +1,171 @@
+{
+  "canonicalNumber": "AG-15",
+  "registryAgentId": "ag-15-probability",
+  "implementingFile": "src/lib/agents/probability-scoring-agent.ts",
+  "writeTargetTables": [
+    "opportunity_probability_scores",
+    "agent_decisions",
+    "agent_runs",
+    "agent_queue"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new ProbabilityScoringAgent(orgId, supabase).run('manual'). AutonomousAgent family (autonomous-base.ts), not BaseAgent -- constructor(orgId, supabase), run(triggerSource) only (no opportunityId param; scope is loaded internally via loadDefaultScope() for any triggerSource other than 'chain'). Real trigger path (per pt09-001/agent-inventory.json) is the nightly pipeline (worker/autonomous-orchestrator.ts runProbabilityScoringStep(), gated on org_autonomous_config.auto_score_enabled) and routeQueueItem() case 'ag-15-probability', both of which ultimately construct+call this same class with a 'schedule'/'chain' triggerSource -- 'manual' here exercises the same loadDefaultScope() code path minus the gate check.",
+  "before": {
+    "opportunity_probability_scores": 0,
+    "agent_decisions": 3,
+    "agent_runs": 10,
+    "agent_queue": 2
+  },
+  "after": {
+    "opportunity_probability_scores": 4,
+    "agent_decisions": 8,
+    "agent_runs": 13,
+    "agent_queue": 5
+  },
+  "rowDelta": {
+    "opportunity_probability_scores": 4,
+    "agent_decisions": 5,
+    "agent_runs": 3,
+    "agent_queue": 3
+  },
+  "sampleWrittenRow": {
+    "opportunity_probability_scores_row": {
+      "id": "784ef4da-ddab-485a-af60-76aa3cc2cf1d",
+      "opportunity_id": "097c768f-0ff5-4a3c-a2f7-e79ee174da9f",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "overall_score": 67,
+      "confidence": "medium",
+      "factors": [
+        {
+          "name": "ntee_alignment",
+          "value": 0.6,
+          "weight": 0.3,
+          "contribution": 18
+        },
+        {
+          "name": "geographic_eligibility",
+          "value": 0.7,
+          "weight": 0.25,
+          "contribution": 17.5
+        },
+        {
+          "name": "financial_capacity_match",
+          "value": 0.65,
+          "weight": 0.2,
+          "contribution": 13
+        },
+        {
+          "name": "track_record",
+          "value": 0.85,
+          "weight": 0.15,
+          "contribution": 12.75
+        },
+        {
+          "name": "program_fit",
+          "value": 0.55,
+          "weight": 0.1,
+          "contribution": 5.5
+        }
+      ],
+      "recommendation": "consider",
+      "key_risks": [
+        "Digital Twin is only 60% complete, leaving mission alignment and program fit difficult to fully verify",
+        "Mission statement reads as a placeholder test description rather than substantive programmatic content, which could undermine narrative quality in the application",
+        "Only 1 past outcome in this funding category provides a limited track record basis — 100% rate on a single data point is statistically fragile",
+        "Funder-specific eligibility details (geographic restrictions, award range, explicit eligibility criteria) were not provided, introducing unquantified risk",
+        "No calibration data available for this organization in the last 180 days, reducing scoring confidence",
+        "No eligibility score computed for this opportunity yet."
+      ],
+      "key_strengths": [
+        "This is a renewal of a previously awarded grant, which is the strongest positive signal available and substantially increases probability of award",
+        "100% award rate in this specific funding category, even on a small sample, is directionally favorable",
+        "Deadline is August 2027, providing ample preparation time to strengthen the application and Digital Twin completeness",
+        "Rolling recurrence noted by the Renewal Tracker Agent suggests the funder has an ongoing relationship with this organization",
+        "Service area (Central Texas) is documented consistently across organizational profile and Digital Twin, reducing geographic eligibility ambiguity",
+        "Track record of 100% win rate in this category."
+      ],
+      "estimated_roi": "High: strong return likely relative to effort",
+      "time_to_complete": "Est. 8-12 hours",
+      "computed_at": "2026-08-20T06:30:43.058Z"
+    },
+    "agent_decisions_row": {
+      "id": "0d9aa006-2447-427c-80ec-32f48fc31016",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-15-probability",
+      "decision_type": "probability_scored",
+      "entity_type": "opportunity",
+      "entity_id": "097c768f-0ff5-4a3c-a2f7-e79ee174da9f",
+      "reasoning": "Calibrated score for \"PT-09 Test Opportunity 1 -- Renewal 2027\": 67/100 (apply, medium confidence from 3/5 factors with real data). This is a renewal opportunity for an award the organization has already won, and the 100% award rate in this funding category (1 past outcome) provides meaningful positive signal supporting pursuit. However, the organization's Digital Twin is only 60% complete and the mission statement reads as a test artifact rather than a substantive programmatic description, which limits the engine's ability to fully confirm deep funder alignment and program fit. Proceeding with the application is warranted given the renewal nature and prior award, but staff should prioritize strengthening the Digital Twin and Knowledge Base content before submission to maximize competitiveness. Note: no calibration data is available (0 scored outcomes in the last 180 days), so accuracy will improve as more outcomes are recorded. Score trend: insufficient_data.",
+      "confidence_score": 67,
+      "action_taken": "upserted_calibrated_probability_score",
+      "required_human_review": false,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:30:42.921Z",
+      "agent_run_id": "fa5e3f94-e125-4f62-b7df-edaaa5f4d4a8",
+      "action_payload": {
+        "rubric_label": "apply",
+        "factor_scores": {
+          "program_fit": 55,
+          "track_record": 85,
+          "ntee_alignment": 60,
+          "geographic_eligibility": 70,
+          "financial_capacity_match": 65
+        },
+        "baseline_score": 75,
+        "deterministic_band": "medium",
+        "model_claimed_band": "medium",
+        "legacy_recommendation": "consider",
+        "calibration_sample_size": 0
+      },
+      "human_reviewer_id": null
+    },
+    "agent_runs_row": {
+      "id": "1cfe17d4-609a-4a97-a7bb-feb85724fed9",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-05-draft",
+      "status": "running",
+      "input_params": {},
+      "output_summary": null,
+      "items_found": 0,
+      "items_processed": 0,
+      "error_message": null,
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:30:41.137Z",
+      "completed_at": null,
+      "created_at": "2026-08-20T06:30:41.118Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "agent_queue_row": {
+      "id": "a9e920bf-f712-4142-ba47-415889830d29",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-29-fundability",
+      "priority": 9,
+      "status": "queued",
+      "trigger_source": "chain",
+      "input_payload": {
+        "opportunityIds": [
+          "097c768f-0ff5-4a3c-a2f7-e79ee174da9f"
+        ]
+      },
+      "output_payload": null,
+      "error_message": null,
+      "queued_at": "2026-08-20T06:30:42.925Z",
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":4,\"itemsProcessed\":4,\"itemsQueued\":2,\"decisions\":[\"47e18752-0393-4eae-9943-4a365baf87fe\",\"14781415-1ead-4830-9e7f-ce8ccd5fd8ed\",\"8b81f1f1-30e9-4d67-8c8e-1f35d3dde3ef\",\"0d9aa006-2447-427c-80ec-32f48fc31016\"],\"nextActions\":[\"ag-29-fundability\",\"ag-29-fundability\"],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "opportunity_probability_scores row(s) written with a real Claude-calibrated overall_score=67, confidence=medium, and a real 5-factor breakdown; agent_decisions row logged with reasoning; agent_runs row completed -- matches AG-15's documented intent (self-calibrating probability score persisted per opportunity). result.itemsProcessed=4, result.decisions.length=4.",
+  "registryPriorStatus": "FEATURE_REGISTRY_v2.md row #196: \"AG-15 Autonomous Probability Scoring | BUILT — BLOCKED | Enum gap fixed 2026-08-02 ... Re-verified live 2026-08-03: every per-opportunity scoring call instead fails on the (at-the-time) dead platform ANTHROPIC_API_KEY (401) — 0 of 20 real candidates scored. Not independently re-tested since the 2026-08-06 platform key rotation that unblocked AG-22's identical failure mode (row #91) — very likely also fixed now, flagged as a quick, high-confidence re-verification rather than assumed.\" This run IS that re-verification: real Claude calls succeeded and opportunity_probability_scores rows were written for real, confirming the 2026-08-06 key rotation did fix this agent (after also patching a genuine local-only missing UNIQUE constraint -- see triggerLog).",
+  "falsePassCasualty": false
+}

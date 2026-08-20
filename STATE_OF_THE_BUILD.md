@@ -1,6 +1,62 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-09-001 COMPLETE. Authoritative AG-01..AG-43 agent inventory
+**Updated: August 20, 2026 — audit PT-09-002 COMPLETE. Per-agent execution proof, batch 1
+(AG-01..AG-21 real numbering per PT-09-001, 28 real agent-code entries incl. on-disk collisions).
+Every entry was actually triggered — direct class instantiation, real exported function call, or a
+real private class method invoked via bracket notation — against a real, live, local, non-production
+Supabase stack (`pt05-local-stack`) with a schema extension auto-generated from the real production
+schema snapshot (`test-evidence/pt-06/live-schema.json`) and a dedicated, non-Faith test org
+(`test-evidence/pt-09/environment.json`). Before/after row counts were captured via a raw `pg`
+connection independent of whatever client each agent's own code used, so a discrepancy can't be an
+artifact of the counting method. **Result: 22 WORKS, 3 WIRED-NO-OUTPUT, 1 ERROR-SWALLOWED,
+1 TRIGGER-BROKEN, 1 PENDING-SCOPE — 4 of the 5 non-WORKS entries are flagged
+`falsePassCasualty: true`** (their registered trigger status implied a working path; this proof
+found the underlying write target empty or the failure invisible). New P1 register findings
+WGR-077 through WGR-080 (Autonomous Agents layer) — full root cause per finding, not a bare
+"it didn't work":
+- **AG-05** (research family, corporate-giving.ts tested as 1-of-~10 representative) — ran clean,
+  wrote 0 opportunities/funders; live dependency on scraping Google search results.
+- **AG-13** (foundation-enrichment scraper) — ran clean, wrote nothing; Strategy 2's Google fallback
+  hit a real, reproducible `CAPTCHA detected (recaptcha_v2) — no TWOCAPTCHA_API_KEY configured` wall
+  on all 3 attempts, independent of which foundation is targeted.
+- **AG-14** (donor-discovery continuous poll processor) — the real production RPC
+  `donor_discovery_claim_request` (migration 070) and the `donor_discovery_taxonomy` table (migration
+  067) do not exist in production; the poll loop's own error handling treats the RPC failure exactly
+  like an empty queue (a `console.error` only, no DB record) — a real submitted request sits in
+  `status='queued'` forever with zero visible sign anything is wrong. **ERROR-SWALLOWED**, the most
+  severe class this phase defines.
+- **AG-18** (reputation intelligence) — ran clean, wrote 0 `reputation_signals`; root-caused to
+  DuckDuckGo's free Instant-Answer API being a curated near-empty test index (confirmed via a direct
+  independent call for "Wells Fargo," a real litigation-heavy entity, returning 0 results) — the
+  search dependency is structurally near-useless for this feature's actual purpose, not a one-off.
+- **AG-12** (AutoApply, `worker/queue-processor.ts`) — **PENDING-SCOPE**, not fired: confirmed via
+  direct source read that it genuinely sends real outbound email (`submitViaEmail()`, a real
+  provider `messageId`) and drives real browser-based third-party form submission
+  (`FormFillerAgent.fillAndSubmit()`), with no dry-run/simulation mode anywhere in the codebase —
+  consistent with this project's own prior 2026-08-13 AutoApply soak test, which deliberately avoided
+  the same real-send step for the same reason.
+- **20 TRIGGER-BROKEN**: AG-20 (EA-01 giving detector) — a real, human-visible `agent_runs.status=
+  'failed'` (not swallowed): `BaseAgent`'s 60s hard ceiling trips because 3 candidate-URL fetches × 3
+  retries against an unreachable site exceeds it, so the agent can never complete for any dead site.
+- Every other entry (AG-01, AG-02, AG-03, AG-04, AG-06 ×2, AG-07 ×2, AG-08 ×2, AG-09 ×2, AG-10 ×2,
+  AG-11 ×2, AG-15, AG-16, AG-17, AG-19, AG-21) genuinely **WORKS** — real rows landed in the
+  documented write-target table(s), content matching the agent's own stated intent, several via real
+  Claude API calls (grant summarization, eligibility scoring, draft generation — one real ~16,000-
+  character grant narrative, budget line-items, deadline extraction, relationship-graph pathfinding
+  with real web-search officer research). Two real, previously-undiscovered schema gaps were found
+  and locally patched (not app bugs — confirmed against real production migration files before
+  patching): `funder_dna_profiles` and `opportunity_probability_scores`/`organizational_digital_
+  twins` were each missing the `UNIQUE` constraint their real `.upsert({onConflict:...})` code
+  depends on. Several `agent-inventory.json` write-target claims were also found wrong against real
+  source and corrected in-place (e.g. AG-10's on-disk collision — `document-expiry-agent.ts` — writes
+  `agent_decisions`+`alerts`, never `documents`; AG-12's on-disk collision — `search-profile-
+  optimizer-agent.ts` — never touches `search_profiles` at all, confirmed against the file's own
+  header comment stating a hard limit). Full detail: `test-evidence/pt-09/execution-batch1.json`
+  (28 entries, merged from `test-evidence/pt-09/batch1-results/*.json`), gated by
+  `scripts/audit/verify-pt09-002.mjs` (PASS — 28/28 required entries present, every non-PENDING-SCOPE
+  entry's `rowDelta` cross-checked against its own `before`/`after` counts).**
+
+**Prior: August 20, 2026 — audit PT-09-001 COMPLETE. Authoritative AG-01..AG-43 agent inventory
 built: registry (live `agent_registry` table, 43 rows, read-only query — byte-identical to
 `scripts/seed-agent-registry.ts`'s ROSTER) cross-referenced against real code (`super()`/`agentType`
 literal scan across all of `src/lib/agents/*.ts`) and real trigger reality (PT-08's boot-inventory +
