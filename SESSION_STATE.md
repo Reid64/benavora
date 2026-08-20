@@ -1,5 +1,53 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-14: table-by-table RLS + storage anon audit resolves MASTER_BACKLOG-vs-later-claim conflict: 0/184 tables, 0/7 buckets leak to anon today.
+## Last Updated: August 20, 2026 — audit PT-14: client-bundle secret scan (0 P0, 247 shipped files) + middleware review (WGR-023 reconfirmed live in prod).
+
+## SESSION — August 20, 2026 (audit PT-14: client-bundle secret scan + middleware review)
+
+**Focus:** build the real production client bundle, scan the shipped output for leaked secrets, and
+live-probe production to confirm/deny PT-02's WGR-023 (middleware redirects cron/webhook routes to
+`/login` before their own auth check runs) plus an independent matcher-gap review for the opposite
+failure direction (a route that bypasses auth entirely). Full detail, real curl evidence, and the
+scan methodology are in `STATE_OF_THE_BUILD.md`'s matching entry — summary here.
+
+**Bundle scan: PASS, 0 P0.** Fresh `pnpm run build` (`.next` deleted first) → 247 real shipped files
+(209 static JS/CSS/JSON, 12 prerendered HTML, 26 RSC payloads — deliberately excludes
+`.next/server/**/*.js`, which never reaches a browser). Known-value pass (6 real secrets from
+`.env.local` searched literally) found zero. Format-pattern pass (Stripe/AWS/PEM/Resend/Postgres-URL/
+OpenAI/Anthropic key shapes) found zero. Every one of 77 JWT-shaped tokens in the bundle decoded and
+checked by `role` claim — all 77 are `anon` (the intentionally-public Supabase anon key), zero
+`service_role` tokens. Raw output: `test-evidence/pt-14/bundle-scan.txt`.
+
+**Middleware review: WGR-023 reconfirmed live in production, one conflicting report flagged.** Real
+curl probes (not local dev) against `https://www.benavora.com` for 2 of the 5 `vercel.json` cron
+targets, both webhook routes, `/api/platform/bootstrap`, and `/api/unsubscribe` — every one returned
+`307 Location: /login` (full headers incl. `Server: Vercel`/`X-Vercel-Id` confirming real production
+responses), including with a wrong `Authorization: Bearer` header, since `src/middleware.ts` redirects
+before the route's own `CRON_SECRET`/signature check runs. This is the first live-production
+confirmation of WGR-023 — the finding was previously verified only against a local dev server.
+**Directly contradicts a separate report already on file**: `WIRING_GAP_REGISTER.md`'s WGR-003 row
+records Reid reporting cron routes return `401` (not a redirect) in production — today's live curl
+evidence shows `307` on every probed route. Recorded as an explicit, unresolved discrepancy in
+`test-evidence/pt-14/bundle-and-middleware.json` rather than silently picked one way.
+
+**Matcher-gap check (bypass direction): `NO_BYPASS_GAP_FOUND`.** Re-parsed `PUBLIC_PATHS`,
+`isPublicPath()`'s exemption clauses, and the exported `matcher` regex directly from the live
+`src/middleware.ts` source — confirmed the exemption list is still narrow (10 static/auth pages + 3
+justified clauses) and the matcher only excludes standard static-asset infrastructure. No route
+bypasses auth; middleware in this codebase errs toward over-restriction (WGR-023), never
+under-restriction.
+
+**Gates:** fresh `pnpm run build` clean (389 routes, no errors) before scanning.
+`node scripts/audit/verify-pt14-003.mjs` — PASS.
+
+**Scoped commit:** `test-evidence/pt-14/{bundle-scan.txt, bundle-and-middleware.json,
+_bundle-scan-summary.json, _middleware-review-summary.json}`, `scripts/audit/{pt14-003-bundle-secret-
+scan.mjs, pt14-003-middleware-review.mjs, pt14-003-combine.mjs, verify-pt14-003.mjs}`, this file,
+`STATE_OF_THE_BUILD.md`. Left untouched: `scripts/audit/verify-pt13-003.mjs` (pre-existing untracked
+file from a different, already-committed PT-13 session, not part of this task) and the large set of
+untracked `build-*.log`/`dev-server-*.log` files and dirty `.claude/worktrees/agent-*` pointers from
+other sessions.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14: table-by-table RLS + storage anon audit)
 

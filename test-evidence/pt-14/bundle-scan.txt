@@ -1,0 +1,29 @@
+PT-14-003 client bundle secret scan
+Generated: 2026-08-20T11:29:17.601Z
+
+=== SCOPE ===
+.next/static (JS/CSS/JSON chunks):        209 files
+.next/server/app (*.html, prerendered):   12 files
+.next/server/app (*.rsc/*.meta, RSC data): 26 files
+TOTAL shipped files scanned:               247
+Explicitly OUT of scope (server-only, never sent to a browser): .next/server/**/*.js route handlers/RSC render code.
+
+=== KNOWN-VALUE PASS ===
+Server-only secret names checked (real value present in .env.local): SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, ANTHROPIC_API_KEY, SAM_GOV_API_KEY, OPENAI_API_KEY, GOOGLE_PLACES_API_KEY, FAITH_FOUNDATION_ORG_ID
+Server-only secret names referenced in code but NOT checked (no local value to test against): BLS_API_KEY, CDC_APP_TOKEN, CENSUS_API_KEY, CREDENTIAL_ENCRYPTION_KEY, CRON_SECRET, GEMINI_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_GENERATIVE_AI_API_KEY, HUD_API_KEY, INTEGRATION_ENCRYPTION_KEY, INTEGRATION_KEY_SECRET, PORTAL_ENCRYPT_SECRET, RESEND_API_KEY, RESEND_WEBHOOK_SECRET, SIMPLER_GRANTS_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TWOCAPTCHA_API_KEY, UNSUBSCRIBE_HMAC_SECRET
+Findings: 0
+
+=== PATTERN PASS ===
+Findings: 0
+
+=== JWT ROLE-CLAIM PASS ===
+Total JWT-shaped tokens found: 77
+By role claim: {"anon":77}
+Privileged (service_role/supabase_admin) JWTs found in shipped output: 0
+  Expected/by-design: 77 anon-role JWT occurrence(s) -- this is NEXT_PUBLIC_SUPABASE_ANON_KEY, meant to ship to the client (protected by RLS, not secrecy). Sample file(s): .next\static\chunks\1066-9deb1344fb6b9a29.js, .next\static\chunks\1604-81b4557187057799.js, .next\static\chunks\2-e80d738588464bec.js
+
+=== SUMMARY ===
+Total findings: 0
+P0 (real secret confirmed in shipped output): 0
+VERDICT: PASS -- no server-only secret value, no secret-shaped pattern, and no privileged-role JWT was found in the shipped client bundle.
+

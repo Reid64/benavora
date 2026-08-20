@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2026-08-20T11:29:17.603Z",
+  "scope": {
+    "clientJsCssFiles": 209,
+    "prerenderedHtmlFiles": 12,
+    "rscPayloadFiles": 26,
+    "totalShippedFilesScanned": 247,
+    "outOfScope": ".next/server/**/*.js (server-only route handlers/RSC render code, never sent to a browser)"
+  },
+  "knownValuePass": {
+    "secretsChecked": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "DATABASE_URL",
+      "ANTHROPIC_API_KEY",
+      "SAM_GOV_API_KEY",
+      "SAM_GOV_API_KEY",
+      "SAM_GOV_API_KEY",
+      "OPENAI_API_KEY",
+      "GOOGLE_PLACES_API_KEY",
+      "GOOGLE_PLACES_API_KEY",
+      "FAITH_FOUNDATION_ORG_ID"
+    ],
+    "secretsReferencedButNotChecked": [
+      "BLS_API_KEY",
+      "CDC_APP_TOKEN",
+      "CENSUS_API_KEY",
+      "CREDENTIAL_ENCRYPTION_KEY",
+      "CRON_SECRET",
+      "GEMINI_API_KEY",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_GENERATIVE_AI_API_KEY",
+      "HUD_API_KEY",
+      "INTEGRATION_ENCRYPTION_KEY",
+      "INTEGRATION_KEY_SECRET",
+      "PORTAL_ENCRYPT_SECRET",
+      "RESEND_API_KEY",
+      "RESEND_WEBHOOK_SECRET",
+      "SIMPLER_GRANTS_API_KEY",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "TWOCAPTCHA_API_KEY",
+      "UNSUBSCRIBE_HMAC_SECRET"
+    ],
+    "findings": []
+  },
+  "patternPass": {
+    "patternsChecked": [
+      "STRIPE_SECRET_KEY_LIVE",
+      "STRIPE_SECRET_KEY_TEST",
+      "STRIPE_RESTRICTED_KEY",
+      "PEM_PRIVATE_KEY",
+      "AWS_ACCESS_KEY_ID",
+      "RESEND_API_KEY",
+      "POSTGRES_CONNECTION_STRING_WITH_CREDS",
+      "OPENAI_API_KEY_SHAPE",
+      "ANTHROPIC_API_KEY_SHAPE"
+    ],
+    "findings": []
+  },
+  "jwtPass": {
+    "totalJwtTokensFound": 77,
+    "roleCounts": {
+      "anon": 77
+    },
+    "privilegedFindings": []
+  },
+  "summary": {
+    "totalFindings": 0,
+    "p0Count": 0,
+    "verdict": "PASS"
+  }
+}

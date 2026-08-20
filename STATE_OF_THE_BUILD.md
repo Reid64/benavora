@@ -1,6 +1,77 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-14: table-by-table RLS + storage anon audit — MASTER_BACKLOG vs. later "all confirmed" claim resolved, 0/184 tables and 0/7 buckets leak to anon today.**
+**Updated: August 20, 2026 — audit PT-14: client-bundle secret scan + middleware review — 0 P0 secrets in the shipped build, WGR-023 (middleware over-redirects cron/webhook routes) reconfirmed live in production.**
+
+## SESSION — August 20, 2026 (audit PT-14: client-bundle secret scan + middleware review)
+
+**Focus:** two verification tasks. (1) Build the real production client bundle and scan the SHIPPED
+output (not source, not server-only code) for leaked secrets. (2) Re-confirm PT-02's WGR-023 finding
+(`src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe routes) against real,
+live production — not just the local-dev-server evidence WGR-023 was originally built on — and
+independently re-derive the matcher/exemption list to confirm no route bypasses auth in the opposite
+direction (a route that should require a session but doesn't).
+
+**Bundle secret scan — real result, not assumed clean.** Ran a fresh `pnpm run build` (`.next` deleted
+first, 247 real shipped files produced: 209 static JS/CSS/JSON chunks, 12 prerendered HTML pages, 26
+RSC payloads — explicitly scoped to what a browser actually downloads, not `.next/server/**/*.js`
+route-handler code, which never reaches the client). Two independent passes: (1) known-value — every
+non-`NEXT_PUBLIC_*` secret with a real value in `.env.local` (`SUPABASE_SERVICE_ROLE_KEY`,
+`DATABASE_URL`, `ANTHROPIC_API_KEY`, `SAM_GOV_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY`)
+searched literally across all 247 files — zero found; (2) format-based pattern pass (Stripe secret/
+restricted keys, PEM private-key blocks, AWS access keys, Resend keys, Postgres connection strings
+with embedded creds, OpenAI/Anthropic key shapes) — zero matches; (3) every JWT-shaped token in the
+bundle (77 found) had its payload decoded and its `role` claim checked — all 77 are `role: "anon"`
+(the real, intentionally-public `NEXT_PUBLIC_SUPABASE_ANON_KEY`, protected by RLS not
+secrecy), zero `service_role`/`supabase_admin` tokens present. **Verdict: PASS, 0 P0 findings.** Full
+raw output in `test-evidence/pt-14/bundle-scan.txt`; the 20 server-only secret names referenced in
+`src/`/`worker/` that had no local value to test against (`CRON_SECRET`, `STRIPE_SECRET_KEY`,
+`RESEND_API_KEY`, etc.) are listed explicitly in that file rather than silently skipped, since a
+missing local value means this specific pass could not check them — the pattern pass still covers
+several of them by shape.
+
+**Middleware review — WGR-023 reconfirmed live in production, plus a real conflicting-report finding.**
+Curled `https://www.benavora.com` directly (not a local dev server) against 7 of the 18 routes
+WGR-023 names, including 2 of the 5 real `vercel.json`-registered Cron targets
+(`/api/cron/grantsgov`, `/api/cron/domain-warmup`) and both webhook routes
+(`/api/webhooks/stripe`, `/api/webhooks/resend`), plus `/api/platform/bootstrap` and
+`/api/unsubscribe`. Every one returned `HTTP 307 Location: /login` (full headers captured, including
+`Server: Vercel` and a real `X-Vercel-Id` per request, confirming genuine production responses, not a
+cached artifact) — including with a `Authorization: Bearer wrongsecret` header, which made no
+difference, since `src/middleware.ts` redirects unauthenticated callers before the route's own
+`CRON_SECRET`/signature check ever executes. **This confirms WGR-023's root cause is unchanged in the
+currently-deployed production build** — a real gap the prior local-dev-only evidence hadn't yet
+confirmed live. **Found and recorded, not silently resolved either way**: `WIRING_GAP_REGISTER.md`'s
+WGR-003 row separately records "Reid reports cron routes return `401` (not a redirect) when hit
+unauthenticated in production" — this session's live curl evidence directly contradicts that report
+for every route probed today (307, not 401). Recorded as an explicit, flagged discrepancy in
+`test-evidence/pt-14/bundle-and-middleware.json` rather than silently preferring one source; needs
+Reid to reconcile (stale report, a since-reverted fix, or testing against a different
+deployment/environment).
+
+**Matcher-gap check (the opposite direction — a route that bypasses auth) — no gap found.**
+Independently re-parsed `PUBLIC_PATHS`, `isPublicPath()`'s three additional exemption clauses
+(`/api/auth/*`, `/invite*`, the exact `/api/users/accept` path), and the exported `matcher` regex
+directly out of the live `src/middleware.ts` source (not hardcoded/assumed) — confirmed the exemption
+list is still exactly the 10 static/auth pages plus those 3 narrow, individually-justified clauses,
+and the matcher only excludes standard Next.js static-asset infrastructure (no application route is
+exempted from the auth check). **Verdict: `NO_BYPASS_GAP_FOUND`.** Net picture across both checks:
+middleware in this codebase errs toward over-restriction (WGR-023 — blocking legitimate
+server-to-server callers like Vercel Cron and Stripe/Resend), never under-restriction — no auth-bypass
+found.
+
+**Gates:** fresh `pnpm run build` completed clean (`✓ Compiled successfully`, 389 routes generated,
+no errors) before scanning — the scan runs against real, current build output, not stale artifacts.
+`node scripts/audit/verify-pt14-003.mjs` — PASS.
+
+**Scoped commit:** `test-evidence/pt-14/{bundle-scan.txt, bundle-and-middleware.json,
+_bundle-scan-summary.json, _middleware-review-summary.json}`,
+`scripts/audit/{pt14-003-bundle-secret-scan.mjs, pt14-003-middleware-review.mjs, pt14-003-combine.mjs,
+verify-pt14-003.mjs}`, this file, `SESSION_STATE.md`. Left untouched (pre-existing, unrelated
+untracked work from other sessions, not part of this task): `scripts/audit/verify-pt13-003.mjs`, the
+dirty `.claude/worktrees/agent-*` submodule pointers, and the large number of untracked
+`build-*-2026-08-1{6,7,8,9}.log`/`dev-server-*.log` files from other sessions' work.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14: table-by-table RLS + storage anon audit)
 
