@@ -66,6 +66,30 @@ data before being marked RESOLVED in the register:**
   public HTTPS fetch succeeds, and the listener records 0 hits when targeted through the guarded
   path. 30 unit tests pass. `pnpm run build` and `pnpm run build:worker` both exit 0.
 
+**Fix applied, branch-verified, production-apply deliberately deferred (NOT marked RESOLVED):**
+- WGR-130, WGR-131 — commit `9b8982e` (2026-08-20): the applications stage-transition state
+  machine (BEHAVIORAL_CONTRACTS §6 / `pipeline.ts`'s `FORWARD` const + `getTransitionRule()`) was
+  enforced only in app code, and only by the one call site that bothered to check it —
+  `executeTransition()` itself enforced nothing (WGR-130), and a raw
+  `.update({stage:'awarded'})` with no `executeTransition()` call at all persisted an
+  illegal 10-of-12-stage skip with no error (WGR-131). Fixed with a new
+  `supabase/migrations/141_application_stage_transition_trigger.sql` — a `BEFORE UPDATE` trigger
+  that transcribes the app's own legal-transition graph verbatim as DB-layer data and rejects any
+  other `(OLD.stage, NEW.stage)` pair, regardless of caller. Exhaustively verified, not spot-checked:
+  all 144 pairs from this row's own `kanban.transition_matrix` evidence replayed against the real
+  trigger — 132/132 real transitions match `getTransitionRule()`'s decision exactly (the only
+  divergence is the 12 same-stage no-op pairs, expected and benign). A fresh reproduction of
+  WGR-131's exact exploit (raw `discovered -> awarded` PATCH, no app code) now returns a real 400
+  with the trigger's own error, independently re-read to confirm the stage never changed; a real
+  legal transition in the same run still succeeds. **Verified on `.pt05-local-stack` (a real
+  Postgres instance), not a Supabase cloud branch** — this task's own instructed cloud-branch path
+  was attempted first and found unusable: neither the `supabase` CLI's authenticated session nor the
+  Supabase MCP connector can see the real production project (`vbjplpquqxxfbpazyalt`) at all, only
+  two unrelated projects on a different account/org — flagged rather than silently substituted.
+  **Not applied to production this session, deliberately** — bundled into the larger
+  migration-drift remediation batch (WGR-041 et al.); production-apply is a separate, explicit next
+  step. `pnpm run build` exit 0 (no application source changed — DB-layer fix only).
+
 **Fix applied, live-verification still pending (NOT marked RESOLVED — see register for why):**
 - WGR-139, WGR-142, WGR-143 — commit `cde8cd9` (2026-08-20): the three SAM.gov integration bugs
   (`src/lib/sources/samgov-client.ts` missing mandatory `postedFrom`/`postedTo`;
@@ -80,6 +104,51 @@ data before being marked RESOLVED in the register:**
   2026-08-21T00:00:00Z, run `npx tsx scripts/audit/int-fix-live-after.mjs`, confirm each of the three
   returns > 0 real records, save the results over the existing `*-live-after.json` files (currently
   real 429 captures, not successes), and flip WGR-139/142/143 to RESOLVED.**
+
+---
+
+## SESSION — August 20, 2026 (remediation: WGR-130/131, application stage-transition DB trigger)
+
+**Scope:** close two P0 pipeline state-machine bypass findings — `applications.stage` could be
+changed by a raw update that bypasses `executeTransition()`/`getTransitionRule()` entirely, since
+the transition rules were enforced only in app code, at only one call site.
+
+**Canonical graph, transcribed verbatim (not reinvented) from `pipeline.ts`'s own `FORWARD` const
+and `getTransitionRule()`:** 16 explicit forward edges plus "any move to a strictly earlier stage
+in the 12-stage canonical order is a legal backward move." Full graph printed at the end of this
+session's run — see the register rows WGR-130/131 or `supabase/migrations/
+141_application_stage_transition_trigger.sql`'s own header comment.
+
+**Fix:** a new migration, `141_application_stage_transition_trigger.sql` (root `supabase/
+migrations/` — confirmed live/active per WGR-041's PT-06 migration-drift map: every migration
+number above 127 exists only in this tree, `src/supabase/migrations/` stops at 127). A `BEFORE
+UPDATE ON applications FOR EACH ROW WHEN (NEW.stage IS DISTINCT FROM OLD.stage)` trigger checks
+`(OLD.stage, NEW.stage)` against the transcribed graph and `RAISE EXCEPTION`s (SQLSTATE `23514`) on
+anything else. No admin-override/bypass path exists in the app design (confirmed by repo-wide
+search) or was added — the trigger applies unconditionally.
+
+**Verification — real database, not a mock, exhaustive not spot-checked:**
+1. WGR-131's exact exploit shape (raw `discovered -> awarded` PATCH, no `executeTransition()` call)
+   replayed against the fixed database: real HTTP 400, the trigger's own error surfaced, and an
+   independent re-read confirms `stage` never changed. A real legal transition
+   (`discovered -> eligibility_review`) in the same run still succeeds.
+2. All 144 `(from, to)` pairs from this row's own pre-existing `kanban.transition_matrix` evidence
+   (the app's own ground truth, already captured for WGR-130) replayed against the trigger — 132/132
+   real transitions match exactly; the only divergence is the 12 benign same-stage no-op pairs.
+
+**Environment note, flagged rather than silently worked around:** this task's own instructions
+assumed a Supabase Cloud branch would be available (`SUPABASE_ACCESS_TOKEN`, referencing a deleted
+`pt12-load-test` branch). Checked first — both the `supabase` CLI's authenticated session and the
+Supabase MCP connector's `list_projects` only see two unrelated projects (`tarritrix`,
+`tarritrix-audit`) on a different account/org, not the real production project
+(`vbjplpquqxxfbpazyalt`). Used the task's own explicitly offered fallback instead: this session's
+already-running local Supabase stack (`.pt05-local-stack`, real Postgres, real schema, real data).
+
+**Not applied to production this session, deliberately** (per this task's own instruction) —
+bundled into the larger migration-drift remediation batch. `pnpm run build` exit 0 (no application
+source changed — DB-layer fix only). Evidence:
+`test-evidence/remediation/statemachine-fix/statemachine-branch-verify.json` (primary legal/illegal
+repro), `statemachine-full-matrix-verify.json` (144-pair exhaustive parity check).
 
 ---
 

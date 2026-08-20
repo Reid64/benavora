@@ -35,6 +35,16 @@ WGR-108/WGR-109/WGR-110 (commit `6dd5f32`, three P0 SSRF findings closed with on
 DNS-based live verification, 0 hits on a real local listener, 30 unit tests passing).
 Full detail in `STATE_OF_THE_BUILD.md`'s matching banner.
 
+**Fix applied, branch-verified, NOT marked RESOLVED — production-apply deliberately deferred:**
+WGR-130/WGR-131 (commit `9b8982e`, applications stage-transition state machine bypassable via a
+raw `.update({stage:...})` with no `executeTransition()` call). Fixed with a new DB trigger
+(`supabase/migrations/141_application_stage_transition_trigger.sql`) transcribing the app's own
+legal-transition graph verbatim; exhaustively verified (144-pair parity check + the exact WGR-131
+exploit shape) against a real Postgres instance (`.pt05-local-stack` — the task's assumed
+cloud-branch path was checked first and found unusable this session, see below). Not applied to
+production — bundled into the migration-drift remediation batch. See `WIRING_GAP_REGISTER.md` rows
+WGR-130/131 (`FIX-APPLIED-BRANCH-VERIFIED`).
+
 **Fix applied but NOT marked RESOLVED — live-verification pending an external quota reset:**
 WGR-139/WGR-142/WGR-143 (commit `cde8cd9`, the three SAM.gov integration bugs — missing mandatory
 date-range params, an invalid `activeDate` param, and a wrong awardee nesting path). All three fixed
@@ -43,6 +53,38 @@ daily quota was exhausted mid-session (`HTTP 429`, resets 2026-08-21T00:00:00Z) 
 live call could confirm > 0 real records through the fixed functions. **Next session: re-run
 `npx tsx scripts/audit/int-fix-live-after.mjs` after that time and flip these three to RESOLVED once
 confirmed.** See `WIRING_GAP_REGISTER.md` rows WGR-139/142/143 (`FIX-APPLIED-PENDING-VERIFICATION`).
+
+---
+
+## Prior Session — August 20, 2026 (remediation: WGR-130/131, application stage-transition DB trigger)
+
+**Focus:** close two P0 pipeline state-machine bypass findings — `applications.stage` changeable by
+a raw update that bypasses `executeTransition()`/`getTransitionRule()` entirely, since the
+transition rules were enforced only in app code, at only one call site (`StageTransitionModal.tsx`).
+
+**Fix:** new migration `supabase/migrations/141_application_stage_transition_trigger.sql` — a
+`BEFORE UPDATE ON applications` trigger transcribing `pipeline.ts`'s own `FORWARD` const +
+`getTransitionRule()` backward-move rule verbatim as DB-layer data, `RAISE EXCEPTION`ing (SQLSTATE
+`23514`) on any `(OLD.stage, NEW.stage)` pair not in that graph, regardless of caller. No
+admin-override path exists in the app design or was added.
+
+**Verification, real database, exhaustive not spot-checked:** WGR-131's exact exploit (raw
+`discovered -> awarded` PATCH, no app code) now returns a real 400, independently re-read to
+confirm the stage never changed; a real legal transition in the same run still succeeds. All 144
+`(from,to)` pairs from this row's own pre-existing `kanban.transition_matrix` evidence replayed
+against the trigger — 132/132 real transitions match `getTransitionRule()` exactly (12 benign
+same-stage no-op divergences, expected).
+
+**Environment note:** the task's assumed Supabase Cloud branch path was checked first and found
+unusable this session — neither the `supabase` CLI's authenticated session nor the Supabase MCP
+connector can see the real production project (`vbjplpquqxxfbpazyalt`), only two unrelated projects
+on a different account/org. Used the already-running `.pt05-local-stack` (real Postgres) instead,
+the fallback this task's own instructions explicitly offered.
+
+**Not applied to production this session, deliberately** — bundled into the larger migration-drift
+remediation batch. `pnpm run build` exit 0 (DB-layer fix only, no application source changed).
+**Evidence:** `test-evidence/remediation/statemachine-fix/` (`statemachine-branch-verify.json`,
+`statemachine-full-matrix-verify.json`).
 
 ---
 

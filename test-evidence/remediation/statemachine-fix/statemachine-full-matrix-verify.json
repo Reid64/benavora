@@ -1,0 +1,1107 @@
+{
+  "summary": {
+    "capturedAt": "2026-08-20T23:53:48.556Z",
+    "totalPairs": 144,
+    "matchCount": 132,
+    "expectedSelfPairDivergenceCount": 12,
+    "realMismatchCount": 0,
+    "allRealTransitionsMatch": true
+  },
+  "realMismatches": [],
+  "expectedSelfPairDivergence": [
+    {
+      "from_stage": "discovered",
+      "to_stage": "discovered",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "eligibility_review",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "qualified",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "drafting",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "awaiting_documents",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "ready_for_review",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    }
+  ],
+  "allResults": [
+    {
+      "from_stage": "discovered",
+      "to_stage": "discovered",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "qualified",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> qualified is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "drafting",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> drafting is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "awaiting_documents",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> awaiting_documents is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "ready_for_review",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> ready_for_review is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> submitted is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> follow_up_due is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> awarded is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> denied is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "discovered",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: discovered -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "eligibility_review",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "drafting",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> drafting is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "awaiting_documents",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> awaiting_documents is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "ready_for_review",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> ready_for_review is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> submitted is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> follow_up_due is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> awarded is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "denied",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "eligibility_review",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: eligibility_review -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "qualified",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "awaiting_documents",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> awaiting_documents is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "ready_for_review",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> ready_for_review is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> submitted is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> follow_up_due is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> awarded is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> denied is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "qualified",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: qualified -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "drafting",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "ready_for_review",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> ready_for_review is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> submitted is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> follow_up_due is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> awarded is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> denied is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "drafting",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: drafting -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "awaiting_documents",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awaiting_documents -> submitted is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awaiting_documents -> follow_up_due is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awaiting_documents -> awarded is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awaiting_documents -> denied is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awaiting_documents -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awaiting_documents",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awaiting_documents -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "ready_for_review",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "submitted",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: ready_for_review -> follow_up_due is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: ready_for_review -> awarded is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: ready_for_review -> denied is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: ready_for_review -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "ready_for_review",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: ready_for_review -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "submitted",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "follow_up_due",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "awarded",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "denied",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: submitted -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "submitted",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: submitted -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "submitted",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "follow_up_due",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "awarded",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "denied",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: follow_up_due -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "follow_up_due",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: follow_up_due -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "submitted",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "follow_up_due",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "awarded",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awarded -> denied is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "reporting_required",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "awarded",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: awarded -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "submitted",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "follow_up_due",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "awarded",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "denied",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: denied -> reporting_required is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "denied",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": false,
+      "error_message": "Illegal application stage transition: denied -> renewal_opportunity is not a legal forward edge or backward move."
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "submitted",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "follow_up_due",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "awarded",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "denied",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "reporting_required",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "reporting_required",
+      "to_stage": "renewal_opportunity",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "discovered",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "eligibility_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "qualified",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "drafting",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "awaiting_documents",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "ready_for_review",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "submitted",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "follow_up_due",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "awarded",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "denied",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "reporting_required",
+      "expected": true,
+      "actual": true,
+      "error_message": null
+    },
+    {
+      "from_stage": "renewal_opportunity",
+      "to_stage": "renewal_opportunity",
+      "expected": false,
+      "actual": true,
+      "error_message": null
+    }
+  ]
+}

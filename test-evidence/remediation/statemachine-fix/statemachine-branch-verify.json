@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-08-20T23:52:36.120Z",
+  "stack": "http://127.0.0.1:56321",
+  "legalTransition": {
+    "applicationId": "3d58b36a-adcd-4f69-8bb5-527fb186fd82",
+    "from": "discovered",
+    "to": "eligibility_review",
+    "expected": "SUCCEED",
+    "http_status": 200,
+    "write_error": null,
+    "stage_after": "eligibility_review",
+    "outcome": "PERSISTED (correct)"
+  },
+  "illegalTransition": {
+    "applicationId": "b724dc65-92f8-4408-bee0-45d931491c1c",
+    "from": "discovered",
+    "to": "awarded",
+    "expected": "REJECTED",
+    "http_status": 400,
+    "write_error": {
+      "code": "23514",
+      "details": null,
+      "hint": "See src/components/applications/pipeline.ts FORWARD const / getTransitionRule() for the legal transition graph.",
+      "message": "Illegal application stage transition: discovered -> awarded is not a legal forward edge or backward move."
+    },
+    "stage_after_independent_reread": "discovered",
+    "outcome": "REJECTED (correct — trigger blocked it, stage unchanged)"
+  },
+  "summary": {
+    "legalTransitionPassed": true,
+    "illegalTransitionBlocked": true,
+    "allPassed": true
+  }
+}
