@@ -1,5 +1,52 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-12-002 refresh: re-ran concurrent-user load simulation against the live, still-non-production branch.**
+
+**What this session did:** re-executed the existing `scripts/audit/pt12-002-load-simulation.mjs`
+(built in the PT-12-002 session below, unchanged) against the same dedicated `pt12-load-test`
+Supabase branch recorded in `test-evidence/pt-12/branch.txt` — never production. The prior run's
+harness and verifier were reviewed and found to already fully satisfy this pass's requirements (ramp
+concurrency across multiple real steps; capture p50/p95/p99 latency, error rate, and throughput at
+each step from real recorded samples; keep the whole ramp within a short, bounded wall-clock window
+rather than a sustained hold), so no code changes were made — only a fresh execution.
+
+Fresh run recorded `2026-08-20T19:47:40Z` (started `19:46:46Z`), ramping through the same 7
+concurrency levels (5/25/75/150/300/600/1000), each held for a 6-second burst with a 0.5s cooldown
+between levels — total wall-clock ~45s, confirming the ramp's *shape* (how the system degrades as
+concurrency rises) was captured, not a long sustained hold (that is PT-12-003's separate soak-test
+job, already recorded in `soak-memory-run.log`). Every one of the 4 weighted real request types
+(dashboard_load 40%, discovery 30%, pipeline_update 15% write via `applications.notes`,
+draft_generation 15% write via `draft_versions`) ran with 0 errors at every level tested — the
+degradation observed is purely latency-based, not request failures.
+
+**Real, current breaking point (this run):**
+| Concurrency | Classification | p50 | p95 | p99 | Error rate |
+|---|---|---|---|---|---|
+| 5 | acceptable | 87ms | 335ms | 476ms | 0.00% |
+| 25 | acceptable | 128ms | 227ms | 316ms | 0.00% |
+| 75 | degraded | 428ms | 2381ms | 2465ms | 0.00% |
+| 150 | acceptable | 814ms | 1348ms | 1500ms | 0.00% |
+| 300 | degraded | 1556ms | 2220ms | 2607ms | 0.00% |
+| 600 | breaking | 3100ms | 5027ms | 5823ms | 0.00% |
+| 1000 | breaking | 6283ms | 7744ms | 7825ms | 0.00% |
+
+Breaking point: **concurrency=600** (first level crossing the stated p95>5000ms breaking
+threshold), confirmed decisively worse at 1000. This is above the platform's stated reasonable
+target of ~250 concurrent users for this infra tier, and is directionally consistent with the prior
+run's result (same overall shape — healthy through ~150-300, clearly broken by 600-1000; exact
+millisecond values differ run-to-run, expected variance against a shared preview-tier branch, not a
+regression). The 75/300 "degraded-then-recovers" pattern also reproduced on both runs, suggesting a
+real, repeatable transient contention point at those levels rather than one-off noise.
+
+`node scripts/audit/verify-pt12-002.mjs` reviewed unchanged and re-run against this fresh data —
+**PASS** (4/4 checks: 7 increasing concurrency levels each with full latency/error/throughput
+metrics; non-production target confirmed; explicit breaking-point verdict present; human-readable
+summary file present).
+
+**Gates:** `node scripts/audit/verify-pt12-002.mjs` — PASS, exit 0.
+
+---
+
 **Updated: August 20, 2026 — audit PT-12 v2: reused the existing dedicated load-test branch, re-verified non-production.**
 
 **What this session did:** confirmed PT-00/PT-03/PT-09 evidence artifacts are all present

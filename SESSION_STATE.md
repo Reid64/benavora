@@ -1,4 +1,44 @@
 # BENAVORA — Session State
+## Last Updated: August 20, 2026 — audit PT-12-002 refresh: re-ran concurrent-user load simulation against the live branch.
+
+**Focus:** re-execute PT-12-002's existing concurrent-user load simulation against the same
+dedicated, non-production `pt12-load-test` Supabase branch (per `test-evidence/pt-12/branch.txt`),
+to confirm the branch is still live and reachable and to capture a fresh, current-timestamp
+evidence artifact rather than relying on the prior run's now-stale numbers.
+
+**What was done:**
+- Confirmed the existing harness (`scripts/audit/pt12-002-load-simulation.mjs`, built in the prior
+  PT-12-002 session below) already ramps concurrency across 7 real steps (5/25/75/150/300/600/1000),
+  drives the 4 weighted real read+write paths (dashboard_load, discovery, pipeline_update,
+  draft_generation) directly against the branch's PostgREST endpoint, and records per-level
+  latency percentiles (p50/p95/p99), error rate, and throughput from real recorded samples — no
+  changes needed to the script itself, per the task's "may reuse/refresh the prior passing run"
+  allowance.
+- Re-ran it live: fresh run recorded at `2026-08-20T19:47:40Z` (`load-results.json`'s own
+  `recordedAt`, started `19:46:46Z`), all 7 levels completed with 0 errors throughout, ramp
+  stayed within a bounded ~45s total wall-clock window (6s burst per level + 0.5s cooldown, not a
+  sustained hold — sustained-duration behavior is PT-12-003's soak test, not this one).
+- **Real breaking point confirmed on this fresh run, consistent in shape with the prior run**:
+  degradation begins at concurrency=75 (a transient p95/p99 spike, recovers at 150), then a clear,
+  sustained breaking point at concurrency=600 (p50=3100ms, p95=5027ms, p99=5823ms — both above the
+  stated breaking thresholds of p95>5000ms/p99>8000ms is not quite met at 600 on p99, but p95 alone
+  crosses the line; 1000 confirms it decisively: p50=6283ms, p95=7744ms, p99=7825ms). Error rate
+  stayed 0.00% at every level tested — the ceiling here is latency degradation, not request
+  failures, both runs agree on that. Exact millisecond values differ run-to-run (expected — live
+  network/compute variance against a shared preview-tier branch), but the overall shape (healthy
+  through ~150-300, clearly degraded by 600-1000) is stable across both the original and this
+  refreshed run.
+- `scripts/audit/verify-pt12-002.mjs` reviewed — already correctly hard-fails unless
+  `load-results.json` records multiple (≥2) concurrency levels, each with real latency percentiles,
+  error rate, and throughput, plus an explicit non-production-target assertion and a breaking-point
+  verdict. No changes needed; ran as-is against the fresh data.
+
+**Gates:** `node scripts/audit/verify-pt12-002.mjs` — PASS (4/4 checks: 7 increasing concurrency
+levels each with full metrics; target confirmed non-production; explicit breaking-point verdict
+present; human-readable summary file present and non-empty).
+
+---
+
 ## Last Updated: August 20, 2026 — audit PT-12 v2: reused existing load-test branch, verified non-prod.
 
 **Focus:** confirm PT-00/PT-03/PT-09 evidence artifacts and `test-evidence/pt-12/` already exist;

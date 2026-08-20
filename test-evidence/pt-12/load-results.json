@@ -1,6 +1,6 @@
 {
-  "recordedAt": "2026-08-20T19:03:39.025Z",
-  "startedAt": "2026-08-20T19:02:45.341Z",
+  "recordedAt": "2026-08-20T19:47:40.013Z",
+  "startedAt": "2026-08-20T19:46:46.661Z",
   "target": {
     "supabaseUrl": "https://ffghpazvipsqrypkryfj.supabase.co",
     "branchProjectRef": "ffghpazvipsqrypkryfj",
@@ -52,71 +52,71 @@
     {
       "concurrency": 5,
       "durationMsTarget": 6000,
-      "durationMsActual": 6064,
-      "totalRequests": 327,
-      "successCount": 327,
+      "durationMsActual": 6158,
+      "totalRequests": 220,
+      "successCount": 220,
       "errorCount": 0,
       "errorRate": 0,
-      "throughputRps": 53.92480211081794,
+      "throughputRps": 35.72588502760637,
       "latencyMs": {
-        "p50": 80,
-        "p95": 155,
-        "p99": 412,
-        "max": 428,
-        "min": 62,
-        "mean": 92.32415902140673
+        "p50": 87,
+        "p95": 335,
+        "p99": 476,
+        "max": 614,
+        "min": 63,
+        "mean": 138.16363636363636
       },
       "byPath": {
         "dashboard_load": {
-          "count": 132,
+          "count": 88,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 90,
-            "p95": 201,
-            "p99": 423,
-            "max": 428,
+            "p50": 93,
+            "p95": 361,
+            "p99": 614,
+            "max": 614,
             "min": 75,
-            "mean": 106.71969696969697
+            "mean": 156.23863636363637
           }
         },
         "discovery": {
-          "count": 100,
+          "count": 72,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 72,
-            "p95": 126,
-            "p99": 427,
-            "max": 427,
-            "min": 62,
-            "mean": 81.37
+            "p50": 80,
+            "p95": 257,
+            "p99": 478,
+            "max": 478,
+            "min": 63,
+            "mean": 127.375
           }
         },
         "pipeline_update": {
-          "count": 42,
+          "count": 26,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 70,
-            "p95": 189,
-            "p99": 412,
-            "max": 412,
-            "min": 65,
-            "mean": 87.42857142857143
+            "p50": 83,
+            "p95": 290,
+            "p99": 367,
+            "max": 367,
+            "min": 64,
+            "mean": 123.5
           }
         },
         "draft_generation": {
-          "count": 53,
+          "count": 34,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 74,
-            "p95": 105,
-            "p99": 325,
-            "max": 325,
-            "min": 64,
-            "mean": 81.01886792452831
+            "p50": 85,
+            "p95": 320,
+            "p99": 350,
+            "max": 350,
+            "min": 67,
+            "mean": 125.44117647058823
           }
         }
       },
@@ -126,71 +126,71 @@
     {
       "concurrency": 25,
       "durationMsTarget": 6000,
-      "durationMsActual": 6098,
-      "totalRequests": 1154,
-      "successCount": 1154,
+      "durationMsActual": 6135,
+      "totalRequests": 1096,
+      "successCount": 1096,
       "errorCount": 0,
       "errorRate": 0,
-      "throughputRps": 189.24237454903246,
+      "throughputRps": 178.64710676446617,
       "latencyMs": {
-        "p50": 117,
-        "p95": 222,
-        "p99": 248,
-        "max": 468,
-        "min": 63,
-        "mean": 130.76689774696706
+        "p50": 128,
+        "p95": 227,
+        "p99": 316,
+        "max": 453,
+        "min": 62,
+        "mean": 138.9160583941606
       },
       "byPath": {
         "dashboard_load": {
-          "count": 465,
+          "count": 427,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 175,
-            "p95": 232,
-            "p99": 274,
-            "max": 468,
-            "min": 80,
-            "mean": 173.60860215053762
+            "p50": 172,
+            "p95": 258,
+            "p99": 334,
+            "max": 453,
+            "min": 84,
+            "mean": 176.97892271662764
           }
         },
         "discovery": {
-          "count": 337,
+          "count": 342,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 96,
-            "p95": 146,
-            "p99": 209,
-            "max": 216,
-            "min": 63,
-            "mean": 102.35311572700297
+            "p50": 105,
+            "p95": 182,
+            "p99": 240,
+            "max": 396,
+            "min": 62,
+            "mean": 115.01754385964912
           }
         },
         "pipeline_update": {
-          "count": 198,
-          "errorCount": 0,
-          "errorRate": 0,
-          "latencyMs": {
-            "p50": 92,
-            "p95": 147,
-            "p99": 220,
-            "max": 232,
-            "min": 63,
-            "mean": 98.88888888888889
-          }
-        },
-        "draft_generation": {
           "count": 154,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 95,
-            "p95": 156,
-            "p99": 244,
-            "max": 345,
-            "min": 67,
-            "mean": 104.57142857142857
+            "p50": 104,
+            "p95": 195,
+            "p99": 212,
+            "max": 214,
+            "min": 63,
+            "mean": 112.40259740259741
+          }
+        },
+        "draft_generation": {
+          "count": 173,
+          "errorCount": 0,
+          "errorRate": 0,
+          "latencyMs": {
+            "p50": 107,
+            "p95": 187,
+            "p99": 245,
+            "max": 251,
+            "min": 63,
+            "mean": 115.81502890173411
           }
         }
       },
@@ -200,307 +200,219 @@
     {
       "concurrency": 75,
       "durationMsTarget": 6000,
-      "durationMsActual": 6307,
-      "totalRequests": 977,
-      "successCount": 977,
+      "durationMsActual": 7495,
+      "totalRequests": 805,
+      "successCount": 805,
       "errorCount": 0,
       "errorRate": 0,
-      "throughputRps": 154.9072459172348,
+      "throughputRps": 107.40493662441628,
       "latencyMs": {
-        "p50": 395,
-        "p95": 1154,
-        "p99": 1424,
-        "max": 1700,
-        "min": 126,
-        "mean": 472.0777891504606
+        "p50": 428,
+        "p95": 2381,
+        "p99": 2465,
+        "max": 2605,
+        "min": 181,
+        "mean": 679.2086956521739
       },
       "byPath": {
         "dashboard_load": {
-          "count": 400,
+          "count": 308,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 463,
-            "p95": 1312,
-            "p99": 1510,
-            "max": 1522,
-            "min": 227,
-            "mean": 571.755
+            "p50": 580,
+            "p95": 2414,
+            "p99": 2500,
+            "max": 2605,
+            "min": 248,
+            "mean": 747.2045454545455
           }
         },
         "discovery": {
-          "count": 315,
+          "count": 264,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 341,
-            "p95": 675,
-            "p99": 1186,
-            "max": 1258,
-            "min": 126,
-            "mean": 373.2063492063492
+            "p50": 407,
+            "p95": 2370,
+            "p99": 2402,
+            "max": 2446,
+            "min": 185,
+            "mean": 581.2651515151515
           }
         },
         "pipeline_update": {
-          "count": 126,
+          "count": 117,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 369,
-            "p95": 1070,
-            "p99": 1170,
-            "max": 1288,
-            "min": 165,
-            "mean": 443.7936507936508
+            "p50": 413,
+            "p95": 2356,
+            "p99": 2401,
+            "max": 2402,
+            "min": 194,
+            "mean": 714.6495726495726
           }
         },
         "draft_generation": {
-          "count": 136,
+          "count": 116,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 350,
-            "p95": 1014,
-            "p99": 1258,
-            "max": 1700,
-            "min": 146,
-            "mean": 434.11764705882354
+            "p50": 414,
+            "p95": 2377,
+            "p99": 2389,
+            "max": 2393,
+            "min": 181,
+            "mean": 685.8275862068965
           }
         }
       },
-      "classification": "acceptable",
+      "classification": "degraded",
       "errorSamples": []
     },
     {
       "concurrency": 150,
       "durationMsTarget": 6000,
-      "durationMsActual": 6555,
-      "totalRequests": 1243,
-      "successCount": 1242,
-      "errorCount": 1,
-      "errorRate": 0.0008045052292839903,
-      "throughputRps": 189.62623951182303,
+      "durationMsActual": 6785,
+      "totalRequests": 1132,
+      "successCount": 1132,
+      "errorCount": 0,
+      "errorRate": 0,
+      "throughputRps": 166.8386145910096,
       "latencyMs": {
-        "p50": 752,
-        "p95": 988,
-        "p99": 1147,
-        "max": 1368,
-        "min": 312,
-        "mean": 756.33708769107
+        "p50": 814,
+        "p95": 1348,
+        "p99": 1500,
+        "max": 1691,
+        "min": 92,
+        "mean": 845.2234982332155
       },
       "byPath": {
         "dashboard_load": {
-          "count": 493,
+          "count": 475,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 800,
-            "p95": 1019,
-            "p99": 1167,
-            "max": 1368,
-            "min": 471,
-            "mean": 805.6612576064908
+            "p50": 872,
+            "p95": 1422,
+            "p99": 1651,
+            "max": 1691,
+            "min": 404,
+            "mean": 922.5852631578947
           }
         },
         "discovery": {
-          "count": 379,
+          "count": 331,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 717,
-            "p95": 897,
-            "p99": 1107,
-            "max": 1176,
-            "min": 425,
-            "mean": 718.0343007915567
+            "p50": 768,
+            "p95": 1279,
+            "p99": 1446,
+            "max": 1483,
+            "min": 92,
+            "mean": 782.7824773413897
           }
         },
         "pipeline_update": {
-          "count": 189,
+          "count": 164,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 721,
-            "p95": 994,
-            "p99": 1151,
-            "max": 1210,
-            "min": 383,
-            "mean": 728.4126984126984
+            "p50": 763,
+            "p95": 1336,
+            "p99": 1451,
+            "max": 1514,
+            "min": 274,
+            "mean": 786.6463414634146
           }
         },
         "draft_generation": {
-          "count": 182,
-          "errorCount": 1,
-          "errorRate": 0.005494505494505495,
+          "count": 162,
+          "errorCount": 0,
+          "errorRate": 0,
           "latencyMs": {
-            "p50": 717,
-            "p95": 1097,
-            "p99": 1169,
-            "max": 1230,
-            "min": 312,
-            "mean": 731.489010989011
+            "p50": 778,
+            "p95": 1304,
+            "p99": 1666,
+            "max": 1691,
+            "min": 345,
+            "mean": 805.2716049382716
           }
         }
       },
       "classification": "acceptable",
-      "errorSamples": [
-        {
-          "path": "draft_generation",
-          "status": 409,
-          "error": null,
-          "ms": 850
-        }
-      ]
+      "errorSamples": []
     },
     {
       "concurrency": 300,
       "durationMsTarget": 6000,
-      "durationMsActual": 7319,
-      "totalRequests": 1390,
-      "successCount": 1389,
-      "errorCount": 1,
-      "errorRate": 0.0007194244604316547,
-      "throughputRps": 189.91665528077607,
-      "latencyMs": {
-        "p50": 1470,
-        "p95": 2087,
-        "p99": 2631,
-        "max": 3045,
-        "min": 253,
-        "mean": 1443.8136690647482
-      },
-      "byPath": {
-        "dashboard_load": {
-          "count": 557,
-          "errorCount": 0,
-          "errorRate": 0,
-          "latencyMs": {
-            "p50": 1560,
-            "p95": 2086,
-            "p99": 2423,
-            "max": 2878,
-            "min": 265,
-            "mean": 1529.4614003590664
-          }
-        },
-        "discovery": {
-          "count": 391,
-          "errorCount": 0,
-          "errorRate": 0,
-          "latencyMs": {
-            "p50": 1400,
-            "p95": 1894,
-            "p99": 2233,
-            "max": 2438,
-            "min": 253,
-            "mean": 1366.9437340153452
-          }
-        },
-        "pipeline_update": {
-          "count": 226,
-          "errorCount": 0,
-          "errorRate": 0,
-          "latencyMs": {
-            "p50": 1412,
-            "p95": 2176,
-            "p99": 3010,
-            "max": 3045,
-            "min": 704,
-            "mean": 1381.3628318584072
-          }
-        },
-        "draft_generation": {
-          "count": 216,
-          "errorCount": 1,
-          "errorRate": 0.004629629629629629,
-          "latencyMs": {
-            "p50": 1428,
-            "p95": 2352,
-            "p99": 2717,
-            "max": 2958,
-            "min": 624,
-            "mean": 1427.4444444444443
-          }
-        }
-      },
-      "classification": "degraded",
-      "errorSamples": [
-        {
-          "path": "draft_generation",
-          "status": 409,
-          "error": null,
-          "ms": 1465
-        }
-      ]
-    },
-    {
-      "concurrency": 600,
-      "durationMsTarget": 6000,
-      "durationMsActual": 8739,
-      "totalRequests": 1651,
-      "successCount": 1651,
+      "durationMsActual": 7177,
+      "totalRequests": 1290,
+      "successCount": 1290,
       "errorCount": 0,
       "errorRate": 0,
-      "throughputRps": 188.92321775946903,
+      "throughputRps": 179.74083879058102,
       "latencyMs": {
-        "p50": 2580,
-        "p95": 3921,
-        "p99": 4732,
-        "max": 5557,
-        "min": 427,
-        "mean": 2675.229557843731
+        "p50": 1556,
+        "p95": 2220,
+        "p99": 2607,
+        "max": 3109,
+        "min": 210,
+        "mean": 1523.6527131782946
       },
       "byPath": {
         "dashboard_load": {
-          "count": 658,
+          "count": 504,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 2767,
-            "p95": 4205,
-            "p99": 4896,
-            "max": 5167,
-            "min": 480,
-            "mean": 2826.030395136778
+            "p50": 1694,
+            "p95": 2500,
+            "p99": 2704,
+            "max": 3029,
+            "min": 355,
+            "mean": 1689.9246031746031
           }
         },
         "discovery": {
-          "count": 502,
+          "count": 394,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 2408,
-            "p95": 3559,
-            "p99": 3921,
-            "max": 4593,
-            "min": 427,
-            "mean": 2451.820717131474
+            "p50": 1353,
+            "p95": 2086,
+            "p99": 2567,
+            "max": 2653,
+            "min": 340,
+            "mean": 1345.972081218274
           }
         },
         "pipeline_update": {
-          "count": 252,
+          "count": 188,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 2385,
-            "p95": 3847,
-            "p99": 4059,
-            "max": 4584,
-            "min": 1533,
-            "mean": 2647.7103174603176
+            "p50": 1508,
+            "p95": 1981,
+            "p99": 2169,
+            "max": 3109,
+            "min": 452,
+            "mean": 1465.9468085106382
           }
         },
         "draft_generation": {
-          "count": 239,
+          "count": 204,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 2552,
-            "p95": 4058,
-            "p99": 4628,
-            "max": 5557,
-            "min": 1471,
-            "mean": 2758.3221757322176
+            "p50": 1568,
+            "p95": 2080,
+            "p99": 2398,
+            "max": 2603,
+            "min": 210,
+            "mean": 1509.2107843137255
           }
         }
       },
@@ -508,113 +420,162 @@
       "errorSamples": []
     },
     {
-      "concurrency": 1000,
+      "concurrency": 600,
       "durationMsTarget": 6000,
-      "durationMsActual": 9534,
-      "totalRequests": 1666,
-      "successCount": 1662,
-      "errorCount": 4,
-      "errorRate": 0.0024009603841536613,
-      "throughputRps": 174.74302496328926,
+      "durationMsActual": 8531,
+      "totalRequests": 1352,
+      "successCount": 1352,
+      "errorCount": 0,
+      "errorRate": 0,
+      "throughputRps": 158.4808346032118,
       "latencyMs": {
-        "p50": 4427,
-        "p95": 6730,
-        "p99": 7392,
-        "max": 8402,
-        "min": 1717,
-        "mean": 4535.650660264106
+        "p50": 3100,
+        "p95": 5027,
+        "p99": 5823,
+        "max": 6141,
+        "min": 557,
+        "mean": 3187.102071005917
       },
       "byPath": {
         "dashboard_load": {
-          "count": 673,
+          "count": 567,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 4544,
-            "p95": 6694,
-            "p99": 7519,
-            "max": 7962,
-            "min": 1723,
-            "mean": 4535.8350668647845
+            "p50": 3193,
+            "p95": 4940,
+            "p99": 5927,
+            "max": 6141,
+            "min": 568,
+            "mean": 3303.816578483245
           }
         },
         "discovery": {
-          "count": 517,
+          "count": 390,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 4141,
-            "p95": 6441,
-            "p99": 6755,
-            "max": 8402,
-            "min": 1717,
-            "mean": 4167.270793036751
+            "p50": 2811,
+            "p95": 4567,
+            "p99": 5601,
+            "max": 5849,
+            "min": 557,
+            "mean": 2926.8435897435897
           }
         },
         "pipeline_update": {
-          "count": 225,
+          "count": 199,
           "errorCount": 0,
           "errorRate": 0,
           "latencyMs": {
-            "p50": 4578,
-            "p95": 6808,
-            "p99": 7225,
-            "max": 7394,
-            "min": 3018,
-            "mean": 4888.515555555556
+            "p50": 3112,
+            "p95": 5221,
+            "p99": 6011,
+            "max": 6069,
+            "min": 1567,
+            "mean": 3263.899497487437
           }
         },
         "draft_generation": {
-          "count": 251,
-          "errorCount": 4,
-          "errorRate": 0.01593625498007968,
+          "count": 196,
+          "errorCount": 0,
+          "errorRate": 0,
           "latencyMs": {
-            "p50": 4766,
-            "p95": 6985,
-            "p99": 7760,
-            "max": 7916,
-            "min": 3287,
-            "mean": 4977.617529880478
+            "p50": 3116,
+            "p95": 5185,
+            "p99": 5672,
+            "max": 6061,
+            "min": 1532,
+            "mean": 3289.3520408163267
           }
         }
       },
       "classification": "breaking",
-      "errorSamples": [
-        {
-          "path": "draft_generation",
-          "status": 409,
-          "error": null,
-          "ms": 4071
+      "errorSamples": []
+    },
+    {
+      "concurrency": 1000,
+      "durationMsTarget": 6000,
+      "durationMsActual": 8007,
+      "totalRequests": 1162,
+      "successCount": 1162,
+      "errorCount": 0,
+      "errorRate": 0,
+      "throughputRps": 145.12301735981018,
+      "latencyMs": {
+        "p50": 6283,
+        "p95": 7744,
+        "p99": 7825,
+        "max": 7855,
+        "min": 1047,
+        "mean": 5848.940619621342
+      },
+      "byPath": {
+        "dashboard_load": {
+          "count": 487,
+          "errorCount": 0,
+          "errorRate": 0,
+          "latencyMs": {
+            "p50": 6783,
+            "p95": 7791,
+            "p99": 7834,
+            "max": 7855,
+            "min": 1164,
+            "mean": 6043.505133470226
+          }
         },
-        {
-          "path": "draft_generation",
-          "status": 409,
-          "error": null,
-          "ms": 4145
+        "discovery": {
+          "count": 358,
+          "errorCount": 0,
+          "errorRate": 0,
+          "latencyMs": {
+            "p50": 6205,
+            "p95": 7722,
+            "p99": 7810,
+            "max": 7855,
+            "min": 1047,
+            "mean": 5416.569832402235
+          }
         },
-        {
-          "path": "draft_generation",
-          "status": 409,
-          "error": null,
-          "ms": 5279
+        "pipeline_update": {
+          "count": 146,
+          "errorCount": 0,
+          "errorRate": 0,
+          "latencyMs": {
+            "p50": 6217,
+            "p95": 6999,
+            "p99": 7399,
+            "max": 7428,
+            "min": 1369,
+            "mean": 6136.342465753424
+          }
         },
-        {
-          "path": "draft_generation",
-          "status": 409,
-          "error": null,
-          "ms": 6791
+        "draft_generation": {
+          "count": 171,
+          "errorCount": 0,
+          "errorRate": 0,
+          "latencyMs": {
+            "p50": 6211,
+            "p95": 6968,
+            "p99": 7381,
+            "max": 7397,
+            "min": 1373,
+            "mean": 5954.643274853801
+          }
         }
-      ]
+      },
+      "classification": "breaking",
+      "errorSamples": []
     }
   ],
   "findings": {
-    "degradationOnsetConcurrency": 300,
-    "breakingPointConcurrency": 1000,
+    "degradationOnsetConcurrency": 75,
+    "breakingPointConcurrency": 600,
     "highestAcceptableConcurrencyTested": 150,
     "breakingPointBelowReasonableTarget": false,
     "throughputPlateauConcurrency": 150,
-    "maxObservedThroughputRps": 189.91665528077607,
-    "throughputNote": "Sustained completed-request throughput plateaus at ~190 req/s starting around concurrency=150 -- concurrency levels tested above that add queueing latency without increasing real completed work. This is the practical capacity ceiling of this infra tier for this request mix, and it is reached at MUCH lower concurrency than the latency-SLA breaking point above -- worth treating as the more actionable number for capacity planning.",
-    "note": "Breaking point reached at concurrency=1000 (errorRate=0.24%, p95=6730ms, p99=7392ms). This is ABOVE the stated reasonable target of 250 concurrent users for this infra tier -- not below target, but still the real, measured ceiling and worth tracking."
+    "maxObservedThroughputRps": 179.74083879058102,
+    "throughputNote": "Sustained completed-request throughput plateaus at ~180 req/s starting around concurrency=150 -- concurrency levels tested above that add queueing latency without increasing real completed work. This is the practical capacity ceiling of this infra tier for this request mix, and it is reached at MUCH lower concurrency than the latency-SLA breaking point above -- worth treating as the more actionable number for capacity planning.",
+    "note": "Breaking point reached at concurrency=600 (errorRate=0.00%, p95=5027ms, p99=5823ms). This is ABOVE the stated reasonable target of 250 concurrent users for this infra tier -- not below target, but still the real, measured ceiling and worth tracking."
   }
 }
