@@ -1,5 +1,53 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-13 COMPLETE: observability, review pack ready.
+## Last Updated: August 20, 2026 — audit PT-14 COMPLETE: injection sweep (SQLi/XSS/CSRF/SSRF), 3 real SSRF holes found.
+
+## SESSION — August 20, 2026 (audit PT-14: injection sweep)
+
+Full detail: `test-evidence/pt-14/PHASE-14-SUMMARY.md`/`REVIEW-PACK.md`. Confirmed PT-00/PT-02/PT-05/
+PT-06 artifacts first (route manifest, auth-mechanism classification, 0/120 tenant-isolation result,
+live schema) — no HALT needed. Static-classified every real query/HTML/fetch sink in `src/`/`worker/`
+(not sampled), then live-tested every candidate via `scripts/audit/pt14-002-live-tests.mjs`: real
+production HTTP requests for SQLi/CSRF (throwaway org+session, cleaned up + re-confirmed removed), a
+mix of live test-data inserts + direct sink execution for XSS, and local-only comparative tests for
+SSRF (safeFetch() vs. the exact vulnerable code copied verbatim, both against a real local listener).
+
+**3 real SSRF holes, the headline finding.** `POST /api/intelligence/ingest` (writer role) fetches
+any URL and *persists the response* to the Intelligence Library — full exfiltration, live-confirmed.
+AutoApply's `WebhookNotifier.notify()` POSTs to an admin-set `webhook_url` with only a `new URL()`
+syntax check — live-confirmed. AutoApply's own submission pipeline navigates a real headless browser
+to `funders.giving_portal_url` with the same zero protection — confirmed via full source read, not
+live-reproduced (Playwright launch out of scope). All three sit entirely outside `safeFetch()`
+(`src/lib/security/safe-fetch.ts`, the platform's real SSRF guard — only 2 files repo-wide use it).
+WGR-108/109/110, all P0.
+
+**1 real SQLi (PostgREST filter-injection), tenant-contained.** `/api/email/threads?search=` pastes
+the raw param into a `.or()` filter with no comma/paren stripping (the two comparable endpoints in
+this codebase do strip it, both re-confirmed mitigated). Live-proven: returns every thread in the org
+regardless of search term. Can't cross org boundary (separate filter param + PT-05's independent
+0/120 result). WGR-112, P2.
+
+**0 exploitable XSS**, but re-confirmed and registered (for the first time) the already-known
+unescaped-email-templates gap from `SECURITY_TEST_2026-08-15.md` — still unfixed. WGR-113, P2.
+
+**0 forgeable CSRF holes — but found a real availability bug while checking.** All 21 forgery
+attempts against production correctly rejected. But the webhook/cron routes reject via
+`middleware.ts`'s catch-all login-redirect, same as every other route — live-confirmed
+`/api/webhooks/stripe`, `/api/webhooks/resend`, and every cron route 307-redirect to `/login`
+*before* their own real signature/secret check runs. Stripe/Resend/Vercel Cron never carry a session
+cookie either, so real billing events, real email tracking, and all 5 real scheduled cron jobs may be
+silently redirected and never processed in production today. Not confirmed against an actual
+Stripe/Resend/Vercel dashboard (out of reach this session) — real, repeated, direct production
+evidence, not a certainty about the external services' own behavior. **WGR-111, P0 — check this
+first, it may already be live-broken.**
+
+**Register:** WGR-108 through WGR-114 (7 rows). **Verifier:** `node scripts/audit/verify-pt14-001.mjs`
+— PASS, 34 attempts across all 4 vector classes, summary counts independently recomputed and matched.
+
+**Cleanup:** both throwaway test orgs + all seeded rows deleted, independently re-confirmed removed.
+
+---
+
+## SESSION — August 20, 2026 (audit PT-13 COMPLETE: observability, review pack ready)
 
 Consolidation of the two PT-13 passes below — no new investigation, cross-referenced both already-
 committed evidence files (`silent-catches.json` 2,365-site census, `observability.json` 24 findings)

@@ -1,6 +1,90 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-13 COMPLETE: observability, review pack ready.**
+**Updated: August 20, 2026 — audit PT-14 COMPLETE: injection sweep (SQLi/XSS/CSRF/SSRF), 3 real SSRF holes found.**
+
+## SESSION — August 20, 2026 (audit PT-14: injection sweep — SQLi/XSS/CSRF/SSRF)
+
+Full detail: `test-evidence/pt-14/PHASE-14-SUMMARY.md` (numbers) and `REVIEW-PACK.md` (short-form
+answer). Confirmed PT-00 (464-route manifest), PT-02 (318-route auth-mechanism classification — the
+real "route classification" this phase's sweep is scoped against), PT-05 (0/120 tenant tables leak
+cross-org on read or write — the "table list + isolation results" this phase's own SQLi finding is
+graded against), and PT-06 (184-table live schema) all exist and are usable before starting — no
+HALT needed.
+
+Ran a two-layer sweep: exhaustive static classification of every real query-construction,
+HTML-rendering, and outbound-fetch sink in `src/`/`worker/` (not sampled — every raw
+`.or(\`...\`)` PostgREST filter call site, every `dangerouslySetInnerHTML`, every `fetch(...)` with a
+non-literal URL was individually read), then live attempt+result tests
+(`scripts/audit/pt14-002-live-tests.mjs`) against real production for SQLi/CSRF (a real throwaway
+org+session, cleaned up and independently re-confirmed removed after), a mix of production test-data
+inserts and direct execution of the one real raw-HTML sink for XSS, and entirely local comparative
+tests for SSRF (the platform's own real `safeFetch()` vs. the exact vulnerable `fetch()` code copied
+verbatim from each real sink, both run against a real local loopback listener — server-side SSRF
+against production isn't something a client-side probe can safely or conclusively test).
+
+**SSRF — the real finding of this phase, 2 of 3 live-reproduced:**
+- **`POST /api/intelligence/ingest`** (writer role) fetches any URL with zero validation and
+  **persists the response content** to the Intelligence Library, readable later by any viewer — full
+  SSRF-with-exfiltration, live-confirmed against a real local listener. **WGR-108, P0.**
+- **AutoApply's `WebhookNotifier.notify()`** POSTs to an admin-configured `webhook_url` on every real
+  AutoApply event with only a bare `new URL()` syntax check — live-confirmed the exact code reaches a
+  real local listener. **WGR-109, P0.**
+- **AutoApply's own submission pipeline** navigates a real headless browser to `funders.giving_portal_url`
+  with the same zero protection (confirmed via full source read of `stealth-browser.ts`/
+  `stealth-engine.ts` — zero SSRF-guard pattern in either) — not live-reproduced (full Playwright
+  launch judged out of scope), the worst of the three by mechanism (full browser, not just fetch).
+  **WGR-110, P0, UNVERIFIED (high-confidence static only).**
+- `safeFetch()` (`src/lib/security/safe-fetch.ts`) is real and correctly blocks the identical target —
+  but only 2 files repo-wide import it (`custom-api.ts`, `custom-scrape.ts`); the three sinks above
+  are entirely outside it.
+
+**SQLi — one real, tenant-contained finding:** `GET /api/email/threads?search=` interpolates the raw
+query param into a PostgREST `.or()` filter with zero comma/paren stripping (unlike the two
+comparable search endpoints in this codebase, both re-confirmed still mitigated). Live-proven: a
+crafted payload made the route return every thread in the org regardless of the search term. Cannot
+cross the org boundary (`organization_id` is a separate, non-injectable filter, and PT-05 already
+independently proved 0/120 cross-tenant leaks) — real impact is same-org filter bypass, not a
+cross-tenant leak. **WGR-112, P2.**
+
+**XSS — nothing new and exploitable.** Zero `dangerouslySetInnerHTML` sink with user-controlled
+content anywhere in the repo (the one real hit injects only a hardcoded CSS string). A live payload
+round-tripped raw/unescaped through `knowledge_base.content`/`contacts.name` with no render sink
+(correct). The one real raw-HTML sink (`/api/unsubscribe`'s own `escapeHtml()`) was executed directly
+against a live payload and correctly neutralized it. Re-confirmed the already-known, still-unfixed
+gap from `SECURITY_TEST_2026-08-15.md` (transactional email templates build raw HTML with zero
+escaping) and gave it a permanent register row it never had. **WGR-113, P2.**
+
+**CSRF — zero forgeable holes, but investigating them surfaced a real, separate availability
+problem.** All 21 live forgery attempts against production were correctly rejected. But the 11
+webhook/cron routes tested all rejected via the *same* mechanism as every other page on the site:
+`src/middleware.ts`'s catch-all matcher redirects any request with no Supabase session cookie to
+`/login` — including, live-confirmed, `/api/webhooks/stripe`, `/api/webhooks/resend`, and every
+`cron_secret` route, *before* their own real signature/secret check ever runs. Stripe, Resend, and
+Vercel's own `vercel.json`-configured Cron invoker (5 real scheduled jobs) never carry a session
+cookie either — to this middleware, they're indistinguishable from a forged request. If this holds
+for real traffic (middleware has no way to tell the difference), real billing events, real email
+tracking, and all 5 scheduled cron jobs may be silently redirected and never processed. Not confirmed
+against an actual Stripe/Resend/Vercel dashboard this session (out of reach here) — a real, repeated,
+direct production observation, not a certainty about the three external services' own behavior.
+**WGR-111, P0** — the highest-priority fix to actually verify first, since it may already be breaking
+billing/email/automation in production right now.
+
+**Register:** 7 new rows, **WGR-108 through WGR-114** (`test-evidence/_register/WIRING_GAP_REGISTER.md`),
+continuing from PT-13's WGR-107. WGR-108/109/111/112/113 `CONFIRMED-BROKEN`; WGR-110 `UNVERIFIED`
+(static-only); WGR-114 `CONFIRMED-OK` (the clean/mitigated results, one consolidated row per this
+register's established convention).
+
+**Verifier:** `node scripts/audit/verify-pt14-001.mjs` — PASS. Requires all four vector classes
+present with a genuine live (non-static) attempt each, every attempt carrying a real verdict, and
+summary counts independently recomputed from the raw attempts array. 34 total attempts: SQLi 4/1
+vulnerable, XSS 5/0, CSRF 21/0 (+1 separately-flagged availability finding), SSRF 4/2.
+
+**Cleanup:** both throwaway test orgs and every seeded row deleted and independently re-confirmed
+removed (zero `PT14SEC-%` orgs remain). No real customer data was touched by any live test.
+
+---
+
+## SESSION — August 20, 2026 (audit PT-13 COMPLETE: observability, review pack ready)
 
 Consolidation of the two PT-13 audit passes below (silent catch-block census, run-log completeness
 + monitoring reality). No new live investigation this pass — cross-referenced both already-committed

@@ -1,0 +1,458 @@
+{
+  "generatedAt": "2026-08-20T10:56:55.239Z",
+  "method": "Live attempt+result tests per vector class. SQLi and CSRF run as real HTTP requests against production (read-only probes or throwaway test-org mutations, cleaned up after). XSS mixes real production test-data inserts with direct execution of the one real raw-HTML-building function found by this session's static sweep. SSRF runs entirely locally (no production network side-effects) as a comparative test: the platform's own safeFetch() against a real local loopback listener, versus the exact vulnerable fetch() call copied verbatim from each of the 3 real unguarded sinks this session's static sweep found.",
+  "prodBase": "https://www.benavora.com",
+  "testOrgIds": [
+    "8957956a-97a1-4bba-bf4e-c4fa04a2d74c",
+    "98a4997b-5483-4d22-b80a-0d46bef6ee93"
+  ],
+  "attempts": [
+    {
+      "vectorClass": "sqli",
+      "id": "sqli-001-email-threads-baseline",
+      "target": "GET /api/email/threads?search=",
+      "description": "Baseline: a search term matching neither seeded row should return 0 rows.",
+      "method": "live_prod_testdata",
+      "payload": "zzznomatch99",
+      "httpStatus": 200,
+      "resultCount": 0,
+      "verdict": "BASELINE_OK",
+      "severity": null
+    },
+    {
+      "vectorClass": "sqli",
+      "id": "sqli-002-email-threads-or-filter-injection",
+      "target": "GET /api/email/threads?search=",
+      "description": "PostgREST .or() filter injection: comma-inject a gmail_thread_id.neq.<bogus-value> clause into the unescaped `search` param (src/app/api/email/threads/route.ts:38). If the injected clause is honored, the filter matches every row in the org regardless of subject/snippet content -- both seeded rows (neither containing the search term) should be returned.",
+      "method": "live_prod_testdata",
+      "payload": "zzznomatch99,gmail_thread_id.neq.impossible-value-xyz",
+      "httpStatus": 200,
+      "resultCount": 2,
+      "seededRowIds": [
+        "b4d4db8b-50f1-44c5-bdd2-dcdd73f950d7",
+        "4cdddd0d-0052-488d-a5a4-60d86b4dde86"
+      ],
+      "returnedRowIds": [
+        "b4d4db8b-50f1-44c5-bdd2-dcdd73f950d7",
+        "4cdddd0d-0052-488d-a5a4-60d86b4dde86"
+      ],
+      "verdict": "VULNERABLE",
+      "severity": "P2",
+      "note": "Scope: organization_id is a separate top-level .eq() filter (a distinct PostgREST query param, ANDed with the .or() clause) so this specific injection cannot cross the tenant boundary -- confirmed by design (organization_id filter is not part of the injectable string) and by PT-05's independent 0/120 cross-tenant leak result. Impact is a same-org business-logic filter bypass (return more of the caller's own org's rows than the search term should match), not a cross-tenant leak or a classic SQL syntax-level injection."
+    },
+    {
+      "vectorClass": "sqli",
+      "id": "sqli-003-corporate-prospects-q-comparison",
+      "target": "GET /api/intelligence/corporate-prospects?q=",
+      "description": "Comparison target: same comma-injection payload class against a route that strips [%,] from the raw value before interpolating into .or() (src/app/api/intelligence/corporate-prospects/route.ts:143) -- expected to behave as an ordinary (harmless) substring search, not as an injected extra clause.",
+      "method": "live_prod_testdata",
+      "payload": "zzznomatch99%,industry_category.neq.__none__",
+      "httpStatus": 200,
+      "resultCount": 0,
+      "verdict": "MITIGATED",
+      "severity": null
+    },
+    {
+      "vectorClass": "sqli",
+      "id": "sqli-004-library-search-query-comparison",
+      "target": "POST /api/intelligence/library/search { query }",
+      "description": "Comparison target: same comma-injection payload class against a route that runs sanitizeIlikeTerm() (strips [,()%]) on the query before interpolating into .or() (src/lib/intelligence/proposals-query.ts:261-262) -- re-confirms the finding already documented in SECURITY_TEST_2026-08-15.md still holds.",
+      "method": "live_prod_readonly",
+      "payload": "zzznomatch99%,award_year.neq.0",
+      "httpStatus": 200,
+      "resultCount": 0,
+      "verdict": "MITIGATED",
+      "severity": null
+    },
+    {
+      "vectorClass": "xss",
+      "id": "xss-001-knowledge-base-stored",
+      "target": "knowledge_base.content",
+      "description": "Stored XSS attempt: insert a <script>/onerror payload via the authenticated session, confirm it round-trips raw/unescaped from the database (correct -- sanitizing on write is the wrong layer) and re-confirm no dangerouslySetInnerHTML render sink exists for this field anywhere in src/ (src/components/knowledge-base/MarkdownContent.tsx builds React nodes directly, confirmed by static grep this session).",
+      "method": "live_prod_testdata",
+      "payload": "<script>window.__pt14xss_1787223408080=1;</script><img src=x onerror=alert('pt14xss_1787223408080')>",
+      "storedRawUnescaped": true,
+      "renderSinkExists": false,
+      "verdict": "STORED_BUT_NO_RENDER_SINK",
+      "severity": null
+    },
+    {
+      "vectorClass": "xss",
+      "id": "xss-002-contacts-stored",
+      "target": "contacts.name",
+      "description": "Stored XSS attempt via contacts.name insert, same verification as xss-001.",
+      "method": "live_prod_testdata",
+      "payload": "<script>window.__pt14xss_1787223408080=1;</script><img src=x onerror=alert('pt14xss_1787223408080')>",
+      "storedRawUnescaped": true,
+      "renderSinkExists": false,
+      "verdict": "STORED_BUT_NO_RENDER_SINK",
+      "severity": null
+    },
+    {
+      "vectorClass": "xss",
+      "id": "xss-003-unsubscribe-reflected-escapehtml",
+      "target": "src/app/api/unsubscribe/route.ts escapeHtml() (email/token query params rendered into raw text/html response)",
+      "description": "Reflected XSS attempt: the unsubscribe route builds a raw text/html response embedding the attacker-controlled `email`/`token` GET query params directly, via its own escapeHtml() helper (the only raw-HTML-building sink with user-controlled input found in this codebase). Executed the real function body verbatim against a live <script>/quote/ampersand payload and inspected the escaped output for any remaining unescaped HTML-meaningful character.",
+      "method": "direct_function_execution",
+      "payload": "<script>alert('pt14xss_1787223408080')</script>\"'&",
+      "escapedOutput": "&lt;script&gt;alert(&#x27;pt14xss_1787223408080&#x27;)&lt;/script&gt;&quot;&#x27;&amp;",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "xss",
+      "id": "xss-004-email-templates-html-injection",
+      "target": "src/lib/email/templates/*.ts",
+      "description": "XSS-adjacent: transactional HTML email templates interpolate user-controlled fields (e.g. orgName, digest item titles) into raw HTML strings with zero output-escaping. First documented SECURITY_TEST_2026-08-15.md section 2b as a real, unfixed gap -- re-confirmed this session via static grep, still unfixed.",
+      "method": "static",
+      "payload": null,
+      "filesChecked": [
+        "base-layout.ts",
+        "draft-ready.ts",
+        "morning-digest.ts",
+        "urgent-alert.ts",
+        "welcome.ts"
+      ],
+      "filesWithNoEscaping": [
+        "base-layout.ts",
+        "draft-ready.ts",
+        "morning-digest.ts",
+        "urgent-alert.ts",
+        "welcome.ts"
+      ],
+      "verdict": "CONFIRMED_STILL_UNFIXED",
+      "severity": "P2"
+    },
+    {
+      "vectorClass": "xss",
+      "id": "xss-005-dangerously-set-inner-html-census",
+      "target": "repo-wide grep, src/**/*.{ts,tsx}",
+      "description": "Census of every dangerouslySetInnerHTML call site. Two hits: one is a comment (MarkdownContent.tsx's own header explaining it deliberately avoids the API), the other (HowItWorksClient.tsx) injects a hardcoded developer-authored CSS string interpolating only a fixed brand-token hex constant -- no user-controlled data reaches it, read and confirmed directly against the file.",
+      "method": "static",
+      "payload": null,
+      "rawHits": [
+        "src/app/(marketing)/how-it-works/HowItWorksClient.tsx:1175:        // dangerouslySetInnerHTML (not a JSX text child) so the raw CSS string is",
+        "src/app/(marketing)/how-it-works/HowItWorksClient.tsx:1180:        dangerouslySetInnerHTML={{",
+        "src/components/knowledge-base/MarkdownContent.tsx:8: * It builds React nodes directly (never dangerouslySetInnerHTML), so stored"
+      ],
+      "verdict": "NO_USER_CONTROLLED_SINK",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-admin-system",
+      "target": "GET /api/admin/system",
+      "description": "No-cookie request to a real protected route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-admin-orgs",
+      "target": "GET /api/admin/orgs",
+      "description": "No-cookie request to a real protected route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-command-center-layout",
+      "target": "GET /api/command-center/layout",
+      "description": "No-cookie request to a real protected route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-autoapply-webhooks",
+      "target": "POST /api/autoapply/webhooks",
+      "description": "No-cookie request to a real state-changing route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-onboarding-complete-setup",
+      "target": "POST /api/onboarding/complete-setup",
+      "description": "No-cookie request to a real state-changing route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-knowledge-base",
+      "target": "PATCH /api/knowledge-base",
+      "description": "No-cookie request to a real state-changing route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-funders-import",
+      "target": "POST /api/funders/import",
+      "description": "No-cookie request to a real state-changing route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-nocookie--api-settings-agents-relationship-builder-v2",
+      "target": "PATCH /api/settings/agents/relationship-builder-v2",
+      "description": "No-cookie request to a real state-changing route -- simulates a forged cross-site request given SameSite=Lax strips the auth cookie for a cross-site POST/PATCH.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unsigned-webhook--api-admin-webhooks-email-events",
+      "target": "POST /api/admin/webhooks/email-events",
+      "description": "Forged webhook POST with no svix-id/svix-timestamp/svix-signature (or Stripe-Signature) headers -- confirms the route rejects an unsigned event rather than silently processing it (the webhook-equivalent of CSRF protection for a cookie-less route). Real result: the route's own HMAC verification is never reached -- src/middleware.ts's catch-all matcher (no /api/webhooks/* or /api/admin/webhooks/* exclusion in PUBLIC_PATHS/isPublicPath()) redirects this cookie-less request to /login BEFORE the route handler runs at all. See csrf-middleware-blocks-external-webhooks-and-cron for why this is a real availability bug, not a security strength, despite technically 'blocking' this forged attempt.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "responseSnippet": "Redirecting...\n",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unsigned-webhook--api-admin-webhooks-email-reply",
+      "target": "POST /api/admin/webhooks/email-reply",
+      "description": "Forged webhook POST with no svix-id/svix-timestamp/svix-signature (or Stripe-Signature) headers -- confirms the route rejects an unsigned event rather than silently processing it (the webhook-equivalent of CSRF protection for a cookie-less route). Real result: the route's own HMAC verification is never reached -- src/middleware.ts's catch-all matcher (no /api/webhooks/* or /api/admin/webhooks/* exclusion in PUBLIC_PATHS/isPublicPath()) redirects this cookie-less request to /login BEFORE the route handler runs at all. See csrf-middleware-blocks-external-webhooks-and-cron for why this is a real availability bug, not a security strength, despite technically 'blocking' this forged attempt.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "responseSnippet": "Redirecting...\n",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unsigned-webhook--api-webhooks-resend",
+      "target": "POST /api/webhooks/resend",
+      "description": "Forged webhook POST with no svix-id/svix-timestamp/svix-signature (or Stripe-Signature) headers -- confirms the route rejects an unsigned event rather than silently processing it (the webhook-equivalent of CSRF protection for a cookie-less route). Real result: the route's own HMAC verification is never reached -- src/middleware.ts's catch-all matcher (no /api/webhooks/* or /api/admin/webhooks/* exclusion in PUBLIC_PATHS/isPublicPath()) redirects this cookie-less request to /login BEFORE the route handler runs at all. See csrf-middleware-blocks-external-webhooks-and-cron for why this is a real availability bug, not a security strength, despite technically 'blocking' this forged attempt.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "responseSnippet": "Redirecting...\n",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unsigned-webhook--api-webhooks-stripe",
+      "target": "POST /api/webhooks/stripe",
+      "description": "Forged webhook POST with no svix-id/svix-timestamp/svix-signature (or Stripe-Signature) headers -- confirms the route rejects an unsigned event rather than silently processing it (the webhook-equivalent of CSRF protection for a cookie-less route). Real result: the route's own HMAC verification is never reached -- src/middleware.ts's catch-all matcher (no /api/webhooks/* or /api/admin/webhooks/* exclusion in PUBLIC_PATHS/isPublicPath()) redirects this cookie-less request to /login BEFORE the route handler runs at all. See csrf-middleware-blocks-external-webhooks-and-cron for why this is a real availability bug, not a security strength, despite technically 'blocking' this forged attempt.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "responseSnippet": "Redirecting...\n",
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-cron-autoapply",
+      "target": "POST /api/cron/autoapply",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-cron-campaigns",
+      "target": "POST /api/cron/campaigns",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-cron-draft-automation",
+      "target": "POST /api/cron/draft-automation",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-cron-follow-ups",
+      "target": "POST /api/cron/follow-ups",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-cron-reminders",
+      "target": "POST /api/cron/reminders",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-cron-research",
+      "target": "POST /api/cron/research",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-unauth-cron--api-sources-grantsgov",
+      "target": "POST /api/sources/grantsgov",
+      "description": "Forged cron trigger with no Authorization: Bearer <CRON_SECRET> header -- confirms the route rejects an unauthenticated trigger rather than silently running the job. Real result: same middleware interception as the webhook routes above -- the route's own CRON_SECRET check is never reached.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-middleware-blocks-external-webhooks-and-cron",
+      "target": "src/middleware.ts PUBLIC_PATHS / isPublicPath() -- catch-all matcher vs. /api/webhooks/*, /api/admin/webhooks/*, /api/cron/*",
+      "description": "11 of 11 tested webhook/cron routes were intercepted by middleware's session redirect before their own signature/secret verification logic ran. This is the opposite of a CSRF hole (a forged request genuinely cannot reach the route), but it means the SAME redirect applies to every real external caller too, since Stripe/Resend/Vercel Cron never send a Supabase session cookie either. Not confirmed against a real Stripe/Resend/Vercel Cron delivery this session (would require either a live external trigger or Vercel/Stripe/Resend dashboard delivery-log access, both out of reach here) -- flagged as a real, high-confidence availability risk from direct, repeated, live production evidence of the redirect, not a certainty.",
+      "method": "live_prod_readonly",
+      "webhooksInterceptedByMiddleware": 4,
+      "cronsInterceptedByMiddleware": 7,
+      "totalInterceptedOfTested": 11,
+      "totalTested": 11,
+      "verdict": "MIDDLEWARE_INTERCEPTS_UNAUTHENTICATED_CALLERS",
+      "severity": "P0"
+    },
+    {
+      "vectorClass": "csrf",
+      "id": "csrf-header-spoof-onboarding",
+      "target": "GET /api/onboarding",
+      "description": "Attempts to spoof the x-organization-id/x-user-id headers this route trusts in lieu of requireRole() (src/app/api/onboarding/route.ts, per its own comment: 'company_id is always derived from the session (x-organization-id header), never from the request body'). middleware.ts's requestHeaders.set(...) should overwrite any client-supplied value with the real session-derived one before the route ever sees it -- confirmed by static read of src/middleware.ts:153-156 (Headers.set() replaces, does not append). No cookie is sent, so middleware has no session to derive real headers from and should redirect to /login before the spoofed header is ever honored.",
+      "method": "live_prod_readonly",
+      "httpStatus": 307,
+      "location": "/login",
+      "interceptedByMiddleware": true,
+      "responseBody": null,
+      "verdict": "BLOCKED",
+      "severity": null
+    },
+    {
+      "vectorClass": "ssrf",
+      "id": "ssrf-000-safefetch-loopback-control",
+      "target": "src/lib/security/safe-fetch.ts safeFetch() -- positive control",
+      "description": "Control: the platform's own hardened safeFetch() against a real local loopback listener -- expected to BLOCK, matching SECURITY_TEST_2026-08-15.md's existing loopback finding.",
+      "method": "live_local",
+      "payload": "http://127.0.0.1:56584/internal-secret",
+      "verdict": "BLOCKED",
+      "severity": null,
+      "blockError": "Target address 127.0.0.1 resolves to a private/internal range and is blocked."
+    },
+    {
+      "vectorClass": "ssrf",
+      "id": "ssrf-001-intelligence-ingest-raw-fetch",
+      "target": "POST /api/intelligence/ingest {source:'url'} -- src/app/api/intelligence/ingest/route.ts:61-77 fetch(url.trim(), ...)",
+      "description": "The exact vulnerable fetch() call from this route (copied verbatim), run against a real local loopback listener standing in for an internal service. requireRole('writer') is the only gate on this route -- zero URL/host validation before the fetch. The fetched body is then extracted into sections and PERSISTED to intelligence_funded_proposals, readable later by any viewer-role user via the Intelligence Library -- full response-content exfiltration, not blind SSRF.",
+      "method": "live_local",
+      "payload": "http://127.0.0.1:56584/internal-secret",
+      "httpStatus": 200,
+      "leakedContent": true,
+      "verdict": "VULNERABLE",
+      "severity": "P0"
+    },
+    {
+      "vectorClass": "ssrf",
+      "id": "ssrf-002-webhook-notifier-raw-fetch",
+      "target": "src/lib/autoapply/webhook-notifier.ts:123 fetch(config.webhook_url, ...) via WebhookNotifier.notify()",
+      "description": "The exact vulnerable fetch() call from WebhookNotifier.notify() (copied verbatim), run against a real local loopback listener standing in for an internal service. webhook_configs.webhook_url is set via POST /api/autoapply/webhooks (requireRole('admin'), src/app/api/autoapply/webhooks/route.ts:89 -- the only validation is `new URL(webhook_url)`, a syntactic well-formedness check with no host/scheme restriction). Every AutoApply queue-processor event (submission_completed, submission_failed, etc.) fires this fetch server-side with zero SSRF protection -- confirmed distinct from src/lib/security/safe-fetch.ts, which only 2 files in the repo (custom-api.ts, custom-scrape.ts) actually import.",
+      "method": "live_local",
+      "payload": "http://127.0.0.1:56586/webhook",
+      "httpStatus": 200,
+      "requestReachedInternalListener": true,
+      "verdict": "VULNERABLE",
+      "severity": "P0"
+    },
+    {
+      "vectorClass": "ssrf",
+      "id": "ssrf-003-autoapply-portal-url-navigation-static",
+      "target": "worker/queue-processor.ts + src/lib/autoapply/stealth-browser.ts (funders.giving_portal_url -> headless browser navigation), src/lib/scraper/stealth-engine.ts",
+      "description": "AutoApply submission pipeline: worker/queue-processor.ts:566 reads funders.giving_portal_url (free-text field, writable via the funders form -- requireRole('writer') is the auth gate on the underlying insert path, no server-side URL/host validation found anywhere in the funders write path) then navigates a real headless Chromium browser to it server-side via src/lib/autoapply/stealth-browser.ts. No SSRF guard found either in the general-purpose scraper's src/lib/scraper/stealth-engine.ts, which navigates to foundation_directory.website/nonprofits.website the same way. Not live-executed this session (a full Playwright browser launch is out of reasonable scope for this pass) -- graded on static evidence: zero SSRF-guard pattern (private-IP check, safeFetch import, DNS-lookup validation) found in either file by targeted grep, confirmed by direct read of both files' full source.",
+      "method": "static",
+      "payload": null,
+      "stealthBrowserHasGuard": false,
+      "stealthEngineHasGuard": false,
+      "verdict": "NO_GUARD_FOUND_STATIC",
+      "severity": "P0",
+      "note": "Highest-severity of the three SSRF findings by mechanism (full browser navigation, not just an HTTP fetch -- JS execution, screenshot capture, and page-content extraction all become available against whatever the URL resolves to) but the ONLY one of the three not directly live-reproduced this session. Treat as UNVERIFIED-BUT-HIGH-CONFIDENCE, distinct from ssrf-001/002 which are live-confirmed."
+    }
+  ],
+  "summary": {
+    "sqli": {
+      "totalAttempts": 4,
+      "vulnerable": 1
+    },
+    "xss": {
+      "totalAttempts": 5,
+      "vulnerable": 0
+    },
+    "csrf": {
+      "totalAttempts": 21,
+      "vulnerable": 0
+    },
+    "ssrf": {
+      "totalAttempts": 4,
+      "vulnerable": 2
+    }
+  }
+}
