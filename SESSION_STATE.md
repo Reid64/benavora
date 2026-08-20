@@ -1,5 +1,42 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-10 COMPLETE: error handling + recovery review pack ready, 21 real findings (16 + 5), register WGR-001 through WGR-128.
+## Last Updated: August 20, 2026 — audit PT-03-001: journey environment established (local Supabase stack reused from PT-05, magic-link session, local dev confirmed live).
+
+## SESSION — August 20, 2026 (audit PT-03-001: preflight + journey environment)
+
+**Focus:** first prompt of PT-03 (End-to-End Workflows, depends on PT-02). Confirm PT-00/01/02
+artifacts, establish local dev + a non-production DB, and a live authenticated test session via the
+magic-link pattern (no password ever set/read/used). Full detail, every check's exact evidence, and
+the real GoTrue password-hash finding are in `STATE_OF_THE_BUILD.md`'s matching entry — summary here.
+
+**Result:** reused PT-05's already-running local Supabase stack (independently re-confirmed
+non-production, twice). Created one fresh org + owner profile + one auth user via GoTrue's Admin API
+with no `password` key in the request at all. Real finding, documented not hidden: GoTrue itself
+auto-generates a random password hash server-side regardless — never requested/read/used by this
+script; every auth path exercised is magic-link only. Issued a real magic link, exchanged it via the
+app's own `@supabase/ssr` cookie adapter, then independently re-confirmed the session live two more
+ways: a direct `GET /auth/v1/user` re-check against the real Auth server (200, id/email match), and a
+session-scoped `SELECT profiles` through PostgREST using the token itself (not service role). Started
+an isolated `next dev` (port 3303, `PT_AUDIT_DIST_DIR` cache isolation) pointed at the local stack's
+env vars (not `.env.local`'s production values), confirmed `GET /login → 200`, then killed the whole
+process tree (`taskkill /T /F` — Windows `shell:true` spawn means plain `child.kill()` only kills the
+shell wrapper).
+
+**Gate:** `node scripts/audit/verify-pt03-001.mjs` — PASS. Static checks on `environment.txt` +
+`environment-session.json` plus an independent live reconnect to the local DB re-confirming the
+journey org/profile exist right now. Negative-tested (corrupted `environment.txt` with the production
+ref as an actual target) to confirm the verifier actually fails before trusting it passes on real
+evidence.
+
+**Scoped commit:** `test-evidence/pt-03/environment.txt`, `test-evidence/pt-03/environment-session.json`,
+`scripts/audit/pt03-001-establish-journey-env.mjs`, `scripts/audit/verify-pt03-001.mjs`,
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Left untouched: `.next-pt03/` (this run's own build
+cache) and 5 pre-existing untracked `scripts/audit/` files from other sessions' unfinished work
+(`pt10-003-register-findings.mjs`, `pt14-006-register-findings-bundle-scan.mjs`,
+`verify-pt10-003.mjs`, `verify-pt13-003.mjs`, `verify-pt14-004.mjs`) — confirmed via each prior
+PT-XX commit's own `git show --stat` that this project's convention is to stage only the exact files
+a given step touched, never a whole directory.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-10 COMPLETE: error handling + recovery, review pack ready)
 

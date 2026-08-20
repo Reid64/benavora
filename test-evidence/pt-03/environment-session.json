@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-08-20T12:58:09.220Z",
+  "dependency_artifacts": {
+    "pt-00": {
+      "path": "test-evidence\\pt-00\\REVIEW-PACK.md",
+      "bytes": 6035
+    },
+    "pt-01": {
+      "path": "test-evidence\\pt-01\\REVIEW-PACK.md",
+      "bytes": 8514
+    },
+    "pt-02": {
+      "path": "test-evidence\\pt-02\\REVIEW-PACK.md",
+      "bytes": 8158
+    }
+  },
+  "target": {
+    "host": "127.0.0.1",
+    "port": "56322",
+    "database": "postgres",
+    "is_production": false,
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt",
+    "api_base": "http://127.0.0.1:56321"
+  },
+  "journey_org": {
+    "id": "67a37384-9df9-4c44-96d7-b366d4493fce",
+    "name": "PT-03 Journey Test Org"
+  },
+  "journey_user": {
+    "id": "d949d601-8f97-4793-a236-c9c834862a66",
+    "email": "pt03-journey-owner@benavora-pt03-test.local",
+    "created_with_password_field": false
+  },
+  "session_check": {
+    "method": "magiclink",
+    "access_token_issued": true,
+    "refresh_token_issued": true,
+    "independent_auth_v1_user_status": 200,
+    "independent_auth_v1_user_id_match": true,
+    "session_token_postgrest_read_ok": true
+  },
+  "dev_server_check": {
+    "port": 3303,
+    "next_dist_dir": ".next-pt03",
+    "outcome": "PASS",
+    "detail": "GET /login -> 200"
+  }
+}

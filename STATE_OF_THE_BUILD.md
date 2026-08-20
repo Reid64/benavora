@@ -1,6 +1,80 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-10 COMPLETE: error handling + recovery, review pack ready. 21 real findings across malformed-payload fuzz + dependency-outage simulation (16 + 5); zero white-screens, zero raw crash pages, zero data corruption anywhere; highest-severity finding is a killed worker permanently stranding a submission_queue row with no reclaim path.**
+**Updated: August 20, 2026 — audit PT-03-001: preflight + journey environment established. Local Supabase stack (reused from PT-05, independently re-confirmed non-production) + a fresh test org/owner authenticated via a real magic link (no password field ever set, read, or used), independently re-verified live against the Auth server and the database; local dev confirmed to boot and serve a real page against this exact target.**
+
+## SESSION — August 20, 2026 (audit PT-03-001: preflight + journey environment)
+
+**Focus:** PT-03 (End-to-End Workflows) depends on PT-02 per the queue's own header — first prompt of
+a 5-prompt phase (`queue-pt-03-e2e-workflow.yaml`), this pass only. Confirm PT-00/PT-01/PT-02
+artifacts, then establish the environment every later PT-03 journey prompt (signup→onboarding→
+discovery→draft→pipeline→deadline; AutoApply/Donor Discovery; Kanban/auth flows) will run against:
+local dev + a non-production database, and a real authenticated test session established via the
+magic-link pattern with no password ever touched.
+
+**Dependency confirmation:** `test-evidence/pt-00/REVIEW-PACK.md` (6,035 bytes), `pt-01/REVIEW-PACK.md`
+(8,514 bytes), `pt-02/REVIEW-PACK.md` (8,158 bytes) — all present, non-empty, read directly rather than
+assumed from `git log`.
+
+**Environment reused, not re-provisioned from scratch:** rather than spin up a second local Supabase
+CLI stack, this pass reused the one PT-05 already provisioned and left running (`.pt05-local-stack/` —
+Postgres 17 + GoTrue + PostgREST on `127.0.0.1:56321`/`:56322`) — confirmed live via `supabase status`
+before touching it, and independently re-confirmed non-production twice more: once via a direct
+Postgres connection (`inet_server_addr()` resolves to a Docker-internal private address, not a
+Supabase cloud host) and once via the verifier's own separate reconnect at check time. The
+production ref (`vbjplpquqxxfbpazyalt`) appears in `environment.txt` only inside explicit
+negative-comparison lines — the verifier hard-fails if it ever appears as an actual target.
+
+**Journey identity — one fresh org + owner profile + a passwordless auth user:** created "PT-03
+Journey Test Org" and one auth user via the GoTrue Admin API with the request body carrying only
+`{email, email_confirm}` — no `password` key at all, ever, in any request this script sends. A real
+finding surfaced and is documented plainly rather than glossed over: GoTrue itself auto-generates a
+random bcrypt password hash server-side for every account regardless of whether the request supplies
+one (confirmed via a direct read of `auth.users.encrypted_password`) — this value was never
+requested, read, or used by this script or any caller; every authentication this environment
+exercises goes exclusively through the magic-link/OTP path. The verifier checks for this exact
+disclosure rather than the (false) stronger claim that no password hash exists in the database.
+
+**Magic-link session, verified two independent ways, not just trusted from `setSession()`'s own
+success:** issued a real magic link via GoTrue's `admin/generate_link`, followed the real verify
+redirect to extract `access_token`/`refresh_token` from the hash fragment, and exchanged them via the
+app's own real `@supabase/ssr` server-client cookie adapter (the same code path
+`scripts/smoke-test-workflow.mjs` already proved against production, here pointed at the local stack
+instead) — 1 auth cookie issued. Then, independently, called GoTrue's own `GET /auth/v1/user` directly
+with the issued access token (not trusting the local `setSession()` call) — `200`, user id and email
+both match the created account. A third check confirmed the token is actually usable, not just
+accepted in isolation: a `SELECT profiles` through PostgREST using the session's own access token (not
+the service-role key) returned the user's own row correctly. (Noted honestly: RLS is disabled on this
+local schema per PT-05's own schema file, so this specific check proves token usability, not
+tenant-isolation enforcement — that remains PT-05's separate, already-completed concern.)
+
+**Local dev confirmed to actually boot against this target, not assumed:** started an isolated `next
+dev` instance (port 3303, its own build-cache dir via the existing `PT_AUDIT_DIST_DIR` mechanism
+`next.config.mjs` already supports for exactly this kind of concurrent-audit-run isolation), env vars
+overridden to the local stack's URL/keys rather than `.env.local`'s production values, confirmed `GET
+/login → 200`, then killed the whole process tree (Windows `shell:true` spawn means a plain
+`child.kill()` only kills the shell wrapper, not the actual `next` process — used `taskkill /T /F`
+instead, confirmed the port is free afterward).
+
+**Gate:** `node scripts/audit/verify-pt03-001.mjs` — PASS. Checks `environment.txt` for a passing
+target check, evidence of a local/branch connection, the magic-link issuance/verification/live-session
+markers, the GoTrue-auto-password disclosure, and confirmed PT-00/01/02 dependency lines; cross-checks
+`environment-session.json`'s structured fields against those same claims; then independently
+reconnects to the recorded local target right now and re-confirms the journey org and the owner
+profile (tied to a real `auth.users` row) both still exist — not trusting the provisioning script's
+historical output. Verifier negative-tested against a deliberately corrupted `environment.txt`
+(production ref inserted as an actual target) to confirm it actually fails before confirming the real
+evidence passes.
+
+**Scoped commit:** `test-evidence/pt-03/environment.txt`, `test-evidence/pt-03/environment-session.json`,
+`scripts/audit/pt03-001-establish-journey-env.mjs`, `scripts/audit/verify-pt03-001.mjs`,
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` — commit "audit PT-03: preflight + journey environment".
+Left untouched (pre-existing, unrelated uncommitted work from other sessions, confirmed by checking
+each prior PT-XX commit's own file list before choosing what to stage): `.next-pt03/` (this run's own
+build cache, gitignored-equivalent build output), and 5 other untracked `scripts/audit/pt10-003-*`
+/`pt14-006-*`/`verify-pt10-003.mjs`/`verify-pt13-003.mjs`/`verify-pt14-004.mjs` files that were never
+part of this task and whose own state/completeness this session did not investigate.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-10 COMPLETE: error handling + recovery, review pack ready)
 

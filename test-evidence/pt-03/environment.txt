@@ -1,0 +1,42 @@
+PT-03-001 journey environment establishment
+Generated: 2026-08-20T12:57:51.906Z
+
+== Dependency check: PT-00/PT-01/PT-02 review-pack artifacts ==
+PT-00 artifact confirmed: test-evidence\pt-00\REVIEW-PACK.md (6035 bytes, non-empty)
+PT-01 artifact confirmed: test-evidence\pt-01\REVIEW-PACK.md (8514 bytes, non-empty)
+PT-02 artifact confirmed: test-evidence\pt-02\REVIEW-PACK.md (8158 bytes, non-empty)
+
+== Target check (must NOT be production) ==
+Target check: PASS -- host="127.0.0.1" port="56322" does not contain production ref "vbjplpquqxxfbpazyalt"
+Connection string (redacted): postgresql://postgres:***@127.0.0.1:56322/postgres
+Stack: local Supabase CLI stack (Postgres 17 + GoTrue + PostgREST), reused from .pt05-local-stack/
+API base: http://127.0.0.1:56321
+Production ref for comparison (must NOT appear above as an actual target): vbjplpquqxxfbpazyalt
+
+Live connection check: database="postgres" server_addr="172.22.0.2/32" server_port="5432"
+Live connection confirmed local (server_addr is a loopback/private address, not a Supabase cloud host).
+
+== Journey test identity: org + owner profile + passwordless auth user ==
+Removed 1 leftover org(s) + their profile row(s) from a prior run.
+Removed leftover auth user from a prior run: 6afe7381-d0f3-4564-86aa-f79d876a7a96 (pt03-journey-owner@benavora-pt03-test.local)
+Org created: id=67a37384-9df9-4c44-96d7-b366d4493fce name="PT-03 Journey Test Org"
+Auth user created via Admin API: id=d949d601-8f97-4793-a236-c9c834862a66 email=pt03-journey-owner@benavora-pt03-test.local -- createUser request body keys: [email, email_confirm] (no "password" key present in the request -- this script never set, read, or used a password value for this account, at any point).
+Note (real, documented): GoTrue's local Admin API auto-generates its own random password hash server-side regardless of whether "password" is in the request body -- this is GoTrue's own internal behavior, not something this script requested, read, or ever uses. The only authentication path this script exercises for this account is magic-link, below.
+Owner profile created: profiles.id=d949d601-8f97-4793-a236-c9c834862a66 organization_id=67a37384-9df9-4c44-96d7-b366d4493fce role=owner
+
+== Magic-link authentication (no password touched at any point) ==
+Magic link issued via GoTrue admin generate_link (type=magiclink) for pt03-journey-owner@benavora-pt03-test.local.
+Magic link verified: redirect status=303, access_token + refresh_token both extracted from redirect hash.
+Session established via @supabase/ssr setSession() against the local stack: 1 auth cookie(s) issued.
+Live authenticated session check: PASS -- independent GET /auth/v1/user with the issued access token returned status=200, id=d949d601-8f97-4793-a236-c9c834862a66 (matches created user), email=pt03-journey-owner@benavora-pt03-test.local (matches), aud=authenticated, role=authenticated.
+Session token usability check: PASS -- SELECT profiles as the authenticated session (not service role) returned this user's own row: id=d949d601-8f97-4793-a236-c9c834862a66 organization_id=67a37384-9df9-4c44-96d7-b366d4493fce role=owner. (RLS is disabled on this local schema -- this confirms the token is a real, usable session credential, not tenant-isolation enforcement, which is PT-05's own concern.)
+
+== Local dev server check (against local stack, not .env.local's production values) ==
+Local dev server: port=3303, build cache dir=.next-pt03, env pointed at local stack (http://127.0.0.1:56321)
+Local dev server check: PASS -- GET /login -> 200
+
+== Summary ==
+Journey environment established: local Supabase stack (non-production, verified live), one fresh
+org + owner profile, one passwordless auth user authenticated via a real magic link, session
+independently re-confirmed live against the Auth server and usable for a real session-scoped
+PostgREST read, and local dev confirmed to boot and serve a real page against this exact target.
