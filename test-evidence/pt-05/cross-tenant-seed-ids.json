@@ -1,0 +1,129 @@
+{
+  "generated_at": "2026-08-20T05:06:34.857Z",
+  "orgs": {
+    "A": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+    "B": "0fdd7a7d-6214-4d54-bca2-40239e0146f9"
+  },
+  "tables": {
+    "funders": {
+      "tenant_column": "organization_id",
+      "A": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+      "B": "0d51193b-30cb-472e-861c-09471631a4f8",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "opportunities": {
+      "tenant_column": "organization_id",
+      "A": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+      "B": "11cec07c-dc02-4fb6-a00f-edad42b8a60c",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "applications": {
+      "tenant_column": "organization_id",
+      "A": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+      "B": "8a6424ba-13b7-4cf0-8db6-59caa6a8f2d3",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "draft_versions": {
+      "tenant_column": "organization_id",
+      "A": "c1d4c849-a48c-4760-9d32-6757372f3a3a",
+      "B": "3f423018-300a-4203-a2ad-524e47ae1e1f",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "contacts": {
+      "tenant_column": "organization_id",
+      "A": "f125e7eb-7498-43db-86a4-8803bb7d8fd6",
+      "B": "a43cc33a-da31-4800-83db-1e9266472964",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "donor_discovery_prospects": {
+      "tenant_column": "organization_id",
+      "A": "94409f99-c910-4328-924e-e5a0ca64bc12",
+      "B": "b8e8fc7c-a8c4-4118-9592-f70894269a86",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "deadlines": {
+      "tenant_column": "organization_id",
+      "A": "cbb314f1-86e8-49ca-b356-1bafdabc9eb5",
+      "B": "8332f8de-5a31-433b-8ad4-aa0aceee8167",
+      "seeded_by": "pt05-001-provision-isolation-env.mjs"
+    },
+    "adapter_usage_log": {
+      "tenant_column": "organization_id",
+      "A": "3a979af1-8dee-4ba2-8600-a69c20346450",
+      "B": "ef395352-1f0a-49a6-a705-4e3d0af03fd8",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "agent_configurations": {
+      "tenant_column": "organization_id",
+      "A": "ce848fcd-eae8-4997-99f7-9e7f83c31d33",
+      "B": "3c8cd635-a6f2-4850-8cfe-796f266c782f",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "autoapply_review_queue": {
+      "tenant_column": "organization_id",
+      "A": "d661f48b-3d00-4adf-9eb5-16df799db705",
+      "B": "33ac5aa9-c784-4738-a212-f4a8d4d49585",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "board_meetings": {
+      "tenant_column": "org_id",
+      "A": "9637faea-f715-46f4-9fc4-7a5dd3f9cbc4",
+      "B": "abba824d-eed9-4c82-9692-727926c24c25",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "board_meeting_packets": {
+      "tenant_column": "org_id",
+      "A": "331062d9-1cc9-4b69-8e56-e7a9b6d0371a",
+      "B": "a0a4c34d-7dca-4910-97dc-32fe8264b0fd",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "discovery_matches": {
+      "tenant_column": "org_id",
+      "A": "87c85a23-45b2-4027-b5ac-a443e75a80a1",
+      "B": "679dde35-321c-472d-b470-f227a2ad6f18",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "funding_forecasts": {
+      "tenant_column": "org_id",
+      "A": "1f295ed8-03f7-4dbc-8a9c-ded4eabc892f",
+      "B": "6cff99d2-a7d1-4506-bd9d-66d1cf2dfb3a",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "impact_simulations": {
+      "tenant_column": "org_id",
+      "A": "5651cc0e-b968-4d57-9608-e4a68308b083",
+      "B": "3e4af407-9dc5-4b28-85d5-1520d5385dbc",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "knowledge_queries": {
+      "tenant_column": "org_id",
+      "A": "73a03537-d90f-475b-a91b-efe73d0e87d4",
+      "B": "538542e2-b145-4670-8b60-c6ec9095804c",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "opportunity_probability_scores": {
+      "tenant_column": "organization_id",
+      "A": "07ca7fe7-3346-4645-a43f-5ecec16a6ba9",
+      "B": "6ee48854-0468-456d-a572-f0bd21a713e3",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "organizational_digital_twins": {
+      "tenant_column": "organization_id",
+      "A": "db0a95c6-eb6d-41ea-8101-63bfea42067f",
+      "B": "92aa82c9-f9b9-44ee-9e71-fc1bb88cffe9",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "pitch_cache": {
+      "tenant_column": "organization_id",
+      "A": "e036be51-4bca-4c75-9ca9-a26a8d502b8d",
+      "B": "897ad613-7981-4aeb-8172-82b90aa07858",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    },
+    "submission_receipts": {
+      "tenant_column": "organization_id",
+      "A": "aa383db6-b930-48d7-a86c-822f3541c8b9",
+      "B": "c8db30ab-23d1-4118-aa7d-1eddda635e9a",
+      "seeded_by": "pt05-002-provision-and-seed.mjs"
+    }
+  }
+}

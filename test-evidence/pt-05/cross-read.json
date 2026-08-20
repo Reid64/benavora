@@ -1,0 +1,3099 @@
+{
+  "generated_at": "2026-08-20T05:08:31.433Z",
+  "method_overview": {
+    "tier1": "live_http_test -- real GoTrue-authenticated JWT for Org A's real user, real HTTP requests via both @supabase/supabase-js (API layer) and a raw PostgREST fetch, against a real seeded row belonging to Org B, on the PT-05 local isolated stack with the real production RLS policy predicate reproduced verbatim.",
+    "tier2": "production_rls_policy_inspection_readonly -- no live HTTP request made (table not seeded in this local environment); verdict derived from the real, live production RLS policy state fetched read-only in pt05-002-fetch-production-rls.mjs."
+  },
+  "source_of_tenant_table_list": "test-evidence\\pt-06\\live-schema.json",
+  "source_of_production_rls_ground_truth": "test-evidence\\pt-05\\production-rls-policies.json",
+  "orgs": {
+    "A": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+    "B": "0fdd7a7d-6214-4d54-bca2-40239e0146f9"
+  },
+  "summary": {
+    "total_tenant_scoped_tables": 120,
+    "tier1_live_http_tested": 20,
+    "tier2_policy_inspected": 100,
+    "p0_cross_tenant_leak_findings": 0,
+    "pass_count": 116,
+    "inconclusive_or_other": 4
+  },
+  "tables": {
+    "funders": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "0d51193b-30cb-472e-861c-09471631a4f8",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "name": "PT-05 Test Funder A",
+              "category": "private_foundation",
+              "description": "Seed funder for isolation testing, org A.",
+              "created_at": "2026-08-20T04:53:36.266958+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "name": "PT-05 Test Funder A",
+              "category": "private_foundation",
+              "description": "Seed funder for isolation testing, org A.",
+              "created_at": "2026-08-20T04:53:36.266958+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "opportunities": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "11cec07c-dc02-4fb6-a00f-edad42b8a60c",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "name": "PT-05 Test Opportunity A",
+              "category": "private_foundation",
+              "description": "Seed opportunity for isolation testing, org A.",
+              "amount_min": 10000,
+              "amount_max": 50000,
+              "deadline": null,
+              "eligibility_requirements": null,
+              "required_documents": null,
+              "status": "open",
+              "is_high_priority": false,
+              "match_mismatch_reasons": null,
+              "created_at": "2026-08-20T04:53:36.269422+00:00",
+              "updated_at": "2026-08-20T04:53:36.269422+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "name": "PT-05 Test Opportunity A",
+              "category": "private_foundation",
+              "description": "Seed opportunity for isolation testing, org A.",
+              "amount_min": 10000,
+              "amount_max": 50000,
+              "deadline": null,
+              "eligibility_requirements": null,
+              "required_documents": null,
+              "status": "open",
+              "is_high_priority": false,
+              "match_mismatch_reasons": null,
+              "created_at": "2026-08-20T04:53:36.269422+00:00",
+              "updated_at": "2026-08-20T04:53:36.269422+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "applications": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "8a6424ba-13b7-4cf0-8db6-59caa6a8f2d3",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "stage": "drafting",
+              "assigned_user_id": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+              "requested_amount": 25000,
+              "draft_content": null,
+              "draft_template_type": null,
+              "notes": "Seed application for isolation testing, org A.",
+              "knowledge_patterns_applied": [],
+              "created_at": "2026-08-20T04:53:36.271602+00:00",
+              "updated_at": "2026-08-20T04:53:36.271602+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "stage": "drafting",
+              "assigned_user_id": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+              "requested_amount": 25000,
+              "draft_content": null,
+              "draft_template_type": null,
+              "notes": "Seed application for isolation testing, org A.",
+              "knowledge_patterns_applied": [],
+              "created_at": "2026-08-20T04:53:36.271602+00:00",
+              "updated_at": "2026-08-20T04:53:36.271602+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "draft_versions": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "3f423018-300a-4203-a2ad-524e47ae1e1f",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "c1d4c849-a48c-4760-9d32-6757372f3a3a",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "application_id": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+              "template_type": "grant_narrative",
+              "content": "Seed draft content for isolation testing, org A.",
+              "confidence_score": 70,
+              "version_number": 1,
+              "humanization_status": "not_humanized",
+              "source": "generated",
+              "created_by": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+              "created_at": "2026-08-20T04:53:36.273856+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "c1d4c849-a48c-4760-9d32-6757372f3a3a",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "application_id": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+              "template_type": "grant_narrative",
+              "content": "Seed draft content for isolation testing, org A.",
+              "confidence_score": 70,
+              "version_number": 1,
+              "humanization_status": "not_humanized",
+              "source": "generated",
+              "created_by": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+              "created_at": "2026-08-20T04:53:36.273856+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "contacts": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "a43cc33a-da31-4800-83db-1e9266472964",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "f125e7eb-7498-43db-86a4-8803bb7d8fd6",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "name": "PT-05 Test Contact A",
+              "title": "Program Officer",
+              "email": "contact-a@pt05-test.local",
+              "phone": null,
+              "relationship": "warm",
+              "notes": null,
+              "created_at": "2026-08-20T04:53:36.27594+00:00",
+              "updated_at": "2026-08-20T04:53:36.27594+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "f125e7eb-7498-43db-86a4-8803bb7d8fd6",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "name": "PT-05 Test Contact A",
+              "title": "Program Officer",
+              "email": "contact-a@pt05-test.local",
+              "phone": null,
+              "relationship": "warm",
+              "notes": null,
+              "created_at": "2026-08-20T04:53:36.27594+00:00",
+              "updated_at": "2026-08-20T04:53:36.27594+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "donor_discovery_prospects": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "b8e8fc7c-a8c4-4118-9592-f70894269a86",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "94409f99-c910-4328-924e-e5a0ca64bc12",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "directory_id": "19332ad7-503e-49ac-994a-d906eef3b36a",
+              "request_id": "1081e229-ee19-43e8-b3d4-c126b625fed7",
+              "score": 65,
+              "score_rationale": null,
+              "pipeline_stage": "new",
+              "notes": null,
+              "assigned_to": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+              "created_at": "2026-08-20T04:53:36.285261+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "94409f99-c910-4328-924e-e5a0ca64bc12",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "directory_id": "19332ad7-503e-49ac-994a-d906eef3b36a",
+              "request_id": "1081e229-ee19-43e8-b3d4-c126b625fed7",
+              "score": 65,
+              "score_rationale": null,
+              "pipeline_stage": "new",
+              "notes": null,
+              "assigned_to": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+              "created_at": "2026-08-20T04:53:36.285261+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "deadlines": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "8332f8de-5a31-433b-8ad4-aa0aceee8167",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "cbb314f1-86e8-49ca-b356-1bafdabc9eb5",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "application_id": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "deadline_type": "application_deadline",
+              "due_date": "2026-09-19",
+              "title": "Seed deadline for isolation testing, org A.",
+              "description": null,
+              "is_completed": false,
+              "created_at": "2026-08-20T04:53:36.287663+00:00",
+              "updated_at": "2026-08-20T04:53:36.287663+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "cbb314f1-86e8-49ca-b356-1bafdabc9eb5",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "application_id": "c0b69e87-d63b-4815-b3d6-f2283a3f9ada",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "deadline_type": "application_deadline",
+              "due_date": "2026-09-19",
+              "title": "Seed deadline for isolation testing, org A.",
+              "description": null,
+              "is_completed": false,
+              "created_at": "2026-08-20T04:53:36.287663+00:00",
+              "updated_at": "2026-08-20T04:53:36.287663+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "adapter_usage_log": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "ef395352-1f0a-49a6-a705-4e3d0af03fd8",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "3a979af1-8dee-4ba2-8600-a69c20346450",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "adapter_name": "pt05_test_adapter",
+              "api_cost_cents": 5,
+              "records_returned": 3,
+              "cache_hit": false,
+              "called_at": "2026-08-20T05:06:35.145311+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "3a979af1-8dee-4ba2-8600-a69c20346450",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "adapter_name": "pt05_test_adapter",
+              "api_cost_cents": 5,
+              "records_returned": 3,
+              "cache_hit": false,
+              "called_at": "2026-08-20T05:06:35.145311+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "agent_configurations": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "3c8cd635-a6f2-4850-8cfe-796f266c782f",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "ce848fcd-eae8-4997-99f7-9e7f83c31d33",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "agent_id": "pt05-test-agent",
+              "enabled": true,
+              "config": {},
+              "last_run_at": null,
+              "run_count": 0,
+              "total_tokens_consumed": 0,
+              "created_at": "2026-08-20T05:06:35.374112+00:00",
+              "updated_at": "2026-08-20T05:06:35.374112+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "ce848fcd-eae8-4997-99f7-9e7f83c31d33",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "agent_id": "pt05-test-agent",
+              "enabled": true,
+              "config": {},
+              "last_run_at": null,
+              "run_count": 0,
+              "total_tokens_consumed": 0,
+              "created_at": "2026-08-20T05:06:35.374112+00:00",
+              "updated_at": "2026-08-20T05:06:35.374112+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "autoapply_review_queue": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "33ac5aa9-c784-4738-a212-f4a8d4d49585",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "d661f48b-3d00-4adf-9eb5-16df799db705",
+              "submission_id": null,
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "reason": "PT-05-002 seed row for cross-tenant read test",
+              "failure_count": 0,
+              "status": "pending",
+              "assigned_to": null,
+              "resolved_at": null,
+              "resolution_notes": null,
+              "created_at": "2026-08-20T05:06:35.670755+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "d661f48b-3d00-4adf-9eb5-16df799db705",
+              "submission_id": null,
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "reason": "PT-05-002 seed row for cross-tenant read test",
+              "failure_count": 0,
+              "status": "pending",
+              "assigned_to": null,
+              "resolved_at": null,
+              "resolution_notes": null,
+              "created_at": "2026-08-20T05:06:35.670755+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "board_meetings": {
+      "method": "live_http_test",
+      "tenant_column": "org_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "abba824d-eed9-4c82-9692-727926c24c25",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "9637faea-f715-46f4-9fc4-7a5dd3f9cbc4",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "meeting_date": "2026-09-03",
+              "meeting_type": "regular",
+              "agenda": "PT-05-002 seed board meeting",
+              "status": "scheduled",
+              "created_at": "2026-08-20T05:06:35.781938+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "9637faea-f715-46f4-9fc4-7a5dd3f9cbc4",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "meeting_date": "2026-09-03",
+              "meeting_type": "regular",
+              "agenda": "PT-05-002 seed board meeting",
+              "status": "scheduled",
+              "created_at": "2026-08-20T05:06:35.781938+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "board_meeting_packets": {
+      "method": "live_http_test",
+      "tenant_column": "org_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "a0a4c34d-7dca-4910-97dc-32fe8264b0fd",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "331062d9-1cc9-4b69-8e56-e7a9b6d0371a",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "meeting_id": "9637faea-f715-46f4-9fc4-7a5dd3f9cbc4",
+              "packet_content": {
+                "seed": "pt05-002"
+              },
+              "generated_at": "2026-08-20T05:06:35.800869+00:00",
+              "viewed_by": null
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "331062d9-1cc9-4b69-8e56-e7a9b6d0371a",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "meeting_id": "9637faea-f715-46f4-9fc4-7a5dd3f9cbc4",
+              "packet_content": {
+                "seed": "pt05-002"
+              },
+              "generated_at": "2026-08-20T05:06:35.800869+00:00",
+              "viewed_by": null
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "discovery_matches": {
+      "method": "live_http_test",
+      "tenant_column": "org_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "679dde35-321c-472d-b470-f227a2ad6f18",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "87c85a23-45b2-4027-b5ac-a443e75a80a1",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "external_title": "PT-05-002 seed discovery match",
+              "external_source": "pt05-test",
+              "external_url": null,
+              "discovery_run_id": null,
+              "match_score": null,
+              "match_reasons": null,
+              "status": "pending",
+              "actioned_at": null,
+              "created_at": "2026-08-20T05:06:35.804517+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "87c85a23-45b2-4027-b5ac-a443e75a80a1",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "external_title": "PT-05-002 seed discovery match",
+              "external_source": "pt05-test",
+              "external_url": null,
+              "discovery_run_id": null,
+              "match_score": null,
+              "match_reasons": null,
+              "status": "pending",
+              "actioned_at": null,
+              "created_at": "2026-08-20T05:06:35.804517+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "funding_forecasts": {
+      "method": "live_http_test",
+      "tenant_column": "org_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "6cff99d2-a7d1-4506-bd9d-66d1cf2dfb3a",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "1f295ed8-03f7-4dbc-8a9c-ded4eabc892f",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "forecast_date": "2026-08-20",
+              "forecast_period": "90_day",
+              "projected_min": null,
+              "projected_max": null,
+              "projected_most_likely": null,
+              "confidence": null,
+              "methodology": null,
+              "factors": {},
+              "key_risks": null,
+              "key_opportunities": null,
+              "recommended_actions": null,
+              "created_at": "2026-08-20T05:06:35.807928+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "1f295ed8-03f7-4dbc-8a9c-ded4eabc892f",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "forecast_date": "2026-08-20",
+              "forecast_period": "90_day",
+              "projected_min": null,
+              "projected_max": null,
+              "projected_most_likely": null,
+              "confidence": null,
+              "methodology": null,
+              "factors": {},
+              "key_risks": null,
+              "key_opportunities": null,
+              "recommended_actions": null,
+              "created_at": "2026-08-20T05:06:35.807928+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "impact_simulations": {
+      "method": "live_http_test",
+      "tenant_column": "org_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "3e4af407-9dc5-4b28-85d5-1520d5385dbc",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "5651cc0e-b968-4d57-9608-e4a68308b083",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "scenario_type": "lose_funder",
+              "scenario_params": {
+                "funderId": "seed"
+              },
+              "simulation_result": null,
+              "confidence": null,
+              "generated_at": "2026-08-20T05:06:35.811269+00:00",
+              "created_by": null
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "5651cc0e-b968-4d57-9608-e4a68308b083",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "scenario_type": "lose_funder",
+              "scenario_params": {
+                "funderId": "seed"
+              },
+              "simulation_result": null,
+              "confidence": null,
+              "generated_at": "2026-08-20T05:06:35.811269+00:00",
+              "created_by": null
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "knowledge_queries": {
+      "method": "live_http_test",
+      "tenant_column": "org_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "538542e2-b145-4670-8b60-c6ec9095804c",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "73a03537-d90f-475b-a91b-efe73d0e87d4",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "query_text": "PT-05-002 seed query",
+              "results": null,
+              "created_at": "2026-08-20T05:06:35.81482+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "73a03537-d90f-475b-a91b-efe73d0e87d4",
+              "org_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "query_text": "PT-05-002 seed query",
+              "results": null,
+              "created_at": "2026-08-20T05:06:35.81482+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "opportunity_probability_scores": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "6ee48854-0468-456d-a572-f0bd21a713e3",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "07ca7fe7-3346-4645-a43f-5ecec16a6ba9",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "overall_score": 55,
+              "confidence": "low",
+              "factors": [],
+              "recommendation": "consider",
+              "key_risks": null,
+              "key_strengths": null,
+              "estimated_roi": null,
+              "time_to_complete": null,
+              "computed_at": "2026-08-20T05:06:35.81846+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "07ca7fe7-3346-4645-a43f-5ecec16a6ba9",
+              "opportunity_id": "ce39fd3f-1b6a-4fa5-9e58-207e08fc9094",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "overall_score": 55,
+              "confidence": "low",
+              "factors": [],
+              "recommendation": "consider",
+              "key_risks": null,
+              "key_strengths": null,
+              "estimated_roi": null,
+              "time_to_complete": null,
+              "computed_at": "2026-08-20T05:06:35.81846+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "organizational_digital_twins": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "92aa82c9-f9b9-44ee-9e71-fc1bb88cffe9",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "db0a95c6-eb6d-41ea-8101-63bfea42067f",
+              "org_id": null,
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "mission": "PT-05-002 seed mission statement",
+              "vision": null,
+              "service_areas": null,
+              "programs": [],
+              "financial_profile": {},
+              "board_composition": [],
+              "proven_narrative_patterns": null,
+              "key_strengths": null,
+              "known_weaknesses": null,
+              "twin_completeness_score": 0,
+              "last_rebuilt_at": null,
+              "created_at": "2026-08-20T05:06:35.821363+00:00",
+              "updated_at": "2026-08-20T05:06:35.821363+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "db0a95c6-eb6d-41ea-8101-63bfea42067f",
+              "org_id": null,
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "mission": "PT-05-002 seed mission statement",
+              "vision": null,
+              "service_areas": null,
+              "programs": [],
+              "financial_profile": {},
+              "board_composition": [],
+              "proven_narrative_patterns": null,
+              "key_strengths": null,
+              "known_weaknesses": null,
+              "twin_completeness_score": 0,
+              "last_rebuilt_at": null,
+              "created_at": "2026-08-20T05:06:35.821363+00:00",
+              "updated_at": "2026-08-20T05:06:35.821363+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "pitch_cache": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "897ad613-7981-4aeb-8172-82b90aa07858",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "e036be51-4bca-4c75-9ca9-a26a8d502b8d",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "request_profile_id": null,
+              "personalized_pitch": "PT-05-002 seed pitch",
+              "pitch_hash": "pt05-seed-hash",
+              "created_at": "2026-08-20T05:06:35.824393+00:00",
+              "expires_at": "2026-09-19T05:06:35.824393+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "e036be51-4bca-4c75-9ca9-a26a8d502b8d",
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "funder_id": "1bbb8805-4dfb-4be7-8545-c1b932be8321",
+              "request_profile_id": null,
+              "personalized_pitch": "PT-05-002 seed pitch",
+              "pitch_hash": "pt05-seed-hash",
+              "created_at": "2026-08-20T05:06:35.824393+00:00",
+              "expires_at": "2026-09-19T05:06:35.824393+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "submission_receipts": {
+      "method": "live_http_test",
+      "tenant_column": "organization_id",
+      "org_a_user": "9cbf4577-2cc6-4cc0-8f67-911f5ea648ff",
+      "org_b_user": "1f0ce691-8a5c-41a9-a3e7-1736c43ee231",
+      "org_b_target_row_id": "c8db30ab-23d1-4118-aa7d-1eddda635e9a",
+      "positive_control": {
+        "description": "Org A reading its own seeded row (proves auth.uid()/RLS wiring is actually live, not globally broken)",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 1,
+          "error": null,
+          "raw_rows": [
+            {
+              "id": "aa383db6-b930-48d7-a86c-822f3541c8b9",
+              "submission_id": null,
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "receipt_pdf_path": null,
+              "receipt_data": {
+                "seed": "pt05-002"
+              },
+              "generated_at": "2026-08-20T05:06:35.827192+00:00"
+            }
+          ]
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 1,
+          "body_error": null,
+          "raw_rows": [
+            {
+              "id": "aa383db6-b930-48d7-a86c-822f3541c8b9",
+              "submission_id": null,
+              "organization_id": "10b809c1-fc40-4a7b-a6c1-7c4e8eebe850",
+              "receipt_pdf_path": null,
+              "receipt_data": {
+                "seed": "pt05-002"
+              },
+              "generated_at": "2026-08-20T05:06:35.827192+00:00"
+            }
+          ]
+        }
+      },
+      "cross_tenant_read_attempt": {
+        "description": "Org A attempting to read Org B's known seeded row",
+        "api_layer": {
+          "http_status": 200,
+          "row_count": 0,
+          "error": null,
+          "raw_rows": []
+        },
+        "direct_postgrest": {
+          "http_status": 200,
+          "row_count": 0,
+          "body_error": null,
+          "raw_rows": []
+        }
+      },
+      "verdict": "PASS_BLOCKED_ZERO_ROWS",
+      "leaked_payload": null
+    },
+    "agent_decisions": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "decisions_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "agent_queue": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "queue_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "agent_runs": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "agent_runs_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "ai_usage_log": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [],
+      "verdict": "RLS_ENABLED_NO_SELECT_POLICY_DENY_ALL"
+    },
+    "alerts": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "alerts_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "audit_logs": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "audit_logs_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "auto_queue_config": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "auto_queue_config_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "autoapply_follow_ups": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "autoapply_follow_ups_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "autoapply_submissions": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "autoapply_submissions_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "automation_notifications": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "automation_notifications_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "automation_queue": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "automation_queue_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "automation_sessions": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "automation_sessions_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "autonomous_triggers": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "triggers_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "board_members": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "board_members_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "calendar_connections": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "cal_conn_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "calendar_events": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "cal_events_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "community_need_signals": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "cnp_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "competitor_tracking": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "competitor_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "compliance_events": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "compliance_events_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "contact_tasks": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "contact_tasks_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": "(organization_id = current_org_id())"
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "corporate_intent_signals": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "intent_signals_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "corporate_relationships": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "corp_rel_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "custom_api_connections": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "custom_api_connections_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "custom_connector_allowlist": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "custom_connector_allowlist_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))"
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "documents": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "documents_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "donor_discovery_connectors": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "donor_discovery_connectors_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "donor_discovery_requests": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "donor_discovery_requests_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "draft_automation_config": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "draft_auto_config_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "draft_queue": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "draft_queue_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_activity": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_activity_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_campaign_sequences": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_sequences_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_campaigns": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_campaigns_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_connections": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_conn_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_sequence_enrollments": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_enrollments_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_templates": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_templates_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "email_thread_links": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "email_thread_links_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "enrichment_jobs": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [],
+      "verdict": "RLS_ENABLED_NO_SELECT_POLICY_DENY_ALL"
+    },
+    "form_templates": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "form_templates_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "fundability_scores": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "fundability_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_credentials": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_credentials_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_dna_profiles": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_dna_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_giving_history": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_giving_history_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_intelligence": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_intelligence_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_relationship_events": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_relationship_events_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_relationship_scores": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_rel_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "funder_relationship_signals": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "funder_relationship_signals_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "grant_agreements": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "grant_agreements_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "grant_budgets": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "grant_budgets_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "grant_expenses": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "grant_expenses_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "grant_reconciliation_reports": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "grant_reconciliation_reports_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "historical_awards": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "historical_awards_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "integration_keys": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "integration_keys_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "integrations": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "integrations_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "invoices": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "invoices_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "kb_extended_needs": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [],
+      "verdict": "RLS_ENABLED_NO_SELECT_POLICY_DENY_ALL"
+    },
+    "knowledge_base": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "knowledge_base_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "marketplace_listings": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "marketplace_listings_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "((organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))) OR marketplace_org_has_match_on_listing(id, ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "marketplace_matches": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "marketplace_matches_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "((organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))) OR marketplace_listing_owned_by_org(listing_id, ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "notes": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "notes_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "onboarding_steps": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "onboarding_steps_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "opportunity_keywords": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "opportunity_keywords_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "org_autonomous_config": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "auto_config_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "org_documents": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "org_documents_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "org_learning_contributions": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "org_learning_contributions_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "org_settings": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "org_settings_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "org_usage_summary": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "org_usage_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "outcomes": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "outcomes_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "outreach_contacts": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "outreach_contacts_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "outreach_template_variants": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "outreach_template_variants_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))"
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "outreach_templates": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "outreach_templates_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))"
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "pipeline_history": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "pipeline_history_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "platform_config": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "platform_config_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "profiles": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "profiles_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "((id = auth.uid()) OR (organization_id = current_org_id()))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "programs": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "programs_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "proven_narratives": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "proven_narratives_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "relationship_memory": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "relationship_memory_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "relationship_recommendations": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "relationship_recommendations_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "renewals": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "reputation_alerts": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "reputation_alerts_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "request_profiles": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "request_profiles_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "research_cache": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "research_cache_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "roi_insights": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "roi_insights_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "scraping_targets": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "scraping_targets_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "search_profiles": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "search_profiles_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "simulation_scenarios": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "sim_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "solicitation_registrations": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "solicitation_registrations_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "strategic_recommendations": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "advisor_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "submission_queue": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "submission_queue_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "submission_variables": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "org_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "sub_vars_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(org_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "subscriptions": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "subscriptions_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "success_probability_scores": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "success_prob_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "synced_email_messages": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "synced_email_messages_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "synced_email_threads": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "synced_email_threads_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "system_errors": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [],
+      "verdict": "RLS_ENABLED_NO_SELECT_POLICY_DENY_ALL"
+    },
+    "team_activity_log": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "team_activity_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "usage_metrics": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "usage_metrics_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "usage_tracking": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "usage_tracking_select_own_org",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "user_invitations": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "user_invitations_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "validations": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "validations_org_isolation",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "ALL",
+          "qual": "(organization_id = current_org_id())",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    },
+    "webhook_configs": {
+      "method": "production_rls_policy_inspection_readonly",
+      "tenant_column": "organization_id",
+      "returned_row_count": null,
+      "note": "Not live-seeded in the PT-05 local environment this phase (seeding all 120 tenant tables was out of scope -- see PHASE-05-SUMMARY.md). Verdict is derived from the REAL production RLS policy state (pg_class.relrowsecurity + pg_policies), fetched read-only, not from application code or assumption.",
+      "production_rls_enabled": true,
+      "production_select_policies": [
+        {
+          "policyname": "webhook_configs_org_select",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "SELECT",
+          "qual": "(organization_id = ( SELECT profiles.organization_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+          "with_check": null
+        }
+      ],
+      "verdict": "POLICY_INSPECTED_ORG_SCOPED_SELECT"
+    }
+  }
+}

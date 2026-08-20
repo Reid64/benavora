@@ -4,6 +4,22 @@ For the full detail and how each number was produced, see `PHASE-05-SUMMARY.md` 
 directory. This doc is the short version: what environment now exists, why it's a local stack
 instead of a Supabase branch, and what a future phase needs to know to use it.
 
+## PT-05-002 result, up front: zero cross-tenant read leaks, across all 120 tenant-scoped tables
+
+Authenticated as Org A's real user, attempted to read Org B's rows on all 120 tenant-scoped tables
+PT-06 identified — 20 via a real, live HTTP test (7 originally-seeded tables + all 13 of PT-06's
+`tenant_fk_gap` "missing tenant FK" prime suspects, extended into this local stack with the real
+production RLS policy reproduced verbatim), 100 via read-only inspection of the real, live
+production RLS policy state. **Result: 0 leaks.** Every cross-tenant attempt on the 20 live-tested
+tables returned zero rows on both the `@supabase/supabase-js` and raw-PostgREST paths, while a
+same-org positive control on the identical table correctly returned the org's own row — confirming
+the block is real tenant isolation, not a broken/globally-denying policy. All 13 prime suspects
+passed, including under extra scrutiny. One secondary, non-leak finding: 4 tables
+(`ai_usage_log`, `enrichment_jobs`, `kb_extended_needs`, `system_errors`) have RLS enabled with
+zero policies at all — deny-all for everyone, not a leak, but an unexplained availability question
+(WGR-072, PENDING-SCOPE). Full detail: `PHASE-05-SUMMARY.md`'s "PT-05-002" section,
+`test-evidence/pt-05/cross-read.json`.
+
 ## What exists now
 
 A running local Postgres 17 + GoTrue + PostgREST stack (`.pt05-local-stack/`, Docker containers

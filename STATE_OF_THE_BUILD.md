@@ -1,6 +1,14 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-05 COMPLETE. Isolation environment provisioned: local
+**Updated: August 20, 2026 — audit PT-05-002 COMPLETE. Cross-tenant read attempts across all 120
+tenant-scoped tables PT-06 identified (authenticated as Org A, targeting Org B's known rows): 20
+tables live HTTP-tested (7 seeded tables + all 13 of PT-06's `tenant_fk_gap` prime suspects) on a
+locally-extended stack reproducing the real production RLS policy verbatim, 100 tables verified via
+read-only inspection of the real, live production RLS policy state. Result: 0 cross-tenant read
+leaks found, across all 120 tables. See `test-evidence/pt-05/cross-read.json`,
+`test-evidence/pt-05/PHASE-05-SUMMARY.md`'s "PT-05-002" section, `WIRING_GAP_REGISTER.md` WGR-071/072.**
+
+**Prior: August 20, 2026 — audit PT-05-001 COMPLETE. Isolation environment provisioned: local
 Supabase stack (not a branch — the connected MCP account has no access to the real `benavora`
 project), two clean test orgs, owner users, and seeded rows in all 6 core tenant-scoped tables
 PT-06 named. See `test-evidence/pt-05/PHASE-05-SUMMARY.md`/`REVIEW-PACK.md`.**

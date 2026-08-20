@@ -1,5 +1,21 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-05 COMPLETE. Isolation environment provisioned: a
+## Last Updated: August 20, 2026 — audit PT-05-002 COMPLETE. Cross-tenant read attempts, all
+tenant-scoped tables. Authenticated as Org A's real user (real GoTrue JWT), attempted to read
+Org B's known seeded rows across all 120 tenant-scoped tables PT-06 identified
+(`organization_id`/`org_id` column, derived independently from `live-schema.json`). 20 tables
+(the 7 originally seeded by PT-05-001 plus all 13 of PT-06's `tenant_fk_gap` "missing tenant FK"
+prime suspects) were extended into the local stack with the real production RLS policy predicate
+reproduced verbatim (fetched read-only via `pg_policies`) and live HTTP-tested two ways —
+`@supabase/supabase-js` (the API-layer path) and a raw PostgREST fetch — with a same-org positive
+control per table proving the block is real isolation, not a broken/globally-denying policy. The
+remaining 100 tables were verified via read-only inspection of the real, live production RLS
+policy state. **Result: 0 cross-tenant read leaks across all 120 tables**, including every prime
+suspect under extra scrutiny. One secondary, non-leak finding logged: 4 tables have RLS enabled
+with zero policies at all (deny-all for everyone, not a leak — WGR-072, needs a product decision
+on whether that's intentional). See `test-evidence/pt-05/cross-read.json`,
+`PHASE-05-SUMMARY.md`'s "PT-05-002" section, `REVIEW-PACK.md`, `WIRING_GAP_REGISTER.md` WGR-071/072.
+
+## Prior — August 20, 2026 — audit PT-05-001 COMPLETE. Isolation environment provisioned: a
 local Supabase CLI stack (the connected Supabase MCP account has no access to the real `benavora`
 project, so branching wasn't available), two clean test orgs, real owner-role users, and seeded
 rows in all 6 tenant-scoped tables PT-06 named. Non-production target verified two independent

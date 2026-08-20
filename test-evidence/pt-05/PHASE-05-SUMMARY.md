@@ -124,3 +124,97 @@ It is not part of the scoped commit (only `test-evidence/`, `scripts/audit/`,
 Docker state, not repo content, and was not added to `.gitignore` since it was never staged in the
 first place. If a future session needs this environment gone, `docker compose -p pt05-local-stack
 down -v` (or `supabase stop` from inside `.pt05-local-stack/`) tears it down cleanly.
+
+---
+
+## PT-05-002 — Cross-Tenant Read Attempts, All Tenant-Scoped Tables
+
+Authenticated as Org A's real user, attempted to READ Org B's rows on every tenant-scoped table
+PT-06 identified. Every number below cites the evidence artifact it came from.
+
+### Scope: every tenant-scoped table, derived independently from PT-06's live schema
+
+`test-evidence/pt-06/live-schema.json` (184 tables) was scanned for `organization_id`/`org_id`
+column presence, independently of any prior list — **120 tables** carry a tenant column. Of
+those, PT-06's `integrity.json` `tenant_fk_gap` check flags **13** as missing their live foreign
+key to `organizations` (`adapter_usage_log`, `agent_configurations`, `autoapply_review_queue`,
+`board_meeting_packets`, `board_meetings`, `discovery_matches`, `funding_forecasts`,
+`impact_simulations`, `knowledge_queries`, `opportunity_probability_scores`,
+`organizational_digital_twins`, `pitch_cache`, `submission_receipts`) — this task's named "prime
+suspects", given extra scrutiny below.
+
+### Ground truth: real production RLS policy state, fetched read-only
+
+Before any local testing, `scripts/audit/pt05-002-fetch-production-rls.mjs` connected read-only to
+production (same `SET default_transaction_read_only = on` method PT-06-001 proved) and read
+`pg_class.relrowsecurity`/`pg_policies` for all 120 tenant tables — the real, live policy text
+governing every real request today, not inferred from application code or convention.
+`test-evidence/pt-05/production-rls-policies.json`. Result: **all 120 tables have RLS enabled**
+(zero disabled); **116 carry at least one policy**; **4 carry zero policies at all**
+(`ai_usage_log`, `enrichment_jobs`, `kb_extended_needs`, `system_errors` — see WGR-072, a deny-all
+availability question, not a leak). Of the 116 with policies, every SELECT/ALL-command policy's
+`qual` clause references the table's own tenant column compared against a current-org lookup — no
+trivial (`true`) or tenant-column-blind predicate was found anywhere across all 120 tables.
+
+### Tier 1 — live HTTP test, 20 tables (7 seeded by PT-05-001 + all 13 prime suspects)
+
+`scripts/audit/pt05-002-schema-extension.sql` added `public.current_org_id()` (the exact real
+production function, fetched via `pg_get_functiondef` — `test-evidence/pt-05/
+current_org_id-function-def.txt`) and enabled RLS with the real production policy predicate
+(byte-for-byte, fetched read-only, not reconstructed from memory) on the 7 tables PT-05-001 seeded
+(`funders`, `opportunities`, `applications`, `draft_versions`, `contacts`,
+`donor_discovery_prospects`, `deadlines` — none had RLS applied by PT-05-001) plus all 13 prime
+suspects, newly created locally with columns copied verbatim from `live-schema.json` and
+**deliberately no foreign key on the tenant column**, matching production's real (flawed) state
+exactly rather than papering over the condition under test.
+`scripts/audit/pt05-002-provision-and-seed.mjs` seeded one real row per org into each of the 13
+new tables (reusing Org A/B's existing funder/opportunity rows for FK targets where required),
+recording every seeded row id to `test-evidence/pt-05/cross-tenant-seed-ids.json`.
+
+`scripts/audit/pt05-002-cross-tenant-read.mjs` then logged in as Org A's real user via GoTrue
+password grant (a real JWT, not forged) and, for each of the 20 tables, attempted two things:
+1. **Positive control** — Org A reading its OWN seeded row, via both `@supabase/supabase-js`
+   ("API layer") and a raw PostgREST `fetch` ("direct PostgREST"). Confirms the RLS/`auth.uid()`
+   wiring is actually live for that table, not just globally denying everything.
+2. **Cross-tenant read attempt** — Org A attempting to read Org B's known seeded row id, same two
+   paths.
+
+**Result: 20/20 tables blocked, 0 leaks.** Every cross-tenant attempt returned `row_count: 0`,
+`HTTP 200` (an empty result set — standard PostgREST/RLS behavior, not an error), on both the API
+layer and direct PostgREST paths, while every same-table positive control correctly returned
+`row_count: 1`. This holds for all 13 tenant_fk_gap prime suspects, not just the 7 originally-
+seeded tables — the missing tenant→organizations foreign key does not correspond to a missing or
+broken RLS policy; the two are separate enforcement mechanisms and only referential integrity is
+absent on those 13.
+
+### Tier 2 — production RLS policy inspection, remaining 100 tables
+
+Not live-seeded in this local environment (seeding and RLS-replicating all 120 production tables
+was out of reasonable scope for this phase). Verdict derived from the same real, live production
+RLS state fetched above — 96/100 carry a correctly org-scoped SELECT/ALL policy; the other 4 are
+the zero-policy tables already noted. Every row is explicitly labeled `method:
+"production_rls_policy_inspection_readonly"` with `returned_row_count: null` so it can never be
+confused with a Tier 1 empirical result.
+
+### Findings
+
+- **WGR-071** (P3, CONFIRMED-OK) — the overall clean result: 0/120 tenant tables show a
+  cross-tenant read leak, including all 13 prime suspects live-tested.
+- **WGR-072** (P3, PENDING-SCOPE) — the 4 zero-policy tables (`ai_usage_log`, `enrichment_jobs`,
+  `kb_extended_needs`, `system_errors`) deny SELECT to everyone, including the owning org; not
+  investigated further whether this is intentional (service-role-only) or a missing policy.
+
+### Evidence files
+
+- `test-evidence/pt-05/production-rls-policies.json` — real production RLS ground truth, all 120 tables.
+- `test-evidence/pt-05/current_org_id-function-def.txt` — the real `current_org_id()` definition.
+- `test-evidence/pt-05/cross-tenant-seed-ids.json` — per-table, per-org seeded row ids used as read targets.
+- `test-evidence/pt-05/cross-read.json` — full per-table results, all 120 tables, both tiers.
+- `scripts/audit/pt05-002-fetch-production-rls.mjs`, `pt05-002-fetch-function-defs.mjs`,
+  `pt05-002-schema-extension.sql`, `pt05-002-provision-and-seed.mjs`,
+  `pt05-002-cross-tenant-read.mjs` — the full pipeline, each independently re-runnable.
+- `scripts/audit/verify-pt05-002.mjs` — the verifier (independently re-derives the expected table
+  list from `live-schema.json` rather than trusting `cross-read.json`'s own list; requires every
+  prime-suspect table be `live_http_test`'d, not just policy-inspected; cross-checks every
+  `row_count` against its own captured `raw_rows` payload; live re-checks the local stack still
+  exists).
