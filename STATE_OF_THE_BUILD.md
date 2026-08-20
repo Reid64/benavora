@@ -1,5 +1,78 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-11: visual/cross-browser/soak executed.** Follow-up to the
+PT-11 core-suites pass immediately below: re-ran the three suites that pass explicitly deferred as
+"historically flaky/non-deterministic" — visual-regression (no baseline existed at all going in),
+cross-browser (retargeted at the specific known WebKit navigation race from
+`CROSSBROWSER_TEST_RESULTS_20260813.md`), and the AutoApply queue-processor soak test (retargeted
+at the known unconditional 60-120s rate-limiter delay). Real, dated results with per-run log paths
+and archived diff/report artifacts now live at `test-evidence/pt-11/suite-results-flaky.json` +
+`test-evidence/pt-11/logs/*.log` + `test-evidence/pt-11/artifacts/`. Visual-regression and
+cross-browser were each run **twice** specifically to tell a persisting defect apart from a
+one-off flake, per this task's own framing that persisting flakiness/failures are findings, not
+audit failures. Environment hazard from the prior PT-11 session recurred identically and was
+handled the same way: port 3000 was still the unrelated "AFS" project (confirmed again via a
+direct title check), so Benavora's own dev server was started fresh on port 3100 and torn down
+after all three suites finished.
+
+**Real results:**
+- **visual-regression** — generated a genuinely fresh baseline (`--update-snapshots`, 7/7 clean —
+  no snapshot directory existed on disk before this run, matching the prior PT-11-001 inventory's
+  own finding that this suite could not have passed in its committed state). Then ran the real
+  comparison twice against that same-session baseline: **both runs reproduced an identical,
+  persisting failure on the `autoapply` page** — 115px diff (run 1), 194px diff (run 2), different
+  magnitude each time, zero UI code changes between runs. Root cause identified from the failure's
+  own page snapshot: the AutoApply page's real, live WebSocket-connected "Live Session Viewer"
+  panel renders a connection-status indicator that this spec's `timestampMasks()` helper doesn't
+  cover (it only masks text-pattern timestamps/dates, not a live-socket status badge) — a genuine,
+  previously-undocumented gap in the suite's own masking coverage, not fixed here (out of this
+  audit's scope). The other 4 pages (dashboard, opportunities, applications-list, funders) passed
+  cleanly in both comparison runs. The 5 new baseline PNGs are real and functional at
+  `e2e/visual-regression.spec.ts-snapshots/` but were left **out of this session's scoped commit**
+  per explicit instruction (archived instead at
+  `test-evidence/pt-11/artifacts/visual-regression/baseline-2026-08-20/` for durability) — a future
+  session scoped to ship them needs to `git add` that directory explicitly.
+- **cross-browser** — ran `e2e/critical-paths.spec.ts` across chromium/firefox/webkit twice. **The
+  known WebKit navigation race persists exactly**: 0/5 on WebKit both runs, every failure the
+  identical `page.waitForURL` timeout waiting for the post-login redirect to `/dashboard` — the
+  same defect `CROSSBROWSER_TEST_RESULTS_20260813.md` documented, unfixed, still reproducing. The
+  chromium+firefox "creating an application... adds a row to `/applications/list`" failure also
+  persisted on both browsers in both runs, matching 2026-08-13 exactly. Real current pass rate:
+  run 1 = 9/17, run 2 = 10/17 (run 2's exact composition — chromium 4/5, firefox 4/5, webkit 0/5 —
+  matches the 2026-08-13 baseline byte-for-byte, confirming no regression or improvement since
+  then). One **new, non-persisting** finding: chromium's "funder Relationship Builder page" test
+  failed in run 1 but passed in run 2 — a genuine flake, reported as such rather than either
+  dismissed or overstated as a new reproducible bug.
+- **soak-autoapply-queue-processor** — ran the real, unmodified soak script
+  (`scripts/soak-test-autoapply-worker.ts`) against the real, deployed, production Railway worker:
+  50 real disposable `submission_queue` rows, monitored to completion. **The known rate-limiter
+  finding holds**: the observed gap between consecutive item completions was min=1m2s,
+  median=1m29s, max=2m1s — landing inside the documented 60-120s/item range on every one of the 49
+  measured gaps, not just on average. Unlike the 2026-08-13 run (0/50 reached terminal, hit the
+  130-minute safety cap), **this run achieved a full, clean 50/50 drain in 72m23s** with zero
+  genuine failures — real production queue contention was zero going in, and the run had enough
+  wall-clock budget for the rate limiter's own bottleneck to fully play out. Cleanup independently
+  re-confirmed 0 rows remaining across all 3 disposable orgs. One real, **incidental**, previously-
+  undocumented finding surfaced via a Railway platform-log pull scoped to the exact run window: a
+  background scheduled job unrelated to AutoApply — `[AutonomousOrchestrator] AG-38
+  self-improvement pipeline failed: Failed to start AG-38 platform-level run: null value in column
+  "organization_id" of relation "agent_runs" violates not-null constraint` — fired once during this
+  window, a real, live, currently-reproducing production bug in AG-38's platform-level run path,
+  unrelated to this soak test's own subject and not fixed here (out of this audit's scope, flagged
+  for a future session). The soak script's own hardcoded report path,
+  `SOAK_TEST_AUTOAPPLY_RESULTS.md` (repo root), was overwritten as a side effect of running it and
+  is left out of this session's scoped commit for the same reason as the prior session's
+  `MIGRATION_IDEMPOTENCY_AUDIT.md` exclusion; a dated copy is archived at
+  `test-evidence/pt-11/artifacts/soak/SOAK_TEST_AUTOAPPLY_RESULTS-2026-08-20.md`.
+
+**Gate:** `node scripts/audit/verify-pt11-003.mjs` — PASS. Requires, per suite: visual-regression to
+carry a real baseline-generation record plus ≥2 real comparison runs with a persistence finding;
+cross-browser to carry ≥2 real runs each covering all 3 engines by name plus a persistence finding
+that names WebKit explicitly; soak to carry a real run record plus an explicit finding on whether
+the rate-limiter characteristic held.
+
+---
+
 **Updated: August 20, 2026 — audit PT-11: core suites executed with real numbers.** Followed up on
 the PT-11 test-suite inventory (immediately below) by actually *running* the 9 real
 unit/smoke/api/migration suite records it identified as "unknown"/"stale claim only" plus the two

@@ -1,5 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-11: core suites executed with real numbers.
+## Last Updated: August 20, 2026 — audit PT-11: visual/cross-browser/soak executed.
+
+Follow-up to the PT-11 core-suites session (below). Re-ran the three suites that pass explicitly
+deferred as historically flaky/non-deterministic, per this task: visual-regression, cross-browser
+(retargeted at the documented WebKit navigation race), soak (retargeted at the documented
+unconditional rate-limiter delay). Real, dated results live at
+`test-evidence/pt-11/suite-results-flaky.json`, `test-evidence/pt-11/logs/*.log`, and
+`test-evidence/pt-11/artifacts/`. Gate: `node scripts/audit/verify-pt11-003.mjs` — PASS.
+
+**Same environment hazard as the prior session, handled the same way:** port 3000 was again the
+unrelated "AFS" project — started Benavora's own `next dev -p 3100`, pointed every Playwright
+invocation at it via `PLAYWRIGHT_BASE_URL`/`NEXT_PUBLIC_SITE_URL`, tore it down after.
+
+**All three categories produced real, persisting findings — none of it was a clean bill of
+health, and that's the correct outcome for an audit of known-flaky suites:**
+- **visual-regression** — generated a genuinely fresh baseline (no snapshot dir existed before this
+  run), then ran the comparison twice. `autoapply` failed **both** times against its own
+  same-session baseline (115px, then 194px diff) — a real, reproducible gap in the suite's own
+  masking coverage: the page's live WebSocket "Live Session Viewer" connection-status indicator
+  isn't a text-pattern timestamp, so `timestampMasks()` never catches it. The other 4 pages
+  (dashboard, opportunities, applications-list, funders) passed cleanly both times. Full detail,
+  including why the 5 new baseline PNGs are intentionally NOT in this commit, in
+  STATE_OF_THE_BUILD.md.
+- **cross-browser** — ran twice. WebKit: 0/5 both times, identical `page.waitForURL` timeout —
+  the exact known navigation race from `CROSSBROWSER_TEST_RESULTS_20260813.md`, still unfixed,
+  still reproducing. Chromium+Firefox: the known "create application → /applications/list" failure
+  also persisted both runs on both browsers. Real pass rate: 9/17 then 10/17 (run 2's composition
+  matches the 2026-08-13 baseline exactly — no drift either direction). One new, NON-persisting
+  flake found: chromium's Relationship Builder page test failed once, passed once.
+- **soak-autoapply-queue-processor** — real run against the real production Railway worker, 50
+  disposable `submission_queue` rows. The documented 60-120s unconditional rate-limiter delay
+  holds exactly (measured gaps: 62s–121s, every one inside range). Unlike the 2026-08-13 run
+  (0/50, hit the 130-min cap), this run achieved a full clean 50/50 drain in 72m23s, zero genuine
+  failures, cleanup independently re-confirmed 0 rows left. Incidentally surfaced one real,
+  unrelated, live production bug via a scoped Railway-log pull: AG-38's self-improvement pipeline
+  is failing on a `NOT NULL` violation on `agent_runs.organization_id` — flagged, not fixed, out of
+  this audit's scope.
+
+---
+## Prior — August 20, 2026 — audit PT-11: core suites executed with real numbers.
 
 Ran, for real, the 9 unit/smoke/api/migration suite records the PT-11-001 inventory (below) flagged
 as `unknown`/stale-claim-only or that only had prior-day evidence: `unit-src`, `unit-tests-dir`,

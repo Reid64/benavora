@@ -1,0 +1,137 @@
+◇ injected env (9) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+[2026-08-20T08:28:52.228Z] Pre-run baseline: real production queue pending=0 processing=0; worker=idle (heartbeat 2026-08-20T08:28:33.991+00:00)
+[2026-08-20T08:28:52.447Z] Created disposable org 1/3: SOAK-TEST-AUTOAPPLY-DISPOSABLE-1787214531811-org-1 (60a4d336-2ffc-4803-ad2b-a5a69b23c664), funder 7b7137b1-3dc9-4b36-8a40-6fc4c6686d2b
+[2026-08-20T08:28:52.578Z] Created disposable org 2/3: SOAK-TEST-AUTOAPPLY-DISPOSABLE-1787214531811-org-2 (16a9ce4e-9612-45f5-b3e0-ec2fd459fba0), funder 83cf64b5-634c-4e81-b693-29e89fa47c59
+[2026-08-20T08:28:52.714Z] Created disposable org 3/3: SOAK-TEST-AUTOAPPLY-DISPOSABLE-1787214531811-org-3 (c7db8453-07c8-453d-9e81-8e633128df33), funder 61e1f0a7-1d40-426f-8974-c1d2c5279259
+[2026-08-20T08:28:52.714Z] Enqueuing 50 submission_queue rows in rapid succession (round-robin across 3 orgs)...
+[2026-08-20T08:28:55.948Z] Enqueue complete: 50 rows inserted, ids e317ecdc-0621-4bb5-aa4f-e02d20f22b75..2b18cc29-d7da-4854-ba30-84e8e6c192fe
+[2026-08-20T08:28:55.948Z] Monitoring 50 queue rows until all terminal (or 130min cap)...
+[2026-08-20T08:28:56.086Z] Snapshot: pending=50 processing=0 terminal=0/50 worker=idle (processed=2 failed=0)
+[2026-08-20T08:29:01.246Z] Item e317ecdc-0621-4bb5-aa4f-e02d20f22b75 -> skipped (no_portal_or_email) [1/50 terminal]
+[2026-08-20T08:29:58.077Z] Snapshot: pending=49 processing=0 terminal=1/50 worker=idle (processed=3 failed=0)
+[2026-08-20T08:30:03.241Z] Item 99feeae9-bae5-4726-8508-32afd4b81fbe -> skipped (no_portal_or_email) [2/50 terminal]
+[2026-08-20T08:31:00.940Z] Snapshot: pending=48 processing=0 terminal=2/50 worker=idle (processed=4 failed=0)
+[2026-08-20T08:31:26.888Z] Item 475025ff-eb6f-4110-976b-4c4ada3e232e -> skipped (no_portal_or_email) [3/50 terminal]
+[2026-08-20T08:32:03.440Z] Snapshot: pending=47 processing=0 terminal=3/50 worker=idle (processed=5 failed=0)
+[2026-08-20T08:32:34.935Z] Item ba93ad7d-c767-4ba1-932f-590777d33b6f -> skipped (no_portal_or_email) [4/50 terminal]
+[2026-08-20T08:33:06.472Z] Snapshot: pending=46 processing=0 terminal=4/50 worker=idle (processed=6 failed=0)
+[2026-08-20T08:34:08.951Z] Snapshot: pending=46 processing=0 terminal=4/50 worker=idle (processed=6 failed=0)
+[2026-08-20T08:34:36.316Z] Item 670262c3-0600-4cc8-8d2c-a2dea0829931 -> skipped (no_portal_or_email) [5/50 terminal]
+[2026-08-20T08:35:12.836Z] Snapshot: pending=45 processing=0 terminal=5/50 worker=idle (processed=7 failed=0)
+[2026-08-20T08:36:05.264Z] Item b4005848-7c81-4cd6-969d-69511ad591c3 -> skipped (no_portal_or_email) [6/50 terminal]
+[2026-08-20T08:36:15.953Z] Snapshot: pending=44 processing=0 terminal=6/50 worker=idle (processed=8 failed=0)
+[2026-08-20T08:37:18.726Z] Snapshot: pending=44 processing=0 terminal=6/50 worker=idle (processed=8 failed=0)
+[2026-08-20T08:37:39.524Z] Item 26d49626-f0da-4ffd-b4f0-741de1a8803e -> skipped (no_portal_or_email) [7/50 terminal]
+[2026-08-20T08:38:21.251Z] Snapshot: pending=43 processing=0 terminal=7/50 worker=idle (processed=9 failed=0)
+[2026-08-20T08:38:58.037Z] Item 0771f9fc-c65f-4b07-a8e6-cc89226ee124 -> skipped (no_portal_or_email) [8/50 terminal]
+[2026-08-20T08:39:24.678Z] Snapshot: pending=42 processing=0 terminal=8/50 worker=idle (processed=10 failed=0)
+[2026-08-20T08:40:11.510Z] Item 078b80d3-e1ee-4598-9b7f-b7ec9d0dc23d -> skipped (no_portal_or_email) [9/50 terminal]
+[2026-08-20T08:40:27.226Z] Snapshot: pending=41 processing=0 terminal=9/50 worker=idle (processed=11 failed=0)
+[2026-08-20T08:41:30.093Z] Snapshot: pending=41 processing=0 terminal=9/50 worker=idle (processed=11 failed=0)
+[2026-08-20T08:41:50.815Z] Item c2d0c0c6-378e-4e15-a759-84544d015498 -> skipped (no_portal_or_email) [10/50 terminal]
+[2026-08-20T08:42:32.912Z] Snapshot: pending=40 processing=0 terminal=10/50 worker=idle (processed=12 failed=0)
+[2026-08-20T08:42:59.362Z] Item 9c9a403a-dc9c-405f-b1ac-a195b1cf6cac -> skipped (no_portal_or_email) [11/50 terminal]
+[2026-08-20T08:43:36.110Z] Snapshot: pending=39 processing=0 terminal=11/50 worker=idle (processed=13 failed=0)
+[2026-08-20T08:44:18.567Z] Item a81c0cd9-f953-431c-8b5e-702927d46c04 -> skipped (no_portal_or_email) [12/50 terminal]
+[2026-08-20T08:44:39.334Z] Snapshot: pending=38 processing=0 terminal=12/50 worker=idle (processed=14 failed=0)
+[2026-08-20T08:45:42.329Z] Snapshot: pending=38 processing=0 terminal=12/50 worker=idle (processed=14 failed=0)
+[2026-08-20T08:46:18.786Z] Item cf0a4430-0a16-4ad0-b8b4-25957cb980ef -> skipped (no_portal_or_email) [13/50 terminal]
+[2026-08-20T08:46:45.214Z] Snapshot: pending=37 processing=0 terminal=13/50 worker=idle (processed=15 failed=0)
+[2026-08-20T08:47:47.957Z] Snapshot: pending=37 processing=0 terminal=13/50 worker=idle (processed=15 failed=0)
+[2026-08-20T08:48:19.208Z] Item 5fbcc93f-f916-4760-9be3-aa1f337d08e5 -> skipped (no_portal_or_email) [14/50 terminal]
+[2026-08-20T08:48:50.657Z] Snapshot: pending=36 processing=0 terminal=14/50 worker=idle (processed=16 failed=0)
+[2026-08-20T08:49:53.714Z] Snapshot: pending=36 processing=0 terminal=14/50 worker=idle (processed=16 failed=0)
+[2026-08-20T08:50:09.302Z] Item bea10bb2-7078-470a-b62e-0ba417b2940b -> skipped (no_portal_or_email) [15/50 terminal]
+[2026-08-20T08:50:56.412Z] Snapshot: pending=35 processing=0 terminal=15/50 worker=idle (processed=17 failed=0)
+[2026-08-20T08:51:32.951Z] Item 4e143243-985f-4105-b655-72544e6e1557 -> skipped (no_portal_or_email) [16/50 terminal]
+[2026-08-20T08:51:59.233Z] Snapshot: pending=34 processing=0 terminal=16/50 worker=idle (processed=18 failed=0)
+[2026-08-20T08:52:35.824Z] Item 1eb8ed2b-03f6-4ae2-b0c3-f9ad087ebea1 -> skipped (no_portal_or_email) [17/50 terminal]
+[2026-08-20T08:53:02.325Z] Snapshot: pending=33 processing=0 terminal=17/50 worker=idle (processed=19 failed=0)
+[2026-08-20T08:54:04.955Z] Item ef488386-7219-4e59-ac8f-1ff9c7f2e050 -> skipped (no_portal_or_email) [18/50 terminal]
+[2026-08-20T08:54:05.117Z] Snapshot: pending=32 processing=0 terminal=18/50 worker=idle (processed=20 failed=0)
+[2026-08-20T08:55:07.975Z] Snapshot: pending=32 processing=0 terminal=18/50 worker=idle (processed=20 failed=0)
+[2026-08-20T08:55:34.413Z] Item 4a9ffc98-a6ba-49e8-842a-867578f1081d -> skipped (no_portal_or_email) [19/50 terminal]
+[2026-08-20T08:56:10.944Z] Snapshot: pending=31 processing=0 terminal=19/50 worker=idle (processed=21 failed=0)
+[2026-08-20T08:57:08.527Z] Item aa0e3987-acf8-4d54-b3a5-0af1409401e7 -> skipped (no_portal_or_email) [20/50 terminal]
+[2026-08-20T08:57:13.716Z] Snapshot: pending=30 processing=0 terminal=20/50 worker=idle (processed=22 failed=0)
+[2026-08-20T08:58:17.024Z] Item b3374900-4ecb-4568-a4a5-06558543d0f3 -> skipped (no_portal_or_email) [21/50 terminal]
+[2026-08-20T08:58:17.084Z] Snapshot: pending=29 processing=0 terminal=21/50 worker=idle (processed=23 failed=0)
+[2026-08-20T08:59:20.095Z] Snapshot: pending=29 processing=0 terminal=21/50 worker=idle (processed=23 failed=0)
+[2026-08-20T08:59:51.642Z] Item d891e7ce-6a4d-4c9e-a902-8759d9d6e442 -> skipped (no_portal_or_email) [22/50 terminal]
+[2026-08-20T09:00:23.257Z] Snapshot: pending=28 processing=0 terminal=22/50 worker=idle (processed=24 failed=0)
+[2026-08-20T09:01:25.965Z] Item e50e6875-c519-4ef0-983f-62e2b1f64156 -> skipped (no_portal_or_email) [23/50 terminal]
+[2026-08-20T09:01:26.031Z] Snapshot: pending=27 processing=0 terminal=23/50 worker=idle (processed=25 failed=0)
+[2026-08-20T09:02:29.218Z] Snapshot: pending=27 processing=0 terminal=23/50 worker=idle (processed=25 failed=0)
+[2026-08-20T09:03:26.595Z] Item f60949df-c360-4bba-9e71-693fa8a11c03 -> skipped (no_portal_or_email) [24/50 terminal]
+[2026-08-20T09:03:32.093Z] Snapshot: pending=26 processing=0 terminal=24/50 worker=idle (processed=26 failed=0)
+[2026-08-20T09:04:34.207Z] Snapshot: pending=26 processing=0 terminal=24/50 worker=idle (processed=26 failed=0)
+[2026-08-20T09:04:55.039Z] Item 58451c31-b060-47df-afcf-b9c447eac5ce -> skipped (no_portal_or_email) [25/50 terminal]
+[2026-08-20T09:05:37.185Z] Snapshot: pending=25 processing=0 terminal=25/50 worker=idle (processed=27 failed=0)
+[2026-08-20T09:06:29.413Z] Item bf19f274-c767-4450-a4d3-f32ce718eebf -> skipped (no_portal_or_email) [26/50 terminal]
+[2026-08-20T09:06:39.977Z] Snapshot: pending=24 processing=0 terminal=26/50 worker=idle (processed=28 failed=0)
+[2026-08-20T09:07:37.424Z] Item f2a84c31-13e3-48f4-a931-8e48677bdd34 -> skipped (no_portal_or_email) [27/50 terminal]
+[2026-08-20T09:07:42.870Z] Snapshot: pending=23 processing=0 terminal=27/50 worker=idle (processed=29 failed=0)
+[2026-08-20T09:08:46.378Z] Snapshot: pending=23 processing=0 terminal=27/50 worker=idle (processed=29 failed=0)
+[2026-08-20T09:09:17.920Z] Item b5607b0d-f4c0-4d7f-a2c4-e78b58ef772c -> skipped (no_portal_or_email) [28/50 terminal]
+[2026-08-20T09:09:49.910Z] Snapshot: pending=22 processing=0 terminal=28/50 worker=idle (processed=30 failed=0)
+[2026-08-20T09:10:21.085Z] Item de67e4d2-e429-4ae2-a55b-db1b99cda203 -> skipped (no_portal_or_email) [29/50 terminal]
+[2026-08-20T09:10:52.604Z] Snapshot: pending=21 processing=0 terminal=29/50 worker=idle (processed=31 failed=0)
+[2026-08-20T09:11:55.209Z] Snapshot: pending=21 processing=0 terminal=29/50 worker=idle (processed=31 failed=0)
+[2026-08-20T09:12:10.895Z] Item 877bcca9-8397-4360-a5e5-c2194f12281c -> skipped (no_portal_or_email) [30/50 terminal]
+[2026-08-20T09:12:57.811Z] Snapshot: pending=20 processing=0 terminal=30/50 worker=idle (processed=32 failed=0)
+[2026-08-20T09:14:01.030Z] Item a97707c6-afba-4722-a2c5-7f19f537c2c6 -> skipped (no_portal_or_email) [31/50 terminal]
+[2026-08-20T09:14:01.095Z] Snapshot: pending=19 processing=0 terminal=31/50 worker=idle (processed=33 failed=0)
+[2026-08-20T09:15:04.281Z] Item 2b1973ab-2769-4d24-bce7-4c935b24e0fe -> skipped (no_portal_or_email) [32/50 terminal]
+[2026-08-20T09:15:04.443Z] Snapshot: pending=18 processing=0 terminal=32/50 worker=processing (processed=34 failed=0)
+[2026-08-20T09:16:07.385Z] Snapshot: pending=18 processing=0 terminal=32/50 worker=idle (processed=34 failed=0)
+[2026-08-20T09:16:38.760Z] Item 0171af56-62cd-4ef2-8232-7d669162cce8 -> skipped (no_portal_or_email) [33/50 terminal]
+[2026-08-20T09:17:10.395Z] Snapshot: pending=17 processing=0 terminal=33/50 worker=idle (processed=35 failed=0)
+[2026-08-20T09:18:13.333Z] Snapshot: pending=17 processing=0 terminal=33/50 worker=idle (processed=35 failed=0)
+[2026-08-20T09:18:18.635Z] Item 5a234ff1-d210-4fe6-b774-4786569579bb -> skipped (no_portal_or_email) [34/50 terminal]
+[2026-08-20T09:19:16.267Z] Snapshot: pending=16 processing=0 terminal=34/50 worker=idle (processed=36 failed=0)
+[2026-08-20T09:19:53.221Z] Item b16e7994-f44f-4228-905c-77ed48d082b1 -> skipped (no_portal_or_email) [35/50 terminal]
+[2026-08-20T09:20:19.345Z] Snapshot: pending=15 processing=0 terminal=35/50 worker=idle (processed=37 failed=0)
+[2026-08-20T09:21:16.798Z] Item c997bc83-ddc2-4667-a9ca-809b4b34f607 -> skipped (no_portal_or_email) [36/50 terminal]
+[2026-08-20T09:21:22.060Z] Snapshot: pending=14 processing=0 terminal=36/50 worker=idle (processed=38 failed=0)
+[2026-08-20T09:22:25.034Z] Snapshot: pending=14 processing=0 terminal=36/50 worker=idle (processed=38 failed=0)
+[2026-08-20T09:22:56.383Z] Item c957218e-82d7-4eb1-af45-e0dca053dd7b -> skipped (no_portal_or_email) [37/50 terminal]
+[2026-08-20T09:23:27.990Z] Snapshot: pending=13 processing=0 terminal=37/50 worker=idle (processed=39 failed=0)
+[2026-08-20T09:24:30.720Z] Item 4641743b-75bc-43bd-8654-15cba27549e1 -> skipped (no_portal_or_email) [38/50 terminal]
+[2026-08-20T09:24:30.785Z] Snapshot: pending=12 processing=0 terminal=38/50 worker=idle (processed=40 failed=0)
+[2026-08-20T09:25:33.769Z] Snapshot: pending=12 processing=0 terminal=38/50 worker=idle (processed=40 failed=0)
+[2026-08-20T09:26:26.094Z] Item 576dc7d3-4661-4d09-aa74-a3a2eb4023b4 -> skipped (no_portal_or_email) [39/50 terminal]
+[2026-08-20T09:26:37.082Z] Snapshot: pending=11 processing=0 terminal=39/50 worker=idle (processed=41 failed=0)
+[2026-08-20T09:27:29.932Z] Item 433359f3-073b-4c4f-b431-093a441d397b -> skipped (no_portal_or_email) [40/50 terminal]
+[2026-08-20T09:27:40.297Z] Snapshot: pending=10 processing=0 terminal=40/50 worker=idle (processed=42 failed=0)
+[2026-08-20T09:28:43.324Z] Snapshot: pending=10 processing=0 terminal=40/50 worker=idle (processed=42 failed=0)
+[2026-08-20T09:29:14.779Z] Item 525c8d2b-823f-495a-8e99-b89920d06ebe -> skipped (no_portal_or_email) [41/50 terminal]
+[2026-08-20T09:29:46.194Z] Snapshot: pending=9 processing=0 terminal=41/50 worker=idle (processed=43 failed=0)
+[2026-08-20T09:30:28.212Z] Item 4a9cd9fd-b756-4457-ac1a-740a0f6d51c6 -> skipped (no_portal_or_email) [42/50 terminal]
+[2026-08-20T09:30:49.327Z] Snapshot: pending=8 processing=0 terminal=42/50 worker=idle (processed=44 failed=0)
+[2026-08-20T09:31:31.177Z] Item bf011f7a-4c2c-4834-8c4c-c50dc368a56d -> skipped (no_portal_or_email) [43/50 terminal]
+[2026-08-20T09:31:52.149Z] Snapshot: pending=7 processing=0 terminal=43/50 worker=idle (processed=45 failed=0)
+[2026-08-20T09:32:34.051Z] Item 383791af-04c4-4315-b02c-c8f378feb7e2 -> skipped (no_portal_or_email) [44/50 terminal]
+[2026-08-20T09:32:55.007Z] Snapshot: pending=6 processing=0 terminal=44/50 worker=idle (processed=46 failed=0)
+[2026-08-20T09:33:58.106Z] Item bfc4e870-1413-4d71-940c-f76c39a5ff89 -> skipped (no_portal_or_email) [45/50 terminal]
+[2026-08-20T09:33:58.284Z] Snapshot: pending=5 processing=0 terminal=45/50 worker=idle (processed=47 failed=0)
+[2026-08-20T09:35:01.338Z] Snapshot: pending=5 processing=0 terminal=45/50 worker=idle (processed=47 failed=0)
+[2026-08-20T09:35:06.630Z] Item 328d7c2b-200c-432c-8820-37f9b8764059 -> skipped (no_portal_or_email) [46/50 terminal]
+[2026-08-20T09:36:03.902Z] Snapshot: pending=4 processing=0 terminal=46/50 worker=idle (processed=48 failed=0)
+[2026-08-20T09:36:51.077Z] Item 0394e322-41c6-460d-b4e3-f279d1d9aae6 -> skipped (no_portal_or_email) [47/50 terminal]
+[2026-08-20T09:37:07.465Z] Snapshot: pending=3 processing=0 terminal=47/50 worker=idle (processed=49 failed=0)
+[2026-08-20T09:38:10.194Z] Snapshot: pending=3 processing=0 terminal=47/50 worker=idle (processed=49 failed=0)
+[2026-08-20T09:38:15.380Z] Item ede22bb5-8ca9-471a-8001-b8d74a5469f1 -> skipped (no_portal_or_email) [48/50 terminal]
+[2026-08-20T09:39:12.931Z] Snapshot: pending=2 processing=0 terminal=48/50 worker=idle (processed=50 failed=0)
+[2026-08-20T09:39:18.082Z] Item 642abd74-dcb9-4307-b0f8-f9507b90d0c5 -> skipped (no_portal_or_email) [49/50 terminal]
+[2026-08-20T09:40:15.823Z] Snapshot: pending=1 processing=0 terminal=49/50 worker=idle (processed=51 failed=0)
+[2026-08-20T09:41:18.751Z] Item 2b18cc29-d7da-4854-ba30-84e8e6c192fe -> skipped (no_portal_or_email) [50/50 terminal]
+[2026-08-20T09:41:18.832Z] Snapshot: pending=0 processing=0 terminal=50/50 worker=idle (processed=52 failed=0)
+[2026-08-20T09:41:18.832Z] All queue rows reached a terminal status.
+[2026-08-20T09:41:22.856Z] Railway log access: attempted=true succeeded=true — railway CLI (`railway logs --service bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127 --json --since 2026-08-20T08:28:55.948Z --until 2026-08-20T09:41:18.832Z --filter "@level:error"`) reached real, authenticated Railway platform logs for the run window and returned 15 error-level line(s).
+[2026-08-20T09:41:22.856Z] Railway logs: 15 error-level line(s) found during the run window.
+[2026-08-20T09:41:22.857Z] Cleanup: deleting submission_queue rows for 3 disposable org(s)...
+[2026-08-20T09:41:22.926Z] Cleanup: deleting funders rows for 3 disposable org(s)...
+[2026-08-20T09:41:23.462Z] Cleanup: deleting platform_config rows for 3 disposable org(s)...
+[2026-08-20T09:41:23.541Z] Cleanup: deleting 3 disposable organizations row(s)...
+[2026-08-20T09:41:24.488Z] Cleanup confirmed: orgs remaining=0 funders remaining=0 queue rows remaining=0
+[2026-08-20T09:41:24.491Z] Report written to C:\Users\manag\Documents\benavora\SOAK_TEST_AUTOAPPLY_RESULTS.md

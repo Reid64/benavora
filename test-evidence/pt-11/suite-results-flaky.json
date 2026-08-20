@@ -1,0 +1,105 @@
+{
+  "generated_at": "2026-08-20T09:42:35Z",
+  "method": "Follow-up to test-evidence/pt-11/suite-results-core.json (2026-08-20T08:23:18Z), which ran every unit/smoke/api/migration suite for real but explicitly deferred visual-regression, cross-browser, and soak as separately-scoped, historically flaky/non-deterministic categories. This pass re-ran all three for real: visual-regression against a freshly-generated baseline (not the prior, never-committed state -- suite-inventory.json's PT-11-001 finding was that no baseline existed on disk at all), cross-browser targeting the specific known WebKit navigation race documented in CROSSBROWSER_TEST_RESULTS_20260813.md, and the AutoApply queue-processor soak test accounting for the known unconditional 60-120s rate-limiter delay documented in scripts/soak-test-autoapply-worker.ts. Every suite ran at least twice where the task asked whether a finding persists (visual-regression, cross-browser), so a one-off flake can be told apart from a real, reproducible defect. Playwright suites ran via `npx playwright test <spec> --project=<name(s)> --reporter=list`, combined stdout+stderr redirected to a log file under test-evidence/pt-11/logs/, with a literal `exit_code=N` line appended from the shell's own $? immediately after each process exited. The soak suite ran via `npx tsx scripts/soak-test-autoapply-worker.ts` in the background (no shell $? capture across the detached process -- completion instead verified from the log's own content: a 'Report written to ...' line, 'All queue rows reached a terminal status.', zero '[FATAL]' lines, and a live re-query showing 0 rows remaining for the run's 3 disposable orgs after cleanup).",
+  "environment_finding": "Same recurring environment hazard already documented in suite-results-core.json: port 3000 on this machine is a completely unrelated project (\"AFS — Architectural Flashing Supply\"), confirmed again this session via a direct curl title check and a wmic process lookup (PID 128288, afs-website's own next start-server.js). Started Benavora's own `next dev -p 3100` in the background (dev-server-pt11-003.log), confirmed it served the real Benavora <title> before running anything, and pointed every Playwright invocation at it via PLAYWRIGHT_BASE_URL=http://localhost:3100 and NEXT_PUBLIC_SITE_URL=http://localhost:3100 (the latter so playwright.config.ts's webServer.url check reuses this real server instead of racing to spawn a second one against the wrong default of :3000). The dev server was stopped (taskkill /F /PID 106428) after all three suites finished; port 3100 confirmed no longer listening.",
+  "suites": [
+    {
+      "id": "visual-regression",
+      "category": "visual-regression",
+      "baseline_generation": {
+        "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 NEXT_PUBLIC_SITE_URL=http://localhost:3100 npx playwright test e2e/visual-regression.spec.ts --update-snapshots --reporter=list",
+        "log_path": "test-evidence/pt-11/logs/visual-regression-baseline-gen.log",
+        "exit_code": 0,
+        "summary_line_verbatim": "7 passed (35.7s)",
+        "counts": { "tests_passed": 7, "tests_failed": 0, "tests_total": 7, "new_baseline_files_written": 5 },
+        "finding": "No baseline existed on disk prior to this run (confirmed: e2e/visual-regression.spec.ts-snapshots/ did not exist -- matches PT-11-001's own explicit finding that this suite could not have passed in its committed state). This run wrote a genuinely fresh baseline of the CURRENT live UI for all 5 pages (dashboard, opportunities, applications-list, autoapply, funders), logging in as the real dedicated beta1@benavora-test.com account against the real production Supabase project via a real dev server on port 3100. The 5 new PNGs are archived at test-evidence/pt-11/artifacts/visual-regression/baseline-2026-08-20/ (copied for durability within this session's evidence scope) and also exist at their real, functional location e2e/visual-regression.spec.ts-snapshots/ -- the latter is a genuinely new, uncommitted, functional deliverable (pnpm test:visual depends on it existing there) that was deliberately left OUT of this session's scoped commit (test-evidence/, scripts/audit/, STATE_OF_THE_BUILD.md, SESSION_STATE.md only, per explicit task instruction), same disposition as suite-results-core.json's own MIGRATION_IDEMPOTENCY_AUDIT.md exclusion. Flagging this plainly rather than silently: as of this commit, e2e/visual-regression.spec.ts-snapshots/ remains untracked in git; a future session scoped to ship it should `git add` that directory explicitly."
+      },
+      "comparison_runs": [
+        {
+          "run": 1,
+          "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 NEXT_PUBLIC_SITE_URL=http://localhost:3100 npx playwright test e2e/visual-regression.spec.ts --reporter=list",
+          "log_path": "test-evidence/pt-11/logs/visual-regression-run1.log",
+          "exit_code": 1,
+          "summary_line_verbatim": "1 failed / 6 passed (19.4s)",
+          "counts": { "tests_passed": 6, "tests_failed": 1, "tests_total": 7 },
+          "finding": "REAL, IMMEDIATE FAILURE against a baseline generated moments earlier in this same session (not a stale/pre-existing baseline): the `autoapply` page toHaveScreenshot() comparison found 115 pixels (ratio 0.01) different from its own just-written baseline. dashboard/opportunities/applications-list/funders all matched their fresh baselines exactly. This is not attributable to real UI change (baseline and comparison ran seconds apart against the same unmodified code) -- the diff is a genuine visual-regression-suite defect: the autoapply page renders a real WebSocket-connected 'Live Session Viewer' panel (LiveSessionViewer.tsx, connecting/connected/live/offline states) whose connection-status indicator is not a text-based timestamp and is therefore not caught by this spec's own timestampMasks() (which only masks <time> elements, data-timestamp attributes, and regex-matched relative/absolute date text)."
+        },
+        {
+          "run": 2,
+          "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 NEXT_PUBLIC_SITE_URL=http://localhost:3100 npx playwright test e2e/visual-regression.spec.ts --reporter=list",
+          "log_path": "test-evidence/pt-11/logs/visual-regression-run2.log",
+          "exit_code": 1,
+          "summary_line_verbatim": "1 failed / 6 passed (23.6s)",
+          "counts": { "tests_passed": 6, "tests_failed": 1, "tests_total": 7 },
+          "finding": "REPRODUCED, same test, different pixel count: `autoapply` again failed toHaveScreenshot(), this time 194 pixels (ratio 0.01) different -- a different exact count than run 1's 115, consistent with a genuinely live/animated element re-rendering differently each capture rather than a fixed, one-time diff. dashboard/opportunities/applications-list/funders again all passed cleanly. Failure artifacts (actual/expected/diff PNGs + Playwright's own error-context.md page snapshot, which explicitly shows the rendered 'Live Session Viewer' heading and a real-time queue-status combobox on this page) archived at test-evidence/pt-11/artifacts/visual-regression/autoapply-run2-failure/."
+        }
+      ],
+      "persistence_finding": "PERSISTING, REPRODUCIBLE FLAKINESS, not a one-off: the `autoapply` page failed its own freshly-generated baseline in both of 2 independent comparison runs (115px then 194px -- different magnitude each time, same page, same test, zero UI code changes between runs), while all other 4 pages (dashboard, opportunities, applications-list, funders) passed cleanly both times. Root cause identified via the page snapshot in the run-2 failure artifact: the AutoApply page's real, live WebSocket-connected Live Session Viewer component renders a connection-state indicator this spec's timestampMasks() helper does not cover (it only masks text-pattern timestamps/dates, not a status dot/badge tied to a live socket connection). This is a genuine, previously-undocumented gap in the visual-regression suite's own masking coverage -- not fixed this session (out of this audit's scope, which is to capture the finding, not remediate it)."
+    },
+    {
+      "id": "cross-browser",
+      "category": "cross-browser",
+      "runs": [
+        {
+          "run": 1,
+          "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 NEXT_PUBLIC_SITE_URL=http://localhost:3100 npx playwright test e2e/critical-paths.spec.ts --project=chromium --project=firefox --project=webkit --reporter=list",
+          "log_path": "test-evidence/pt-11/logs/cross-browser-run1.log",
+          "exit_code": 1,
+          "summary_line_verbatim": "8 failed / 9 passed (1.5m)",
+          "counts": {
+            "tests_total": 17, "tests_passed": 9, "tests_failed": 8,
+            "setup": { "passed": 2, "failed": 0, "total": 2 },
+            "chromium": { "passed": 3, "failed": 2, "total": 5 },
+            "firefox": { "passed": 4, "failed": 1, "total": 5 },
+            "webkit": { "passed": 0, "failed": 5, "total": 5 }
+          },
+          "finding": "webkit: 0/5, every test failed identically with `TimeoutError: page.waitForURL: Timeout 30000ms exceeded ... waiting for navigation to \"**/dashboard\"` -- the exact known navigation race documented in CROSSBROWSER_TEST_RESULTS_20260813.md, reproduced again. chromium: 2 failures -- test 3 ('creating an application... adds a row to /applications/list', the same known finding from 2026-08-13) AND test 5 ('funder Relationship Builder page loads without 404 or 500', a heading-not-found timeout -- NOT present in the 2026-08-13 report, a new, previously-undocumented failure this run). firefox: 1 failure -- test 3 only, matching 2026-08-13 exactly."
+        },
+        {
+          "run": 2,
+          "run_command": "PLAYWRIGHT_BASE_URL=http://localhost:3100 NEXT_PUBLIC_SITE_URL=http://localhost:3100 npx playwright test e2e/critical-paths.spec.ts --project=chromium --project=firefox --project=webkit --reporter=list",
+          "log_path": "test-evidence/pt-11/logs/cross-browser-run2.log",
+          "exit_code": 1,
+          "summary_line_verbatim": "7 failed / 10 passed (1.3m)",
+          "counts": {
+            "tests_total": 17, "tests_passed": 10, "tests_failed": 7,
+            "setup": { "passed": 2, "failed": 0, "total": 2 },
+            "chromium": { "passed": 4, "failed": 1, "total": 5 },
+            "firefox": { "passed": 4, "failed": 1, "total": 5 },
+            "webkit": { "passed": 0, "failed": 5, "total": 5 }
+          },
+          "finding": "webkit: 0/5 again, identical navigation-race failure on all 5 tests -- persists exactly. chromium: only test 3 failed this time -- test 5 (funder Relationship Builder) PASSED, meaning run 1's chromium test-5 failure was a one-off flake, not a persisting defect (this run's exact composition -- chromium 4/5, firefox 4/5, webkit 0/5, 10/17 total -- matches CROSSBROWSER_TEST_RESULTS_20260813.md's documented result byte-for-byte). firefox: test 3 failed again, persists exactly."
+        }
+      ],
+      "persistence_finding": "The known WebKit navigation race (CROSSBROWSER_TEST_RESULTS_20260813.md) PERSISTS, confirmed reproducible in both runs today: webkit scored 0/5 in both run 1 and run 2, every single failure the identical `page.waitForURL` timeout waiting for the post-login redirect to /dashboard. Real current pass rate: run 1 = 9/17 (52.9%), run 2 = 10/17 (58.8%) -- run 2's composition (chromium 4/5, firefox 4/5, webkit 0/5) is an exact match to the 2026-08-13 baseline, confirming the platform's real cross-browser health has not changed in either direction since that session. The chromium+firefox 'creating an application... adds a row to /applications/list' failure (test 3) also persisted in both runs on both browsers today, matching 2026-08-13 exactly -- still unfixed. One NEW, non-persisting finding surfaced this session: chromium's 'funder Relationship Builder page' test (test 5) failed once (run 1) and passed once (run 2) -- a genuine flake, not a reproducible defect like the other two findings, reported here rather than either dismissed or overstated as a new persisting bug."
+    },
+    {
+      "id": "soak-autoapply-queue-processor",
+      "category": "soak",
+      "run_command": "npx tsx scripts/soak-test-autoapply-worker.ts (background; MAX_RUN_MS=130min safety cap)",
+      "log_path": "test-evidence/pt-11/logs/soak-autoapply.log",
+      "exit_code": 0,
+      "summary_line_verbatim": "All queue rows reached a terminal status. / Report written to C:\\Users\\manag\\Documents\\benavora\\SOAK_TEST_AUTOAPPLY_RESULTS.md",
+      "counts": {
+        "queue_rows_enqueued": 50,
+        "reached_terminal": 50,
+        "still_non_terminal_at_end": 0,
+        "genuine_failed_status": 0,
+        "skipped_no_portal_or_email": 50,
+        "total_wall_clock_seconds": 4343,
+        "observed_drain_throughput_items_per_min": 0.69,
+        "gap_between_completions_seconds": { "min": 62, "median": 89, "max": 121 },
+        "disposable_orgs_created": 3,
+        "disposable_orgs_remaining_after_cleanup": 0,
+        "railway_platform_error_lines_in_window": 15
+      },
+      "how_exit_code_was_determined": "The script runs detached (nohup, background) so this session's shell never captured a literal $? for it. exit_code=0 is asserted from the log's own content, not assumed: 'All queue rows reached a terminal status.' + 'Report written to ...' are both present, zero '[FATAL] Soak test errored' lines are present anywhere in the 137-line log, and a live re-query (logged as 'Cleanup confirmed: orgs remaining=0 funders remaining=0 queue rows remaining=0') independently confirms the run's own final cleanup step -- which only executes after every prior step succeeded -- actually completed.",
+      "rate_limiter_finding": "The previously-documented unconditional 60-120s worker/rate-limiter.ts waitBetweenSubmissions() delay (worker/queue-processor.ts:410, called after every item regardless of outcome) HOLDS, confirmed for real over the full soak duration: the observed gap between consecutive item completions was min=1m2s, median=1m29s, max=2m1s -- landing squarely inside the theoretical 60-120s/item range on every one of the 49 measured gaps, not just on average. Unlike the 2026-08-13 run (0/50 reached terminal, hit the 130-minute safety cap due to this same rate limiter combined with a shorter observation window), THIS run's real production queue was completely empty of contention (pending=0, processing=0 immediately before the burst insert) and ran long enough (72m23s) for the rate limiter's own bottleneck to fully play out: all 50 items drained naturally, well under the 130-minute cap, with zero genuine failures -- every terminal row resolved exactly as the disposable no-portal/no-email fast-skip path predicts (status=skipped, error_message=no_portal_or_email). This is the same real architectural characteristic as before (burst-drain throughput capped at ~1 item/60-120s regardless of how trivial the work is), now confirmed to genuinely drain to completion rather than only ever being observed mid-drain.",
+      "finding": "Zero genuine defects found in the queue processor itself this run -- clean 50/50 drain, zero orphaned processing rows, worker_status heartbeats stayed live throughout, cleanup independently re-confirmed 0 rows remaining for all 3 disposable orgs. One real, INCIDENTAL, previously-undocumented finding surfaced via the Railway platform-log pull this run performed (railway CLI, --filter @level:error, scoped to the exact run window): a background scheduled job unrelated to AutoApply -- '[AutonomousOrchestrator] AG-38 self-improvement pipeline failed: Failed to start AG-38 platform-level run: null value in column \"organization_id\" of relation \"agent_runs\" violates not-null constraint' -- fired once during this window (2026-08-20T09:00:32Z), a real, live, currently-reproducing production bug in AG-38's platform-level run path, unrelated to the soak test's own subject and not fixed here (out of this audit's scope). Also present, already known/documented (not new): repeated gmail-confirmation-monitor skip-cycle log lines every ~5 minutes, matching the already-documented, still-open Gmail OAuth consent gap (AUTOAPPLY_ARCHITECTURE_V2.md §10A) -- not a new finding.",
+      "artifact_paths": {
+        "full_generated_report": "test-evidence/pt-11/artifacts/soak/SOAK_TEST_AUTOAPPLY_RESULTS-2026-08-20.md",
+        "note": "The soak script also overwrites the repo-root SOAK_TEST_AUTOAPPLY_RESULTS.md as a hardcoded side effect of running it -- that file is left OUT of this session's scoped commit (test-evidence/, scripts/audit/, STATE_OF_THE_BUILD.md, SESSION_STATE.md only, per explicit task instruction), same disposition as suite-results-core.json's MIGRATION_IDEMPOTENCY_AUDIT.md exclusion; the dated copy under test-evidence/pt-11/artifacts/soak/ is the durable, in-scope record of the same content."
+      }
+    }
+  ]
+}

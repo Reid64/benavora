@@ -1,0 +1,176 @@
+
+Running 17 tests using 11 workers
+
+  ✓   2 [setup] › tests\e2e\auth.setup.ts:24:6 › authenticate and seed the test organization (5.0s)
+  ✓   1 [setup] › tests\e2e\auth.setup.ts:66:6 › authenticate the mid-onboarding account (5.4s)
+  ✓   4 [chromium] › e2e\critical-paths.spec.ts:179:7 › Critical paths › 1. login redirects to /dashboard (15.0s)
+  ✓   8 [chromium] › e2e\critical-paths.spec.ts:228:7 › Critical paths › 4. AutoApply engine page renders with no uncaught client-side error (21.5s)
+  ✓   3 [chromium] › e2e\critical-paths.spec.ts:195:7 › Critical paths › 2. opportunities list renders real, non-empty data (21.5s)
+  ✓   7 [chromium] › e2e\critical-paths.spec.ts:256:7 › Critical paths › 5. funder Relationship Builder page loads without 404 or 500 (24.1s)
+  ✓  11 [firefox] › e2e\critical-paths.spec.ts:179:7 › Critical paths › 1. login redirects to /dashboard (23.1s)
+  ✘   9 [webkit] › e2e\critical-paths.spec.ts:179:7 › Critical paths › 1. login redirects to /dashboard (34.1s)
+  ✓  12 [firefox] › e2e\critical-paths.spec.ts:195:7 › Critical paths › 2. opportunities list renders real, non-empty data (29.3s)
+  ✓  13 [firefox] › e2e\critical-paths.spec.ts:228:7 › Critical paths › 4. AutoApply engine page renders with no uncaught client-side error (30.8s)
+  ✓  10 [firefox] › e2e\critical-paths.spec.ts:256:7 › Critical paths › 5. funder Relationship Builder page loads without 404 or 500 (33.7s)
+  ✘   6 [chromium] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list (49.4s)
+  ✘  14 [webkit] › e2e\critical-paths.spec.ts:195:7 › Critical paths › 2. opportunities list renders real, non-empty data (34.6s)
+  ✘   5 [firefox] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list (52.0s)
+  ✘  16 [webkit] › e2e\critical-paths.spec.ts:228:7 › Critical paths › 4. AutoApply engine page renders with no uncaught client-side error (38.8s)
+  ✘  15 [webkit] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list (39.0s)
+  ✘  17 [webkit] › e2e\critical-paths.spec.ts:256:7 › Critical paths › 5. funder Relationship Builder page loads without 404 or 500 (36.7s)
+
+
+  1) [chromium] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('row', { name: /Critical Paths Spec Grant (E2E Seed)/ })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for getByRole('row', { name: /Critical Paths Spec Grant (E2E Seed)/ })[22m
+
+
+      223 |     await expect(
+      224 |       page.getByRole("row", { name: new RegExp(SEED_OPPORTUNITY) }),
+    > 225 |     ).toBeVisible();
+          |       ^
+      226 |   });
+      227 |
+      228 |   test("4. AutoApply engine page renders with no uncaught client-side error", async ({
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:225:7
+
+    Error Context: test-results\e2e-critical-paths-Critica-f5e55--a-row-to-applications-list-chromium\error-context.md
+
+  2) [firefox] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('row', { name: /Critical Paths Spec Grant (E2E Seed)/ })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for getByRole('row', { name: /Critical Paths Spec Grant (E2E Seed)/ })[22m
+
+
+      223 |     await expect(
+      224 |       page.getByRole("row", { name: new RegExp(SEED_OPPORTUNITY) }),
+    > 225 |     ).toBeVisible();
+          |       ^
+      226 |   });
+      227 |
+      228 |   test("4. AutoApply engine page renders with no uncaught client-side error", async ({
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:225:7
+
+    Error Context: test-results\e2e-critical-paths-Critica-f5e55--a-row-to-applications-list-firefox\error-context.md
+
+  3) [webkit] › e2e\critical-paths.spec.ts:179:7 › Critical paths › 1. login redirects to /dashboard 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/dashboard" until "load"
+    ============================================================
+
+      183 |     await page.getByLabel("Password").fill(TEST_PASSWORD);
+      184 |     await page.getByRole("button", { name: "Sign in" }).click();
+    > 185 |     await page.waitForURL("**/dashboard", { timeout: 30_000 });
+          |                ^
+      186 |     await expect(page).toHaveURL(/\/dashboard$/);
+      187 |     // The dashboard's H1 renders the org name (Dashboard v2), not a literal
+      188 |     // "Dashboard" heading — assert the main content container instead,
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:185:16
+
+    Error Context: test-results\e2e-critical-paths-Critica-113ba-ogin-redirects-to-dashboard-webkit\error-context.md
+
+  4) [webkit] › e2e\critical-paths.spec.ts:195:7 › Critical paths › 2. opportunities list renders real, non-empty data 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/dashboard" until "load"
+    ============================================================
+
+      166 |   await page.getByLabel("Password").fill(TEST_PASSWORD);
+      167 |   await page.getByRole("button", { name: "Sign in" }).click();
+    > 168 |   await page.waitForURL("**/dashboard", { timeout: 30_000 });
+          |              ^
+      169 | }
+      170 |
+      171 | /** Collects uncaught client-side exceptions for the life of the page. */
+        at login (C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:168:14)
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:197:5
+
+    Error Context: test-results\e2e-critical-paths-Critica-cdcf2-renders-real-non-empty-data-webkit\error-context.md
+
+  5) [webkit] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/dashboard" until "load"
+    ============================================================
+
+      166 |   await page.getByLabel("Password").fill(TEST_PASSWORD);
+      167 |   await page.getByRole("button", { name: "Sign in" }).click();
+    > 168 |   await page.waitForURL("**/dashboard", { timeout: 30_000 });
+          |              ^
+      169 | }
+      170 |
+      171 | /** Collects uncaught client-side exceptions for the life of the page. */
+        at login (C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:168:14)
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:209:5
+
+    Error Context: test-results\e2e-critical-paths-Critica-f5e55--a-row-to-applications-list-webkit\error-context.md
+
+  6) [webkit] › e2e\critical-paths.spec.ts:228:7 › Critical paths › 4. AutoApply engine page renders with no uncaught client-side error 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/dashboard" until "load"
+    ============================================================
+
+      166 |   await page.getByLabel("Password").fill(TEST_PASSWORD);
+      167 |   await page.getByRole("button", { name: "Sign in" }).click();
+    > 168 |   await page.waitForURL("**/dashboard", { timeout: 30_000 });
+          |              ^
+      169 | }
+      170 |
+      171 | /** Collects uncaught client-side exceptions for the life of the page. */
+        at login (C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:168:14)
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:233:5
+
+    Error Context: test-results\e2e-critical-paths-Critica-ab9fb--uncaught-client-side-error-webkit\error-context.md
+
+  7) [webkit] › e2e\critical-paths.spec.ts:256:7 › Critical paths › 5. funder Relationship Builder page loads without 404 or 500 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/dashboard" until "load"
+    ============================================================
+
+      166 |   await page.getByLabel("Password").fill(TEST_PASSWORD);
+      167 |   await page.getByRole("button", { name: "Sign in" }).click();
+    > 168 |   await page.waitForURL("**/dashboard", { timeout: 30_000 });
+          |              ^
+      169 | }
+      170 |
+      171 | /** Collects uncaught client-side exceptions for the life of the page. */
+        at login (C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:168:14)
+        at C:\Users\manag\Documents\benavora\e2e\critical-paths.spec.ts:259:5
+
+    Error Context: test-results\e2e-critical-paths-Critica-8e486-ge-loads-without-404-or-500-webkit\error-context.md
+
+  7 failed
+    [chromium] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list 
+    [firefox] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list 
+    [webkit] › e2e\critical-paths.spec.ts:179:7 › Critical paths › 1. login redirects to /dashboard 
+    [webkit] › e2e\critical-paths.spec.ts:195:7 › Critical paths › 2. opportunities list renders real, non-empty data 
+    [webkit] › e2e\critical-paths.spec.ts:205:7 › Critical paths › 3. creating an application from an opportunity adds a row to /applications/list 
+    [webkit] › e2e\critical-paths.spec.ts:228:7 › Critical paths › 4. AutoApply engine page renders with no uncaught client-side error 
+    [webkit] › e2e\critical-paths.spec.ts:256:7 › Critical paths › 5. funder Relationship Builder page loads without 404 or 500 
+  10 passed (1.3m)
+exit_code=1
