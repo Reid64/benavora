@@ -1,6 +1,80 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-14 COMPLETE: injection sweep (SQLi/XSS/CSRF/SSRF), 3 real SSRF holes found.**
+**Updated: August 20, 2026 — audit PT-14: table-by-table RLS + storage anon audit — MASTER_BACKLOG vs. later "all confirmed" claim resolved, 0/184 tables and 0/7 buckets leak to anon today.**
+
+## SESSION — August 20, 2026 (audit PT-14: table-by-table RLS + storage anon audit)
+
+**Focus:** resolve a direct conflict in the audit record. `MASTER_BACKLOG.md` (2026-07-30) flagged 8
+tables anon-readable with real data and 5 of 6 live storage buckets with zero `storage.objects`
+policy; separate later sessions (`STATE_OF_THE_BUILD.md`, 2026-08-03 and 2026-08-06 "RLS remediation
+complete... independently re-verified 55/55 PASS") claimed these were all fixed. Neither claim had
+been re-checked against the other with the real anon key. This session did that, individually, for
+every disputed item, plus extended the same live check to every table PT-06's current schema knows
+about (184, up from the 8 MASTER_BACKLOG named) and every storage bucket that exists live today (7,
+up from MASTER_BACKLOG's 6).
+
+**Method, two layers, both real:** (a) DB-level ground truth — `pg_class.relrowsecurity`,
+`pg_policies`, `information_schema.role_table_grants` — over the same read-only-enforced
+`DATABASE_URL` connection PT-06/PT-05 already proved safe (re-verified this session with a real
+rejected `CREATE TABLE`); (b) a real, live, unauthenticated `GET` against
+`{SUPABASE_URL}/rest/v1/{table}` using only the anon key (`apikey` + `Authorization: Bearer <anon
+key>`, no session), compared against an identical service-role request for ground truth on whether
+real data exists (Range:0-0 + Prefer:count=exact, with a retry-without-count fallback for large
+tables to avoid a statement timeout). Storage buckets got the same DB-level policy inspection plus a
+real anon `POST /storage/v1/object/list/{bucket}` and, where the service-role list found a real
+object, a real anon `GET` download attempt. RPCs were enumerated (`pg_proc` +
+`has_function_privilege('anon', ..., 'EXECUTE')`), not live-invoked — several are real mutating
+functions and calling them with the anon key risks corrupting production state, which enumeration
+does not require. No actual row/column values from real production tables were persisted into the
+evidence file — only row counts, `id` values (UUIDs), and column-name shapes, to avoid writing
+customer PII into a committed JSON file.
+
+**Result: the later claim was correct.** 0 of 184 tables and 0 of 7 buckets return real data to an
+unauthenticated anon-key request today. All 8 disputed `MASTER_BACKLOG.md` §1.1 tables
+(`platform_admins`, `organizational_digital_twins`, `opportunity_probability_scores`,
+`donor_discovery_directory`, `autoapply_submissions`, `submission_queue`, `form_templates`,
+`request_profiles`) resolved `CONFIRMED_FIXED_LIVE`. All 5 disputed §1.2 buckets resolved — 3 against
+real objects the service-role list found (resolving `STORAGE_POLICY_AUDIT.md`'s own documented
+"0 objects, can't tell locked-down from empty" ambiguity with real data for the first time), 2 safe
+via the DB-level default-deny check since they hold no objects today. `nofa-pdfs`'s public-read/
+unscoped-authenticated-write pattern (§1.2 #13) was never disputed as broken and remains an open
+one-line confirmation for Reid, unchanged by this audit.
+
+**Two real, non-P0 findings surfaced along the way:**
+1. A 7th bucket, `org-branding`, exists live today (not in `MASTER_BACKLOG`'s original 6, created
+   after 2026-07-30) — same `nofa-pdfs` shape: public read by design, but any authenticated user from
+   any org can overwrite any object (no owner/org check in the write policy). Plausibly intentional,
+   needs the same one-line confirmation `nofa-pdfs` already needed.
+2. **Defense-in-depth gap, live-verified currently harmless, not a live P0:** 107 of 184 tables still
+   carry an unrevoked default PostgreSQL `PUBLIC` `INSERT`/`UPDATE`/`DELETE` grant to `anon`, and all
+   47 public-schema RPC functions (including real mutating ones —
+   `resume_paused_submission_queue_item`, `increment_usage_tracking`,
+   `donor_discovery_upsert_directory`, etc.) have `EXECUTE` granted to `anon`. Confirmed live that
+   0 of the 107 tables' write policies would actually pass for an anon caller (every predicate
+   references `current_org_id()`/`auth.uid()`/`auth.role()='authenticated'`, all of which evaluate
+   false with no JWT `sub` claim), and the mutating RPCs run `SECURITY INVOKER` so they're bound by
+   the same table grants — e.g. `resume_paused_submission_queue_item` would fail outright since
+   `submission_queue` has zero anon grants at all. Real, live-confirmed, not exploitable today, but
+   protection currently rests entirely on every write policy predicate staying correct rather than
+   the grant being absent (unlike the read side, which the 2026-08-06 remediation fixed by revoking
+   the grant itself). No live INSERT/UPDATE/DELETE was attempted against production to verify this
+   further — that would be a real write against production and was judged out of scope for a
+   read-focused audit; PT-05 already established the safe methodology for testing writes (a local
+   disposable stack), not production.
+
+**Evidence:** `test-evidence/pt-14/rls-anon-audit.json` (184 tables, 7 buckets, 47 RPCs, 14 disputed
+items individually resolved). **Verifier:** `node scripts/audit/verify-pt14-002.mjs` — PASS, requires
+every one of PT-06's 184 tables present with a valid verdict backed by a real anon HTTP probe (no
+static-only classifications), every empty-today table resolved via a DB-level fallback rather than
+left open, every P0 finding backed by a real nonzero row count, every bucket carrying both a policy
+verdict and a real anon probe result, the RPC surface non-empty, and all 8 of `MASTER_BACKLOG`
+§1.1's named tables present in the resolution set. **Register:** `WGR-115` through `WGR-119`
+(`test-evidence/_register/WIRING_GAP_REGISTER.md`).
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, this file, `SESSION_STATE.md` — commit
+"audit PT-14: table-by-table RLS + storage anon audit".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14: injection sweep — SQLi/XSS/CSRF/SSRF)
 

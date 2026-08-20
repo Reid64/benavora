@@ -1,5 +1,42 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-14 COMPLETE: injection sweep (SQLi/XSS/CSRF/SSRF), 3 real SSRF holes found.
+## Last Updated: August 20, 2026 — audit PT-14: table-by-table RLS + storage anon audit resolves MASTER_BACKLOG-vs-later-claim conflict: 0/184 tables, 0/7 buckets leak to anon today.
+
+## SESSION — August 20, 2026 (audit PT-14: table-by-table RLS + storage anon audit)
+
+**Focus:** `MASTER_BACKLOG.md` (2026-07-30) flagged 8 anon-readable tables and 5 of 6 unpoliced
+storage buckets; a later session claimed all fixed. Re-checked every disputed item individually with
+the real anon key against production, extended to all 184 tables in PT-06's current schema and all 7
+live buckets (both grown since MASTER_BACKLOG was written), plus a full RPC surface enumeration.
+
+**Method:** per table — a real DB-level check (RLS/policies/grants, over the same read-only
+`DATABASE_URL` connection PT-06/PT-05 already proved safe) AND a real, live, unauthenticated
+anon-key `GET` against production's REST API (no session, `apikey`+`Authorization: Bearer <anon
+key>` only), compared against a service-role request for ground truth on whether real data exists.
+Per bucket — DB-level `storage.objects` policy inspection plus a real anon `LIST`/`GET` attempt.
+RPCs enumerated via `pg_proc` grants (not invoked — several are real mutating functions, invoking
+them with anon risks corrupting production, which enumeration doesn't require). No real row/column
+values were persisted into the evidence file, only counts/ids/column shapes.
+
+**Result: the later "all fixed" claim held up.** 0/184 tables, 0/7 buckets leak to anon right now.
+All 8 disputed `MASTER_BACKLOG` tables and all 5 disputed buckets resolved `CONFIRMED_FIXED_LIVE` (3
+of the 5 buckets against real objects for the first time, resolving `STORAGE_POLICY_AUDIT.md`'s own
+"0 objects, can't tell locked vs. empty" ambiguity). `nofa-pdfs`'s public-read/unscoped-write pattern
+was never disputed as broken, still open for Reid's one-line confirmation.
+
+**Two real, non-P0 findings:** a 7th bucket (`org-branding`, not in MASTER_BACKLOG's list) with the
+same unscoped-authenticated-write pattern as `nofa-pdfs`; and a live-verified-currently-harmless
+defense-in-depth gap — 107 tables and all 47 RPC functions still carry unrevoked default `PUBLIC`
+write/execute grants to `anon`, but every one is neutralized today by an RLS policy predicate that
+evaluates false for an unauthenticated caller (confirmed 0/107 NOT neutralized). Full detail in
+`STATE_OF_THE_BUILD.md`'s matching entry.
+
+**Evidence:** `test-evidence/pt-14/rls-anon-audit.json`. **Verifier:** `node
+scripts/audit/verify-pt14-002.mjs` — PASS. **Register:** `WGR-115` through `WGR-119`.
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, this file — commit
+"audit PT-14: table-by-table RLS + storage anon audit".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14: injection sweep)
 

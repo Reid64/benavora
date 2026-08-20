@@ -242,3 +242,93 @@ run in this session was interrupted mid-cleanup by a local shell pipe issue (unr
 application) and left 2 orgs + their child rows behind; found and fully cleaned up before this
 summary was written, confirmed by the same zero-remaining-rows check. No real customer data was read,
 written, or touched by any live test this phase.
+
+---
+
+## PT-14-002/004/005 addendum -- table-by-table RLS + storage anon audit, resolving the MASTER_BACKLOG-vs-later-claim conflict
+
+**The conflict this addendum resolves:** `MASTER_BACKLOG.md` §1.1/§1.2 (dated 2026-07-30) flagged 8
+tables anon-readable with real data (`platform_admins`, `organizational_digital_twins`,
+`opportunity_probability_scores`, `donor_discovery_directory`, `autoapply_submissions`,
+`submission_queue`, `form_templates`, `request_profiles`) and 5 of 6 live storage buckets with zero
+`storage.objects` policy. Separate, later sessions (`STATE_OF_THE_BUILD.md`, 2026-08-03 and
+2026-08-06: "RLS remediation complete... independently re-verified 55/55 PASS") claimed these were
+all fixed. Neither claim was re-checked against the other with the real anon key until this pass.
+
+**Method:** two layers, both real, per table/bucket -- (a) DB-level ground truth (`pg_class.
+relrowsecurity`, `pg_policies`, `information_schema.role_table_grants`) fetched over the same
+read-only-enforced `DATABASE_URL` connection PT-06/PT-05 already proved safe (verified again this
+session with a real rejected `CREATE TABLE`), and (b) a real, live, unauthenticated `GET` against
+`{SUPABASE_URL}/rest/v1/{table}` using **only** the anon key (`apikey` + `Authorization: Bearer
+<anon key>`, no session, no JWT), compared against an identical service-role request as ground truth
+for whether real data exists. Extended to **all 184 tables** in PT-06's current live schema (not
+just the 8 MASTER_BACKLOG named -- the schema has grown since 2026-07-30) and **all 7 live storage
+buckets** (one more than MASTER_BACKLOG's 6 -- see below). RPCs enumerated via `pg_proc` +
+`has_function_privilege('anon', ..., 'EXECUTE')`, not live-invoked (several are real mutating
+functions; invoking them with the anon key risks corrupting production state, which enumeration
+does not require).
+
+### Result: the later claim was correct. 0 of 184 tables, 0 of 7 buckets return real data to anon today.
+
+All 8 disputed MASTER_BACKLOG §1.1 tables resolved `CONFIRMED_FIXED_LIVE` -- re-verified individually,
+right now, with the real anon key, not by re-reading either prior document. Verdict breakdown across
+all 184 tables: 77 `ANON_BLOCKED_NO_GRANT` (base table privilege revoked), 55 `ANON_BLOCKED_BY_RLS`
+(grant present, RLS correctly filters to zero rows against a real, nonzero service-role row count),
+52 `TABLE_EMPTY_INCONCLUSIVE` from live data alone -- each individually resolved via a DB-level
+grant+RLS+policy fallback check rather than left open (0 of the 52 flagged at-risk). Full detail:
+`WGR-115`.
+
+5 of MASTER_BACKLOG's disputed buckets (`session-recordings`, `org-b1ab7402-...`, `documents`,
+`autoapply-screenshots`, `org-documents`) resolved: 3 confirmed against **real objects** the
+service-role list found (resolving `STORAGE_POLICY_AUDIT.md`'s own documented "0 objects, can't
+distinguish locked-down from empty" ambiguity) -- anon `LIST`/`GET` both correctly blocked; 2 (no
+objects to test today) resolved safe via the DB-level `ZERO_POLICY_DEFAULT_DENY` check. `nofa-pdfs`
+(§1.2 #13, never disputed as broken, only flagged for a one-line intentionality confirmation) is
+unchanged -- still open, still needs Reid's confirmation, not resolved by this audit. Full detail:
+`WGR-116`.
+
+### Two real findings, neither a live P0, both worth a follow-up pass
+
+1. **A 7th bucket, `org-branding`, exists live today** -- not in MASTER_BACKLOG's original 6 (created
+   after 2026-07-30). Same shape as `nofa-pdfs`: public read by design, but write is
+   `TO authenticated` with **no** organization/owner check -- any authenticated user from any org can
+   overwrite any object. Plausibly intentional (public-facing branding assets) but needs the same
+   one-line confirmation `nofa-pdfs` already needed. `WGR-117`.
+2. **Beyond the task's literal read-only scope, surfaced by the same DB-level grant query**: 107 of
+   184 tables still carry an unrevoked default PostgreSQL `PUBLIC` `INSERT`/`UPDATE`/`DELETE` grant
+   to `anon`, and all 47 public-schema RPC functions have `EXECUTE` granted to `anon` (including real
+   mutating functions like `resume_paused_submission_queue_item`/`increment_usage_tracking`/
+   `donor_discovery_upsert_directory`). Live-verified **none of this is currently exploitable** --
+   every one of the 107 tables' applicable write policy predicate references `current_org_id()`/
+   `auth.uid()`/`auth.role()='authenticated'`, all of which evaluate false for an anon caller (no JWT
+   `sub` claim), and the mutating RPCs run `SECURITY INVOKER` (as the anon role), so they're subject
+   to those same table grants -- e.g. `resume_paused_submission_queue_item` would fail immediately
+   since `submission_queue` has zero anon grants at all. This is real, live-verified defense-in-depth
+   debt, not a live hole: protection currently depends on every write policy's predicate staying
+   correct rather than the grant being absent, unlike the read-side tables in `WGR-115`, which are
+   protected by the grant itself being gone. `WGR-118`, `WGR-119`.
+
+### Verifier status
+
+```
+node scripts/audit/verify-pt14-002.mjs
+  -> PASS: rls-anon-audit.json records a real anon-access verdict for every one of PT-06's 184
+     tables, and a real policy verdict for every one of 7 storage buckets.
+     Tables by verdict: {"ANON_BLOCKED_NO_GRANT":77,"TABLE_EMPTY_INCONCLUSIVE":52,"ANON_BLOCKED_BY_RLS":55}
+     Table P0 findings: 0
+     Buckets by exposure verdict: {"ANON_BLOCKED":3,"OPEN_PUBLIC_BY_DESIGN":2,"NO_OBJECTS_TO_TEST":2}
+     Bucket P0 findings: 0
+     RPCs enumerated: 47 (47 anon-executable)
+     Disputed MASTER_BACKLOG items resolved: 14 (0 still open, 11 confirmed fixed)
+```
+
+The verifier requires: every one of PT-06's 184 tables present with a valid verdict backed by a real
+anon HTTP probe result (no static-only classifications); every `TABLE_EMPTY_INCONCLUSIVE` table
+carries a `db_level_fallback_verdict` so an empty-today table never stays genuinely unresolved; every
+P0-severity table finding carries a real nonzero row count as evidence; every live storage bucket has
+both a `db_policy_verdict` and a real `live_exposure_verdict` backed by a real anon probe; the RPC
+surface is enumerated and non-empty; all 8 of MASTER_BACKLOG §1.1's named tables are present and
+resolved in `disputed_items_resolution`; and the file's own summary counts match its raw data with no
+drift.
+
+Evidence: `test-evidence/pt-14/rls-anon-audit.json`. Register: `WGR-115` through `WGR-119`.

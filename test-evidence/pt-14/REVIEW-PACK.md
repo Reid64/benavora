@@ -74,6 +74,22 @@ this session couldn't reach those. If confirmed, the fix is a one-line addition 
 `middleware.ts`'s path allowlist (add `/api/webhooks/*`, `/api/admin/webhooks/*`, `/api/cron/*` —
 each already has its own real signature/secret check that doesn't need a session on top of it).
 
+### 5. The "is our RLS actually fixed" question, answered for real: yes
+
+A separate document, `MASTER_BACKLOG.md` (2026-07-30), had flagged 8 tables and 5 storage buckets as
+readable by anyone with no login at all — and a later session claimed they were all fixed. Nobody had
+gone back and actually checked both claims against each other with the real anon key. This pass did,
+against all 184 tables in the current schema and all 7 live buckets, not just the ones either
+document happened to name. **Good news, checked, not assumed: zero of them leak anything today.**
+Every one of the 8 disputed tables and 5 disputed buckets is genuinely blocked live. One new bucket
+(`org-branding`) turned up that neither document knew about — same "any authenticated user can
+overwrite any object" write pattern as the already-flagged `nofa-pdfs`, plausibly intentional, worth
+a one-line confirmation. And digging through the grant tables to answer the read question surfaced a
+real, if currently harmless, gap: 107 tables and all 47 database functions still have their default
+write/execute permissions granted to the anonymous role and never revoked — nothing can exploit it
+today because every actual write rule correctly checks who's logged in first, but it's one policy bug
+away from mattering, and the fix (revoke the stale grant) is cheap. `WGR-115` through `WGR-119`.
+
 ## Priority order, if only fixing one thing today
 
 1. **WGR-111** — check whether Stripe/Resend/Vercel Cron are actually failing in production right
@@ -84,3 +100,8 @@ each already has its own real signature/secret check that doesn't need a session
 3. **WGR-112** — strip `,()%` from the `search` param the same way the other two search endpoints do.
 4. **WGR-113** — add an `escapeHtml()` helper to the email template layer (already known, already
    overdue).
+5. **WGR-117** — get Reid's one-line confirmation that `org-branding`'s unscoped-authenticated write
+   is intentional (same open question as the already-known `nofa-pdfs` case).
+6. **WGR-118/119** — revoke the stale default `anon` write/execute grants on the 107 tables and 47
+   functions that still have them. Not urgent (nothing exploits it today) but cheap and closes a real
+   defense-in-depth gap.
