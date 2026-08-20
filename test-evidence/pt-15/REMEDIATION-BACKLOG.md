@@ -32,9 +32,21 @@ Each row: recommended fix, then `→ WGR-XXX`.
    `CRON_SECRET`/webhook-signature bearer credential as an alternative to a Supabase session cookie**,
    not just an unauthenticated-request carve-out. Currently any legitimate non-browser caller (cron,
    webhook) gets redirected to `/login` before its own route-level auth check ever runs, for every
-   path not explicitly listed. → **WGR-111** (also closes the same root cause reproduced at
-   `POST /api/notifications` under WGR-122, P1, and the fault-injection case under WGR-124, P1 — see
-   Wave 1 batch 4)
+   path not explicitly listed — confirmed live in production (not just local dev) for all 14 real
+   `cron_secret` routes and all 4 `webhook_signature` routes, meaning nightly autoapply/grants-sync/
+   reminders automation and Stripe/Resend webhook processing (billing status, bounce/open tracking)
+   are plausibly unreachable by their real callers in production today, not just protected from
+   attackers. Also add the same exemption-then-self-verify treatment already used for
+   `/api/users/accept` to `/api/platform/bootstrap` (whose own code comment claims it
+   self-disables after first use but is currently unreachable to trigger in the first place) and
+   `/api/unsubscribe` (a logged-out-recipient bearer-token link, currently redirected to `/login`
+   instead of showing the unsubscribe confirmation). One open reconciliation before closing: this
+   audit's WGR-003 separately recorded Reid reporting these routes return `401` in his own testing,
+   directly contradicting the `307 Location: /login` this audit observed twice — confirm which is
+   currently true in production before considering the fix verified, don't just assume the register's
+   own finding is the current state. → **WGR-111, WGR-023** (also closes the same root cause
+   reproduced at `POST /api/notifications` under WGR-122, P1, and the fault-injection case under
+   WGR-124, P1 — see Wave 1 batch 4)
 3. **Investigate and fix the `/documents` page hang directly** — a real 30000ms Playwright navigation
    timeout, reproduced during the smoke sweep. Start by checking for an unresolved/never-`await`ed
    promise or an unbounded query in this page's data-loading path (the same class of bug several
