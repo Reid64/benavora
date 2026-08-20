@@ -1,5 +1,35 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-03-001: journey environment established (local Supabase stack reused from PT-05, magic-link session, local dev confirmed live).
+## Last Updated: August 20, 2026 — audit PT-03-002: core signup-to-deadline journey. 5/6 stages
+genuinely persist; 1 real P0 finding (WGR-129, draft generation silently loses the draft it just
+generated — HTTP 200 + real Claude content, zero `draft_versions` rows).
+
+## SESSION — August 20, 2026 (audit PT-03-002: core signup-to-deadline journey)
+
+**Focus:** drive the real primary customer journey (signup → onboarding → discovery → draft →
+pipeline → deadline) end-to-end against the local, non-production stack from PT-03-001, capturing
+real before/after DB state and a screenshot at every stage. Full detail, every stage's exact evidence,
+and both real bugs found (one app-level, one test-harness) are in `STATE_OF_THE_BUILD.md`'s matching
+entry — summary here.
+
+**Result:** 5 of 6 stages (signup, onboarding, discovery, pipeline, deadline) genuinely persist real
+DB rows/status changes and the UI reflects it — confirmed via `test-evidence/pt-03/core-journey.json`.
+Stage 5 (pipeline) initially threw an unhandled Playwright error; root-caused to the test harness's
+own `waitForURL` defaulting to `waitUntil:'load'` against a page that navigates via Next.js
+`router.push()` (no `'load'` event ever fires) — a targeted retry (reusing the same org/session,
+polling `page.url()` instead) confirmed the real app flow genuinely works, so this was **not**
+registered as an app defect. Stage 4 (draft generation) is a real, confirmed P0 defect, registered as
+**WGR-129**: `/api/ai/draft` can return `200` with a full, real, 31,727-byte Claude-generated draft
+while persisting zero rows to `draft_versions` — `generateDraft()`'s DB write is best-effort and
+silently swallows its own error, and the client never checks for a null `savedVersion` before treating
+the response as saved. A correlated latency issue was also found: real draft generation calls ranged
+122s–320s+ against the route's own 300s production `maxDuration`, with no client-side timeout/feedback.
+
+**Deliverables:** `test-evidence/pt-03/core-journey.json` (+ two supporting diagnostic JSONs), 16 real
+screenshots, `scripts/audit/pt03-002-core-journey.mjs` (the driver), `pt03-002b-pipeline-retry.mjs`
+(the harness-bug retry), `pt03-003-register-findings.mjs` (registers WGR-129), and
+`scripts/audit/verify-pt03-002.mjs` — confirmed passing (exit 0): rejects any stage whose before/after
+is only a `{note, error}` harness-crash placeholder, requires all 6 stages present in order with real
+DB state, an existing non-empty screenshot, and a `pass` boolean per stage.
 
 ## SESSION — August 20, 2026 (audit PT-03-001: preflight + journey environment)
 

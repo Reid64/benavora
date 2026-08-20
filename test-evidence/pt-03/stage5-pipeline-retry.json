@@ -1,0 +1,49 @@
+{
+  "stage": "pipeline",
+  "description": "RETRY of stage 5 (pipeline) after the full-journey run recorded an unhandled Playwright error. Root-caused before retrying: src/app/(dashboard)/applications/new/page.tsx's handleCreate() navigates via router.push() (a Next.js client-side transition, confirmed by direct code read), which never fires a browser 'load' event -- the original script's page.waitForURL(regex, {timeout: 20000}) used Playwright's default waitUntil:'load' and hung for the full 20s even if the create+navigate genuinely succeeded, then threw before any before/after DB state could be captured. This retry polls page.url() directly instead of using waitForURL, against the SAME already-existing journey org/user (reused, not recreated) and the SAME real 'Create application' -> 'Move application' UI flow -- no other change to the app or the interaction sequence.",
+  "action": "Create application, then Move application: discovered -> eligibility_review (retry)",
+  "before": {
+    "applications_count_for_opportunity": 0,
+    "pipeline_history_count": 0
+  },
+  "after": {
+    "application": {
+      "id": "4cb63ae0-71ae-4f88-9a49-0973c2323bfc",
+      "stage": "eligibility_review",
+      "opportunity_id": "a11fd375-76b3-490b-a9c5-170739893a17"
+    },
+    "stage_immediately_after_create": "discovered",
+    "pipeline_history": [
+      {
+        "id": "8243303f-9fa1-4050-99d2-db19cd04d3a0",
+        "from_stage": null,
+        "to_stage": "discovered",
+        "created_at": "2026-08-20T14:07:15.675Z"
+      },
+      {
+        "id": "17ecb4a3-3a94-46e6-a2fc-43e7c7b8edfc",
+        "from_stage": "discovered",
+        "to_stage": "eligibility_review",
+        "created_at": "2026-08-20T14:07:20.316Z"
+      }
+    ]
+  },
+  "diagnostics": {
+    "visible_buttons_on_new_application_page": [
+      "",
+      "PT-03 Core Journey Org\nPC",
+      "Create application"
+    ],
+    "create_button_was_visible": true
+  },
+  "assertion": {
+    "pass": true,
+    "detail": "applications.stage updated, real pipeline_history audit rows for both the create and the move -- retry succeeded, confirming the original failure was a test-harness waitForURL/router.push() mismatch, not an app defect"
+  },
+  "screenshots": [
+    "test-evidence/pt-03/screenshots/05b-pipeline-retry-before-create.png",
+    "test-evidence/pt-03/screenshots/05b-pipeline-retry-after-create-attempt.png",
+    "test-evidence/pt-03/screenshots/05b-pipeline-retry-move-modal-target-selected.png",
+    "test-evidence/pt-03/screenshots/05b-pipeline-retry-after-move.png"
+  ]
+}

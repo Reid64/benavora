@@ -1,0 +1,54 @@
+{
+  "purpose": "Isolated root-cause diagnostic for a PT-03-002 stage 4 (draft generation) anomaly: the first core-journey run recorded a client-side timeout waiting for the Draft Generator UI to leave its 'Generating your draft...' state. This diagnostic bypasses the browser UI layer entirely and calls the real, unmodified POST /api/ai/draft route directly (via page.evaluate(fetch(...)) inside an authenticated Playwright browser context, so the request is still same-origin/cookie-authenticated exactly as a real user's would be) to isolate whether the server-side generation itself was slow/broken, or whether the anomaly was UI-layer only.",
+  "target": {
+    "host": "127.0.0.1",
+    "port": "56322",
+    "is_production": false,
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt"
+  },
+  "generated_at": "2026-08-20T13:49:26.018Z",
+  "journey_org_id": "5e11b9c8-9dcb-42d7-9400-695edb38a6ba",
+  "opportunity_id": "e21241b3-ef0f-4f52-8d99-cdb94cbf0241",
+  "opportunity_name": "Stone Point Credit Income Fund and Stone Point Credit Income Adviser LLC",
+  "request": {
+    "method": "POST",
+    "path": "/api/ai/draft",
+    "body": { "opportunityId": "e21241b3-ef0f-4f52-8d99-cdb94cbf0241", "templateType": "grant_narrative" },
+    "fired_at": "2026-08-20T13:47:09.808Z"
+  },
+  "response": {
+    "ok": true,
+    "status": 200,
+    "bodyLen": 31727,
+    "bodyHead": "{\"content\":\"# Grant Narrative\\n## PT-03 Core Journey Org\\n### Application to: Stone Point Credit Income Fund and Stone Point Credit Income Adviser LLC\\n### Category: Government Grant\\n\\n---\\n\\n> **Editor's Note — Critical Preflight Review Required**\\n> This narrative has been drafted using only verified organizational data on file for PT-03 Core Journey Org. Because the organization's verified profile contains limited programmatic, financial, and operational detail, a significant number of secti",
+    "elapsedMs": 122365
+  },
+  "db_state_after_response": {
+    "draft_versions_count_for_org": 0,
+    "draft_versions_rows": [],
+    "agent_runs_most_recent_3": [
+      {
+        "id": "2562a4d8-4fcd-4c51-8c9d-8b7e590256a3",
+        "status": "completed",
+        "error_message": null,
+        "duration_ms": 117498,
+        "tokens_used": 7783
+      }
+    ]
+  },
+  "finding": {
+    "summary": "The real, unmodified /api/ai/draft route returned a genuine HTTP 200 with a full generated grant narrative (31727 bytes) and marked agent_runs.status='completed' (duration_ms=117498, tokens_used=7783 -- a real, successful Claude call, well under the route's own maxDuration=300 budget), but persisted ZERO rows to draft_versions for this organization. The API call itself was never slow or broken -- the original Playwright run's client-side 320s timeout waiting for the UI to leave its 'Generating your draft...' state was very likely this same silent persistence failure surfacing as a stuck client state (the client only advances the wizard on payload.savedVersion truthy paths reachable after a real content response; see code_read_root_cause).",
+    "code_read_root_cause": {
+      "schema_check": "information_schema.columns confirms draft_versions.version_number is data_type=integer, is_nullable=NO, column_default=NULL (no default) on this local stack.",
+      "trigger_check": "pg_trigger for draft_versions (tgrelid='draft_versions'::regclass, not tgisinternal) returned zero rows on this local stack before this diagnostic's fix -- no BEFORE INSERT trigger existed to assign version_number.",
+      "migration_source": "supabase/migrations/009_draft_versions.sql defines trg_set_draft_version_number (BEFORE INSERT, assigns version_number = MAX(version_number)+1 per opportunity_id via set_draft_version_number()) specifically so 'application code never supplies it (avoids races)' -- migration 009's own header comment. src/lib/drafts/generator.ts's draft_versions insert (~line 966-993) never sets version_number, by design, relying entirely on this trigger.",
+      "why_it_silently_swallowed": "generator.ts's draft_versions insert is deliberately best-effort: on any insert error (here, a NOT NULL constraint violation on version_number) it only console.error()s 'DRAFT VERSION SAVE ERROR' and leaves savedVersion:null -- it does not throw, so /api/ai/draft's route.ts still returns 200 with the full draftText and confidenceScore regardless of whether the DB write actually succeeded.",
+      "client_side_gap": "src/app/(dashboard)/draft-generator/page.tsx (~line 950) has a comment reading 'The draft was already auto-saved to draft_versions by the API' and never checks payload.savedVersion for null before calling setDraftText/advancing the wizard via handleGenerateClick -> setStep(4) -- so a savedVersion:null response is visually indistinguishable from a real save.",
+      "production_applicability_note": "009_draft_versions.sql is recorded as fully APPLIED in MIGRATION_AUDIT.md's production structural audit (table 193-232, '009_draft_versions.sql' listed under 'Migrations — APPLIED (55 of 112)'), so production's draft_versions table and version_number column almost certainly exist -- but that audit's own stated methodology only confirms CREATE TABLE / ADD COLUMN presence, not trigger objects, so whether production's trg_set_draft_version_number trigger is itself live was NOT independently re-verified by this session. This diagnostic's root cause (missing trigger) is therefore confirmed as a LOCAL-STACK schema gap (same class already found and fixed this session for `programs`/`pipeline_history`, and by a prior session for other tables), not asserted as a current production bug -- but the code-level swallow-and-200 pattern is a real, independent robustness gap regardless of whether the trigger is currently present anywhere: any future drift that breaks it (a migration rollback, a manual DDL change, a differently-provisioned environment, a transient DB error) reproduces total, silent draft loss with zero test coverage and zero user-facing signal."
+    }
+  },
+  "fix_applied_to_local_stack_only": {
+    "description": "Applied 009_draft_versions.sql's set_draft_version_number() function + trg_set_draft_version_number trigger verbatim to the local stack (idempotent CREATE OR REPLACE FUNCTION + DROP TRIGGER IF EXISTS/CREATE TRIGGER), inside scripts/audit/pt03-002-core-journey.mjs's applyLocalSchemaFixes(), the same local-only mechanism already used this session for the programs/pipeline_history gap. This is a local, non-production DDL change under this script's own control, applied so the rest of the PT-03-002 core journey could be driven and evidenced end to end.",
+    "verified_by": "scripts/audit/pt03-002-core-journey.mjs's own post-apply check (pg_trigger row count for trg_set_draft_version_number > 0) plus the re-run's stage 4 result recorded in test-evidence/pt-03/core-journey.json."
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "generated_at": "2026-08-20T14:00:25.837Z",
+  "target": {
+    "host": "127.0.0.1",
+    "port": "56322",
+    "is_production": false,
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt"
+  },
+  "journey_org": {
+    "id": "badd2434-870c-4eba-905d-9c448532be10",
+    "name": "PT-03 Core Journey Org"
+  },
+  "journey_user_email": "pt03-core-journey-owner@benavora-pt03-test.local",
+  "stages": [
+    {
+      "stage": "signup",
+      "description": "Real signup form (/register) submitted with organization name, full name, email, password. Local GoTrue has enable_confirmations=false, so signUp() returns a session immediately and the client-side register_organization() RPC bootstraps the org + owner profile synchronously.",
+      "action": "Filled and submitted the real /register form; no API shortcuts.",
+      "before": {
+        "organizations_count": 8,
+        "profiles_count": 6,
+        "target_org_exists": false
+      },
+      "after": {
+        "auth_user": {
+          "id": "44645737-6e4e-4eca-9dfd-392c1088e813",
+          "email": "pt03-core-journey-owner@benavora-pt03-test.local"
+        },
+        "organization": {
+          "id": "badd2434-870c-4eba-905d-9c448532be10",
+          "name": "PT-03 Core Journey Org",
+          "onboarding_completed": false
+        },
+        "profile": {
+          "id": "44645737-6e4e-4eca-9dfd-392c1088e813",
+          "organization_id": "badd2434-870c-4eba-905d-9c448532be10",
+          "role": "owner",
+          "email": "pt03-core-journey-owner@benavora-pt03-test.local"
+        }
+      },
+      "assertion": {
+        "pass": true,
+        "detail": "auth user + organization + owner profile all persisted and linked"
+      },
+      "screenshots": [
+        "test-evidence/pt-03/screenshots/01-signup-filled.png",
+        "test-evidence/pt-03/screenshots/01-signup-after-onboarding-landing.png"
+      ]
+    },
+    {
+      "stage": "onboarding",
+      "description": "Real 7-step onboarding wizard driven end to end via the actual UI: Organization Profile, Programs (added one), Knowledge Base (skipped, optional), Board Members (added one), Documents (skipped, optional), Search Profile (added keyword 'housing'), Plan Selection (clicked 'Skip for now - continue with Free plan', the real handleSkip() path).",
+      "action": "Filled and submitted each real wizard step's form; every 'Save & Continue' click POSTs to the real /api/onboarding route for that step.",
+      "before": {
+        "onboarding_completed": false,
+        "programs_count": 0,
+        "board_members_count": 0,
+        "search_profiles_count": 0,
+        "agent_queue_count": 0
+      },
+      "after": {
+        "organization": {
+          "onboarding_completed": true,
+          "onboarding_completed_at": "2026-08-20T13:58:57.641Z"
+        },
+        "programs": [
+          {
+            "id": "fc709ef4-b8bd-4427-acf5-c5e678bdf001",
+            "name": "PT-03 Housing Stability Program"
+          }
+        ],
+        "board_members": [
+          {
+            "id": "6be3be9a-b84a-455a-a0bc-ea59c0c9b68c",
+            "name": "Pat Journey"
+          }
+        ],
+        "search_profiles": [
+          {
+            "id": "966d6b63-c352-45a9-82b9-fa3eed800441",
+            "name": "PT-03 Journey Search Profile",
+            "keywords": [
+              "housing"
+            ]
+          }
+        ],
+        "agent_queue": [
+          {
+            "id": "7f797f4c-59b1-45e2-9982-cfd4148e5de2",
+            "agent_id": "ag-17-discovery",
+            "status": "queued",
+            "trigger_source": "onboarding"
+          }
+        ]
+      },
+      "assertion": {
+        "pass": true,
+        "detail": "organizations.onboarding_completed=true, programs/board_members/search_profiles each have 1 real row, discovery agent_queue row queued"
+      },
+      "screenshots": [
+        "test-evidence/pt-03/screenshots/02-onboarding-step1.png",
+        "test-evidence/pt-03/screenshots/02-onboarding-step6-search-profile.png",
+        "test-evidence/pt-03/screenshots/02-onboarding-complete-dashboard.png"
+      ]
+    },
+    {
+      "stage": "discovery",
+      "description": "Onboarding queued a real agent_queue row for ag-17-discovery. No worker processes agent_queue against this local stack, so this stage directly invokes the real, unmodified runOpportunityDiscovery(orgId, supabase, 'manual') export from src/lib/agents/opportunity-discovery-agent.ts -- the exact call worker/autonomous-orchestrator.ts's routeQueueItem() makes for this agent_id -- simulating the worker picking up the queued row. Real network calls to Grants.gov/SAM.gov/Federal Register are made; result is whatever those live sources actually return today, not fabricated.",
+      "action": "runOpportunityDiscovery(orgId, supabase, 'manual') (real agent code, real external API calls)",
+      "before": {
+        "opportunities_count": 0,
+        "agent_runs_count": 0,
+        "search_profile_last_run_at": null,
+        "agent_queue_row": {
+          "id": "7f797f4c-59b1-45e2-9982-cfd4148e5de2",
+          "status": "queued"
+        }
+      },
+      "after": {
+        "opportunities_count": 20,
+        "opportunities": "10 row(s), see agent_run for detail",
+        "agent_run": {
+          "id": "547633d2-c180-4f33-bf1f-3a90c22d5ed7",
+          "status": "completed",
+          "items_found": 20,
+          "items_processed": 20,
+          "error_message": null
+        },
+        "discovery_result": {
+          "success": true,
+          "itemsFound": 20,
+          "itemsProcessed": 20,
+          "itemsQueued": 1,
+          "decisions": [
+            "f73c62aa-0470-4bac-95ab-e696a5e8552d",
+            "a5ffcdb7-3400-4798-873b-2a8c590230bd",
+            "91ba9553-b960-47cd-ab0a-669633d1ac4b",
+            "da55843e-333b-4a1d-a983-a1b73d078f6a",
+            "2e24f108-8fc4-43eb-8783-b8f17edff4ac",
+            "4307f15d-7ac6-4f81-9411-307239179870",
+            "2efdfd06-09f9-4fc0-bd3f-7e197a379f6d",
+            "dbcd294f-6f7b-4e98-88b5-feb668c7828a",
+            "29c3afcf-f8b9-43a8-ab21-c1297744bf53",
+            "92ed55a3-a77f-4dd5-b045-c85dea383924",
+            "c43fd693-cdbd-4184-aee7-3c9bf83cba5d",
+            "a88850fd-4a40-45f1-820d-da4dba6bd669",
+            "49361ff0-36f5-4ffd-8619-626c7ac724f7",
+            "4b38f2d3-59c8-4ac3-830e-2aee94f9d83d",
+            "7484a658-4bae-4d5d-8e20-09f45362ae39",
+            "4f7df349-69b2-4723-9614-ca09c2d254ab",
+            "58192676-a3ab-46b4-b63c-02f555572cad",
+            "793a0fba-3bd6-4f2a-9ec9-2aa37c99b762",
+            "e93cf359-ed32-4632-8749-433f4d7f8261",
+            "68871f6e-e100-401c-b2f4-9d74033de617",
+            "6c45cdaf-a36d-4a2e-ad6d-adc8bd9ad5ea",
+            "7f4c9fc1-caa5-4ac1-b7d7-1704a1954bc5",
+            "9c443772-94ea-4fc9-b14a-10191094c6f0"
+          ],
+          "nextActions": [
+            "eligibility_scoring"
+          ],
+          "errors": []
+        },
+        "discovery_error": null,
+        "ui_shows_new_opportunity": true
+      },
+      "assertion": {
+        "pass": true,
+        "detail": "new opportunities persisted, agent_runs completed, UI reflects it"
+      },
+      "screenshots": [
+        "test-evidence/pt-03/screenshots/03-discovery-before-opportunities-empty.png",
+        "test-evidence/pt-03/screenshots/03-discovery-after-opportunities-list.png"
+      ]
+    },
+    {
+      "stage": "draft",
+      "description": "Real 4-step Draft Generator wizard: navigated to /draft-generator?opportunity=<id> (the same target the real 'Apply Now' CTA on the opportunity detail page produces), selected the 'Grant narrative' template on the real Customize step, jumped to the Generate step via the real wizard rail, and clicked the real 'Generate draft' button, which POSTs to the real /api/ai/draft route (a genuine Claude API call, not mocked).",
+      "action": "Selected template + clicked 'Generate draft' (real /api/ai/draft POST, real LLM call)",
+      "before": {
+        "draft_versions_count": 0,
+        "applications_count_for_opportunity": 0
+      },
+      "after": {
+        "draft_versions_recent": [],
+        "new_draft_versions_count": 0,
+        "generation_error": "Generation did not complete within 480s (still showing 'Generating your draft…')."
+      },
+      "assertion": {
+        "pass": false,
+        "detail": "see finding"
+      },
+      "screenshots": [
+        "test-evidence/pt-03/screenshots/04-draft-step2-customize.png",
+        "test-evidence/pt-03/screenshots/04-draft-after-generate.png"
+      ]
+    },
+    {
+      "stage": "pipeline",
+      "description": "RETRY of stage 5 (pipeline) after the full-journey run recorded an unhandled Playwright error. Root-caused before retrying: src/app/(dashboard)/applications/new/page.tsx's handleCreate() navigates via router.push() (a Next.js client-side transition, confirmed by direct code read), which never fires a browser 'load' event -- the original script's page.waitForURL(regex, {timeout: 20000}) used Playwright's default waitUntil:'load' and hung for the full 20s even if the create+navigate genuinely succeeded, then threw before any before/after DB state could be captured. This retry polls page.url() directly instead of using waitForURL, against the SAME already-existing journey org/user (reused, not recreated) and the SAME real 'Create application' -> 'Move application' UI flow -- no other change to the app or the interaction sequence. ORIGINAL ATTEMPT (kept for transparency, not deleted): the first full-journey run recorded this stage as an unhandled Playwright error before any before/after DB state could be captured (error: \"page.waitForURL: Timeout 20000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\"). That failure and its screenshot are preserved below under original_attempt_screenshot and original_attempt_raw_error; it was NOT registered as an app defect in WIRING_GAP_REGISTER.md, since this retry -- reusing the exact same journey org/user/opportunity and the exact same real UI interaction sequence, changing only the test harness's navigation-detection method -- proved the underlying app flow (Apply -> Move application) persists correctly.",
+      "action": "Create application, then Move application: discovered -> eligibility_review (retry)",
+      "before": {
+        "applications_count_for_opportunity": 0,
+        "pipeline_history_count": 0
+      },
+      "after": {
+        "application": {
+          "id": "4cb63ae0-71ae-4f88-9a49-0973c2323bfc",
+          "stage": "eligibility_review",
+          "opportunity_id": "a11fd375-76b3-490b-a9c5-170739893a17"
+        },
+        "stage_immediately_after_create": "discovered",
+        "pipeline_history": [
+          {
+            "id": "8243303f-9fa1-4050-99d2-db19cd04d3a0",
+            "from_stage": null,
+            "to_stage": "discovered",
+            "created_at": "2026-08-20T14:07:15.675Z"
+          },
+          {
+            "id": "17ecb4a3-3a94-46e6-a2fc-43e7c7b8edfc",
+            "from_stage": "discovered",
+            "to_stage": "eligibility_review",
+            "created_at": "2026-08-20T14:07:20.316Z"
+          }
+        ]
+      },
+      "diagnostics": {
+        "visible_buttons_on_new_application_page": [
+          "",
+          "PT-03 Core Journey Org\nPC",
+          "Create application"
+        ],
+        "create_button_was_visible": true
+      },
+      "assertion": {
+        "pass": true,
+        "detail": "applications.stage updated, real pipeline_history audit rows for both the create and the move -- retry succeeded, confirming the original failure was a test-harness waitForURL/router.push() mismatch, not an app defect"
+      },
+      "screenshots": [
+        "test-evidence/pt-03/screenshots/05b-pipeline-retry-before-create.png",
+        "test-evidence/pt-03/screenshots/05b-pipeline-retry-after-create-attempt.png",
+        "test-evidence/pt-03/screenshots/05b-pipeline-retry-move-modal-target-selected.png",
+        "test-evidence/pt-03/screenshots/05b-pipeline-retry-after-move.png"
+      ],
+      "original_attempt_raw_error": "page.waitForURL: Timeout 20000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+      "original_attempt_screenshot": "test-evidence/pt-03/screenshots/05-pipeline-unhandled-error.png"
+    },
+    {
+      "stage": "deadline",
+      "description": "Real Predicted Deadlines panel on /deadlines (GET /api/intelligence/deadline-predictions, real heuristic over this org's real opportunities with no deadline set): clicked the real 'Add to Calendar' button on the first prediction (real deadlines insert), then clicked the real 'Mark deadline complete' toggle on that same row (real is_completed/completed_at update).",
+      "action": "Add to Calendar (set), then Mark deadline complete (hit)",
+      "before": {
+        "deadlines_count": 0
+      },
+      "after": {
+        "deadlines_count": 1,
+        "new_deadline_after_add": {
+          "id": "64c80e14-364b-4288-a3b0-70942268b385",
+          "title": "Agency Information Collection Activities; Proposed eCollection eComments Requested Extension of a Previously Approved Collection; Title-Annual Progress Report for the STOP Violence Against Women Formula Grant Program",
+          "deadline_type": "application_deadline",
+          "due_date": "2026-09-30T05:00:00.000Z",
+          "is_completed": false,
+          "completed_at": null
+        },
+        "new_deadline_after_complete": {
+          "id": "64c80e14-364b-4288-a3b0-70942268b385",
+          "title": "Agency Information Collection Activities; Proposed eCollection eComments Requested Extension of a Previously Approved Collection; Title-Annual Progress Report for the STOP Violence Against Women Formula Grant Program",
+          "deadline_type": "application_deadline",
+          "due_date": "2026-09-30T05:00:00.000Z",
+          "is_completed": true,
+          "completed_at": "2026-08-20T14:00:22.717Z"
+        }
+      },
+      "assertion": {
+        "pass": true,
+        "detail": "deadlines row created (is_completed=false) then updated (is_completed=true, completed_at set)"
+      },
+      "screenshots": [
+        "test-evidence/pt-03/screenshots/06-deadlines-before-predicted.png",
+        "test-evidence/pt-03/screenshots/06-deadlines-after-add.png",
+        "test-evidence/pt-03/screenshots/06-deadlines-after-complete.png"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "PT03-002-F01",
+      "stage": "draft",
+      "severity": "P0",
+      "description": "Draft generation did not persist a new draft_versions row. before={\"draft_versions_count\":0,\"applications_count_for_opportunity\":0} after={\"draft_versions_recent\":[],\"new_draft_versions_count\":0,\"generation_error\":\"Generation did not complete within 480s (still showing 'Generating your draft…').\"}",
+      "evidence": "test-evidence/pt-03/core-journey.json#stages[3]"
+    }
+  ],
+  "fatal_error": null,
+  "summary": {
+    "total_stages": 6,
+    "stages_passed": 5,
+    "stages_with_findings": 1,
+    "halted_early": false,
+    "pipeline_retry_note": "Stage 5 (pipeline) was retried via scripts/audit/pt03-002b-pipeline-retry.mjs after the original full-journey run hit a test-harness (not app) failure; retry passed. See stage entry's own description and original_attempt_* fields for full detail. 1 finding (PT03-002-F02) removed as superseded by this retry."
+  }
+}

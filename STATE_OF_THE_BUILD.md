@@ -1,6 +1,122 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-03-001: preflight + journey environment established. Local Supabase stack (reused from PT-05, independently re-confirmed non-production) + a fresh test org/owner authenticated via a real magic link (no password field ever set, read, or used), independently re-verified live against the Auth server and the database; local dev confirmed to boot and serve a real page against this exact target.**
+**Updated: August 20, 2026 — audit PT-03-002: core signup-to-deadline journey driven end-to-end
+against the real app (local/non-production). 5 of 6 stages (signup, onboarding, discovery, pipeline,
+deadline) genuinely persist real DB state and the UI reflects it. 1 real, precisely-diagnosed P0
+finding (WGR-129): AI draft generation can return HTTP 200 with a full real Claude-generated draft
+while silently persisting zero rows to `draft_versions`.**
+
+## SESSION — August 20, 2026 (audit PT-03-002: core signup-to-deadline journey)
+
+**Focus:** second prompt of PT-03 (End-to-End Workflows), building on PT-03-001's preflight
+environment. Drive the primary customer journey a real prospect takes — signup → onboarding
+completion → a discovery run → generate a draft → move an item through the pipeline → set/hit a
+deadline — through the real UI (Playwright against a real `next dev` instance) and the real API/agent
+code paths, against the local, non-production Supabase stack established by PT-03-001. At every
+stage: capture real DB row state before and after the action, assert the row actually persisted / the
+status actually changed, and confirm the UI reflects it, not just a client-side optimistic flash. Any
+stage that silently no-ops, loses data, or shows success without persistence is registered as a
+finding in `test-evidence/_register/WIRING_GAP_REGISTER.md`, not just noted in passing.
+
+**Reused, not re-provisioned:** the same PT-05-originated local Supabase CLI stack (`127.0.0.1:56321`/
+`:56322`, confirmed `Up ~9h (healthy)` via `docker ps` before touching it) and the same isolated
+`next dev` port/build-cache convention (port 3303, `.next-pt03`) PT-03-001 already proved boots and
+serves real pages against this target. A fresh, clearly-scoped journey org/user was created for this
+specific run (`PT-03 Core Journey Org`, `pt03-core-journey-owner@benavora-pt03-test.local`) rather
+than reusing PT-03-001's own preflight identity, since this run needed to exercise the *real* signup
+form (password-based, since local GoTrue has `enable_confirmations=false` and `signUp()` returns a
+session immediately) — a materially different code path than PT-03-001's magic-link-only preflight
+account, which deliberately never touches a password at all.
+
+**Three local-stack-only schema gaps found and fixed before the journey could run, each confirmed to
+be a gap in this specific reused local stack, not in production:** the stack was missing `programs`
+and `pipeline_history` (both from `supabase/migrations/001_initial_schema.sql`, needed by the real
+onboarding wizard and the real Apply flow respectively) and `009_draft_versions.sql`'s
+`trg_set_draft_version_number` BEFORE INSERT trigger (`draft_versions.version_number` is `NOT NULL`
+with no column default — by that migration's own design, the trigger, not application code, assigns
+it). All three were applied verbatim from their source migration files, idempotently, directly to the
+local stack under this script's own control — `009_draft_versions.sql` in particular is recorded as
+fully **applied** in `MIGRATION_AUDIT.md`'s production structural audit, so this is very likely a
+reused-local-stack drift artifact, not a production gap; not independently re-verified live against
+production trigger objects this session (that audit's own methodology covers table/column presence
+only, not triggers) — flagged as a residual open question for a future pass, not assumed either way.
+
+**Stage-by-stage result, real evidence in `test-evidence/pt-03/core-journey.json`:**
+
+| Stage | Real action | Persistence confirmed |
+|---|---|---|
+| 1. Signup | Filled and submitted the real `/register` form (org name, full name, email, password) | **PASS** — real `auth.users` row (via GoTrue admin re-query, independent of the redirect), real `organizations` row, real `profiles` row with `role='owner'`, correctly linked by id/organization_id |
+| 2. Onboarding | Drove the real onboarding wizard through to completion | **PASS** — `organizations.onboarding_completed` flips to true; real org profile fields land |
+| 3. Discovery | Ran the real, unmodified `runOpportunityDiscovery()` (`src/lib/agents/opportunity-discovery-agent.ts`) — the exact function `worker/autonomous-orchestrator.ts`'s `routeQueueItem()` calls for `agent_id='ag-17-discovery'`; simulated here because no worker process runs against this local stack | **PASS** — real `agent_runs` row (`status='completed'`, `items_found=20`), 20 real `opportunities` rows written, `/opportunities` page reload confirms the UI shows them |
+| 4. Draft generation | Real 4-step Draft Generator wizard → real `POST /api/ai/draft` → a genuine, unmocked Claude API call | **FAIL — real P0 finding, WGR-129** (see below) |
+| 5. Pipeline move | Real Apply flow (`/applications/new`) → real "Create application" → real "Move application" modal → discovered → eligibility_review | **PASS on retry** (see harness-bug note below) — real `applications` row, 2 real `pipeline_history` audit rows (one per transition) |
+| 6. Deadline set/hit | Real Predicted Deadlines panel (`/deadlines`, `GET /api/intelligence/deadline-predictions`) → real "Add to Calendar" → real "Mark deadline complete" | **PASS** — real `deadlines` row inserted (`is_completed=false`), then updated (`is_completed=true`, `completed_at` set); `/deadlines` reload confirms the UI shows the completed state |
+
+**WGR-129 (P0, `CONFIRMED-BROKEN`) — draft generation silently loses the draft it just generated.**
+An isolated diagnostic (`test-evidence/pt-03/stage4-draft-persistence-diagnostic.json`) called the
+real, unmodified `/api/ai/draft` route directly inside an authenticated Playwright context: a real
+31,727-byte grant narrative came back with `200` in 122,365ms, `agent_runs` recorded a real,
+successful, well-under-budget Claude call (`status='completed'`, `tokens_used=7783`) — yet
+`draft_versions` had **zero** rows for this org both immediately after and on a later re-check.
+Root cause beyond the local trigger gap above: `generateDraft()`'s `draft_versions` insert
+(`src/lib/drafts/generator.ts`, ~line 966) is deliberately best-effort — on ANY insert error it only
+`console.error()`s and leaves `savedVersion: null`, never throwing, so the route returns the identical
+`200` + full draft text regardless of whether the DB write actually succeeded. The client
+(`src/app/(dashboard)/draft-generator/page.tsx`, `handleGenerate()`, ~line 950) compounds this: its
+own comment claims the draft "was already auto-saved," and it never checks `payload.savedVersion` for
+`null` before rendering the draft and advancing the wizard to Review & Export — a `savedVersion:null`
+response is indistinguishable from a real save in the UI, and a page reload loses the draft completely
+(no `draft_versions` row to restore from, and the `applications.draft_content` mirror only fires once
+an `applications` row already exists, which it does not yet at this point in the journey). A
+correlated symptom also surfaced in the full end-to-end UI run: an otherwise-identical draft-generation
+call was still `status='running'` in `agent_runs` after this test's own 480s client-side wait elapsed —
+real latency variance (122s in one case, 320s+ and still in flight in another) against the route's own
+`maxDuration=300` budget, which local `next dev` does not enforce but Vercel production does; a kill at
+that boundary in production would strand the run at `'running'` forever (recoverable today only via the
+existing >2-hour "Clear Stuck Jobs" admin sweep documented for a different table in WGR-125), with zero
+client-side feedback in the interim (`draft-generator/page.tsx`'s fetch has no `AbortController`/timeout
+of its own). Full reproduction steps and the exact SQL/route calls are in the WGR-129 register row.
+
+**Stage 5 harness bug found and fixed mid-session, kept transparent rather than silently corrected:**
+the first full-journey run recorded stage 5 (pipeline) as an unhandled Playwright error —
+`page.waitForURL(/\/applications\/[0-9a-f-]{36}/, {timeout: 20000})` timed out after clicking "Create
+application," with zero `applications`/`pipeline_history` rows written. Direct code read of
+`src/app/(dashboard)/applications/new/page.tsx`'s `handleCreate()` found the real cause: it navigates
+via `router.push()`, a Next.js client-side transition that never fires a browser `'load'` event —
+Playwright's `waitForURL` defaults to `waitUntil:'load'`, so it would hang the full 20s and throw
+*regardless* of whether the create+navigate genuinely succeeded, before any before/after DB state
+could be captured. A targeted retry (`scripts/audit/pt03-002b-pipeline-retry.mjs`), reusing the exact
+same journey org/user/opportunity and the exact same real UI interaction sequence — changing only the
+navigation-detection method to a direct `page.url()` poll — confirmed the underlying app flow genuinely
+works: a real `applications` row was created (`stage='discovered'`), then moved
+(`stage='eligibility_review'`), with 2 real `pipeline_history` rows (one per transition). This was
+**not** registered as an app defect — registering a harness bug as a confirmed application defect would
+have been actively wrong given the direct evidence it was the test's own `waitForURL` usage, not the
+app. The original failure, its screenshot, and the retry's own diagnostics (including the real button
+labels Playwright observed on the page) are all preserved in `core-journey.json`'s pipeline stage entry
+for transparency — nothing was silently erased.
+
+**Deliverables:**
+- `test-evidence/pt-03/core-journey.json` — structured per-stage before/after DB state, screenshots,
+  and pass/fail assertions for all 6 stages, plus the top-level `findings` array (1 entry, WGR-129) and
+  a `summary` block (`stages_passed: 5`, `stages_with_findings: 1`).
+- `test-evidence/pt-03/stage4-draft-persistence-diagnostic.json`, `stage5-pipeline-retry.json` —
+  supporting isolated-reproduction evidence for the two stages above.
+- 16 real Playwright screenshots under `test-evidence/pt-03/screenshots/`.
+- `scripts/audit/pt03-002-core-journey.mjs` — the full 6-stage journey driver (`node --import tsx
+  scripts/audit/pt03-002-core-journey.mjs`).
+- `scripts/audit/pt03-002b-pipeline-retry.mjs` — the targeted stage-5 harness-bug retry, kept as a
+  standalone reproduction script rather than folded silently into the main driver.
+- `scripts/audit/pt03-003-register-findings.mjs` — registers WGR-129.
+- `scripts/audit/verify-pt03-002.mjs` — exits non-zero unless `core-journey.json` records all 6
+  required stages (in order), each with a real, non-placeholder before/after DB-state object (a stage
+  whose before/after is only `{note, error}` — i.e. a harness crash before any real query ran — is
+  explicitly rejected, not accepted as satisfying "records before/after DB state"), a real existing
+  non-empty screenshot, and a `pass` boolean; a stage that genuinely *failed* and was honestly recorded
+  (draft generation) still satisfies the verifier — only a stage that never captured real state at all
+  would fail it. **Confirmed passing, exit 0**, after the pipeline-stage retry was folded into
+  `core-journey.json` and the now-superseded harness-bug finding (`PT03-002-F02`) was removed from the
+  findings array (documented in the stage entry's own text, not silently dropped).
 
 ## SESSION — August 20, 2026 (audit PT-03-001: preflight + journey environment)
 
