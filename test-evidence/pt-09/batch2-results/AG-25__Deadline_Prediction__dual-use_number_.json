@@ -1,0 +1,59 @@
+{
+  "canonicalNumber": "AG-25 (Deadline Prediction, dual-use number)",
+  "registryAgentId": "ag-25-deadline-prediction",
+  "implementingFile": "src/lib/agents/deadline-prediction-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "deadline_predictions",
+    "alerts",
+    "opportunities"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new DeadlinePredictionAgent(orgId, supabase).run('manual'). AutonomousAgent family. Real trigger path per pt09-001/agent-inventory.json: WIRED-SCHEDULED-GATED+QUEUE (nightly 2AM pipeline gated on auto_deadline_prediction_enabled, plus routeQueueItem() case 'deadline_prediction').",
+  "before": {
+    "agent_runs": 0,
+    "deadline_predictions": 0,
+    "alerts": 25
+  },
+  "after": {
+    "agent_runs": 1,
+    "deadline_predictions": 0,
+    "alerts": 25
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "deadline_predictions": 0,
+    "alerts": 0
+  },
+  "sampleWrittenRow": {
+    "deadline_predictions_rows": [],
+    "agent_runs_row": {
+      "id": "7b88dc5b-c9d0-4b8d-821c-8c56fb0af961",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-25-deadline-prediction",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "{\"fundersAnalyzed\":0,\"patternsDetected\":0,\"opportunitiesCreated\":0,\"deadlinesDetected\":0,\"recurrenceUpdated\":0,\"redChained\":0,\"amberChained\":0,\"yellowBundled\":0,\"calibrationSampleSize\":0}",
+      "items_found": 15,
+      "items_processed": 0,
+      "error_message": null,
+      "tokens_used": 0,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:14:08.720Z",
+      "completed_at": "2026-08-20T07:14:09.363Z",
+      "created_at": "2026-08-20T07:14:09.798Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":15,\"itemsProcessed\":0,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs completed cleanly (itemsFound=15, itemsProcessed=0, errors=[]) but zero deadline_predictions rows landed. Likely cause: environment.json's 3 seeded opportunities already have real deadline values set at seed time, so this agent's own \"only predict when a deadline is missing/ambiguous\" gate may have found nothing to predict for -- see triggerLog/sampleWrittenRow.agent_runs_row.output_summary for the agent's own stated reason.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-GATED+QUEUE. This is one half of the AG-25 number-collision pair (numberCollisionPairs watchList item) -- registry documents this as a deliberate dual-use canonical number alongside AG-25 Disaster Response.",
+  "falsePassCasualty": true
+}

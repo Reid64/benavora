@@ -1,0 +1,95 @@
+{
+  "canonicalNumber": "AG-25 (Disaster Response)",
+  "registryAgentId": "ag-25-disaster-response",
+  "implementingFile": "src/lib/agents/disaster-response-agent.ts",
+  "writeTargetTables": [
+    "disaster_declarations",
+    "alerts"
+  ],
+  "triggerMethod": "Direct function invocation via tsx against the local pt05-local-stack: pollFEMADeclarations(supabase) (real live fetch to FEMA's OpenFEMA v2 API) then deployDisasterResponse(declarationId, orgId, supabase). Plain-function family (no agent_type/agent_runs row by design, per the file's own header -- matches the sendMorningDigest pattern). Real trigger path per pt09-001/agent-inventory.json: worker/scheduler.ts 'AG-25 disaster response pipeline (FEMA poll)' job (hour 5, minute 45), CONFIRMED STARTED+firing live per PT-08.",
+  "before": {
+    "disaster_declarations": 0,
+    "alerts": 24
+  },
+  "after": {
+    "disaster_declarations": 2,
+    "alerts": 25
+  },
+  "rowDelta": {
+    "disaster_declarations": 2,
+    "alerts": 1
+  },
+  "sampleWrittenRow": {
+    "disaster_declarations_rows": [
+      {
+        "id": "fe9c2e44-7256-4d88-b523-553e2800d975",
+        "fema_disaster_number": "3651",
+        "disaster_type": "EM",
+        "incident_type": "Flood",
+        "affected_states": [
+          "IN"
+        ],
+        "declaration_date": "2026-08-15T05:00:00.000Z",
+        "incident_begin_date": "2026-08-11T05:00:00.000Z",
+        "response_deployed": false,
+        "response_deployed_at": null,
+        "created_at": "2026-08-20T07:13:40.685Z"
+      },
+      {
+        "id": "a69e1810-4e10-439a-b747-9cf571042ad3",
+        "fema_disaster_number": "5672",
+        "disaster_type": "FM",
+        "incident_type": "Fire",
+        "affected_states": [
+          "AK"
+        ],
+        "declaration_date": "2026-08-18T05:00:00.000Z",
+        "incident_begin_date": "2026-08-17T05:00:00.000Z",
+        "response_deployed": true,
+        "response_deployed_at": "2026-08-20T07:13:40.023Z",
+        "created_at": "2026-08-20T07:13:40.671Z"
+      }
+    ],
+    "alerts_rows": [
+      {
+        "id": "2fef5342-3e5e-4cef-a114-31b92b0714ab",
+        "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "type": "system",
+        "severity": "warning",
+        "message": "Disaster response deployed for FEMA declaration 5672 (AK). 0 emergency fund program(s) matched.",
+        "link": null,
+        "is_read": false,
+        "read_at": null,
+        "is_dismissed": false,
+        "dismissed_at": null,
+        "snoozed_until": null,
+        "opportunity_id": null,
+        "application_id": null,
+        "deadline_id": null,
+        "dedup_key": "disaster-response:5672:600fe8e5-c716-4b11-a9d2-da884df84016",
+        "created_by": null,
+        "created_at": "2026-08-20T07:13:40.783Z",
+        "updated_at": "2026-08-20T07:13:40.783Z"
+      }
+    ],
+    "pollResult": {
+      "newCount": 2,
+      "newDeclarationIds": [
+        "a69e1810-4e10-439a-b747-9cf571042ad3",
+        "fe9c2e44-7256-4d88-b523-553e2800d975"
+      ]
+    },
+    "deployResult": {
+      "declarationId": "a69e1810-4e10-439a-b747-9cf571042ad3",
+      "orgId": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "matchedFunds": 0,
+      "alertCreated": true
+    }
+  },
+  "triggerLog": "pollFEMADeclarations() resolved: {\"newCount\":2,\"newDeclarationIds\":[\"a69e1810-4e10-439a-b747-9cf571042ad3\",\"fe9c2e44-7256-4d88-b523-553e2800d975\"]}\ndeployDisasterResponse(a69e1810-4e10-439a-b747-9cf571042ad3, 600fe8e5-c716-4b11-a9d2-da884df84016) resolved: {\"declarationId\":\"a69e1810-4e10-439a-b747-9cf571042ad3\",\"orgId\":\"600fe8e5-c716-4b11-a9d2-da884df84016\",\"matchedFunds\":0,\"alertCreated\":true}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "pollFEMADeclarations() made a real, live call to FEMA's OpenFEMA v2 API (the capital-D \"DisasterDeclarationsSummaries\" endpoint fixed 2026-08-07) and returned 2 newly-inserted declaration(s) this run (real network result -- may legitimately be 0 if this local table already had every current FEMA declaration from an earlier run). deployDisasterResponse() then ran against a real declaration row and produced a real alert: matchedFunds=0, alertCreated=true. rowDelta.alerts=1. This confirms both halves of AG-25's real Disaster Response pipeline function end-to-end against the live FEMA API.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED (registry metadata stale: claims manual, is actually scheduled).",
+  "falsePassCasualty": false
+}

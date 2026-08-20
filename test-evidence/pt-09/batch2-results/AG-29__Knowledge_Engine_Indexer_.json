@@ -1,0 +1,112 @@
+{
+  "canonicalNumber": "AG-29 (Knowledge Engine Indexer)",
+  "registryAgentId": "ag-29-knowledge-indexer",
+  "implementingFile": "src/lib/agents/knowledge-indexer-agent.ts",
+  "writeTargetTables": [
+    "agent_queue",
+    "agent_runs",
+    "foundation_directory",
+    "knowledge_patterns",
+    "outcomes"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new KnowledgeIndexerAgent(supabase).run('autonomous'). AutonomousAgent family, platform-level/unscoped (constructor takes only supabase; internally provisions/uses SYSTEM_ORG_ID for agent_runs/agent_decisions/agent_queue FK targets). Real trigger path per pt09-001/agent-inventory.json is worker/knowledge-indexer-processor.ts's dedicated continuous poll loop calling run('autonomous') repeatedly -- this script exercises that exact code path directly. Local schema was patched first (see _fix-local-schema-gaps-ag29-ag36.mjs) to install pgvector and create knowledge_patterns, matching real production migrations 107/096 that were never applied to this local stack.",
+  "before": {
+    "agent_runs": 0,
+    "knowledge_patterns": 0,
+    "outcomes_embedded": 0,
+    "foundation_directory_embedded": 0,
+    "agent_queue": 0
+  },
+  "after": {
+    "agent_runs": 1,
+    "knowledge_patterns": 2,
+    "outcomes_embedded": 3,
+    "foundation_directory_embedded": 1,
+    "agent_queue": 0
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "knowledge_patterns": 2,
+    "outcomes_embedded": 3,
+    "foundation_directory_embedded": 1,
+    "agent_queue": 0
+  },
+  "sampleWrittenRow": {
+    "embedded_outcome_row": {
+      "id": "4660158e-68a9-4019-b085-d8edd1b2a58a",
+      "narrative_snapshot": "## Executive Summary\n\nPT-09 Batch1 Test Org respectfully requests $45,000 from the PT-09 Community Foundation to\nexpand transitional housing services for displaced workers and low-income families across\nCentral Texas. Our mission -- stabilizing housing for vulnerable working families -- is a\ndirect match for this funder's Housing Stability Grant priorities.\n\n## Program Description\n\nOur transitional housing program has served this community for over a decade, combining\nshort-term rental assistance with intensive workforce case management. Each family receives\na dedicated case manager, access to job-readiness training, and up to six months of rental\nsubsidy while they stabilize employment.\n\n## Organizational Capacity\n\nOur board of directors brings deep expertise in nonprofit finance, housing policy, and\nworkforce development, giving this organization the governance capacity to manage a grant\nof this size responsibly.\n\n## Budget Narrative\n\nThe requested $45,000 will fund one full-time case manager position and direct rental\nassistance for approximately 12 families over the grant period, calculated against our\nverified average rental subsidy cost of $2,800 per family.",
+      "has_embedding": true,
+      "embedding_text_len": 19271
+    },
+    "embedded_foundation_directory_row": {
+      "id": "6540e5b0-965e-43f5-8a77-0ac98a732e6d",
+      "programs": [
+        "Transitional housing case management for displaced working families",
+        "Emergency rental assistance paired with job-readiness training"
+      ],
+      "has_embedding": true
+    },
+    "knowledge_patterns_rows": [
+      {
+        "id": "ad48cf39-3527-4efe-aca7-d8919ab9d04f",
+        "pattern_type": "category_success_rate",
+        "category": "government_grant",
+        "funder_name": null,
+        "pattern_description": "0 of 1 recorded outcomes for government_grant opportunities were awarded or partially awarded.",
+        "success_rate": "0",
+        "sample_count": 1,
+        "confidence": "low",
+        "created_at": "2026-08-20T07:02:17.841Z",
+        "updated_at": "2026-08-20T07:02:17.841Z"
+      },
+      {
+        "id": "7aa5a007-6747-4398-87d3-443b3fef8134",
+        "pattern_type": "category_success_rate",
+        "category": "private_foundation",
+        "funder_name": null,
+        "pattern_description": "2 of 2 recorded outcomes for private_foundation opportunities were awarded or partially awarded.",
+        "success_rate": "1",
+        "sample_count": 2,
+        "confidence": "low",
+        "created_at": "2026-08-20T07:02:17.823Z",
+        "updated_at": "2026-08-20T07:02:17.823Z"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "01f1c0ba-e3a5-4ee2-b2cb-eaac3136512e",
+      "organization_id": "00000000-0000-4000-8000-000000000029",
+      "agent_type": "ag-29-knowledge-indexer",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Embedded 4/4 row(s) (0 failed); pattern aggregation ran.",
+      "items_found": 4,
+      "items_processed": 4,
+      "error_message": null,
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:02:14.453Z",
+      "completed_at": "2026-08-20T07:02:16.827Z",
+      "created_at": "2026-08-20T07:02:15.659Z",
+      "trigger_source": "autonomous",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {
+        "failed": 0,
+        "sourceBreakdown": {
+          "outcomes": 3,
+          "foundation_directory": 1,
+          "intelligence_proposal_sections": 0
+        },
+        "ranPatternAggregation": true
+      }
+    }
+  },
+  "triggerLog": "agent.run(\"autonomous\") resolved: {\"success\":true,\"itemsFound\":4,\"itemsProcessed\":4,\"itemsQueued\":0,\"decisions\":[\"d423b254-45b3-468a-b07b-89c54355a361\"],\"nextActions\":[],\"errors\":[],\"batchWasFull\":false}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "A real agent_runs row completed (itemsFound=4, itemsProcessed=4), and the seeded outcome row (id 4660158e..., a substantial real narrative_snapshot about transitional housing services) now carries a real, non-null pgvector embedding (embedding column populated via a genuine OpenAI text-embedding-3-small API call through generateEmbeddingsBatch()) -- outcomes_embedded went 0->3, foundation_directory_embedded went 0->1. This confirms the real OpenAI embedding call succeeds against the current API key. Pattern aggregation also ran and wrote 2 real knowledge_patterns row(s) (category_success_rate over the now-embedded awarded outcome(s)). NUMBER-COLLISION CROSS-CONFIRMATION: this class (ag-29-knowledge-indexer, src/lib/agents/knowledge-indexer-agent.ts, platform-level embedding/pattern-aggregation) is genuinely distinct from the other real class also claiming 'AG-29' (ag-29-fundability, src/lib/agents/fundability-scorer-agent.ts, per-org Claude-based deficiency scoring against fundability_scores) -- confirmed by reading both files in full this session: different files, different constructors, different agent_type literals (each with its own real agent_queue/agent_runs rows visible in this environment), different write targets, different business purpose. This is a real, deliberate dual-use of the number 29 per AGENTS_v2.md's own roster, not a bug.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-EVENT-CONTINUOUS-POLL+QUEUE -- real knowledgeIndexerProcessor CONFIRMED STARTED per PT-08.",
+  "falsePassCasualty": false
+}

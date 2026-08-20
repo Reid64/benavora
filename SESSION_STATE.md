@@ -1,5 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-09-002 COMPLETE. Per-agent execution proof, batch 1
+## Last Updated: August 20, 2026 — audit PT-09-003 COMPLETE. Per-agent execution proof, batch 2
+(AG-22..AG-43 real numbering per PT-09-001, 23 canonical entries) plus the suspect deep-dive on
+PT-09-001's watch-list (rotated-API-key agents, learning aggregator AG-36, ROI optimizer AG-39,
+number-collision pairs). Same grounded method as batch 1: real, live, local, non-production
+`pt05-local-stack`, real invocation contracts (direct class instantiation, real exported function
+calls — including a real live outbound fetch to FEMA's public OpenFEMA v2 API for AG-25 Disaster
+Response), before/after row counts via a raw `pg` connection independent of each agent's own
+client. Three local schema gaps found and patched first (idempotent, already-committed DDL only:
+`disaster_declarations`/`disaster_emergency_funds`, `deadline_predictions`,
+`application_followups`) via `scripts/audit/pt09-003-trigger/_fix-missing-tables-2.mjs`.
+
+**Result: 11 WORKS / 9 WIRED-NO-OUTPUT / 3 PENDING-SCOPE (AG-31/AG-33/AG-34, all `codeExists:false`
+per the inventory). All 9 WIRED-NO-OUTPUT entries are `falsePassCasualty: true`** per this batch's
+gate rule (any WIRED-NO-OUTPUT against a registryPriorStatus mentioning BUILT/WIRED must be
+flagged). Nine new P1 findings registered (`WGR-081` through `WGR-089`, same register/layer as
+batch 1): AG-23/AG-32's collision confirmed as one real class with zero real run history under the
+"AG-23" literal; AG-24 confirmed to be a non-agent, zero-write Claude-preview route (registry's
+writesTo claim was simply wrong); AG-25 Deadline Prediction/AG-26/AG-30/AG-42/AG-43 all ran clean
+but wrote nothing against this session's seed/synthetic data (AG-42's cause is concrete: real
+headless-browser navigation to placeholder `.example` seed URLs failed DNS resolution); AG-36
+(priority suspect) confirmed genuinely wired and capable of real pattern-creation via an earlier
+run in this same pass, though the specific captured run only updated existing rows; AG-40
+independently re-reproduces WGR-059 live and additionally wrote zero rows this run.
+
+**Suspect deep-dive, all 4 resolved with evidence** (see `execution-batch2.json`
+`suspectDeepDive{}`): rotated-API-key agents — RESOLVED-WORKING, zero Claude/auth failures
+observed across AG-22/AG-30/AG-15; learning aggregator — RESOLVED-WIRED-AND-PRODUCES-REAL-OUTPUT;
+ROI optimizer — RESOLVED-WORKS, a real `roi_insights` row persisted (two-proportion-z-test derived,
+confidence 0.9999, sample_size=8), closing the wiring-vs-data gap PT-09-001 flagged; number-
+collision pairs — RESOLVED-MIXED, the 3 pairs inside AG-22..AG-43 (AG-23/32, AG-25 dual-use, AG-29
+on-disk collision) all confirmed real and functionally distinct via live execution; the 5
+additional collisions PT-09-001 found outside this numbering range (AG-02/08/09/10/11/12) were not
+independently re-executed by either batch.
+
+Full record: `test-evidence/pt-09/execution-batch2.json` (23 entries, merged from
+`test-evidence/pt-09/batch2-results/*.json`), gated by `scripts/audit/verify-pt09-003.mjs` —
+**verified this session, exits 0, clean pass, 23/23 required entries present, all 4 suspects
+resolved.**
+
+## Prior — August 20, 2026 — audit PT-09-002 COMPLETE. Per-agent execution proof, batch 1
 (AG-01..AG-21 real numbering per PT-09-001, 28 real agent-code entries incl. on-disk collisions
 and non-canonical duplicates). Executed via 4 parallel background agents plus the main session
 (AG-01 as the validated template; AG-12 hand-determined PENDING-SCOPE), each given the same

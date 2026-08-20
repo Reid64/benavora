@@ -1,0 +1,96 @@
+{
+  "canonicalNumber": "AG-30",
+  "registryAgentId": "ag-30-donor-intent",
+  "implementingFile": "src/lib/agents/donor-intent-monitor-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "corporate_intent_signals",
+    "alerts",
+    "submission_queue"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new DonorIntentMonitorAgent(orgId, supabase).run('manual'). AutonomousAgent family, per-org. Scope: corporate_prospects (shared, non-org-scoped pool per project memory benavora-corporate-prospects-no-org-id) -- environment.json's 2 seeded prospects (Hill Country Logistics LLC, Lonestar Manufacturing Co) were used; both have address_city/address_state=NULL locally so geographicRelevanceFactor() falls back to the 0.2 national floor rather than a same-state/adjacent-state match, which only affects the computed intent_score, not whether the agent runs or searches.",
+  "before": {
+    "agent_runs": 0,
+    "agent_decisions": 0,
+    "corporate_intent_signals": 2,
+    "alerts": 10,
+    "submission_queue": 0
+  },
+  "after": {
+    "agent_runs": 1,
+    "agent_decisions": 0,
+    "corporate_intent_signals": 2,
+    "alerts": 10,
+    "submission_queue": 0
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "agent_decisions": 0,
+    "corporate_intent_signals": 0,
+    "alerts": 0,
+    "submission_queue": 0
+  },
+  "sampleWrittenRow": {
+    "corporate_intent_signals_rows": [
+      {
+        "id": "380a2220-bde4-4b0e-8df4-7113edb21c1b",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "company_name": "PT-09 Community Foundation",
+        "signal_type": "test_seed",
+        "signal_summary": "Seeded for PT-09 audit AG-19 test.",
+        "signal_url": null,
+        "signal_date": "2026-08-20T05:00:00.000Z",
+        "intent_score": 90,
+        "geographic_relevance": null,
+        "mission_alignment": null,
+        "recommended_action": null,
+        "recommended_deadline": null,
+        "created_at": "2026-08-20T06:39:07.281Z"
+      },
+      {
+        "id": "73185fdf-574d-4722-911a-5f49f0e34789",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "company_name": "PT-09 Community Foundation",
+        "signal_type": "test_seed",
+        "signal_summary": "Seeded for PT-09 audit AG-19 test.",
+        "signal_url": null,
+        "signal_date": "2026-08-20T05:00:00.000Z",
+        "intent_score": 90,
+        "geographic_relevance": null,
+        "mission_alignment": null,
+        "recommended_action": null,
+        "recommended_deadline": null,
+        "created_at": "2026-08-20T06:38:16.532Z"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "766121c1-9480-4c8c-9442-6396391702a7",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-30-donor-intent",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Analyzed 2 of 2 prospect(s); no signal reached the 60/100 intent threshold.",
+      "items_found": 2,
+      "items_processed": 2,
+      "error_message": null,
+      "tokens_used": 61086,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:04:19.232Z",
+      "completed_at": "2026-08-20T07:04:29.558Z",
+      "created_at": "2026-08-20T07:04:18.397Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":2,\"itemsProcessed\":2,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs completed cleanly (itemsFound=2, itemsProcessed=2, errors=[], outputSummary=\"Analyzed 2 of 2 prospect(s); no signal reached the 60/100 intent threshold.\") but zero corporate_intent_signals rows landed. Per the real code, this most likely means the 3 real web searches per prospect (against synthetic test company names \"Hill Country Logistics LLC\" / \"Lonestar Manufacturing Co\", which have no real CSR/ESG/press-release footprint to find) genuinely found no real, citable signal above the INTENT_SCORE_THRESHOLD=60 gate -- a real, grounded null result on synthetic data, not a broken trigger. Check errorSurfaced/result_.errors for whether any individual search call itself failed (distinct from a search that succeeded but found nothing) -- see triggerLog for the full per-call error list this agent's own searchProspect() collects.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-NIGHTLY+QUEUE (registry metadata stale: claims manual, is actually scheduled). watchListRef: historically blocked on the same rotated-API-key issue as AG-15/AG-22 if it makes real per-signal Claude calls -- it does (3 real callClaudeWithWebSearch calls per prospect); this run tests whether that's still true against the current key.",
+  "falsePassCasualty": true
+}

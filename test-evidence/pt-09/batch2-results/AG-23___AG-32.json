@@ -1,0 +1,105 @@
+{
+  "canonicalNumber": "AG-23 / AG-32",
+  "registryAgentId": "ag-32-relationship-graph",
+  "implementingFile": "src/lib/agents/relationship-graph-builder-agent.ts",
+  "writeTargetTables": [
+    "pig_nodes",
+    "pig_edges",
+    "agent_decisions",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new RelationshipGraphBuilderAgent(orgId, supabase).run('manual'). AutonomousAgent family (autonomous-base.ts), constructor(orgId, supabase); run(triggerSource, boardMemberIds?) -- called with no boardMemberIds scope so it processes every active board member for the org (up to MAX_BOARD_MEMBERS_PER_RUN=10) via rules 1-4 (Claude+web-search connection discovery), plus rules 5-8 (deterministic foundation_directory matching) and a corporate_intent_signals node-seed pass, all in one run. Local scaffolding gap fixed first: added the missing UNIQUE(source_node_id, target_node_id, relationship_type) constraint to pig_edges (present in src/supabase/migrations/077_intelligence_graph.sql line 23 but absent from the local stack) via idempotent ALTER TABLE, required for this agent's every pig_edges .upsert() call to succeed.",
+  "before": {
+    "pig_nodes": 5,
+    "pig_edges": 1,
+    "agent_decisions": 58,
+    "agent_runs": 30
+  },
+  "after": {
+    "pig_nodes": 8,
+    "pig_edges": 1,
+    "agent_decisions": 58,
+    "agent_runs": 31
+  },
+  "rowDelta": {
+    "pig_nodes": 3,
+    "pig_edges": 0,
+    "agent_decisions": 0,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "pig_nodes_row": {
+      "id": "3c0e8ace-0bed-41d6-84b2-ec937daf84ad",
+      "node_type": "business",
+      "entity_id": "380a2220-bde4-4b0e-8df4-7113edb21c1b",
+      "entity_table": "corporate_intent_signals",
+      "label": "PT-09 Community Foundation",
+      "metadata": {},
+      "created_at": "2026-08-20T06:59:35.054Z",
+      "updated_at": "2026-08-20T06:59:33.931Z"
+    },
+    "pig_edges_row": {
+      "id": "fc9a0e97-e1c5-4294-bd8c-2a02d35ae69b",
+      "source_node_id": "57e48e05-064b-434f-b14c-3fc7b9ab9ae1",
+      "target_node_id": "2378d451-b1d6-4ddd-b430-5da2c9eb59f1",
+      "relationship_type": "colleague",
+      "weight": "1.0",
+      "evidence": "PT-09 audit seed: direct relationship for introduction-path test.",
+      "verified": true,
+      "metadata": {},
+      "discovered_at": "2026-08-20T06:38:16.549Z"
+    },
+    "agent_decisions_row": {
+      "id": "ba2b0942-046c-4571-8ee1-23c7167f722c",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-19-relationship",
+      "decision_type": "introduction_path_queued",
+      "entity_type": "funder",
+      "entity_id": "d98944e0-9ecc-49ad-be21-974aae237bdc",
+      "reasoning": "priority=0.77 (path_strength=0.95, funder_readiness=0.9, opportunity_value=0.9)",
+      "confidence_score": 77,
+      "action_taken": "Board member Alex Chen has a direct relationship with PT-09 Community Foundation. Recommend Alex Chen send a personal email introducing the organization. Evidence: PT-09 audit seed: direct relationship for introduction-path test.",
+      "required_human_review": true,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T06:39:24.583Z",
+      "agent_run_id": "90ac4f51-3171-4b98-9193-7058094dfe20",
+      "action_payload": {
+        "hopCount": 1,
+        "funderName": "PT-09 Community Foundation",
+        "memberName": "Alex Chen",
+        "emailSubject": "Introduction: Alex Chen <> PT-09 Community Foundation",
+        "emailOpeningLine": "Hi, Alex Chen suggested I reach out given your work with PT-09 Community Foundation."
+      },
+      "human_reviewer_id": null
+    },
+    "agent_runs_row": {
+      "id": "d8227514-9188-4243-925e-fae09e5bfbc3",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-32-relationship-graph",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "{\"boardMembersAnalyzed\":2,\"connectionsFound\":0,\"directConnections\":0,\"oneHopConnections\":0,\"givingCycleMatches\":0,\"assetCompatibleMatches\":0,\"geographicMatches\":0,\"boardNetworkMatches\":0,\"corporateIntentNodesSeeded\":2}",
+      "items_found": 2,
+      "items_processed": 2,
+      "error_message": null,
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:59:06.649Z",
+      "completed_at": "2026-08-20T06:59:33.944Z",
+      "created_at": "2026-08-20T06:59:07.420Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":2,\"itemsProcessed\":2,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "Some activity occurred (agent_runs delta=1, agent_decisions delta=0, pig_nodes delta=3) but zero real pig_edges relationship rows landed -- result.errors=[], summary={\"boardMembersAnalyzed\":2,\"connectionsFound\":0,\"directConnections\":0,\"oneHopConnections\":0,\"givingCycleMatches\":0,\"assetCompatibleMatches\":0,\"geographicMatches\":0,\"boardNetworkMatches\":0,\"corporateIntentNodesSeeded\":2}. This most likely reflects zero board members having a Claude-discoverable connection to the 3 seeded funders/prospects (a real, honest \"nothing found\" outcome for rules 1-4) combined with rules 5-8 finding no foundation_directory matches for this synthetic test org -- zero real business-table output despite a clean run. COLLISION FINDING: exactly ONE real class serves both canonical numbers. The real agent_runs row this invocation wrote uses agent_type=\"ag-32-relationship-graph\" (AG-32's literal, never \"ag-23\"). A global agent_runs count for agent_type='ag-23' (the registry-only literal from agent-registry-seed.ts:150) is 0 -- zero real run history exists under the AG-23 literal anywhere in this database. AG-23 is a registry row with no backing code; AG-32 is real code with no registry row of its own.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED (real worker/scheduler.ts job, CONFIRMED STARTED+firing live per PT-08 -- worker/autonomous-orchestrator.ts's runRelationshipGraphIncrementalPipeline, daily 5:30 AM CST). COLLISION FINDING: exactly ONE real class serves both canonical numbers. The real agent_runs row this invocation wrote uses agent_type=\"ag-32-relationship-graph\" (AG-32's literal, never \"ag-23\"). A global agent_runs count for agent_type='ag-23' (the registry-only literal from agent-registry-seed.ts:150) is 0 -- zero real run history exists under the AG-23 literal anywhere in this database. AG-23 is a registry row with no backing code; AG-32 is real code with no registry row of its own.",
+  "falsePassCasualty": true
+}

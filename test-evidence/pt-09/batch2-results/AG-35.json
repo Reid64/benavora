@@ -1,0 +1,146 @@
+{
+  "canonicalNumber": "AG-35",
+  "registryAgentId": "ag-35-community-need",
+  "implementingFile": "src/lib/agents/community-need-predictor-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "community_need_signals",
+    "alerts"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new CommunityNeedPredictorAgent(orgId, supabase).run('manual'). AutonomousAgent family, per-org. No org_autonomous_config gate exists for this agent (auto_community_need_enabled is not a real column), so 'manual' exercises the same code path any future orchestrator registration would.",
+  "before": {
+    "agent_runs": 0,
+    "agent_decisions": 0,
+    "community_need_signals": 0,
+    "alerts": 10
+  },
+  "after": {
+    "agent_runs": 1,
+    "agent_decisions": 6,
+    "community_need_signals": 12,
+    "alerts": 24
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "agent_decisions": 6,
+    "community_need_signals": 12,
+    "alerts": 14
+  },
+  "sampleWrittenRow": {
+    "community_need_signals_rows": [
+      {
+        "id": "6dd0a662-1d23-40ff-8b4f-4efabeadc9ed",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "signal_source": "employment",
+        "signal_category": "Unemployment Rate Trend",
+        "signal_description": "Texas unemployment rose from 4.3% in August 2025 to 4.4% in September and further to 4.6% in November 2025, partly attributed to the end of the federal government's deferred resignation program on Sept. 30, per the Texas Real Estate Research Center at Texas A&M (trerc.tamu.edu, Dec 2025).",
+        "geographic_area": "Texas (proxy for Central Texas)",
+        "trend_direction": "increasing",
+        "severity": "critical",
+        "predicted_demand_increase": 50,
+        "recommended_program_expansion": "Expand Financial Literacy and Second Chance Reentry programs. Apply for: Department of Labor workforce development grants and state reentry employment grants.",
+        "data_date": "2025-11-30T06:00:00.000Z",
+        "created_at": "2026-08-20T07:06:55.268Z"
+      },
+      {
+        "id": "d2d1eb74-b58c-4758-a312-213c3e8e3881",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "signal_source": "employment",
+        "signal_category": "Statewide Job Growth Slowdown",
+        "signal_description": "Texas posted consecutive monthly job losses in January and February 2026 — nonfarm jobs fell by 8,500 in February alone to 14,354,600, per Texas Workforce Commission data cited by FW Business (fwbusiness.com, Apr 2026). Full-year 2025 saw near-zero net job growth statewide, per the Federal Reserve Bank of Dallas.",
+        "geographic_area": "Texas (proxy for Central Texas)",
+        "trend_direction": "increasing",
+        "severity": "critical",
+        "predicted_demand_increase": 50,
+        "recommended_program_expansion": "Expand Financial Literacy and Second Chance Reentry programs. Apply for: Department of Labor workforce development grants and state reentry employment grants.",
+        "data_date": "2026-02-28T06:00:00.000Z",
+        "created_at": "2026-08-20T07:06:55.243Z"
+      },
+      {
+        "id": "efcacf47-1b85-4425-bd53-6c034edbf7e7",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "signal_source": "employment",
+        "signal_category": "Job Losses",
+        "signal_description": "Texas private-sector net employment loss of 3,816 jobs in Q1 2025 (Dec 2024–Mar 2025), with gross job losses of 614,624 exceeding gross job gains of 610,808, per U.S. Bureau of Labor Statistics Business Employment Dynamics report (bls.gov, Dec 31, 2025). The prior quarter had shown net gains of 86,525 jobs, representing a sharp reversal.",
+        "geographic_area": "Texas (proxy for Central Texas)",
+        "trend_direction": "increasing",
+        "severity": "critical",
+        "predicted_demand_increase": 50,
+        "recommended_program_expansion": "Expand Financial Literacy and Second Chance Reentry programs. Apply for: Department of Labor workforce development grants and state reentry employment grants.",
+        "data_date": "2025-03-31T05:00:00.000Z",
+        "created_at": "2026-08-20T07:06:55.216Z"
+      },
+      {
+        "id": "1c990898-fbac-4be3-98db-e6de4f8951a6",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "signal_source": "employment",
+        "signal_category": "Unemployment Rate",
+        "signal_description": "Texas unemployment rate was 4.3% in December 2025, little changed from 12 months prior (4.3% in December 2024), per the Federal Reserve Bank of Dallas (dallasfed.org, Feb 2026). Most recent reading for Texas is 4.4% as of June 2026, a 0.1 percentage point increase from the prior month, per USAFacts citing BLS data.",
+        "geographic_area": "Texas (proxy for Central Texas)",
+        "trend_direction": "stable",
+        "severity": "low",
+        "predicted_demand_increase": 0,
+        "recommended_program_expansion": "Expand Financial Literacy and Second Chance Reentry programs. Apply for: Department of Labor workforce development grants and state reentry employment grants.",
+        "data_date": "2025-12-31T06:00:00.000Z",
+        "created_at": "2026-08-20T07:06:55.197Z"
+      },
+      {
+        "id": "c2dcbf90-5ad0-404a-968a-10b9abd36675",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "signal_source": "housing_prices",
+        "signal_category": "Residential Rent — College Station/Bryan",
+        "signal_description": "Median rent in the College Station-Bryan metro rose from $1,341 in 2024 to a projected $1,460 in 2025, an 8.9% year-over-year increase, per Apartment List data reported by KXXV (kxxv.com, January 2025).",
+        "geographic_area": "College Station-Bryan, Central Texas",
+        "trend_direction": "increasing",
+        "severity": "critical",
+        "predicted_demand_increase": 50,
+        "recommended_program_expansion": "Expand Housing Voucher Program and Emergency Bridge Housing. Apply for: HUD Continuum of Care grants, Emergency Solutions Grants, and state housing trust fund grants.",
+        "data_date": "2025-01-23T06:00:00.000Z",
+        "created_at": "2026-08-20T07:06:55.177Z"
+      },
+      {
+        "id": "cd20c366-61ef-47ac-a363-4cb649f6d748",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "signal_source": "housing_prices",
+        "signal_category": "Residential Rent — Waco",
+        "signal_description": "Year-over-year rent growth in Waco reached +4.9% closing out 2024, rebounding sharply from -3.9% the prior year, per Apartment List data reported by KXXV (kxxv.com, January 2025).",
+        "geographic_area": "Waco, Central Texas",
+        "trend_direction": "increasing",
+        "severity": "critical",
+        "predicted_demand_increase": 50,
+        "recommended_program_expansion": "Expand Housing Voucher Program and Emergency Bridge Housing. Apply for: HUD Continuum of Care grants, Emergency Solutions Grants, and state housing trust fund grants.",
+        "data_date": "2025-01-23T06:00:00.000Z",
+        "created_at": "2026-08-20T07:06:55.144Z"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "70b8caa9-79d4-4794-b946-2724098f032f",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-35-community-need",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Researched PT-09 Batch1 Test Org's service area (Central Texas) across 5 data sources; recorded 12 community need signal(s), linked 8 to matching opportunities.",
+      "items_found": 20,
+      "items_processed": 12,
+      "error_message": null,
+      "tokens_used": 59318,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:05:38.642Z",
+      "completed_at": "2026-08-20T07:06:55.804Z",
+      "created_at": "2026-08-20T07:05:39.200Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 12,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":20,\"itemsProcessed\":12,\"itemsQueued\":12,\"decisions\":[\"4e4060f1-802b-437a-8836-7966881fc05c\",\"8135506a-23fa-495e-9f50-a3fb4e34f9cb\",\"13f7ba73-f84b-47d0-aa04-43a677c052e6\",\"d46c7b15-7020-4723-8d0d-b1756a90278e\",\"760e88c9-28d1-4250-bd61-4f3444aaabf9\",\"2613bafd-e672-4270-aac4-d9ce1cbf7e5e\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "community_need_signals row(s) written with real, Claude-web-search-grounded content: signal_category=\"Unemployment Rate Trend\", signal_description=\"Texas unemployment rose from 4.3% in August 2025 to 4.4% in September and further to 4.6% in November 2025, partly attributed to the end of the federal government's deferred resignation program on Sept. 30, per the Texas Real Estate Research Center at Texas A&M (trerc.tamu.edu, Dec 2025).\", trend_direction=increasing, severity=critical, predicted_demand_increase=50%. This confirms the DATA_SOURCE_MATRIX's grounded web searches (census/housing/employment/health/education/disaster, for \"pt09-owner@benavora-pt09-test.local\"'s Central Texas service area) found real, citable current data and the deterministic severity/demand-increase computation ran against it. itemsFound=20, itemsProcessed=12, itemsQueued=12.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-GATED+QUEUE (registry metadata stale: claims manual, is actually scheduled).",
+  "falsePassCasualty": false
+}

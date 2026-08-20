@@ -1,6 +1,60 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-09-002 COMPLETE. Per-agent execution proof, batch 1
+**Updated: August 20, 2026 — audit PT-09-003 COMPLETE. Per-agent execution proof, batch 2
+(AG-22..AG-43 real numbering per PT-09-001, 23 canonical entries incl. two dual-use/on-disk
+collision pairs) plus the suspect deep-dive on PT-09-001's watch-list. Same method as batch 1:
+every entry actually triggered (direct class instantiation or real exported function call, plus a
+real live outbound call to FEMA's public OpenFEMA v2 API for AG-25 Disaster Response) against the
+local `pt05-local-stack`, before/after row counts via a raw `pg` connection independent of each
+agent's own client. Local schema gaps found and patched first (idempotent, already-committed DDL
+only — `disaster_declarations`/`disaster_emergency_funds`, `deadline_predictions`,
+`application_followups` did not exist locally). **Result: 11 WORKS, 9 WIRED-NO-OUTPUT,
+3 PENDING-SCOPE (AG-31/AG-33/AG-34, all `codeExists:false`) — 9 of the 9 WIRED-NO-OUTPUT entries
+flagged `falsePassCasualty: true`.** New P1 register findings WGR-081 through WGR-089 (Autonomous
+Agents layer):
+- **AG-23/AG-32** — confirmed genuine single-class collision: one real class
+  (`RelationshipGraphBuilderAgent`) serves both numbers; its real `agent_runs` rows use
+  `agent_type='ag-32-relationship-graph'` only — a direct count for `agent_type='ag-23'` is 0
+  everywhere in the database. AG-23 is a registry row with zero backing code.
+- **AG-24** (`/api/intelligence/outreach/generate`) — confirmed not agent-framework code at all;
+  makes zero database writes (verified 0/0 before/after), just a single Claude call returned
+  directly in the HTTP response. Registry's `writesTo` claim (email sequence tables) was wrong —
+  those belong to a separate module this route never calls.
+- **AG-25 Deadline Prediction / AG-26 Funding Forecast / AG-30 Donor Intent / AG-42 Change Monitor /
+  AG-43 Funder Signal Monitor** — each ran clean (real `agent_runs` completion, no thrown errors)
+  but wrote zero rows to their real write-target table against this session's seeded/synthetic test
+  data. AG-30 additionally confirms 0 per-call Claude/web-search failures (the historical
+  rotated-API-key block does not reproduce). AG-42's zero-output is root-caused live: real headless-
+  browser navigation to both seeded prospect websites failed `net::ERR_NAME_NOT_RESOLVED` (placeholder
+  `.example` seed domains, not real sites).
+- **AG-36 Learning Network Aggregator** (priority suspect) — CONFIRMED wired and capable of real
+  output: an earlier run captured in this same pass shows it genuinely created real
+  `platform_learning_patterns` rows from a real anonymized awarded-grant narrative; the specific run
+  in this evidence file only updated 2 existing rows (its remaining un-contributed outcome), a real
+  but narrow zero-*new*-rows result, not a re-orphaning. See `execution-batch2.json`
+  `suspectDeepDive.learningAggregator` for the full resolution.
+- **AG-40 Strategic Advisor** — independently re-reproduces WGR-059 live (the missing
+  `service_areas` column silently degrades every prompt to `{name:"this organization",...}`) and
+  additionally found zero `strategic_recommendations` rows this run, on top of the pre-existing
+  quality defect.
+- **AG-25 Disaster Response, AG-27 Board Packet, AG-28 Follow-Up Generator, AG-41 Impact Simulation,
+  AG-29 (both Knowledge Engine Indexer and Fundability Scorer), AG-22, AG-35, AG-37, AG-38, AG-39** —
+  genuinely **WORKS**, including a real live fetch against FEMA's public OpenFEMA v2 API (AG-25
+  Disaster Response) and AG-39 ROI Optimizer persisting a real two-proportion-z-test-derived
+  `roi_insights` row (confidence 0.9999, sample_size=8) — closing the exact wiring-vs-data gap
+  PT-09-001's watch-list flagged for it.
+- **Suspect deep-dive, all 4 resolved with evidence** (`execution-batch2.json` `suspectDeepDive{}`):
+  rotated-API-key agents — RESOLVED-WORKING (AG-22/AG-30/AG-15 all show 0 Claude/auth failures
+  against the current key); learning aggregator — RESOLVED-WIRED-AND-PRODUCES-REAL-OUTPUT; ROI
+  optimizer — RESOLVED-WORKS (real non-zero row); number-collision pairs — RESOLVED-MIXED (the 3
+  collisions inside AG-22..AG-43 all confirmed real+distinct via live execution; the 5 additional
+  collisions PT-09-001 found outside this range were not independently re-executed).
+  Full detail: `test-evidence/pt-09/execution-batch2.json` (23 entries, merged from
+  `test-evidence/pt-09/batch2-results/*.json`), gated by `scripts/audit/verify-pt09-003.mjs`
+  (PASS — 23/23 required entries present, all 4 suspects resolved, every non-PENDING-SCOPE entry's
+  `rowDelta` cross-checked against its own `before`/`after` counts).**
+
+**Prior: August 20, 2026 — audit PT-09-002 COMPLETE. Per-agent execution proof, batch 1
 (AG-01..AG-21 real numbering per PT-09-001, 28 real agent-code entries incl. on-disk collisions).
 Every entry was actually triggered — direct class instantiation, real exported function call, or a
 real private class method invoked via bracket notation — against a real, live, local, non-production

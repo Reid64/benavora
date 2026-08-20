@@ -1,0 +1,129 @@
+{
+  "canonicalNumber": "AG-38",
+  "registryAgentId": "ag-38-self-improvement",
+  "implementingFile": "src/lib/agents/self-improvement-agent.ts",
+  "writeTargetTables": [
+    "agent_decisions",
+    "agent_performance_metrics",
+    "agent_runs (read)",
+    "alerts",
+    "improvement_proposals",
+    "profiles (read)"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new SelfImprovementAgent(supabase).run('manual'). NOT AutonomousAgent -- constructor(supabase) only, platform-wide (agent_runs.organization_id=null). Real trigger path is worker/scheduler.ts's own nightly job, CONFIRMED STARTED+firing live per PT-08. This script seeds a real 'yesterday' (UTC) underperforming batch for agent_type='ag-15-probability' (see triggerLog) since the local stack's real agent_runs history was all same-UTC-hour-as-this-session, outside this agent's own 'yesterday' analysis window.",
+  "before": {
+    "improvement_proposals": 0,
+    "agent_performance_metrics": 0,
+    "agent_runs_platform_level": 0,
+    "alerts": 10
+  },
+  "after": {
+    "improvement_proposals": 1,
+    "agent_performance_metrics": 1,
+    "agent_runs_platform_level": 1,
+    "alerts": 10
+  },
+  "rowDelta": {
+    "improvement_proposals": 1,
+    "agent_performance_metrics": 1,
+    "agent_runs_platform_level": 1,
+    "alerts": 0
+  },
+  "sampleWrittenRow": {
+    "improvement_proposals_row": {
+      "id": "6063c9dc-382e-4207-bf3e-f9ebcac9d8ce",
+      "proposal_type": "agent_threshold",
+      "title": "Raise ag-15-probability auto-approval confidence floor from its current operative level to 75 to reduce erroneous auto-approvals",
+      "description": "The agent is currently auto-approving 20% of its runs (2/10) despite an average confidence score of 45, meaning some outputs with confidence well below a safe threshold are bypassing human review. Raise the auto-approval confidence floor for ag-15-probability to 75 (from whatever value currently permits approvals at confidence ~45). This keeps the change within the agent's existing safe operating range — it narrows autonomous action rather than expanding it — and ensures that until confidence calibration improves, no output reaches auto-approval without meeting a defensible confidence threshold.",
+      "evidence": "ag-15-probability: auto_approval_rate=20% (2/10 runs, trailing 7d); avg_confidence_score=45 (10 runs, trailing 7d) vs. 60 floor; error_rate=60% (6/10 runs, trailing 7d) vs. 20% floor. With a 60% error rate, any auto-approval is high-risk. The 2 auto-approved runs in this window were approved at or below the population average confidence of 45, which is below every defined safe threshold.",
+      "expected_impact": "Expected to reduce auto_approval_rate from 20% to approximately 0–5% in the short term (until confidence calibration improves), eliminating the risk of erroneous automated decisions reaching downstream consumers without review. Review_rate expected to rise temporarily to ~95–100% until prompt_optimization proposal takes effect and confidence scores recover.",
+      "risk_level": "medium",
+      "status": "proposed",
+      "confidence_score": 71,
+      "proposed_at": "2026-08-20T07:04:56.088Z",
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "implemented_at": null,
+      "affected_agent_id": "ag-15-probability"
+    },
+    "all_recent_proposals": [
+      {
+        "id": "6063c9dc-382e-4207-bf3e-f9ebcac9d8ce",
+        "proposal_type": "agent_threshold",
+        "title": "Raise ag-15-probability auto-approval confidence floor from its current operative level to 75 to reduce erroneous auto-approvals",
+        "description": "The agent is currently auto-approving 20% of its runs (2/10) despite an average confidence score of 45, meaning some outputs with confidence well below a safe threshold are bypassing human review. Raise the auto-approval confidence floor for ag-15-probability to 75 (from whatever value currently permits approvals at confidence ~45). This keeps the change within the agent's existing safe operating range — it narrows autonomous action rather than expanding it — and ensures that until confidence calibration improves, no output reaches auto-approval without meeting a defensible confidence threshold.",
+        "evidence": "ag-15-probability: auto_approval_rate=20% (2/10 runs, trailing 7d); avg_confidence_score=45 (10 runs, trailing 7d) vs. 60 floor; error_rate=60% (6/10 runs, trailing 7d) vs. 20% floor. With a 60% error rate, any auto-approval is high-risk. The 2 auto-approved runs in this window were approved at or below the population average confidence of 45, which is below every defined safe threshold.",
+        "expected_impact": "Expected to reduce auto_approval_rate from 20% to approximately 0–5% in the short term (until confidence calibration improves), eliminating the risk of erroneous automated decisions reaching downstream consumers without review. Review_rate expected to rise temporarily to ~95–100% until prompt_optimization proposal takes effect and confidence scores recover.",
+        "risk_level": "medium",
+        "status": "proposed",
+        "confidence_score": 71,
+        "proposed_at": "2026-08-20T07:04:56.088Z",
+        "reviewed_at": null,
+        "reviewed_by": null,
+        "implemented_at": null,
+        "affected_agent_id": "ag-15-probability"
+      }
+    ],
+    "agent_performance_metrics_row": {
+      "id": "e797df26-d5f8-4665-9f9e-8e0f05a7bba6",
+      "agent_id": "ag-15-probability",
+      "metric_date": "2026-08-19T05:00:00.000Z",
+      "runs_total": 10,
+      "runs_successful": 4,
+      "runs_failed": 6,
+      "avg_confidence_score": "45",
+      "avg_items_processed": "0.8",
+      "decisions_requiring_review": 8,
+      "decisions_auto_approved": 2,
+      "created_at": "2026-08-20T07:04:28.001Z"
+    },
+    "platform_agent_runs_row": {
+      "id": "21ea4eaf-269a-4fa2-9046-32bcc1d7fa09",
+      "organization_id": null,
+      "agent_type": "ag-38-self-improvement",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Metrics calculated: 1. Underperformers found: 1. Proposals generated: 1 (2 rejected). escalation: ag-15-probability -- success rate 40.0% (< 50%), error rate 60.0% (> 40%) | proposal_rejected[confidence]: \"Restructure probability estimation prompt to enforce explicit reasoning chain and confidence calibration\" confidence 62 < 70 | proposal_rejected[confidence]: \"Add a pre-execution input completeness gate before ag-15-probability runs\" confidence 55 < 70 | weekly_report: skipped (not Sunday, America/Chicago)",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:04:26.966Z",
+      "completed_at": "2026-08-20T07:04:54.793Z",
+      "created_at": "2026-08-20T07:04:27.952Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "escalation_alert_row": {
+      "id": "0f31e96a-dce3-4e40-b0e9-15fdc3123256",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "type": "system",
+      "severity": "warning",
+      "message": "Fundability gap identified: No financial or tax documents are on file, which would be required for any legitimate grant application to a federal agency. Action needed: Upload your most recent IRS Form 990, audited financial statements, or financial review to the organization's document vault before pursuing any federal funding opportunity.",
+      "link": null,
+      "is_read": false,
+      "read_at": null,
+      "is_dismissed": false,
+      "dismissed_at": null,
+      "snoozed_until": null,
+      "opportunity_id": null,
+      "application_id": null,
+      "deadline_id": null,
+      "dedup_key": "autonomous:ag-29-fundability:fundability_gap:d074059e-5bd0-4eb9-a66e-fb9bac9e4356",
+      "created_by": null,
+      "created_at": "2026-08-20T07:03:09.247Z",
+      "updated_at": "2026-08-20T07:03:09.247Z"
+    }
+  },
+  "triggerLog": "seed: inserted 10 agent_runs (4 completed@confidence=45, 6 failed) + 10 agent_decisions (8 required_human_review) for agent_type='ag-15-probability' dated 2026-08-19T12:00:00.000Z (UTC 'yesterday') -- success_rate=40%, error_rate=60%, avg_confidence=45, review_rate=80%, all four underperformance thresholds breached by design.\nagent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"escalation: ag-15-probability -- success rate 40.0% (< 50%), error rate 60.0% (> 40%)\",\"proposal_rejected[confidence]: \\\"Restructure probability estimation prompt to enforce explicit reasoning chain and confidence calibration\\\" confidence 62 < 70\",\"proposal_rejected[confidence]: \\\"Add a pre-execution input completeness gate before ag-15-probability runs\\\" confidence 55 < 70\",\"weekly_report: skipped (not Sunday, America/Chicago)\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "Real 6-metric daily rollup written to agent_performance_metrics for 'ag-15-probability' (runs_total=10, runs_successful=4, runs_failed=6, avg_confidence_score=45). 1 real Claude-generated improvement_proposals row(s) written for the seeded underperformer.  agent_runs row completed with organization_id=null (platform-wide, per file header). This matches AG-38's documented intent: metrics calculation + underperformance detection + immediate escalation all fired for real against the seeded underperforming agent. SECONDARY FINDING: the escalation path itself DID fire for real (triggerLog's decisions[0] confirms: success_rate 40%<50% and error_rate 60%>40% both breached) but alertPlatformOwners()'s alerts.upsert({onConflict:\"organization_id,dedup_key\"}) wrote zero new alerts rows (delta.alerts=0) -- a direct pg check found the local alerts table has NO unique constraint on (organization_id, dedup_key) at all, so PostgREST would reject that ON CONFLICT target; the code never checks this upsert call's error (no .error read), so the failure is silently discarded exactly the way this task's ERROR-SWALLOWED definition describes, just for a secondary side-effect rather than the agent's primary output. The core verdict stays WORKS because the primary business-table write (improvement_proposals, a real Claude-generated agent_threshold proposal) succeeded and is substantive; this alerts-write gap is flagged as a specific, real, secondary defect worth a follow-up rather than something that invalidates the main output.",
+  "registryPriorStatus": "test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED+QUEUE -- real worker/scheduler.ts job, CONFIRMED STARTED+firing live per PT-08. watchList does not flag this agent specifically as a suspect; this run additionally verifies the metrics/underperformance/proposal-generation pipeline produces real output when given real (here, seeded) underperforming history, not just that the cron fires.",
+  "falsePassCasualty": false
+}

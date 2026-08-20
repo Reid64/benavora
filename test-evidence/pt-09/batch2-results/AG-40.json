@@ -1,0 +1,99 @@
+{
+  "canonicalNumber": "AG-40",
+  "registryAgentId": "ag-40-strategic-advisor",
+  "implementingFile": "src/lib/agents/strategic-advisor-agent.ts",
+  "writeTargetTables": [
+    "applications (read)",
+    "board_members (read)",
+    "community_need_signals (read)",
+    "corporate_intent_signals (read)",
+    "deadlines (read)",
+    "fundability_scores (read)",
+    "funding_forecasts (read)",
+    "opportunities (read)",
+    "organizations (read)",
+    "outcomes (read)",
+    "platform_learning_patterns (read)",
+    "relationship_recommendations (read)",
+    "reputation_alerts (read)",
+    "roi_insights (read)",
+    "strategic_recommendations"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new StrategicAdvisorAgent(orgId, supabase).run('manual'). AutonomousAgent family. Real trigger path per pt09-001: WIRED-SCHEDULED-GATED+QUEUE (worker/autonomous-orchestrator.ts nightly pipeline + routeQueueItem() case). Before invoking, this script independently re-confirms WGR-059's live-schema finding via a direct information_schema.columns query against 'organizations' (see triggerLog).",
+  "before": {
+    "strategic_recommendations": 0,
+    "agent_runs": 47,
+    "agent_decisions": 84
+  },
+  "after": {
+    "strategic_recommendations": 0,
+    "agent_runs": 48,
+    "agent_decisions": 84
+  },
+  "rowDelta": {
+    "strategic_recommendations": 0,
+    "agent_runs": 1,
+    "agent_decisions": 0
+  },
+  "sampleWrittenRow": {
+    "strategic_recommendations_row": null,
+    "agent_decisions_row": {
+      "id": "d09470d6-9c28-4a22-99b1-6358eae5e400",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-39-roi-optimizer",
+      "decision_type": "roi_pattern_detected",
+      "entity_type": "roi_insight",
+      "entity_id": "13dfca2a-75ff-4c63-a0c0-a79632975a38",
+      "reasoning": "Applications WITH a Budget document win 100% of the time (n=8) versus 0% WITHOUT it (n=8).",
+      "confidence_score": 100,
+      "action_taken": "Recorded ROI insight: attachment:has_budget:missing",
+      "required_human_review": false,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T07:06:59.204Z",
+      "agent_run_id": "29973fb8-92ce-431a-a471-b1f06089df64",
+      "action_payload": {
+        "confidence": 0.9999366279278714,
+        "sample_size": 8,
+        "insight_type": "attachment:has_budget:missing",
+        "losing_pattern": "WITHOUT a Budget document: 0% win rate (n=8).",
+        "winning_pattern": "WITH a Budget document: 100% win rate (n=8).",
+        "recommended_action": "Include a Budget document - wins 100% WITH vs 0% WITHOUT (n=16).",
+        "insight_description": "Applications WITH a Budget document win 100% of the time (n=8) versus 0% WITHOUT it (n=8)."
+      },
+      "human_reviewer_id": null
+    },
+    "agent_runs_row": {
+      "id": "8b0a842a-d5d4-4e66-87dd-56187a5462ce",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-40-strategic-advisor",
+      "status": "failed",
+      "input_params": {},
+      "output_summary": null,
+      "items_found": 0,
+      "items_processed": 0,
+      "error_message": "Claude did not return a parseable recommendation JSON array.",
+      "tokens_used": null,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:10:00.287Z",
+      "completed_at": "2026-08-20T07:11:22.932Z",
+      "created_at": "2026-08-20T07:10:00.603Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    },
+    "real_organizations_row_used_for_comparison": {
+      "name": "PT-09 Batch1 Test Org",
+      "service_area": "Central Texas"
+    }
+  },
+  "triggerLog": "pre-check: organizations table columns present of ('service_area','service_areas'): [service_area] -- 'service_areas' (plural) is ABSENT (bug WILL reproduce -- loadOrgProfile()'s select will fail and fall back to defaults).\nreal organizations row on file: name=\"PT-09 Batch1 Test Org\", service_area=\"Central Texas\"\nagent.run(\"manual\") resolved: {\"success\":false,\"itemsFound\":0,\"itemsProcessed\":0,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[\"Claude did not return a parseable recommendation JSON array.\"]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs activity occurred but zero strategic_recommendations rows landed. result={\"success\":false,\"itemsFound\":0,\"itemsProcessed\":0,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[\"Claude did not return a parseable recommendation JSON array.\"]}. WGR-059's loadOrgProfile() degradation was reproduced (pre-check: organizations table columns present of ('service_area','service_areas'): [service_area] -- 'service_areas' (plural) is ABSENT (bug WILL reproduce -- loadOrgProfile()'s select will fail and fall back to defaults).) but did not itself cause this -- loadOrgProfile() degrades gracefully rather than blocking the rest of the pipeline, so a different cause is behind the empty output.",
+  "registryPriorStatus": "test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-GATED+QUEUE. test-evidence/_register/WIRING_GAP_REGISTER.md WGR-059 (P1, CONFIRMED-BROKEN): 'strategic-advisor-agent.ts:453's loadOrgProfile() selects \"name, service_area, service_areas\" off organizations -- the invalid service_areas column fails the whole select ... falls back to { name: \"this organization\", service_area: null, service_areas: null } on every real call.' This script independently reproduces that finding live (not merely citing it) and additionally confirms the downstream behavioral consequence on the 'expand' recommendation category.",
+  "falsePassCasualty": true
+}

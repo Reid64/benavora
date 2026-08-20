@@ -1,0 +1,157 @@
+{
+  "canonicalNumber": "AG-22",
+  "registryAgentId": "ag22_propensity_scoring",
+  "implementingFile": "src/lib/agents/ag-22-propensity-scoring.ts",
+  "writeTargetTables": [
+    "corporate_prospects",
+    "agent_runs"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new PropensityScoringAgent({ client, organizationId }).run({ prospectId }). BaseAgent family (same constructor/run shape as batch 1's AG-01), timeoutMs=270000 (9 sequential Claude calls). prospectId is one of environment.json's 2 seeded corporateProspects ids, both of which already had enrichment_completed_at set at the time this script ran, so no additional seeding was required and the agent's own enrichment-completeness self-gate did not fire.",
+  "before": {
+    "corporate_prospects": 0,
+    "agent_runs": 0
+  },
+  "after": {
+    "corporate_prospects": 1,
+    "agent_runs": 1
+  },
+  "rowDelta": {
+    "corporate_prospects": 1,
+    "agent_runs": 1
+  },
+  "sampleWrittenRow": {
+    "corporate_prospects_row": {
+      "id": "4535e71e-5e22-4e27-b0d1-ffa031932095",
+      "legal_name": "Lonestar Manufacturing Co",
+      "scores": {
+        "PS-01": {
+          "score": 28,
+          "rationale": "Weighted aggregate per §3B: Cash Donation Probability×0.3 + In-Kind Donation Probability×0.2 + Volunteer Probability×0.1 + Equipment Donation Probability×0.1 + max(Housing/Education/Food/Veteran/Disaster Relief Compatibility)×0.3. Highest compatibility component was Housing Compatibility (42).",
+          "top_factors": [
+            "Cash Donation Probability (12, weight 0.3)",
+            "In-Kind Donation Probability (22, weight 0.2)",
+            "Volunteer Probability (35, weight 0.1)",
+            "Equipment Donation Probability (38, weight 0.1)",
+            "Housing Compatibility (42, weight 0.3, highest of the 5 compatibility scores)"
+          ]
+        },
+        "PS-02": {
+          "score": 12,
+          "rationale": "Lonestar Manufacturing Co has no identified giving program and all four key signals — foundation affiliation, giving portal, donation history, and revenue estimate — are unknown or absent, leaving no positive indicators of cash donation likelihood. The confirmed absence of a giving program is the only concrete data point and it points away from philanthropic activity.",
+          "top_factors": [
+            "giving portal",
+            "foundation affiliation",
+            "donation history",
+            "revenue estimate"
+          ]
+        },
+        "PS-03": {
+          "score": 22,
+          "rationale": "The 'Manufacturing' designation in the company name suggests some possibility of product categories and excess inventory that could support in-kind donations, but the confirmed absence of a giving program and the complete lack of data on product categories, donation history type, and inventory signals leaves the in-kind fit highly uncertain and leans toward a low probability.",
+          "top_factors": [
+            "product categories",
+            "excess inventory likelihood",
+            "donation history type"
+          ]
+        },
+        "PS-04": {
+          "score": 35,
+          "rationale": "With no data available on employee count, CSR initiatives, or community involvement, and the only enrichment signal indicating no formal giving program, there is insufficient evidence to support a strong volunteer probability — but the absence of data is treated as unknown rather than disqualifying, warranting a modest below-midpoint score.",
+          "top_factors": [
+            "employee_count (unknown)",
+            "CSR initiatives (unknown)",
+            "community involvement (unknown)"
+          ]
+        },
+        "PS-05": {
+          "score": 38,
+          "rationale": "The name 'Lonestar Manufacturing Co' suggests a manufacturing context that could imply some equipment inventory, but no data is available on fleet vehicles, construction specialties, or actual equipment holdings to confirm meaningful donation potential. All three key signals are unknown, so the score reflects a modest baseline lift from the manufacturing name alone rather than confirmed fit.",
+          "top_factors": [
+            "Equipment inventory"
+          ]
+        },
+        "PS-06": {
+          "score": 42,
+          "rationale": "The name 'Lonestar Manufacturing Co' suggests a manufacturing orientation that could involve building materials or construction-adjacent products, offering moderate housing compatibility potential; however, no NAICS code, habitat partner affiliation, or confirmed building materials data is available to substantiate this signal.",
+          "top_factors": [
+            "Construction NAICS codes",
+            "building materials"
+          ]
+        },
+        "PS-07": {
+          "score": 12,
+          "rationale": "Lonestar Manufacturing Co has no documented giving program and no available data on scholarship history, school partnerships, or education ESG initiatives, leaving all three key signals unknown and providing no positive evidence of education compatibility.",
+          "top_factors": [
+            "Scholarship history",
+            "school partnerships",
+            "education ESG"
+          ]
+        },
+        "PS-08": {
+          "score": 15,
+          "rationale": "Lonestar Manufacturing Co has no NAICS code, industry category, food bank partnerships, or product category data available, making food compatibility largely indeterminate; the 'Manufacturing' name hint is the only weak signal that could include food production, but nothing confirms it.",
+          "top_factors": [
+            "Food industry NAICS (absent/unknown)",
+            "food bank partnerships (absent/unknown)",
+            "product categories (absent/unknown)"
+          ]
+        },
+        "PS-09": {
+          "score": 10,
+          "rationale": "No data is available for any of the three key signals — veteran-owned flag, military partnerships, or veteran causes — making compatibility essentially unknown; the score reflects a low-but-not-zero baseline given the company name's possible regional/cultural association with military-friendly Texas, though this is not a scored signal.",
+          "top_factors": [
+            "is_veteran_owned",
+            "military partnerships",
+            "veteran causes"
+          ]
+        },
+        "PS-10": {
+          "score": 15,
+          "rationale": "Lonestar Manufacturing Co provides no data on disaster response capability, emergency response history, or logistics capability, leaving all three key signals unknown; a manufacturing company could plausibly have relevant logistics infrastructure, but the absence of any confirming evidence prevents a higher score.",
+          "top_factors": [
+            "disaster response capability",
+            "emergency response history",
+            "logistics capability"
+          ]
+        },
+        "ranking": {
+          "rank": 1,
+          "ranked_at": "2026-08-20T06:57:28.496Z",
+          "is_priority_prospect": true
+        }
+      },
+      "scores_computed_at": "2026-08-20T06:57:28.457Z",
+      "enrichment_completed_at": "2026-08-20T06:39:38.145Z"
+    },
+    "agent_runs_row": {
+      "id": "f886b9bf-d1ce-4895-b8c5-41d425b155f3",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag22_propensity_scoring",
+      "status": "completed",
+      "input_params": {
+        "prospectId": "4535e71e-5e22-4e27-b0d1-ffa031932095"
+      },
+      "output_summary": "Lonestar Manufacturing Co: PS-01 (Overall Donation Likelihood)=28, 10 scores computed. Ranking refreshed across 1 scored prospect(s), 1 updated.",
+      "items_found": 10,
+      "items_processed": 10,
+      "error_message": null,
+      "tokens_used": 3809,
+      "duration_ms": 31056,
+      "triggered_by": null,
+      "started_at": "2026-08-20T06:56:57.454Z",
+      "completed_at": "2026-08-20T06:57:28.510Z",
+      "created_at": "2026-08-20T06:56:58.387Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run() resolved: runId=f886b9bf-d1ce-4895-b8c5-41d425b155f3 tokensUsed=3809 durationMs=31056\ndata.skipped=false\ndata.scores={\"PS-02\":{\"score\":12,\"rationale\":\"Lonestar Manufacturing Co has no identified giving program and all four key signals — foundation affiliation, giving portal, donation history, and revenue estimate — are unknown or absent, leaving no positive indicators of cash donation likelihood. The confirmed absence of a giving program is the only concrete data point and it points away from philanthropic activity.\",\"top_factors\":[\"giving portal\",\"foundation affiliation\",\"donation history\",\"revenue estimate\"]},\"PS-03\":{\"score\":22,\"rationale\":\"The 'Manufacturing' designation in the company name suggests some possibility of product categories and excess inventory that could support in-kind donations, but the confirmed absence of a giving program and the complete lack of data on product categories, donation history type, and inventory signals leaves the in-kind fit highly uncertain and leans toward a low probability.\",\"top_factors\":[\"product categories\",\"excess inventory likelihood\",\"donation history type\"]},\"PS-04\":{\"score\":35,\"rationale\":\"With no data available on employee count, CSR initiatives, or community involvement, and the only enrichment signal indicating no formal giving program, there is insufficient evidence to support a strong volunteer probability — but the absence of data is treated as unknown rather than disqualifying, warranting a modest below-midpoint score.\",\"top_factors\":[\"employee_count (unknown)\",\"CSR initiatives (unknown)\",\"community involvement (unknown)\"]},\"PS-05\":{\"score\":38,\"rationale\":\"The name 'Lonestar Manufacturing Co' suggests a manufacturing context that could imply some equipment inventory, but no data is available on fleet vehicles, construction specialties, or actual equipment holdings to confirm meaningful donation potential. All three key signals are unknown, so the score reflects a modest baseline lift from the manufacturing name alone rather than confirmed fit.\",\"top_factors\":[\"Equipment inventory\"]},\"PS-06\":{\"score\":42,\"rationale\":\"The name 'Lonestar Manufacturing Co' suggests a manufacturing orientation that could involve building materials or construction-adjacent products, offering moderate housing compatibility potential; however, no NAICS code, habitat partner affiliation, or confirmed building materials data is available to substantiate this signal.\",\"top_factors\":[\"Construction NAICS codes\",\"building materials\"]},\"PS-07\":{\"score\":12,\"rationale\":\"Lonestar Manufacturing Co has no documented giving program and no available data on scholarship history, school partnerships, or education ESG initiatives, leaving all three key signals unknown and providing no positive evidence of education compatibility.\",\"top_factors\":[\"Scholarship history\",\"school partnerships\",\"education ESG\"]},\"PS-08\":{\"score\":15,\"rationale\":\"Lonestar Manufacturing Co has no NAICS code, industry category, food bank partnerships, or product category data available, making food compatibility largely indeterminate; the 'Manufacturing' name hint is the only weak signal that could include food production, but nothing confirms it.\",\"top_factors\":[\"Food industry NAICS (absent/unknown)\",\"food bank partnerships (absent/unknown)\",\"product categories (absent/unknown)\"]},\"PS-09\":{\"score\":10,\"rationale\":\"No data is available for any of the three key signals — veteran-owned flag, military partnerships, or veteran causes — making compatibility essentially unknown; the score reflects a low-but-not-zero baseline given the company name's possible regional/cultural association with military-friendly Texas, though this is not a scored signal.\",\"top_factors\":[\"is_veteran_owned\",\"military partnerships\",\"veteran causes\"]},\"PS-10\":{\"score\":15,\"rationale\":\"Lonestar Manufacturing Co provides no data on disaster response capability, emergency response history, or logistics capability, leaving all three key signals unknown; a manufacturing company could plausibly have relevant logistics infrastructure, but the absence of any confirming evidence prevents a higher score.\",\"top_factors\":[\"disaster response capability\",\"emergency response history\",\"logistics capability\"]},\"PS-01\":{\"score\":28,\"rationale\":\"Weighted aggregate per §3B: Cash Donation Probability×0.3 + In-Kind Donation Probability×0.2 + Volunteer Probability×0.1 + Equipment Donation Probability×0.1 + max(Housing/Education/Food/Veteran/Disaster Relief Compatibility)×0.3. Highest compatibility component was Housing Compatibility (42).\",\"top_factors\":[\"Cash Donation Probability (12, weight 0.3)\",\"In-Kind Donation Probability (22, weight 0.2)\",\"Volunteer Probability (35, weight 0.1)\",\"Equipment Donation Probability (38, weight 0.1)\",\"Housing Compatibility (42, weight 0.3, highest of the 5 compatibility scores)\"]}}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "corporate_prospects row 4535e71e-5e22-4e27-b0d1-ffa031932095 (Lonestar Manufacturing Co) was updated with a real scores jsonb containing 11 keys (PS-01..PS-10 + ranking), scores_computed_at=Thu Aug 20 2026 01:57:28 GMT-0500 (Central Daylight Time), PS-01 (Overall Donation Likelihood)=28. 9 real sequential Claude calls succeeded (tokensUsed=3809), each returning real per-rubric rationale/top_factors text -- this is real, substantive Claude-generated content, not a mock or fallback. agent_runs row completed cleanly. DEFINITIVE FINDING: the real Claude call SUCCEEDED against the CURRENT .env.local ANTHROPIC_API_KEY (9 real scoring calls + PS-01 formula) -- the 2026-08-06 key rotation still holds as of this session, no 401 reproduced. Note: this proves the CLASS's own code works correctly when reached -- it is a SEPARATE fact from production reachability, which PT-08/pt09-001 already established is currently zero (worker/enrichment-processor.ts never imported into worker/index.ts's boot sequence).",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: NOT-WIRED (DEFINED-NOT-STARTED per PT-08) -- worker/enrichment-processor.ts's EA-01..EA-10+AG-22 pipeline is imported nowhere in worker/index.ts's boot sequence, confirmed a second time this session (grep of worker/index.ts finds no import of enrichment-processor.ts). watchListRef: eaAg22EnrichmentPipelineNeverStarted (HIGH priority, largest concentration of real-but-unreachable code in the inventory), wasBlockedOnRotatedApiKey (HIGH priority, this exact agent named as the historical 401 victim). DEFINITIVE FINDING: the real Claude call SUCCEEDED against the CURRENT .env.local ANTHROPIC_API_KEY (9 real scoring calls + PS-01 formula) -- the 2026-08-06 key rotation still holds as of this session, no 401 reproduced.",
+  "falsePassCasualty": false
+}

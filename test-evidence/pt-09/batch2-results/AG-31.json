@@ -1,0 +1,12 @@
+{
+  "canonicalNumber": "AG-31",
+  "writeTargetTables": [],
+  "sampleWrittenRow": null,
+  "verdict": "PENDING-SCOPE",
+  "falsePassCasualty": false,
+  "registryAgentId": "ag-31-national-forecast",
+  "implementingFile": "N/A -- no implementation file exists anywhere in src/lib/agents/*.ts or src/lib/intelligence/*.ts (re-confirmed via fresh grep this session)",
+  "errorSurfaced": null,
+  "verdictReasoning": "PENDING-SCOPE: no code exists. Re-confirmed via a fresh grep this session (grep -rniE \"national.?forecast|ag-31\" src/lib/agents/*.ts src/lib/intelligence/*.ts scripts/seed-agent-registry.ts) that zero implementation file exists for AG-31 (National Forecast Agent) anywhere in src/lib/agents/ or src/lib/intelligence/. AG-31 IS present in the agent_registry seed (scripts/seed-agent-registry.ts ROSTER, agent_id 'ag-31-national-forecast'), but that seed row's own description text explicitly states \"no implementation file exists in this repo as of this seed\" -- the registry entry documents a planned macro-level extension of AG-26 (Funding Forecast Agent), it does not represent working code. This is a genuine no-code exclusion (a documented, not-yet-built agent), not an outbound-comms exclusion and not a trigger-wiring failure -- there is nothing to trigger.",
+  "registryPriorStatus": "agent_registry seed row present (plan_requirement=professional, trigger_type=scheduled) with a description that self-documents no implementation exists. Per test-evidence/pt-09/agent-inventory.json's inRegistry/codeExists reconciliation convention: inRegistry=true, codeExists=false."
+}

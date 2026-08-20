@@ -1,0 +1,127 @@
+{
+  "canonicalNumber": "AG-41",
+  "registryAgentId": "ag-41-impact-simulation",
+  "implementingFile": "src/lib/agents/impact-simulation-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "impact_simulations"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new ImpactSimulationAgent(orgId, supabase).run('manual', 'gain_funder', {estimatedAnnualAmount:50000}, userId). AutonomousAgent family. Real trigger path per pt09-001/agent-inventory.json: WIRED-MANUAL-ONLY (by design -- no scheduler.ts job or routeQueueItem() case; real production entry point is POST /api/agents/simulate).",
+  "before": {
+    "agent_runs": 1,
+    "impact_simulations": 1
+  },
+  "after": {
+    "agent_runs": 2,
+    "impact_simulations": 2
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "impact_simulations": 1
+  },
+  "sampleWrittenRow": {
+    "impact_simulations_rows": [
+      {
+        "id": "01a6e551-e33f-4a54-914f-a3276ce6c6c7",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "scenario_type": "gain_funder",
+        "scenario_params": {
+          "estimatedAnnualAmount": 50000
+        },
+        "simulation_result": {
+          "keyRisks": [
+            "The $50,000 projection is entirely dependent on a human-supplied estimate with no real funder data on file to validate it, meaning the figure carries inherent uncertainty that the platform cannot independently verify.",
+            "If this funder does not materialize, the organization would forgo a gain equivalent to 4% of its $1,250,000 annual budget, a meaningful gap for a 12-staff organization.",
+            "Reliance on a single new funder for the full $50,000 creates concentration risk; if the relationship sours after year one, the organization has no diversification buffer from this source.",
+            "With no range variance in the computed impact ($50,000 to $50,000), the model offers no downside scenario — decision-makers should not interpret this as certainty, but as a reflection of the estimate's fixed human input."
+          ],
+          "narrative": "PT-09 Batch1 Test Org is evaluating the potential addition of a new funder estimated to contribute $50,000 per year. Against an annual budget of $1,250,000, this would represent a 4% budget increase — material for a 12-staff organization but not transformational on its own. The most important caveat for leadership is that this figure comes entirely from a human-supplied estimate; there is no real funder record in the platform to corroborate it. The computed impact range of $50,000 to $50,000 reflects that fixed input, not a validated forecast. The board and development director should treat this as a working assumption rather than a committed projection, and should confirm funder intent through direct outreach before building this revenue into operational plans. On the opportunity side, the organization's existing base of 40 volunteers is a concrete asset that can be highlighted in any funding pitch to demonstrate community credibility.",
+          "baselineUsed": "fallback",
+          "keyOpportunities": [
+            "A successful $50,000 award would represent a 4% increase over the current $1,250,000 annual budget, providing meaningful operational headroom for an organization of this size.",
+            "With 40 volunteers already engaged, the organization has a demonstrated capacity to leverage non-staff resources, which could strengthen a funding application by showcasing community investment to the prospective funder.",
+            "If grant terms allow unrestricted use, the $50,000 could be applied to infrastructure or staff capacity across the existing 12-person team, compounding its value beyond a single program line.",
+            "Pursuing this funder relationship, even if the first grant is modest, establishes a new institutional connection that could grow in subsequent funding cycles."
+          ],
+          "deterministicImpact": {
+            "max": 50000,
+            "min": 50000,
+            "mostLikely": 50000
+          }
+        },
+        "confidence": "low",
+        "generated_at": "2026-08-20T07:17:52.687Z",
+        "created_by": "f30f6d63-cf4b-410e-bef9-f2425bf9976c"
+      },
+      {
+        "id": "c6ac6e36-1502-403f-91a8-e79b13978ca2",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "scenario_type": "gain_funder",
+        "scenario_params": {
+          "estimatedAnnualAmount": 50000
+        },
+        "simulation_result": {
+          "keyRisks": [
+            "The $50,000 projection is entirely dependent on a human-supplied estimate with no real funder data on file in the platform, meaning the figure carries inherent uncertainty that cannot be validated against actual grant history or funder behavior.",
+            "At a $1,250,000 annual budget, this $50,000 represents 4% of total revenue — meaningful but not transformative, so if the funder does not materialize, the organization absorbs a gap equivalent to roughly one month of a mid-level staff salary or a significant portion of program delivery costs.",
+            "There is no range variability in the computed impact ($50,000 to $50,000), which reflects the flat nature of the human estimate rather than any modeled probability distribution — the real-world outcome could be higher or lower with no scenario cushion built in.",
+            "With 12 staff and 40 volunteers, operational capacity is already constrained; pursuing and onboarding a new funder relationship requires staff time for reporting, compliance, and cultivation that is not reflected in the $50,000 net figure."
+          ],
+          "narrative": "This scenario models the addition of a single new funder estimated at $50,000 per year against PT-09 Batch1 Test Org's $1,250,000 annual budget. The most important caveat is that this figure is a human-supplied estimate with no real funder record behind it, so the board should treat it as a planning assumption, not a committed projection. If realized, the $50,000 would grow the budget by 4% — a meaningful diversification step for a 12-staff organization, but not a transformative one. The primary risk is acting on this as certain revenue before a grant agreement is in place. The primary opportunity is that landing this funder opens a relationship that could grow over time, and the organization's 40 volunteers could help maximize the programmatic reach of every dollar awarded.",
+          "baselineUsed": "fallback",
+          "keyOpportunities": [
+            "Adding $50,000 would represent a 4% increase to the $1,250,000 budget, providing a modest but real buffer that could fund incremental program capacity or reduce reliance on any single existing funder.",
+            "If the organization has additional funders currently in the pipeline beyond this scenario, even partial awards could compound with this $50,000 to meaningfully diversify the revenue base.",
+            "A new funder relationship, once established, creates a foundation for multi-year funding conversations that could exceed the initial $50,000 estimate in future grant cycles.",
+            "The 40-volunteer base represents unleveraged capacity that could support expanded programming if this $50,000 funds materials, coordination, or infrastructure — amplifying the dollar impact beyond its face value."
+          ],
+          "deterministicImpact": {
+            "max": 50000,
+            "min": 50000,
+            "mostLikely": 50000
+          }
+        },
+        "confidence": "low",
+        "generated_at": "2026-08-20T07:17:28.285Z",
+        "created_by": "f30f6d63-cf4b-410e-bef9-f2425bf9976c"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "ce526b6b-e056-4c7c-a0c3-eaa3cc81fc7a",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-41-impact-simulation",
+      "status": "completed",
+      "input_params": {
+        "scenarioType": "gain_funder",
+        "scenarioParams": {
+          "estimatedAnnualAmount": 50000
+        }
+      },
+      "output_summary": "Generated a gain_funder simulation — low confidence, most-likely impact $50,000.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 949,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:17:37.260Z",
+      "completed_at": "2026-08-20T07:17:51.457Z",
+      "created_at": "2026-08-20T07:17:37.134Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": 40,
+      "items_queued": 0,
+      "output_payload": {
+        "scenarioType": "gain_funder",
+        "simulationId": "01a6e551-e33f-4a54-914f-a3276ce6c6c7"
+      }
+    }
+  },
+  "triggerLog": "agent.run('manual', 'gain_funder', {estimatedAnnualAmount:50000}, userId) resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"01a6e551-e33f-4a54-914f-a3276ce6c6c7\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "impact_simulations row written with real content: scenario_type=gain_funder, deterministic math + Claude narrative present (confidence=low). itemsFound=1, itemsProcessed=1. This confirms the real deterministic-math-first + one-Claude-call-for-narrative pipeline for the gain_funder branch works end-to-end.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-MANUAL-ONLY (by design).",
+  "falsePassCasualty": false
+}

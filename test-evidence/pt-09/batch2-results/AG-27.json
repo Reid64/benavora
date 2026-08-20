@@ -1,0 +1,243 @@
+{
+  "canonicalNumber": "AG-27",
+  "registryAgentId": "ag-27-board-packet",
+  "implementingFile": "src/lib/agents/board-packet-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "agent_queue",
+    "board_meeting_packets"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new BoardPacketAgent(orgId, supabase).run('manual', [meetingId]) against a real, freshly-seeded board_meetings row (resolveMeetings() only resolves an explicit meetingIds[] argument or an event-trigger scope -- a bare manual call with no meetingIds resolves to [] by design). Real trigger path: WIRED-SCHEDULED+QUEUE (worker/scheduler.ts daily job + POST /api/autonomous/board-packet-trigger + routeQueueItem() case 'ag-27-board-packet').",
+  "before": {
+    "agent_runs": 1,
+    "board_meeting_packets": 1
+  },
+  "after": {
+    "agent_runs": 2,
+    "board_meeting_packets": 2
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "board_meeting_packets": 1
+  },
+  "sampleWrittenRow": {
+    "board_meeting_packets_rows": [
+      {
+        "id": "86687080-3364-478b-8362-4093ee1350b5",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "meeting_id": "574bad95-5b33-443b-b66d-5d50d977c490",
+        "packet_content": {
+          "agenda": "PT-09-003 seeded agenda for board packet execution proof",
+          "generatedFor": "2026-08-30",
+          "pipelineSummary": {
+            "count": 3,
+            "opportunities": [
+              {
+                "name": "PT-09 Test Opportunity 3",
+                "category": "corporate_donation",
+                "deadline": "2026-10-09T00:00:00+00:00",
+                "amountMax": 75000,
+                "amountMin": 15000
+              },
+              {
+                "name": "PT-09 Test Opportunity 2",
+                "category": "government_grant",
+                "deadline": "2026-09-19T00:00:00+00:00",
+                "amountMax": 75000,
+                "amountMin": 15000
+              },
+              {
+                "name": "PT-09 Test Opportunity 1",
+                "category": "private_foundation",
+                "deadline": "2026-08-30T00:00:00+00:00",
+                "amountMax": 75000,
+                "amountMin": 15000
+              }
+            ]
+          },
+          "financialSnapshot": {
+            "totalStaff": 12,
+            "annualBudget": 1250000,
+            "totalVolunteers": 40
+          },
+          "plainLanguageFinancials": {
+            "note": "No financial data on file yet.",
+            "variance": 0,
+            "narrative": null,
+            "hasAnyData": false,
+            "totalSpent": 0,
+            "budgetsCount": 0,
+            "expensesCount": 0,
+            "groundedFacts": [],
+            "totalBudgeted": 0,
+            "reconciliation": [],
+            "categoryBreakdown": []
+          },
+          "outcomesSinceLastMeeting": {
+            "note": "No earlier packeted board meeting found for this organization — showing outcomes from the trailing 90 days.",
+            "count": 19,
+            "denied": 8,
+            "awarded": 10,
+            "partial": 0,
+            "sinceDate": "2026-06-01",
+            "isFirstMeeting": true,
+            "totalAwardedAmount": 290000
+          },
+          "recommendedDiscussionItems": [
+            {
+              "item": "PT-09 Test Opportunity 1 (private foundation, $15,000–$75,000) has a deadline of today, August 30, 2026 — the board should confirm whether a submission was made or authorize emergency action if it has not been, as this window closes at end of day.",
+              "groundedIn": "opportunities[2]"
+            },
+            {
+              "item": "PT-09 Test Opportunity 2 (government grant, $15,000–$75,000) closes September 19, 2026 — 20 days from today. The board should review the readiness of this application and identify any board-level sign-offs, letters of support, or compliance documentation required before that deadline.",
+              "groundedIn": "opportunities[1]"
+            },
+            {
+              "item": "The 90-day outcomes period shows a 10-of-18 award rate (56%) across 19 recorded outcomes, yielding $290,000 awarded. The board should discuss whether this win rate and dollar volume are on track relative to the $1,250,000 annual budget, and what proportion of the budget remains unfunded for the fiscal year.",
+              "groundedIn": "outcomes"
+            },
+            {
+              "item": "With $290,000 awarded against a $1,250,000 annual budget, the organization has captured roughly 23% of its budget target through recent funding activity. The board should assess whether the three open pipeline opportunities — totaling up to $225,000 at the high end — are sufficient to close remaining gaps, or whether additional prospecting is needed.",
+              "groundedIn": "financial"
+            },
+            {
+              "item": "PT-09 Test Opportunity 3 (corporate donation, $15,000–$75,000) closes October 9, 2026. Given the corporate category, the board should discuss whether any board member relationships with the prospective corporate donor could strengthen the ask or provide a warm introduction before the deadline.",
+              "groundedIn": "opportunities[0]"
+            }
+          ]
+        },
+        "generated_at": "2026-08-20T07:16:16.704Z",
+        "viewed_by": []
+      },
+      {
+        "id": "34193ae8-716a-4dd4-8f11-af1c2f56a1be",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "meeting_id": "8946d858-d37f-457b-ae1a-168facbed53b",
+        "packet_content": {
+          "agenda": "PT-09-003 seeded agenda for board packet execution proof",
+          "generatedFor": "2026-08-30",
+          "pipelineSummary": {
+            "count": 3,
+            "opportunities": [
+              {
+                "name": "PT-09 Test Opportunity 3",
+                "category": "corporate_donation",
+                "deadline": "2026-10-09T00:00:00+00:00",
+                "amountMax": 75000,
+                "amountMin": 15000
+              },
+              {
+                "name": "PT-09 Test Opportunity 2",
+                "category": "government_grant",
+                "deadline": "2026-09-19T00:00:00+00:00",
+                "amountMax": 75000,
+                "amountMin": 15000
+              },
+              {
+                "name": "PT-09 Test Opportunity 1",
+                "category": "private_foundation",
+                "deadline": "2026-08-30T00:00:00+00:00",
+                "amountMax": 75000,
+                "amountMin": 15000
+              }
+            ]
+          },
+          "financialSnapshot": {
+            "totalStaff": 12,
+            "annualBudget": 1250000,
+            "totalVolunteers": 40
+          },
+          "plainLanguageFinancials": {
+            "note": "No financial data on file yet.",
+            "variance": 0,
+            "narrative": null,
+            "hasAnyData": false,
+            "totalSpent": 0,
+            "budgetsCount": 0,
+            "expensesCount": 0,
+            "groundedFacts": [],
+            "totalBudgeted": 0,
+            "reconciliation": [],
+            "categoryBreakdown": []
+          },
+          "outcomesSinceLastMeeting": {
+            "note": "This is the first tracked board meeting for this organization — showing outcomes from the trailing 90 days rather than \"since last meeting.\"",
+            "count": 19,
+            "denied": 8,
+            "awarded": 10,
+            "partial": 0,
+            "sinceDate": "2026-06-01",
+            "isFirstMeeting": true,
+            "totalAwardedAmount": 290000
+          },
+          "recommendedDiscussionItems": [
+            {
+              "item": "PT-09 Test Opportunity 1 (private foundation, $15,000–$75,000) has a deadline of today, August 30, 2026 — the same date as this meeting. The board should confirm immediately whether a submission was made, authorize an emergency action if it was not, and document the outcome before this meeting adjourns.",
+              "groundedIn": "opportunities[2]"
+            },
+            {
+              "item": "PT-09 Test Opportunity 2 (government grant, $15,000–$75,000) closes on September 19, 2026 — just 20 days from today. The board should receive a readiness update from the development director and, if needed, authorize any matching funds, letters of support, or board signatures required by the application.",
+              "groundedIn": "opportunities[1]"
+            },
+            {
+              "item": "The organization's trailing 90-day win rate stands at 10 awarded out of 18 decided outcomes (10 awarded, 8 denied), yielding approximately 56% — with $290,000 secured. The board should discuss whether that conversion rate and dollar volume are on pace to meet the $1,250,000 annual budget, and what pipeline acceleration is needed for the remaining fiscal period.",
+              "groundedIn": "outcomes"
+            },
+            {
+              "item": "This is the organization's first tracked board meeting in the platform, meaning there is no prior-period baseline for pipeline or outcomes comparison. The board should establish what metrics — win rate, average award size, pipeline coverage ratio relative to the $1,250,000 budget — will serve as benchmarks for the next quarterly review.",
+              "groundedIn": "agenda"
+            },
+            {
+              "item": "With 3 open opportunities each carrying a range of $15,000–$75,000, the maximum near-term pipeline upside is $225,000. Against a $1,250,000 annual budget supported by 12 staff and 40 volunteers, the board should assess whether the current 90-day pipeline is sufficient and direct the development director to identify additional prospects to close the gap.",
+              "groundedIn": "financial"
+            }
+          ]
+        },
+        "generated_at": "2026-08-20T07:15:49.676Z",
+        "viewed_by": []
+      }
+    ],
+    "agent_runs_row": {
+      "id": "f0e9ec22-c4bf-47ea-96b3-c05a6f3d8488",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-27-board-packet",
+      "status": "completed",
+      "input_params": {
+        "meetingIds": [
+          "574bad95-5b33-443b-b66d-5d50d977c490"
+        ]
+      },
+      "output_summary": "1/1 board packet(s) written.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 1022,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:16:05.421Z",
+      "completed_at": "2026-08-20T07:16:15.506Z",
+      "created_at": "2026-08-20T07:16:04.914Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {
+        "errors": [],
+        "meetingIds": [
+          "574bad95-5b33-443b-b66d-5d50d977c490"
+        ],
+        "packetsWritten": 1,
+        "sectionsFallback": 1,
+        "sectionsWithRealData": 3
+      }
+    },
+    "seeded_board_meeting_id": "574bad95-5b33-443b-b66d-5d50d977c490"
+  },
+  "triggerLog": "Seeded board_meetings row 574bad95-5b33-443b-b66d-5d50d977c490 for a real meetingIds[] argument.\nagent.run(\"manual\", [\"574bad95-5b33-443b-b66d-5d50d977c490\"]) resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"e2aa7c5b-0798-4fae-9590-e912764d7cd0\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "board_meeting_packets row written for the real seeded meeting 574bad95-5b33-443b-b66d-5d50d977c490: packet_content keys=[\"agenda\",\"generatedFor\",\"pipelineSummary\",\"financialSnapshot\",\"plainLanguageFinancials\",\"outcomesSinceLastMeeting\",\"recommendedDiscussionItems\"]. itemsFound=1, itemsProcessed=1.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED+QUEUE.",
+  "falsePassCasualty": false
+}

@@ -1,0 +1,247 @@
+{
+  "canonicalNumber": "AG-29 (Fundability Scorer, on-disk collision)",
+  "registryAgentId": "ag-29-fundability",
+  "implementingFile": "src/lib/agents/fundability-scorer-agent.ts",
+  "writeTargetTables": [
+    "agent_queue",
+    "agent_runs",
+    "agent_decisions",
+    "fundability_scores"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new FundabilityScorerAgent(orgId, supabase).run('manual'). AutonomousAgent family, per-org (constructor(orgId, supabase)). 'manual' exercises loadDefaultScope() (open opportunities with no fundability_scores row yet or a stale one), the same scope-loading code path the nightly pipeline's runFundabilityScoringStep() exercises once past its own org_autonomous_config.auto_fundability_enabled gate check, per pt09-001/agent-inventory.json.",
+  "before": {
+    "agent_runs": 0,
+    "agent_decisions": 0,
+    "fundability_scores": 0,
+    "agent_queue": 1
+  },
+  "after": {
+    "agent_runs": 1,
+    "agent_decisions": 8,
+    "fundability_scores": 8,
+    "agent_queue": 1
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "agent_decisions": 8,
+    "fundability_scores": 8,
+    "agent_queue": 0
+  },
+  "sampleWrittenRow": {
+    "fundability_scores_row": {
+      "id": "53a85ad8-7221-47c8-afa0-4ef2fee53cc1",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "opportunity_id": "2b91b004-5d4d-47a7-bf7f-2f18a769ad94",
+      "overall_score": 18,
+      "probability_without_fixes": 18,
+      "probability_with_fixes": 28,
+      "confidence": "low",
+      "deficiencies": [
+        {
+          "issue": "The organization's stated mission is a test/placeholder description with no substantive programmatic identity, making it impossible to demonstrate alignment with a private markets and capital management fund's grantmaking priorities.",
+          "factor": "mission_alignment",
+          "fix_key": "missing_mission",
+          "fix_type": "twin_gap",
+          "fixed_at": "2026-08-20T07:03:36.391Z",
+          "fix_action": "Replace the placeholder mission statement in the Digital Twin with a substantive, program-specific mission that articulates the organization's actual work, target population outcomes, and theory of change.",
+          "fix_status": "fixed",
+          "auto_fixable": true
+        },
+        {
+          "issue": "The opportunity is categorized as a government_grant but the funder name references a private equity fund (Clearlake Capital), creating an unresolved structural ambiguity about eligibility rules, required registrations (e.g., SAM.gov, state solicitation registrations), and whether 501c3 status alone satisfies prerequisites.",
+          "factor": "compliance_status",
+          "fix_key": "none",
+          "fix_type": "structural",
+          "fixed_at": null,
+          "fix_action": "Obtain and review the official program guidelines for this opportunity to confirm whether it is a government-administered grant, a corporate foundation grant, or a private grantmaking vehicle, and verify which compliance registrations are required before any application is submitted.",
+          "fix_status": "manual_required",
+          "auto_fixable": false
+        },
+        {
+          "issue": "No financial or tax documents are on file, so there is no basis to demonstrate the organization can responsibly manage an award from a fund associated with a private equity firm that would expect rigorous financial accountability.",
+          "factor": "financial_capacity",
+          "fix_key": "missing_financial_docs",
+          "fix_type": "twin_gap",
+          "fixed_at": null,
+          "fix_action": "Upload the most recent two years of audited financials or IRS Form 990s to the organization's document repository so financial capacity can be assessed and documented in the application.",
+          "fix_status": "notified",
+          "auto_fixable": true
+        },
+        {
+          "issue": "Only 2 recorded grant outcomes at a 50% award rate with 1 documented program provides an extremely thin track record that would not reassure a sophisticated institutional funder associated with a private markets fund.",
+          "factor": "track_record",
+          "fix_key": "none",
+          "fix_type": "kb_gap",
+          "fixed_at": null,
+          "fix_action": "Add a grant_history Knowledge Base entry documenting all prior awards by funder name, award amount, grant period, and a one-sentence outcome summary for each, to build a credible funding history narrative.",
+          "fix_status": "manual_required",
+          "auto_fixable": false
+        },
+        {
+          "issue": "Only 2 active board members are on record, which is well below the governance threshold most institutional and government-aligned funders expect and signals significant fiduciary risk for any award.",
+          "factor": "board_governance",
+          "fix_key": "none",
+          "fix_type": "twin_gap",
+          "fixed_at": null,
+          "fix_action": "Update the Digital Twin board roster to reflect all current board members with their names, professional affiliations, and committee roles, and if the board genuinely has only 2 members, recruit additional members before applying.",
+          "fix_status": "manual_required",
+          "auto_fixable": false
+        },
+        {
+          "issue": "With a Digital Twin completeness of only 60% and no financial documents on file, there is no documented evidence that the organization has data systems or staff capacity to meet the outcome-measurement and financial-reporting standards a private-markets-affiliated fund would impose.",
+          "factor": "reporting_capability",
+          "fix_key": "none",
+          "fix_type": "kb_gap",
+          "fixed_at": null,
+          "fix_action": "Add a reporting_systems Knowledge Base entry describing the specific tools, staff roles, and data collection processes the organization uses to track program outputs, outcomes, and expenditures against grant budgets.",
+          "fix_status": "manual_required",
+          "auto_fixable": false
+        },
+        {
+          "issue": "No staff capacity information is documented in the Knowledge Base or Digital Twin, making it impossible to demonstrate the organization has personnel available to execute funded work and comply with reporting obligations.",
+          "factor": "staff_capacity",
+          "fix_key": "none",
+          "fix_type": "twin_gap",
+          "fixed_at": null,
+          "fix_action": "Add a staff roster section to the Digital Twin listing key personnel, their FTE allocations, and their specific roles in grant-funded program delivery and compliance.",
+          "fix_status": "manual_required",
+          "auto_fixable": false
+        }
+      ],
+      "recommendation": "skip",
+      "generated_at": "2026-08-20T07:03:39.792Z"
+    },
+    "agent_decisions_row": {
+      "id": "26587dde-d9be-4459-a014-1b96275caf01",
+      "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_id": "ag-29-fundability",
+      "decision_type": "fundability_scored",
+      "entity_type": "opportunity",
+      "entity_id": "2b91b004-5d4d-47a7-bf7f-2f18a769ad94",
+      "reasoning": "Fundability scoring for \"Clearlake Private Markets Fund and Clearlake Capital RIC Management, LLC\" against PT-09 Batch1 Test Org's current profile produced an overall readiness score of 18 out of 100 at low confidence, with an as-is probability of 18% and a re-evaluated probability of 28% if every currently fixable deficiency identified this run were resolved. 7 deficiency(ies) were identified this run: mission_alignment (twin_gap, auto-fixable); compliance_status (structural); financial_capacity (twin_gap, auto-fixable); track_record (kb_gap); board_governance (twin_gap); reporting_capability (kb_gap); staff_capacity (twin_gap). Of these, 1 were resolved automatically by cross-referencing the organization's own profile, its Organizational Digital Twin, and its document library against the specific gap each deficiency named, while 6 require the organization to take manual action - completing a Knowledge Base entry, updating the Digital Twin, or uploading a document - before they can be considered resolved. The resulting recommendation for this opportunity is \"skip\". This opportunity was not chained to any downstream drafting agent this run, either because its score did not clear the autonomous draft-generation threshold or because this organization does not currently have auto-draft enabled in its autonomous settings, so no further autonomous action was taken beyond recording this score and its deficiency breakdown.",
+      "confidence_score": 18,
+      "action_taken": "Recorded fundability score 18/100 with 7 deficiency(ies) (1 auto-fixed, 6 manual).",
+      "required_human_review": true,
+      "human_reviewed_at": null,
+      "human_verdict": null,
+      "created_at": "2026-08-20T07:03:39.799Z",
+      "agent_run_id": "be2ebd6a-bf50-4ddc-ab45-99f6c2141aea",
+      "action_payload": {
+        "deficiencies": [
+          {
+            "issue": "The organization's stated mission is a test/placeholder description with no substantive programmatic identity, making it impossible to demonstrate alignment with a private markets and capital management fund's grantmaking priorities.",
+            "factor": "mission_alignment",
+            "fix_key": "missing_mission",
+            "fix_type": "twin_gap",
+            "fixed_at": "2026-08-20T07:03:36.391Z",
+            "fix_action": "Replace the placeholder mission statement in the Digital Twin with a substantive, program-specific mission that articulates the organization's actual work, target population outcomes, and theory of change.",
+            "fix_status": "fixed",
+            "auto_fixable": true
+          },
+          {
+            "issue": "The opportunity is categorized as a government_grant but the funder name references a private equity fund (Clearlake Capital), creating an unresolved structural ambiguity about eligibility rules, required registrations (e.g., SAM.gov, state solicitation registrations), and whether 501c3 status alone satisfies prerequisites.",
+            "factor": "compliance_status",
+            "fix_key": "none",
+            "fix_type": "structural",
+            "fixed_at": null,
+            "fix_action": "Obtain and review the official program guidelines for this opportunity to confirm whether it is a government-administered grant, a corporate foundation grant, or a private grantmaking vehicle, and verify which compliance registrations are required before any application is submitted.",
+            "fix_status": "manual_required",
+            "auto_fixable": false
+          },
+          {
+            "issue": "No financial or tax documents are on file, so there is no basis to demonstrate the organization can responsibly manage an award from a fund associated with a private equity firm that would expect rigorous financial accountability.",
+            "factor": "financial_capacity",
+            "fix_key": "missing_financial_docs",
+            "fix_type": "twin_gap",
+            "fixed_at": null,
+            "fix_action": "Upload the most recent two years of audited financials or IRS Form 990s to the organization's document repository so financial capacity can be assessed and documented in the application.",
+            "fix_status": "notified",
+            "auto_fixable": true
+          },
+          {
+            "issue": "Only 2 recorded grant outcomes at a 50% award rate with 1 documented program provides an extremely thin track record that would not reassure a sophisticated institutional funder associated with a private markets fund.",
+            "factor": "track_record",
+            "fix_key": "none",
+            "fix_type": "kb_gap",
+            "fixed_at": null,
+            "fix_action": "Add a grant_history Knowledge Base entry documenting all prior awards by funder name, award amount, grant period, and a one-sentence outcome summary for each, to build a credible funding history narrative.",
+            "fix_status": "manual_required",
+            "auto_fixable": false
+          },
+          {
+            "issue": "Only 2 active board members are on record, which is well below the governance threshold most institutional and government-aligned funders expect and signals significant fiduciary risk for any award.",
+            "factor": "board_governance",
+            "fix_key": "none",
+            "fix_type": "twin_gap",
+            "fixed_at": null,
+            "fix_action": "Update the Digital Twin board roster to reflect all current board members with their names, professional affiliations, and committee roles, and if the board genuinely has only 2 members, recruit additional members before applying.",
+            "fix_status": "manual_required",
+            "auto_fixable": false
+          },
+          {
+            "issue": "With a Digital Twin completeness of only 60% and no financial documents on file, there is no documented evidence that the organization has data systems or staff capacity to meet the outcome-measurement and financial-reporting standards a private-markets-affiliated fund would impose.",
+            "factor": "reporting_capability",
+            "fix_key": "none",
+            "fix_type": "kb_gap",
+            "fixed_at": null,
+            "fix_action": "Add a reporting_systems Knowledge Base entry describing the specific tools, staff roles, and data collection processes the organization uses to track program outputs, outcomes, and expenditures against grant budgets.",
+            "fix_status": "manual_required",
+            "auto_fixable": false
+          },
+          {
+            "issue": "No staff capacity information is documented in the Knowledge Base or Digital Twin, making it impossible to demonstrate the organization has personnel available to execute funded work and comply with reporting obligations.",
+            "factor": "staff_capacity",
+            "fix_key": "none",
+            "fix_type": "twin_gap",
+            "fixed_at": null,
+            "fix_action": "Add a staff roster section to the Digital Twin listing key personnel, their FTE allocations, and their specific roles in grant-funded program delivery and compliance.",
+            "fix_status": "manual_required",
+            "auto_fixable": false
+          }
+        ],
+        "recommendation": "skip",
+        "chained_to_draft": false,
+        "probability_with_fixes": 28,
+        "probability_without_fixes": 18
+      },
+      "human_reviewer_id": null
+    },
+    "agent_runs_row": {
+      "id": "be2ebd6a-bf50-4ddc-ab45-99f6c2141aea",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-29-fundability",
+      "status": "completed",
+      "input_params": {
+        "force": false
+      },
+      "output_summary": "Scored 8 of 8 opportunity(ies); avg score 25/100; 42 deficiency(ies) found (5 auto-fixed, 37 manual); 0 chained to draft generation.",
+      "items_found": 8,
+      "items_processed": 8,
+      "error_message": null,
+      "tokens_used": 33441,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:02:58.935Z",
+      "completed_at": "2026-08-20T07:03:40.178Z",
+      "created_at": "2026-08-20T07:02:59.255Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {
+        "errors": [],
+        "avgScore": 25,
+        "autoFixed": 5,
+        "manualRequired": 37,
+        "totalDeficiencies": 42,
+        "opportunitiesScored": 8
+      }
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":8,\"itemsProcessed\":8,\"itemsQueued\":0,\"decisions\":[\"32801d93-8aab-4818-94d6-44571d830c8f\",\"c5becfb8-f0ae-4988-ac99-a06c1a971fde\",\"42033cf2-8592-4add-8d30-26fecf9933d6\",\"236b516b-8d73-4fe9-9726-c59378cd923d\",\"3e3cace9-d78b-41a3-90c5-ed2bc1671ead\",\"3a1ace2a-87c5-4f4b-aaa3-3074e3eb2493\",\"c3fab88a-144e-4114-a5c4-8bd5a0852dd1\",\"26587dde-d9be-4459-a014-1b96275caf01\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "fundability_scores row written with a real Claude-computed overall_score=18, probability_without_fixes=18, probability_with_fixes=28, confidence=low, and 7 real deficiency object(s) each classified under the 8-category rubric; agent_decisions row logged with reasoning >=100 words; agent_runs row completed. result.itemsProcessed=8 of itemsFound=8. Matches AG-29-fundability's documented intent (diagnostic fundability score + deficiency breakdown, never auto-publishing KB/twin content). NUMBER-COLLISION CROSS-CONFIRMATION: this class (ag-29-fundability, src/lib/agents/fundability-scorer-agent.ts, per-org 2-Claude-call deficiency diagnostic writing fundability_scores) is genuinely distinct from the other real class also claiming 'AG-29' (ag-29-knowledge-indexer, src/lib/agents/knowledge-indexer-agent.ts, platform-level pgvector embedding + knowledge_patterns aggregation) -- confirmed by reading both files in full this session and by this run's own agent_runs.agent_type='ag-29-fundability' rows never intersecting the other class's 'ag-29-knowledge-indexer' rows in this same database. Different files, different constructors, different write targets, different business purpose -- a real, deliberate dual-use of the number 29 per AGENTS_v2.md's own roster, not a bug.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED-NIGHTLY+QUEUE (registry metadata stale: claims manual, is actually scheduled).",
+  "falsePassCasualty": false
+}

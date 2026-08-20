@@ -1,0 +1,69 @@
+{
+  "canonicalNumber": "AG-28",
+  "registryAgentId": "ag-28-followup",
+  "implementingFile": "src/lib/agents/followup-generator-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "agent_queue",
+    "application_followups"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new FollowupGeneratorAgent(orgId, supabase).run('manual'), against a real, freshly-seeded agent_queue row (status='processing', input_payload={applicationId,previousStage:'under_review',newStage:'submitted'}) for one of environment.json's seeded applications, moved to stage='submitted' first for consistency -- loadTriggerPayload() has no queue-item id passed into run() at all, it reads the currently-processing row for (org_id,agent_id) directly. Real trigger path: WIRED-EVENT+SCHEDULED+QUEUE (application stage-transition event, nightly sweep, routeQueueItem() case 'ag-28-followup').",
+  "before": {
+    "agent_runs": 0,
+    "application_followups": 0
+  },
+  "after": {
+    "agent_runs": 1,
+    "application_followups": 1
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "application_followups": 1
+  },
+  "sampleWrittenRow": {
+    "application_followups_rows": [
+      {
+        "id": "604d9d9d-62ad-4b2f-94ef-bc62194c68db",
+        "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "application_id": "94f79d2e-d8ec-4802-9395-ee251f298c0e",
+        "follow_up_type": "check_in",
+        "scheduled_date": "2026-09-13T05:00:00.000Z",
+        "channel": "email",
+        "content": "Subject: Following Up on Our Grant Submission\n\nThank you again for the opportunity to submit a proposal to PT-09 Community Foundation — we remain genuinely excited about the possibility of partnering with you on this work. We wanted to touch base to confirm receipt of our application and let you know that our interest and commitment to this project are as strong as ever. Please don't hesitate to reach out if any questions arise during your review or if there is any additional information we can provide to support your decision-making process.",
+        "status": "scheduled",
+        "created_at": "2026-08-20T07:16:51.190Z"
+      }
+    ],
+    "agent_runs_row": {
+      "id": "967f65fc-0e0a-4c1c-8af6-89227ad6a92a",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-28-followup",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Scheduled 1 follow-up(s) for stage \"submitted\".",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 393,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:16:46.109Z",
+      "completed_at": "2026-08-20T07:16:50.136Z",
+      "created_at": "2026-08-20T07:16:47.435Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 1,
+      "output_payload": {}
+    },
+    "seeded_agent_queue_id": "76a64085-c8a4-4150-be21-3de88e5911e5",
+    "seeded_application_id": "94f79d2e-d8ec-4802-9395-ee251f298c0e"
+  },
+  "triggerLog": "Seeded agent_queue row 76a64085-c8a4-4150-be21-3de88e5911e5 (status=processing, applicationId=94f79d2e-d8ec-4802-9395-ee251f298c0e, previousStage=under_review, newStage=submitted) for loadTriggerPayload() to recover.\nagent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":1,\"decisions\":[\"0bc75541-b958-47f0-9ccc-782c7eab4891\"],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WORKS",
+  "verdictReasoning": "application_followups row written with real content for the real seeded stage-transition (applicationId=94f79d2e-d8ec-4802-9395-ee251f298c0e, newStage=submitted): follow_up_type=check_in, scheduled_date=Sun Sep 13 2026 00:00:00 GMT-0500 (Central Daylight Time), channel=email, content=\"Subject: Following Up on Our Grant Submission\n\nThank you again for the opportunity to submit a proposal to PT-09 Community Foundation — we remain genuinely excited about the possibility of partnering with you on this work. We wanted to touch base to confirm receipt of our application and let you know that our interest and commitment to this project are as strong as ever. Please don't hesitate to reach out if any questions arise during your review or if there is any additional information we can provide to support your decision-making process.\". itemsQueued=1. This confirms loadTriggerPayload()'s recovery-via-processing-queue-row mechanism genuinely works and the agent produces real, org-scoped follow-up content.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-EVENT+SCHEDULED+QUEUE.",
+  "falsePassCasualty": false
+}

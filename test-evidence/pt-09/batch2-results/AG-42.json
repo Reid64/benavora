@@ -1,0 +1,60 @@
+{
+  "canonicalNumber": "AG-42",
+  "registryAgentId": "ag-42-change-monitor",
+  "implementingFile": "src/lib/agents/change-monitor-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "corporate_monitoring_events",
+    "foundation_directory"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new ChangeMonitorAgent(supabase).run('manual'). AutonomousAgent family, platform-level/unscoped (constructor takes only supabase; internally provisions/uses SYSTEM_ORG_ID, same pattern as AG-36). Real trigger path: WIRED-SCHEDULED ('AG-42 change monitor daily pipeline' worker/scheduler.ts job, hour 5, CONFIRMED STARTED+firing live per PT-08).",
+  "before": {
+    "agent_runs": 0,
+    "corporate_monitoring_events": 0
+  },
+  "after": {
+    "agent_runs": 1,
+    "corporate_monitoring_events": 0
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "corporate_monitoring_events": 0
+  },
+  "sampleWrittenRow": {
+    "corporate_monitoring_events_rows": [],
+    "agent_runs_row": {
+      "id": "e929ea94-7789-4d22-978b-56c59e9904f2",
+      "organization_id": "00000000-0000-4000-8000-000000000042",
+      "agent_type": "ag-42-change-monitor",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Checked 2 corporate prospect(s) and 0 foundation(s); 0 change(s) detected.",
+      "items_found": 2,
+      "items_processed": 2,
+      "error_message": null,
+      "tokens_used": 0,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:18:15.087Z",
+      "completed_at": "2026-08-20T07:19:08.265Z",
+      "created_at": "2026-08-20T07:18:14.551Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {
+        "changesDetected": 0,
+        "corporateProspectsChecked": 2,
+        "foundationDirectoryChecked": 0,
+        "corporateProspectsTableMissing": false
+      }
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":2,\"itemsProcessed\":2,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs completed cleanly (itemsFound=2, itemsProcessed=2, errors=[]) but zero corporate_monitoring_events rows landed -- most likely a genuine \"checked N entities, 0 real-world changes detected\" result against environment.json's 2 seeded corporateProspects + 1 seeded foundationDirectory row (no prior snapshot to diff against on a first-ever run, or a real diff finding nothing changed). See triggerLog/sampleWrittenRow.agent_runs_row.output_summary.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED.",
+  "falsePassCasualty": true
+}

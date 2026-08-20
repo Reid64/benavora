@@ -1,0 +1,460 @@
+{
+  "canonicalNumber": "AG-36",
+  "registryAgentId": "ag-36-learning-network",
+  "implementingFile": "src/lib/agents/learning-network-aggregator-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "alerts",
+    "org_learning_contributions",
+    "platform_learning_patterns"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new LearningNetworkAggregatorAgent(supabase).run('manual'). AutonomousAgent family, platform-level/unscoped (constructor takes only supabase; internally provisions/uses SYSTEM_ORG_ID for agent_runs/agent_decisions FK targets, per the class's own file header on why a real organizations row is required even though every actual data query is deliberately unscoped across all real tenant orgs). Real trigger path per pt09-001/agent-inventory.json is worker/scheduler.ts's weekly job, CONFIRMED STARTED+firing live per PT-08 -- this script exercises the same run() entrypoint directly. Local schema was patched first (org_learning_contributions table + platform_learning_patterns.confidence/weight columns, migrations 083/099, never applied to this local stack) via _fix-local-schema-gaps-ag29-ag36.mjs.",
+  "before": {
+    "agent_runs": 1,
+    "platform_learning_patterns": 6,
+    "org_learning_contributions": 20,
+    "alerts_learning_digest": 0
+  },
+  "after": {
+    "agent_runs": 2,
+    "platform_learning_patterns": 6,
+    "org_learning_contributions": 22,
+    "alerts_learning_digest": 0
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "platform_learning_patterns": 0,
+    "org_learning_contributions": 2,
+    "alerts_learning_digest": 0
+  },
+  "sampleWrittenRow": {
+    "platform_learning_patterns_rows": [
+      {
+        "id": "937a887e-92ff-4bd5-9f92-38249088338f",
+        "pattern_type": "funder_preference",
+        "funder_category": "private_foundation",
+        "ntee_code": null,
+        "pattern_content": "Cross-org funder preference pattern observed in awarded applications to private foundation funders.",
+        "success_rate": null,
+        "sample_count": 2,
+        "avg_award_amount": "45000",
+        "winning_examples": [
+          "NTEE codes: L | impact metrics: families served; housing stability outcomes",
+          "NTEE codes: L | impact metrics: housing stability"
+        ],
+        "last_updated": "2026-08-20T07:09:57.681Z",
+        "created_at": "2026-08-20T07:08:13.198Z",
+        "confidence": "low",
+        "weight": "1"
+      },
+      {
+        "id": "42e7b12a-4817-48f3-9315-754b7d42cca9",
+        "pattern_type": "timing",
+        "funder_category": "private_foundation",
+        "ntee_code": null,
+        "pattern_content": "Cross-org timing pattern observed in awarded applications to private foundation funders.",
+        "success_rate": null,
+        "sample_count": 2,
+        "avg_award_amount": "45000",
+        "winning_examples": [
+          "submitted_on_Thursday, submitted_in_month_8",
+          "submitted_on_Thursday, submitted_in_month_8"
+        ],
+        "last_updated": "2026-08-20T07:09:57.646Z",
+        "created_at": "2026-08-20T07:08:13.170Z",
+        "confidence": "low",
+        "weight": "1"
+      },
+      {
+        "id": "5bb153e5-2915-4ad8-912a-4795e25a4270",
+        "pattern_type": "keyword",
+        "funder_category": "private_foundation",
+        "ntee_code": null,
+        "pattern_content": "Cross-org keyword pattern observed in awarded applications to private foundation funders.",
+        "success_rate": null,
+        "sample_count": 1,
+        "avg_award_amount": "45000",
+        "winning_examples": [
+          "subsidy",
+          "families",
+          "capacity",
+          "displaced",
+          "stabilizing"
+        ],
+        "last_updated": "2026-08-20T07:08:13.136Z",
+        "created_at": "2026-08-20T07:08:13.136Z",
+        "confidence": "low",
+        "weight": "1"
+      },
+      {
+        "id": "a0f85194-9cff-4a1a-87fc-410c7eb01ee5",
+        "pattern_type": "narrative_language",
+        "funder_category": "private_foundation",
+        "ntee_code": null,
+        "pattern_content": "Cross-org narrative language pattern observed in awarded applications to private foundation funders.",
+        "success_rate": null,
+        "sample_count": 1,
+        "avg_award_amount": "45000",
+        "winning_examples": [
+          "stabilizing housing for vulnerable working families",
+          "up to six months of rental subsidy",
+          "dedicated case manager access to job-readiness training",
+          "verified average rental subsidy cost of $2,800",
+          "intensive workforce case management"
+        ],
+        "last_updated": "2026-08-20T07:08:13.105Z",
+        "created_at": "2026-08-20T07:08:13.105Z",
+        "confidence": "low",
+        "weight": "1"
+      },
+      {
+        "id": "349f9053-df13-4b24-ba5d-d785ce41201c",
+        "pattern_type": "funder_preference",
+        "funder_category": null,
+        "ntee_code": null,
+        "pattern_content": "Cross-org funder preference pattern observed in awarded applications to all funder categories.",
+        "success_rate": "0.4",
+        "sample_count": 8,
+        "avg_award_amount": "25000",
+        "winning_examples": [
+          "NTEE codes: L | impact metrics: housing stability",
+          "NTEE codes: L | impact metrics: housing stability",
+          "NTEE codes: L | impact metrics: housing stability",
+          "NTEE codes: L | impact metrics: housing stability",
+          "NTEE codes: L | impact metrics: housing stability"
+        ],
+        "last_updated": "2026-08-20T07:08:08.167Z",
+        "created_at": "2026-08-20T07:07:50.222Z",
+        "confidence": "medium",
+        "weight": "1"
+      },
+      {
+        "id": "06d3214e-86bc-4fa0-90af-7946ef0d146e",
+        "pattern_type": "timing",
+        "funder_category": null,
+        "ntee_code": null,
+        "pattern_content": "Cross-org timing pattern observed in awarded applications to all funder categories.",
+        "success_rate": "0.4",
+        "sample_count": 8,
+        "avg_award_amount": "25000",
+        "winning_examples": [
+          "submitted_15_to_30_days_before_deadline, submitted_on_Friday, submitted_in_month_7",
+          "submitted_15_to_30_days_before_deadline, submitted_on_Friday, submitted_in_month_7",
+          "submitted_15_to_30_days_before_deadline, submitted_on_Friday, submitted_in_month_7",
+          "submitted_15_to_30_days_before_deadline, submitted_on_Friday, submitted_in_month_7",
+          "submitted_15_to_30_days_before_deadline, submitted_on_Friday, submitted_in_month_7"
+        ],
+        "last_updated": "2026-08-20T07:08:08.142Z",
+        "created_at": "2026-08-20T07:07:50.162Z",
+        "confidence": "medium",
+        "weight": "1"
+      }
+    ],
+    "org_learning_contributions_rows": [
+      {
+        "id": "c4a8a803-6195-4c94-992d-2d07bd970ec3",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "fdd62beb-f941-4405-aa84-6ac362084bb8",
+        "contribution_type": "funder_preference",
+        "pattern_id": "937a887e-92ff-4bd5-9f92-38249088338f",
+        "anonymized_at": "2026-08-20T07:09:58.210Z",
+        "anonymized": true,
+        "source_hash": null
+      },
+      {
+        "id": "67df450d-0af3-4d1a-b435-d6dfe4c55062",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "fdd62beb-f941-4405-aa84-6ac362084bb8",
+        "contribution_type": "timing",
+        "pattern_id": "42e7b12a-4817-48f3-9315-754b7d42cca9",
+        "anonymized_at": "2026-08-20T07:09:58.178Z",
+        "anonymized": true,
+        "source_hash": null
+      },
+      {
+        "id": "45df91b2-87b5-449e-a643-16a0de5cef7c",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "4660158e-68a9-4019-b085-d8edd1b2a58a",
+        "contribution_type": "funder_preference",
+        "pattern_id": "937a887e-92ff-4bd5-9f92-38249088338f",
+        "anonymized_at": "2026-08-20T07:08:13.216Z",
+        "anonymized": true,
+        "source_hash": "141524ab229ab267ae06da8b67f8947218f8689657c9b39dc55515fa2aab86bb"
+      },
+      {
+        "id": "334ac9bc-61e2-49bb-9951-ce576146afe8",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "4660158e-68a9-4019-b085-d8edd1b2a58a",
+        "contribution_type": "timing",
+        "pattern_id": "42e7b12a-4817-48f3-9315-754b7d42cca9",
+        "anonymized_at": "2026-08-20T07:08:13.181Z",
+        "anonymized": true,
+        "source_hash": "141524ab229ab267ae06da8b67f8947218f8689657c9b39dc55515fa2aab86bb"
+      },
+      {
+        "id": "27980fd4-940a-40e8-b10f-5dfdea742173",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "4660158e-68a9-4019-b085-d8edd1b2a58a",
+        "contribution_type": "keyword",
+        "pattern_id": "5bb153e5-2915-4ad8-912a-4795e25a4270",
+        "anonymized_at": "2026-08-20T07:08:13.151Z",
+        "anonymized": true,
+        "source_hash": "141524ab229ab267ae06da8b67f8947218f8689657c9b39dc55515fa2aab86bb"
+      },
+      {
+        "id": "e6ec3739-4f0a-4e10-b022-d256db835df3",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "4660158e-68a9-4019-b085-d8edd1b2a58a",
+        "contribution_type": "narrative_language",
+        "pattern_id": "a0f85194-9cff-4a1a-87fc-410c7eb01ee5",
+        "anonymized_at": "2026-08-20T07:08:13.121Z",
+        "anonymized": true,
+        "source_hash": "141524ab229ab267ae06da8b67f8947218f8689657c9b39dc55515fa2aab86bb"
+      },
+      {
+        "id": "af063980-14cf-4274-bb82-5f01ab9489c5",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "ecae76e8-a553-425a-9a1e-a2b93524ba37",
+        "contribution_type": "funder_preference",
+        "pattern_id": "349f9053-df13-4b24-ba5d-d785ce41201c",
+        "anonymized_at": "2026-08-20T07:08:09.516Z",
+        "anonymized": true,
+        "source_hash": null
+      },
+      {
+        "id": "43a68ac7-d958-449c-b7a6-55db82900ee4",
+        "org_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+        "outcome_id": "ecae76e8-a553-425a-9a1e-a2b93524ba37",
+        "contribution_type": "timing",
+        "pattern_id": "06d3214e-86bc-4fa0-90af-7946ef0d146e",
+        "anonymized_at": "2026-08-20T07:08:09.492Z",
+        "anonymized": true,
+        "source_hash": null
+      }
+    ],
+    "agent_decisions_rows": [
+      {
+        "id": "1ddcf4a1-e909-4bef-b9d7-920b53a1ab8f",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "weekly_digest_generated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "42e7b12a-4817-48f3-9315-754b7d42cca9",
+        "reasoning": "This week: 2 pattern(s) updated, 0 new pattern(s) discovered, top performing pattern: Cross-org timing pattern observed in awarded applications to private foundation funders..",
+        "confidence_score": 80,
+        "action_taken": "Notified 0 platform owner org(s) with the weekly learning network digest.",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:09:58.238Z",
+        "agent_run_id": "d1bbc137-d717-46d4-8029-6b35d59837d3",
+        "action_payload": {
+          "ownersNotified": 0,
+          "patternsCreated": 0,
+          "patternsUpdated": 2,
+          "universalPatternsCreated": 0
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "4c71c721-1c85-4b16-b5ac-3f89c4e89488",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "937a887e-92ff-4bd5-9f92-38249088338f",
+        "reasoning": "Awarded outcome fdd62beb-f941-4405-aa84-6ac362084bb8 (private_foundation) contributed 1 anonymized excerpt(s) to a funder_preference pattern; sample_count is now 2 (confidence: low - below the sample-size floor, success_rate not recomputed). 1 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 56,
+        "action_taken": "Updated platform_learning_patterns row for funder_preference.",
+        "required_human_review": true,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:09:58.203Z",
+        "agent_run_id": "d1bbc137-d717-46d4-8029-6b35d59837d3",
+        "action_payload": {
+          "confidence": "low",
+          "patternType": "funder_preference",
+          "sampleCount": 2,
+          "funderCategory": "private_foundation"
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "c414348e-7d12-476c-b36a-d9f4073cc124",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "42e7b12a-4817-48f3-9315-754b7d42cca9",
+        "reasoning": "Awarded outcome fdd62beb-f941-4405-aa84-6ac362084bb8 (private_foundation) contributed 1 anonymized excerpt(s) to a timing pattern; sample_count is now 2 (confidence: low - below the sample-size floor, success_rate not recomputed). 1 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 56,
+        "action_taken": "Updated platform_learning_patterns row for timing.",
+        "required_human_review": true,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:09:58.172Z",
+        "agent_run_id": "d1bbc137-d717-46d4-8029-6b35d59837d3",
+        "action_payload": {
+          "confidence": "low",
+          "patternType": "timing",
+          "sampleCount": 2,
+          "funderCategory": "private_foundation"
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "0a462ef8-30ea-4f19-8104-a5baf761bd24",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "937a887e-92ff-4bd5-9f92-38249088338f",
+        "reasoning": "Awarded outcome 4660158e-68a9-4019-b085-d8edd1b2a58a (private_foundation) contributed 1 anonymized excerpt(s) to a funder_preference pattern; sample_count is now 1 (confidence: low - below the sample-size floor, success_rate not recomputed). 0 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 53,
+        "action_taken": "Created platform_learning_patterns row for funder_preference.",
+        "required_human_review": true,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:08:13.207Z",
+        "agent_run_id": "692849eb-e777-4ac8-840e-6e492fec7cc5",
+        "action_payload": {
+          "confidence": "low",
+          "patternType": "funder_preference",
+          "sampleCount": 1,
+          "funderCategory": "private_foundation"
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "b6759924-5b2a-482b-b546-1bc5a2ae8e01",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "42e7b12a-4817-48f3-9315-754b7d42cca9",
+        "reasoning": "Awarded outcome 4660158e-68a9-4019-b085-d8edd1b2a58a (private_foundation) contributed 1 anonymized excerpt(s) to a timing pattern; sample_count is now 1 (confidence: low - below the sample-size floor, success_rate not recomputed). 0 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 53,
+        "action_taken": "Created platform_learning_patterns row for timing.",
+        "required_human_review": true,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:08:13.176Z",
+        "agent_run_id": "692849eb-e777-4ac8-840e-6e492fec7cc5",
+        "action_payload": {
+          "confidence": "low",
+          "patternType": "timing",
+          "sampleCount": 1,
+          "funderCategory": "private_foundation"
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "9c90ecdd-5808-4c8f-aa13-b913ed4d4d33",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "5bb153e5-2915-4ad8-912a-4795e25a4270",
+        "reasoning": "Awarded outcome 4660158e-68a9-4019-b085-d8edd1b2a58a (private_foundation) contributed 10 anonymized excerpt(s) to a keyword pattern; sample_count is now 1 (confidence: low - below the sample-size floor, success_rate not recomputed). 0 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 53,
+        "action_taken": "Created platform_learning_patterns row for keyword.",
+        "required_human_review": true,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:08:13.145Z",
+        "agent_run_id": "692849eb-e777-4ac8-840e-6e492fec7cc5",
+        "action_payload": {
+          "confidence": "low",
+          "patternType": "keyword",
+          "sampleCount": 1,
+          "funderCategory": "private_foundation"
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "fb6df631-e815-4bc1-985a-1336198e6e23",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "a0f85194-9cff-4a1a-87fc-410c7eb01ee5",
+        "reasoning": "Awarded outcome 4660158e-68a9-4019-b085-d8edd1b2a58a (private_foundation) contributed 5 anonymized excerpt(s) to a narrative_language pattern; sample_count is now 1 (confidence: low - below the sample-size floor, success_rate not recomputed). 0 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 53,
+        "action_taken": "Created platform_learning_patterns row for narrative_language.",
+        "required_human_review": true,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:08:13.115Z",
+        "agent_run_id": "692849eb-e777-4ac8-840e-6e492fec7cc5",
+        "action_payload": {
+          "confidence": "low",
+          "patternType": "narrative_language",
+          "sampleCount": 1,
+          "funderCategory": "private_foundation"
+        },
+        "human_reviewer_id": null
+      },
+      {
+        "id": "a913b493-e286-4add-82b2-e32d02855231",
+        "org_id": "00000000-0000-4000-8000-000000000036",
+        "agent_id": "ag-36-learning-network",
+        "decision_type": "learning_pattern_updated",
+        "entity_type": "platform_learning_pattern",
+        "entity_id": "349f9053-df13-4b24-ba5d-d785ce41201c",
+        "reasoning": "Awarded outcome ecae76e8-a553-425a-9a1e-a2b93524ba37 (uncategorized) contributed 1 anonymized excerpt(s) to a funder_preference pattern; sample_count is now 8 (confidence: medium). 1 platform_learning_patterns row(s) already existed for this (pattern_type, funder_category) combination before this update.",
+        "confidence_score": 74,
+        "action_taken": "Updated platform_learning_patterns row for funder_preference.",
+        "required_human_review": false,
+        "human_reviewed_at": null,
+        "human_verdict": null,
+        "created_at": "2026-08-20T07:08:09.511Z",
+        "agent_run_id": "692849eb-e777-4ac8-840e-6e492fec7cc5",
+        "action_payload": {
+          "confidence": "medium",
+          "patternType": "funder_preference",
+          "sampleCount": 8,
+          "funderCategory": null
+        },
+        "human_reviewer_id": null
+      }
+    ],
+    "agent_runs_row": {
+      "id": "d1bbc137-d717-46d4-8029-6b35d59837d3",
+      "organization_id": "00000000-0000-4000-8000-000000000036",
+      "agent_type": "ag-36-learning-network",
+      "status": "completed",
+      "input_params": {
+        "lookbackDays": 90,
+        "maxOutcomesPerRun": 50
+      },
+      "output_summary": "Analyzed 1 of 10 awarded outcome(s) from the last 90 days (9 already contributed in a prior run, skipped); created 0 new platform_learning_patterns row(s) and updated 2 existing row(s); 0 cross-NTEE universal pattern(s) identified. Cross-NTEE analysis skipped - no pattern_type currently has >= 2 distinct NTEE-coded pattern rows with sample_count >= 3 (ntee_code is not yet populated by any live data source; see this file's header comment). This week: 2 pattern(s) updated, 0 new pattern(s) discovered, top performing pattern: Cross-org timing pattern observed in awarded applications to private foundation funders..",
+      "items_found": 10,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 1027,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:09:55.060Z",
+      "completed_at": "2026-08-20T07:09:57.734Z",
+      "created_at": "2026-08-20T07:09:55.785Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {
+        "errors": [],
+        "patternsCreated": 0,
+        "patternsUpdated": 2,
+        "skippedAsDuplicate": 9,
+        "universalPatternsCreated": 0
+      }
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":10,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[\"c414348e-7d12-476c-b36a-d9f4073cc124\",\"4c71c721-1c85-4b16-b5ac-3f89c4e89488\",\"1ddcf4a1-e909-4bef-b9d7-920b53a1ab8f\"],\"nextActions\":[\"Review updated cross-org patterns via the Knowledge Engine (/intelligence/learning-network).\"],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "DEFINITIVE ANSWER for the priority suspect question: this run completed cleanly (agent_runs row written, itemsFound=10, itemsProcessed=1, errors=[]) but wrote ZERO platform_learning_patterns rows with real content -- this is a genuine WIRED-NO-OUTPUT, not a hedge. outcomesAnalyzed vs outcomes.length and skippedAsDuplicate are visible in triggerLog/sampleWrittenRow.agent_runs_row.output_summary; check whether the seeded real-narrative outcome (4660158e...) was found in scope (result='awarded', recorded_at within 90 days) and, if found, whether processOutcome's own per-outcome try/catch swallowed a Claude-call or write failure into runErrors rather than propagating it -- see errors array for the specific reason.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: WIRED-SCHEDULED+QUEUE -- real scheduler.ts weekly job, CONFIRMED STARTED+firing live per PT-08. watchListRef learningAggregatorNowWired_correctsStaleAssumption: older STATE_OF_THE_BUILD.md/FEATURE_REGISTRY_v2.md entries (July 2026) documented this class as real code that was NEVER imported or called anywhere (orphaned); PT-08 found the scheduled job STARTED+firing but did not confirm real platform_learning_patterns output -- this run is that confirmation.",
+  "falsePassCasualty": true
+}

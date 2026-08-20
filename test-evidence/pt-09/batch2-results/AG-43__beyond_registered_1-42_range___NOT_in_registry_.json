@@ -1,0 +1,54 @@
+{
+  "canonicalNumber": "AG-43 (beyond registered 1-42 range — NOT in registry)",
+  "registryAgentId": null,
+  "implementingFile": "src/lib/agents/funder-signal-monitor-agent.ts",
+  "writeTargetTables": [
+    "agent_runs",
+    "agent_decisions",
+    "funder_relationship_signals"
+  ],
+  "triggerMethod": "Direct class invocation via tsx against the local pt05-local-stack: new FunderSignalMonitorAgent(orgId, supabase).run('manual'). AutonomousAgent family, org-scoped (loadFunders() uses environment.json's 3 seeded funders). Real trigger path per pt09-001: REGISTRY-GAP -- no agent_registry row exists (scripts/seed-agent-registry.ts's ROSTER stops at ag-42-change-monitor), no routeQueueItem() case, no scheduler.ts job found; real production entry point is POST /api/intelligence/signal-monitor per STATE_OF_THE_BUILD.md's 2026-08-15 session.",
+  "before": {
+    "agent_runs": 0,
+    "funder_relationship_signals": 0
+  },
+  "after": {
+    "agent_runs": 1,
+    "funder_relationship_signals": 0
+  },
+  "rowDelta": {
+    "agent_runs": 1,
+    "funder_relationship_signals": 0
+  },
+  "sampleWrittenRow": {
+    "funder_relationship_signals_rows": [],
+    "agent_runs_row": {
+      "id": "1fccab15-6caa-471c-85e6-414250510ee1",
+      "organization_id": "600fe8e5-c716-4b11-a9d2-da884df84016",
+      "agent_type": "ag-43-funder-signals",
+      "status": "completed",
+      "input_params": {},
+      "output_summary": "Analyzed 1 of 1 funder(s); no signal reached the 60/100 threshold.",
+      "items_found": 1,
+      "items_processed": 1,
+      "error_message": null,
+      "tokens_used": 31657,
+      "duration_ms": null,
+      "triggered_by": null,
+      "started_at": "2026-08-20T07:19:34.691Z",
+      "completed_at": "2026-08-20T07:19:40.491Z",
+      "created_at": "2026-08-20T07:19:35.551Z",
+      "trigger_source": "manual",
+      "next_action": null,
+      "confidence_score": null,
+      "items_queued": 0,
+      "output_payload": {}
+    }
+  },
+  "triggerLog": "agent.run(\"manual\") resolved: {\"success\":true,\"itemsFound\":1,\"itemsProcessed\":1,\"itemsQueued\":0,\"decisions\":[],\"nextActions\":[],\"errors\":[]}",
+  "errorSurfaced": null,
+  "verdict": "WIRED-NO-OUTPUT",
+  "verdictReasoning": "agent_runs completed cleanly (itemsProcessed=1, errors=[]) but zero funder_relationship_signals rows landed -- likely the same class of \"real web search against synthetic test funder names finds nothing real to cite\" result AG-30 hit, not a broken trigger. See triggerLog/sampleWrittenRow.agent_runs_row.output_summary.",
+  "registryPriorStatus": "See test-evidence/pt-09/agent-inventory.json triggerWiredVerdict: REGISTRY-GAP -- real, working agent (per prior documented live verification), zero agent_registry row exists for it. watchListRef: ag43ExistsButUnregistered.",
+  "falsePassCasualty": true
+}
