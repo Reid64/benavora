@@ -1,27 +1,74 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 — audit PT-08-003 (agent_queue lifecycle semantics, branch/local) done.
-Headline: `agent_queue`'s real claim/retry/max-retries/completion state machine
-(`claimNextQueueItem()`/`runQueueItem()` in `worker/autonomous-orchestrator.ts`) was exercised
-end-to-end against a disposable local Postgres database (never production) via a script that
-reimplements the exact same SQL predicates and, for the failure path, calls the REAL, unmodified
-`routeQueueItem()` export live. Result: **no broken queue semantics found** — a job is correctly
-claimed via a compare-and-swap `UPDATE ... WHERE status='queued'`; a simulated failure correctly
-requeues the row (`status='queued'`, `retry_count` incremented, `error_message` recorded,
-`completed_at` left null) and the requeued row is genuinely reclaimable and can still reach
-`completed`; a job whose work always fails is correctly bounded — it reaches the terminal `failed`
-state exactly at `max_retries` (3 by default), with `completed_at` set, and is never reclaimed
-again; a successful job writes `status='completed'` with a real, non-empty `output_payload.summary`;
-and a poison job that always fails, deliberately queued directly ahead of a good job (same priority,
-earlier `queued_at`), does NOT permanently block the queue — the good job still reaches `completed`
-once the poison job's bounded retries exhaust (3 poison-job claim attempts before the good job's
-first claim, exactly matching `max_retries`). One ancillary, narrower finding filed (WGR-040, P1,
-UNVERIFIED): no per-item timeout wraps a claimed job's execution at the queue-processor layer — a
-job that fails-fast is bounded (confirmed above), but a job whose work HANGS (never resolves, never
-rejects) is not bounded by anything visible at this layer and would block every other queued item
-indefinitely; not independently reproduced (a genuine hang would hang the test itself), flagged as a
-code-read observation. See the "SESSION — August 19, 2026 (audit PT-08-003: agent_queue lifecycle
-semantics)" entry below.**
+**Updated: August 20, 2026 — audit PT-08 COMPLETE (jobs/queues/worker audit, review pack ready for
+Reid). Headline: the background tier that matters for autonomous agent execution — `worker/
+scheduler.ts`'s 13 pipeline jobs (AG-10, AG-23/32, AG-25, AG-26, AG-27, AG-36, AG-38, AG-42, nightly
+pipeline + AG-28 follow-ups, morning digest, AutoApply overnight orchestrator, both Directive-1
+scraper jobs) — is CONFIRMED LIVE AND RUNNING in production, independent of the disputed
+middleware/cron question below: these jobs run inside the always-on Railway worker process itself,
+never over HTTP, so they are structurally immune to `src/middleware.ts`. All 13 confirmed actually
+firing across a real 5-day production log window. Separately, 24 of 26 inventoried
+processors/consumers start at boot; the 2 that don't are `worker/enrichment-processor.ts`
+(**WGR-033, P1** — a complete, real processor for all 10 EA-01..EA-10 corporate-enrichment agents +
+AG-22 propensity scoring, with ZERO reachability anywhere — not booted, not on-demand, contradicting
+`WORKER_ARCHITECTURE_v2.md`'s own documented boot step 6) and `src/worker/jobs/
+process-discovery-request.ts` (**WGR-034, P3** — orphaned duplicate, capability already covered by a
+running processor). Cron reconciliation found 6 of 11 real `/api/cron/*` route handlers registered
+nowhere (`vercel.json` nor `worker/scheduler.ts`): 4 real gaps (**WGR-035** draft-automation,
+**WGR-036** sales-sends — highest-confidence, a real admin action produces rows nothing ever sends
+— **WGR-037** follow-ups — two-layer dead, producer AND consumer both unreachable — **WGR-038**
+email-sequences, already-known gap now registered for the first time), 1 orphaned-no-gap
+(**WGR-039** draft-queue-check), 1 intentionally retired (`campaigns`, no WGR row). The `agent_queue`
+state machine itself (claim/retry/max-retries-terminal/completion/poison-job-isolation) was exercised
+against a disposable local Postgres DB and found fully correct (`overallVerdict:
+ALL_SEMANTICS_CORRECT`), with one narrower, UNVERIFIED code-read finding (**WGR-040**, P1: no
+per-item execution timeout — a hanging job, unlike a failing one, would block the queue
+indefinitely). The one open question this phase did NOT settle: whether the 5 already-`vercel.json`-
+registered crons (research/grantsgov/reminders/autoapply/domain-warmup) actually succeed in
+production — local dev shows `src/middleware.ts` redirects every `/api/cron/*` call including these
+5 to `/login` before the route's own `CRON_SECRET` check runs (WGR-023, P0, pre-existing), Reid
+reports production returns 401 instead; neither claim independently re-verified against the deployed
+URL this phase (prod-safe/static-read-only scope). Full detail:
+`test-evidence/pt-08/PHASE-08-SUMMARY.md`; short version for review: `test-evidence/pt-08/
+REVIEW-PACK.md`. See "SESSION — August 20, 2026 (audit PT-08 COMPLETE)" entry below.**
+
+## SESSION — August 20, 2026 (audit PT-08 COMPLETE: jobs/queues audit, review pack ready)
+
+Consolidation of the three PT-08 sub-audits (worker boot inventory, cron registration
+reconciliation, agent_queue lifecycle semantics — each already detailed in its own session entry
+below) into `test-evidence/pt-08/PHASE-08-SUMMARY.md` (every number cites its evidence file) and
+`test-evidence/pt-08/REVIEW-PACK.md` (the short read for Reid). No new live testing was performed
+this session — this was consolidation and write-up only, following the same PHASE-0X-SUMMARY.md /
+REVIEW-PACK.md pattern already established by PT-00 and PT-02.
+
+**Confirmed all PT-08 findings are already recorded in `test-evidence/_register/WIRING_GAP_REGISTER.md`**
+as rows WGR-033 through WGR-040 (filed during the three prior PT-08 sessions, each with a real
+evidence path and reproduction command) — no new register rows were needed; this session only
+synthesized what was already there.
+
+**The synthesis this consolidation adds, not present in any single prior PT-08 sub-audit entry:** a
+direct answer to "can the background tier actually run in prod," pulling together PT-08-001's live
+boot evidence, PT-08-002's registration reconciliation, and the pre-existing WGR-023/WGR-003
+findings from PT-00/PT-02. The two scheduling mechanisms in this codebase have two different,
+independent verdicts that must not be conflated: `worker/scheduler.ts`'s 13 jobs run inside the
+Railway worker process itself and are never subject to `src/middleware.ts` at all (confirmed
+operational via 5 days of real production firing logs) — this is the machinery PT-09 (agents) needs,
+and it works. The 5 `vercel.json`-registered Vercel Cron HTTP routes are a narrower, genuinely
+separate, still-unresolved question, since they ARE subject to the disputed middleware
+redirect-vs-401 discrepancy. The other 6 unregistered `/api/cron/*` routes are moot on the middleware
+question entirely — registered nowhere, so it doesn't matter whether middleware would block them.
+
+**Created `scripts/audit/verify-pt08-004.mjs`**, following the exact pattern
+`scripts/audit/verify-pt02-006.mjs` established for PT-02's own closing verifier: exits non-zero
+unless `PHASE-08-SUMMARY.md` and `REVIEW-PACK.md` both exist non-empty, and
+`WIRING_GAP_REGISTER.md` contains both the last row of the register before PT-08 (WGR-032, PT-02's
+last row — there is no PT-03 through PT-07 register content yet, confirmed by reading the register
+directly rather than assumed) and PT-08's own first row (WGR-033), proving the register has grown
+with real PT-08 findings, not just been left at its pre-PT-08 state. Ran clean:
+`node scripts/audit/verify-pt08-004.mjs` — PASS.
+
+**Scoped commit:** `test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` only — matching
+this task's explicit instruction, not `git add -A`.
 
 ## SESSION — August 19, 2026 (audit PT-08-003: agent_queue lifecycle semantics)
 
