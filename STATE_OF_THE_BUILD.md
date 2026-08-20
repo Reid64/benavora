@@ -1,6 +1,55 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-14: client-bundle secret scan + middleware review — 0 P0 secrets in the shipped build, WGR-023 (middleware over-redirects cron/webhook routes) reconfirmed live in production.**
+**Updated: August 20, 2026 — audit PT-14 COMPLETE: security review pack ready. 4 P0s (all SSRF/availability), zero secrets leaked, zero exploitable XSS, one tenant-contained SQLi, RLS/anon 0/184 tables leak.**
+
+## SESSION — August 20, 2026 (audit PT-14 COMPLETE: security, review pack ready)
+
+Consolidation of the three PT-14 audit passes below (injection sweep; table-by-table RLS + storage
+anon audit; client-bundle secret scan + middleware review) — no new live investigation this pass.
+Wrote `test-evidence/pt-14/PHASE-14-SUMMARY.md` (added a lead-with-P0 section at the top, plus a new
+addendum consolidating the bundle-scan/middleware sub-pass, which the summary hadn't yet covered as
+its own section) and `test-evidence/pt-14/REVIEW-PACK.md` (added the missing secret-leak item and a
+short cross-reference item tying the dedicated middleware review's independent production
+confirmation back to the CSRF section's own finding), then confirmed/extended
+`WIRING_GAP_REGISTER.md`.
+
+**Register work this pass:** `WGR-023` (PT-02's original middleware finding, built entirely on
+local-dev-server evidence) updated in place with an explicit confirmation note — this phase's two
+independent live-production probe sets (21 attempts via the injection/CSRF sweep, `WGR-111`; 7
+further attempts via the dedicated middleware review, `bundle-and-middleware.json`) both reproduce
+the same root cause unchanged in the currently-deployed build, closing the "production env vars were
+not checked" gap WGR-023's own text had flagged. One new row, **`WGR-120`** (P3, `CONFIRMED-OK`),
+registers the bundle secret-scan's clean 0-finding result — following the register's established
+convention (`WGR-071/073/076/114`) of recording a verified-clean outcome as its own row rather than
+leaving a 0-finding pass undocumented. Register now runs `WGR-001` through `WGR-120`, unbroken (7 new
+rows from the injection sweep, 5 from the RLS/storage audit, 1 from this consolidation, plus the
+`WGR-023` update).
+
+**Net phase result, all four vectors plus RLS/anon/storage plus the bundle/middleware review:**
+4 P0 findings, all in the SSRF/availability space (`WGR-108`/`109`/`110` — real, mostly
+live-reproduced unguarded server-side fetch/browser-navigation paths; `WGR-111` — middleware
+redirects Stripe/Resend/Vercel-Cron callers the same way it would redirect a forged request, a real
+availability risk to billing/email/automation that needs Reid to check external dashboards to
+confirm). Two P2 findings (`WGR-112` tenant-contained SQL/filter-injection; `WGR-113` unescaped HTML
+in transactional email templates, already known, now permanently registered). Zero exploitable XSS,
+zero forgeable CSRF, zero leaked secrets in the shipped client bundle, zero of 184 tables or 7
+storage buckets leaking data to the anon key today (the `MASTER_BACKLOG.md`-vs-later-claim conflict
+this phase set out to resolve is resolved: the later "fixed" claim was correct). Two open,
+non-urgent confirmations for Reid (`WGR-117` `org-branding` bucket write-scope intentionality) and
+two cheap defense-in-depth cleanups (`WGR-118`/`119`, stale default anon write/execute grants,
+currently unexploitable).
+
+**Gate:** `node scripts/audit/verify-pt14-004.mjs` — PASS. Confirms `PHASE-14-SUMMARY.md` and
+`REVIEW-PACK.md` are both present, non-empty, and reference all three sub-passes' findings, and that
+`WIRING_GAP_REGISTER.md` contains the pre-consolidation last row (`WGR-119`) plus this
+consolidation's new row (`WGR-120`), with the register's total row count consistent with a clean
+append.
+
+**Scoped commit:** `test-evidence/` (summary, review pack, register update, new WGR-120 script),
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` — commit "audit PT-14 COMPLETE: security, review pack
+ready".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14: client-bundle secret scan + middleware review)
 

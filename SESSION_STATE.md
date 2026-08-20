@@ -1,5 +1,35 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-14: client-bundle secret scan (0 P0, 247 shipped files) + middleware review (WGR-023 reconfirmed live in prod).
+## Last Updated: August 20, 2026 — audit PT-14 COMPLETE: security review pack ready, 4 P0s (all SSRF/availability), register WGR-001 through WGR-120.
+
+## SESSION — August 20, 2026 (audit PT-14 COMPLETE: security, review pack ready)
+
+Consolidation of the three PT-14 passes below — no new investigation, cross-referenced all three
+already-committed evidence sets (injection sweep, RLS/anon+storage audit, bundle-scan+middleware
+review) against the existing register to find what wasn't yet reflected: `PHASE-14-SUMMARY.md`
+gained a lead-with-P0 section plus a full addendum for the bundle-scan/middleware sub-pass (it
+previously only had the injection sweep and RLS/storage sections); `REVIEW-PACK.md` gained the
+missing secret-leak item and a short item tying the dedicated middleware review's second,
+independent production confirmation back to the CSRF section.
+
+**Register:** `WGR-023` (PT-02's original middleware finding) updated in place — this phase closed
+its own documented gap ("production env vars were not checked") with two independent live-prod probe
+sets that both reproduce the same root cause unchanged. One new row, **`WGR-120`** (P3,
+`CONFIRMED-OK`), registers the bundle secret-scan's clean result, per the register's established
+convention of recording verified-clean outcomes as their own row. Register now runs `WGR-001`
+through `WGR-120`, unbroken.
+
+**Phase result:** 4 P0s (all SSRF/availability — `WGR-108`/`109`/`110`/`111`), 2 P2s
+(`WGR-112` tenant-contained SQLi, `WGR-113` unescaped email-template HTML, already known), zero
+exploitable XSS, zero forgeable CSRF, zero leaked secrets in the shipped bundle, 0/184 tables and
+0/7 storage buckets leaking to the anon key (resolves the `MASTER_BACKLOG.md`-vs-later-claim
+conflict in favor of the later "fixed" claim). Two open confirmations for Reid (`WGR-117`) and two
+cheap, currently-unexploitable cleanups (`WGR-118`/`119`).
+
+**Gate:** `node scripts/audit/verify-pt14-004.mjs` — PASS. Confirms both consolidation docs
+present/non-empty and the register contains `WGR-119` plus the new `WGR-120` with a consistent row
+count.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14: client-bundle secret scan + middleware review)
 

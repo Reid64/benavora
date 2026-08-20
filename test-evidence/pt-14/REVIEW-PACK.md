@@ -57,7 +57,18 @@ found and documented five weeks ago (`SECURITY_TEST_2026-08-15.md`) and is still
 just re-confirmed it and gave it a permanent register row (WGR-113) so it stops falling through the
 cracks between audit passes.
 
-### 4. Zero forgeable CSRF holes — but a real availability bug hiding behind that same "protection"
+### 4. Zero secrets leaked to the browser
+
+Built the real production bundle, scanned every one of the 247 files it actually ships to a
+browser (not the server-only code that stays on the server) for every real secret this app has —
+service-role DB key, database connection string, Anthropic/OpenAI/SAM.gov/Google Places keys, plus
+generic patterns for Stripe/AWS/Postgres/PEM secrets. Also decoded all 77 JWT-shaped tokens found
+in the bundle and checked their role claim. **Zero secrets found. All 77 tokens are the public,
+intentionally-shipped anon key — zero service-role tokens anywhere.** This is the one unambiguously
+clean result in this phase, and it lines up with the RLS answer below: the anon key being public is
+fine precisely because RLS (not secrecy) is what's actually protecting the data behind it.
+
+### 5. Zero forgeable CSRF holes — but a real availability bug hiding behind that same "protection"
 
 Every state-changing route this session tried to forge (no session cookie, spoofed headers, unsigned
 webhook payloads, missing cron secrets) got correctly rejected. Good news on its face. But *how* the
@@ -74,7 +85,7 @@ this session couldn't reach those. If confirmed, the fix is a one-line addition 
 `middleware.ts`'s path allowlist (add `/api/webhooks/*`, `/api/admin/webhooks/*`, `/api/cron/*` —
 each already has its own real signature/secret check that doesn't need a session on top of it).
 
-### 5. The "is our RLS actually fixed" question, answered for real: yes
+### 6. The "is our RLS actually fixed" question, answered for real: yes
 
 A separate document, `MASTER_BACKLOG.md` (2026-07-30), had flagged 8 tables and 5 storage buckets as
 readable by anyone with no login at all — and a later session claimed they were all fixed. Nobody had
@@ -89,6 +100,18 @@ real, if currently harmless, gap: 107 tables and all 47 database functions still
 write/execute permissions granted to the anonymous role and never revoked — nothing can exploit it
 today because every actual write rule correctly checks who's logged in first, but it's one policy bug
 away from mattering, and the fix (revoke the stale grant) is cheap. `WGR-115` through `WGR-119`.
+
+### 7. The middleware/webhook finding, double-checked a second way — same answer
+
+Item 5's CSRF investigation (WGR-111) was based on the injection sweep's own live production
+attempts. A separate, dedicated pass this session re-probed production a second, independent way —
+curling `www.benavora.com` directly against real cron and webhook routes, with real `Server: Vercel`
+and per-request `X-Vercel-Id` headers confirming genuine live responses, not a cache hit. **Same
+result both times**: every route redirects to `/login` before its own check runs. This also
+surfaced a real, still-open disagreement worth flagging to whoever owns this: a different part of
+this project's records says "Reid reports cron routes return `401` in production" — this session's
+live evidence says `307`, twice, independently. Someone needs to reconcile that before trusting
+either claim blindly.
 
 ## Priority order, if only fixing one thing today
 

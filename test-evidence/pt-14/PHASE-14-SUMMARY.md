@@ -1,8 +1,26 @@
-# PT-14 — Phase 14 Summary (Injection Sweep: SQLi, XSS, CSRF, SSRF)
+# PT-14 — Phase 14 Summary (Security: Injection Sweep, RLS/Anon + Storage Audit, Bundle Secret
+Scan, Middleware Review)
 
-Consolidated numbers for the PT-14 phase. Every count below cites the evidence artifact it came
-from — re-run the cited verifier or read the cited file directly to reproduce it; nothing here is
-asserted from memory.
+Consolidated numbers for the PT-14 phase, across all three sub-passes (PT-14-001/002 injection
+sweep, PT-14-004/005 RLS/anon + storage audit, PT-14-003 bundle secret scan + middleware review).
+Every count below cites the evidence artifact it came from — re-run the cited verifier or read the
+cited file directly to reproduce it; nothing here is asserted from memory.
+
+## P0 findings — read this first
+
+Four P0s across the whole phase, all in the SSRF/availability space. Nothing else in this phase
+(RLS, storage, secrets, XSS, the one SQLi finding) reaches P0 — see the sections below for why each
+of those is graded lower.
+
+| id | what | live-confirmed? |
+|---|---|---|
+| **WGR-108** | `POST /api/intelligence/ingest` — zero-validation server-side `fetch()` on a fully user-supplied URL, response **persisted** to the Intelligence Library (SSRF + exfiltration) | Yes — real local listener reached via the exact vulnerable code |
+| **WGR-109** | AutoApply `WebhookNotifier.notify()` — zero-validation `fetch()` to an admin-set `webhook_url`, fires on every real AutoApply event | Yes — real local listener received the POST |
+| **WGR-110** | AutoApply submission pipeline navigates a real headless browser to `funders.giving_portal_url` with zero SSRF guard (worse than the other two — full browser, not just a fetch) | No — static source read only, high-confidence, not empirically reproduced |
+| **WGR-111** | `src/middleware.ts` redirects every request with no Supabase session cookie to `/login`, including Stripe/Resend webhooks and Vercel Cron — before the route's own signature/`CRON_SECRET` check runs | Yes — 21 live attempts against production this phase (injection sweep), plus a second, independent set of 7 live production probes (dedicated middleware review, `bundle-and-middleware.json`) |
+
+Everything below this point is detail and lower-severity findings. See `REVIEW-PACK.md` in this
+same directory for the plain-language version.
 
 ## Scope and prerequisites
 
@@ -332,3 +350,119 @@ resolved in `disputed_items_resolution`; and the file's own summary counts match
 drift.
 
 Evidence: `test-evidence/pt-14/rls-anon-audit.json`. Register: `WGR-115` through `WGR-119`.
+
+---
+
+## PT-14-003 addendum -- client-bundle secret scan + middleware disposition
+
+### Bundle secret-scan result: PASS, 0 findings
+
+Ran a fresh `pnpm run build` (`.next` deleted first, so this scans real, current output, not a
+stale artifact) and scanned every file the build actually ships to a browser -- **247 shipped
+files scanned**: 209 static JS/CSS/JSON chunks, 12 prerendered HTML pages, 26 RSC payloads.
+Explicitly out of scope, and stated as such rather than silently included: `.next/server/**/*.js`
+(server-only route-handler/RSC-render code that never reaches a client, so a secret referenced
+there is not a client-bundle leak by definition).
+
+Three independent passes, all real:
+1. **Known-value pass** -- every secret in `.env.local` with a real, non-`NEXT_PUBLIC_*` value
+   (`SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `ANTHROPIC_API_KEY`, `SAM_GOV_API_KEY` x3,
+   `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY` x2, `FAITH_FOUNDATION_ORG_ID`) searched literally
+   across all 247 files -- **zero matches**. 19 further server-only secret names referenced
+   somewhere in `src/`/`worker/` (`CRON_SECRET`, `STRIPE_SECRET_KEY`, `RESEND_API_KEY`,
+   `CREDENTIAL_ENCRYPTION_KEY`, etc.) had no local value in `.env.local` to test the known-value
+   way -- listed explicitly in `bundle-scan.txt`/`_bundle-scan-summary.json`'s
+   `secretsReferencedButNotChecked` rather than silently skipped, since a missing local value means
+   this specific pass could not check them by literal string match (the pattern pass below still
+   covers several of them by shape).
+2. **Pattern pass** -- format-based regexes for Stripe live/test/restricted secret keys, PEM
+   private-key blocks, AWS access key IDs, Resend API keys, Postgres connection strings with
+   embedded credentials, and OpenAI/Anthropic key shapes -- **zero matches** across all 247 files.
+3. **JWT role-claim pass** -- every JWT-shaped token found in the bundle (77 total) had its payload
+   base64-decoded and its `role` claim checked. **All 77 are `role: "anon"`** -- the real, publicly
+   intended `NEXT_PUBLIC_SUPABASE_ANON_KEY` (protected by RLS, not secrecy, per the RLS/anon audit
+   above, which independently confirmed 0 of 184 tables leak data to this exact key). **Zero
+   `service_role`/`supabase_admin` tokens present anywhere in the shipped bundle.**
+
+**Verdict: PASS, 0 P0 findings.** Full raw output: `test-evidence/pt-14/bundle-scan.txt`. Structured
+summary: `test-evidence/pt-14/_bundle-scan-summary.json`, rolled into
+`test-evidence/pt-14/bundle-and-middleware.json`. Verified via
+`node scripts/audit/verify-pt14-003.mjs` (exit 0) -- the verifier independently re-derives the
+scanned-file count from the raw `bundle-scan.txt` output and requires it to match the JSON summary's
+own claimed count, so a stale or hand-edited summary would fail the check, not just a missing file.
+
+### Middleware disposition: WGR-023's root cause reconfirmed live in production, plus a real
+conflicting-report finding
+
+PT-02's WGR-023 (`src/middleware.ts` has no exemption for cron/webhook/bootstrap/unsubscribe
+routes) was originally built entirely on a **local dev-server** unauthenticated-rejection sweep --
+its own text says production env vars "were not checked." This pass closed that gap with a real
+probe against `https://www.benavora.com` itself (not local `pnpm dev`), 7 of the 18 routes WGR-023
+names, including 2 of the 5 real `vercel.json`-registered Cron targets (`/api/cron/grantsgov`,
+`/api/cron/domain-warmup`) and both webhook routes (`/api/webhooks/stripe`, `/api/webhooks/resend`),
+plus `/api/platform/bootstrap` and `/api/unsubscribe`.
+
+**Every one of the 7 returned `HTTP 307 Location: /login`** -- full headers captured, including a
+real `Server: Vercel` and a distinct `X-Vercel-Id` on every response (confirming genuine
+per-request production responses, not a cached/CDN artifact). Adding an
+`Authorization: Bearer wrongsecret` header made no difference to any of the 7 -- `src/middleware.ts`
+redirects an unauthenticated caller before the route's own `CRON_SECRET`/signature check ever runs,
+confirmed identically in production as it was locally. **This is the same underlying fact WGR-111
+already registers (P0, from the injection/CSRF sweep's own 21 production attempts) -- this pass
+reaches it a second, independent way (a dedicated middleware review, separate evidence file,
+`bundle-and-middleware.json`, not `injection.json`), which is why WGR-023's own row has been
+updated in place (see Register coverage below) rather than left describing only the stale
+local-dev-only evidence.**
+
+**A real, unresolved discrepancy, recorded rather than silently preferring one source:**
+`WIRING_GAP_REGISTER.md`'s WGR-003 row separately records "Reid reports cron routes return `401`
+(not a redirect) when hit unauthenticated in production." This session's live curl evidence
+directly contradicts that report for every one of the 7 routes probed today (`307`, not `401`).
+Recorded explicitly in `test-evidence/pt-14/bundle-and-middleware.json`'s
+`middlewareReview.wgr023Disposition.conflictingReport` field rather than silently resolved either
+way -- needs Reid to reconcile (a stale report, a since-reverted fix, or testing against a
+different deployment/environment than `www.benavora.com`).
+
+**Matcher-gap check (the opposite direction -- a route that bypasses auth when it shouldn't) --
+no gap found.** `PUBLIC_PATHS`, `isPublicPath()`'s three narrow exemption clauses (`/api/auth/*`,
+`/invite*`, the exact `/api/users/accept` path), and the exported `matcher` regex were parsed
+directly out of the live `src/middleware.ts` source (not hardcoded/assumed from memory) -- the
+exemption list is exactly the 10 static/auth pages plus those 3 individually-justified clauses, and
+the matcher only excludes standard Next.js static-asset infrastructure. **Verdict:
+`NO_BYPASS_GAP_FOUND`.** Net picture across both directions checked this phase: this codebase's
+middleware errs toward *over*-restriction (WGR-023/WGR-111 -- blocking legitimate server-to-server
+callers), never under-restriction -- zero auth-bypass findings anywhere in PT-14.
+
+### Register coverage (this addendum)
+
+**WGR-023's existing row was updated in place** with this session's live production confirmation
+(see the row's own "Update (PT-14-003" text). **One new row this addendum, WGR-120** (P3,
+`CONFIRMED-OK`) registers the bundle secret-scan's clean result, following the register's
+established convention of recording a verified-clean outcome as its own row (see WGR-071/073/076/
+114) rather than leaving a 0-finding pass undocumented.
+
+### Verifier status
+
+```
+node scripts/audit/verify-pt14-003.mjs
+  -> PASS: bundle scan ran for real (247 shipped files scanned, 0 P0 secret finding(s)) and the
+     middleware review is recorded with 7 real production probe(s) (cron + webhook both covered)
+     and a completed matcher-gap check (NO_BYPASS_GAP_FOUND).
+     Bundle scan verdict: PASS
+     WGR-023 disposition severity: P0
+     Overall verdict: PASS
+     P0 findings recorded: 0
+```
+
+The verifier requires: `bundle-scan.txt` exists, is non-empty, and contains all 5 expected raw-scan
+sections with a positive scanned-file count; `bundle-and-middleware.json` exists, is well-formed,
+and its `bundleSecretScan.scope.totalShippedFilesScanned` matches the raw `.txt` file's own count
+exactly (catches drift between the two); at least one live production probe targets a real
+`/api/cron/*` route and at least one targets a real `/api/webhooks/*` route (not just an arbitrary
+API route); every probe targets an actual `benavora.com` URL (not a local dev server); the
+matcher-gap check reports a known verdict backed by a real, non-empty `PUBLIC_PATHS` list parsed
+from source; and the file's own `overallVerdict` is independently recomputed from
+`bundleSecretScan.summary.verdict` + `matcherGapCheck.verdict` rather than trusted as hand-set.
+
+Evidence: `test-evidence/pt-14/bundle-scan.txt`, `test-evidence/pt-14/bundle-and-middleware.json`.
+Register: `WGR-023` (updated), `WGR-120` (new).
