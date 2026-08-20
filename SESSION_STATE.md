@@ -1,5 +1,65 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-06-003 COMPLETE: code-vs-live-schema cross-reference
+## Last Updated: August 20, 2026 — audit PT-06-004 COMPLETE: constraint/FK/orphan integrity audit,
+read-only against prod. Enumerated all 267 live FK constraints via `pg_catalog` (multi-column-safe;
+found and fixed a real `pg` driver quirk mid-run — `array_agg` over Postgres `name` columns needs an
+explicit `::text` cast or the Node driver returns an unparsed string instead of an array) and ran a
+live orphan-row count for each — **0 orphans on all 267**, every declared FK is holding cleanly. The
+real finding is the other half of the same failure mode: **13 tables have an `organization_id`/
+`org_id` tenant column with NO live FK constraint enforcing it** (`adapter_usage_log`,
+`agent_configurations`, `autoapply_review_queue`, `board_meeting_packets`, `board_meetings`,
+`discovery_matches`, `funding_forecasts`, `impact_simulations`, `knowledge_queries`,
+`opportunity_probability_scores`, `organizational_digital_twins`, `pitch_cache`,
+`submission_receipts`) — all flagged **P1**, feeding PT-05/PT-14 per the task's own framing.
+Primary-key coverage is clean (184/184 base tables have one, via `pg_index.indisprimary`). A
+26-candidate identifier-column duplicate scan found **6 real duplicate-data findings**
+(`nonprofits.website` 213,373 extra rows, `foundation_directory.website` 68,845 extra rows, both P1;
+plus 4 smaller P2s including `profiles.email`, 1 duplicate pair). **19 total findings (15 P1, 4 P2)**,
+every one with the exact live query and count. Gate: `node scripts/audit/verify-pt06-004.mjs` — PASS.
+See "Current Session — August 20, 2026 (audit PT-06-004)" below. (PT-06-003's code-vs-schema headline
+and PT-06-002's migration-drift headline are preserved in their own session entries.)
+
+## Current Session — August 20, 2026 (audit PT-06-004: constraint/FK/orphan integrity audit)
+
+**Focus:** PT-06-004 — a structural data-integrity audit distinct from PT-06-002 (migration drift)
+and PT-06-003 (code-vs-schema mismatch): does the schema's own declared constraints hold up against
+the actual rows in production, independent of code or migration files. Four checks, all read-only via
+the same engine-enforced-read-only `DATABASE_URL` connection PT-06-001 already proved.
+
+**What was done:**
+1. **FK enumeration + orphan counts** — 267 live FK constraints via `pg_catalog` (`pg_constraint`
+   joined through `unnest(conkey)`/`unnest(confkey)` with ordinality, correctly position-matched for
+   composite keys — more robust than `information_schema.constraint_column_usage`, which can
+   mis-join multi-column FKs). Real bug found and fixed mid-run: `array_agg(att.attname ...)` over a
+   Postgres `name`-typed column returned an unparsed string (`"{agent_id}"`) from the `pg` Node
+   driver instead of a JS array, since it has no default parser registered for `name[]` — fixed by
+   casting to `::text` before aggregating. For each FK, ran a live `NOT EXISTS`-based orphan count
+   (positional equality for multi-column FKs). Result: 0 orphans across all 267.
+2. **Tenant FK gap** — reused PT-06-002's already-fetched column census
+   (`test-evidence/pt-06/live-schema.json`) to find all 120 tables with an `organization_id`/`org_id`
+   column, cross-referenced against the FK list from step 1. 13 have the column with no FK — see the
+   headline for the list; `discovery_matches` and `organizational_digital_twins` both independently
+   corroborate findings already registered from PT-02/PT-06-003.
+3. **Primary keys** — `pg_index.indisprimary` (not `information_schema`, which can miss an
+   unconstrained unique index). 184/184 base tables have one — clean.
+4. **Unique-constraint gaps** — 26 identifier-shaped column-name candidates (email/ein/uei/duns/
+   slug/domain/website/external_id/stripe_*/google_place_id/webhook_id/api_key) with no existing
+   single-column unique index, each checked live for `GROUP BY ... HAVING count(*)>1`. 6 have real
+   duplicates today.
+
+**Verification:** `scripts/audit/verify-pt06-004.mjs` confirms `integrity.json` records a non-empty
+FK/orphan set (every entry with its own orphan-count query) and a non-empty constraint-gap set across
+tenant_fk_gap/primary_keys/unique_gaps (each with its query or derivation method), plus a
+findings/summary consistency check. PASS.
+
+**Not done this pass:** which of the 64 tables with no tenant column *at all* genuinely should have
+one is a product/app-layer judgment a DB-only audit can't make blind — recorded as a candidate list
+(`tables_with_no_tenant_column_at_all`) rather than individually adjudicated, cross-referenced by name
+against `RLS_POLICY_AUDIT.md`/`ANON_GRANT_AUDIT.md`'s existing app-code-informed findings instead of
+re-deriving them.
+
+Full evidence: `test-evidence/pt-06/integrity.json`, `scripts/audit/pt06-004-integrity-audit.mjs`.
+
+## PRIOR — August 20, 2026 — audit PT-06-003 COMPLETE: code-vs-live-schema cross-reference
 audit, beyond migrations. Enumerated the full live `public` schema directly (184 tables, 2,226
 columns, `test-evidence/pt-06/live-schema.json` — exact match against PT-06-002's independent
 `live-schema-snapshot.json` table list) and statically scanned every `.from("table")` query chain in

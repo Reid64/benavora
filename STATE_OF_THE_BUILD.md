@@ -1,39 +1,85 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-06-003 COMPLETE: code-vs-live-schema cross-reference audit,
-beyond migrations. PT-06-002 (immediately below) settled which *migrations* are live vs. drifted; this
-pass asks a different question — does the CODE's actual `.from("table").select("col")`/`.eq(...)`/
-`.insert({...})` usage match the live schema, independent of which migration file supposedly created
-it? Enumerated the full live `public` schema directly (**184 tables, 2,226 columns**,
-`test-evidence/pt-06/live-schema.json` — cross-confirmed against PT-06-002's own independent
-`live-schema-snapshot.json` table list, exact match) and statically cross-referenced every
-`.from("table")` query chain in `src/`+`worker/` (1,070 files) plus `src/types/database.ts`'s
-hand-authored typed interface against it
-(**`test-evidence/pt-06/schema-mismatch.json`**, `scripts/audit/pt06-crossref.mjs`). Found **21
-missing tables** and **50 column-name mismatches** referenced by real, non-test code (96 non-test call
-sites). Re-confirmed WGR-005 (`discovery_matches.organization_id` vs. real `org_id`, PT-02's original
-finding, plus its sibling site in `morning-digest.ts`) via this independent method, and independently
-cross-corroborated three PT-06-002 findings (WGR-047 `board_members`, WGR-049 `applications.metadata`,
-WGR-053 `deadline_predictions`/`funders` columns) by a completely different technique (live schema diff
-vs. migration-file diff) — same conclusions both ways. Registered **8 new, individually source-verified
-findings** (WGR-054 through WGR-061): `applications.funder_id` (autonomous-digest-agent.ts, digest
-silently reports zero pending drafts), a 5-column `opportunities` mismatch in `rubric-extractor.ts`
-(rubric extraction always returns null), `funders.city`/`.state` (AutoApply's eligible-funder query
-broken), `funders.portal_type` referenced 4x in the AutoApply orchestrator's funder-auto-creation path
-(the `.insert()` call fails outright, silently blocking funder creation from directory data — the
-single highest-impact new finding this pass), `alerts.title`/`.alert_type` (Activity feed's alerts
-section always empty), `organizations.service_areas` in `strategic-advisor-agent.ts` (AG-40) — a
-sibling of the already-fixed 2026-08-02 `donor-intent-monitor-agent.ts` bug that was never actually
-fixed everywhere, a 6-column `intelligence_grantmaker_profiles` drift across 5 files (breaks the
-Funder Recommender feature end-to-end), and `knowledge_queries.organization_id` (corroborates a gap
-already narrated in this doc's own 2026-08-07 AG-05 session but never entered in the register). One
-index row (WGR-062) catalogs the remaining ~40 findings this pass did NOT individually source-verify —
-flagged explicitly as unverified-but-evidenced rather than silently dropped or falsely registered as
-confirmed. Full detail: **`test-evidence/pt-06/schema-mismatch.json`**,
-**`test-evidence/pt-06/live-schema.json`**, `scripts/audit/verify-pt06-003.mjs` (gate: both files
-non-empty + the org_id/organization_id case present — passes). See "SESSION — August 20, 2026 (audit
-PT-06-003: code-vs-live-schema cross-reference audit)" entry below. (PT-06-002's migration-drift
-headline and PT-08 COMPLETE are preserved in their own session entries further down, unchanged.)**
+**Updated: August 20, 2026 — audit PT-06-004 COMPLETE: constraint/FK/orphan data-integrity audit,
+read-only against production. Enumerated every live FK constraint in `public` via `pg_catalog`
+(**267 FK constraints**, multi-column-safe) and ran a live `NOT EXISTS`-based orphan-row count for
+each one — **zero orphaned rows on any of the 267 declared FKs**, i.e. every FK Postgres is actually
+enforcing is holding cleanly today; no evidence of stale-parent-row drift on the constraints that
+exist. The real gap is the other half of the same failure mode: **13 tables carry an
+`organization_id`/`org_id` tenant column with no live FK constraint referencing `organizations` at
+all** (`adapter_usage_log`, `agent_configurations`, `autoapply_review_queue`,
+`board_meeting_packets`, `board_meetings`, `discovery_matches`, `funding_forecasts`,
+`impact_simulations`, `knowledge_queries`, `opportunity_probability_scores`,
+`organizational_digital_twins`, `pitch_cache`, `submission_receipts` — `discovery_matches` and
+`organizational_digital_twins` both independently corroborate findings already registered from
+PT-02/PT-06-003), each flagged **P1** and feeding directly into PT-05 (isolation) and PT-14
+(security) per this task's own framing — a table's RLS policy can filter on a tenant column all day,
+but nothing in the database enforces that every value in it actually names a real org. Primary-key
+coverage is clean: **184 of 184 base tables have a PRIMARY KEY** (checked via `pg_index.indisprimary`,
+not just `information_schema`, which can miss unconstrained unique indexes) — zero findings here.
+Ran a heuristic duplicate-key scan over 26 identifier-shaped columns (email/ein/slug/website/
+external-id-style names) with no single-column unique index: **6 real, live duplicate-data findings**
+— `nonprofits.website` (213,373 extra rows across 7,318 repeated values, P1 — expected at 1.97M-row
+scale per this table's own documented dedup history), `foundation_directory.website` (68,845 extra
+rows across 151 values, P1), and four smaller P2s including **`profiles.email`** (1 duplicate pair) —
+worth a second look given this is an auth-adjacent table. **19 total findings (15 P1, 4 P2)**, every
+one carrying the exact SQL query and live count that produced it. Full detail:
+**`test-evidence/pt-06/integrity.json`**, `scripts/audit/pt06-004-integrity-audit.mjs`,
+`scripts/audit/verify-pt06-004.mjs` (gate: FK/orphan set + constraint-gap set, both with their
+queries, present and well-formed — PASS). See "SESSION — August 20, 2026 (audit PT-06-004: constraint/
+FK/orphan integrity audit)" entry below. (PT-06-003's code-vs-schema headline and PT-06-002's
+migration-drift headline are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-06-004: constraint/FK/orphan integrity audit)
+
+**Scope:** PT-06-004, a structural data-integrity pass distinct from PT-06-002 (migration drift) and
+PT-06-003 (code-vs-schema mismatch) — this one asks whether the schema's own *declared constraints*
+are internally consistent with the *actual rows in production*, independent of code or migration
+files entirely. Four checks, all read-only via the same `DATABASE_URL` connection PT-06-001 proved is
+engine-enforced read-only (`SET default_transaction_read_only = on`, verified by a rejected `CREATE
+TABLE` probe before this session's own queries ran).
+
+**Method, per check:**
+1. **Foreign keys + orphans.** Enumerated every `contype='f'` row in `pg_constraint` for the `public`
+   schema via `pg_catalog` (not `information_schema`, which can silently mis-join multi-column FKs
+   through `constraint_column_usage`) — `array_agg(...ORDER BY ordinal)` over `conkey`/`confkey`,
+   correctly matched by position for composite keys. One real bug found and fixed mid-run: `pg`'s
+   Node driver has no default array-type parser registered for Postgres `name[]` (only common types
+   like `text[]`/`int4[]`), so `array_agg(att.attname ...)` came back as an unparsed string
+   (`"{agent_id}"`) instead of a JS array on the first attempt — fixed by casting to `::text` before
+   aggregating. For each of the 267 resulting FK constraints, ran a live
+   `WHERE child.col IS NOT NULL AND NOT EXISTS (SELECT 1 FROM parent WHERE parent.col = child.col)`
+   count (positional multi-column equality for composite FKs). Result: 267/267 clean, 0 orphans.
+2. **Tenant FK gap.** Reused the column census from `test-evidence/pt-06/live-schema.json`
+   (PT-06-002's already-fetched inventory, not re-queried) to find every table with an
+   `organization_id`/`org_id` column (120 of 184), then cross-referenced against the FK list from
+   check 1 by exact `table.column` key. 13 have the column with no FK — see the headline above for
+   the full list and why it's P1.
+3. **Primary keys.** `pg_index.indisprimary` joined against `pg_class`/`pg_attribute`, chosen over
+   `information_schema.table_constraints` specifically because the latter can miss a unique index
+   that was never wrapped in a named `ADD CONSTRAINT`. All 184 base tables have one.
+4. **Unique-constraint gaps.** Built a candidate list of identifier-shaped column names (`email`,
+   `ein`, `uei`, `duns`, `slug`, `domain`, `website`, `external_id`, `stripe_customer_id`,
+   `stripe_subscription_id`, `google_place_id`, `webhook_id`, `api_key`) not already covered by a
+   single-column unique index (checked against `pg_index.indisunique`), then ran
+   `SELECT count(*) FILTER (dupe groups), sum(extra rows) FROM (... GROUP BY col HAVING count(*)>1)`
+   per candidate (26 total). This is explicitly a name-pattern heuristic surfacing candidates for
+   human confirmation, not an assertion that a UNIQUE constraint belongs on every match — stated as
+   such in the evidence file's own `method` field. 6 of 26 candidates have real live duplicates.
+
+**Verification:** `scripts/audit/verify-pt06-004.mjs` — confirms `integrity.json` records a non-empty
+FK/orphan constraint set where every entry carries both its orphan-count query and its result, and a
+non-empty constraint-gap set across all three of tenant_fk_gap/primary_keys/unique_gaps, each with the
+query or derivation method that produced it, plus a findings/summary consistency check (severity is
+always P1/P2, `.summary.total_findings` matches `.findings.length`). PASS.
+
+**Not done this pass, stated plainly:** the "tables that SHOULD have a tenant column but have none at
+all" half of instruction 2 was recorded as a candidate list (`tables_with_no_tenant_column_at_all`,
+64 tables) rather than individually judged — a DB-only audit can't distinguish a legitimately
+platform-wide/shared reference table from a real gap without reading application call sites, which
+`RLS_POLICY_AUDIT.md`/`ANON_GRANT_AUDIT.md` already did for a materially overlapping set of tables
+(their "24 of 100 leak cross-org SELECT" and "55 of 162 fully open to anon" findings) — cross-
+referenced by name in `integrity.json`'s method note rather than re-derived here.
 
 ## SESSION — August 20, 2026 (audit PT-06-003: code-vs-live-schema cross-reference audit)
 
