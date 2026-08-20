@@ -1,0 +1,33 @@
+{
+  "task": "PT-15-002c: confirm the false-PASS deploy-verifier fix is in place",
+  "generatedAt": "2026-08-20T21:04:01.422Z",
+  "wgrReference": "WGR-002",
+  "standingGap": {
+    "description": "VERCEL_TOKEN and VERCEL_PROJECT_ID remain confirmed absent from local .env.local (re-confirmed this session, matches PT-00/PT-15-001's prior finding) — the deploy-verifier gate cannot produce a real PASS/FAIL verdict, only PENDING/INDETERMINATE, until those are supplied. This is the standing WGR-002 gap; it is NOT resolved by this check and is not claimed to be. What IS confirmed here is that the gate correctly refuses to lie about it (no false PASS) while the gap remains open.",
+    "resolved": false
+  },
+  "liveScriptCheck": {
+    "command": "node --import tsx scripts/verify-deployment.ts",
+    "exitCode": 3,
+    "stdout": "◇ injected env (9) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]\nverify-deployment: local HEAD is 1411145ca7c0f0198da19755043a7a574936183e\nverify-deployment: INDETERMINATE — VERCEL_TOKEN and/or VERCEL_PROJECT_ID are not set, cannot query production deployment state.",
+    "envVarsPresentLocally": {
+      "VERCEL_TOKEN": false,
+      "VERCEL_PROJECT_ID": false
+    },
+    "observedState": "INDETERMINATE",
+    "neverFalselyClaimedPass": true,
+    "verdict": "CORRECT — reported INDETERMINATE (exit 3), no bare PASS claim, consistent with missing VERCEL_TOKEN/VERCEL_PROJECT_ID"
+  },
+  "forgeGateCheck": {
+    "path": "C:\\Users\\manag\\Documents\\FORGE\\gates\\deploy_verify.ps1",
+    "readable": true,
+    "case0_PASS_present": true,
+    "case1_FAIL_hardFails": true,
+    "case2_PENDING_warnsNotPasses": true,
+    "case2_exitsZero_nonBlocking": true,
+    "case3_INDETERMINATE_warnsNotPasses": true,
+    "case3_exitsZero_nonBlocking": true,
+    "overallVerdict": "FIX_CONFIRMED_IN_PLACE"
+  },
+  "overallVerdict": "CONFIRMED — the false-PASS deploy-verifier fix (both scripts/verify-deployment.ts's exit-code contract and the FORGE gates/deploy_verify.ps1 wrapper) is in place and behaving correctly; the underlying WGR-002 credential gap remains open and unresolved."
+}

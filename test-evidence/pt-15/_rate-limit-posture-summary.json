@@ -1,0 +1,714 @@
+{
+  "task": "PT-15-002b: rate-limiting posture on auth and expensive endpoints",
+  "generatedAt": "2026-08-20T21:02:44.956Z",
+  "liveMechanismTest": {
+    "function": "checkRateLimit (src/lib/utils/rate-limit.ts)",
+    "testKey": "pt15-posture-test-1787259764877",
+    "limitUsed": 3,
+    "callResults": [
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ],
+    "expectedResults": [
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ],
+    "blocksAfterLimitReached": true,
+    "keyIsolationConfirmed": true,
+    "verdict": "MECHANISM_CONFIRMED_WORKING",
+    "note": "In-process only -- confirmed against Node's own live execution, not a network call. This does NOT prove distributed correctness across multiple serverless instances: the module's own header comment states plainly that this is per-process, in-memory, and resets on cold start/redeploy -- a real, accepted, already-documented limitation for a multi-instance Vercel deployment, not newly discovered here."
+  },
+  "authPosture": {
+    "customAuthApiRoutes": [
+      "src/app/api/auth/callback/route.ts",
+      "src/app/api/auth/log-event/route.ts"
+    ],
+    "hasCustomLoginOrSignupRoute": false,
+    "middlewareHasAnyRateLimitLogic": false,
+    "clientSideAuthEntryPoints": [
+      "src/app/login/LoginPageClient.tsx",
+      "src/app/register/RegisterPageClient.tsx"
+    ],
+    "conclusion": "This app has no server-side API route for login or signup -- confirmed by directory listing (src/app/api/auth/ contains only callback/ and log-event/, neither of which authenticates a credential). Sign-in and sign-up happen entirely client-side via the Supabase JS SDK talking directly to Supabase's own GoTrue auth API (LoginPageClient.tsx, RegisterPageClient.tsx). src/middleware.ts (read in full) contains zero rate-limiting logic of any kind -- it only refreshes the session and redirects unauthenticated/incomplete-onboarding requests. Consequence: this application cannot itself rate-limit auth attempts, by construction -- there is no app-controlled code in the credential-check path to attach a limiter to. Whatever protection exists against auth brute-forcing / credential stuffing is entirely Supabase's own platform-level GoTrue rate limits (documented Supabase product behavior for sign-in/sign-up/OTP/password-recovery endpoints), which this session did NOT independently re-verify against this specific project's live configured values -- no CLI/API read path was found this session (`supabase config push` exists, no `pull`/`get` equivalent in the installed CLI version 2.102.0). Recorded as an open, unverified-but-plausible fact, not assumed true or false."
+  },
+  "expensiveEndpointPosture": {
+    "totalRoutesScanned": 56,
+    "scanScope": "src/app/api/ai/**/route.ts + src/app/api/agents/**/route.ts",
+    "rateLimitedCount": 23,
+    "notRateLimitedCount": 33,
+    "notRateLimitedWithNoAuthGateAtAll": [],
+    "notRateLimitedButTierEnforcedCount": 3,
+    "notRateLimitedAndNoTierEnforcementCount": 30,
+    "expensiveAndUnprotected": [
+      {
+        "file": "src/app/api/ai/draft/rescore/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/automation/[sessionId]/approve/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/automation/[sessionId]/route.ts",
+        "authMechanism": "requireAuth_or_getUser",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/campaigns/[campaignId]/route.ts",
+        "authMechanism": "requireAuth_or_getUser",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/corporate-research/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/custom-api/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/custom-scrape/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/disaster/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/discovery/route.ts",
+        "authMechanism": "requireAuth_or_getUser",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/foundation-finder/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/grants-gov/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/housing-specific/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/hud-monitor/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/keyword-expansion/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 60
+      },
+      {
+        "file": "src/app/api/agents/morning-digest/route.ts",
+        "authMechanism": "requireAuth_or_getUser",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/nofa-parser/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/propublica/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/registry/configure/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/registry/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/registry/[agentId]/runs/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/research/quality/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 60
+      },
+      {
+        "file": "src/app/api/agents/research/status/route.ts",
+        "authMechanism": "requireAuth_or_getUser",
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/research-config/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/sam-gov/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/simpler-grants/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/simulate/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/state-portals/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/state-scrapers/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/tdhca/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/usaspending/route.ts",
+        "authMechanism": "requireRole",
+        "maxDuration": 120
+      }
+    ],
+    "allRoutes": [
+      {
+        "file": "src/app/api/ai/budget/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/ai/draft/rescore/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/ai/draft/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/ai/fit-analysis/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/ai/humanize/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/ai/review/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/ai/summarize/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/ai/validate/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/application-cloner/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/automation/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/automation/[sessionId]/approve/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/automation/[sessionId]/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireAuth_or_getUser",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/campaigns/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/campaigns/[campaignId]/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireAuth_or_getUser",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/competitor-intel/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/corporate-research/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/custom-api/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/custom-scrape/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/deadline-prediction/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 60
+      },
+      {
+        "file": "src/app/api/agents/disaster/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/discovery/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireAuth_or_getUser",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/eligibility/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/email-parser/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/follow-up/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/form-analyzer/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 120
+      },
+      {
+        "file": "src/app/api/agents/form-filler/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 120
+      },
+      {
+        "file": "src/app/api/agents/foundation-finder/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/funder-intel/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/funder-relationship/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/giving-history/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 60
+      },
+      {
+        "file": "src/app/api/agents/grants-gov/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/housing-specific/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/hud-monitor/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/keyword-expansion/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 60
+      },
+      {
+        "file": "src/app/api/agents/learning/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/morning-digest/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireAuth_or_getUser",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/nofa-parser/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/outreach/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/playwright/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/propublica/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/registry/configure/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/registry/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/registry/[agentId]/runs/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/research/quality/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 60
+      },
+      {
+        "file": "src/app/api/agents/research/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/research/status/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireAuth_or_getUser",
+        "hasTierEnforcement": false,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/research-config/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/sam-gov/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/semantic-matching/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/simpler-grants/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/simulate/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/state-portals/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/state-scrapers/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/success-probability/route.ts",
+        "hasRateLimit": true,
+        "rateLimitMechanism": "local_isRateLimited_copy",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": true,
+        "maxDuration": null
+      },
+      {
+        "file": "src/app/api/agents/tdhca/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 300
+      },
+      {
+        "file": "src/app/api/agents/usaspending/route.ts",
+        "hasRateLimit": false,
+        "rateLimitMechanism": "none",
+        "hasAuthGate": true,
+        "authMechanism": "requireRole",
+        "hasTierEnforcement": false,
+        "maxDuration": 120
+      }
+    ]
+  },
+  "overallPosture": {
+    "authRateLimiting": "APP_HAS_NONE — relies entirely on Supabase platform-level GoTrue limits (unverified exact config)",
+    "expensiveEndpointRateLimiting": "PARTIAL — 23/56 routes rate-limited; 30 route(s) have neither a rate limit nor a billing-tier throttle and run with maxDuration>=60s (or unset)",
+    "mechanismCorrectness": "MECHANISM_CONFIRMED_WORKING"
+  }
+}

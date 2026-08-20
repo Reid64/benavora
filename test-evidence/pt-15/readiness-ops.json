@@ -1,0 +1,927 @@
+{
+  "task": "PT-15-002: production readiness — restore drill, rate-limiting posture, deploy-verifier confirmation",
+  "generatedAt": "2026-08-20T21:04:28.305Z",
+  "restoreDrill": {
+    "scope": "PROVEN",
+    "method": "supabase_branch_with_data",
+    "conclusion": "Restore drill PASSED: a genuine restore-to-a-copy of production data was created via Supabase's branch --with-data mechanism, its data volume is consistent with a real point-in-time snapshot of production, a known real row round-trips field-identical, foreign-key relationships survived the restore, and RLS remained enforced on the restored copy. Production DOES have a proven, working restore path today, via this mechanism -- not previously demonstrated end-to-end in this project's audit history.",
+    "censusSummary": {
+      "tablesChecked": 8,
+      "consistentCount": 8,
+      "inconsistentTables": [],
+      "totalRowsInRestoredCopy": 2138874
+    },
+    "integrityVerdict": "PASS",
+    "detail": {
+      "task": "PT-15-002a: restore drill -- prove backup+restore path works via Supabase branch --with-data",
+      "generatedAt": "2026-08-20T21:01:09.172Z",
+      "method": "supabase_branch_with_data",
+      "scope": "PROVEN",
+      "identity": {
+        "branch_id": "afc474a6-a1ce-438d-8f19-f6c6dccc24d6",
+        "branch_name": "pt15-restore-drill",
+        "branch_project_ref": "xejmkqsiufgqicaktsfg",
+        "parent_project_ref": "vbjplpquqxxfbpazyalt",
+        "with_data": true,
+        "status": "FUNCTIONS_DEPLOYED",
+        "preview_project_status": "ACTIVE_HEALTHY",
+        "created_at": "2026-08-20T20:49:16.958977+00:00"
+      },
+      "identityChecks": {
+        "branchRefDiffersFromProd": true,
+        "parentRefIsProd": true,
+        "withDataTrue": true,
+        "isActiveHealthy": true
+      },
+      "census": {
+        "organizations": {
+          "production": {
+            "count": 130
+          },
+          "restored": {
+            "count": 130
+          },
+          "consistent": true
+        },
+        "opportunities": {
+          "production": {
+            "count": 1252
+          },
+          "restored": {
+            "count": 1252
+          },
+          "consistent": true
+        },
+        "applications": {
+          "production": {
+            "count": 10
+          },
+          "restored": {
+            "count": 10
+          },
+          "consistent": true
+        },
+        "nonprofits": {
+          "production": {
+            "count": 1978526
+          },
+          "restored": {
+            "count": 1978526
+          },
+          "consistent": true
+        },
+        "foundation_directory": {
+          "production": {
+            "count": 133812
+          },
+          "restored": {
+            "count": 133812
+          },
+          "consistent": true
+        },
+        "agent_runs": {
+          "production": {
+            "count": 25076
+          },
+          "restored": {
+            "count": 25062
+          },
+          "consistent": true
+        },
+        "submission_queue": {
+          "production": {
+            "count": 6
+          },
+          "restored": {
+            "count": 6
+          },
+          "consistent": true
+        },
+        "profiles": {
+          "production": {
+            "count": 76
+          },
+          "restored": {
+            "count": 76
+          },
+          "consistent": true
+        }
+      },
+      "censusSummary": {
+        "tablesChecked": 8,
+        "consistentCount": 8,
+        "inconsistentTables": [],
+        "totalRowsInRestoredCopy": 2138874
+      },
+      "integrity": {
+        "knownRowCheck": {
+          "attempted": true,
+          "orgId": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+          "foundInProduction": true,
+          "foundInRestoredCopy": true,
+          "fieldsMatch": true,
+          "productionRow": {
+            "id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+            "name": "FAITH Foundation",
+            "onboarding_completed": true
+          },
+          "restoredRow": {
+            "id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+            "name": "FAITH Foundation",
+            "onboarding_completed": true
+          }
+        },
+        "foreignKeyEmbedCheck": {
+          "ok": true,
+          "status": 200,
+          "rowsSampled": 5,
+          "rowsWithResolvedForeignKey": 5,
+          "verdict": "fk_relationships_intact"
+        },
+        "rlsCheck": {
+          "attempted": true,
+          "status": 200,
+          "anonReturnedRows": 0,
+          "verdict": "rls_intact_anon_denied_or_empty"
+        },
+        "overallVerdict": "PASS"
+      },
+      "teardown": {
+        "attempted": true,
+        "ok": true
+      },
+      "notes": [
+        "During provisioning this drill observed a transient status transition \"MIGRATIONS_FAILED\" (preview_project_status still \"RESTORING\" at that poll) before settling at a final status of \"FUNCTIONS_DEPLOYED\" / preview_project_status \"ACTIVE_HEALTHY\". Recorded here rather than silently omitted -- the transient state did not recur on a later poll and the branch reached a genuinely healthy final state (confirmed by every query below succeeding against it), but it is worth a future session's attention if it recurs on a real disaster-recovery restore, since it suggests at least one migration step in the restore pipeline is not fully idempotent/reliable on the first attempt."
+      ],
+      "conclusion": "Restore drill PASSED: a genuine restore-to-a-copy of production data was created via Supabase's branch --with-data mechanism, its data volume is consistent with a real point-in-time snapshot of production, a known real row round-trips field-identical, foreign-key relationships survived the restore, and RLS remained enforced on the restored copy. Production DOES have a proven, working restore path today, via this mechanism -- not previously demonstrated end-to-end in this project's audit history."
+    }
+  },
+  "rateLimiting": {
+    "authRateLimiting": "APP_HAS_NONE — relies entirely on Supabase platform-level GoTrue limits (unverified exact config)",
+    "expensiveEndpointRateLimiting": "PARTIAL — 23/56 routes rate-limited; 30 route(s) have neither a rate limit nor a billing-tier throttle and run with maxDuration>=60s (or unset)",
+    "liveMechanismVerdict": "MECHANISM_CONFIRMED_WORKING",
+    "expensiveAndUnprotectedCount": 30,
+    "detail": {
+      "task": "PT-15-002b: rate-limiting posture on auth and expensive endpoints",
+      "generatedAt": "2026-08-20T21:02:44.956Z",
+      "liveMechanismTest": {
+        "function": "checkRateLimit (src/lib/utils/rate-limit.ts)",
+        "testKey": "pt15-posture-test-1787259764877",
+        "limitUsed": 3,
+        "callResults": [
+          true,
+          true,
+          true,
+          false,
+          false,
+          false
+        ],
+        "expectedResults": [
+          true,
+          true,
+          true,
+          false,
+          false,
+          false
+        ],
+        "blocksAfterLimitReached": true,
+        "keyIsolationConfirmed": true,
+        "verdict": "MECHANISM_CONFIRMED_WORKING",
+        "note": "In-process only -- confirmed against Node's own live execution, not a network call. This does NOT prove distributed correctness across multiple serverless instances: the module's own header comment states plainly that this is per-process, in-memory, and resets on cold start/redeploy -- a real, accepted, already-documented limitation for a multi-instance Vercel deployment, not newly discovered here."
+      },
+      "authPosture": {
+        "customAuthApiRoutes": [
+          "src/app/api/auth/callback/route.ts",
+          "src/app/api/auth/log-event/route.ts"
+        ],
+        "hasCustomLoginOrSignupRoute": false,
+        "middlewareHasAnyRateLimitLogic": false,
+        "clientSideAuthEntryPoints": [
+          "src/app/login/LoginPageClient.tsx",
+          "src/app/register/RegisterPageClient.tsx"
+        ],
+        "conclusion": "This app has no server-side API route for login or signup -- confirmed by directory listing (src/app/api/auth/ contains only callback/ and log-event/, neither of which authenticates a credential). Sign-in and sign-up happen entirely client-side via the Supabase JS SDK talking directly to Supabase's own GoTrue auth API (LoginPageClient.tsx, RegisterPageClient.tsx). src/middleware.ts (read in full) contains zero rate-limiting logic of any kind -- it only refreshes the session and redirects unauthenticated/incomplete-onboarding requests. Consequence: this application cannot itself rate-limit auth attempts, by construction -- there is no app-controlled code in the credential-check path to attach a limiter to. Whatever protection exists against auth brute-forcing / credential stuffing is entirely Supabase's own platform-level GoTrue rate limits (documented Supabase product behavior for sign-in/sign-up/OTP/password-recovery endpoints), which this session did NOT independently re-verify against this specific project's live configured values -- no CLI/API read path was found this session (`supabase config push` exists, no `pull`/`get` equivalent in the installed CLI version 2.102.0). Recorded as an open, unverified-but-plausible fact, not assumed true or false."
+      },
+      "expensiveEndpointPosture": {
+        "totalRoutesScanned": 56,
+        "scanScope": "src/app/api/ai/**/route.ts + src/app/api/agents/**/route.ts",
+        "rateLimitedCount": 23,
+        "notRateLimitedCount": 33,
+        "notRateLimitedWithNoAuthGateAtAll": [],
+        "notRateLimitedButTierEnforcedCount": 3,
+        "notRateLimitedAndNoTierEnforcementCount": 30,
+        "expensiveAndUnprotected": [
+          {
+            "file": "src/app/api/ai/draft/rescore/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/automation/[sessionId]/approve/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/automation/[sessionId]/route.ts",
+            "authMechanism": "requireAuth_or_getUser",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/campaigns/[campaignId]/route.ts",
+            "authMechanism": "requireAuth_or_getUser",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/corporate-research/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/custom-api/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/custom-scrape/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/disaster/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/discovery/route.ts",
+            "authMechanism": "requireAuth_or_getUser",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/foundation-finder/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/grants-gov/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/housing-specific/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/hud-monitor/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/keyword-expansion/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 60
+          },
+          {
+            "file": "src/app/api/agents/morning-digest/route.ts",
+            "authMechanism": "requireAuth_or_getUser",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/nofa-parser/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/propublica/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/registry/configure/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/registry/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/registry/[agentId]/runs/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/research/quality/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 60
+          },
+          {
+            "file": "src/app/api/agents/research/status/route.ts",
+            "authMechanism": "requireAuth_or_getUser",
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/research-config/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/sam-gov/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/simpler-grants/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/simulate/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/state-portals/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/state-scrapers/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/tdhca/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/usaspending/route.ts",
+            "authMechanism": "requireRole",
+            "maxDuration": 120
+          }
+        ],
+        "allRoutes": [
+          {
+            "file": "src/app/api/ai/budget/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/ai/draft/rescore/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/ai/draft/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/ai/fit-analysis/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/ai/humanize/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/ai/review/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/ai/summarize/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/ai/validate/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/application-cloner/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/automation/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/automation/[sessionId]/approve/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/automation/[sessionId]/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireAuth_or_getUser",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/campaigns/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/campaigns/[campaignId]/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireAuth_or_getUser",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/competitor-intel/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/corporate-research/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/custom-api/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/custom-scrape/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/deadline-prediction/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 60
+          },
+          {
+            "file": "src/app/api/agents/disaster/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/discovery/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireAuth_or_getUser",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/eligibility/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/email-parser/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/follow-up/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/form-analyzer/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 120
+          },
+          {
+            "file": "src/app/api/agents/form-filler/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 120
+          },
+          {
+            "file": "src/app/api/agents/foundation-finder/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/funder-intel/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/funder-relationship/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/giving-history/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 60
+          },
+          {
+            "file": "src/app/api/agents/grants-gov/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/housing-specific/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/hud-monitor/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/keyword-expansion/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 60
+          },
+          {
+            "file": "src/app/api/agents/learning/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/morning-digest/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireAuth_or_getUser",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/nofa-parser/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/outreach/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/playwright/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/propublica/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/registry/configure/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/registry/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/registry/[agentId]/runs/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/research/quality/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 60
+          },
+          {
+            "file": "src/app/api/agents/research/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/research/status/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireAuth_or_getUser",
+            "hasTierEnforcement": false,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/research-config/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/sam-gov/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/semantic-matching/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/simpler-grants/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/simulate/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/state-portals/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/state-scrapers/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/success-probability/route.ts",
+            "hasRateLimit": true,
+            "rateLimitMechanism": "local_isRateLimited_copy",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": true,
+            "maxDuration": null
+          },
+          {
+            "file": "src/app/api/agents/tdhca/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 300
+          },
+          {
+            "file": "src/app/api/agents/usaspending/route.ts",
+            "hasRateLimit": false,
+            "rateLimitMechanism": "none",
+            "hasAuthGate": true,
+            "authMechanism": "requireRole",
+            "hasTierEnforcement": false,
+            "maxDuration": 120
+          }
+        ]
+      },
+      "overallPosture": {
+        "authRateLimiting": "APP_HAS_NONE — relies entirely on Supabase platform-level GoTrue limits (unverified exact config)",
+        "expensiveEndpointRateLimiting": "PARTIAL — 23/56 routes rate-limited; 30 route(s) have neither a rate limit nor a billing-tier throttle and run with maxDuration>=60s (or unset)",
+        "mechanismCorrectness": "MECHANISM_CONFIRMED_WORKING"
+      }
+    }
+  },
+  "deployVerifier": {
+    "wgrReference": "WGR-002",
+    "standingGapResolved": false,
+    "overallVerdict": "CONFIRMED — the false-PASS deploy-verifier fix (both scripts/verify-deployment.ts's exit-code contract and the FORGE gates/deploy_verify.ps1 wrapper) is in place and behaving correctly; the underlying WGR-002 credential gap remains open and unresolved.",
+    "detail": {
+      "task": "PT-15-002c: confirm the false-PASS deploy-verifier fix is in place",
+      "generatedAt": "2026-08-20T21:04:01.422Z",
+      "wgrReference": "WGR-002",
+      "standingGap": {
+        "description": "VERCEL_TOKEN and VERCEL_PROJECT_ID remain confirmed absent from local .env.local (re-confirmed this session, matches PT-00/PT-15-001's prior finding) — the deploy-verifier gate cannot produce a real PASS/FAIL verdict, only PENDING/INDETERMINATE, until those are supplied. This is the standing WGR-002 gap; it is NOT resolved by this check and is not claimed to be. What IS confirmed here is that the gate correctly refuses to lie about it (no false PASS) while the gap remains open.",
+        "resolved": false
+      },
+      "liveScriptCheck": {
+        "command": "node --import tsx scripts/verify-deployment.ts",
+        "exitCode": 3,
+        "stdout": "◇ injected env (9) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]\nverify-deployment: local HEAD is 1411145ca7c0f0198da19755043a7a574936183e\nverify-deployment: INDETERMINATE — VERCEL_TOKEN and/or VERCEL_PROJECT_ID are not set, cannot query production deployment state.",
+        "envVarsPresentLocally": {
+          "VERCEL_TOKEN": false,
+          "VERCEL_PROJECT_ID": false
+        },
+        "observedState": "INDETERMINATE",
+        "neverFalselyClaimedPass": true,
+        "verdict": "CORRECT — reported INDETERMINATE (exit 3), no bare PASS claim, consistent with missing VERCEL_TOKEN/VERCEL_PROJECT_ID"
+      },
+      "forgeGateCheck": {
+        "path": "C:\\Users\\manag\\Documents\\FORGE\\gates\\deploy_verify.ps1",
+        "readable": true,
+        "case0_PASS_present": true,
+        "case1_FAIL_hardFails": true,
+        "case2_PENDING_warnsNotPasses": true,
+        "case2_exitsZero_nonBlocking": true,
+        "case3_INDETERMINATE_warnsNotPasses": true,
+        "case3_exitsZero_nonBlocking": true,
+        "overallVerdict": "FIX_CONFIRMED_IN_PLACE"
+      },
+      "overallVerdict": "CONFIRMED — the false-PASS deploy-verifier fix (both scripts/verify-deployment.ts's exit-code contract and the FORGE gates/deploy_verify.ps1 wrapper) is in place and behaving correctly; the underlying WGR-002 credential gap remains open and unresolved."
+    }
+  },
+  "summary": {
+    "restoreDrillProven": true,
+    "rateLimitingPostureRecorded": true,
+    "deployVerifierNeverFalselyPasses": true,
+    "standingGaps": [
+      "WGR-002 (deploy-verifier PENDING/INDETERMINATE without VERCEL_TOKEN/VERCEL_PROJECT_ID) remains open — not resolved by this session, only re-confirmed to still be handled honestly (no false PASS).",
+      "30 expensive (Claude/agent-calling, maxDuration>=60s) API routes under src/app/api/ai and src/app/api/agents have neither request-rate limiting nor billing-tier cost throttling — role-gated (mostly requireRole writer+) but otherwise unprotected against repeated/runaway calls. See WGR-153.",
+      "This app has no server-side auth (login/signup) API route of its own and no rate-limiting logic anywhere in src/middleware.ts — auth-attempt throttling is entirely delegated to Supabase's own platform-level GoTrue rate limits, whose exact configured values for this project were NOT independently verified this session (no read-only CLI/API path was found)."
+    ]
+  }
+}

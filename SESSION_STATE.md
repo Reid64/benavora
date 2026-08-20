@@ -1,7 +1,59 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-15: env parity across environments.
+## Last Updated: August 20, 2026 — audit PT-15-002: restore drill (PROVEN) + rate-limiting posture (WGR-153) + deploy-verifier re-confirmation.
 
-## Current Session — August 20, 2026 (audit PT-15: env parity across environments)
+## Current Session — August 20, 2026 (audit PT-15-002: restore drill + rate limiting + deploy verifier)
+
+**Focus:** three production-readiness ops checks. (1) Prove backup+restore actually works on a
+branch/copy, not just in theory — census + basic integrity check on the restored data, or record
+PENDING-SCOPE and flag the gap if unavailable. (2) Confirm rate-limiting posture on auth and
+expensive endpoints. (3) Confirm the deploy-verifier false-PASS fix (never PASS on
+PENDING/INDETERMINATE) is still in place, and note the standing WGR-002 gap. No application code
+was changed — every item here is a verification/confirmation task.
+
+**Restore drill result: PROVEN, real evidence, not PENDING-SCOPE.** This project's Supabase plan
+does support branching (already proven usable for PT-12's load test), and `branch --with-data` is a
+genuine restore-to-a-copy mechanism (observed the CLI's own transient `"RESTORING"` state during
+creation). Created `pt15-restore-drill`, a real branch of production, confirmed its identity (not an
+unrelated project), ran a census across 8 representative tables (all matched production or were
+sensibly lower — e.g. `agent_runs` 25,076 prod vs 25,062 restored, consistent with production having
+grown since the snapshot), and ran a 3-part integrity check on the restored copy: a known real row
+(FAITH Foundation org) round-trips field-identical, a foreign-key PostgREST embed resolved 5/5,
+and an anon-key request against the restored copy was correctly denied (RLS intact). Branch torn
+down afterward, teardown independently reconfirmed. **This had never been demonstrated end-to-end in
+this project's audit history before this session** — PT-12 proved branching works for load testing,
+not specifically as a restore path. One transient `"MIGRATIONS_FAILED"` status seen mid-provisioning
+(self-resolved) is flagged as a note for a future disaster-recovery drill to watch, not a blocker.
+
+**Rate-limiting posture: real, mixed finding — new WGR-153.** This app has no server-side auth
+(login/signup) route of its own and zero rate-limiting logic in `src/middleware.ts` — auth
+throttling is entirely delegated to Supabase's own platform-level GoTrue limits, whose exact
+configured values were not independently verified this session (no read-only CLI/API path found).
+For the 56 "expensive" (Claude/agent-calling) API routes under `src/app/api/ai` and
+`src/app/api/agents`: live-tested the shared `checkRateLimit()` mechanism directly (proved it blocks
+after its limit and keys correctly per-caller) and statically scanned all 56 routes — 23 are
+rate-limited, **30 have neither a rate limit nor a billing-tier cost throttle**, though nearly all 30
+are still role-gated (`requireRole` writer+). Registered as WGR-153 (P2 — real, confirmed, bounded
+blast radius).
+
+**Deploy verifier: false-PASS fix re-confirmed live, standing WGR-002 gap unchanged.** Re-ran the
+real `scripts/verify-deployment.ts` — correctly returned exit 3 (INDETERMINATE), no bare "PASS"
+claim, consistent with `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` still absent from `.env.local`. Re-read
+the FORGE-side `gates/deploy_verify.ps1` wrapper directly and confirmed its PENDING/INDETERMINATE
+cases both route through a warn banner, never the PASS line, while real FAIL still hard-fails. The
+underlying WGR-002 gap (gate can't produce a real verdict without those two env vars) remains open —
+not resolved this session, only re-confirmed to still fail honestly rather than lying.
+
+**Evidence:** `test-evidence/pt-15/readiness-ops.json` (combined deliverable, verified by
+`node scripts/audit/verify-pt15-002.mjs` — PASS) plus three intermediate summary files. Producer
+scripts: `pt15-002-restore-drill.mjs`, `pt15-002-rate-limit-posture.mjs`,
+`pt15-002-deploy-verifier-check.mjs`, `pt15-002-combine.mjs`. New register row: WGR-153.
+
+**Commit:** `audit PT-15: restore drill + rate limiting + deploy verifier` (scoped to
+`test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`).
+
+---
+
+## Prior Session — August 20, 2026 (audit PT-15: env parity across environments)
 
 **Focus:** confirm PT-00 through PT-14's artifacts all exist (they do — every phase has a real
 `test-evidence/pt-XX/` directory), then reconcile the env vars the code actually needs (per

@@ -1,6 +1,88 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-15: env parity across environments (local / Vercel prod / Railway prod), WGR-002/003 settled with first-hand evidence.**
+**Updated: August 20, 2026 — audit PT-15-002: restore drill (PROVEN, real Supabase branch restore) + rate-limiting posture (real gap found, WGR-153) + deploy-verifier false-PASS fix re-confirmed live.**
+
+## SESSION — August 20, 2026 (audit PT-15-002: restore drill + rate limiting + deploy verifier)
+
+**Scope:** three production-readiness ops checks, real evidence for each, no code changes made to
+the application itself this session — all three items are verify/confirm tasks, not fixes.
+
+**1. Restore drill — PROVEN, not PENDING-SCOPE.** Branching is available on this project's current
+Supabase plan (already used successfully in PT-12 for load testing) and the branch mechanism's
+`--with-data` flag is a genuine restore-to-a-copy, not a schema-only clone: creating it passes
+through a real `preview_project_status: "RESTORING"` state (Supabase's own name for the step) before
+landing on `ACTIVE_HEALTHY`. Created a dedicated `pt15-restore-drill` branch of production
+(`vbjplpquqxxfbpazyalt`), confirmed live via `supabase branches list`/`get` that it is genuinely a
+restore of prod (distinct `project_ref`, `parent_project_ref` = prod, `with_data: true`) rather than
+an unrelated project. **Census**: row counts on 8 representative tables (`organizations`,
+`opportunities`, `applications`, `nonprofits`, `foundation_directory`, `agent_runs`,
+`submission_queue`, `profiles`), queried independently against production and the restored copy via
+each project's own PostgREST endpoint + service-role key. All 8 matched or were sensibly lower on
+the restored copy (e.g. `agent_runs`: 25,076 in production vs. 25,062 in the snapshot — production
+grew by 14 rows in the interim, exactly the expected direction for a live-agent platform, not a
+broken restore); `nonprofits` (1,978,526 rows) and `foundation_directory` (133,812 rows) — the two
+largest tables in the schema — both matched exactly. **Integrity check**: (a) a known real row (the
+FAITH Foundation org, `b1ab7402-...`) is present and field-identical on the restored copy; (b) a
+PostgREST FK-embed (`applications` → `opportunities`) resolved 5/5 sampled rows on the restored
+copy, proving foreign-key relationships survived the restore, not just empty table shells; (c) an
+anon-key request against the restored copy's `organizations` table returned 0 rows — RLS is still
+enforced on the restored copy, not silently dropped. One real observation flagged, not silently
+omitted: branch provisioning transiently reported `status: "MIGRATIONS_FAILED"` mid-creation before
+self-resolving to a healthy final state on the next poll — recorded as a note for a future
+disaster-recovery drill to watch for, since it suggests at least one migration step in the restore
+pipeline isn't fully idempotent on the first attempt, even though it didn't block this drill's
+result. Branch torn down after evidence capture (`supabase branches delete`), independently
+reconfirmed via a fresh `branches list` showing only `main`. **Conclusion: production genuinely has
+a proven, working restore path today — this had not been demonstrated end-to-end anywhere in this
+project's prior audit history (PT-12's branch usage proved branching works for load testing; this
+session is the first to specifically prove it as a *restore* path with a census + integrity check).**
+
+**2. Rate-limiting posture — real, mixed finding; new WGR-153.** Confirmed this app has no
+server-side login/signup API route of its own (`src/app/api/auth/` contains only `callback/` and
+`log-event/`) and `src/middleware.ts` (read in full) has zero rate-limiting logic anywhere — sign-in
+and sign-up go directly from the browser to Supabase's own GoTrue API via the client SDK, so
+auth-attempt throttling is entirely delegated to Supabase's platform-level limits, whose exact
+configured values for this project were **not** independently verified this session (no read-only
+CLI/API path was found — the installed CLI, v2.102.0, has `supabase config push` but no
+`pull`/`get` equivalent). For the "expensive" surface (`src/app/api/ai/**` + `src/app/api/agents/**`,
+56 route.ts files, mostly Claude/agent-calling with `maxDuration` 60–300s): **live-tested** the one
+shared in-process rate limiter (`checkRateLimit()`, `src/lib/utils/rate-limit.ts`) by actually
+calling it past its limit — 6 calls at `limit=3` produced exactly `[true,true,true,false,false,false]`,
+and a second, independent key was confirmed unaffected by the first key's exhausted limit (correct
+per-caller keying, not a global counter) — so the mechanism itself is confirmed working, not just
+present in source. Static route scan: 23/56 routes use this mechanism or an equivalent local
+`isRateLimited()` copy (e.g. `/api/ai/draft`, `/api/ai/budget`); the remaining **30 have neither a
+rate limit nor a billing-tier cost throttle** (`enforceLimit`/`withUsageCheck`/`checkTierGate`),
+confirmed by direct source grep — agent-trigger routes such as `/api/agents/discovery`,
+`/api/agents/simulate`, `/api/agents/corporate-research`, `/api/agents/foundation-finder`,
+`/api/agents/disaster`, `/api/agents/custom-api`, `/api/agents/custom-scrape`, and 23 more (full
+list in evidence). Nearly all 30 are still `requireRole`-gated (writer+) or at minimum session-
+checked — this is not an anonymous-access gap — but an authenticated writer-role account, a buggy
+client retry loop, or a compromised session has no in-app mechanism slowing repeated calls or
+capping cost on any of these 30. Registered as **WGR-153** (P2 — real and confirmed, but bounded
+blast radius given existing role-gating).
+
+**3. Deploy verifier — false-PASS fix re-confirmed in place, live.** Re-ran the real, unmodified
+`scripts/verify-deployment.ts` against this session's actual `.env.local` (VERCEL_TOKEN and
+VERCEL_PROJECT_ID both confirmed absent, 0 matches each, consistent with WGR-002): it correctly
+exited `3` (INDETERMINATE) with no bare "PASS" claim anywhere in its output — it never fabricates a
+match when it can't check one. Separately re-read `C:\Users\manag\Documents\FORGE\gates\deploy_verify.ps1`
+(the FORGE-side wrapper, outside this repo) directly and confirmed structurally that its `switch`
+statement routes PENDING (case 2) and INDETERMINATE (case 3) through `Write-WarnBanner` — never the
+case-0 "PASS" line — while case 1 (real FAIL) still hard-fails with a non-zero exit. **The
+underlying WGR-002 gap (no `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` configured, so this gate can only ever
+report PENDING/INDETERMINATE, never a real verdict) remains open and is not resolved by this
+session** — only the "never lies about it" property was re-confirmed.
+
+**Evidence:** `test-evidence/pt-15/readiness-ops.json` (combined deliverable) plus three intermediate
+files (`_restore-drill-summary.json`, `_rate-limit-posture-summary.json`,
+`_deploy-verifier-summary.json`). Producer scripts: `scripts/audit/pt15-002-restore-drill.mjs`,
+`scripts/audit/pt15-002-rate-limit-posture.mjs`, `scripts/audit/pt15-002-deploy-verifier-check.mjs`,
+`scripts/audit/pt15-002-combine.mjs`. Verifier: `scripts/audit/verify-pt15-002.mjs` (PASS).
+
+**Gate:** `node scripts/audit/verify-pt15-002.mjs` — PASS. No `pnpm tsc`/`pnpm run build` gate run
+this session since no application source file was changed (audit/evidence-only session, matching
+this project's own established convention for prior PT-0x/PT-1x audit sessions).
 
 ## SESSION — August 20, 2026 (audit PT-15: env parity across environments)
 
