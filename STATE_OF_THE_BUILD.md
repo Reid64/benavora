@@ -1,25 +1,144 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 19, 2026 — audit PT-08-002 (cron registration reconciliation) done. Headline:
-of 11 real `/api/cron/*` route handlers, only 5 are registered in `vercel.json`
-(autoapply/grantsgov/reminders/research/domain-warmup — all matched to a documented claim, no
-gaps). The other 6 are registered nowhere (not `vercel.json`, not `worker/scheduler.ts`, a wholly
-separate scheduling mechanism that never calls these HTTP routes at all): 4 are real, unfixed P1
-gaps whose automation genuinely never runs — `draft-automation` (deadline-driven draft
-auto-queueing + bulk generation), `sales-sends` (a real, live, admin-clickable "Schedule" action on
-Sales Outreach campaigns queues `sales_sends` rows that then sit forever unsent), `follow-ups`
-(AutoApply's 14/30/60-day donation follow-up system — doubly dead, since its own producer function
-is never called either), and `email-sequences` (an already-publicly-documented gap, now given its
-first WGR register entry). 1 (`draft-queue-check`) is unregistered but functionally redundant —
-its one job already runs automatically via the registered `research` cron's own inline call. 1
-(`campaigns`) was intentionally retired 2026-08-13, not a bug. Separately, independently
-re-confirmed WGR-023 (P0, already filed): `src/middleware.ts` 307-redirects every one of these 11
-routes to `/login` before their own `CRON_SECRET` check ever runs, in local-dev testing — including
-all 5 *registered* crons — meaning vercel.json registration alone may not be sufficient for a cron
-to actually succeed in production; whether production behaves the same way remains unresolved (Reid
-reports prod returns 401, not 307 — not independently re-tested this session, prod-safe/static+read
-scope only). Filed WGR-035 through WGR-039. See the "SESSION — August 19, 2026 (audit PT-08-002:
-cron registration reconciliation)" entry below.**
+**Updated: August 19, 2026 — audit PT-08-003 (agent_queue lifecycle semantics, branch/local) done.
+Headline: `agent_queue`'s real claim/retry/max-retries/completion state machine
+(`claimNextQueueItem()`/`runQueueItem()` in `worker/autonomous-orchestrator.ts`) was exercised
+end-to-end against a disposable local Postgres database (never production) via a script that
+reimplements the exact same SQL predicates and, for the failure path, calls the REAL, unmodified
+`routeQueueItem()` export live. Result: **no broken queue semantics found** — a job is correctly
+claimed via a compare-and-swap `UPDATE ... WHERE status='queued'`; a simulated failure correctly
+requeues the row (`status='queued'`, `retry_count` incremented, `error_message` recorded,
+`completed_at` left null) and the requeued row is genuinely reclaimable and can still reach
+`completed`; a job whose work always fails is correctly bounded — it reaches the terminal `failed`
+state exactly at `max_retries` (3 by default), with `completed_at` set, and is never reclaimed
+again; a successful job writes `status='completed'` with a real, non-empty `output_payload.summary`;
+and a poison job that always fails, deliberately queued directly ahead of a good job (same priority,
+earlier `queued_at`), does NOT permanently block the queue — the good job still reaches `completed`
+once the poison job's bounded retries exhaust (3 poison-job claim attempts before the good job's
+first claim, exactly matching `max_retries`). One ancillary, narrower finding filed (WGR-040, P1,
+UNVERIFIED): no per-item timeout wraps a claimed job's execution at the queue-processor layer — a
+job that fails-fast is bounded (confirmed above), but a job whose work HANGS (never resolves, never
+rejects) is not bounded by anything visible at this layer and would block every other queued item
+indefinitely; not independently reproduced (a genuine hang would hang the test itself), flagged as a
+code-read observation. See the "SESSION — August 19, 2026 (audit PT-08-003: agent_queue lifecycle
+semantics)" entry below.**
+
+## SESSION — August 19, 2026 (audit PT-08-003: agent_queue lifecycle semantics)
+
+**Scope:** exercise `agent_queue`'s real lifecycle behavior — enqueue, claim, simulated failure →
+retry, exhausted retries → max-retries terminal state, and successful completion with its result
+written — against a real database, with row state captured at each transition. Separately, test
+failure isolation: a poison job that always fails must not block the queue for a good job queued
+behind it. **BRANCH/LOCAL ONLY** — this enqueues and mutates job rows, so it was run exclusively
+against a disposable local Postgres instance created and torn down within this session; production
+was never touched (`branchOrLocalOnly: true`, `productionTouched: false` recorded explicitly in the
+evidence file).
+
+**Method:** `pg_ctl`-launched a fresh, disposable PostgreSQL 18.3 instance (scoop-installed, the
+same tooling this project's own prior migration-dry-run sessions established as precedent) on port
+55432, `initdb`'d clean, with a minimal schema (`scripts/audit/pt08-schema.sql`) containing only
+`organizations` (a bare PK/name stand-in, sufficient to satisfy `agent_queue.org_id`'s FK) and
+`agent_queue` itself — the latter copied verbatim from `src/supabase/migrations/080_autonomous_agent_infrastructure.sql`
+lines 23-44 (minus the RLS policy, which depends on `auth.uid()`/`profiles` that don't exist in
+this disposable DB and is irrelevant to queue *semantics*, the thing under test).
+
+`scripts/audit/pt08-003-queue-lifecycle.mjs` (run via `node --import tsx ...`) drives four
+scenarios. Its claim/retry/completion logic is a faithful, line-by-line reimplementation of the
+real, unmodified `claimNextQueueItem()`/`runQueueItem()` functions in
+`worker/autonomous-orchestrator.ts` (lines 2066-2120) — reimplemented rather than imported because
+neither function is exported (only `routeQueueItem`, `AgentQueueRow`, `processAgentQueue`,
+`stopAgentQueueProcessor` are), and because the real functions are written against a Supabase-JS
+client (PostgREST transport) while this test uses a raw `pg` client directly against the disposable
+DB (no local PostgREST/Supabase stack was stood up — none of `routeQueueItem`'s real registered
+switch cases can complete without live external Claude API calls and real business-table data far
+beyond this table's own schema, so a full stack would not have bought a more useful test). The
+SQL predicates and control flow are byte-identical between the reimplementation and the real code;
+only the transport differs, and that difference does not affect the observable state-machine
+behavior under test.
+
+One part of the test is **not** a reimplementation but the real, currently-shipping code executed
+directly: the "poison job" failure path calls the REAL `routeQueueItem()` (imported live via `tsx`
+from `worker/autonomous-orchestrator.ts`) with an `agent_id` matching no case in its switch
+statement, hitting its real `default: throw new Error('Unknown agent_queue agent_id: "..."')`
+branch (line 2061) — the same technique `src/__tests__/integration/ag19-relationship-builder-flag.test.ts`
+already established for exercising `routeQueueItem`'s real dispatch logic without touching the
+shared production table. Confirmed before use that importing the module has zero side effects (its
+only module-level imports are type-only; every real agent import is a dynamic `await import(...)`
+inside a specific switch case, never triggered by this test). The "good job" path uses a small local
+stand-in that returns a summary string synchronously — explicitly documented as a stand-in in both
+the evidence file's `methodology` field and this entry, since no real registered `routeQueueItem`
+case can complete in an isolated branch/local environment without external credentials.
+
+**Scenario A — full lifecycle, good job:** enqueue → real `claimNextQueueItem()`-equivalent CAS
+claim (verified via independent re-query, not the claim call's own return value: `status` flips
+`queued` → `processing`, `started_at` set) → `runQueueItem()`-equivalent with the good-job stand-in
+→ `status='completed'`, `completed_at` set, `output_payload.summary` a real non-empty string. All 6
+assertions true.
+
+**Scenario B — simulated failure → RETRY:** a job runner that throws on its first call, succeeds on
+its second. First attempt: claimed, then the real failure branch fires — row correctly requeued
+(`status='queued'`, not terminal), `retry_count` incremented to 1, a real `error_message` recorded,
+`completed_at` left `null`. The requeued row was confirmed genuinely reclaimable — a second
+`claimNextQueueItem()`-equivalent call picked it straight back up (it was the only queued row) — and
+the second attempt reached `completed` with real output written. All 7 assertions true.
+
+**Scenario C — exhaust retries → max-retries terminal state:** a job whose work always fails (routed
+through the real `routeQueueItem()` default-throw, `max_retries=3`). Looped exactly 3 claim/run
+cycles (the script throws immediately, not silently, if a row somehow becomes unclaimable before
+attempt 3 — turning a would-be broken semantic into a hard script failure rather than a quietly
+short evidence trail). Attempts 1 and 2: requeued, `retry_count` 1 then 2, still `status='queued'`.
+Attempt 3: `nextRetryCount (3) >= maxRetries (3)` → terminal — `status='failed'`, `retry_count=3`,
+`completed_at` set, `error_message` the real thrown text (`Unknown agent_queue agent_id: "pt08-poison-agent-does-not-exist-in-switch".`).
+A fourth, independent `claimNextQueueItem()`-equivalent call against the now-terminal row returned
+`null` — it is never reclaimed again. All 6 assertions true.
+
+**Scenario D — failure isolation (poison job does not block the queue):** two rows enqueued at the
+same priority, the poison job (real `routeQueueItem()` default-throw) given a strictly earlier
+`queued_at` than the good job (a deliberate `pg_sleep(0.01)` between the two inserts) — guaranteeing
+the poison job is always claimed first, by the queue's own real `ORDER BY priority DESC, queued_at ASC`
+ordering, for as long as it remains `queued`. Ran the real claim/run loop repeatedly (capped at 10
+iterations, a safety bound far above what was needed) until the good job reached `completed`.
+**Result: 4 iterations total** — the poison job was claimed and failed 3 times (exactly
+`max_retries`), reaching its own terminal `failed` state on iteration 3; the good job was claimed on
+iteration 4 and completed immediately. This is the concrete, load-bearing proof that bounded retries
+are what keeps a poison job from permanently starving the rest of the queue — not any special-cased
+isolation logic, just the same `max_retries` mechanism scenario C already demonstrates, applied to a
+job sitting directly in front of another. All 5 assertions true.
+
+**Overall verdict: `ALL_SEMANTICS_CORRECT`** — zero broken assertions across all 4 scenarios
+(`test-evidence/pt-08/queue-semantics.json`'s `overallVerdict`/`brokenAssertions` fields, the latter
+empty). Per this task's own step 3 instruction, a broken semantic (jobs never claimed, infinite
+retry, a poison job blocking the queue, completion not written) would have been a register finding
+— none of those four failure modes were found; the queue's real lifecycle logic works as designed.
+
+**One ancillary finding filed, WGR-040 (P1, UNVERIFIED), narrower than and distinct from the
+confirmed-correct behavior above:** grepped `worker/autonomous-orchestrator.ts` for
+`timeout`/`Promise.race`/`setTimeout` — the only match is the `sleep()` helper used for the
+empty-queue poll backoff (line 151). `processAgentQueue()`'s while-loop fully `await`s
+`runQueueItem()` (which itself fully `await`s `routeQueueItem()`) before claiming the next
+candidate, with no timeout wrapper at this layer. Scenarios C and D above confirm a job that
+**fails fast** (throws/rejects) is correctly bounded and non-blocking — but a job whose work
+**hangs** (never resolves, never rejects — e.g. an agent awaiting a dead external call with no
+timeout of its own) would not be bounded by anything visible at the queue-processor layer, and
+would block every other queued item indefinitely. This is a genuinely different failure mode from
+"simulate a failure" (a throw), which is what this task's own instructions scoped scenario testing
+to — not independently reproduced (a real infinite hang would hang this test run itself), recorded
+as a code-read observation surfaced directly by this task's own live-verification pass, not a
+live-verified hang. Full detail in the register row.
+
+**Cleanup, confirmed:** the disposable Postgres instance was stopped (`pg_ctl -m fast stop`,
+confirmed via a subsequent failed connection attempt) and its data directory deleted after the
+evidence file was written and independently re-verified via the verifier script; nothing was left
+running, and no production credential or connection string was ever used by this task.
+
+**Files:** `scripts/audit/pt08-schema.sql` (disposable-DB schema), `scripts/audit/pt08-003-queue-lifecycle.mjs`
+(the exercise script, real methodology documented in its own header comment),
+`scripts/audit/verify-pt08-003.mjs` (the verifier — exits non-zero unless `queue-semantics.json`
+records the claim/retry/max-retries/completion transitions with before/after row state, per this
+task's step 4), `test-evidence/pt-08/queue-semantics.json` (the evidence file itself).
+
+**Gates:** `node --import tsx scripts/audit/pt08-003-queue-lifecycle.mjs` — exit 0,
+`ALL_SEMANTICS_CORRECT`. `node scripts/audit/verify-pt08-003.mjs` — exit 0, PASS.
 
 ## SESSION — August 19, 2026 (audit PT-08-002: cron registration reconciliation)
 
