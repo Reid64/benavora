@@ -1,0 +1,97 @@
+PT-12-002 — Concurrent-User Load Simulation — 2026-08-20T19:03:39.025Z
+
+=== TARGET (confirmed non-production) ===
+SUPABASE_URL:        https://ffghpazvipsqrypkryfj.supabase.co
+branch_project_ref:  ffghpazvipsqrypkryfj
+parent_project_ref:  vbjplpquqxxfbpazyalt
+production_ref:      vbjplpquqxxfbpazyalt
+isProductionTarget:  false
+
+=== REQUEST MIX (weighted, cycling per virtual user, no think time) ===
+  dashboard_load: 40%
+  discovery: 30%
+  pipeline_update: 15%
+  draft_generation: 15%
+
+=== THRESHOLDS ===
+  acceptable: errorRate <= 1% AND p95 <= 2000ms
+  breaking:   errorRate >  5% OR  p95 >  5000ms OR p99 > 8000ms
+  reasonable target concurrency for this infra tier: 250 concurrent users
+
+=== LEVELS ===
+--- concurrency=5 (ACCEPTABLE) ---
+  requests: 327  success: 327  errors: 0  errorRate: 0.00%
+  throughput: 53.9 req/s  (actual duration: 6064ms)
+  latency (ms): p50=80 p95=155 p99=412 max=428 mean=92.3
+    dashboard_load: n=132 errRate=0.00% p50=90ms p95=201ms p99=423ms
+    discovery: n=100 errRate=0.00% p50=72ms p95=126ms p99=427ms
+    pipeline_update: n=42 errRate=0.00% p50=70ms p95=189ms p99=412ms
+    draft_generation: n=53 errRate=0.00% p50=74ms p95=105ms p99=325ms
+
+--- concurrency=25 (ACCEPTABLE) ---
+  requests: 1154  success: 1154  errors: 0  errorRate: 0.00%
+  throughput: 189.2 req/s  (actual duration: 6098ms)
+  latency (ms): p50=117 p95=222 p99=248 max=468 mean=130.8
+    dashboard_load: n=465 errRate=0.00% p50=175ms p95=232ms p99=274ms
+    discovery: n=337 errRate=0.00% p50=96ms p95=146ms p99=209ms
+    pipeline_update: n=198 errRate=0.00% p50=92ms p95=147ms p99=220ms
+    draft_generation: n=154 errRate=0.00% p50=95ms p95=156ms p99=244ms
+
+--- concurrency=75 (ACCEPTABLE) ---
+  requests: 977  success: 977  errors: 0  errorRate: 0.00%
+  throughput: 154.9 req/s  (actual duration: 6307ms)
+  latency (ms): p50=395 p95=1154 p99=1424 max=1700 mean=472.1
+    dashboard_load: n=400 errRate=0.00% p50=463ms p95=1312ms p99=1510ms
+    discovery: n=315 errRate=0.00% p50=341ms p95=675ms p99=1186ms
+    pipeline_update: n=126 errRate=0.00% p50=369ms p95=1070ms p99=1170ms
+    draft_generation: n=136 errRate=0.00% p50=350ms p95=1014ms p99=1258ms
+
+--- concurrency=150 (ACCEPTABLE) ---
+  requests: 1243  success: 1242  errors: 1  errorRate: 0.08%
+  throughput: 189.6 req/s  (actual duration: 6555ms)
+  latency (ms): p50=752 p95=988 p99=1147 max=1368 mean=756.3
+    dashboard_load: n=493 errRate=0.00% p50=800ms p95=1019ms p99=1167ms
+    discovery: n=379 errRate=0.00% p50=717ms p95=897ms p99=1107ms
+    pipeline_update: n=189 errRate=0.00% p50=721ms p95=994ms p99=1151ms
+    draft_generation: n=182 errRate=0.55% p50=717ms p95=1097ms p99=1169ms
+
+--- concurrency=300 (DEGRADED) ---
+  requests: 1390  success: 1389  errors: 1  errorRate: 0.07%
+  throughput: 189.9 req/s  (actual duration: 7319ms)
+  latency (ms): p50=1470 p95=2087 p99=2631 max=3045 mean=1443.8
+    dashboard_load: n=557 errRate=0.00% p50=1560ms p95=2086ms p99=2423ms
+    discovery: n=391 errRate=0.00% p50=1400ms p95=1894ms p99=2233ms
+    pipeline_update: n=226 errRate=0.00% p50=1412ms p95=2176ms p99=3010ms
+    draft_generation: n=216 errRate=0.46% p50=1428ms p95=2352ms p99=2717ms
+
+--- concurrency=600 (DEGRADED) ---
+  requests: 1651  success: 1651  errors: 0  errorRate: 0.00%
+  throughput: 188.9 req/s  (actual duration: 8739ms)
+  latency (ms): p50=2580 p95=3921 p99=4732 max=5557 mean=2675.2
+    dashboard_load: n=658 errRate=0.00% p50=2767ms p95=4205ms p99=4896ms
+    discovery: n=502 errRate=0.00% p50=2408ms p95=3559ms p99=3921ms
+    pipeline_update: n=252 errRate=0.00% p50=2385ms p95=3847ms p99=4059ms
+    draft_generation: n=239 errRate=0.00% p50=2552ms p95=4058ms p99=4628ms
+
+--- concurrency=1000 (BREAKING) ---
+  requests: 1666  success: 1662  errors: 4  errorRate: 0.24%
+  throughput: 174.7 req/s  (actual duration: 9534ms)
+  latency (ms): p50=4427 p95=6730 p99=7392 max=8402 mean=4535.7
+    dashboard_load: n=673 errRate=0.00% p50=4544ms p95=6694ms p99=7519ms
+    discovery: n=517 errRate=0.00% p50=4141ms p95=6441ms p99=6755ms
+    pipeline_update: n=225 errRate=0.00% p50=4578ms p95=6808ms p99=7225ms
+    draft_generation: n=251 errRate=1.59% p50=4766ms p95=6985ms p99=7760ms
+
+=== FINDINGS ===
+degradationOnsetConcurrency: 300
+breakingPointConcurrency:    1000
+highestAcceptableConcurrencyTested: 150
+breakingPointBelowReasonableTarget: false
+throughputPlateauConcurrency: 150
+maxObservedThroughputRps: 189.9
+
+Breaking point reached at concurrency=1000 (errorRate=0.24%, p95=6730ms, p99=7392ms). This is ABOVE the stated reasonable target of 250 concurrent users for this infra tier -- not below target, but still the real, measured ceiling and worth tracking.
+
+Sustained completed-request throughput plateaus at ~190 req/s starting around concurrency=150 -- concurrency levels tested above that add queueing latency without increasing real completed work. This is the practical capacity ceiling of this infra tier for this request mix, and it is reached at MUCH lower concurrency than the latency-SLA breaking point above -- worth treating as the more actionable number for capacity planning.
+
+RESULT: PASS (evidence recorded for 7 concurrency levels)

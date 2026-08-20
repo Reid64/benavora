@@ -1,4 +1,38 @@
 # BENAVORA — Session State
+## Last Updated: August 20, 2026 — audit PT-12-002: concurrent-user load simulation, real breaking point recorded.
+
+**Focus:** simulate realistic concurrent users against the core read+write paths (dashboard load,
+discovery, pipeline updates, draft generation), ramped through real concurrency steps, against the
+PT-12-001 load-test branch only (never production).
+
+**What shipped:**
+- `scripts/audit/pt12-002-load-simulation.mjs` — drives 4 weighted request types (dashboard_load 40%,
+  discovery 30%, pipeline_update 15% write, draft_generation 15% write) directly against the branch's
+  PostgREST endpoint using real tables/columns/enums (`opportunities`, `applications.notes`,
+  `draft_versions` with real `draft_template_type` enum values). Credentials parsed live out of
+  `test-evidence/pt-12/branch.txt`, never hardcoded; hard-fails before running anything if the target
+  resolves to the production ref. Ramped 7 concurrency levels (5/25/75/150/300/600/1000 virtual users,
+  6s each, no think time), recording every request's real latency and outcome.
+- `test-evidence/pt-12/load-results.json` + `load-results.txt` — full per-level evidence: request
+  counts, error rates, throughput, and p50/p95/p99 latency (both overall and per request-type), plus
+  an explicit `findings` block.
+- `scripts/audit/verify-pt12-002.mjs` — fails unless `load-results.json` records ≥3 strictly-increasing
+  concurrency levels, each with valid non-decreasing latency percentiles, a finite error rate, a
+  positive request count, a confirmed non-production target, and an explicit breaking-point verdict.
+
+**Real result:** degradation (error rate/p95 crossing the acceptable band) starts at concurrency=300;
+the harder breaking threshold (p95>5s or p99>8s or error rate>5%) is crossed at concurrency=1,000
+(p95=6,730ms, p99=7,392ms, error rate=0.24%) — above the 250-concurrent-user reasonable target stated
+for this infra tier, so not itself a "below target" finding. A separate, arguably more useful finding:
+real completed throughput plateaus at ~190 req/s starting around concurrency=150 — every level from 25
+through 1,000 completed roughly the same amount of real work per second; additional concurrency past
+that point only added queueing latency, not more throughput. Both runs (run twice for reproducibility)
+showed the same qualitative shape. Full per-level table in `STATE_OF_THE_BUILD.md`'s matching entry.
+
+**Gates:** `node scripts/audit/verify-pt12-002.mjs` — PASS.
+
+---
+
 ## Last Updated: August 20, 2026 — audit PT-12: dedicated load-test Supabase branch created and verified non-production.
 
 **Focus:** confirm PT-00/PT-03/PT-09 evidence artifacts exist, then create and verify a real,
