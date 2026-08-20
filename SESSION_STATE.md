@@ -1,5 +1,71 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-07: real Railway worker job round-trip.
+## Last Updated: August 20, 2026 — audit PT-07: external data-source API probes.
+
+**Focus:** for each external data source the app depends on — Grants.gov, SAM.gov, USASpending,
+ProPublica, IRS endpoints, and the ScraperAPI proxy rotation used by the stealth scraper — make a
+real call against the exact request shape each integration file actually sends, capture the real
+response (status + a computed shape assertion on the body), and confirm the app's parser still
+matches the API's current real shape (these public APIs drift over time; nothing here was
+mocked). ScraperAPI specifically: confirm whether rotation actually rotates, and flag the known
+`PROXY_LIST`-empty-runs-direct risk from `WGR-003`/`worker/proxy-manager.ts`'s history if the
+credential isn't configured.
+
+**What was built:** `scripts/audit/pt07-003-data-sources.mjs` (the real capture script — makes
+every live call, computes a shape verdict per source from real field-presence checks against the
+app's own read paths, writes `test-evidence/pt-07/data-sources.json`),
+`scripts/audit/verify-pt07-003.mjs` (fails unless all 6 named sources have a real request, a real
+captured response, and a recognized verdict — does NOT require every verdict to be "OK", since a
+source returning an error or an unhandled shape is the correct, expected finding here, not a
+script failure), and `scripts/audit/pt07-003-register-findings.mjs` (appends the 8 real findings
+to `WIRING_GAP_REGISTER.md` as `WGR-138` through `WGR-145`, matching this audit program's
+established register-findings convention).
+
+**Result: 4 of 6 sources have a real, live-confirmed, reproducible integration bug.** Full detail
+in `STATE_OF_THE_BUILD.md`'s matching entry — summary:
+- **Grants.gov (WGR-138, P0):** the app-coded search URL is dead (real, reproducible HTTP 403
+  "Missing Authentication Token"); `searchGrantsGovOpportunities()` silently returns `[]` on every
+  call, so the daily `/api/cron/grantsgov` Vercel Cron has been finding 0 opportunities every run.
+  Even the real, current endpoint has a different response shape (`data.oppHits`, `hit.title`, no
+  `synopsis`/`awardCeiling`) than what `mapHit()` reads.
+- **SAM.gov (WGR-139 through WGR-143, 3× P0/1× P1/1× P2):** `samgov-client.ts` omits the now-
+  mandatory `postedFrom`/`postedTo` (real HTTP 400 on every call, silently swallowed); once fixed,
+  real hits' `description` field is a URL not text, and `awardAmount` never appears at all. A
+  second, separate implementation (`samgov-adapter.ts`) is broken two more ways: its Entity
+  Management v3 call sends a param (`activeDate`) the real API now rejects outright, and its
+  Award-Notice awardee extraction reads the wrong nesting level (`hit.awardee` vs. the real
+  `hit.award.awardee`) — confirmed live on 5/5 real sampled hits.
+- **USASpending — OK.** Real call matches the app's expected field set exactly, no drift.
+- **ProPublica — OK.** Real call (a known-stable real EIN) matches the app's expected shape
+  exactly, including the code's own documented `tax_prd_yr` fallback behavior.
+- **IRS endpoints (WGR-144, P3) — mostly OK.** The 990 index/batch-ZIP URL construction matches
+  the real, current layout exactly. The BMF CSV importer's own comment ("no header row") is now
+  factually wrong — the real, current file DOES have a header row — but this is currently harmless
+  by coincidence (the header row's literal `FOUNDATION` value doesn't pass the `isFoundation()`
+  filter), not a live bug.
+- **ScraperAPI rotation (WGR-145, P1) — NOT_CONFIGURED here.** `SCRAPER_API_KEY` is absent from
+  this environment's `.env.local` (matches the already-documented `WGR-003` production-
+  unconfirmed status) — per `resolveProxy()`, this means `StealthEngine` launches with **zero
+  proxy at all**, i.e. it runs direct, confirmed by code review. The gateway itself is confirmed
+  live and enforces real per-key auth (a real 401 from a deliberately invalid key, via a genuine
+  CONNECT-tunnel probe) — a configured key would genuinely route through it — but actual IP
+  rotation can't be verified without a real, funded credential, which doesn't exist here.
+
+**Gates:** no application code was changed this session (audit/evidence-only) — no build/tsc gate
+applicable. `node scripts/audit/verify-pt07-003.mjs` — exit 0, confirmed. Sanity-checked the
+verifier fails loudly on a synthetically broken evidence file (a deleted source) before restoring
+the real one, matching this audit program's established convention (see PT-07-002's own note).
+
+**Scoped commit:** `test-evidence/pt-07/data-sources.json`,
+`test-evidence/_register/WIRING_GAP_REGISTER.md` (findings `WGR-138`–`WGR-145`),
+`scripts/audit/pt07-003-data-sources.mjs`, `scripts/audit/verify-pt07-003.mjs`,
+`scripts/audit/pt07-003-register-findings.mjs`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Not
+staged: two pre-existing, unrelated untracked files found already sitting in `scripts/audit/`
+at session start (`pt04-004-register-findings.mjs`, `verify-pt04-004.mjs`) — not authored this
+session, out of scope for this task's commit.
+
+---
+
+**Prior update: August 20, 2026 — audit PT-07: real Railway worker job round-trip.**
 
 **Focus:** PT-08's boot inventory already proved the worker process boots and its processors are
 STARTED (reconciled against real Railway logs + a live `worker_status` query). This is the

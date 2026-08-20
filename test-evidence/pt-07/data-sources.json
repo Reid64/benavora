@@ -1,0 +1,381 @@
+{
+  "generated_at": "2026-08-20T16:50:17.576Z",
+  "sources": {
+    "grants_gov": {
+      "app_files": [
+        "src/lib/sources/grantsgov-client.ts",
+        "src/lib/sources/grantsgov-sync.ts (caller)",
+        "src/app/api/cron/grantsgov/route.ts (daily Vercel Cron, 0 7 * * *)",
+        "src/app/api/sources/grantsgov/route.ts"
+      ],
+      "request": {
+        "as_coded": {
+          "url": "https://api.grants.gov/grantsws/rest/opportunities/search/v2",
+          "method": "POST",
+          "body": {
+            "keyword": "housing",
+            "oppStatuses": "posted",
+            "rows": 5,
+            "startRecordNum": 0
+          }
+        },
+        "real_current_endpoint_diagnostic": {
+          "url": "https://api.grants.gov/v1/api/search2",
+          "method": "POST",
+          "body": {
+            "rows": 3,
+            "keyword": "housing",
+            "oppStatuses": "forecasted|posted"
+          }
+        }
+      },
+      "response": {
+        "as_coded": {
+          "status": 403,
+          "statusText": "Forbidden",
+          "contentType": "application/json",
+          "elapsedMs": 624,
+          "bodySample": "{\"message\":\"Missing Authentication Token\"}",
+          "networkError": null
+        },
+        "real_current_endpoint_diagnostic": {
+          "status": 200,
+          "statusText": "OK",
+          "contentType": "application/json",
+          "elapsedMs": 319,
+          "bodySample": "{\"errorcode\":0,\"msg\":\"Webservice Succeeds\",\"token\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.Im9pYmNMRVJGUVJpTjhtQW0yMStaNzZOM29QaHdhZHFNWXQ1T1JjRmlFQk09Ig.iApRa808SHnItOrfKtv1gghF2QZUH-r91MXHneC-vTQ\",\"data\":{\"searchParams\":{\"resultType\":\"json\",\"searchOnly\":false,\"oppNum\":\"\",\"cfda\":\"\",\"sortBy\":\"\",\"oppStatuses\":\"forecasted|posted\",\"startRecordNum\":0,\"eligibilities\":\"\",\"fundingInstruments\":\"\",\"fundingCategories\":\"\",\"agencies\":\"\",\"rows\":3,\"keyword\":\"housing\",\"keywordEncoded\":true},\"hitCount\":194,\"startRecord\":0,\"oppHits\":[{\"id\":\"356629\",\"number\":\"VA-GPD-FORECAST-FY2026-FY2028\",\"title\":\"GPD Grant Forecast\",\"agencyCode\":\"VA-HPGPDP\",\"agency\":\"Homeless Providers Grant and Per Diem Program\",\"openDate\":\"10/03/2024\",\"closeDate\":\"\",\"oppStatus\":\"forecasted\",\"docType\":\"forecast\",\"cfdaList\":[\"64.024\"]},{\"id\":\"362827\",\"number\":\"OFH-2600-DC-021C\",\"title\":\"FAIR HOUSING INITIATIVES PROGRAM PRIVATE ENFORCEMENT INITIATIVE\",\"agencyCode\":\"HUD\",\"agency\":\"Department of Housing and Urban Development\",\"openDate\":\"07/02/2026\",\"closeDate\":\"11/02/2026\",\"oppStatus\":\"posted\",\"docType\":\"synopsis\",\"cfdaList\":[\"14.418\"]},{\"id\":\"362014\",\"number\":\"HSG-2600-DC-0033\",\"title\":\"Comprehensive Housing Counseling (CHC) and the ",
+          "networkError": null
+        }
+      },
+      "shape_check": {
+        "appReadsField": "oppHits (top-level)",
+        "appReadsFieldPresentInRealResponse": false,
+        "realHitsActuallyLiveAt": "data.oppHits",
+        "firstRealHitKeys": [
+          "agency",
+          "agencyCode",
+          "cfdaList",
+          "closeDate",
+          "docType",
+          "id",
+          "number",
+          "openDate",
+          "oppStatus",
+          "title"
+        ],
+        "appExpectsHitField_oppTitle": false,
+        "realHitField_title": true,
+        "appExpectsHitField_synopsis_forDescription": false,
+        "appExpectsHitField_awardCeiling_forAmount": false
+      },
+      "verdict": "BROKEN",
+      "detail": "App-coded URL (https://api.grants.gov/grantsws/rest/opportunities/search/v2) returns HTTP 403 \"Missing Authentication Token\" on every real call — an AWS API Gateway response indicating this path no longer resolves to a live route. searchGrantsGovOpportunities() treats any !response.ok as a silent empty array, so the daily cron (/api/cron/grantsgov) has been finding 0 opportunities on every run, with no error surfaced anywhere. The real, current public endpoint is https://api.grants.gov/v1/api/search2 (confirmed reachable, HTTP 200), but even there the response wraps hits in data.oppHits (app reads top-level oppHits — always undefined) and renames/drops fields the app's mapHit() reads: real hits use \"title\" not \"oppTitle\", and carry no \"synopsis\" or \"awardCeiling\" field at all (both confirmed absent from 10 real hit fields). Fixing the URL alone would not be sufficient — the parser's field names are also stale."
+    },
+    "sam_gov": {
+      "app_files": [
+        "src/lib/sources/samgov-client.ts",
+        "src/app/api/sources/samgov/route.ts (live path)",
+        "src/lib/donor-discovery/adapters/samgov-adapter.ts (separate implementation, same host)",
+        "src/lib/agents/sam-gov.ts (separate, manual-trigger-only agent, already handles date range correctly)"
+      ],
+      "request": {
+        "as_coded_no_date_range": {
+          "url": "https://api.sam.gov/opportunities/v2/search?api_key=REDACTED&ptype=o&limit=5",
+          "method": "GET"
+        },
+        "with_mandatory_date_range_diagnostic": {
+          "url": "https://api.sam.gov/opportunities/v2/search?api_key=REDACTED&ptype=o&limit=5&postedFrom=08%2F01%2F2026&postedTo=08%2F20%2F2026",
+          "method": "GET"
+        },
+        "samgov_adapter_entity_v3": {
+          "url": "https://api.sam.gov/entity-information/v3/entities?api_key=REDACTED&purposeOfRegistrationCode=Z2&naicsCode=236220&activeDate=08%2F20%2F2026&size=3",
+          "method": "GET"
+        },
+        "samgov_adapter_award_notices": {
+          "url": "https://api.sam.gov/opportunities/v2/search?api_key=REDACTED&ptype=a&limit=5&postedFrom=05%2F22%2F2026&postedTo=08%2F20%2F2026",
+          "method": "GET"
+        }
+      },
+      "response": {
+        "as_coded_no_date_range": {
+          "status": 400,
+          "statusText": "Bad Request",
+          "elapsedMs": 901,
+          "bodySample": "{\"errorCode\":\"400\",\"errorMessage\":\"PostedFrom and PostedTo are mandatory\"}",
+          "networkError": null
+        },
+        "with_mandatory_date_range_diagnostic": {
+          "status": 200,
+          "statusText": "OK",
+          "elapsedMs": 219,
+          "bodySample": "{\"totalRecords\":4274,\"limit\":5,\"offset\":0,\"opportunitiesData\":[{\"active\":\"Yes\",\"additionalInfoLink\":null,\"archiveDate\":\"2026-08-29\",\"archiveType\":\"auto15\",\"award\":null,\"baseType\":\"Solicitation\",\"classificationCode\":\"Y1BZ\",\"description\":\"https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=ff6150d51f0c4570985dbd2a0fc4e514\",\"fullParentPathCode\":\"021.2100.NGB.JFHQ USPFO NC.USPFO NC PROC.W50S87\",\"fullParentPathName\":\"DEPT OF DEFENSE.DEPT OF THE ARMY.NATIONAL GUARD BUREAU.JFHQ USPFO NC.USPFO NC PROCUREMENT.W7NS USPFO ACTIVITY NCANG 145\",\"links\":[{\"rel\":\"self\",\"href\":\"https://api.sam.gov/prod/opportunities/v2/search?noticeid=ff6150d51f0c4570985dbd2a0fc4e514&limit=1\"}],\"naicsCode\":\"236220\",\"naicsCodes\":[\"236220\"],\"noticeId\":\"ff6150d51f0c4570985dbd2a0fc4e514\",\"officeAddress\":{\"zipcode\":\"2",
+          "networkError": null,
+          "totalRecords": 4274
+        },
+        "samgov_adapter_entity_v3": {
+          "status": 400,
+          "statusText": "Bad Request",
+          "bodySample": "{\"timestamp\":\"2026-08-20 16:50:21.255\",\"message\":\"The search parameter, activeDate does not exist.\",\"detail\":\"Please refer to https://open.gsa.gov/api/entity-api/ for a list of allowable search parameters.\",\"errorCode\":\"INVALID_SEARCH_PARAMETER\",\"transaction_id\":\"ad1926c2-73a7-4487-a975-1369f607ffd8\"}",
+          "networkError": null
+        },
+        "samgov_adapter_award_notices": {
+          "status": 200,
+          "statusText": "OK",
+          "totalRecords": 4680,
+          "hitsReturned": 5,
+          "hitsWithTopLevelAwardee": 0,
+          "hitsWithNestedAwardAwardee": 5,
+          "networkError": null
+        }
+      },
+      "shape_check": {
+        "appReadsField_noticeId": true,
+        "appReadsField_title": true,
+        "appReadsField_description_asPlainText": false,
+        "real_description_value_sample": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=ff6150d51f0c4570985dbd2a0fc4e514",
+        "appReadsField_responseDeadLine": true,
+        "appReadsField_awardAmount": false,
+        "real_awardAmount_present_across_hits": false
+      },
+      "verdict": "BROKEN",
+      "detail": "As coded (no postedFrom/postedTo), the real API returns HTTP 400 \"PostedFrom and PostedTo are mandatory\" on every call. searchSamGovOpportunities() treats !response.ok as a silent empty array, so this integration returns 0 results on literally every real invocation today. Once the date range is supplied, the real API returns real hits, but \"description\" is always a URL to a separate GET .../noticedesc endpoint, never literal opportunity text (confirmed on all 5 returned hits). mapHit() stores this URL string directly as the opportunity description. \"awardAmount\" is absent from the schema of every returned hit (real field simply does not exist in opportunities/v2/search results) — amount_max is always null for SAM.gov opportunities via this path.",
+      "additional_checks": {
+        "entity_management_v3": {
+          "verdict": "BROKEN",
+          "detail": "searchEntitiesByNaics() (samgov-adapter.ts) sends \"activeDate\" as a query param; the real, current Entity Management API v3 rejects it with HTTP 400 \"The search parameter, activeDate does not exist.\" on every call — this donor-discovery corporate-entity path is fully broken."
+        },
+        "award_notices_ptype_a": {
+          "verdict": "BROKEN",
+          "detail": "normalizeAwardee() (samgov-adapter.ts) reads raw.awardee?.name directly off each hit, but the real API nests it at hit.award.awardee — confirmed 0/5 real hits carry a top-level \"awardee\" field, while 5/5 carry it at the real path (hit.award.awardee). searchRecentAwardRecipients() silently returns zero prospects on every real call."
+        }
+      }
+    },
+    "usaspending": {
+      "app_files": [
+        "src/lib/agents/usaspending.ts (UsaspendingAgent)"
+      ],
+      "request": {
+        "url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+        "method": "POST",
+        "body": {
+          "filters": {
+            "award_type_codes": [
+              "02",
+              "03",
+              "04",
+              "05"
+            ],
+            "keyword": "housing"
+          },
+          "fields": [
+            "Award ID",
+            "Recipient Name",
+            "Award Amount",
+            "Award Date",
+            "Awarding Agency",
+            "Description"
+          ],
+          "page": 1,
+          "limit": 5,
+          "sort": "Award Amount",
+          "order": "desc"
+        }
+      },
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "contentType": "application/json",
+        "elapsedMs": 615,
+        "bodySample": "{\"spending_level\":\"awards\",\"limit\":5,\"results\":[{\"internal_id\":259665406,\"Award ID\":\"B-18-DP-72-0002\",\"Recipient Name\":\"PUERTO RICO DEPARTMENT OF HOUSING\",\"Award Amount\":8285284000.0,\"Award Date\":null,\"Awarding Agency\":\"Department of Housing and Urban Development\",\"Description\":\"COMMUNITY DEVELOPMENT BLOCK GRANTS/STATE'S PROGRAM AND NON-ENTITLEMENT GRANTS IN HAWAII\",\"awarding_agency_id\":882,\"agency_slug\":\"department-of-housing-and-urban-development\",\"generated_internal_id\":\"ASST_NON_B-18-DP-72-0002_086\"},{\"internal_id\":259665405,\"Award ID\":\"B-18-DP-72-0001\",\"Recipient Name\":\"PUERTO RICO DEPARTMENT OF HOUSING\",\"Award Amount\":8220783000.0,\"Award Date\":null,\"Awarding Agency\":\"Department of Housing and Urban Development\",\"Description\":\"COMMUNITY DEVELOPMENT BLOCK GRANTS/STATE'S PROGRAM AND NON-ENTITLEMENT GRANTS IN HAWAII\",\"awarding_agency_id\":882,\"agency_slug\":\"department-of-housing-and-urban-development\",\"generated_internal_id\":\"ASST_NON_B-18-DP-72-0001_086\"},{\"internal_id\":259659224,\"Award ID\":\"B-13-DS-36-0001\",\"Recipient Name\":\"HOUSING TRUST FUND CORP\",\"Award Amount\":4416882000.0,\"Award Date\":null,\"Awarding Agency\":\"Department of Housing and Urban Development\",\"Description\":\"HURR S",
+        "networkError": null,
+        "resultCount": 5
+      },
+      "shape_check": {
+        "requiredFields": [
+          "Award ID",
+          "Recipient Name",
+          "Award Amount",
+          "Award Date",
+          "Awarding Agency",
+          "Description"
+        ],
+        "presentOnFirstResult": [
+          "Award ID",
+          "Recipient Name",
+          "Award Amount",
+          "Award Date",
+          "Awarding Agency",
+          "Description"
+        ],
+        "missingFromFirstResult": []
+      },
+      "verdict": "OK",
+      "detail": "All 6 fields the app reads are present on the real response's first result."
+    },
+    "propublica": {
+      "app_files": [
+        "src/lib/sources/propublica-990-client.ts (enrichFoundationFromProPublica, fetchProPublicaFinancials)"
+      ],
+      "request": {
+        "url": "https://projects.propublica.org/nonprofits/api/v2/organizations/530196605.json",
+        "method": "GET",
+        "note": "EIN 530196605 chosen as a known-valid, stable real organization for this probe."
+      },
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "contentType": "application/json; charset=utf-8",
+        "elapsedMs": 203,
+        "bodySample": "{\"organization\":{\"id\":530196605,\"ein\":530196605,\"name\":\"American National Red Cross\",\"careofname\":null,\"address\":\"431 18TH ST NW\",\"city\":\"Washington\",\"state\":\"DC\",\"zipcode\":\"20006-5310\",\"exemption_number\":0,\"subsection_code\":3,\"affiliation_code\":1,\"classification_codes\":\"1000\",\"ruling_date\":\"1938-12-01\",\"deductibility_code\":1,\"foundation_code\":15,\"activity_codes\":\"902561000\",\"organization_code\":1,\"exempt_organization_status_code\":1,\"tax_period\":\"2025-06-01\",\"asset_code\":9,\"income_code\":9,\"filing_requirement_code\":1,\"pf_filing_requirement_code\":0,\"accounting_period\":6,\"asset_amount\":5052941623,\"income_amount\":4608946426,\"revenue_amount\":3916983933,\"ntee_code\":\"P210\",\"sort_name\":\"Shared Services Center\",\"created_at\":\"2023-05-09T20:32:12.933Z\",\"updated_at\":\"2026-07-22T00:47:33.317Z\",\"data_source\":\"current_2026_07_21\",\"have_extracts\":null,\"have_pdfs\":null,\"latest_object_id\":\"202640829349300109\"},\"filings_with_data\":[{\"tax_prd\":202306,\"tax_prd_yr\":2023,\"formtype\":0,\"pdf_url\":\"https://projects.propublica.org/nonprofits/download-filing?path=download990pdf_03_2024_prefixes_41-54%2F530196605_202306_990_2024031222316430.pdf\",\"updated\":\"2025-08-05T16:09:45.876Z\",\"totrevenue\":3217077611,\"totfu",
+        "networkError": null
+      },
+      "shape_check": {
+        "organization_fields_present": [
+          "name",
+          "ntee_code",
+          "state",
+          "city",
+          "subsection_code"
+        ],
+        "organization_fields_missing": [],
+        "filing_fields_present": [
+          "totrevenue",
+          "totassetsend",
+          "totfuncexpns"
+        ],
+        "filing_fields_missing": [],
+        "filing_has_fiscal_period_field": false,
+        "filing_has_tax_prd_yr_fallback": true,
+        "fetchProPublicaFinancials_sibling_shape_ok": true
+      },
+      "verdict": "OK",
+      "detail": "organization.{name,ntee_code,state,city,subsection_code} and filings_with_data[0].{totrevenue,totassetsend,totfuncexpns} all present, matching enrichFoundationFromProPublica()'s read path exactly. Real fiscal_period field is absent (as the code's own header comment already documents) — the code's tax_prd_yr fallback is present and used correctly."
+    },
+    "irs_endpoints_zip_probe": {
+      "url": "https://apps.irs.gov/pub/epostcard/990/xml/2026/2026_TEOS_XML_01A.zip",
+      "status": 200,
+      "contentType": "application/zip"
+    },
+    "irs_endpoints": {
+      "app_files": [
+        "src/scripts/import-irs-bmf.ts (BMF_BASE_URL, BMF_HEADERS, importFile())",
+        "src/lib/scraper/foundation-scraper.ts (IRS 990 XML index URL, batch ZIP URL construction)"
+      ],
+      "request": {
+        "bmf_csv": {
+          "url": "https://www.irs.gov/pub/irs-soi/eo_wy.csv",
+          "method": "GET"
+        },
+        "xml_990_index": {
+          "url": "https://apps.irs.gov/pub/epostcard/990/xml/2026/index_2026.csv",
+          "method": "GET"
+        },
+        "xml_990_batch_zip": {
+          "url": "https://apps.irs.gov/pub/epostcard/990/xml/2026/2026_TEOS_XML_01A.zip",
+          "method": "HEAD"
+        }
+      },
+      "response": {
+        "bmf_csv": {
+          "status": 200,
+          "statusText": "OK",
+          "contentType": "text/csv",
+          "elapsedMs": 299,
+          "firstLine": "EIN,NAME,ICO,STREET,CITY,STATE,ZIP,GROUP,SUBSECTION,AFFILIATION,CLASSIFICATION,RULING,DEDUCTIBILITY,FOUNDATION,ACTIVITY,ORGANIZATION,STATUS,TAX_PERIOD,ASSET_CD,INCOME_CD,FILING_REQ_CD,PF_FILING_REQ_CD,ACCT_PD,ASSET_AMT,INCOME_AMT,REVENUE_AMT,NTEE_CD,SORT_NAME",
+          "bodySample": "EIN,NAME,ICO,STREET,CITY,STATE,ZIP,GROUP,SUBSECTION,AFFILIATION,CLASSIFICATION,RULING,DEDUCTIBILITY,FOUNDATION,ACTIVITY,ORGANIZATION,STATUS,TAX_PERIOD,ASSET_CD,INCOME_CD,FILING_REQ_CD,PF_FILING_REQ_CD,ACCT_PD,ASSET_AMT,INCOME_AMT,REVENUE_AMT,NTEE_CD,SORT_NAME\r\n010631747,AMERICAN LEGION,% DOUG HENSALA,1320 HUGUR AVE,CHEYENNE,WY,82001-4917,0925,19,9,1000,194603,0,00,907908000,5,01,202506,0,0,02,0,06,0,0,0,,0017 E A BLACKMORE MEMORIAL\r\n010639604,BURNS ELEMENTARY PARENT ORGANIZATION,% LISA PEREZ,PO BOX 304,BURNS,WY,82053-0304,0000,03,3,1000,200207,1,15,000000000,5,01,202512,0,0,02,0,12,0,0,0,B94,\r",
+          "networkError": null
+        },
+        "xml_990_index": {
+          "status": 200,
+          "statusText": "OK",
+          "contentType": "text/csv",
+          "elapsedMs": 146,
+          "firstLine": "RETURN_ID,FILING_TYPE,EIN,TAX_PERIOD,SUB_DATE,TAXPAYER_NAME,RETURN_TYPE,DLN,OBJECT_ID,XML_BATCH_ID",
+          "networkError": null
+        }
+      },
+      "shape_check": {
+        "bmf_first_line_looks_like_header": true,
+        "bmf_header_row_filtered_by_isFoundation": true,
+        "index_header_matches_documented_layout": true
+      },
+      "verdict": "DEGRADED",
+      "detail": "BMF CSV: The real, current file DOES include a literal header row (\"EIN,NAME,ICO,STREET,CITY,STATE,ZIP,GROUP,SUBSECTION,AFFILIATION,CLASSIFICATION,R...\") as its first line — contradicting import-irs-bmf.ts's own comment (\"IRS EO BMF files have NO header row, so we supply the column names\") and its unconditional `for await (const line of rl)` loop, which has no header-skip logic. Positionally re-applying BMF_HEADERS to this header row and running the real isFoundation() filter against it correctly rejects it (FOUNDATION=\"FOUNDATION\" doesn't match \"02\"/\"04\", so it's a harmless no-op today). Documented as a real, currently-harmless (by coincidence, not by design) shape-assumption drift, not a live data-corruption bug. | 990 index CSV: Real index CSV header matches exactly: \"RETURN_ID,FILING_TYPE,EIN,TAX_PERIOD,SUB_DATE,TAXPAYER_NAME,RETURN_TYPE,DLN,OBJECT_ID,XML_BATCH_ID\" — EIN at index 2, OBJECT_ID at 8, XML_BATCH_ID at 9, matching this codebase's already-documented column-position fix (D2, 2026-08-14). | 990 batch ZIP: Real batch ZIP resolves and is a real ZIP file (HTTP 200, content-type application/zip)."
+    },
+    "scraperapi_rotation": {
+      "app_files": [
+        "src/lib/scraper/stealth-engine.ts (resolveProxy(), StealthEngine.launchContext())"
+      ],
+      "request": {
+        "note": "resolveProxy() code path check + a real CONNECT-tunnel probe of proxy-server.scraperapi.com:8001",
+        "gateway_probe_command": "curl -sk -x http://scraperapi:<REDACTED>@proxy-server.scraperapi.com:8001 https://httpbin.org/ip"
+      },
+      "response": {
+        "scraper_api_key_configured_locally": false,
+        "gateway_probe": {
+          "reachable": true,
+          "status": 401,
+          "bodySample": "Unauthorized request, please make sure your API key is valid.",
+          "note": "Real CONNECT-tunnel request through the gateway with a deliberately invalid key — a real, live 401 with an auth-error body confirms the gateway itself is live and enforces per-key auth (rotation is a server-side account feature of ScraperAPI, not client logic in this codebase)."
+        }
+      },
+      "verdict": "NOT_CONFIGURED",
+      "detail": "SCRAPER_API_KEY is absent from this environment's .env.local (also documented in WGR-003 as production-unconfirmed). Per resolveProxy(), an unset key returns undefined, and StealthEngine.launchContext() only sets launchArgs.proxy when this.proxy is truthy — so with no key, chromium.launch() runs with NO proxy configured at all: every scrape from this environment connects directly from this machine's own IP, not through ScraperAPI's rotating pool. The gateway itself is confirmed live and reachable (real HTTP 401 \"Unauthorized request, please make sure your API key is valid.\" for an invalid key) — a real key would genuinely route through it, but IP rotation itself (server-side, per ScraperAPI's account) cannot be verified without a real, funded credential, which does not exist in this environment."
+    }
+  },
+  "findings": [
+    {
+      "source": "grants_gov",
+      "severity": "P0",
+      "detail": "App-coded URL (https://api.grants.gov/grantsws/rest/opportunities/search/v2) returns HTTP 403 \"Missing Authentication Token\" on every real call — an AWS API Gateway response indicating this path no longer resolves to a live route. searchGrantsGovOpportunities() treats any !response.ok as a silent empty array, so the daily cron (/api/cron/grantsgov) has been finding 0 opportunities on every run, with no error surfaced anywhere. The real, current public endpoint is https://api.grants.gov/v1/api/search2 (confirmed reachable, HTTP 200), but even there the response wraps hits in data.oppHits (app reads top-level oppHits — always undefined) and renames/drops fields the app's mapHit() reads: real hits use \"title\" not \"oppTitle\", and carry no \"synopsis\" or \"awardCeiling\" field at all (both confirmed absent from 10 real hit fields). Fixing the URL alone would not be sufficient — the parser's field names are also stale."
+    },
+    {
+      "source": "sam_gov",
+      "severity": "P0",
+      "detail": "src/lib/sources/samgov-client.ts sends no postedFrom/postedTo — SAM.gov rejects every real call with HTTP 400, silently swallowed to an empty array."
+    },
+    {
+      "source": "sam_gov",
+      "severity": "P1",
+      "detail": "SAM.gov search hits' description field is a fetch-URL, not text, on every hit — mapHit() would persist the URL string as the opportunity description with no crash and no warning."
+    },
+    {
+      "source": "sam_gov",
+      "severity": "P2",
+      "detail": "SAM.gov search hits never carry an awardAmount field — amount is always null for this source, not a parser bug but worth documenting since it's silent."
+    },
+    {
+      "source": "sam_gov",
+      "severity": "P0",
+      "detail": "src/lib/donor-discovery/adapters/samgov-adapter.ts's searchEntitiesByNaics() sends an activeDate param the real SAM.gov Entity Management API v3 rejects outright (HTTP 400) — every real call fails."
+    },
+    {
+      "source": "sam_gov",
+      "severity": "P0",
+      "detail": "src/lib/donor-discovery/adapters/samgov-adapter.ts's normalizeAwardee() reads hit.awardee, but the real SAM.gov Award Notice shape nests it at hit.award.awardee — every real call returns zero prospects, silently."
+    },
+    {
+      "source": "irs_endpoints",
+      "severity": "P3",
+      "detail": "IRS BMF CSV files now include a header row that import-irs-bmf.ts's code/comments assume does not exist; currently harmless because isFoundation() happens to reject the header row, but the assumption itself is stale."
+    },
+    {
+      "source": "scraperapi_rotation",
+      "severity": "P1",
+      "detail": "SCRAPER_API_KEY is not configured in this environment (and unconfirmed in production per WGR-003) — the stealth scraper runs with zero proxy, directly from the scraping machine's own IP, whenever this key is unset. IP rotation cannot be verified without a real credential."
+    }
+  ],
+  "summary": {
+    "sources_checked": 6,
+    "sources_missing": [],
+    "finding_count": 8,
+    "verdicts": {
+      "grants_gov": "BROKEN",
+      "sam_gov": "BROKEN",
+      "usaspending": "OK",
+      "propublica": "OK",
+      "irs_endpoints": "DEGRADED",
+      "scraperapi_rotation": "NOT_CONFIGURED"
+    }
+  }
+}

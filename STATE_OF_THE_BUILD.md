@@ -1,6 +1,95 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-07: real Railway worker job round-trip.** Complements
+**Updated: August 20, 2026 — audit PT-07: external data-source API probes.** Real, live calls
+against every external data source the app depends on — Grants.gov, SAM.gov, USASpending,
+ProPublica, IRS endpoints, and the ScraperAPI proxy rotation used by the stealth scraper — made
+against the exact request shape each app integration file actually sends, not a mocked/monkey-
+patched `fetch` (PT-10-002 already covered malformed-response fuzzing that way; this task's job
+was to hit the real internet and see what comes back today). Result: **4 of 6 sources have a real,
+confirmed, live-reproducible integration bug; the daily Grants.gov cron and every SAM.gov
+opportunity-search call have been silently returning zero real data for an unknown but likely
+long-running period.**
+
+**Grants.gov — BROKEN, confirmed twice.** `src/lib/sources/grantsgov-client.ts`'s coded URL
+(`api.grants.gov/grantsws/rest/opportunities/search/v2`) returns a real HTTP 403 `"Missing
+Authentication Token"` (an AWS API Gateway response — the path no longer resolves to a live
+route) on every call. `searchGrantsGovOpportunities()` treats any `!response.ok` as a silent empty
+array, so `/api/cron/grantsgov` (Vercel Cron, daily `0 7 * * *`) has been finding 0 opportunities
+every single run, with nothing anywhere surfacing an error. The real, current public endpoint
+(`api.grants.gov/v1/api/search2`, live-confirmed HTTP 200) would not fix this alone: its response
+wraps hits in `data.oppHits`, not the top-level `oppHits` the app reads, and real hits use
+`"title"` (not `"oppTitle"`) with no `"synopsis"` or `"awardCeiling"` field at all — both fields
+`mapHit()` reads for description/amount are confirmed absent from the real schema entirely, not
+just renamed.
+
+**SAM.gov — BROKEN in 4 distinct, independently-confirmed ways across 3 separate integration
+files on the same host.** (1) `src/lib/sources/samgov-client.ts` (the live path behind
+`/api/sources/samgov`) sends no `postedFrom`/`postedTo` — the real API rejects every call with
+HTTP 400 `"PostedFrom and PostedTo are mandatory"`, silently swallowed to an empty array, same
+failure shape as Grants.gov. (2) Once the mandatory date range is supplied (confirmed live), real
+search hits' `description` field is always a URL to a separate `noticedesc` fetch endpoint, never
+literal text — `mapHit()` would persist that URL as the opportunity description with no error.
+(3) Real hits never carry an `awardAmount` field at all — `amount_max` is always `null` via this
+source, a silent, permanent gap, not a crash. (4) `src/lib/donor-discovery/adapters/
+samgov-adapter.ts` — a separate implementation targeting the SAM.gov Entity Management API v3 —
+sends an `activeDate` param the real, current API rejects outright (`HTTP 400 "The search
+parameter, activeDate does not exist."`); every real call throws. (5) The same file's Award-Notice
+path (`ptype=a`) reads `hit.awardee` directly, but the real shape nests it at `hit.award.awardee`
+— confirmed live: 0 of 5 real sampled hits carry a top-level `awardee` field, 5 of 5 carry it at
+the real nested path — so this function silently returns zero prospects on every real call.
+
+**USASpending — OK.** Real live call matches the app's expected shape field-for-field
+(`{results: [{"Award ID","Recipient Name","Award Amount","Award Date","Awarding Agency",
+"Description"}]}`) — no drift found.
+
+**ProPublica — OK.** Real live call (American National Red Cross, EIN 530196605 — a known-stable
+real org, chosen after the first EIN tried, 561414476, correctly 404'd as a genuinely unknown/
+invalid EIN, which is expected ProPublica behavior, not a finding) confirms
+`organization.{name,ntee_code,state,city,subsection_code}` and
+`filings_with_data[0].{totrevenue,totassetsend,totfuncexpns}` all present exactly as
+`enrichFoundationFromProPublica()` reads them; the code's own documented `tax_prd_yr` fallback for
+the (genuinely absent) `fiscal_period` field is confirmed correct against the real response.
+
+**IRS endpoints — mostly OK, one low-severity stale assumption found.** The 990 XML index CSV
+(`apps.irs.gov/.../index_{year}.csv`) and batch ZIP URL construction both match the real, current
+layout exactly (`RETURN_ID,FILING_TYPE,EIN,TAX_PERIOD,SUB_DATE,TAXPAYER_NAME,RETURN_TYPE,DLN,
+OBJECT_ID,XML_BATCH_ID` — the same column positions this repo's own D2 fix already documented
+2026-08-14). The BMF CSV (`src/scripts/import-irs-bmf.ts`) is a real, live, previously-unknown
+finding: the script's own comment ("IRS EO BMF files have NO header row") and its unconditional
+per-line loop both assume no header — but the real, current download (`eo_wy.csv`, confirmed live)
+DOES include a literal header row as its first line. Positionally re-applying `BMF_HEADERS` to
+that header row and running the real `isFoundation()` filter against it confirms this is currently
+harmless by coincidence only (the literal string `"FOUNDATION"` doesn't match the `'02'`/`'04'`
+codes the filter checks for), not by design — flagged as a stale shape assumption, not a live bug.
+
+**ScraperAPI rotation — NOT_CONFIGURED in this environment, gateway confirmed genuinely live.**
+`SCRAPER_API_KEY` is absent from this environment's `.env.local` (consistent with the already-
+documented WGR-003, which flagged it as production-unconfirmed too). Per `resolveProxy()`
+(`src/lib/scraper/stealth-engine.ts`), an unset key means `StealthEngine.launchContext()` sets no
+proxy at all — every scrape from an environment with no key runs directly from that machine's own
+IP, not through any rotating pool. Live-confirmed the gateway itself
+(`proxy-server.scraperapi.com:8001`) is real and reachable: a CONNECT-tunnel HTTPS request through
+it with a deliberately invalid key returns a real, live HTTP 401 `"Unauthorized request, please
+make sure your API key is valid."` — proving the mechanism is genuine and enforces real per-key
+auth, so a configured key would genuinely route through it. Actual IP rotation is a server-side
+ScraperAPI account feature, not client logic in this codebase, and cannot be verified without a
+real, funded credential — none exists in this environment, and production status remains
+unconfirmed per WGR-003.
+
+**8 findings registered** (`WGR-138` through `WGR-145`, `test-evidence/_register/
+WIRING_GAP_REGISTER.md`), 5 at P0 severity. `WGR-138`/`WGR-139` complement the already-existing
+`WGR-126`/`WGR-127` (PT-10-002's mocked-fetch malformed-JSON-crash findings for these same two
+files) — those cover the crash-on-garbage case; these cover the well-formed-but-wrong-shape case,
+which never crashes and instead fails silently forever.
+
+Evidence: `test-evidence/pt-07/data-sources.json` (real request + real captured response + a
+computed shape verdict for all 6 sources), verified via `node scripts/audit/verify-pt07-003.mjs`
+(exit 0 — every source has a real request, a real response, and a recognized verdict; sanity-
+checked to fail loudly on a synthetically broken evidence file before being restored).
+
+---
+
+**Prior update: August 20, 2026 — audit PT-07: real Railway worker job round-trip.** Complements
 PT-07-001's boot-inventory/heartbeat-only proof with the actual function proof this task asked
 for: does the real, deployed Railway worker genuinely pick up a real queued job and write a real
 completion back — not a local reimplementation of its claim logic (that was PT-10-002 scenario
