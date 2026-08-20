@@ -1,5 +1,51 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-07 COMPLETE: third-party integrations, review pack ready.**
+
+Consolidation of the four PT-07 audit passes below (Supabase real-state probe, Railway worker
+real-job round-trip, external data-source API probes, comms/billing integration probes). No new
+live investigation this pass — cross-referenced all four already-committed evidence files
+(`test-evidence/pt-07/{supabase-state,worker-roundtrip,data-sources,comms-billing}.json`) against
+`WIRING_GAP_REGISTER.md` to find genuinely new, evidenced findings not already covered, registered
+the one that was missing, then wrote `test-evidence/pt-07/PHASE-07-SUMMARY.md` (every number cited
+to a real captured response in one of the four evidence files) and `test-evidence/pt-07/REVIEW-PACK.md`
+(the short-form answer: which of our third-party dependencies can we actually trust right now).
+
+**Headline: Supabase and the Railway worker are genuinely solid; the platform's two primary
+grant-discovery data sources are silently, totally broken.** Supabase's own DB/Auth/Storage all
+passed clean live checks (a real rejected `CREATE TABLE` proved read-only enforcement is real, not
+just requested; a real magic-link session was issued and independently re-verified; every expected
+storage bucket exists, no more, no fewer). A real `agent_queue` job was enqueued, picked up, and
+completed by the actual deployed `railway-worker-1` process in 25.6 seconds, with heartbeat
+freshness confirmed both before and after. But of six external data sources checked with the app's
+own exact request shapes, Grants.gov (the daily-cron-driving source) and SAM.gov (four separate
+consumer paths — main search, entity-by-NAICS, award-notice lookup, plus a data-quality issue once
+the main search is fixed) are all confirmed broken on every real call today, and every one of these
+failures is silent — `!response.ok` degrades to an empty array or a caught-and-swallowed error, with
+no signal reaching any dashboard or log. USASpending.gov and ProPublica both passed clean.
+
+**One new register row this pass, WGR-148** — a live re-verification, not a new discovery: the
+`supabase_realtime` publication was already found to have zero member tables in a 2026-08-07 session
+(a 3-table subset, Command Center only), with a one-line fix proposed and never applied. That
+finding was never promoted into `WIRING_GAP_REGISTER.md`. This session's fresh, independent query
+confirms the identical root cause still holds today, now covering the full, current 7-table set
+across AutoApply and Command Center — registered for the first time as WGR-148 (P1; the confirmed
+Command Center consumer has a documented 60s polling fallback, so this degrades UX rather than
+losing data, but this audit did not independently confirm all 7 consumers have an equivalent
+fallback). The ten other PT-07 rows (WGR-138 through WGR-147) were already registered by the
+individual pt07-003/004 passes below and are not repeated here.
+
+**Gate:** `node scripts/audit/verify-pt07-005.mjs` — PASS. Confirms `PHASE-07-SUMMARY.md` and
+`REVIEW-PACK.md` are both present and non-empty, and that `WIRING_GAP_REGISTER.md` contains the
+pre-pass last row (WGR-137, PT-04's close) plus all eleven of this phase's new rows (WGR-138 through
+WGR-148), appended after it in order — the register's total row count is consistent with a clean
+append, no dropped/duplicated rows.
+
+**This closes the audit program.** PT-00 through PT-14 (PT-12 was never assigned in this numbering
+scheme) are now all complete. `WIRING_GAP_REGISTER.md` runs WGR-001 through WGR-148, unbroken.
+
+---
+
 **Updated: August 20, 2026 — audit PT-07: Resend/Stripe/Google Calendar comms+billing probes.**
 Three integrations, each with a real check or an explicit, reasoned PENDING-SCOPE per the task's
 own fallback instructions. Before writing any probe code, checked the actual live credential

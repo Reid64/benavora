@@ -1,5 +1,40 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-07: Resend/Stripe/Google Calendar comms+billing probes.
+## Last Updated: August 20, 2026 — audit PT-07 COMPLETE: third-party integrations, review pack ready.
+
+**Focus:** closing prompt of the PT-07 phase. Wrote `test-evidence/pt-07/PHASE-07-SUMMARY.md`
+(consolidated numbers across all four PT-07 evidence artifacts: `supabase-state.json`,
+`worker-roundtrip.json`, `data-sources.json`, `comms-billing.json`) and
+`test-evidence/pt-07/REVIEW-PACK.md` (short-form: which third-party dependencies are genuinely live
+vs. only assumed, highest-severity finding, next-phase note). Confirmed every finding already had a
+`WIRING_GAP_REGISTER.md` row (WGR-138 through WGR-147, added by the earlier pt07-003/004 passes)
+except one — the Realtime publication gap from `supabase-state.json` had never been promoted from
+its evidence file into the register — registered it as **WGR-148** via the new
+`scripts/audit/pt07-001-register-findings.mjs`. Wrote `scripts/audit/verify-pt07-005.mjs` (fails
+unless `PHASE-07-SUMMARY.md`/`REVIEW-PACK.md` both exist non-empty and the register contains PT-04's
+last row, `WGR-137`, plus all eleven of PT-07's rows appended after it, each as a well-formed table
+row — mirrors the `verify-pt04-004.mjs` pattern used to close every prior phase). Ran it: **PASS**.
+
+**Result: `WIRING_GAP_REGISTER.md` now runs `WGR-001` through `WGR-148`, unbroken — and this closes
+the audit program.** PT-00 through PT-14 (PT-12 was never assigned in this numbering scheme) are all
+now complete; PT-05/06/08/09/10/11/13/14 finished earlier in this session's real chronology
+(confirmed via `git log` commit timestamps, not phase-number order), PT-03 and PT-04 immediately
+before this phase, and PT-07 closes it last. A future session picking work back up from here should
+treat the register as the standing, canonical punch list across all 148 rows, prioritized by
+severity, not re-derive findings phase-by-phase.
+
+**Headline finding this phase, restated for visibility:** of the six external grant-discovery data
+sources checked (`test-evidence/pt-07/data-sources.json`), Grants.gov and SAM.gov — the platform's
+two primary funding-opportunity sources — are both confirmed broken on every real call today,
+silently (no crash, no error surfaced, an empty result set that looks identical to "no new
+opportunities found"). Full detail and priority order in `REVIEW-PACK.md`.
+
+**Scoped commit:** `test-evidence/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md` only — not
+`git add -A`. Includes the two new PT-07 deliverable docs, the new `pt07-001-register-findings.mjs`
+and `verify-pt07-005.mjs` scripts, and the updated `WIRING_GAP_REGISTER.md`.
+
+---
+
+## Prior session entry — August 20, 2026 — audit PT-07: Resend/Stripe/Google Calendar comms+billing probes.
 
 **Focus:** three integrations named in the task, each with a real check or an explicit, reasoned
 PENDING-SCOPE: (1) Resend — confirm a real delivery path works (via a controlled test send, using
