@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { selectAllPages } from "@/lib/supabase/select-all-pages";
 
 export const runtime = "nodejs";
 
@@ -29,31 +30,31 @@ export async function GET(_req: Request, { params }: RouteContext) {
   // A prospect can be linked to more than one request (donor_discovery_
   // prospects is idempotent per (organization_id, directory_id)), so the set
   // of prospects "for this request" comes from the join table, not the
-  // prospect's own (creating-request-only) request_id column.
-  const { data: links, error: linksError } = await supabase
-    .from("dd_prospect_requests")
-    .select("prospect_id")
-    .eq("request_id", params.id);
-
-  if (linksError) {
+  // prospect's own (creating-request-only) request_id column. Embedding the
+  // joined columns in the same query (rather than a separate .in(prospectIds)
+  // select) avoids ever building an id list that could itself run into
+  // PostgREST/URL-length limits at 100K+ entries.
+  type LinkRow = {
+    donor_discovery_prospects: { pipeline_stage: string; score: number | null; organization_id: string } | null;
+  };
+  let links: LinkRow[];
+  try {
+    links = await selectAllPages<LinkRow>((from, to) =>
+      supabase
+        .from("dd_prospect_requests")
+        .select("donor_discovery_prospects(pipeline_stage, score, organization_id)")
+        .eq("request_id", params.id)
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: LinkRow[] | null; error: unknown }>,
+    );
+  } catch {
     return NextResponse.json({ error: "Failed to load request progress." }, { status: 500 });
   }
 
-  const prospectIds = (links ?? []).map((l: { prospect_id: string }) => l.prospect_id);
-
-  let rows: Array<{ pipeline_stage: string; score: number | null }> = [];
-  if (prospectIds.length > 0) {
-    const { data: prospects, error: prospectsError } = await supabase
-      .from("donor_discovery_prospects")
-      .select("pipeline_stage, score")
-      .in("id", prospectIds)
-      .eq("organization_id", organizationId);
-
-    if (prospectsError) {
-      return NextResponse.json({ error: "Failed to load request progress." }, { status: 500 });
-    }
-    rows = (prospects ?? []) as Array<{ pipeline_stage: string; score: number | null }>;
-  }
+  const rows: Array<{ pipeline_stage: string; score: number | null }> = links
+    .map((l) => l.donor_discovery_prospects)
+    .filter((p): p is { pipeline_stage: string; score: number | null; organization_id: string } => p !== null)
+    .filter((p) => p.organization_id === organizationId);
 
   const stageBreakdown: Record<string, number> = {};
   let scoredCount = 0;

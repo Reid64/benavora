@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllPages } from "@/lib/supabase/select-all-pages";
 import {
   PROPOSAL_SELECT_COLUMNS,
   applyProposalFilters,
@@ -43,10 +44,21 @@ export async function GET(request: Request) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const [resultsRes, totalRes, sourcesRes, filteredStats] = await Promise.all([
+  const [resultsRes, totalRes, sourceRows, filteredStats] = await Promise.all([
     query.order("created_at", { ascending: false }).range(from, to),
     supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
-    supabase.from("intelligence_funded_proposals").select("source"),
+    // Paginated, not a single unbounded .select() — see WGR-031 in
+    // test-evidence/_register/WIRING_GAP_REGISTER.md: with no .range(), this
+    // silently dropped every source past PostgREST's first (arbitrarily-
+    // ordered) 1000 rows the moment the table passed 1000 real rows,
+    // hiding real sources from the filter-dropdown for every user.
+    selectAllPages<{ source: string }>((f, t) =>
+      supabase
+        .from("intelligence_funded_proposals")
+        .select("source")
+        .order("id", { ascending: true })
+        .range(f, t) as unknown as PromiseLike<{ data: Array<{ source: string }> | null; error: unknown }>,
+    ),
     computeFilteredStats(supabase, filters),
   ]);
 
@@ -56,7 +68,7 @@ export async function GET(request: Request) {
 
   const results = ((resultsRes.data ?? []) as unknown as ProposalRow[]).map(mapProposalRow);
   const total = resultsRes.count ?? 0;
-  const distinctSources = [...new Set((sourcesRes.data ?? []).map((r: { source: string }) => r.source))].sort();
+  const distinctSources = [...new Set(sourceRows.map((r) => r.source))].sort();
 
   return NextResponse.json({
     results,

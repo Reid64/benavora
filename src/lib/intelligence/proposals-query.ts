@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";
+import { selectAllPages } from "@/lib/supabase/select-all-pages";
 
 export type ProposalsClient = SupabaseClient<Database>;
 
@@ -308,23 +309,32 @@ export interface FilteredStats {
 // Corpus is small (low thousands at most for the foreseeable term) -- compute
 // filtered stats by pulling the classification-relevant columns for every
 // matching row rather than standing up Postgres-side aggregate RPCs against a
-// schema that's already one migration behind.
+// schema that's already one migration behind. Paginated, not a single
+// `.limit(5000)` — see WGR-031 in test-evidence/_register/
+// WIRING_GAP_REGISTER.md: PostgREST silently re-caps any request at
+// db.max_rows (1000) regardless of the app's own higher `.limit()`, so this
+// was live-reproduced computing avgAwardAmount from an arbitrary first-1000
+// slice of 3,489 real rows -- a ~37x understatement of the real average.
 export async function computeFilteredStats(
   supabase: ProposalsClient,
   filters: ProposalFilters,
 ): Promise<FilteredStats> {
-  let query = supabase.from("intelligence_funded_proposals").select("source, funder_type, award_amount");
-  query = applyProposalFilters(query, filters);
-  const { data } = await query.limit(5000);
-
-  const rows = data ?? [];
+  type StatsRow = { source: string; funder_type: string | null; award_amount: number | null };
+  const rows = await selectAllPages<StatsRow>((from, to) => {
+    let query = supabase
+      .from("intelligence_funded_proposals")
+      .select("source, funder_type, award_amount")
+      .order("id", { ascending: true });
+    query = applyProposalFilters(query, filters);
+    return query.range(from, to) as unknown as PromiseLike<{ data: StatsRow[] | null; error: unknown }>;
+  });
   let sum = 0;
   let amountCount = 0;
   let federalCount = 0;
   let foundationCount = 0;
   let corporateCount = 0;
 
-  for (const row of rows as { source: string; funder_type: string | null; award_amount: number | null }[]) {
+  for (const row of rows) {
     const bucket = deriveFunderBucket(row.source, row.funder_type);
     if (bucket === "federal") federalCount++;
     if (bucket === "private_foundation" || bucket === "community_foundation") foundationCount++;

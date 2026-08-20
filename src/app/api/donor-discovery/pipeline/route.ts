@@ -18,6 +18,7 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { selectAllPages } from "@/lib/supabase/select-all-pages";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ export async function GET() {
   if ("error" in gate) return gate.error;
   const { supabase, organizationId } = gate;
 
-  const [stageResults, avgScoreRes] = await Promise.all([
+  const [stageResults, scores] = await Promise.all([
     Promise.all(
       PIPELINE_STAGES.map(async (stage) => {
         const [countRes, topRes] = await Promise.all([
@@ -76,11 +77,19 @@ export async function GET() {
         };
       }),
     ),
-    supabase
-      .from("donor_discovery_prospects")
-      .select("score")
-      .eq("organization_id", organizationId)
-      .not("score", "is", null),
+    // Paginated, not a single unbounded .select() — see WGR-030 in
+    // test-evidence/_register/WIRING_GAP_REGISTER.md: with no .range(), this
+    // silently truncated to the first (arbitrarily-ordered) 1000 scored
+    // rows the moment an org passed 1000 scored prospects.
+    selectAllPages<{ score: number | null }>((from, to) =>
+      supabase
+        .from("donor_discovery_prospects")
+        .select("score")
+        .eq("organization_id", organizationId)
+        .not("score", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: Array<{ score: number | null }> | null; error: unknown }>,
+    ),
   ]);
 
   const stages: Record<string, { count: number; top: StageProspectRow[] }> = {};
@@ -90,10 +99,9 @@ export async function GET() {
     totalProspects += count;
   }
 
-  const scores = ((avgScoreRes.data ?? []) as Array<{ score: number | null }>)
-    .map((r) => r.score)
-    .filter((s): s is number => s != null);
-  const avgScore = scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length) : null;
+  const scoreValues = scores.map((r) => r.score).filter((s): s is number => s != null);
+  const avgScore =
+    scoreValues.length > 0 ? Math.round(scoreValues.reduce((sum, s) => sum + s, 0) / scoreValues.length) : null;
 
   return NextResponse.json({ stages, totalProspects, avgScore });
 }

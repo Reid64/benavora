@@ -20,9 +20,6 @@ const PIPELINE_STAGES = [
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
-// Never matches a real row — used to make an empty prospectIds list produce
-// zero results rather than an unfiltered `.in()` call.
-const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
@@ -67,34 +64,13 @@ export async function GET(request: Request) {
   const limit = Math.min(parsePositiveInt(params.get("limit"), DEFAULT_LIMIT), MAX_LIMIT);
   const offset = (page - 1) * limit;
 
-  let query = supabase
-    .from("donor_discovery_prospects")
-    .select("*, directory:donor_discovery_directory(*)", { count: "exact" })
-    .eq("organization_id", organizationId);
-
-  if (requestId !== null && requestId.trim() !== "") {
-    // A prospect can be linked to more than one request (donor_discovery_
-    // prospects is idempotent per (organization_id, directory_id) — a reused
-    // prospect's original request_id column no longer reflects every request
-    // that surfaced it, so filter through the join table instead. RLS on
-    // dd_prospect_requests already scopes this to the caller's org.
-    const { data: links, error: linksError } = await supabase
-      .from("dd_prospect_requests")
-      .select("prospect_id")
-      .eq("request_id", requestId);
-
-    if (linksError) {
-      return jsonError("Failed to load prospects.", "DB_ERROR", 500);
-    }
-
-    const prospectIds = (links ?? []).map((l: { prospect_id: string }) => l.prospect_id);
-    query = query.in("id", prospectIds.length > 0 ? prospectIds : [NIL_UUID]);
-  }
+  let taxonomyNode: { kind: string; code: string } | null = null;
   if (taxonomyId !== null && taxonomyId.trim() !== "") {
     // Taxonomy isn't a column on prospects/directory — it's resolved through
     // the node's kind+code against the shared directory's naics_codes /
-    // civic_kind, then narrowed to matching directory ids (same join-filter
-    // shape as the request_id branch above).
+    // civic_kind, applied below as a filter on the embedded directory join
+    // rather than a separate id-collection query (see WGR-032 in
+    // test-evidence/_register/WIRING_GAP_REGISTER.md).
     const { data: node, error: nodeError } = await supabase
       .from("donor_discovery_taxonomy")
       .select("kind, code")
@@ -107,19 +83,44 @@ export async function GET(request: Request) {
     if (!node) {
       return jsonError("Invalid taxonomy_id.", "INVALID_FILTER", 400);
     }
+    taxonomyNode = node;
+  }
 
-    const directoryQuery =
-      node.kind === "naics"
-        ? supabase.from("donor_discovery_directory").select("id").contains("naics_codes", [node.code])
-        : supabase.from("donor_discovery_directory").select("id").eq("civic_kind", node.code);
+  const hasRequestFilter = requestId !== null && requestId.trim() !== "";
 
-    const { data: directoryRows, error: directoryError } = await directoryQuery;
-    if (directoryError) {
-      return jsonError("Failed to load prospects.", "DB_ERROR", 500);
-    }
+  // Both request_id and taxonomy_id filters are pushed into the same query as
+  // joins with a filter on the embedded resource (`!inner` + dot-notation),
+  // rather than collecting matching ids into a client-side `.in()` list first
+  // — see WGR-032. A real production request has up to 133,812 linked
+  // prospects; both PostgREST's 1000-row page cap on an unbounded id-
+  // collection query AND the practical URL-length ceiling of an `.in()` list
+  // that large make the id-list approach silently wrong (or, once paginated,
+  // outright unusable) at this org's real scale. The embedded-join filter
+  // never materializes an id list — Postgres evaluates the join server-side
+  // — so `count: "exact"` stays correct regardless of how many rows match.
+  // Live-verified against the real 133,812-linked production request via a
+  // direct PostgREST call: `Content-Range: 0-2/133812`, matching the true
+  // total exactly.
+  const directorySelect = taxonomyNode
+    ? "directory:donor_discovery_directory!inner(*)"
+    : "directory:donor_discovery_directory(*)";
+  const selectColumns = hasRequestFilter
+    ? `*, ${directorySelect}, dd_prospect_requests!inner()`
+    : `*, ${directorySelect}`;
 
-    const directoryIds = (directoryRows ?? []).map((d: { id: string }) => d.id);
-    query = query.in("directory_id", directoryIds.length > 0 ? directoryIds : [NIL_UUID]);
+  let query = supabase
+    .from("donor_discovery_prospects")
+    .select(selectColumns, { count: "exact" })
+    .eq("organization_id", organizationId);
+
+  if (hasRequestFilter) {
+    query = query.eq("dd_prospect_requests.request_id", requestId as string);
+  }
+  if (taxonomyNode) {
+    query =
+      taxonomyNode.kind === "naics"
+        ? query.contains("directory.naics_codes", [taxonomyNode.code])
+        : query.eq("directory.civic_kind", taxonomyNode.code);
   }
   if (stageParam !== null) {
     query = query.eq("pipeline_stage", stageParam);
