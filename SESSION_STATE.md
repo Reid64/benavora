@@ -1,5 +1,70 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-07 COMPLETE: third-party integrations, review pack ready.
+## Last Updated: August 20, 2026 — audit PT-12: dedicated load-test Supabase branch created and verified non-production.
+
+**Focus:** confirm PT-00/PT-03/PT-09 evidence artifacts exist, then create and verify a real,
+dedicated, `--with-data` Supabase preview branch (`pt12-load-test`, project ref `ffghpazvipsqrypkryfj`,
+branched from production `vbjplpquqxxfbpazyalt`) for future load testing. Confirmed
+`SUPABASE_ACCESS_TOKEN` present and `supabase branches list` working before creating anything.
+
+**What shipped:**
+- `test-evidence/pt-12/branch.txt` — human-readable record: branch identity, the non-production
+  assertion (`branch_project_ref !== production_ref` and `parent_project_ref === production_ref`,
+  both explicitly stated and true), connection details (`SUPABASE_URL`, anon/service-role keys in
+  full; pooled/direct Postgres URLs with the password redacted — the Supabase CLI itself masks the
+  raw DB password in every output format for this command, not something this session chose to
+  redact), and the seeded row volume.
+- `test-evidence/pt-12/branch-seed-counts.json` — the same facts machine-readable, for the verifier
+  to cross-check independently rather than trust the prose file alone.
+- `scripts/audit/pt12-001-record-load-branch.mjs` — resolves the branch by name (not a hardcoded
+  ID) via a live `supabase branches list` call, hard-refuses to write evidence if the resolved
+  branch's `project_ref` is production or its `parent_project_ref` isn't, queries real row counts
+  via the branch's own PostgREST endpoint (its own service-role key, never production's), and writes
+  both evidence files.
+- `scripts/audit/verify-pt12-001.mjs` — fails unless `branch.txt` records a real UUID branch id, a
+  `branch_project_ref` distinct from `vbjplpquqxxfbpazyalt`, a `parent_project_ref` equal to it, and
+  a positive sampled row total; HARD FAILS specifically if the recorded target is production;
+  cross-checks `branch-seed-counts.json` agrees; and does a **live** re-check against
+  `supabase branches list` so stale/deleted evidence doesn't pass silently. Ran it: **PASS**.
+
+**Real bug found and fixed in the verifier before trusting it**: the first draft's `RESULT:` regex
+matched the wrong line (an earlier prose sentence starting with "RESULT:", not the trailing verdict
+line), so a correct evidence file initially failed verification. Fixed to an anchored,
+standalone-line regex. Also deliberately sanity-checked the fixed verifier by feeding it a doctored
+copy of `branch.txt` claiming the production ref as the branch target and confirming it HARD FAILs —
+then restored the real file (confirmed byte-identical via `diff`) and re-ran clean, so the PASS above
+isn't a rubber stamp.
+
+**Data volume, confirmed via a live PostgREST query against the branch itself right after the
+`--with-data` restore finished:** 2,138,683 rows across 7 sampled tables, matching production's own
+counts almost exactly (`nonprofits` 1,978,526, `foundation_directory` 133,812, `agent_runs` 24,947
+vs. prod's 24,950 at check time — real write-activity drift between the two reads, not a clone gap).
+This is production-scale, not a synthetic sample.
+
+**One real timing gap found and worked around, not glossed over:** the Supabase CLI's own
+`preview_project_status` field reported `ACTIVE_HEALTHY` well before the `--with-data` clone had
+actually finished — the Management API's separate `status` field still showed `RESTORING` for
+several more minutes after. This session polled `status` specifically (not just the CLI's own
+status field) before recording any row counts, to avoid recording a still-populating branch as
+"seeded."
+
+**Cost flag for Reid, not resolved this session:** `pt12-load-test` is a real, billed Supabase
+resource (compute + a full production-scale data clone), left running since this task's scope was
+create-and-verify, not run-a-load-test-and-tear-down. Delete it via
+`supabase branches delete pt12-load-test --project-ref vbjplpquqxxfbpazyalt` once the load test it
+exists to support has actually run.
+
+**Correction to the entry directly below**, which said PT-12 was "never assigned in this numbering
+scheme" — that was true when written; PT-12 has now been assigned, to this work. Not editing that
+entry's text (historical record), flagging the correction here.
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`
+only — not `git add -A` (this repo has pre-existing, unrelated dirty state: `.claude/worktrees/agent-*`
+submodule pointers and a long tail of untracked build/log files from other sessions, none of it
+touched here).
+
+---
+
+## Prior session entry — August 20, 2026 — audit PT-07 COMPLETE: third-party integrations, review pack ready.
 
 **Focus:** closing prompt of the PT-07 phase. Wrote `test-evidence/pt-07/PHASE-07-SUMMARY.md`
 (consolidated numbers across all four PT-07 evidence artifacts: `supabase-state.json`,

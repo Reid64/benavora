@@ -1,5 +1,81 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-12: dedicated load-test Supabase branch created and verified non-production.**
+
+**Correction to the prior PT-07 closing entry below**, which stated "PT-00 through PT-14 (PT-12 was
+never assigned in this numbering scheme) are now all complete" — that was accurate at the time it
+was written; PT-12 has since been assigned, to load-testing infrastructure, and this entry is that
+work. Not editing the prior entry's text (it's a historical record, correct as of when it was
+written) — flagging the correction here instead.
+
+**What this session did:** confirmed PT-00/PT-03/PT-09 evidence artifacts are real and present
+(`test-evidence/pt-00/`, `pt-03/`, `pt-09/`, each with a populated `PHASE-*-SUMMARY.md`), created
+`test-evidence/pt-12/`, confirmed `SUPABASE_ACCESS_TOKEN` is set in the environment, confirmed
+`supabase branches list --project-ref vbjplpquqxxfbpazyalt` works (zero branches existed before this
+session), then **created a real, dedicated, persistent-data preview branch** —
+`supabase branches create pt12-load-test --project-ref vbjplpquqxxfbpazyalt --with-data --yes` — a
+genuine, billed Supabase preview-branch project (`ffghpazvipsqrypkryfj`), not a local stack or a
+schema-only clone. `--with-data` clones production's actual row content, not just its schema.
+
+**Provisioning took ~7 minutes to go from `CREATING_PROJECT`/`COMING_UP` to fully restored** — the
+Supabase CLI's own `preview_project_status` field reported `ACTIVE_HEALTHY` before the underlying
+data clone had actually finished (confirmed independently via the Supabase Management API,
+`GET /v1/branches/{id}`, which reported a separate `status: "RESTORING"` for several more minutes
+after the CLI's own status looked terminal) — a real, worth-noting gap between "the branch project is
+up" and "the branch's data is actually there." This session polled the Management API's `status`
+field specifically, not just the CLI's `preview_project_status`, and did not record row counts or
+declare success until `status` left `RESTORING`.
+
+**Row counts, confirmed via a live PostgREST query against the branch's own URL and service-role key
+(never production's), immediately after restore completed:** `organizations` 130, `opportunities`
+1,252, `applications` 10, `nonprofits` 1,978,526, `foundation_directory` 133,812, `agent_runs`
+24,947, `submission_queue` 6 — a combined 2,138,683 rows across the 7 sampled tables. These match
+production's own counts (checked separately, read-only, before branch creation) almost exactly — the
+small `agent_runs` delta (24,947 vs. 24,950) is real production write activity between the two
+checks, not a clone gap. This is a genuinely realistic load-test data volume: the two largest tables
+(`nonprofits` at ~2M rows, `foundation_directory` at ~134K rows) are present at full production scale,
+not a synthetic sample.
+
+**Non-production assertion, the load-bearing part of this task:** `test-evidence/pt-12/branch.txt`
+and `branch-seed-counts.json` both record, and `scripts/audit/verify-pt12-001.mjs` independently
+re-checks (including a live re-query of `supabase branches list`, not just trusting the evidence
+file), that the branch's `project_ref` (`ffghpazvipsqrypkryfj`) is distinct from the production ref
+(`vbjplpquqxxfbpazyalt`), and that its `parent_project_ref` IS the production ref — proving this is
+genuinely a branch *of* production, not an unrelated project standing in for one. The verifier
+HARD FAILS (not just FAILs) if either check comes back wrong. Sanity-checked the verifier itself by
+temporarily editing a copy of `branch.txt` to claim `branch_project_ref === vbjplpquqxxfbpazyalt` and
+confirming the verifier correctly HARD FAILs on it (then restored the real file, confirmed byte-
+identical via `diff`, and re-ran the verifier clean) — this was not a rubber-stamp check.
+
+**Real bug found and fixed in the verifier itself before trusting its PASS**: the first draft's
+`RESULT:` regex (`/RESULT:\s*(\S+)/`) matched the *first* line in `branch.txt` starting with
+`RESULT:` — an earlier prose sentence ("RESULT: branch host is CONFIRMED DISTINCT...") — not the
+intended trailing `RESULT: PASS` verdict line, so it read "branch" as the captured token and failed
+every real run. Fixed to an anchored `/^RESULT:\s*(\S+)\s*$/m` that only matches a standalone
+verdict line. Re-verified clean after the fix.
+
+**Not a synthetic-seed script** — per the task's own "or confirm the branch copied prod data"
+fallback, `--with-data` cloning was used instead of hand-seeding, since it produces a materially more
+realistic load-test dataset (real row shapes, real distributions, real foreign-key density) than a
+synthetic generator would in the time available. `scripts/audit/pt12-001-record-load-branch.mjs`
+resolves the branch **by name**, not a hardcoded ID, re-derives its identity from a live
+`supabase branches list` call, and refuses to write `branch.txt` at all if the resolved branch's
+`project_ref` is production or its `parent_project_ref` isn't — the same hard-fail discipline as the
+verifier, at the recording step, not just the checking step.
+
+**Cost note, not resolved by this session, flagged for Reid:** a Supabase preview branch with
+`--with-data` on a project this size is a real, separate, billed compute+storage resource — it is
+NOT a free/ephemeral local stack. This branch (`pt12-load-test`, id `cb26d5f5-8c36-4ace-89e3-
+89056e629d52`) was left running after this session, since the task's own scope was "create and
+verify," not "create, use for a load test, and tear down." A future session (or Reid directly)
+should delete it via `supabase branches delete pt12-load-test --project-ref vbjplpquqxxfbpazyalt`
+once the actual load test this branch exists to support has run, rather than leaving it billing
+indefinitely.
+
+**Gate:** `node scripts/audit/verify-pt12-001.mjs` — PASS.
+
+---
+
 **Updated: August 20, 2026 — audit PT-07 COMPLETE: third-party integrations, review pack ready.**
 
 Consolidation of the four PT-07 audit passes below (Supabase real-state probe, Railway worker

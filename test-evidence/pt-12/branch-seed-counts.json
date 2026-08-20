@@ -1,0 +1,25 @@
+{
+  "recordedAt": "2026-08-20T18:51:50.449Z",
+  "branch": {
+    "id": "cb26d5f5-8c36-4ace-89e3-89056e629d52",
+    "name": "pt12-load-test",
+    "project_ref": "ffghpazvipsqrypkryfj",
+    "parent_project_ref": "vbjplpquqxxfbpazyalt",
+    "with_data": true,
+    "status": "CREATING_PROJECT",
+    "preview_project_status": "ACTIVE_HEALTHY"
+  },
+  "productionRef": "vbjplpquqxxfbpazyalt",
+  "isProductionTarget": false,
+  "counts": {
+    "organizations": 130,
+    "opportunities": 1252,
+    "applications": 10,
+    "nonprofits": 1978526,
+    "foundation_directory": 133812,
+    "agent_runs": 24947,
+    "submission_queue": 6
+  },
+  "errors": {},
+  "totalCounted": 2138683
+}
