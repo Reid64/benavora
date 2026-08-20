@@ -1,0 +1,242 @@
+{
+  "generated_at": "2026-08-20T15:50:35.451Z",
+  "organization_id": "bf75d362-473c-4039-9e28-e09ef44ee862",
+  "organization_name": "Benavora E2E Test Org",
+  "method": "Real writes via the live, authenticated Next.js API (POST/GET against a local dev server on the real production database), using the dedicated E2E test org — never a real customer's application. All seeded rows deleted / reverted at the end of this script; a final re-query confirms zero residue.",
+  "preflight": {
+    "application_id": "49d5f326-5526-49e9-9d4e-fa403d7a96ff",
+    "pre_existing_budget_rows": 0,
+    "pre_existing_expense_rows": 0,
+    "pre_existing_reconciliation_rows": 0
+  },
+  "session": {
+    "authenticated_user_id": "b5d27db6-a245-4aab-842a-06a84fa486ac",
+    "base_url": "http://localhost:3100"
+  },
+  "budget_reconciliation": {
+    "description": "Real budget (4 line items) + 3 real expenses created via the live, authenticated POST routes against a real E2E test application, then compared against the live GET /api/applications/[id]/reconcile route's own computed report.",
+    "documented_formula": {
+      "source_file": "src/app/api/applications/[id]/reconcile/route.ts",
+      "total_budget": "grant_budgets.total_budget if a budget row exists, else application.awarded_amount ?? requested_amount ?? 0",
+      "total_spent": "sum(grant_expenses.amount) for the application",
+      "variance": "total_budget - total_spent",
+      "compliance_status": "no_budget_set if no budget row, else under_budget (variance>0) / over_budget (variance<0) / on_budget (variance===0)"
+    },
+    "input": {
+      "application_id": "49d5f326-5526-49e9-9d4e-fa403d7a96ff",
+      "line_items": [
+        {
+          "category": "Personnel",
+          "label": "Program Coordinator (0.5 FTE)",
+          "amount": 18000
+        },
+        {
+          "category": "Supplies",
+          "label": "Client intake materials",
+          "amount": 4500
+        },
+        {
+          "category": "Travel",
+          "label": "Site visits",
+          "amount": 2500
+        },
+        {
+          "category": "Evaluation",
+          "label": "Outcomes assessment",
+          "amount": 1500
+        }
+      ],
+      "expenses": [
+        {
+          "category": "Personnel",
+          "description": "August payroll — coordinator",
+          "amount": 5000
+        },
+        {
+          "category": "Supplies",
+          "description": "Intake folders + printing",
+          "amount": 1200.5
+        },
+        {
+          "category": "Travel",
+          "description": "Mileage reimbursement, 3 site visits",
+          "amount": 800.25
+        }
+      ],
+      "budget_created_via": "POST /api/applications/[id]/budget (total_requested omitted -> route defaults to sum of line_items)"
+    },
+    "expected": {
+      "description": "Hand-summed independently in this script, plain arithmetic only, no shared code with the route.",
+      "total_budget": 26500,
+      "total_spent": 7000.75,
+      "variance": 19499.25,
+      "compliance_status": "under_budget"
+    },
+    "actual": {
+      "description": "The real system's own computed reconciliation report, returned by the live GET /api/applications/[id]/reconcile route.",
+      "id": "a2f0da7e-3890-485e-958b-647bafcf2ef8",
+      "total_budget": 26500,
+      "total_spent": 7000.75,
+      "variance": 19499.25,
+      "compliance_status": "under_budget",
+      "generated_at": "2026-08-20T15:50:44.289+00:00"
+    },
+    "delta": {
+      "total_budget": 0,
+      "total_spent": 0,
+      "variance": 0,
+      "compliance_status_matches": true
+    },
+    "finding": "No mismatch found: the system's reconciliation report exactly matches the hand-summed expected values (total_budget=26500, total_spent=7000.75, variance=19499.25, compliance_status=under_budget)."
+  },
+  "deadline_reminder_offset": {
+    "description": "Five real, freshly-seeded deadlines (distinct deadline_type values, distinct due-date offsets from today, one with reminder flags already partially set to exercise the never-re-fire rule) plus the E2E org's one pre-existing real deadline, all processed by the live, authenticated GET /api/deadlines/check route (interactive mode, org-scoped via session) in a single real run. Expected reminder sets independently hand-computed with date-fns's differenceInCalendarDays directly against the same documented thresholds, not by calling the route's own code.",
+    "documented_formula": {
+      "source_file": "src/app/api/deadlines/check/route.ts",
+      "thresholds_days": [
+        30,
+        14,
+        7,
+        3,
+        1
+      ],
+      "daysUntil": "differenceInCalendarDays(due_date parsed as local midnight, today)",
+      "fires_when": "daysUntil <= threshold AND the corresponding reminder_{threshold}d_sent flag is not already true",
+      "idempotency": "reminder flags are one-way once set true; already-sent thresholds must never re-fire, per Contracts §11 (quoted directly in the route's own header comment)"
+    },
+    "check_call": {
+      "mode": "interactive",
+      "endpoint": "GET /api/deadlines/check",
+      "deadlines_scanned_by_system": 6,
+      "reminders_triggered_by_system": 5
+    },
+    "per_deadline": [
+      {
+        "scenario": "none_crossed",
+        "deadline_id": "128abf59-b304-42e4-b6c1-4cae13d8902a",
+        "deadline_type": "reporting_deadline",
+        "due_date": "2026-10-04",
+        "expected_days_until": 45,
+        "expected_reminders_fired": [],
+        "actual_days_until": null,
+        "actual_reminders_fired": [],
+        "actual_row_present_in_response": false,
+        "match": true
+      },
+      {
+        "scenario": "single_threshold_exact_boundary",
+        "deadline_id": "dbe6aa27-c111-4a3f-8658-9b0d48bc27c0",
+        "deadline_type": "renewal_date",
+        "due_date": "2026-09-19",
+        "expected_days_until": 30,
+        "expected_reminders_fired": [
+          30
+        ],
+        "actual_days_until": 30,
+        "actual_reminders_fired": [
+          30
+        ],
+        "actual_row_present_in_response": true,
+        "match": true
+      },
+      {
+        "scenario": "two_thresholds_simultaneous",
+        "deadline_id": "7cd6908a-a448-4932-970a-201cd1daef3f",
+        "deadline_type": "follow_up_date",
+        "due_date": "2026-08-30",
+        "expected_days_until": 10,
+        "expected_reminders_fired": [
+          30,
+          14
+        ],
+        "actual_days_until": 10,
+        "actual_reminders_fired": [
+          30,
+          14
+        ],
+        "actual_row_present_in_response": true,
+        "match": true
+      },
+      {
+        "scenario": "due_today_all_fire",
+        "deadline_id": "feafa825-51f7-4eab-a208-089e062b809b",
+        "deadline_type": "document_expiration",
+        "due_date": "2026-08-20",
+        "expected_days_until": 0,
+        "expected_reminders_fired": [
+          30,
+          14,
+          7,
+          3,
+          1
+        ],
+        "actual_days_until": 0,
+        "actual_reminders_fired": [
+          30,
+          14,
+          7,
+          3,
+          1
+        ],
+        "actual_row_present_in_response": true,
+        "match": true
+      },
+      {
+        "scenario": "overdue_partial_already_sent",
+        "deadline_id": "725dbb06-dab5-4aa5-9a9f-4e8f34c3df2f",
+        "deadline_type": "application_deadline",
+        "due_date": "2026-08-15",
+        "expected_days_until": -5,
+        "expected_reminders_fired": [
+          7,
+          3,
+          1
+        ],
+        "actual_days_until": -5,
+        "actual_reminders_fired": [
+          7,
+          3,
+          1
+        ],
+        "actual_row_present_in_response": true,
+        "match": true
+      },
+      {
+        "scenario": "pre_existing_real_deadline",
+        "deadline_id": "8dc6a387-21e7-444c-b613-a5dc2f75491e",
+        "deadline_type": "application_deadline",
+        "due_date": "2026-06-19",
+        "expected_days_until": -62,
+        "expected_reminders_fired": [
+          30,
+          14,
+          7,
+          3,
+          1
+        ],
+        "actual_days_until": -62,
+        "actual_reminders_fired": [
+          30,
+          14,
+          7,
+          3,
+          1
+        ],
+        "actual_row_present_in_response": true,
+        "match": true
+      }
+    ],
+    "finding": "No mismatch found across all 6 deadline scenarios (5 synthetic + 1 pre-existing real row): every hand-computed expected reminder-offset set exactly matches what the live route returned."
+  },
+  "overall_mismatch_found": false,
+  "cleanup": {
+    "errors": [],
+    "residue_check": {
+      "grant_budgets_remaining": 0,
+      "grant_expenses_remaining": 0,
+      "grant_reconciliation_reports_remaining": 0,
+      "synthetic_deadlines_remaining": 0,
+      "pre_existing_deadline_flags_reverted": true
+    }
+  }
+}

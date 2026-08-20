@@ -1,9 +1,92 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-04: grant-probability hand-verification. Real formula/
-output mismatch found: `opportunity_probability_scores` row for a real opportunity is stale relative
-to the opportunity's current `eligibility_score` (72 vs. the neutral 0.5 the persisted row still uses),
-producing a documented-formula-correct score of 47 vs. the actual stored/returned 42 — no
-change-triggered recompute exists. Evidence in `test-evidence/pt-04/grant-probability.json`.
+## Last Updated: August 20, 2026 — audit PT-04-002: budget reconciliation + deadline reminder-offset
+hand-verification. Both checks run live against the real system (a local `next dev` instance on the
+real production database) via the dedicated Benavora E2E Test Org — real budget/expenses created and
+reconciled through the live API, real deadlines seeded across distinct `deadline_type` values and
+checked through the live reminder-threshold route. No arithmetic mismatch found in either check (both
+match their documented formulas exactly, delta 0). All seeded rows deleted, pre-existing deadline
+flags reverted, zero residue confirmed. Evidence in `test-evidence/pt-04/budget-deadline.json`.
+
+## SESSION — August 20, 2026 (audit PT-04-002: budget reconciliation + deadline reminder-offset)
+
+**Focus:** two real, live hand-verification checks per the queue's PT-04-002 scope, both run through
+the dedicated "Benavora E2E Test Org" (`bf75d362-473c-4039-9e28-e09ef44ee862`,
+`owner.e2e@benavora-test.dev`, real password already known from prior smoke-test sessions) — never
+Faith Foundation's real production data. Since production held zero `grant_budgets`/`grant_expenses`/
+`grant_reconciliation_reports` rows (confirmed via a direct `DATABASE_URL` query before starting —
+migrations 084/089 were applied 2026-08-17 per the prior financials session, but no real budget had
+ever been created), "take a real budget with real expenses" required actually creating one — done
+through the live, authenticated API (not a raw DB insert) against a real pre-existing E2E application
+(`49d5f326-5526-49e9-9d4e-fa403d7a96ff`), so the reconciliation report compared against is genuinely
+the running system's own output, not a self-reimplementation of the route's formula.
+
+**Method:** started a local `next dev` instance on port 3100 (backgrounded, polled until it answered
+`GET /login`), authenticated as the E2E org owner via `signInWithPassword()` + the same
+`@supabase/ssr` cookie-construction technique this repo's own smoke-test scripts already use (real
+session, no magic-link/password-reset needed since the E2E account's password is already documented),
+then drove the real API with plain `fetch()` + a `Cookie` header (no browser needed — the routes only
+depend on the request's cookies, not client-side JS).
+
+1. **Budget reconciliation** (`src/app/api/applications/[id]/reconcile/route.ts`, read directly
+   before writing anything): `POST /api/applications/[id]/budget` with 4 real line items ($18,000 +
+   $4,500 + $2,500 + $1,500 = $26,500, `total_requested` omitted so the route's own
+   sum-of-line-items default is exercised), then `POST /api/applications/[id]/expenses` three times
+   ($5,000 + $1,200.50 + $800.25 = $7,000.75), then `GET /api/applications/[id]/reconcile` to obtain
+   the system's real, persisted reconciliation report. Independently hand-summed the same inputs with
+   plain arithmetic in the audit script (no shared code with the route) — expected
+   `total_budget=26500, total_spent=7000.75, variance=19499.25, compliance_status=under_budget`.
+   **Result: exact match, delta 0 on every field.**
+2. **Deadline reminder-offset math** (`src/app/api/deadlines/check/route.ts`, read directly): the
+   route's documented thresholds are `[30, 14, 7, 3, 1]` days, firing when
+   `differenceInCalendarDays(due_date, today) <= threshold` AND the corresponding
+   `reminder_{N}d_sent` flag isn't already `true` (flags are one-way per Contracts §11, quoted in the
+   route's own header comment). Seeded 5 real `deadlines` rows directly via SQL (no dedicated
+   deadline-creation API route exists, confirmed by grep) spanning 5 distinct `deadline_type` enum
+   values and 5 distinct boundary conditions: 45 days out (nothing should cross yet), exactly 30 days
+   out (only the 30d threshold), 10 days out (30d+14d cross simultaneously, since neither flag was
+   previously set), due today (all 5 fire at once), and 5 days overdue with `reminder_30d_sent`/
+   `reminder_14d_sent` pre-set `true` (must fire only `[7,3,1]`, must NOT re-fire 30/14 — the
+   idempotency case). The org's one pre-existing real deadline (due 2026-06-19, all flags false, 62
+   days overdue at run time) was unavoidably included too, since the interactive check route scans
+   every incomplete deadline for the caller's org — folded into the expected computation as a 6th
+   case rather than ignored. Called the real, authenticated `GET /api/deadlines/check` (interactive
+   mode — no `CRON_SECRET` header — org-scoped via session, per the route's own two-mode design) and
+   independently hand-computed each row's expected fired-threshold set using `date-fns`'s
+   `differenceInCalendarDays` directly (not the route's own code) against the same due dates/flags.
+   **Result: all 6 scenarios matched exactly**, including the idempotency case (`[7,3,1]` fired,
+   `30`/`14` correctly did not re-fire despite `daysUntil <= 30` and `<= 14` both still being true).
+
+**No arithmetic mismatch found in either check** — a real, honest negative result, not assumed clean:
+the same audit method that found PT-04-001's real staleness bug in the Grant Probability Engine found
+both the budget-reconciliation formula and the deadline reminder-threshold formula producing, right
+now, exactly what their own documented code says they should.
+
+**Cleanup, verified not assumed:** all 5 synthetic deadline rows, the budget row, the 3 expense rows,
+and the reconciliation report row were deleted; the pre-existing deadline's 5 reminder flags were
+reset to `false` (their original state). A final re-query after cleanup confirmed 0 remaining rows in
+all four tables and confirmed every one of the pre-existing deadline's flags is back to `false` —
+recorded in `test-evidence/pt-04/budget-deadline.json`'s own `cleanup.residue_check` block, which
+`scripts/audit/verify-pt04-002.mjs` asserts is all-zero/all-reverted, not just present.
+
+**Built:**
+- `scripts/audit/pt04-002-budget-deadline.mjs` — the live seed-and-verify script described above;
+  writes `test-evidence/pt-04/budget-deadline.json`.
+- `scripts/audit/verify-pt04-002.mjs` — verifier. Beyond checking required fields are present (the
+  `verify-pt04-001.mjs` baseline), independently re-derives `budget_reconciliation.expected` from the
+  recorded raw `line_items`/`expenses` arrays (catching a dishonestly hand-typed expected block that
+  doesn't actually match its own claimed inputs), re-derives every `delta.*` field as
+  `actual - expected`, requires `per_deadline` to cover at least 3 distinct `deadline_type` values
+  ("several deadline types" per the task), independently recomputes each row's `match` flag from its
+  own recorded `expected_reminders_fired`/`actual_reminders_fired` arrays, cross-checks the top-level
+  `finding` string's MISMATCH/no-mismatch framing against whether any row actually mismatched, and
+  requires the `cleanup.residue_check` block to show zero residue.
+
+**Gates:** `node scripts/audit/verify-pt04-002.mjs` — PASS.
+
+Full result: `test-evidence/pt-04/budget-deadline.json`. Scoped commit: `test-evidence/`,
+`scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-04: grant-probability hand-verification)
 

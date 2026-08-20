@@ -1,6 +1,40 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-04: grant-probability hand-verification. Hand-computed the
+**Updated: August 20, 2026 — audit PT-04-002: budget reconciliation + deadline reminder-offset
+hand-verification. Two independent live checks against the real running system (`next dev` on a
+local port, pointed at the real production database), both run through the dedicated "Benavora E2E
+Test Org" (`bf75d362-473c-4039-9e28-e09ef44ee862`, `owner.e2e@benavora-test.dev`) — never a real
+customer's data. (1) **Budget reconciliation**: created a real grant budget (4 line items, $26,500)
+and 3 real expenses ($7,000.75) via the live, authenticated `POST /api/applications/[id]/budget` and
+`POST /api/applications/[id]/expenses` routes against the real E2E application
+(`49d5f326-5526-49e9-9d4e-fa403d7a96ff`), then called the live `GET /api/applications/[id]/reconcile`
+route to get the system's own computed reconciliation report. Independently hand-summed the same
+inputs with plain arithmetic (no shared code with the route) — expected `total_budget=26500,
+total_spent=7000.75, variance=19499.25, compliance_status=under_budget` — and it matched the system's
+actual persisted report exactly, delta 0 on every field. (2) **Deadline reminder-offset math**:
+seeded 5 real `deadlines` rows spanning all but one of the `deadline_type` enum values (none-crossed
+at 45 days out, an exact 30-day boundary, a 10-day-out row where the 30d+14d thresholds cross
+simultaneously, a due-today row where all 5 thresholds fire at once, and an overdue row with
+`reminder_30d_sent`/`reminder_14d_sent` pre-set true to test the never-re-fire idempotency rule), plus
+the org's one pre-existing real overdue deadline (due 2026-06-19, all flags false) which the route
+unavoidably processes too. Called the live, authenticated `GET /api/deadlines/check` (interactive
+mode, session-scoped) and independently hand-computed each row's expected fired-threshold set with
+`date-fns`'s `differenceInCalendarDays` directly against the documented `[30,14,7,3,1]`-day
+thresholds (`src/app/api/deadlines/check/route.ts`) — all 6 scenarios matched exactly, including the
+idempotency case (only `[7,3,1]` fired, `30`/`14` correctly did not re-fire). **No arithmetic
+mismatch found in either check** — unlike PT-04-001's grant-probability staleness bug, both the
+reconciliation formula and the reminder-threshold-crossing formula produce, right now, exactly what
+their own documented formulas say they should. All seeded rows (budget, 3 expenses, reconciliation
+report, 5 synthetic deadlines) were deleted and the pre-existing deadline's flags reverted to false
+afterward; a final re-query confirmed zero residue in all four tables. Full input/expected/actual/
+delta capture in `test-evidence/pt-04/budget-deadline.json`; `scripts/audit/verify-pt04-002.mjs`
+independently re-derives `expected` from the recorded raw `line_items`/`expenses` arrays and
+re-derives every `delta`/`match` flag from the recorded `expected`/`actual` pairs (not just checking
+the fields are present) and additionally asserts the cleanup block recorded zero residue.
+
+---
+
+**Prior update: August 20, 2026 — audit PT-04: grant-probability hand-verification. Hand-computed the
 Grant Probability Engine's documented factor-weight formula (`src/lib/intelligence/grant-probability-engine.ts`)
 against a real, already-scored opportunity+org pair (Texas Community Development Block Grant -
 Housing, `8851652c-2def-4bc3-8428-308c4f23fd0b`, org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) and
