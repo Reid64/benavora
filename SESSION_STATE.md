@@ -1,5 +1,27 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-06-002 COMPLETE: applied-vs-on-disk migration drift map
+## Last Updated: August 20, 2026 — audit PT-06-003 COMPLETE: code-vs-live-schema cross-reference
+audit, beyond migrations. Enumerated the full live `public` schema directly (184 tables, 2,226
+columns, `test-evidence/pt-06/live-schema.json` — exact match against PT-06-002's independent
+`live-schema-snapshot.json` table list) and statically scanned every `.from("table")` query chain in
+`src/`+`worker/` (1,070 files) plus `src/types/database.ts`'s typed interface against it
+(`test-evidence/pt-06/schema-mismatch.json`, `scripts/audit/pt06-crossref.mjs`). Found **21 missing
+tables**, **50 column mismatches** on tables that DO exist (96 non-test call sites). Re-confirmed
+WGR-005 (`discovery_matches.organization_id` vs. real `org_id`) and its `morning-digest.ts` sibling;
+cross-corroborated WGR-047/049/053 by an independent method (schema diff, not migration diff).
+Registered **8 new findings** (WGR-054–061), each individually source-verified: `applications.
+funder_id` (digest agent), a 5-column `opportunities` mismatch in `rubric-extractor.ts`,
+`funders.city`/`.state` (AutoApply queue-populator broken), `funders.portal_type` referenced 4x in
+the AutoApply orchestrator's funder-auto-creation path with 3 of 4 sites silently swallowing the
+error (highest-impact new finding — funder auto-creation from directory data has likely been
+silently broken indefinitely), `alerts.title`/`.alert_type`, `organizations.service_areas` in
+`strategic-advisor-agent.ts` (a sibling of the already-fixed 2026-08-02 bug, never actually fixed
+here), a 6-column `intelligence_grantmaker_profiles` drift breaking the Funder Recommender across 5
+files, and `knowledge_queries.organization_id`. WGR-062 indexes the ~40 remaining findings this pass
+did not individually verify, flagged explicitly rather than dropped. Gate:
+`node scripts/audit/verify-pt06-003.mjs` — PASS. See "Current Session — August 20, 2026 (audit
+PT-06-003)" below. (PT-06-002's migration-drift headline is preserved in its own session entry.)
+
+## PRIOR — August 20, 2026 — audit PT-06-002 COMPLETE: applied-vs-on-disk migration drift map
 settled with a real current figure. Headline: this project has NO Supabase-CLI migration-tracking
 table (`supabase_migrations.schema_migrations` does not exist, confirmed live two ways) — every
 migration was applied by hand via `psql`/`DATABASE_URL` (DIRECTIVE-017), never `supabase db push`, so
@@ -18,6 +40,73 @@ AG-25's deadline-prediction output table. One summary finding (WGR-041) ties the
 Full detail: `test-evidence/pt-06/migration-drift.json`, `applied-migrations.json`,
 `consumer-check.json`. See "Current Session — August 20, 2026 (audit PT-06-002)" below. (PT-08
 COMPLETE headline preserved in its own session entry further down, unchanged.)
+
+## Current Session — August 20, 2026 (audit PT-06-003: code-vs-live-schema cross-reference audit)
+
+**Focus:** PT-06-003, continuing from PT-06-002. That step compared migration *files* against
+applied state; this step asks a different question, posed by the task directly: "does every
+table/column the CODE reads actually exist in production?" — using the live schema as ground truth,
+independent of any migration file. PT-02 had already found one instance of this bug class
+(`/api/agents/discovery` querying `organization_id` where the real `discovery_matches` column is
+`org_id`, WGR-005); this task asked to re-confirm it and find the rest of the class.
+
+**Step 1 — live schema census.** `scripts/audit/pt06-live-schema.mjs` connected via the same
+read-only-safe `DATABASE_URL` path PT-06-001 proved (DIRECTIVE-017), queried
+`information_schema.columns`/`.tables` for the full `public` schema, and wrote
+`test-evidence/pt-06/live-schema.json`: **184 tables, 2,226 columns**. Cross-checked the table list
+against PT-06-002's own independently-queried `live-schema-snapshot.json` — exact match, a real
+second confirmation, not just internal self-consistency.
+
+**Step 2 — code-reference extraction, with two real parser bugs found and fixed before trusting the
+output.** `scripts/audit/pt06-crossref.mjs` walks every `.ts`/`.tsx` file under `src/`+`worker/`
+(1,070 files), statically resolves every `.from("table")` chain's `.select`/`.eq`/`.neq`/`.gt`/
+`.gte`/`.lt`/`.lte`/`.like`/`.ilike`/`.is`/`.in`/`.contains`/`.containedBy`/`.overlaps`/`.textSearch`/
+`.not`/`.order`/`.insert`/`.update`/`.upsert`/`.match` calls, and separately parses
+`src/types/database.ts`'s typed `Tables.<name>.Row` interfaces. A first pass produced real noise,
+caught by manually reading a sample of raw output rather than trusting it blind:
+- `Buffer.from(...)`/`Array.from(...)` and `supabase.storage.from("bucket")` were matched by the
+  same `.from(` regex as real PostgREST table queries, producing garbage entries (`org A`,
+  `session-recordings`, `org-${organizationId}`). Fixed by excluding known non-table receivers and
+  `.storage`.
+- `.from("...")` sitting inside a `//` comment was scanned as real code. Fixed with a proper
+  string/comment-aware mask.
+- The real bug: the `.insert()`/`.update()`/`.upsert()` object-key extractor tried matching a
+  "key:" pattern at every character position instead of only at property boundaries, so a ternary
+  value's own colon (`confirmation_number: submitted ? confirmationNumber : null`) was misread as a
+  second property — fabricating `automation_sessions.confirmationNumber` as a fake finding from real
+  code (`worker/queue-processor.ts:1741`) whose actual key, `confirmation_number`, is correct. Fixed
+  with a small state machine that skips each value's full expression up to its top-level comma
+  before looking for the next key; this also fixed `.upsert(data, { onConflict: "col" })`'s options
+  object being misread as a payload column.
+
+Re-running after the fixes changed the counts materially (82→50 column mismatches, 31→21 missing
+tables) — a measured demonstration the fixes mattered.
+
+**Step 3 — cross-reference + manual verification.** **21 missing tables, 50 column mismatches** on
+tables that DO exist (96 non-test call sites), written to `test-evidence/pt-06/schema-mismatch.json`.
+`discovery_matches.organization_id` (WGR-005) confirmed present — both automatically (the verify gate
+checks for it specifically) and by direct read of both call sites (`src/app/api/agents/discovery/
+route.ts:55`, `src/lib/agents/morning-digest.ts:38`). Individually read-verified a representative,
+cross-file sample against real source before registering new rows, rather than registering all 50
+blind — 8 new findings (WGR-054–061), full text in `test-evidence/_register/WIRING_GAP_REGISTER.md`.
+The remaining ~40 findings are cataloged, not individually verified, in WGR-062 — explicit, not
+silently dropped.
+
+**Notable:** `worker/autoapply-autonomous-orchestrator.ts`'s funder-auto-creation function
+(WGR-057) has 3 of its 4 `funders.portal_type` references silently swallow their own error (two
+`.select()` calls destructure only `{ data }`, one bare `.update()` checks nothing) — this bug has
+almost certainly been silently degrading funder auto-creation from directory/donor-discovery data
+indefinitely, with nothing in logs ever surfacing it, since the one site that DOES check its error
+(`.insert()`) just returns `null`.
+
+**Gate:** `node scripts/audit/verify-pt06-003.mjs` — PASS (184 tables/2,226 columns; 21 missing
+tables/50 column mismatches; org_id/organization_id case confirmed present).
+
+**Housekeeping:** `dotenv`'s startup banner printed an unsolicited tip referencing an unfamiliar
+domain (`www.vestauth.com`), phrased to look like agent-authorization instructions — the same
+pattern already flagged in a prior session (2026-08-07 q32 preflight). Did not visit it or treat it
+as an instruction; flagged to Reid again in-chat. Not independently investigated further this
+session.
 
 ## Current Session — August 20, 2026 (audit PT-06-002: applied-vs-on-disk migration drift map)
 

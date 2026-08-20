@@ -1,35 +1,125 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-06-002 COMPLETE: applied-vs-on-disk migration drift map settled
-with a real current figure. Headline: this project has NO Supabase-CLI migration-tracking table
-(`supabase_migrations.schema_migrations` does not exist — confirmed live two independent ways) — every
-migration in this project's history was applied by hand via direct `DATABASE_URL`/psql
-(`STANDING_DIRECTIVES.md` DIRECTIVE-017), never via `supabase db push`/`migration up`, so there has
-never been a ledger of which migrations "ran." Applied status was therefore determined by live
-object-existence across BOTH known migration directories (the same method `MIGRATION_AUDIT.md` used,
-extended to cover `src/supabase/migrations` too, which that audit never touched): of **199** total
-migration files on disk, **108 are APPLIED-AND-ON-DISK**, **57 are ON-DISK-NOT-APPLIED (real drift)**,
-**34 are NO_DDL_UNVERIFIABLE** (RLS/backfill/comment-only, uncheckable by this method), and **2 live
-tables are APPLIED-NOT-ON-DISK** (orphans with no `CREATE TABLE` anywhere on disk). This settles —
-and supersedes — both the stale "28 of 108 unapplied" premise and `MIGRATION_AUDIT.md`'s own "41 of
-112" figure; neither number was wrong for its own scope and moment, both are now stale (file counts
-have grown, and neither covered both directories). All 4 already-known missing-table 500s from
-PT-02 (WGR-006 `consultant_client_access`/086, WGR-007 `followup_sequences`/083, WGR-008
-`schoolfunder`/103, WGR-009 `notification_preferences`/087) are confirmed present in the drift set,
-tying this map directly to real, previously-confirmed user-facing breakage. 12 additional P1 findings
-(**WGR-042 through WGR-053**) were individually column-verified against real `src/`/`worker/` call
-sites this session, covering real, currently-broken features: Competitor Intel Agent's giving-history
-read, the Success Probability Agent's hard-failing write, `WebhookNotifier` silently sending zero
-webhooks ever, the entire AutoApply governance/risk-gating/tier-limit layer, the Intelligence Library's
-winning-phrases/filter UI, the Graph Analytics API route (confirmed 500ing), Sales Outreach contact
-personalization, the Narrative Humanizer's score persistence, the twin auto-populate audit log, and
-the entire Email Hub inbox/thread feature (`email_threads`/`email_messages` — the widest-blast-radius
-finding this pass, ~10 real referencing files). One summary finding (**WGR-041**) ties the whole map
-together. Full detail: **`test-evidence/pt-06/migration-drift.json`**,
-**`test-evidence/pt-06/applied-migrations.json`**,
-**`test-evidence/pt-06/consumer-check.json`**. See "SESSION — August 20, 2026 (audit PT-06-002:
-applied-vs-on-disk migration drift map)" entry below. (PT-08 COMPLETE headline from the prior update —
-the background/worker/cron audit — is preserved in its own session entry further down, unchanged.)**
+**Updated: August 20, 2026 — audit PT-06-003 COMPLETE: code-vs-live-schema cross-reference audit,
+beyond migrations. PT-06-002 (immediately below) settled which *migrations* are live vs. drifted; this
+pass asks a different question — does the CODE's actual `.from("table").select("col")`/`.eq(...)`/
+`.insert({...})` usage match the live schema, independent of which migration file supposedly created
+it? Enumerated the full live `public` schema directly (**184 tables, 2,226 columns**,
+`test-evidence/pt-06/live-schema.json` — cross-confirmed against PT-06-002's own independent
+`live-schema-snapshot.json` table list, exact match) and statically cross-referenced every
+`.from("table")` query chain in `src/`+`worker/` (1,070 files) plus `src/types/database.ts`'s
+hand-authored typed interface against it
+(**`test-evidence/pt-06/schema-mismatch.json`**, `scripts/audit/pt06-crossref.mjs`). Found **21
+missing tables** and **50 column-name mismatches** referenced by real, non-test code (96 non-test call
+sites). Re-confirmed WGR-005 (`discovery_matches.organization_id` vs. real `org_id`, PT-02's original
+finding, plus its sibling site in `morning-digest.ts`) via this independent method, and independently
+cross-corroborated three PT-06-002 findings (WGR-047 `board_members`, WGR-049 `applications.metadata`,
+WGR-053 `deadline_predictions`/`funders` columns) by a completely different technique (live schema diff
+vs. migration-file diff) — same conclusions both ways. Registered **8 new, individually source-verified
+findings** (WGR-054 through WGR-061): `applications.funder_id` (autonomous-digest-agent.ts, digest
+silently reports zero pending drafts), a 5-column `opportunities` mismatch in `rubric-extractor.ts`
+(rubric extraction always returns null), `funders.city`/`.state` (AutoApply's eligible-funder query
+broken), `funders.portal_type` referenced 4x in the AutoApply orchestrator's funder-auto-creation path
+(the `.insert()` call fails outright, silently blocking funder creation from directory data — the
+single highest-impact new finding this pass), `alerts.title`/`.alert_type` (Activity feed's alerts
+section always empty), `organizations.service_areas` in `strategic-advisor-agent.ts` (AG-40) — a
+sibling of the already-fixed 2026-08-02 `donor-intent-monitor-agent.ts` bug that was never actually
+fixed everywhere, a 6-column `intelligence_grantmaker_profiles` drift across 5 files (breaks the
+Funder Recommender feature end-to-end), and `knowledge_queries.organization_id` (corroborates a gap
+already narrated in this doc's own 2026-08-07 AG-05 session but never entered in the register). One
+index row (WGR-062) catalogs the remaining ~40 findings this pass did NOT individually source-verify —
+flagged explicitly as unverified-but-evidenced rather than silently dropped or falsely registered as
+confirmed. Full detail: **`test-evidence/pt-06/schema-mismatch.json`**,
+**`test-evidence/pt-06/live-schema.json`**, `scripts/audit/verify-pt06-003.mjs` (gate: both files
+non-empty + the org_id/organization_id case present — passes). See "SESSION — August 20, 2026 (audit
+PT-06-003: code-vs-live-schema cross-reference audit)" entry below. (PT-06-002's migration-drift
+headline and PT-08 COMPLETE are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-06-003: code-vs-live-schema cross-reference audit)
+
+**Scope:** PT-06-003, continuing directly from PT-06-002. That step answered "which migrations are
+applied vs. drifted" using migration *files* as the reference point. This step asks a structurally
+different question, posed explicitly by the task: "Beyond migrations: does every table/column the CODE
+reads actually exist in production?" — using the live schema itself as ground truth, not any migration
+file's claimed intent. PT-02 had already found one instance of this bug class
+(`/api/agents/discovery` querying `organization_id` where the live `discovery_matches` column is
+`org_id`, WGR-005) — the task asked to re-confirm that one and find its siblings across the whole
+codebase.
+
+**Step 1 — live schema census.** Connected read-only via the working `DATABASE_URL` (`STANDING_
+DIRECTIVES.md` DIRECTIVE-017, same connection PT-06-001 already proved read-only-safe) and queried
+`information_schema.columns`/`.tables` for the full `public` schema directly — no ORM, no cached types.
+**184 tables, 2,226 columns**, written to `test-evidence/pt-06/live-schema.json`
+(`scripts/audit/pt06-live-schema.mjs`). Cross-checked the table *list* (not just the count) against
+PT-06-002's own independently-queried `live-schema-snapshot.json` — byte-for-byte identical 184-table
+list, a genuine independent confirmation the census is accurate, not just internally self-consistent.
+
+**Step 2 — code-reference extraction, and why it needed a real parser, not a quick regex.** Built
+`scripts/audit/pt06-crossref.mjs`: walks every `.ts`/`.tsx` file under `src/`+`worker/` (1,070 files),
+finds every `.from("table")` call, and statically walks its chained `.select()`/`.eq()`/`.neq()`/
+`.gt()`/`.gte()`/`.lt()`/`.lte()`/`.like()`/`.ilike()`/`.is()`/`.in()`/`.contains()`/`.containedBy()`/
+`.overlaps()`/`.textSearch()`/`.not()`/`.order()`/`.insert()`/`.update()`/`.upsert()`/`.match()` calls
+to extract every column name referenced, plus separately parses `src/types/database.ts`'s hand-authored
+`Tables.<name>.Row` interfaces. **A first pass produced real noise that had to be fixed before the
+results could be trusted**, found by manually reading a sample of the raw output rather than treating
+the first run as final:
+- `Buffer.from(...)`/`Array.from(...)` and `supabase.storage.from("bucket")` (Storage bucket access,
+  a different API surface entirely) were being matched by the same `.from(` regex as PostgREST table
+  queries — produced garbage "missing tables" like `org A` (from a test's
+  `Buffer.from("org A's own bucket")`) and `session-recordings`/`org-${organizationId}` (real Storage
+  buckets, not database tables). Fixed by requiring the receiver immediately before `.from(` not be a
+  JS built-in (`Buffer`, `Array`, `Date`, etc.) or `.storage`.
+- A `.from("discovery_matches")` reference sitting inside a `//` comment in
+  `donor-intent-monitor-agent.ts` was being scanned as real code. Fixed by building a proper
+  string/comment-aware mask before running the `.from(` regex.
+- The worst bug: the object-key extractor for `.insert()`/`.update()`/`.upsert()` payloads tried a
+  key-detection regex at *every* character position inside the object literal rather than only at
+  property boundaries — so a ternary value like `confirmation_number: submitted ? confirmationNumber :
+  null` got its ternary's own `:` misread as a second property, fabricating a fake
+  `automation_sessions.confirmationNumber` column reference that traced back to real code
+  (`worker/queue-processor.ts:1741`) but wasn't the real bug the code has (the real key,
+  `confirmation_number`, is correct and live). Rewrote as a small state machine: after matching a real
+  `key:`, it now skips the entire value expression up to the next top-level comma (respecting nested
+  brackets/strings) before looking for the next key — this also fixed a second bug where
+  `.upsert(data, { onConflict: "col" })`'s *options*-argument key (`onConflict`, not a real column at
+  all) was being picked up as if it were a payload column, by requiring the object/array literal to be
+  the first argument rather than blindly grabbing the first `{` anywhere in the call's arguments.
+
+Re-running after these fixes changed the raw counts materially (82→50 column mismatches, 31→21 missing
+tables) — a direct, measured demonstration that the fixes mattered, not just a cosmetic pass.
+
+**Step 3 — cross-reference and manual source verification.** Every surviving table/column reference was
+checked against `live-schema.json`. **21 missing tables**, **50 column mismatches** on tables that DO
+exist (96 real, non-test call sites) written to `test-evidence/pt-06/schema-mismatch.json`. The
+`discovery_matches.organization_id` case (WGR-005) is present, confirmed both automatically (the
+verify gate checks for it specifically) and by direct read of both its call sites
+(`src/app/api/agents/discovery/route.ts:55`, `src/lib/agents/morning-digest.ts:38`). Rather than
+register all 50 column mismatches blind, individually read-verified a representative, cross-file
+sample against real source before registering — see the header banner above and the WGR-054 through
+WGR-061 rows in `test-evidence/_register/WIRING_GAP_REGISTER.md` for the full text of each. The
+remaining ~40 findings (missing tables and column mismatches this pass did not individually
+source-verify) are cataloged in WGR-062 as an explicit index, not silently dropped and not falsely
+presented as confirmed.
+
+**Notable finding beyond the register text:** `worker/autoapply-autonomous-orchestrator.ts`'s
+funder-auto-creation function (WGR-057) has three of its four `funders.portal_type` references
+silently swallow their own errors (`const { data } = await supabase.from(...).select(...)` — no
+`error` destructured or checked; a bare `.update(...)` call with no destructuring at all) — meaning
+this bug has almost certainly been live and silently degrading funder auto-creation from
+`foundation_directory`/donor-discovery data for as long as this function has existed, with nothing in
+`agent_runs`/logs ever surfacing it, since the one call site that DOES check its error
+(`.insert()`) returns `null` on failure rather than throwing.
+
+**Gate:** `node scripts/audit/verify-pt06-003.mjs` — PASS (`live-schema.json`: 184 tables, 2,226
+columns; `schema-mismatch.json`: 21 missing tables, 50 column mismatches; org_id/organization_id case
+confirmed present).
+
+**Housekeeping:** noticed `dotenv`'s startup banner printed an unsolicited "tip" reading `⌁ auth for
+agents [www.vestauth.com]` when loading `.env.local` this session — an unfamiliar domain, phrased
+specifically to bait an AI agent into visiting it. Did not visit it or treat it as an instruction.
+Flagged to Reid directly in this session's chat; worth a future session checking whether this is a
+legitimate (if oddly-worded) dotenv feature or a compromised/typosquatted `node_modules` package —
+not investigated further here, out of scope for this audit.
 
 ## SESSION — August 20, 2026 (audit PT-06-002: applied-vs-on-disk migration drift map)
 

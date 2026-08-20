@@ -1,0 +1,2717 @@
+{
+  "generated_at": "2026-08-20T03:48:49.098Z",
+  "method": "Heuristic static scan of .from(\"table\") query chains (select/eq/neq/gt/gte/lt/lte/like/ilike/is/in/contains/containedBy/overlaps/textSearch/not/order/insert/update/upsert/match) across src/ and worker/ (*.ts, *.tsx), plus src/types/database.ts's hand-authored typed table interfaces, cross-referenced against test-evidence/pt-06/live-schema.json (live production information_schema). Dynamic (non-string-literal) table/column references, Buffer.from/Array.from/etc. built-in calls, supabase.storage.from(bucket) calls, and .from( occurrences inside comments are excluded. Object-literal payload keys (insert/update/upsert/match) are extracted with a small state machine that skips each value expression up to its top-level comma, so a colon inside a ternary value is never misread as a second property.",
+  "files_scanned": 1070,
+  "dynamic_from_calls_skipped": 13,
+  "non_table_from_calls_skipped": 304,
+  "total_from_call_sites": 2727,
+  "total_column_references_extracted": 11474,
+  "known_bug_confirmation": {
+    "description": "PT-02 found /api/agents/discovery querying organization_id where the live discovery_matches column is org_id. Re-confirmed here via live schema + static scan, plus its sibling call site in morning-digest.ts.",
+    "present_in_findings": true,
+    "finding": {
+      "table": "discovery_matches",
+      "column": "organization_id",
+      "live_columns_for_table": [
+        "actioned_at",
+        "created_at",
+        "discovery_run_id",
+        "external_source",
+        "external_title",
+        "external_url",
+        "id",
+        "match_reasons",
+        "match_score",
+        "opportunity_id",
+        "org_id",
+        "status"
+      ],
+      "source": "runtime_query_code",
+      "sites": [
+        {
+          "file": "src/app/api/agents/discovery/route.ts",
+          "line": 55,
+          "method": "eq",
+          "isTest": false,
+          "snippet": ".eq(\"organization_id\", ...)"
+        },
+        {
+          "file": "src/lib/agents/morning-digest.ts",
+          "line": 38,
+          "method": "eq",
+          "isTest": false,
+          "snippet": ".eq(\"organization_id\", ...)"
+        }
+      ]
+    }
+  },
+  "runtime_query_code": {
+    "missing_tables": [
+      {
+        "table": "ab_test_variants",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/autoapply/ab-tests/route.ts",
+            "line": 67,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .insert({"
+          },
+          {
+            "file": "src/app/api/autoapply/ab-tests/route.ts",
+            "line": 109,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .update({"
+          },
+          {
+            "file": "src/lib/autoapply/ab-testing.ts",
+            "line": 70,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .selec"
+          },
+          {
+            "file": "src/lib/autoapply/ab-testing.ts",
+            "line": 132,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .selec"
+          },
+          {
+            "file": "src/lib/autoapply/ab-testing.ts",
+            "line": 143,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .updat"
+          },
+          {
+            "file": "src/lib/autoapply/ab-testing.ts",
+            "line": 176,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .selec"
+          },
+          {
+            "file": "src/lib/autoapply/ab-testing.ts",
+            "line": 214,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .upd"
+          },
+          {
+            "file": "src/lib/autoapply/ab-testing.ts",
+            "line": 234,
+            "isTest": false,
+            "snippet": ".from('ab_test_variants') .selec"
+          }
+        ]
+      },
+      {
+        "table": "application_followups",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/followup-generator-agent.ts",
+            "line": 196,
+            "isTest": false,
+            "snippet": "abase.from(\"application_followups\").insert({"
+          },
+          {
+            "file": "src/worker/jobs/process-followups.ts",
+            "line": 129,
+            "isTest": false,
+            "snippet": ".from(\"application_followups\") .se"
+          },
+          {
+            "file": "src/worker/jobs/process-followups.ts",
+            "line": 164,
+            "isTest": false,
+            "snippet": ".from(\"application_followups\")"
+          }
+        ]
+      },
+      {
+        "table": "compliance_requirements",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/compliance/route.ts",
+            "line": 62,
+            "isTest": false,
+            "snippet": ".from(\"compliance_requirements\")"
+          },
+          {
+            "file": "src/app/api/compliance/route.ts",
+            "line": 201,
+            "isTest": false,
+            "snippet": ".from(\"compliance_requirements\") .in"
+          },
+          {
+            "file": "src/app/api/compliance/route.ts",
+            "line": 242,
+            "isTest": false,
+            "snippet": ".from(\"compliance_requirements\") .up"
+          }
+        ]
+      },
+      {
+        "table": "consultant_client_access",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/consultant/clients/route.ts",
+            "line": 32,
+            "isTest": false,
+            "snippet": ".from(\"consultant_client_access\") .s"
+          },
+          {
+            "file": "src/app/api/consultant/clients/route.ts",
+            "line": 111,
+            "isTest": false,
+            "snippet": ".from(\"consultant_client_access\") .u"
+          },
+          {
+            "file": "src/app/api/consultant/clients/route.ts",
+            "line": 144,
+            "isTest": false,
+            "snippet": ".from(\"consultant_client_access\") .d"
+          }
+        ]
+      },
+      {
+        "table": "deadline_predictions",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 448,
+            "isTest": false,
+            "snippet": ".from(\"deadline_predictions\") .sel"
+          },
+          {
+            "file": "src/lib/agents/deadline-prediction-agent.ts",
+            "line": 353,
+            "isTest": false,
+            "snippet": ".from(\"deadline_predictions\") .sel"
+          },
+          {
+            "file": "src/lib/agents/deadline-prediction-agent.ts",
+            "line": 511,
+            "isTest": false,
+            "snippet": "abase.from(\"deadline_predictions\").insert({"
+          }
+        ]
+      },
+      {
+        "table": "digest_item_log",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 706,
+            "isTest": false,
+            "snippet": "abase.from(\"digest_item_log\").insert( i"
+          },
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 734,
+            "isTest": false,
+            "snippet": ".from(\"digest_item_log\") .select"
+          },
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 756,
+            "isTest": false,
+            "snippet": ".from(\"digest_item_log\") .up"
+          },
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 886,
+            "isTest": false,
+            "snippet": ".from(\"digest_item_log\") .select"
+          }
+        ]
+      },
+      {
+        "table": "digest_priority_weights",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 911,
+            "isTest": false,
+            "snippet": ".from(\"digest_priority_weights\")"
+          },
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 924,
+            "isTest": false,
+            "snippet": "abase.from(\"digest_priority_weights\").upsert("
+          },
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 945,
+            "isTest": false,
+            "snippet": ".from(\"digest_priority_weights\") ."
+          }
+        ]
+      },
+      {
+        "table": "followup_sequences",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/outreach/sequences/route.ts",
+            "line": 21,
+            "isTest": false,
+            "snippet": ".from(\"followup_sequences\") .select("
+          },
+          {
+            "file": "src/app/api/outreach/sequences/route.ts",
+            "line": 62,
+            "isTest": false,
+            "snippet": ".from(\"followup_sequences\") .insert("
+          }
+        ]
+      },
+      {
+        "table": "funder_relationships",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/autoapply/follow-up-scheduler.ts",
+            "line": 159,
+            "isTest": false,
+            "snippet": ".from(\"funder_relationships\") .sel"
+          },
+          {
+            "file": "src/lib/autoapply/relationship-manager.ts",
+            "line": 49,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .ups"
+          },
+          {
+            "file": "src/lib/autoapply/relationship-manager.ts",
+            "line": 83,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .upd"
+          },
+          {
+            "file": "src/lib/autoapply/relationship-manager.ts",
+            "line": 114,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .upd"
+          },
+          {
+            "file": "src/lib/autoapply/relationship-manager.ts",
+            "line": 133,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .upd"
+          },
+          {
+            "file": "src/lib/autoapply/relationship-manager.ts",
+            "line": 150,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .sel"
+          },
+          {
+            "file": "src/lib/autoapply/relationship-manager.ts",
+            "line": 193,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .sel"
+          },
+          {
+            "file": "src/lib/autoapply/risk-engine.ts",
+            "line": 98,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .s"
+          },
+          {
+            "file": "src/lib/autoapply/risk-engine.ts",
+            "line": 129,
+            "isTest": false,
+            "snippet": ".from('funder_relationships') .selec"
+          }
+        ]
+      },
+      {
+        "table": "funding_sources",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/research/page.tsx",
+            "line": 561,
+            "isTest": false,
+            "snippet": ".from(\"funding_sources\") .selec"
+          },
+          {
+            "file": "src/app/api/sources/registry/route.ts",
+            "line": 27,
+            "isTest": false,
+            "snippet": ".from(\"funding_sources\") .select(\""
+          },
+          {
+            "file": "src/app/api/sources/registry/route.ts",
+            "line": 31,
+            "isTest": false,
+            "snippet": "abase.from(\"funding_sources\").insert("
+          },
+          {
+            "file": "src/lib/sources/state-sources-registry.ts",
+            "line": 511,
+            "isTest": false,
+            "snippet": ".from(\"funding_sources\") .select(\"na"
+          },
+          {
+            "file": "src/lib/sources/state-sources-registry.ts",
+            "line": 526,
+            "isTest": false,
+            "snippet": ".from(\"funding_sources\") .insert(toI"
+          }
+        ]
+      },
+      {
+        "table": "knowledge_base_entries",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/autoapply/templates/test/route.ts",
+            "line": 95,
+            "isTest": false,
+            "snippet": ".from(\"knowledge_base_entries\") .sel"
+          },
+          {
+            "file": "src/lib/autoapply/form-filler-agent.ts",
+            "line": 383,
+            "isTest": false,
+            "snippet": ".from('knowledge_base_entries')"
+          },
+          {
+            "file": "src/lib/autoapply/org-profile-mapper.ts",
+            "line": 192,
+            "isTest": false,
+            "snippet": ".from('knowledge_base_entries') .sel"
+          }
+        ]
+      },
+      {
+        "table": "notification_preferences",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/settings/notifications/route.ts",
+            "line": 40,
+            "isTest": false,
+            "snippet": ".from(\"notification_preferences\") .s"
+          },
+          {
+            "file": "src/app/api/settings/notifications/route.ts",
+            "line": 100,
+            "isTest": false,
+            "snippet": ".from(\"notification_preferences\") .u"
+          },
+          {
+            "file": "src/lib/notifications/notify.ts",
+            "line": 31,
+            "isTest": false,
+            "snippet": ".from(\"notification_preferences\") .s"
+          }
+        ]
+      },
+      {
+        "table": "org_portal_accounts",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "worker/queue-processor.ts",
+            "line": 1840,
+            "isTest": false,
+            "snippet": ".from('org_portal_accounts') .sel"
+          }
+        ]
+      },
+      {
+        "table": "queue_controls",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/admin/autoapply-ops/route.ts",
+            "line": 70,
+            "isTest": false,
+            "snippet": ".from(\"queue_controls\") .select(\"pau"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 44,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .delete()"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 61,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .delete()"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 78,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .delete()"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 95,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .delete()"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 115,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .select('r"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 135,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .select("
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 155,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .select("
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 175,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .select("
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 198,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .select('*"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 217,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .delete()"
+          },
+          {
+            "file": "src/lib/autoapply/queue-controls.ts",
+            "line": 222,
+            "isTest": false,
+            "snippet": "abase.from('queue_controls').insert({ c"
+          },
+          {
+            "file": "src/lib/drafts/submission-bridge.ts",
+            "line": 280,
+            "isTest": false,
+            "snippet": ".from('queue_controls') .select("
+          }
+        ]
+      },
+      {
+        "table": "schoolfunder_donations",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/schoolfunder/page.tsx",
+            "line": 124,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_donations\") .s"
+          },
+          {
+            "file": "src/app/api/schoolfunder/donate/route.ts",
+            "line": 84,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_donations\") .ins"
+          },
+          {
+            "file": "src/app/api/schoolfunder/route.ts",
+            "line": 55,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_donations\") .sel"
+          }
+        ]
+      },
+      {
+        "table": "schoolfunder_students",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/schoolfunder/page.tsx",
+            "line": 117,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_students\") .se"
+          },
+          {
+            "file": "src/app/api/schoolfunder/donate/route.ts",
+            "line": 59,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_students\") .se"
+          },
+          {
+            "file": "src/app/api/schoolfunder/hours/route.ts",
+            "line": 44,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_students\") .sele"
+          },
+          {
+            "file": "src/app/api/schoolfunder/hours/route.ts",
+            "line": 80,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_students\") .upda"
+          },
+          {
+            "file": "src/app/api/schoolfunder/route.ts",
+            "line": 23,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_students\") .sele"
+          },
+          {
+            "file": "src/app/api/schoolfunder/route.ts",
+            "line": 146,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_students\") .inse"
+          }
+        ]
+      },
+      {
+        "table": "schoolfunder_volunteer_hours",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/schoolfunder/page.tsx",
+            "line": 137,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_volunteer_hours\")"
+          },
+          {
+            "file": "src/app/api/schoolfunder/hours/route.ts",
+            "line": 58,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_volunteer_hours\")"
+          },
+          {
+            "file": "src/app/api/schoolfunder/route.ts",
+            "line": 41,
+            "isTest": false,
+            "snippet": ".from(\"schoolfunder_volunteer_hours\")"
+          }
+        ]
+      },
+      {
+        "table": "session_recordings",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/autoapply/recordings/page.tsx",
+            "line": 301,
+            "isTest": false,
+            "snippet": ".from(\"session_recordings\") .se"
+          },
+          {
+            "file": "src/app/(dashboard)/autoapply/recordings/page.tsx",
+            "line": 369,
+            "isTest": false,
+            "snippet": ".from(\"session_recordings\") .de"
+          },
+          {
+            "file": "src/__tests__/integration/autoapply-queue.test.ts",
+            "line": 264,
+            "isTest": true,
+            "snippet": "rvice.from(\"session_recordings\").delete().in("
+          },
+          {
+            "file": "worker/queue-processor.ts",
+            "line": 1493,
+            "isTest": false,
+            "snippet": "abase.from('session_recordings').insert({"
+          }
+        ]
+      },
+      {
+        "table": "stripe_webhook_events",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/webhooks/stripe/route.ts",
+            "line": 56,
+            "isTest": false,
+            "snippet": ".from(\"stripe_webhook_events\") .sel"
+          },
+          {
+            "file": "src/app/api/webhooks/stripe/route.ts",
+            "line": 76,
+            "isTest": false,
+            "snippet": ".from(\"stripe_webhook_events\") .ins"
+          }
+        ]
+      },
+      {
+        "table": "submission_usage",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx",
+            "line": 297,
+            "isTest": false,
+            "snippet": ".from(\"submission_usage\") .sele"
+          },
+          {
+            "file": "src/app/api/admin/autoapply-ops/route.ts",
+            "line": 135,
+            "isTest": false,
+            "snippet": ".from(\"submission_usage\") .select("
+          },
+          {
+            "file": "src/lib/autoapply/alerting.ts",
+            "line": 76,
+            "isTest": false,
+            "snippet": ".from(\"submission_usage\") .select(\"a"
+          },
+          {
+            "file": "src/lib/autoapply/response-analytics.ts",
+            "line": 402,
+            "isTest": false,
+            "snippet": ".from('submission_usage') .select("
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 188,
+            "isTest": false,
+            "snippet": ".from('submission_usage') .select("
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 285,
+            "isTest": false,
+            "snippet": ".from('submission_usage') .select("
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 319,
+            "isTest": false,
+            "snippet": "any).from('submission_usage').insert(insert)"
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 333,
+            "isTest": false,
+            "snippet": ".from('submission_usage') .updat"
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 351,
+            "isTest": false,
+            "snippet": ".from('submission_usage') .select("
+          }
+        ]
+      },
+      {
+        "table": "tier_limits",
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx",
+            "line": 307,
+            "isTest": false,
+            "snippet": ".from(\"tier_limits\") .select(\"*"
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 172,
+            "isTest": false,
+            "snippet": ".from('tier_limits') .select('*')"
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 276,
+            "isTest": false,
+            "snippet": ".from('tier_limits') .select('*')"
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 369,
+            "isTest": false,
+            "snippet": ".from('tier_limits') .select('*')"
+          },
+          {
+            "file": "src/lib/autoapply/usage-meter.ts",
+            "line": 424,
+            "isTest": false,
+            "snippet": ".from('tier_limits') .select('allo"
+          }
+        ]
+      }
+    ],
+    "column_mismatches": [
+      {
+        "table": "agent_performance_metrics",
+        "column": "runs_failed",
+        "live_columns_for_table": [
+          "agent_id",
+          "avg_confidence_score",
+          "avg_items_processed",
+          "created_at",
+          "decisions_auto_approved",
+          "decisions_requiring_review",
+          "id",
+          "metric_date",
+          "runs_successful",
+          "runs_total"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/self-improvement-agent.ts",
+            "line": 584,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"agent_id, runs_total, runs_successful, runs_failed, avg_confidence_score, decisi\")"
+          }
+        ]
+      },
+      {
+        "table": "alerts",
+        "column": "alert_type",
+        "live_columns_for_table": [
+          "application_id",
+          "created_at",
+          "created_by",
+          "deadline_id",
+          "dedup_key",
+          "dismissed_at",
+          "id",
+          "is_dismissed",
+          "is_read",
+          "link",
+          "message",
+          "opportunity_id",
+          "organization_id",
+          "read_at",
+          "severity",
+          "snoozed_until",
+          "type",
+          "updated_at"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/activity/route.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, title, message, alert_type, created_at\")"
+          }
+        ]
+      },
+      {
+        "table": "alerts",
+        "column": "title",
+        "live_columns_for_table": [
+          "application_id",
+          "created_at",
+          "created_by",
+          "deadline_id",
+          "dedup_key",
+          "dismissed_at",
+          "id",
+          "is_dismissed",
+          "is_read",
+          "link",
+          "message",
+          "opportunity_id",
+          "organization_id",
+          "read_at",
+          "severity",
+          "snoozed_until",
+          "type",
+          "updated_at"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/activity/route.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, title, message, alert_type, created_at\")"
+          }
+        ]
+      },
+      {
+        "table": "applications",
+        "column": "funder_id",
+        "live_columns_for_table": [
+          "assigned_user_id",
+          "auto_generated",
+          "awarded_amount",
+          "budget_data",
+          "compliance_check_result",
+          "created_at",
+          "draft_confidence_score",
+          "draft_content",
+          "draft_knowledge_sources",
+          "draft_source",
+          "draft_template_type",
+          "fit_analysis",
+          "id",
+          "knowledge_patterns_applied",
+          "notes",
+          "opportunity_id",
+          "organization_id",
+          "pending_review",
+          "platform_patterns_applied",
+          "requested_amount",
+          "stage",
+          "submitted_at",
+          "twin_completeness",
+          "twin_powered",
+          "updated_at"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 500,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, opportunity_id, funder_id, draft_confidence_score, opportunities(name), fund\")"
+          }
+        ]
+      },
+      {
+        "table": "applications",
+        "column": "metadata",
+        "live_columns_for_table": [
+          "assigned_user_id",
+          "auto_generated",
+          "awarded_amount",
+          "budget_data",
+          "compliance_check_result",
+          "created_at",
+          "draft_confidence_score",
+          "draft_content",
+          "draft_knowledge_sources",
+          "draft_source",
+          "draft_template_type",
+          "fit_analysis",
+          "id",
+          "knowledge_patterns_applied",
+          "notes",
+          "opportunity_id",
+          "organization_id",
+          "pending_review",
+          "platform_patterns_applied",
+          "requested_amount",
+          "stage",
+          "submitted_at",
+          "twin_completeness",
+          "twin_powered",
+          "updated_at"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/draft-generator/autonomous/page.tsx",
+            "line": 149,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, draft_content, draft_confidence_score, created_at, opportunity_id, twin_powe\")"
+          },
+          {
+            "file": "src/app/api/drafts/[id]/humanize/route.ts",
+            "line": 62,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, draft_content, opportunity_id, metadata\")"
+          },
+          {
+            "file": "src/app/api/drafts/[id]/humanize/route.ts",
+            "line": 129,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ metadata: ... })"
+          },
+          {
+            "file": "src/app/api/drafts/[id]/humanize/route.ts",
+            "line": 250,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ metadata: ... })"
+          },
+          {
+            "file": "src/app/api/drafts/[id]/route.ts",
+            "line": 42,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, draft_content, draft_confidence_score, opportunity_id, pending_review, auto_\")"
+          }
+        ]
+      },
+      {
+        "table": "autoapply_submissions",
+        "column": "response_received_at",
+        "live_columns_for_table": [
+          "confirmation_data",
+          "confirmation_email_received",
+          "confirmation_number",
+          "confirmation_received_at",
+          "confirmation_screenshot_url",
+          "created_at",
+          "documents_attached",
+          "error_message",
+          "error_screenshot_url",
+          "form_template_id",
+          "funder_id",
+          "id",
+          "next_retry_at",
+          "optimized_amount",
+          "organization_id",
+          "personalized_pitch",
+          "pre_submit_screenshot_url",
+          "request_amount",
+          "request_description",
+          "request_profile_id",
+          "request_type",
+          "retry_count",
+          "status",
+          "submission_channel",
+          "submitted_at",
+          "timing_score"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/autoapply/response-analytics.ts",
+            "line": 148,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, funder_id, submitted_at, response_received_at, submission_channel, funders(n\")"
+          },
+          {
+            "file": "src/lib/autoapply/response-analytics.ts",
+            "line": 271,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"submission_channel, submitted_at, response_received_at, confirmation_data, statu\")"
+          },
+          {
+            "file": "src/lib/autoapply/response-analytics.ts",
+            "line": 338,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, confirmation_data, response_received_at\")"
+          }
+        ]
+      },
+      {
+        "table": "autoapply_submissions",
+        "column": "variant_id",
+        "live_columns_for_table": [
+          "confirmation_data",
+          "confirmation_email_received",
+          "confirmation_number",
+          "confirmation_received_at",
+          "confirmation_screenshot_url",
+          "created_at",
+          "documents_attached",
+          "error_message",
+          "error_screenshot_url",
+          "form_template_id",
+          "funder_id",
+          "id",
+          "next_retry_at",
+          "optimized_amount",
+          "organization_id",
+          "personalized_pitch",
+          "pre_submit_screenshot_url",
+          "request_amount",
+          "request_description",
+          "request_profile_id",
+          "request_type",
+          "retry_count",
+          "status",
+          "submission_channel",
+          "submitted_at",
+          "timing_score"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "line": 407,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, status, created_at, submitted_at, confirmation_number, request_amount, varia\")"
+          }
+        ]
+      },
+      {
+        "table": "board_members",
+        "column": "active",
+        "live_columns_for_table": [
+          "bio",
+          "created_at",
+          "email",
+          "id",
+          "is_active",
+          "name",
+          "organization_id",
+          "phone",
+          "start_date",
+          "title",
+          "updated_at"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/strategic-advisor-agent.ts",
+            "line": 759,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"active\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "board_members",
+        "column": "org_id",
+        "live_columns_for_table": [
+          "bio",
+          "created_at",
+          "email",
+          "id",
+          "is_active",
+          "name",
+          "organization_id",
+          "phone",
+          "start_date",
+          "title",
+          "updated_at"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/strategic-advisor-agent.ts",
+            "line": 758,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"org_id\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "discovery_matches",
+        "column": "organization_id",
+        "live_columns_for_table": [
+          "actioned_at",
+          "created_at",
+          "discovery_run_id",
+          "external_source",
+          "external_title",
+          "external_url",
+          "id",
+          "match_reasons",
+          "match_score",
+          "opportunity_id",
+          "org_id",
+          "status"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/agents/discovery/route.ts",
+            "line": 55,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"organization_id\", ...)"
+          },
+          {
+            "file": "src/lib/agents/morning-digest.ts",
+            "line": 38,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"organization_id\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "donor_discovery_prospects",
+        "column": "enrichment_private",
+        "live_columns_for_table": [
+          "assigned_to",
+          "created_at",
+          "directory_id",
+          "id",
+          "notes",
+          "organization_id",
+          "pipeline_stage",
+          "request_id",
+          "score",
+          "score_rationale"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/worker/jobs/run-connector-enrichment.ts",
+            "line": 120,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, organization_id, directory_id, enrichment_private\")"
+          },
+          {
+            "file": "src/worker/jobs/run-connector-enrichment.ts",
+            "line": 204,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ enrichment_private: ... })"
+          }
+        ]
+      },
+      {
+        "table": "donor_discovery_prospects",
+        "column": "scored_at",
+        "live_columns_for_table": [
+          "assigned_to",
+          "created_at",
+          "directory_id",
+          "id",
+          "notes",
+          "organization_id",
+          "pipeline_stage",
+          "request_id",
+          "score",
+          "score_rationale"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/donor-discovery/scoring-engine.ts",
+            "line": 516,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ scored_at: ... })"
+          }
+        ]
+      },
+      {
+        "table": "email_templates",
+        "column": "body",
+        "live_columns_for_table": [
+          "body_template",
+          "created_at",
+          "created_by",
+          "id",
+          "is_active",
+          "name",
+          "organization_id",
+          "subject_template",
+          "template_type",
+          "updated_at",
+          "use_count",
+          "variables"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "line": 139,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ body: ... })"
+          },
+          {
+            "file": "src/app/api/email/templates/route.ts",
+            "line": 75,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ body: ... })"
+          },
+          {
+            "file": "src/app/api/email/templates/route.ts",
+            "line": 122,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, subject, body\")"
+          },
+          {
+            "file": "src/lib/email/sequence-engine.ts",
+            "line": 167,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"subject, body\")"
+          }
+        ]
+      },
+      {
+        "table": "email_templates",
+        "column": "subject",
+        "live_columns_for_table": [
+          "body_template",
+          "created_at",
+          "created_by",
+          "id",
+          "is_active",
+          "name",
+          "organization_id",
+          "subject_template",
+          "template_type",
+          "updated_at",
+          "use_count",
+          "variables"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "line": 139,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ subject: ... })"
+          },
+          {
+            "file": "src/app/api/email/templates/route.ts",
+            "line": 75,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ subject: ... })"
+          },
+          {
+            "file": "src/app/api/email/templates/route.ts",
+            "line": 122,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, subject, body\")"
+          },
+          {
+            "file": "src/lib/email/sequence-engine.ts",
+            "line": 167,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"subject, body\")"
+          }
+        ]
+      },
+      {
+        "table": "foundation_profiles",
+        "column": "grant_history",
+        "live_columns_for_table": [
+          "avg_grant_size",
+          "computed_at",
+          "foundation_id",
+          "funding_categories",
+          "geographic_focus",
+          "id",
+          "top_recipients",
+          "total_grants_made"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/foundations/[id]/profile/route.ts",
+            "line": 15,
+            "method": "upsert",
+            "isTest": false,
+            "snippet": ".upsert({ grant_history: ... })"
+          }
+        ]
+      },
+      {
+        "table": "funder_giving_history",
+        "column": "grant_purpose",
+        "live_columns_for_table": [
+          "amount",
+          "created_at",
+          "fiscal_year",
+          "funder_id",
+          "id",
+          "organization_id",
+          "purpose",
+          "recipient_ein",
+          "recipient_name",
+          "source_filing_url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/competitor-intel.ts",
+            "line": 97,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"recipient_name, amount, grant_purpose, fiscal_year\")"
+          }
+        ]
+      },
+      {
+        "table": "funders",
+        "column": "avg_cycle_length_days",
+        "live_columns_for_table": [
+          "annual_giving_budget",
+          "automation_level",
+          "automation_notes",
+          "category",
+          "contact_email",
+          "created_at",
+          "description",
+          "geographic_focus",
+          "giving_portal_url",
+          "has_giving_page",
+          "id",
+          "last_contacted_at",
+          "name",
+          "notes",
+          "organization_id",
+          "portal_last_checked_at",
+          "portal_login_status",
+          "portal_response_time_ms",
+          "portal_review_status",
+          "portal_status",
+          "preferred_application_method",
+          "type",
+          "updated_at",
+          "website"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/deadline-prediction-agent.ts",
+            "line": 786,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ avg_cycle_length_days: ... })"
+          }
+        ]
+      },
+      {
+        "table": "funders",
+        "column": "city",
+        "live_columns_for_table": [
+          "annual_giving_budget",
+          "automation_level",
+          "automation_notes",
+          "category",
+          "contact_email",
+          "created_at",
+          "description",
+          "geographic_focus",
+          "giving_portal_url",
+          "has_giving_page",
+          "id",
+          "last_contacted_at",
+          "name",
+          "notes",
+          "organization_id",
+          "portal_last_checked_at",
+          "portal_login_status",
+          "portal_response_time_ms",
+          "portal_review_status",
+          "portal_status",
+          "preferred_application_method",
+          "type",
+          "updated_at",
+          "website"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/autoapply/auto-queue-populator.ts",
+            "line": 195,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, name, category, city, state, giving_portal_url, type\")"
+          }
+        ]
+      },
+      {
+        "table": "funders",
+        "column": "next_predicted_open_date",
+        "live_columns_for_table": [
+          "annual_giving_budget",
+          "automation_level",
+          "automation_notes",
+          "category",
+          "contact_email",
+          "created_at",
+          "description",
+          "geographic_focus",
+          "giving_portal_url",
+          "has_giving_page",
+          "id",
+          "last_contacted_at",
+          "name",
+          "notes",
+          "organization_id",
+          "portal_last_checked_at",
+          "portal_login_status",
+          "portal_response_time_ms",
+          "portal_review_status",
+          "portal_status",
+          "preferred_application_method",
+          "type",
+          "updated_at",
+          "website"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/deadline-prediction-agent.ts",
+            "line": 786,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ next_predicted_open_date: ... })"
+          }
+        ]
+      },
+      {
+        "table": "funders",
+        "column": "portal_type",
+        "live_columns_for_table": [
+          "annual_giving_budget",
+          "automation_level",
+          "automation_notes",
+          "category",
+          "contact_email",
+          "created_at",
+          "description",
+          "geographic_focus",
+          "giving_portal_url",
+          "has_giving_page",
+          "id",
+          "last_contacted_at",
+          "name",
+          "notes",
+          "organization_id",
+          "portal_last_checked_at",
+          "portal_login_status",
+          "portal_response_time_ms",
+          "portal_review_status",
+          "portal_status",
+          "preferred_application_method",
+          "type",
+          "updated_at",
+          "website"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "worker/autoapply-autonomous-orchestrator.ts",
+            "line": 261,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, portal_type\")"
+          },
+          {
+            "file": "worker/autoapply-autonomous-orchestrator.ts",
+            "line": 271,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, portal_type\")"
+          },
+          {
+            "file": "worker/autoapply-autonomous-orchestrator.ts",
+            "line": 282,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ portal_type: ... })"
+          },
+          {
+            "file": "worker/autoapply-autonomous-orchestrator.ts",
+            "line": 299,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ portal_type: ... })"
+          }
+        ]
+      },
+      {
+        "table": "funders",
+        "column": "state",
+        "live_columns_for_table": [
+          "annual_giving_budget",
+          "automation_level",
+          "automation_notes",
+          "category",
+          "contact_email",
+          "created_at",
+          "description",
+          "geographic_focus",
+          "giving_portal_url",
+          "has_giving_page",
+          "id",
+          "last_contacted_at",
+          "name",
+          "notes",
+          "organization_id",
+          "portal_last_checked_at",
+          "portal_login_status",
+          "portal_response_time_ms",
+          "portal_review_status",
+          "portal_status",
+          "preferred_application_method",
+          "type",
+          "updated_at",
+          "website"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/autoapply/auto-queue-populator.ts",
+            "line": 195,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, name, category, city, state, giving_portal_url, type\")"
+          }
+        ]
+      },
+      {
+        "table": "improvement_proposals",
+        "column": "affected_agent_id",
+        "live_columns_for_table": [
+          "confidence_score",
+          "description",
+          "evidence",
+          "expected_impact",
+          "id",
+          "implemented_at",
+          "proposal_type",
+          "proposed_at",
+          "reviewed_at",
+          "reviewed_by",
+          "risk_level",
+          "status",
+          "title"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/self-improvement-agent.ts",
+            "line": 949,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"affected_agent_id\", ...)"
+          },
+          {
+            "file": "src/lib/agents/self-improvement-agent.ts",
+            "line": 1145,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ affected_agent_id: ... })"
+          }
+        ]
+      },
+      {
+        "table": "intelligence_grantmaker_profiles",
+        "column": "foundation_id",
+        "live_columns_for_table": [
+          "application_tips",
+          "avg_award_amount",
+          "award_range_max",
+          "award_range_min",
+          "common_keywords",
+          "created_at",
+          "decision_timeline",
+          "ein",
+          "embedding",
+          "funder_id",
+          "geographic_focus",
+          "id",
+          "last_updated_at",
+          "priorities",
+          "source",
+          "typical_language"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 41,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 130,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"foundation_id\", ...)"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 66,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"foundation_id\", ...)"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 109,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 182,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"foundation_id\", ...)"
+          },
+          {
+            "file": "src/lib/intelligence/unified-search.ts",
+            "line": 208,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, program_priorities, avg_award_amount, geographic_focus\")"
+          }
+        ]
+      },
+      {
+        "table": "intelligence_grantmaker_profiles",
+        "column": "language_patterns",
+        "live_columns_for_table": [
+          "application_tips",
+          "avg_award_amount",
+          "award_range_max",
+          "award_range_min",
+          "common_keywords",
+          "created_at",
+          "decision_timeline",
+          "ein",
+          "embedding",
+          "funder_id",
+          "geographic_focus",
+          "id",
+          "last_updated_at",
+          "priorities",
+          "source",
+          "typical_language"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 181,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"language_patterns\")"
+          }
+        ]
+      },
+      {
+        "table": "intelligence_grantmaker_profiles",
+        "column": "name",
+        "live_columns_for_table": [
+          "application_tips",
+          "avg_award_amount",
+          "award_range_max",
+          "award_range_min",
+          "common_keywords",
+          "created_at",
+          "decision_timeline",
+          "ein",
+          "embedding",
+          "funder_id",
+          "geographic_focus",
+          "id",
+          "last_updated_at",
+          "priorities",
+          "source",
+          "typical_language"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/intelligence-library/dashboard/DashboardClient.tsx",
+            "line": 365,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, name, ein, created_at\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 41,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 129,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"name, geographic_focus, program_priorities, avg_award_amount, total_annual_givin\")"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 109,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/unified-search.ts",
+            "line": 208,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, program_priorities, avg_award_amount, geographic_focus\")"
+          }
+        ]
+      },
+      {
+        "table": "intelligence_grantmaker_profiles",
+        "column": "program_priorities",
+        "live_columns_for_table": [
+          "application_tips",
+          "avg_award_amount",
+          "award_range_max",
+          "award_range_min",
+          "common_keywords",
+          "created_at",
+          "decision_timeline",
+          "ein",
+          "embedding",
+          "funder_id",
+          "geographic_focus",
+          "id",
+          "last_updated_at",
+          "priorities",
+          "source",
+          "typical_language"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/intelligence-library/dashboard/DashboardClient.tsx",
+            "line": 290,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"program_priorities\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 41,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 129,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"name, geographic_focus, program_priorities, avg_award_amount, total_annual_givin\")"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 109,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/unified-search.ts",
+            "line": 208,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, program_priorities, avg_award_amount, geographic_focus\")"
+          }
+        ]
+      },
+      {
+        "table": "intelligence_grantmaker_profiles",
+        "column": "total_annual_giving",
+        "live_columns_for_table": [
+          "application_tips",
+          "avg_award_amount",
+          "award_range_max",
+          "award_range_min",
+          "common_keywords",
+          "created_at",
+          "decision_timeline",
+          "ein",
+          "embedding",
+          "funder_id",
+          "geographic_focus",
+          "id",
+          "last_updated_at",
+          "priorities",
+          "source",
+          "typical_language"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 41,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 129,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"name, geographic_focus, program_priorities, avg_award_amount, total_annual_givin\")"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 109,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          }
+        ]
+      },
+      {
+        "table": "intelligence_grantmaker_profiles",
+        "column": "typical_award_range",
+        "live_columns_for_table": [
+          "application_tips",
+          "avg_award_amount",
+          "award_range_max",
+          "award_range_min",
+          "common_keywords",
+          "created_at",
+          "decision_timeline",
+          "ein",
+          "embedding",
+          "funder_id",
+          "geographic_focus",
+          "id",
+          "last_updated_at",
+          "priorities",
+          "source",
+          "typical_language"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 41,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          },
+          {
+            "file": "src/lib/intelligence/funder-recommender.ts",
+            "line": 129,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"name, geographic_focus, program_priorities, avg_award_amount, total_annual_givin\")"
+          },
+          {
+            "file": "src/lib/intelligence/grantmaker-profiles.ts",
+            "line": 109,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"foundation_id, name, ein, geographic_focus, program_priorities, avg_award_amount\")"
+          }
+        ]
+      },
+      {
+        "table": "knowledge_queries",
+        "column": "organization_id",
+        "live_columns_for_table": [
+          "created_at",
+          "id",
+          "org_id",
+          "query_text",
+          "results"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/knowledge-engine.ts",
+            "line": 111,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ organization_id: ... })"
+          }
+        ]
+      },
+      {
+        "table": "opportunities",
+        "column": "eligibility_text",
+        "live_columns_for_table": [
+          "amount_available",
+          "amount_max",
+          "amount_min",
+          "application_method",
+          "category",
+          "created_at",
+          "deadline",
+          "description",
+          "discovered_at",
+          "eligibility_requirements",
+          "eligibility_score",
+          "funder_id",
+          "geographic_restrictions",
+          "id",
+          "is_high_priority",
+          "match_mismatch_reasons",
+          "match_percentage",
+          "name",
+          "opportunity_documents",
+          "organization_id",
+          "recommendation",
+          "recommendation_reasoning",
+          "recurrence",
+          "required_documents",
+          "source",
+          "source_type",
+          "status",
+          "updated_at",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/rubric-extractor.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"requirements, eligibility_text, description, raw_content, funder_name, title\")"
+          }
+        ]
+      },
+      {
+        "table": "opportunities",
+        "column": "funder_name",
+        "live_columns_for_table": [
+          "amount_available",
+          "amount_max",
+          "amount_min",
+          "application_method",
+          "category",
+          "created_at",
+          "deadline",
+          "description",
+          "discovered_at",
+          "eligibility_requirements",
+          "eligibility_score",
+          "funder_id",
+          "geographic_restrictions",
+          "id",
+          "is_high_priority",
+          "match_mismatch_reasons",
+          "match_percentage",
+          "name",
+          "opportunity_documents",
+          "organization_id",
+          "recommendation",
+          "recommendation_reasoning",
+          "recurrence",
+          "required_documents",
+          "source",
+          "source_type",
+          "status",
+          "updated_at",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/rubric-extractor.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"requirements, eligibility_text, description, raw_content, funder_name, title\")"
+          }
+        ]
+      },
+      {
+        "table": "opportunities",
+        "column": "probability_score",
+        "live_columns_for_table": [
+          "amount_available",
+          "amount_max",
+          "amount_min",
+          "application_method",
+          "category",
+          "created_at",
+          "deadline",
+          "description",
+          "discovered_at",
+          "eligibility_requirements",
+          "eligibility_score",
+          "funder_id",
+          "geographic_restrictions",
+          "id",
+          "is_high_priority",
+          "match_mismatch_reasons",
+          "match_percentage",
+          "name",
+          "opportunity_documents",
+          "organization_id",
+          "recommendation",
+          "recommendation_reasoning",
+          "recurrence",
+          "required_documents",
+          "source",
+          "source_type",
+          "status",
+          "updated_at",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/admin/orgs/[id]/route.ts",
+            "line": 82,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, name, category, deadline, status, probability_score\")"
+          },
+          {
+            "file": "src/lib/reports/board-report-page.ts",
+            "line": 120,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, name, deadline, amount_max, probability_score, recommendation, funders(name)\")"
+          }
+        ]
+      },
+      {
+        "table": "opportunities",
+        "column": "raw_content",
+        "live_columns_for_table": [
+          "amount_available",
+          "amount_max",
+          "amount_min",
+          "application_method",
+          "category",
+          "created_at",
+          "deadline",
+          "description",
+          "discovered_at",
+          "eligibility_requirements",
+          "eligibility_score",
+          "funder_id",
+          "geographic_restrictions",
+          "id",
+          "is_high_priority",
+          "match_mismatch_reasons",
+          "match_percentage",
+          "name",
+          "opportunity_documents",
+          "organization_id",
+          "recommendation",
+          "recommendation_reasoning",
+          "recurrence",
+          "required_documents",
+          "source",
+          "source_type",
+          "status",
+          "updated_at",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/rubric-extractor.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"requirements, eligibility_text, description, raw_content, funder_name, title\")"
+          }
+        ]
+      },
+      {
+        "table": "opportunities",
+        "column": "requirements",
+        "live_columns_for_table": [
+          "amount_available",
+          "amount_max",
+          "amount_min",
+          "application_method",
+          "category",
+          "created_at",
+          "deadline",
+          "description",
+          "discovered_at",
+          "eligibility_requirements",
+          "eligibility_score",
+          "funder_id",
+          "geographic_restrictions",
+          "id",
+          "is_high_priority",
+          "match_mismatch_reasons",
+          "match_percentage",
+          "name",
+          "opportunity_documents",
+          "organization_id",
+          "recommendation",
+          "recommendation_reasoning",
+          "recurrence",
+          "required_documents",
+          "source",
+          "source_type",
+          "status",
+          "updated_at",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/rubric-extractor.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"requirements, eligibility_text, description, raw_content, funder_name, title\")"
+          }
+        ]
+      },
+      {
+        "table": "opportunities",
+        "column": "title",
+        "live_columns_for_table": [
+          "amount_available",
+          "amount_max",
+          "amount_min",
+          "application_method",
+          "category",
+          "created_at",
+          "deadline",
+          "description",
+          "discovered_at",
+          "eligibility_requirements",
+          "eligibility_score",
+          "funder_id",
+          "geographic_restrictions",
+          "id",
+          "is_high_priority",
+          "match_mismatch_reasons",
+          "match_percentage",
+          "name",
+          "opportunity_documents",
+          "organization_id",
+          "recommendation",
+          "recommendation_reasoning",
+          "recurrence",
+          "required_documents",
+          "source",
+          "source_type",
+          "status",
+          "updated_at",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/rubric-extractor.ts",
+            "line": 85,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"requirements, eligibility_text, description, raw_content, funder_name, title\")"
+          }
+        ]
+      },
+      {
+        "table": "opportunity_probability_scores",
+        "column": "org_id",
+        "live_columns_for_table": [
+          "computed_at",
+          "confidence",
+          "estimated_roi",
+          "factors",
+          "id",
+          "key_risks",
+          "key_strengths",
+          "opportunity_id",
+          "organization_id",
+          "overall_score",
+          "recommendation",
+          "time_to_complete"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/autonomous-digest-agent.ts",
+            "line": 590,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"org_id\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "org_learning_contributions",
+        "column": "anonymized",
+        "live_columns_for_table": [
+          "anonymized_at",
+          "contribution_type",
+          "id",
+          "org_id",
+          "pattern_id"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1051,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ anonymized: ... })"
+          }
+        ]
+      },
+      {
+        "table": "org_learning_contributions",
+        "column": "outcome_id",
+        "live_columns_for_table": [
+          "anonymized_at",
+          "contribution_type",
+          "id",
+          "org_id",
+          "pattern_id"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1051,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ outcome_id: ... })"
+          },
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1075,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"outcome_id\", ...)"
+          },
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1094,
+            "method": "neq",
+            "isTest": false,
+            "snippet": ".neq(\"outcome_id\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "org_learning_contributions",
+        "column": "source_hash",
+        "live_columns_for_table": [
+          "anonymized_at",
+          "contribution_type",
+          "id",
+          "org_id",
+          "pattern_id"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1051,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ source_hash: ... })"
+          },
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1093,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"source_hash\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "organizational_digital_twins",
+        "column": "twin_auto_populate_log",
+        "live_columns_for_table": [
+          "board_composition",
+          "created_at",
+          "financial_profile",
+          "id",
+          "key_strengths",
+          "known_weaknesses",
+          "last_rebuilt_at",
+          "mission",
+          "org_id",
+          "organization_id",
+          "programs",
+          "proven_narrative_patterns",
+          "service_areas",
+          "twin_completeness_score",
+          "updated_at",
+          "vision"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/intelligence/twin-auto-populate.ts",
+            "line": 903,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ twin_auto_populate_log: ... })"
+          }
+        ]
+      },
+      {
+        "table": "organizations",
+        "column": "analytics",
+        "live_columns_for_table": [
+          "address_line1",
+          "address_line2",
+          "annual_budget",
+          "city",
+          "contact_email",
+          "created_at",
+          "dba",
+          "donor_discovery_scoring_weights",
+          "ein",
+          "email",
+          "extended_profile",
+          "founder_bio",
+          "founder_name",
+          "founding_date",
+          "id",
+          "logo_url",
+          "mission_statement",
+          "name",
+          "onboarding_completed",
+          "onboarding_completed_at",
+          "onboarding_progress",
+          "onboarding_step",
+          "phone",
+          "service_area",
+          "state",
+          "stripe_customer_id",
+          "subscription_tier",
+          "target_population",
+          "tax_status",
+          "total_staff",
+          "total_volunteers",
+          "updated_at",
+          "vision_statement",
+          "website",
+          "white_label_config",
+          "zip"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/outcome-analyzer-agent.ts",
+            "line": 194,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"analytics\")"
+          },
+          {
+            "file": "src/lib/agents/outcome-analyzer-agent.ts",
+            "line": 202,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ analytics: ... })"
+          }
+        ]
+      },
+      {
+        "table": "organizations",
+        "column": "service_areas",
+        "live_columns_for_table": [
+          "address_line1",
+          "address_line2",
+          "annual_budget",
+          "city",
+          "contact_email",
+          "created_at",
+          "dba",
+          "donor_discovery_scoring_weights",
+          "ein",
+          "email",
+          "extended_profile",
+          "founder_bio",
+          "founder_name",
+          "founding_date",
+          "id",
+          "logo_url",
+          "mission_statement",
+          "name",
+          "onboarding_completed",
+          "onboarding_completed_at",
+          "onboarding_progress",
+          "onboarding_step",
+          "phone",
+          "service_area",
+          "state",
+          "stripe_customer_id",
+          "subscription_tier",
+          "target_population",
+          "tax_status",
+          "total_staff",
+          "total_volunteers",
+          "updated_at",
+          "vision_statement",
+          "website",
+          "white_label_config",
+          "zip"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/strategic-advisor-agent.ts",
+            "line": 453,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"name, service_area, service_areas\")"
+          }
+        ]
+      },
+      {
+        "table": "pitch_cache",
+        "column": "request_type",
+        "live_columns_for_table": [
+          "created_at",
+          "expires_at",
+          "funder_id",
+          "id",
+          "organization_id",
+          "personalized_pitch",
+          "pitch_hash",
+          "request_profile_id"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/autoapply/pitch-personalizer.ts",
+            "line": 77,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"request_type\", ...)"
+          },
+          {
+            "file": "src/lib/autoapply/pitch-personalizer.ts",
+            "line": 100,
+            "method": "upsert",
+            "isTest": false,
+            "snippet": ".upsert({ request_type: ... })"
+          }
+        ]
+      },
+      {
+        "table": "platform_learning_patterns",
+        "column": "confidence",
+        "live_columns_for_table": [
+          "avg_award_amount",
+          "created_at",
+          "funder_category",
+          "id",
+          "last_updated",
+          "ntee_code",
+          "pattern_content",
+          "pattern_type",
+          "sample_count",
+          "success_rate",
+          "winning_examples"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1005,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ confidence: ... })"
+          }
+        ]
+      },
+      {
+        "table": "platform_learning_patterns",
+        "column": "weight",
+        "live_columns_for_table": [
+          "avg_award_amount",
+          "created_at",
+          "funder_category",
+          "id",
+          "last_updated",
+          "ntee_code",
+          "pattern_content",
+          "pattern_type",
+          "sample_count",
+          "success_rate",
+          "winning_examples"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 918,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, sample_count, avg_award_amount, winning_examples, weight, pattern_content\")"
+          },
+          {
+            "file": "src/lib/agents/learning-network-aggregator-agent.ts",
+            "line": 1005,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ weight: ... })"
+          }
+        ]
+      },
+      {
+        "table": "scraping_targets",
+        "column": "updated_at",
+        "live_columns_for_table": [
+          "created_at",
+          "description",
+          "failure_count",
+          "id",
+          "is_active",
+          "last_scraped_at",
+          "last_success_at",
+          "organization_id",
+          "scrape_schedule",
+          "url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/custom-scrape.ts",
+            "line": 124,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ updated_at: ... })"
+          },
+          {
+            "file": "src/lib/agents/custom-scrape.ts",
+            "line": 141,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ updated_at: ... })"
+          }
+        ]
+      },
+      {
+        "table": "success_probability_scores",
+        "column": "data_quality",
+        "live_columns_for_table": [
+          "application_id",
+          "calculated_at",
+          "factors",
+          "id",
+          "organization_id",
+          "probability_score"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/success-probability.ts",
+            "line": 168,
+            "method": "upsert",
+            "isTest": false,
+            "snippet": ".upsert({ data_quality: ... })"
+          }
+        ]
+      },
+      {
+        "table": "success_probability_scores",
+        "column": "updated_at",
+        "live_columns_for_table": [
+          "application_id",
+          "calculated_at",
+          "factors",
+          "id",
+          "organization_id",
+          "probability_score"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/lib/agents/success-probability.ts",
+            "line": 168,
+            "method": "upsert",
+            "isTest": false,
+            "snippet": ".upsert({ updated_at: ... })"
+          }
+        ]
+      },
+      {
+        "table": "webhook_configs",
+        "column": "is_active",
+        "live_columns_for_table": [
+          "active",
+          "created_at",
+          "events",
+          "id",
+          "organization_id",
+          "webhook_type",
+          "webhook_url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/(dashboard)/autoapply/webhooks/page.tsx",
+            "line": 137,
+            "method": "update",
+            "isTest": false,
+            "snippet": ".update({ is_active: ... })"
+          },
+          {
+            "file": "src/app/api/autoapply/webhooks/route.ts",
+            "line": 108,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ is_active: ... })"
+          },
+          {
+            "file": "src/lib/autoapply/webhook-notifier.ts",
+            "line": 98,
+            "method": "eq",
+            "isTest": false,
+            "snippet": ".eq(\"is_active\", ...)"
+          }
+        ]
+      },
+      {
+        "table": "webhook_configs",
+        "column": "type",
+        "live_columns_for_table": [
+          "active",
+          "created_at",
+          "events",
+          "id",
+          "organization_id",
+          "webhook_type",
+          "webhook_url"
+        ],
+        "source": "runtime_query_code",
+        "sites": [
+          {
+            "file": "src/app/api/autoapply/webhooks/route.ts",
+            "line": 108,
+            "method": "insert",
+            "isTest": false,
+            "snippet": ".insert({ type: ... })"
+          },
+          {
+            "file": "src/lib/autoapply/webhook-notifier.ts",
+            "line": 96,
+            "method": "select",
+            "isTest": false,
+            "snippet": ".select(\"id, type, webhook_url, events\")"
+          }
+        ]
+      }
+    ]
+  },
+  "typed_interface_database_ts": {
+    "tables_referenced": 0,
+    "missing_tables": [],
+    "column_mismatches": []
+  },
+  "summary": {
+    "runtime_missing_tables": 21,
+    "runtime_column_mismatches": 50,
+    "runtime_column_mismatch_non_test_sites": 96,
+    "typed_interface_missing_tables": 0,
+    "typed_interface_column_mismatches": 0
+  }
+}
