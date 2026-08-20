@@ -1,5 +1,70 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-07: Supabase real-state probe.
+## Last Updated: August 20, 2026 — audit PT-07: real Railway worker job round-trip.
+
+**Focus:** PT-08's boot inventory already proved the worker process boots and its processors are
+STARTED (reconciled against real Railway logs + a live `worker_status` query). This is the
+complementary FUNCTION proof: confirm the worker is live (heartbeat), then prove it actually
+processes work — enqueue a real (safe, zero-cost) job, observe the real worker claim it, and
+confirm a real completion is written back, capturing before/after row state throughout, not just a
+200 or a boot log line.
+
+**What was built:** `scripts/audit/pt07-002-worker-roundtrip.mjs` (the round-trip proof itself)
+and `scripts/audit/verify-pt07-002.mjs` (fails unless `test-evidence/pt-07/worker-roundtrip.json`
+records a live heartbeat + real pickup + real completion write-back — per the task's own
+instruction, a worker that doesn't pick up jobs or doesn't complete them is a P1 finding, and this
+verifier fails loudly on that, unlike PT-07-001's storage/realtime probes which downgrade an
+evidenced gap to a non-failing "FINDING").
+
+**Job type chosen:** `agent_queue` / `agent_id="deadline_prediction"` (`DeadlinePredictionAgent`).
+Verified safe by reading its `execute()` first: single read-only `select`, deterministic pattern
+matching, zero Claude/LLM calls on any path (`tokensUsed: 0` always), and it only ever writes an
+`opportunities` row when it finds a high-confidence historical pattern — which a disposable,
+zero-opportunity test org guarantees it won't. Routed through the real, unmodified
+`routeQueueItem()` in `worker/autonomous-orchestrator.ts` and picked up by the continuously-polling
+`processAgentQueue()` loop (confirmed STARTED at boot per PT-08's `boot-inventory.json`).
+
+**Results, all real, live against production (`vbjplpquqxxfbpazyalt`):**
+- **Heartbeat** — real `worker_status` query: `railway-worker-1` ticking 1.8–11.6s fresh (well
+  inside its real 30s interval), both before and after the job ran. PASS.
+- **Pickup** — a real `agent_queue` row was enqueued under a disposable org and claimed by the
+  real worker 25.06s after enqueue (`started_at` set, consistent with the worker being mid-way
+  through its own 30s empty-queue sleep). PASS.
+- **Completion write-back** — the same row reached `status="completed"` 609ms after being
+  claimed, with `completed_at` set and a genuine `output_payload.summary="deadline_prediction
+  completed (tokens=0)"` — the literal string the real code path produces. PASS.
+- **Cleanup** — disposable org + queue row confirmed actually gone afterward via a fresh query
+  (not just a successful delete call), and a follow-up sweep found zero leftover
+  `PT07-002-WORKER-ROUNDTRIP-%` orgs in production.
+
+**Overall verdict: PASS.** No P1 finding — the real worker genuinely picks up and completes jobs
+end to end. `findings: []` in the evidence file.
+
+**Two real bugs found and fixed mid-session (both in this session's own test harness/cleanup, not
+in the worker being tested):**
+1. **False-negative pickup detection.** The first run's 3s poll interval never caught an
+   intermediate `status="processing"` row — the real claim-to-completion window was 609ms, faster
+   than the poll could reliably observe. This produced a wrong "worker never claimed the job" P1
+   reading on a run that had actually succeeded. Fixed by deriving pickup from the terminal row's
+   own `started_at` timestamp (always present after a real claim, independent of poll timing)
+   instead of requiring a transient intermediate poll to catch `processing` — the more reliable of
+   the two signals, not a weaker one. Sanity-checked both directions: re-ran clean (real PASS), and
+   separately ran the verifier against a synthetically broken copy of the evidence (`started_at`
+   nulled) to confirm it still fails loudly on a genuine non-pickup, then restored the real file.
+2. **Cleanup FK violation.** `agent_runs.organization_id` and `usage_metrics.organization_id` both
+   lack `ON DELETE CASCADE` (confirmed in `supabase/migrations/001_initial_schema.sql`) — the same
+   missing-cascade class already documented for `platform_config` in prior sessions, but not
+   previously enumerated for these two. `BaseAgent.run()`/`trackUsage()` write real rows to both
+   for every agent invocation, including this test's, so the first cleanup attempt failed with an
+   `agent_runs_organization_id_fkey` violation. Fixed by deleting `agent_queue`, `agent_runs`,
+   `usage_metrics`, and `platform_config` rows for the disposable org before deleting
+   `organizations`, with retry/backoff matching the existing `platform_config`-race precedent.
+
+Evidence: `test-evidence/pt-07/worker-roundtrip.json`, verified via
+`node scripts/audit/verify-pt07-002.mjs` (exit 0).
+
+---
+
+## Prior update: August 20, 2026 — audit PT-07: Supabase real-state probe.
 
 **Focus:** confirm PT-00 artifacts present (precondition check, not re-verification), then run
 four real, read-only probes against the live production Supabase project and evidence the actual

@@ -1,0 +1,260 @@
+{
+  "generated_at": "2026-08-20T16:34:05.174Z",
+  "method": {
+    "jobType": "agent_queue / agent_id=\"deadline_prediction\" (DeadlinePredictionAgent, DB-only, zero Claude cost, zero writes for an org with no opportunities)",
+    "pollIntervalMs": 1500,
+    "pollTimeoutMs": 180000,
+    "heartbeatFreshnessThresholdSeconds": 120
+  },
+  "heartbeatBefore": {
+    "verdict": "PASS",
+    "realResponse": [
+      {
+        "worker_id": "railway-worker-1",
+        "status": "idle",
+        "started_at": "2026-08-15T20:57:16.669+00:00",
+        "last_heartbeat_at": "2026-08-20T16:33:35.691+00:00",
+        "items_processed": 52,
+        "items_failed": 0,
+        "heartbeat_age_seconds": 1.8
+      },
+      {
+        "worker_id": "benavora-worker-1",
+        "status": "offline",
+        "started_at": "2026-07-20T22:30:09.028+00:00",
+        "last_heartbeat_at": "2026-07-20T22:30:09.027+00:00",
+        "items_processed": 0,
+        "items_failed": 0,
+        "heartbeat_age_seconds": 2657008.4
+      }
+    ],
+    "freshestWorker": {
+      "worker_id": "railway-worker-1",
+      "status": "idle",
+      "started_at": "2026-08-15T20:57:16.669+00:00",
+      "last_heartbeat_at": "2026-08-20T16:33:35.691+00:00",
+      "items_processed": 52,
+      "items_failed": 0,
+      "heartbeat_age_seconds": 1.8
+    },
+    "freshnessThresholdSeconds": 120,
+    "isLive": true
+  },
+  "heartbeatAfter": {
+    "verdict": "PASS",
+    "realResponse": [
+      {
+        "worker_id": "railway-worker-1",
+        "status": "idle",
+        "started_at": "2026-08-15T20:57:16.669+00:00",
+        "last_heartbeat_at": "2026-08-20T16:34:05.691+00:00",
+        "items_processed": 52,
+        "items_failed": 0,
+        "heartbeat_age_seconds": -1.3
+      },
+      {
+        "worker_id": "benavora-worker-1",
+        "status": "offline",
+        "started_at": "2026-07-20T22:30:09.028+00:00",
+        "last_heartbeat_at": "2026-07-20T22:30:09.027+00:00",
+        "items_processed": 0,
+        "items_failed": 0,
+        "heartbeat_age_seconds": 2657035.3
+      }
+    ],
+    "freshestWorker": {
+      "worker_id": "railway-worker-1",
+      "status": "idle",
+      "started_at": "2026-08-15T20:57:16.669+00:00",
+      "last_heartbeat_at": "2026-08-20T16:34:05.691+00:00",
+      "items_processed": 52,
+      "items_failed": 0,
+      "heartbeat_age_seconds": -1.3
+    },
+    "freshnessThresholdSeconds": 120,
+    "isLive": true
+  },
+  "sweptLeftovers": [
+    {
+      "id": "4d80c0b1-4567-4a18-9163-bad83b994c04",
+      "name": "PT07-002-WORKER-ROUNDTRIP-1787243477463",
+      "deleted": true,
+      "attempts": 1
+    }
+  ],
+  "disposableOrg": {
+    "id": "4fe78a4e-e28b-43c3-addd-5e6690ec448f",
+    "name": "PT07-002-WORKER-ROUNDTRIP-1787243618340"
+  },
+  "job": {
+    "agentId": "deadline_prediction",
+    "queueRowId": "d08f2cfe-6bb8-40cd-922c-548a68d77ecd",
+    "beforeState": {
+      "id": "d08f2cfe-6bb8-40cd-922c-548a68d77ecd",
+      "org_id": "4fe78a4e-e28b-43c3-addd-5e6690ec448f",
+      "agent_id": "deadline_prediction",
+      "priority": 10,
+      "status": "queued",
+      "trigger_source": "manual",
+      "input_payload": {},
+      "output_payload": null,
+      "error_message": null,
+      "queued_at": "2026-08-20T16:33:39.972336+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "transitions": [
+      {
+        "step": "enqueued",
+        "atElapsedMs": 0,
+        "atIso": "2026-08-20T16:33:38.483Z",
+        "state": {
+          "id": "d08f2cfe-6bb8-40cd-922c-548a68d77ecd",
+          "org_id": "4fe78a4e-e28b-43c3-addd-5e6690ec448f",
+          "agent_id": "deadline_prediction",
+          "priority": 10,
+          "status": "queued",
+          "trigger_source": "manual",
+          "input_payload": {},
+          "output_payload": null,
+          "error_message": null,
+          "queued_at": "2026-08-20T16:33:39.972336+00:00",
+          "started_at": null,
+          "completed_at": null,
+          "retry_count": 0,
+          "max_retries": 3
+        }
+      },
+      {
+        "step": "completed",
+        "atElapsedMs": 25565,
+        "atIso": "2026-08-20T16:34:04.229Z",
+        "state": {
+          "id": "d08f2cfe-6bb8-40cd-922c-548a68d77ecd",
+          "org_id": "4fe78a4e-e28b-43c3-addd-5e6690ec448f",
+          "agent_id": "deadline_prediction",
+          "priority": 10,
+          "status": "completed",
+          "trigger_source": "manual",
+          "input_payload": {},
+          "output_payload": {
+            "summary": "deadline_prediction completed (tokens=0)"
+          },
+          "error_message": null,
+          "queued_at": "2026-08-20T16:33:39.972336+00:00",
+          "started_at": "2026-08-20T16:34:05.033+00:00",
+          "completed_at": "2026-08-20T16:34:05.642+00:00",
+          "retry_count": 0,
+          "max_retries": 3
+        }
+      }
+    ],
+    "pollLog": [
+      {
+        "elapsedMs": 1513,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 3087,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 4662,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 6296,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 7946,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 9579,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 11176,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 12749,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 14377,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 15960,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 17532,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 19206,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 20841,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 22416,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 23984,
+        "status": "queued"
+      },
+      {
+        "elapsedMs": 25565,
+        "status": "completed"
+      }
+    ],
+    "finalState": {
+      "id": "d08f2cfe-6bb8-40cd-922c-548a68d77ecd",
+      "org_id": "4fe78a4e-e28b-43c3-addd-5e6690ec448f",
+      "agent_id": "deadline_prediction",
+      "priority": 10,
+      "status": "completed",
+      "trigger_source": "manual",
+      "input_payload": {},
+      "output_payload": {
+        "summary": "deadline_prediction completed (tokens=0)"
+      },
+      "error_message": null,
+      "queued_at": "2026-08-20T16:33:39.972336+00:00",
+      "started_at": "2026-08-20T16:34:05.033+00:00",
+      "completed_at": "2026-08-20T16:34:05.642+00:00",
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "timedOut": false,
+    "pickedUp": true,
+    "completedWithOutput": true,
+    "failedInstead": false
+  },
+  "cleanup": {
+    "delete": {
+      "deleted": true,
+      "attempts": 1
+    },
+    "verify": {
+      "orgGone": true,
+      "queueRowGone": true
+    }
+  },
+  "findings": [],
+  "summary": {
+    "heartbeat_live": true,
+    "picked_up": true,
+    "completed_with_output": true,
+    "overall_verdict": "PASS"
+  }
+}
