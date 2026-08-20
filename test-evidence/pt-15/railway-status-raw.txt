@@ -1,0 +1,25 @@
+
+Workspace:       reid64's Projects
+
+Project:         benavora-worker
+Project ID:      1d79d4e6-f529-4903-9577-7085b3ab126b
+
+Environment:     production
+Environment ID:  d62904c7-ed72-4814-87ad-c0269f961565
+
+Linked service
+
+benavora-worker
+    status:        ● Online
+    repo:          Reid64/benavora
+    region:        sfo
+    deployment ID: 9af8db54-805a-411c-bbc2-3e10df25957b
+    service ID:    bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127
+
+────────────────────────────────────────────────
+
+All resources
+
+    Services
+      - benavora-worker: ● Online
+

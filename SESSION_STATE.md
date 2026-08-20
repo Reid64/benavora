@@ -1,7 +1,118 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-12 v2 COMPLETE: load-test branch torn down, review pack ready.
+## Last Updated: August 20, 2026 — audit PT-15: env parity across environments.
 
-## Current Session — August 20, 2026 (audit PT-12 v2 COMPLETE: teardown, summary, review pack)
+## Current Session — August 20, 2026 (audit PT-15: env parity across environments)
+
+**Focus:** confirm PT-00 through PT-14's artifacts all exist (they do — every phase has a real
+`test-evidence/pt-XX/` directory), then reconcile the env vars the code actually needs (per
+`test-evidence/pt-00/env-audit.json`'s 23 `production_required` vars) across all three real
+environments this project runs in: local `.env.local`, Vercel production, and Railway production.
+PT-00's own audit was explicitly local-only ("production... env vars were not checked by this
+audit"), leaving two open register rows — WGR-002 (`VERCEL_TOKEN`/`VERCEL_PROJECT_ID` absence,
+blocks the automated deploy-drift gate) and WGR-003 (13 other vars, mostly "unconfirmed either way"
+in production, plus two hearsay/indirect-only updates already on file). This session settles both
+with first-hand evidence instead of restating what was already known.
+
+**What was done — both CLIs were already authenticated in this environment, a real find:**
+`vercel whoami` → `reid-9664`; `railway whoami` → `reid@repvg.com`. Both projects already linked
+(`.vercel/project.json`, `railway status` → `benavora-worker`, environment `production`, service
+`Online`). Ran `vercel env ls production` and
+`railway variables --service benavora-worker --environment production --kv` live, captured raw
+output as evidence (names/"Encrypted" placeholders only, redacted before writing to disk — never a
+real secret value), and cross-referenced against a fresh source-code grep (`worker/*.ts` +
+`worker/dist/**/*.js`, matched against real import chains from worker processor entry points) to
+determine which platform(s) each var is actually relevant to — several vars PT-00 marked
+`production_required` without distinguishing app-vs-worker relevance turned out to need that
+distinction to interpret correctly.
+
+**WGR-002 (VERCEL_TOKEN / VERCEL_PROJECT_ID): still open, but with real forward progress.** Both
+are "tooling-only" vars (used exclusively by `scripts/verify-deployment.ts`, run locally/in CI —
+never something that would be deployed to Vercel/Railway as an app env var by design). Confirmed:
+`VERCEL_TOKEN` genuinely exists nowhere this audit could find — still `CONFIRMED-BROKEN`.
+`VERCEL_PROJECT_ID`'s actual value is already sitting in `.vercel/project.json` in this working
+tree (`prj_7pn7UmQQsiEjTIHH58cfUU84p6xc`) — setting it is a one-line copy once a token exists, not a
+separate lookup task. Noted a working manual fallback: the `vercel` CLI session itself is already
+authenticated and can read deployment state directly (as this session's own data-gathering did),
+though `verify-deployment.ts`'s own header comment already explains why it deliberately avoids the
+CLI (documented hang-after-finish quirk, interactive-login requirement) in favor of the token-based
+REST API path.
+
+**WGR-003 (13 vars): settled — all 13 independently checked against both production platforms,
+not just re-stated from a prior "per Reid" claim or an indirect boot-log inference.**
+- **`CRON_SECRET`**: now independently confirmed present in Vercel production via this session's own
+  live, authenticated `vercel env ls production` call — replacing WGR-003's prior "per Reid, not
+  independently re-verified" sourcing with first-hand evidence. This settles the narrow
+  "is the var configured" question only — it does **not** resolve or contradict WGR-111 (the
+  separate, still-open finding that `src/middleware.ts` 307-redirects cron/webhook callers to
+  `/login` before any `CRON_SECRET`/signature check ever runs) — not attempted here, flagged
+  explicitly as out of this phase's scope.
+- **`SUPABASE_URL`**: now confirmed present in Railway production via a direct read of the variable
+  name in `railway variables --kv` output — stronger, more direct evidence than PT-08's prior
+  boot-log inference (a successful worker boot only implies `validateEnv()`'s check passed, it
+  doesn't show the variable itself). Corroborates and upgrades that finding.
+- **`INTEGRATION_ENCRYPTION_KEY`, `INTEGRATION_KEY_SECRET`, `PORTAL_ENCRYPT_SECRET`,
+  `UNSUBSCRIBE_HMAC_SECRET`, `WORKER_ID`**: all confirmed present in every environment where
+  they're actually relevant. Local-absence-only gaps, not production risks.
+- **`CREDENTIAL_ENCRYPTION_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `SCRAPER_API_KEY`,
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`**: all confirmed **genuinely absent from every
+  relevant production environment**, not just locally — real, live production gaps, upgraded from
+  WGR-003's prior "unconfirmed either way." Most severe: `CREDENTIAL_ENCRYPTION_KEY` is imported by
+  `src/lib/autoapply/credential-manager.ts` (used by `worker/queue-processor.ts`, the live AutoApply
+  submission pipeline) and hard-`throw()`s if unset — any AutoApply flow needing to decrypt a stored
+  portal credential will throw in production right now.
+
+**Beyond WGR-003's original scope — three genuinely new production gaps found, one of which
+directly explains an already-documented bug:**
+- **`NEXT_PUBLIC_SUPABASE_URL`** is confirmed absent from Railway production. `src/lib/supabase/admin.ts`'s
+  `createAdminClient()` requires it (alongside `SUPABASE_SERVICE_ROLE_KEY`, which IS present) and is
+  called directly by donor-discovery adapters/agents (confirmed worker-reachable via
+  `worker/dd-request-processor.ts`) and by `src/lib/scraper/foundation-scraper.ts` (confirmed
+  worker-reachable via `worker/autonomous-orchestrator.ts`'s `'foundation-990-enrichment'` queue
+  case — the AG-42 chain target). This is the exact error string
+  (`"Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"`) already documented in
+  `STATE_OF_THE_BUILD.md` as a live-reproduced AG-42 downstream failure, previously attributed only
+  to a code-style issue (`enrichSingleFoundation()` calling `createAdminClient()` independently).
+  This session's env-parity check confirms the concrete production root cause: the var this code
+  path needs genuinely is not set in Railway.
+- **`OPENAI_API_KEY`** is confirmed absent from Railway production, and is required by
+  `src/lib/intelligence/embeddings.ts` (imported by `src/lib/agents/knowledge-indexer-agent.ts`,
+  which `worker/knowledge-indexer-processor.ts` runs continuously in production per its own
+  `STATE_OF_THE_BUILD.md` sessions). Flagged as a plausible — not proven — explanation for the
+  previously-"not fully determined" AG-29 cold-start anomaly also documented there (5 real
+  autonomous embedding runs failed before a locally-run "manual" run succeeded — a missing key in
+  Railway specifically would produce exactly that pattern).
+- **`SAM_GOV_API_KEY`** is confirmed absent from Railway production, needed by
+  `src/lib/donor-discovery/adapters/samgov-adapter.ts` and `src/lib/sources/{land-bank-client,samgov-client}.ts`
+  (confirmed worker-reachable). Present in Vercel, so the same lookups work fine from the app side.
+
+**Also found:** `.env.local` has two malformed lines — `STRIPE PUBLISHABLE KEY=` and
+`STRIPE SECRET KEY=` (space instead of underscore) — not valid identifiers, dotenv will not parse
+them as `STRIPE_SECRET_KEY`/`STRIPE_PUBLISHABLE_KEY`. Combined with both real Stripe vars being
+confirmed absent from Vercel production too, billing/payments has no working Stripe credential
+anywhere in this project as of this session.
+
+**Not attempted, stated explicitly:** resolving WGR-111 itself (whether cron/webhook requests can
+actually reach the code that reads `CRON_SECRET`/verifies signatures in production — a middleware-
+level question, separate from whether the var is configured); a real Vercel Cron firing or Stripe/
+Resend webhook delivery observation.
+
+**Shipped:** `test-evidence/pt-15/env-parity.json` (23-var reconciliation, full detail above),
+`test-evidence/pt-15/*-raw.txt` (redacted raw CLI evidence — `vercel-whoami`, `vercel-env-ls-production`,
+`railway-whoami`, `railway-status`, `railway-variables-kv`, `local-env-names`),
+`scripts/audit/pt15-002-env-parity.mjs` (the generator, embeds the hand-verified presence sets and
+relevance map with full reasoning in code comments/notes), `scripts/audit/verify-pt15-001.mjs`
+(fails unless the reconciliation is real — checks all three environments actually have a presence
+verdict recorded, WGR-002/003 both have a substantive `resolution` + `settled` field, the three
+explicitly-named vars — `VERCEL_TOKEN`, `SUPABASE_URL`, `CRON_SECRET` — each have their own row and
+note, and no secret value leaked into any evidence file). Verified the verifier actually gates:
+confirmed it fails when `env-parity.json` is absent, passes when present.
+
+**Gates:** no application source code changed this session (evidence/docs/script only) —
+`pnpm tsc --noEmit`/`pnpm run build` not applicable.
+
+---
+
+## Prior Session — August 20, 2026 (audit PT-12 v2 COMPLETE: teardown, summary, review pack)
 
 **Focus:** close out PT-12 v2 (branch creation → load simulation → soak → pool/rate-limiter
 contention, prior session entries below). Tear down the billed `pt12-load-test` branch, write

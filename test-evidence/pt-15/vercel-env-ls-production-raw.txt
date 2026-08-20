@@ -1,0 +1,22 @@
+<claude-code-hint v="1" type="plugin" value="vercel@claude-plugins-official" />
+Retrieving project…
+> Environment Variables found for reids-projects-b3405b97/benavora [202ms]
+
+ name                               value               environments                created    
+ ANTHROPIC_API_KEY                  Encrypted           Production                  14d ago    
+ GOOGLE_PLACES_API_KEY              Encrypted           Production                  17d ago    
+ CRON_SECRET                        Encrypted           Production                  43d ago    
+ UNSUBSCRIBE_HMAC_SECRET            Encrypted           Production                  43d ago    
+ INTEGRATION_ENCRYPTION_KEY         Encrypted           Production                  43d ago    
+ PORTAL_ENCRYPT_SECRET              Encrypted           Production                  43d ago    
+ INTEGRATION_KEY_SECRET             Encrypted           Production                  43d ago    
+ OPENAI_API_KEY                     Encrypted           Production                  61d ago    
+ SAM_GOV_API_KEY                    Encrypted           Production                  67d ago    
+ NEXT_PUBLIC_SUPABASE_URL           Encrypted           Production, Preview         68d ago    
+ NEXT_PUBLIC_SUPABASE_ANON_KEY      Encrypted           Production, Preview         68d ago    
+ SUPABASE_SERVICE_ROLE_KEY          Encrypted           Production, Preview         68d ago    
+
+Common next commands:
+- `vercel env add`
+- `vercel env rm`
+- `vercel env pull`
