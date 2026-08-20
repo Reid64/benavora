@@ -1,6 +1,23 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-05 COMPLETE. Tenant isolation audit: zero cross-tenant leaks
+**Updated: August 20, 2026 — audit PT-09-001 COMPLETE. Authoritative AG-01..AG-43 agent inventory
+built: registry (live `agent_registry` table, 43 rows, read-only query — byte-identical to
+`scripts/seed-agent-registry.ts`'s ROSTER) cross-referenced against real code (`super()`/`agentType`
+literal scan across all of `src/lib/agents/*.ts`) and real trigger reality (PT-08's boot-inventory +
+cron-reconciliation evidence, `worker/autonomous-orchestrator.ts`'s `routeQueueItem()` switch and
+`runOrgPipeline()` body read in full). Found 6 real, previously-undocumented on-disk number
+collisions beyond the 3 the registry's own seed script already knew about (AG-02, AG-08, AG-09,
+AG-10, AG-11, AG-12 each have a second, unregistered real agent class using a colliding literal —
+5 of the 6 are genuinely SCHEDULED inside the nightly pipeline today, invisible to any
+registry-driven tooling) and one agent entirely beyond the registered range (AG-43 Funder Signal
+Monitor, real working code, zero `agent_registry` row). Also found: the task's own "known suspect"
+framing was partly stale — AG-36 Learning Network Aggregator and AG-39 ROI Optimizer are BOTH now
+confirmed wired and firing live per real PT-08 evidence (not unwired/zero-row as the task
+description assumed), corrected rather than propagated blindly; ROI Optimizer's real `roi_insights`
+row count was NOT verified this pass (wiring ≠ data) and stays open for the deep test. Full detail:
+`test-evidence/pt-09/agent-inventory.json`, gated by `scripts/audit/verify-pt09-001.mjs` (PASS).**
+
+**Prior: August 20, 2026 — audit PT-05 COMPLETE. Tenant isolation audit: zero cross-tenant leaks
 found across all 120 tenant-scoped tables, on every operation tested (read, UPDATE, DELETE,
 INSERT-tagged-with-another-org's-id). Isolation truth established, awaiting Reid's review.**
 Consolidated numbers, per-table breakdown, and the human-review recommendation are in
@@ -185,6 +202,106 @@ one carrying the exact SQL query and live count that produced it. Full detail:
 queries, present and well-formed — PASS). See "SESSION — August 20, 2026 (audit PT-06-004: constraint/
 FK/orphan integrity audit)" entry below. (PT-06-003's code-vs-schema headline and PT-06-002's
 migration-drift headline are preserved in their own session entries further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-09-001: authoritative agent inventory — registry vs code vs trigger)
+
+**Prerequisite check (per task instruction): PT-00 and PT-08 artifacts confirmed present before any
+work began** — `test-evidence/pt-00/{PHASE-00-SUMMARY.md,REVIEW-PACK.md,env-audit.json,
+route-manifest.json,smoke-results.json,...}` and `test-evidence/pt-08/{PHASE-08-SUMMARY.md,
+boot-inventory.json,cron-reconciliation.json,queue-semantics.json,railway-boot-window.json,
+railway-scheduler-jobs-fired.json,railway-status.txt,worker-status-live-query.txt}` all present.
+Halt condition not triggered.
+
+**Registry, live-queried, not assumed from the seed script alone:** a real, read-only query against
+production `agent_registry` (`DATABASE_URL`, DIRECTIVE-017 path, `default_transaction_read_only=on`
+set first) returned **43 rows**, agent_id-for-agent_id identical to `scripts/seed-agent-registry.ts`'s
+`ROSTER` array — the registry is not stale relative to its own seed source. That ROSTER covers AG-01
+through AG-42 (with AG-23/AG-32 merged into one row, AG-25 and AG-29 each holding two distinct rows
+for their documented on-disk collisions, plus two non-canonical queue-wired agents,
+`ag-06-budget-builder`/`ag-07-compliance-check`) and explicitly, by its own header comment, omits
+AG-31/AG-33/AG-34 (AG-31 seeded anyway as a documented-but-uncoded placeholder; AG-33/AG-34 have zero
+registry row and zero code, confirmed by grep).
+
+**Code, independently enumerated, not read off the registry's own claims:** `grep -rn 'super('
+src/lib/agents/*.ts` (61 matches) plus `grep -n 'agentType.*AgentType\s*=' src/lib/agents/*.ts` (52
+matches) extracted every real, on-disk `agentId`/`agentType` literal a live agent class actually logs
+to `agent_runs`. Cross-referencing this against the 43-row registry surfaced real, previously
+under-documented drift:
+
+1. **Six real number collisions beyond the three the seed script's own header comment already
+   knew about.** `worker/autonomous-orchestrator.ts`'s own header comment (lines 6-44) independently
+   corroborates each one as deliberate code-level labeling, not an accidental typo:
+   - **AG-02**: registry's `eligibility_scoring` (real, live, nightly-scheduled +
+     queue-routed) vs. a second, real `EligibilityScoringAgent` class using literal `ag-02` —
+     confirmed **dead code**, instantiated nowhere except `scripts/ff-agent-test.ts` (a dev/test
+     script). `opportunity-discovery-agent.ts`'s own header comment independently calls this out by
+     name: *"ag-02... is the dead Generation-2 twin's unreachable id."*
+   - **AG-03**: registry's `deadline_extraction` (real, queue-routed via `DeadlineExtractor`) vs. a
+     second class, `DeadlineExtractionAgent` (literal `ag-03-deadline-extraction`), also confirmed
+     **dead code** — zero instantiation sites anywhere, and `opportunity-discovery-agent.ts`'s header
+     explicitly disclaims it as *"a completely unrelated agent."*
+   - **AG-08, AG-09, AG-10, AG-11, AG-12**: the registry's rows for these five numbers
+     (`ag-08-nofa-parser`, `email_parser`, `ag-10-grant-dna`, `cold_outreach`, `ag-12-autoapply`) are
+     all real and wired — but a **second, real, SCHEDULED agent class exists under each of these
+     same five numbers**, none registered: `RenewalTrackerAgent` (`ag-08-renewal-tracker`,
+     monthly), `OutcomeAnalyzerAgent` (`ag-09-outcome-analyzer`, weekly Sunday),
+     `DocumentExpiryAgent` (`ag-10-document-expiry`, **nightly, unconditional**),
+     `KnowledgeGapAgent` (`ag-11-knowledge-gap`, weekly Sunday), `SearchProfileOptimizerAgent`
+     (`ag-12-search-optimizer`, monthly) — all five run for real, every night/week/month, inside
+     `runOrgPipeline()`'s body (called from the confirmed-firing 2 AM nightly pipeline), with zero
+     `agent_registry` row of their own. A future Agent Log Viewer or any registry-driven tooling
+     joining on `agent_registry.agent_id` will show **zero run history** for these five real, live
+     agents and will misattribute nothing to their actual identity.
+   - Separately noted, not yet disambiguated: **three** distinct real budget-generating
+     implementations exist (`budget-agent.ts` and `budget-builder.ts`, both literally
+     `agentType = "budget_builder"` — two different classes silently sharing one logged identity —
+     plus the actually-queue-wired `budget-builder-agent.ts`, `ag-06-budget-builder`).
+2. **AG-43 exists in real code with zero registry row at all** — `funder-signal-monitor-agent.ts`
+   (`agentType: "ag-43-funder-signals"`), built and live-verified per this doc's own 2026-08-15
+   "Signal Monitoring (registry #99)" session, is simply beyond the seed script's `ROSTER` array,
+   which stops at `ag-42-change-monitor` and was never extended.
+3. **Registry `trigger_type` metadata is stale for at least 4 rows** — AG-25 (Disaster Response),
+   AG-29 (Fundability Scorer), AG-30 (Donor Intent Monitor), and AG-35 (Community Need) are all
+   labeled `manual` in the registry but are actually `scheduled` (three run unconditionally inside
+   the nightly pipeline, one — AG-25 — got a real dedicated FEMA-poll cron slot in a 2026-08-07
+   session that never updated this row).
+
+**Trigger reality, sourced from PT-08's real evidence, not re-derived:** every `triggerWiredVerdict`
+in `test-evidence/pt-09/agent-inventory.json` cites either a `boot-inventory.json` STARTED processor,
+a `cron-reconciliation.json` `confirmedFiringLive: true` scheduler job, a `routeQueueItem()` case
+label (27 real cases extracted verbatim), or a confirmed-present manual API route
+(`/api/ai/fit-analysis`, `/api/agents/research`, `/api/intelligence/outreach/generate` all spot-
+checked present). The one confirmed-real gap PT-08 itself already flagged — `worker/
+enrichment-processor.ts` (EA-01..EA-10 + AG-22 propensity scoring) is `DEFINED-NOT-STARTED`, PT-08's
+own words: *"documented boot step, never wired, zero reachability of any kind"* — directly accounts
+for AG-20, AG-21, and AG-22 in this inventory: three real, registered agents with **zero trigger path
+of any kind** today (not even manual/CLI-reachable per PT-08's own classification).
+
+**Watch-list, updated with real evidence rather than left as inherited assumption:** the task named
+four known suspects to flag for the deep test (PT-09-002/003) — checked each against this session's
+real findings rather than restated blind:
+- *Blocked on the rotated API key* — genuinely still unverified this pass (no live Claude call was
+  made; this is a static inventory session). Flagged as-is, high priority — roughly half the roster
+  is Claude-dependent.
+- *Unwired learning aggregator (AG-36)* — **corrected, not confirmed**: real PT-08 evidence shows
+  AG-36 is now STARTED and `confirmedFiringLive: true`, scheduled Sunday 6 AM CST. It was fixed and
+  wired in a session between whenever that stale assumption formed and now. Real-output verification
+  (does it write genuine `platform_learning_patterns` rows) remains open.
+- *Zero-row ROI optimizer (AG-39)* — **trigger confirmed wired** (nightly pipeline, gated to the 1st
+  of the month, plus queue-routable), but this session did **not** query `roi_insights` for a real
+  row count — the original complaint was about data, not wiring, and closing this suspect on wiring
+  evidence alone would be a mistake. Flagged explicitly for the deep test.
+- *Number-collision pairs* — expanded materially: 6 real collisions found this session vs. the 3 the
+  registry's own seed script already knew about (detail above).
+
+Full record: `test-evidence/pt-09/agent-inventory.json` (51 entries covering all 43 canonical slots
+plus the 6 unregistered on-disk collisions, AG-43, and the two no-code/no-registry slots AG-33/AG-34,
+each with `writesTo`/`registryTriggerType`/`actualTriggerPaths`/`triggerWiredVerdict`/`evidence`),
+gated by `scripts/audit/verify-pt09-001.mjs` (confirms all 43 canonical numbers represented, every
+entry has a write-target field + trigger-type field + non-empty verdict, the watch-list covers all
+4 named suspect categories, and the registry table was actually live-queried — not just asserted).
+**Verified this session: `node scripts/audit/verify-pt09-001.mjs` exits 0, clean pass, zero
+warnings.**
 
 ## SESSION — August 20, 2026 (audit PT-05: isolation environment — local stack, two test orgs)
 

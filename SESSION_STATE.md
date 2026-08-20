@@ -1,5 +1,25 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-05 COMPLETE. Tenant isolation audit consolidated,
+## Last Updated: August 20, 2026 — audit PT-09-001 COMPLETE. Authoritative AG-01..AG-43 agent
+inventory built and gated. **Prerequisite check passed**: PT-00 and PT-08 artifacts confirmed
+present before any work began (halt condition not triggered). Live `agent_registry` table
+(43 rows, read-only DATABASE_URL query) cross-referenced against every real `agentId`/`agentType`
+literal in `src/lib/agents/*.ts` and against PT-08's real trigger evidence (boot-inventory +
+cron-reconciliation + `routeQueueItem()`/`runOrgPipeline()` source). **Real findings, not just a
+clean checklist**: 6 previously-undocumented on-disk number collisions beyond the 3 the registry's
+own seed script already knew about — AG-02/AG-03 each have a second, dead-code twin class sharing
+their canonical number; AG-08/AG-09/AG-10/AG-11/AG-12 each have a second, real, SCHEDULED (nightly/
+weekly/monthly) agent class under the same number with zero registry row, invisible to any
+registry-driven tooling. AG-43 (Funder Signal Monitor) is real, working code entirely beyond the
+registry's 1-42 range. AG-20/AG-21/AG-22 (the EA-01..EA-10 + AG-22 corporate enrichment pipeline)
+confirmed to have zero trigger path of any kind, per PT-08's own "DEFINED-NOT-STARTED... zero
+reachability" finding. **Watch-list corrected, not blindly restated**: AG-36 Learning Network
+Aggregator and AG-39 ROI Optimizer are both now confirmed wired/firing live per real PT-08 evidence
+— the task's framing of them as "unwired"/"zero-row" was stale; ROI Optimizer's real `roi_insights`
+row count specifically was NOT checked this pass and stays open for the deep test. Full record:
+`test-evidence/pt-09/agent-inventory.json` (51 entries), gated by
+`scripts/audit/verify-pt09-001.mjs` — **verified this session, exits 0, clean pass.**
+
+## Prior — August 20, 2026 — audit PT-05 COMPLETE. Tenant isolation audit consolidated,
 review pack ready, awaiting Reid's review before PT-14. **Isolation result: clean.** Zero
 cross-tenant leaks across all 120 tenant-scoped tables PT-06 identified, on every operation
 tested — reads, UPDATE, DELETE, and INSERT explicitly tagged with another org's id. 20 tables

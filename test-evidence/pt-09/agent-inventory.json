@@ -1,0 +1,1440 @@
+{
+  "auditPhase": "PT-09",
+  "step": "PT-09-001",
+  "title": "Authoritative agent inventory: registry vs code vs trigger reconciliation",
+  "generatedAt": "2026-08-20T02:00:00Z",
+  "dependencies": {
+    "pt00": {
+      "present": true,
+      "checkedFiles": [
+        "test-evidence/pt-00/PHASE-00-SUMMARY.md",
+        "test-evidence/pt-00/REVIEW-PACK.md",
+        "test-evidence/pt-00/env-audit.json",
+        "test-evidence/pt-00/route-manifest.json",
+        "test-evidence/pt-00/smoke-results.json"
+      ],
+      "verdict": "PRESENT, not re-run this session (PT-09 depends on PT-00 having established baseline evidence collection, not on re-verifying its individual findings)."
+    },
+    "pt08": {
+      "present": true,
+      "checkedFiles": [
+        "test-evidence/pt-08/PHASE-08-SUMMARY.md",
+        "test-evidence/pt-08/boot-inventory.json",
+        "test-evidence/pt-08/cron-reconciliation.json",
+        "test-evidence/pt-08/queue-semantics.json",
+        "test-evidence/pt-08/railway-boot-window.json",
+        "test-evidence/pt-08/railway-scheduler-jobs-fired.json",
+        "test-evidence/pt-08/railway-status.txt",
+        "test-evidence/pt-08/worker-status-live-query.txt"
+      ],
+      "verdict": "PRESENT and used directly as the evidentiary basis for every triggerWiredVerdict in this file's canonicalAgents[] array — boot-inventory.json confirms which worker processors/pipelines actually STARTED in the real Railway deployment (not just defined/imported), and cron-reconciliation.json confirms which worker/scheduler.ts jobs are actually firing live, cross-referenced against source-code call sites. queue-semantics.json's real claimNextQueueItem/routeQueueItem lifecycle test (poison-job default-case-throw handling, good-job full lifecycle) confirms the agent_queue job machinery itself behaves correctly, which this phase relies on when marking an agent 'WIRED-QUEUE'."
+    },
+    "haltCondition": "NOT TRIGGERED — both PT-00 and PT-08 artifacts are present and were read successfully before any inventory work began, per the task's explicit halt condition."
+  },
+  "method": {
+    "registrySource": {
+      "description": "Live, read-only query against the production agent_registry table (DATABASE_URL, DIRECTIVE-017 path, default_transaction_read_only=on set before the query), cross-checked against scripts/seed-agent-registry.ts's ROSTER array (the code-side source of truth for what was seeded).",
+      "liveRowCount": 43,
+      "seedScriptRowCount": 43,
+      "match": "43/43 agent_id values match exactly between the live table and the seed script's ROSTER — the registry is not stale relative to its own seed source."
+    },
+    "codeSource": {
+      "description": "grep -rn 'super(' across src/lib/agents/*.ts to extract every real AutonomousAgent-subclass agentId literal (61 matches); grep -n 'agentType.*AgentType\\s*=' across the same directory to extract every real BaseAgent-subclass agentType literal (52 matches); a directory listing of src/lib/agents/*.ts (99 files) to catalog every implementation file present; targeted instantiation greps (new <ClassName>() across src/, worker/, scripts/) to determine real call sites per class; a read of worker/autonomous-orchestrator.ts's own header comment (lines 1-52), which independently documents its own real-vs-requested agent-class mapping and was used to corroborate (not just assume) several of this file's collision/gap findings."
+    },
+    "triggerSource": {
+      "description": "worker/autonomous-orchestrator.ts's routeQueueItem() switch statement (27 real case labels, extracted verbatim) for queue-trigger reachability; runOrgPipeline()'s full function body (lines 819-905) read in full to determine exactly which agent steps run unconditionally vs. behind an org_autonomous_config toggle vs. behind a isFirstOfMonthChicago()/isSundayChicago() calendar gate, inside the nightly 2 AM pipeline; worker/scheduler.ts's jobs array (13 entries) cross-referenced against test-evidence/pt-08/cron-reconciliation.json's setC_workerSchedulerJobs (all 13 independently confirmed STARTED + confirmedFiringLive by PT-08's real Railway log evidence, reused here rather than re-collected); spot-checked existence of manual-trigger API routes for registry rows claiming trigger_type='manual' (src/app/api/ai/fit-analysis, src/app/api/agents/research, src/app/api/intelligence/outreach/generate — all confirmed present)."
+    },
+    "scopeNote": "This is a static, read-only inventory pass. No live Claude API call, no live data-row-count query beyond the agent_registry table itself, and no attempt to trigger any agent were made this session — those are explicitly deferred to the deep test (PT-09-002/003) per the task's own phasing, and the watchList[] entries above name exactly what that deep test needs to check."
+  },
+  "registryTable": {
+    "liveRowCount": 43,
+    "source": "production agent_registry table, read-only query via DATABASE_URL"
+  },
+  "canonicalAgents": [
+    {
+      "canonicalNumber": "AG-01",
+      "registryAgentId": "grant_summary",
+      "registryName": "AG-01 — Grant Summary Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/grant-summary.ts",
+      "codeAgentTypeLiteral": "grant_summary",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "opportunities"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "subroutine of research/import flow — instantiated directly by the caller, not via agent_queue or a scheduler.ts cron slot"
+      ],
+      "triggerWiredVerdict": "WIRED-SUBROUTINE",
+      "evidence": [
+        "src/lib/agents/grant-summary.ts:73 (agentType literal)",
+        "grep .from() in grant-summary.ts -> opportunities"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-02",
+      "registryAgentId": "eligibility_scoring",
+      "registryName": "AG-02 — Eligibility Scoring Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/eligibility-scorer.ts",
+      "codeAgentTypeLiteral": "eligibility_scoring",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "opportunities",
+        "organizations (read-only lookup)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runEligibilityScoringStep(), called from runOrgPipeline(), called from runAutonomousPipeline -- the 'nightly autonomous pipeline' cron (2:00 CST), CONFIRMED STARTED + firing live per PT-08 boot-inventory.json and CONFIRMED in cron-reconciliation.json setC. Gated on org_autonomous_config.auto_score_enabled.",
+        "queue: worker/autonomous-orchestrator.ts routeQueueItem() case 'eligibility_scoring' (line 1673)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json (nightly autonomous pipeline -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC_workerSchedulerJobs['nightly autonomous pipeline']",
+        "worker/autonomous-orchestrator.ts:364-403 runEligibilityScoringStep(), :1673 case 'eligibility_scoring'"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-03",
+      "registryAgentId": "deadline_extraction",
+      "registryName": "AG-03 — Deadline Extraction Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/deadline-extractor.ts",
+      "codeAgentTypeLiteral": "deadline_extraction",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "deadlines",
+        "opportunities"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "queue: worker/autonomous-orchestrator.ts routeQueueItem() case 'deadline_extraction' (line 1701)"
+      ],
+      "triggerWiredVerdict": "WIRED-QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1701",
+        "src/lib/agents/deadline-extractor.ts:51"
+      ],
+      "note": "A SECOND, unrelated implementation exists on disk under the same canonical number -- see unregisteredCodeAgents 'ag-03-deadline-extraction' (DeadlineExtractionAgent). It is NEVER instantiated anywhere (dead code), confirmed by opportunity-discovery-agent.ts's own header comment explicitly disclaiming it."
+    },
+    {
+      "canonicalNumber": "AG-04",
+      "registryAgentId": "ag-04-fit-analysis",
+      "registryName": "AG-04 — Fit Analysis Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/fit-analysis-agent.ts",
+      "codeAgentTypeLiteral": "ag-04-fit-analysis",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "applications",
+        "opportunities",
+        "organizations (read)",
+        "outcomes (read)"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "manual: real API route confirmed present at src/app/api/ai/fit-analysis/",
+        "worker/autonomous-orchestrator.ts's own header comment (line 33-35) states this class exists but 'wiring it into this orchestrator is out of scope ... Not wired' -- confirms it has NO scheduled or queue trigger, manual-API-only."
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-API-ONLY",
+      "evidence": [
+        "src/app/api/ai/fit-analysis/ (directory exists)",
+        "worker/autonomous-orchestrator.ts:33-35"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-05",
+      "registryAgentId": "ag-05-research",
+      "registryName": "AG-05 — Research Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/research/{corporate-giving,foundation-grants,government-grants,local-sponsorship}.ts (family) + grants-gov.ts/sam-gov.ts/nofa-parser.ts/usaspending.ts/simpler-grants.ts/state-portal.ts/custom-api.ts (individual research-family agentTypes)",
+      "codeAgentTypeLiteral": "multiple: grants_gov_research, sam_gov_research, government_research (shared by 3 distinct classes), simpler_grants_research, state_portal, custom_api_research",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "opportunities"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "manual: src/app/api/agents/research/route.ts (confirmed present, plus /status and /quality sibling routes)"
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-API",
+      "evidence": [
+        "src/app/api/agents/research/route.ts (confirmed present)"
+      ],
+      "note": "Registry's single 'ag-05-research' agent_id is a synthetic umbrella over ~9 real, distinct agentType literals (grants_gov_research, sam_gov_research, government_research x3 classes, simpler_grants_research, state_portal x3 classes, custom_api_research) -- none of those real literals matches the registry agent_id itself. This is documented in STATE_OF_THE_BUILD.md's 2026-08-04 comprehensive live-test session: grants_gov_research was found to HANG INDEFINITELY (reproduced twice, unresolved), simpler_grants_research threw a real 401, state_portal a real 404, custom_api_research a schema error -- i.e. the umbrella has real, documented per-source breakage not visible if you only check 'does AG-05 have a trigger'."
+    },
+    {
+      "canonicalNumber": "AG-06",
+      "registryAgentId": "ag-06-draft-generator",
+      "registryName": "AG-06 — Draft Generator Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/draft-generation-agent.ts",
+      "codeAgentTypeLiteral": "ag-05-draft",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "agent_queue",
+        "alerts",
+        "applications",
+        "community_need_signals (read)",
+        "fundability_scores (read)",
+        "funders (read)",
+        "knowledge_base (read)",
+        "opportunities",
+        "organizational_digital_twins (read)",
+        "organizations (read)",
+        "outcomes (read)",
+        "platform_learning_patterns (read)",
+        "profiles (read)",
+        "proven_narratives (read)",
+        "roi_insights (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runDraftGenerationStep(), inside runOrgPipeline() -> nightly pipeline (2 AM), gated on org_autonomous_config.auto_draft_enabled. CONFIRMED wired per boot-inventory.json / cron-reconciliation.json.",
+        "queue: routeQueueItem() case 'draft_generation' (line 1830)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1830, :856-860",
+        "src/lib/agents/draft-generation-agent.ts:779 (real agentId literal is 'ag-05-draft', NOT 'ag-06-draft-generator')"
+      ],
+      "note": "Real on-disk agentId is 'ag-05-draft' (an AG-05-numbered literal for what is canonically the AG-06 agent) -- registry's own agent_id 'ag-06-draft-generator' does not match anything ever written to agent_runs.agent_type by this class. A future Agent Log Viewer joining on agent_registry.agent_id would show zero run history for this row even though the agent runs constantly."
+    },
+    {
+      "canonicalNumber": "AG-06 (non-canonical duplicate)",
+      "registryAgentId": "ag-06-budget-builder",
+      "registryName": "Autonomous Budget Builder Agent (queue-wired, not part of canonical AG-01-42 numbering per registry's own row description)",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/budget-builder-agent.ts",
+      "codeAgentTypeLiteral": "ag-06-budget-builder",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "applications",
+        "knowledge_base (read)",
+        "opportunities (read)",
+        "organizations (read)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "queue: routeQueueItem() case 'budget_builder' (line 1729)"
+      ],
+      "triggerWiredVerdict": "WIRED-QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1729",
+        "src/lib/agents/budget-builder-agent.ts:216"
+      ],
+      "note": "THREE separate real budget-generating implementations exist on disk sharing overlapping identity: budget-agent.ts (BaseAgent, agentType='budget_builder'), budget-builder.ts (BaseAgent, agentType='budget_builder' -- IDENTICAL literal to budget-agent.ts, a second distinct class silently sharing one agent_runs.agent_type value), and budget-builder-agent.ts (AutonomousAgent, agentType='ag-06-budget-builder', the one actually queue-wired here). Not fully disambiguated this pass -- flagged for the deep test."
+    },
+    {
+      "canonicalNumber": "AG-07",
+      "registryAgentId": "recursive_learning",
+      "registryName": "AG-07 — Learning Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/recursive-learning.ts",
+      "codeAgentTypeLiteral": "recursive_learning",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "applications (read)",
+        "knowledge_base",
+        "outcomes (read)",
+        "proven_narratives"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: best-effort fetch fired directly from src/components/outcomes/OutcomeForm.tsx on every real outcomes insert (per STATE_OF_THE_BUILD.md's established documentation of this call site) -- not a queue/cron path"
+      ],
+      "triggerWiredVerdict": "WIRED-EVENT-CLIENT-TRIGGERED",
+      "evidence": [
+        "src/lib/agents/recursive-learning.ts:87,93"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-07 (non-canonical duplicate)",
+      "registryAgentId": "ag-07-compliance-check",
+      "registryName": "Autonomous Compliance Check Agent (queue-wired, not part of canonical AG-01-42 numbering per registry's own row description)",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/compliance-check-agent.ts",
+      "codeAgentTypeLiteral": "ag-07-compliance-check",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "application_documents (read)",
+        "applications",
+        "documents (read)",
+        "opportunities (read)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "queue: routeQueueItem() case 'compliance_check' (line 1715)"
+      ],
+      "triggerWiredVerdict": "WIRED-QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1715",
+        "src/lib/agents/compliance-check-agent.ts:65"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-08",
+      "registryAgentId": "ag-08-nofa-parser",
+      "registryName": "AG-08 — NOFA Parser Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/nofa-parser.ts",
+      "codeAgentTypeLiteral": "government_research",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "opportunities"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "subroutine of the research/import pipeline (per registry description) -- shares agentType literal 'government_research' with housing-specific-scrapers.ts and usaspending.ts (3 distinct classes, 1 shared logged type)"
+      ],
+      "triggerWiredVerdict": "WIRED-SUBROUTINE",
+      "evidence": [
+        "src/lib/agents/nofa-parser.ts:281"
+      ],
+      "note": "Registry agent_id 'ag-08-nofa-parser' matches NO real agentType literal ever logged by this class (real literal is 'government_research', shared with 2 other unrelated classes) -- same class of registry/code mismatch as AG-06 above."
+    },
+    {
+      "canonicalNumber": "AG-08 (on-disk collision, unregistered)",
+      "registryAgentId": null,
+      "registryName": null,
+      "inRegistry": false,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/renewal-tracker-agent.ts",
+      "codeAgentTypeLiteral": "ag-08-renewal-tracker",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "applications (read)",
+        "opportunities"
+      ],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runRenewalTrackerStep(), inside runOrgPipeline(), gated on isFirstOfMonthChicago() -- fires only within the 2 AM nightly pipeline run that also happens to be the 1st of the calendar month."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED-UNREGISTERED",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:6-44 header comment: 'requested RenewalTrackerAgent -> RenewalTrackerAgent (AG-08, exact match)' -- code's OWN header explicitly labels this AG-08, a different AG-08 than the registry's ag-08-nofa-parser row.",
+        "worker/autonomous-orchestrator.ts:621-638, :881-883"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-09",
+      "registryAgentId": "email_parser",
+      "registryName": "AG-09 — Email Parser Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/email-parser.ts",
+      "codeAgentTypeLiteral": "email_parser",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "email_activity",
+        "funders (read)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: manual dashboard entry into the EmailParserWidget only -- STATE_OF_THE_BUILD.md's 2026-08-13 Email Parser verification session CONFIRMED ABSENT any Gmail-webhook auto-trigger; classifier only fires when a human pastes an email in manually today."
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-ONLY-NO-AUTO-TRIGGER",
+      "evidence": [
+        "src/lib/agents/email-parser.ts:92",
+        "STATE_OF_THE_BUILD.md 2026-08-13 'Email Parser (row #38) live-verified' session"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-09 (on-disk collision, unregistered)",
+      "registryAgentId": null,
+      "registryName": null,
+      "inRegistry": false,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/outcome-analyzer-agent.ts",
+      "codeAgentTypeLiteral": "ag-09-outcome-analyzer",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "organizations (read)",
+        "outcomes"
+      ],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runOutcomeAnalyzerStep(), inside runOrgPipeline(), gated on isSundayChicago() -- fires only within the 2 AM nightly pipeline run on Sundays."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED-UNREGISTERED",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:6-44 header: 'requested OutcomeAnalyzerAgent -> OutcomeAnalyzerAgent (AG-09, exact match)'",
+        "worker/autonomous-orchestrator.ts:640-657, :895-896"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-10",
+      "registryAgentId": "ag-10-grant-dna",
+      "registryName": "AG-10 — Grant DNA Analysis Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/grant-dna-agent.ts",
+      "codeAgentTypeLiteral": "ag-10-grant-dna",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "applications (read)",
+        "funder_dna_profiles",
+        "funders (read)",
+        "opportunities (read)",
+        "outcomes (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-10 grant DNA weekly pipeline' worker/scheduler.ts job, hour 3 minute 0, self-gated to Sunday internally. CONFIRMED STARTED + confirmedFiringLive per PT-08.",
+        "event: POST /api/autonomous/grant-dna-trigger route enqueues agent_queue; routed via case 'ag-10-grant-dna' (line 2002)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-10 grant DNA weekly pipeline' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC entry 'AG-10 grant DNA weekly pipeline'",
+        "worker/autonomous-orchestrator.ts:2002"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-10 (on-disk collision, unregistered)",
+      "registryAgentId": null,
+      "registryName": null,
+      "inRegistry": false,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/document-expiry-agent.ts",
+      "codeAgentTypeLiteral": "ag-10-document-expiry",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "agent_decisions",
+        "documents"
+      ],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runDocumentExpiryStep(), inside runOrgPipeline(), UNCONDITIONAL (no isFirstOfMonth/isSunday gate, no per-agent config toggle) -- fires every single night the nightly pipeline runs for every org with any autonomy enabled."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-NIGHTLY-UNREGISTERED",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:6-44 header: 'requested DocumentExpiryAgent -> DocumentExpiryAgent (AG-10, exact match)' -- explicitly a DIFFERENT AG-10 than grant-dna-agent.ts, both real, both wired, neither aware of the other in the registry.",
+        "worker/autonomous-orchestrator.ts:659-676, :876"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-11",
+      "registryAgentId": "cold_outreach",
+      "registryName": "AG-11 — Cold Outreach Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/cold-outreach.ts",
+      "codeAgentTypeLiteral": "cold_outreach",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "outreach_contacts"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "manual: user-initiated from Sales Outreach / Donor Discovery UI (per registry description; not independently re-verified live this session)"
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-UI-CLAIMED-NOT-REVERIFIED",
+      "evidence": [
+        "src/lib/agents/cold-outreach.ts:69"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-11 (on-disk collision, unregistered)",
+      "registryAgentId": null,
+      "registryName": null,
+      "inRegistry": false,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/knowledge-gap-agent.ts",
+      "codeAgentTypeLiteral": "ag-11-knowledge-gap",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "agent_decisions (via logDecision base-class helper)",
+        "agent_queue (via queueChainedAgent -- no direct .from() business-table write found in this file)"
+      ],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runKnowledgeGapStep(), inside runOrgPipeline(), gated on isSundayChicago()"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED-UNREGISTERED",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:6-44 header: 'requested KnowledgeGapAgent -> KnowledgeGapAgent (AG-11, exact match)'",
+        "worker/autonomous-orchestrator.ts:678-695, :897-898"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-12",
+      "registryAgentId": "ag-12-autoapply",
+      "registryName": "AG-12 — AutoApply Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "worker/queue-processor.ts + src/lib/autoapply/* (stealth-browser, form-filler-agent, captcha-solver, confirmation-monitor) + src/lib/agents/form-analyzer.ts / form-filler.ts",
+      "codeAgentTypeLiteral": "form_analyzer / form_filler (agent-level); AutoApply's own submission_queue rows carry no single agent_type",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "submission_queue",
+        "autoapply_submissions",
+        "automation_sessions",
+        "form_templates"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: queueProcessor (continuous poll) -- CONFIRMED STARTED per boot-inventory.json.",
+        "scheduled: 'AutoApply autonomous overnight orchestrator' worker/scheduler.ts job (3 AM) -- CONFIRMED STARTED + firing live per cron-reconciliation.json setC.",
+        "scheduled: confirmationMonitor (Gmail AutoApply confirmation monitor) -- CONFIRMED STARTED."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-CONTINUOUS",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json (queueProcessor, confirmationMonitor -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC ('AutoApply autonomous overnight orchestrator')"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-12 (on-disk collision, unregistered)",
+      "registryAgentId": null,
+      "registryName": null,
+      "inRegistry": false,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/search-profile-optimizer-agent.ts",
+      "codeAgentTypeLiteral": "ag-12-search-optimizer",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "opportunities (read)",
+        "organizations (read)",
+        "search_profiles"
+      ],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runSearchProfileOptimizerStep(), inside runOrgPipeline(), gated on isFirstOfMonthChicago()"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED-UNREGISTERED",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:6-44 header: 'requested SearchProfileOptimizerAgent -> SearchProfileOptimizerAgent (AG-12, exact match)'",
+        "worker/autonomous-orchestrator.ts:697-716, :884-886"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-13",
+      "registryAgentId": "ag-13-foundation-enrichment",
+      "registryName": "AG-13 — Foundation Enrichment Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/scraper/foundation-scraper.ts",
+      "codeAgentTypeLiteral": "n/a -- plain function pipeline (runFoundationScraper), no AutonomousAgent/BaseAgent subclass, no agent_runs.agent_type write of its own",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "foundation_directory"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'foundation-enrichment-weekly' worker/scheduler.ts job (hour 3, self-gated to Sunday + ENABLE_SCRAPER='true' internally). CONFIRMED STARTED per boot-inventory + confirmedFiringLive per cron-reconciliation."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-ENV-GATED",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('foundation-enrichment-weekly' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC ('foundation-enrichment-weekly')",
+        "worker/scheduler.ts:164-171 (skips loudly if ENABLE_SCRAPER != 'true')"
+      ],
+      "note": "Env-var gated (ENABLE_SCRAPER). Whether that var is currently 'true' in the live Railway production environment was not independently re-checked this session -- cron-reconciliation.json's confirmedFiringLive is based on a real Railway log sweep so the gate was almost certainly open during that window, but this is not a standing guarantee."
+    },
+    {
+      "canonicalNumber": "AG-14",
+      "registryAgentId": "ag-14-donor-discovery",
+      "registryName": "AG-14 — Donor Discovery Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "worker/dd-request-processor.ts",
+      "codeAgentTypeLiteral": "n/a -- plain continuous-poll processor over donor_discovery_requests, no single agent_type literal",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "donor_discovery_requests",
+        "donor_discovery_directory (per known documentation)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: ddRequestProcessor -- continuous poll of donor_discovery_requests. CONFIRMED STARTED per boot-inventory.json."
+      ],
+      "triggerWiredVerdict": "WIRED-EVENT-CONTINUOUS-POLL",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('ddRequestProcessor (donor discovery request pipeline)' -> STARTED)",
+        "worker/dd-request-processor.ts:219,343,357"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-15",
+      "registryAgentId": "ag-15-probability",
+      "registryName": "AG-15 — Grant Probability Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/probability-scoring-agent.ts",
+      "codeAgentTypeLiteral": "ag-15-probability",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_decisions",
+        "agent_queue",
+        "applications (read)",
+        "funders (read)",
+        "knowledge_base (read)",
+        "opportunities (read)",
+        "opportunity_probability_scores",
+        "organizational_digital_twins (read)",
+        "organizations (read)",
+        "outcomes (read)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "scheduled: worker/autonomous-orchestrator.ts runProbabilityScoringStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on auto_score_enabled",
+        "queue: routeQueueItem() case 'ag-15-probability' (line 1908)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1908, :853-854",
+        "src/lib/agents/probability-scoring-agent.ts:458"
+      ],
+      "watchListRef": "wasBlockedOnRotatedApiKey"
+    },
+    {
+      "canonicalNumber": "AG-16",
+      "registryAgentId": "ag-16-digital-twin",
+      "registryName": "AG-16 — Digital Twin Builder Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/intelligence/digital-twin-builder.ts",
+      "codeAgentTypeLiteral": "n/a -- plain exported function (buildDigitalTwin()), not an AutonomousAgent/BaseAgent subclass, no agent_type enum value/agent_runs write of its own",
+      "agentIdMatchesRegistry": false,
+      "writesTo": ["organizational_digital_twins"],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "manual/event: called directly from src/app/api/intelligence/digital-twin/route.ts (manual rebuild)",
+        "event: called directly from src/app/api/knowledge-base/route.ts (rebuild on Knowledge Base save, matching registry description)"
+      ],
+      "triggerWiredVerdict": "WIRED-EVENT+MANUAL-API (found and confirmed this session -- not located via the src/lib/agents/*.ts super() scan since it lives under src/lib/intelligence/ instead, a different directory than every other agent in this roster)",
+      "evidence": [
+        "src/lib/intelligence/digital-twin-builder.ts:88 (export async function buildDigitalTwin)",
+        "src/app/api/intelligence/digital-twin/route.ts (real caller)",
+        "src/app/api/knowledge-base/route.ts (real caller)"
+      ],
+      "note": "Onboarding-completion trigger (the third path the registry description claims) was not independently located/confirmed this session -- only the two API-route call sites above were verified. This is the only real agent in the roster implemented under src/lib/intelligence/ rather than src/lib/agents/, which is why the initial super()-literal scan of src/lib/agents/*.ts missed it; found via a targeted follow-up grep instead."
+    },
+    {
+      "canonicalNumber": "AG-17",
+      "registryAgentId": "ag-17-discovery",
+      "registryName": "AG-17 — Opportunity Discovery Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/opportunity-discovery-agent.ts",
+      "codeAgentTypeLiteral": "ag-17-discovery",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_runs",
+        "applications (read)",
+        "opportunities",
+        "opportunity_probability_scores (read)",
+        "organizations (read)",
+        "search_profiles"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: runDiscoveryStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on auto_research_enabled",
+        "queue: routeQueueItem() case 'ag-17-discovery' (line 1897)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1897, :847-848",
+        "src/lib/agents/opportunity-discovery-agent.ts:587"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-18",
+      "registryAgentId": "ag-18-reputation",
+      "registryName": "AG-18 — Reputation Intelligence Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "not located under a matching super()/agentType literal in src/lib/agents/*.ts this session (function-based checkEntityReputation() per worker/autonomous-orchestrator.ts header line 19: 'requested ReputationAgent -> checkEntityReputation() (fn)')",
+      "codeAgentTypeLiteral": "n/a -- plain function, no agent_type enum value by design (per orchestrator header comment)",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "reputation_signals / reputation_alerts (per known prior documentation)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: runReputationStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on auto_reputation_enabled"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:861-863, header line 19"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-19",
+      "registryAgentId": "ag-19-relationship",
+      "registryName": "AG-19 — Relationship Builder Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/relationship-builder-agent.ts",
+      "codeAgentTypeLiteral": "ag-19-relationship",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "applications (read)",
+        "board_members (read)",
+        "corporate_intent_signals (read)",
+        "deadlines (read)",
+        "funder_relationship_scores",
+        "funders (read)",
+        "opportunities (read)",
+        "outcomes (read)",
+        "pig_edges",
+        "pig_nodes",
+        "relationship_memory",
+        "relationship_recommendations"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "NOT auto-instantiated by the nightly pipeline or any scheduler.ts job -- worker/autonomous-orchestrator.ts's own header comment (line 20) states: 'requested RelationshipBuilderAgent -> FunderRelationshipAgent (queue-only, see below)' -- the orchestrator substitutes a DIFFERENT, simpler deterministic agent (funder-relationship.ts, agentType 'funder_relationship') for the real nightly path.",
+        "manual/UI: a real, dedicated route /funders/[id]/relationship-builder + page /funders/[id]/relationship exists (per STATE_OF_THE_BUILD.md 2026-08-07 session), live-tested working end-to-end via that path."
+      ],
+      "triggerWiredVerdict": "NOT-WIRED-AUTONOMOUS (manual-UI-only)",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:20 (explicit substitution note)",
+        "STATE_OF_THE_BUILD.md 2026-08-07 'q31-003 live-verification' + 'registry #101 Relationship Builder UI' sessions"
+      ],
+      "watchListRef": "ag19NeverAutoInstantiated"
+    },
+    {
+      "canonicalNumber": "AG-20",
+      "registryAgentId": "ea01_giving_detector",
+      "registryName": "AG-20 — Corporate Giving Detector Agent (EA-01)",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/ea-01-giving-detector.ts",
+      "codeAgentTypeLiteral": "ea01_giving_detector",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "corporate_prospects (via corporate-enrichment-shared.ts helper)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: sequential step in worker/enrichment-processor.ts's EA-01..EA-10 corporate enrichment pipeline"
+      ],
+      "triggerWiredVerdict": "NOT-WIRED (DEFINED-NOT-STARTED per PT-08)",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json: 'enrichment-processor (foundation + corporate/EA-01..EA-10 enrichment, AG-22 propensity scoring)' -> DEFINED-NOT-STARTED",
+        "test-evidence/pt-08/boot-inventory.json summary.registerFindingsFiled[0]: 'worker/enrichment-processor.ts (EA-01..EA-10 + AG-22) -- documented boot step, never wired, zero reachability of any kind.'"
+      ],
+      "watchListRef": "eaAg22EnrichmentPipelineNeverStarted"
+    },
+    {
+      "canonicalNumber": "AG-21",
+      "registryAgentId": "ea08_executive_biography_analyzer",
+      "registryName": "AG-21 — Executive Biography Analyzer Agent (EA-08)",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/ea-08-executive-biography-analyzer.ts",
+      "codeAgentTypeLiteral": "ea08_executive_biography_analyzer",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "corporate_prospects (via corporate-enrichment-shared.ts helper)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: sequential step in worker/enrichment-processor.ts's EA-01..EA-10 corporate enrichment pipeline"
+      ],
+      "triggerWiredVerdict": "NOT-WIRED (DEFINED-NOT-STARTED per PT-08)",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json (same enrichment-processor finding as AG-20)"
+      ],
+      "watchListRef": "eaAg22EnrichmentPipelineNeverStarted"
+    },
+    {
+      "canonicalNumber": "AG-22",
+      "registryAgentId": "ag22_propensity_scoring",
+      "registryName": "AG-22 — Propensity Scoring Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/ag-22-propensity-scoring.ts",
+      "codeAgentTypeLiteral": "ag22_propensity_scoring",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "corporate_prospects"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: score-engine step of worker/enrichment-processor.ts's EA-01..EA-10 pipeline"
+      ],
+      "triggerWiredVerdict": "NOT-WIRED (DEFINED-NOT-STARTED per PT-08)",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json (same enrichment-processor finding as AG-20/AG-21)"
+      ],
+      "watchListRef": [
+        "eaAg22EnrichmentPipelineNeverStarted",
+        "wasBlockedOnRotatedApiKey"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-23 / AG-32",
+      "registryAgentId": "ag-32-relationship-graph",
+      "registryName": "AG-23 / AG-32 — Relationship Mapper / Graph Builder Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/relationship-graph-builder-agent.ts",
+      "codeAgentTypeLiteral": "ag-32-relationship-graph",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "board_members (read)",
+        "corporate_intent_signals",
+        "corporate_prospects (read)",
+        "corporate_relationships",
+        "foundation_directory (read)",
+        "funders (read)",
+        "organizations (read)",
+        "pig_edges",
+        "pig_nodes"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-23 relationship graph incremental pipeline' worker/scheduler.ts job (hour 5, minute 30). CONFIRMED STARTED + confirmedFiringLive per PT-08."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-23 / AG-32 relationship graph incremental pipeline' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC"
+      ],
+      "note": "corporate_prospects dependency: prior sessions documented a real defect where the board-to-funder connection search loop was skipped entirely if corporate_prospects errored before the loop ran (sequential error-check bug) -- documented as fixed in STATE_OF_THE_BUILD.md's 2026-08-03 session ('corporate_prospects created live'), not independently re-verified this session."
+    },
+    {
+      "canonicalNumber": "AG-24",
+      "registryAgentId": "ag-24-outreach-generator",
+      "registryName": "AG-24 — Personalized Outreach Generator Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/app/api/intelligence/outreach/generate/route.ts (route-level implementation per STATE_OF_THE_BUILD.md row #120, no separate src/lib/agents/*.ts class found this session)",
+      "codeAgentTypeLiteral": "n/a -- route-embedded logic, no agent_runs.agent_type write confirmed this session",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "email_campaign_sequences / email_sequence_steps / email_sequence_enrollments (per STATE_OF_THE_BUILD.md row #120 documentation)"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "manual: real route confirmed present at src/app/api/intelligence/outreach/generate/route.ts"
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-API",
+      "evidence": [
+        "src/app/api/intelligence/outreach/generate/route.ts (confirmed present)"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-25 (Disaster Response)",
+      "registryAgentId": "ag-25-disaster-response",
+      "registryName": "AG-25 — Disaster Response Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/disaster-response-agent.ts",
+      "codeAgentTypeLiteral": "n/a -- plain functions (pollFEMADeclarations/deployDisasterResponse), no agent_type enum value by design",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "alerts",
+        "disaster_declarations",
+        "disaster_emergency_funds"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-25 disaster response pipeline (FEMA poll)' worker/scheduler.ts job (hour 5, minute 45). CONFIRMED STARTED + confirmedFiringLive per PT-08 -- registry's own trigger_type ('manual') is STALE; a real schedule was added per STATE_OF_THE_BUILD.md's 2026-08-07 'Auto-Deploy Response' session, but the registry row's trigger_type/schedule_cron was never updated to reflect it."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED (registry metadata stale: claims manual, is actually scheduled)",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-25 disaster response pipeline (FEMA poll)' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-25 (Deadline Prediction, dual-use number)",
+      "registryAgentId": "ag-25-deadline-prediction",
+      "registryName": "AG-25 (on-disk) — Deadline Prediction Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/deadline-prediction-agent.ts",
+      "codeAgentTypeLiteral": "ag-25-deadline-prediction",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "alerts",
+        "applications (read)",
+        "deadline_predictions",
+        "funders (read)",
+        "opportunities",
+        "opportunity_probability_scores (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: runDeadlinePredictionStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on auto_deadline_prediction_enabled",
+        "queue: routeQueueItem() case 'deadline_prediction' (line 1809)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1809, :867-869",
+        "src/lib/agents/deadline-prediction-agent.ts:337"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-26",
+      "registryAgentId": "ag-26-forecast",
+      "registryName": "AG-26 — Funding Forecast Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/funding-forecast-agent.ts",
+      "codeAgentTypeLiteral": "ag-26-forecast",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "funding_forecasts",
+        "opportunities (read)",
+        "opportunity_probability_scores (read)",
+        "organizations (read)",
+        "outcomes (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-26 funding forecast monthly pipeline' worker/scheduler.ts job (hour 4), self-gated to 1st-of-month internally. CONFIRMED STARTED + confirmedFiringLive per PT-08."
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-26 funding forecast monthly pipeline' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-27",
+      "registryAgentId": "ag-27-board-packet",
+      "registryName": "AG-27 — Board Meeting Packet Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/board-packet-agent.ts",
+      "codeAgentTypeLiteral": "ag-27-board-packet",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "board_meeting_packets",
+        "board_meetings (read)",
+        "grant_budgets (read)",
+        "grant_expenses (read)",
+        "grant_reconciliation_reports (read)",
+        "opportunities (read)",
+        "organizations (read)",
+        "outcomes (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-27 board packet daily pipeline' worker/scheduler.ts job (hour 2). CONFIRMED STARTED + confirmedFiringLive per PT-08.",
+        "event: POST /api/autonomous/board-packet-trigger; queue case 'ag-27-board-packet' (line 2015)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-27 board packet daily pipeline' -> STARTED)",
+        "worker/autonomous-orchestrator.ts:2015"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-28",
+      "registryAgentId": "ag-28-followup",
+      "registryName": "AG-28 — Follow-Up Generator Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/followup-generator-agent.ts",
+      "codeAgentTypeLiteral": "ag-28-followup",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "application_followups",
+        "applications (read)",
+        "contacts (read)",
+        "funders (read)",
+        "opportunities (read)"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event: application stage transition (submitted/awarded/denied) -- best-effort trigger per documented pattern",
+        "scheduled: 'nightly autonomous pipeline + AG-28 application_followups sweep' worker/scheduler.ts job. CONFIRMED STARTED per PT-08.",
+        "queue: routeQueueItem() case 'ag-28-followup' (line 1886)"
+      ],
+      "triggerWiredVerdict": "WIRED-EVENT+SCHEDULED+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('nightly autonomous pipeline + AG-28 application_followups sweep' -> STARTED)",
+        "worker/autonomous-orchestrator.ts:1886"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-29 (Knowledge Engine Indexer)",
+      "registryAgentId": "ag-29-knowledge-indexer",
+      "registryName": "AG-29 — Knowledge Engine Indexer Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/knowledge-indexer-agent.ts",
+      "codeAgentTypeLiteral": "ag-29-knowledge-indexer",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "agent_runs",
+        "foundation_directory",
+        "intelligence_proposal_sections",
+        "knowledge_patterns",
+        "organizations (read)",
+        "outcomes"
+      ],
+      "registryTriggerType": "event",
+      "actualTriggerPaths": [
+        "event+continuous-poll: knowledgeIndexerProcessor -- CONFIRMED STARTED per boot-inventory.json.",
+        "queue: routeQueueItem() case 'ag-29-knowledge-indexer' (line 2028)"
+      ],
+      "triggerWiredVerdict": "WIRED-EVENT-CONTINUOUS-POLL+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('knowledgeIndexerProcessor' -> STARTED)",
+        "worker/autonomous-orchestrator.ts:2028"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-29 (Fundability Scorer, on-disk collision)",
+      "registryAgentId": "ag-29-fundability",
+      "registryName": "AG-29 (on-disk collision) — Fundability Scorer Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/fundability-scorer-agent.ts",
+      "codeAgentTypeLiteral": "ag-29-fundability",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "documents (read)",
+        "fundability_scores",
+        "knowledge_base (read)",
+        "opportunities (read)",
+        "opportunity_probability_scores (read)",
+        "organizational_digital_twins (read)",
+        "organizations (read)"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "scheduled: runFundabilityScorerStep() inside runOrgPipeline() -> nightly 2 AM pipeline, UNCONDITIONAL (no toggle gate, per orchestrator comment 'AG-29/AG-30: same no-toggle nightly precedent as AG-08..AG-12')",
+        "queue: routeQueueItem() case 'ag-29-fundability' (line 1921)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-NIGHTLY+QUEUE (registry metadata stale: claims manual, is actually scheduled)",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1921, :877-879"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-30",
+      "registryAgentId": "ag-30-donor-intent",
+      "registryName": "AG-30 — Donor Intent Monitor",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/donor-intent-monitor-agent.ts",
+      "codeAgentTypeLiteral": "ag-30-donor-intent",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "autoapply_submissions (read)",
+        "corporate_intent_signals",
+        "corporate_prospects (read)",
+        "funders (read)",
+        "org_autonomous_config (read)",
+        "organizations (read)",
+        "submission_queue (read)"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "scheduled: runDonorIntentStep() inside runOrgPipeline() -> nightly 2 AM pipeline, UNCONDITIONAL",
+        "queue: routeQueueItem() case 'ag-30-donor-intent' (line 1932)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-NIGHTLY+QUEUE (registry metadata stale: claims manual, is actually scheduled)",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1932, :880"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-31",
+      "registryAgentId": "ag-31-national-forecast",
+      "registryName": "AG-31 — National Forecast Agent",
+      "inRegistry": true,
+      "codeExists": false,
+      "implementingFile": null,
+      "codeAgentTypeLiteral": null,
+      "agentIdMatchesRegistry": null,
+      "writesTo": [],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [],
+      "triggerWiredVerdict": "NO-CODE (registry row exists, zero implementation file anywhere -- confirmed by grep of src/lib/agents/*.ts and src/lib/intelligence/*.ts, and by the seed script's own header comment acknowledging this explicitly)",
+      "evidence": [
+        "scripts/seed-agent-registry.ts:384-391 (real description text, but marked 'no implementation file exists in this repo as of this seed')"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-33",
+      "registryAgentId": null,
+      "registryName": "Partnership Discovery Agent",
+      "inRegistry": false,
+      "codeExists": false,
+      "implementingFile": null,
+      "codeAgentTypeLiteral": null,
+      "agentIdMatchesRegistry": null,
+      "writesTo": [],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [],
+      "triggerWiredVerdict": "NO-REGISTRY-NO-CODE",
+      "evidence": [
+        "scripts/seed-agent-registry.ts:63-69, 484-495 (explicit exclusion note)"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-34",
+      "registryAgentId": null,
+      "registryName": "Personalization Engine",
+      "inRegistry": false,
+      "codeExists": false,
+      "implementingFile": null,
+      "codeAgentTypeLiteral": null,
+      "agentIdMatchesRegistry": null,
+      "writesTo": [],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [],
+      "triggerWiredVerdict": "NO-REGISTRY-NO-CODE",
+      "evidence": [
+        "scripts/seed-agent-registry.ts:63-69, 484-495 (explicit exclusion note)"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-35",
+      "registryAgentId": "ag-35-community-need",
+      "registryName": "AG-35 — Community Need Predictor",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/community-need-predictor-agent.ts",
+      "codeAgentTypeLiteral": "ag-35-community-need",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "community_need_signals",
+        "knowledge_base (read)",
+        "opportunities (read)",
+        "organizations (read)"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "scheduled: runCommunityNeedStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on isFirstOfMonthChicago()",
+        "queue: routeQueueItem() case 'ag-35-community-need' (line 1940)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE (registry metadata stale: claims manual, is actually scheduled)",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1940, :887-891"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-36",
+      "registryAgentId": "ag-36-learning-network",
+      "registryName": "AG-36 — Learning Network Aggregator",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/learning-network-aggregator-agent.ts",
+      "codeAgentTypeLiteral": "ag-36-learning-network",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "alerts",
+        "application_documents (read)",
+        "applications (read)",
+        "documents (read)",
+        "funders (read)",
+        "opportunities (read)",
+        "org_learning_contributions",
+        "organizations (read)",
+        "outcomes (read)",
+        "platform_learning_patterns"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-36 learning network aggregator pipeline' worker/scheduler.ts job (hour 6), self-gated to Sunday internally. CONFIRMED STARTED + confirmedFiringLive per PT-08.",
+        "queue: routeQueueItem() case 'ag-36-learning-network' (line 1948)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-36 learning network aggregator pipeline' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC ('AG-36 learning network aggregator pipeline', confirmedFiringLive: true)"
+      ],
+      "watchListRef": "learningAggregatorNowWired_correctsStaleAssumption"
+    },
+    {
+      "canonicalNumber": "AG-37",
+      "registryAgentId": "ag-37-simulation",
+      "registryName": "AG-37 — Simulation Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/simulation-agent.ts",
+      "codeAgentTypeLiteral": "ag-37-simulation",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_queue",
+        "applications (read)",
+        "board_members (read)",
+        "foundation_directory (read)",
+        "opportunities (read)",
+        "opportunity_probability_scores (read)",
+        "organizational_digital_twins (read)",
+        "organizations (read)",
+        "outcomes (read)",
+        "platform_learning_patterns (read)",
+        "simulation_scenarios"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "manual: /reports/simulate route (per registry description; deliberately not wired into the nightly sweep by design). No case in routeQueueItem() and no scheduler.ts job found for 'ag-37-simulation' this session."
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-ONLY (by design)",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts routeQueueItem() case list (no 'ag-37-simulation' entry)"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-38",
+      "registryAgentId": "ag-38-self-improvement",
+      "registryName": "AG-38 — Self-Improvement Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/self-improvement-agent.ts",
+      "codeAgentTypeLiteral": "ag-38-self-improvement",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "agent_decisions",
+        "agent_performance_metrics",
+        "agent_runs (read)",
+        "alerts",
+        "improvement_proposals",
+        "profiles (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-38 self-improvement pipeline' worker/scheduler.ts job (hour 4). CONFIRMED STARTED + confirmedFiringLive per PT-08.",
+        "queue: routeQueueItem() case 'ag-38-self-improvement' (line 1960)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED+QUEUE",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-38 self-improvement pipeline' -> STARTED)",
+        "test-evidence/pt-08/cron-reconciliation.json setC"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-39",
+      "registryAgentId": "ag-39-roi-optimizer",
+      "registryName": "AG-39 — ROI Optimizer",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/roi-optimizer-agent.ts",
+      "codeAgentTypeLiteral": "ag-39-roi-optimizer",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "application_documents (read)",
+        "applications (read)",
+        "documents (read)",
+        "opportunities (read)",
+        "outcomes (read)",
+        "roi_insights",
+        "submission_variables"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: runRoiOptimizerStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on isFirstOfMonthChicago(). Real telemetry (submission_variables) is written on every application stage transition separately, per registry description.",
+        "queue: routeQueueItem() case 'ag-39-roi-optimizer' (line 1971)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1971, :890-892, :800-817"
+      ],
+      "watchListRef": "roiOptimizerWiredButRowCountUnverified"
+    },
+    {
+      "canonicalNumber": "AG-40",
+      "registryAgentId": "ag-40-strategic-advisor",
+      "registryName": "AG-40 — Strategic Advisor",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/strategic-advisor-agent.ts",
+      "codeAgentTypeLiteral": "ag-40-strategic-advisor",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "applications (read)",
+        "board_members (read)",
+        "community_need_signals (read)",
+        "corporate_intent_signals (read)",
+        "deadlines (read)",
+        "fundability_scores (read)",
+        "funding_forecasts (read)",
+        "opportunities (read)",
+        "organizations (read)",
+        "outcomes (read)",
+        "platform_learning_patterns (read)",
+        "relationship_recommendations (read)",
+        "reputation_alerts (read)",
+        "roi_insights (read)",
+        "strategic_recommendations"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: runStrategicAdvisorStep() inside runOrgPipeline() -> nightly 2 AM pipeline, gated on isSundayChicago() (weekly, approximated inside the nightly cron rather than a dedicated slot per the orchestrator's own header note)",
+        "queue: routeQueueItem() case 'ag-40-strategic-advisor' (line 1982)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED-GATED+QUEUE",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts:1982, :899-900"
+      ],
+      "note": "CONFIRMED-BROKEN per WGR-059 (PT-06-003): loadOrgProfile() selects a nonexistent organizations.service_areas (plural) column, the whole select fails, and the agent silently falls back to {name:'this organization', service_area:null, service_areas:null} on EVERY real call -- meaning AG-40 never actually sees the org's real name/service area in its prompts despite firing on schedule. Trigger is wired; the agent's real output quality is degraded by a live, confirmed schema-mismatch bug."
+    },
+    {
+      "canonicalNumber": "AG-41",
+      "registryAgentId": "ag-41-impact-simulation",
+      "registryName": "AG-41 — Impact Simulation Agent",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/impact-simulation-agent.ts",
+      "codeAgentTypeLiteral": "ag-41-impact-simulation",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "applications (read)",
+        "funders (read)",
+        "funding_forecasts (read)",
+        "impact_simulations",
+        "knowledge_base (read)",
+        "opportunities (read)",
+        "organizations (read)",
+        "outcomes (read)"
+      ],
+      "registryTriggerType": "manual",
+      "actualTriggerPaths": [
+        "manual: /api/agents/simulate route (per prior documented live verification). No scheduler.ts job or routeQueueItem() case -- deliberate, by design, per the registry description ('a hypothetical scenario only has meaning in response to a specific question a human is asking')."
+      ],
+      "triggerWiredVerdict": "WIRED-MANUAL-ONLY (by design)",
+      "evidence": [
+        "worker/autonomous-orchestrator.ts routeQueueItem() case list (no 'ag-41-impact-simulation' entry)"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-42",
+      "registryAgentId": "ag-42-change-monitor",
+      "registryName": "AG-42 — Change Monitor Agent (CM-01)",
+      "inRegistry": true,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/change-monitor-agent.ts",
+      "codeAgentTypeLiteral": "ag-42-change-monitor",
+      "agentIdMatchesRegistry": true,
+      "writesTo": [
+        "corporate_monitoring_events",
+        "corporate_prospects (read)",
+        "foundation_directory",
+        "organizations (read)"
+      ],
+      "registryTriggerType": "scheduled",
+      "actualTriggerPaths": [
+        "scheduled: 'AG-42 change monitor daily pipeline' worker/scheduler.ts job (hour 5). CONFIRMED STARTED + confirmedFiringLive per PT-08.",
+        "queue: routeQueueItem() case 'foundation-990-enrichment' (chained action, line 2044)"
+      ],
+      "triggerWiredVerdict": "WIRED-SCHEDULED",
+      "evidence": [
+        "test-evidence/pt-08/boot-inventory.json ('AG-42 change monitor daily pipeline' -> STARTED)",
+        "worker/autonomous-orchestrator.ts:2044"
+      ]
+    },
+    {
+      "canonicalNumber": "AG-43 (beyond registered 1-42 range — NOT in registry)",
+      "registryAgentId": null,
+      "registryName": "AG-43 — Funder Signal Monitor Agent (real name from source: FunderSignalMonitorAgent)",
+      "inRegistry": false,
+      "codeExists": true,
+      "implementingFile": "src/lib/agents/funder-signal-monitor-agent.ts",
+      "codeAgentTypeLiteral": "ag-43-funder-signals",
+      "agentIdMatchesRegistry": false,
+      "writesTo": [
+        "foundation_directory (read)",
+        "funder_relationship_signals",
+        "funders (read)",
+        "organizations (read)",
+        "relationship_memory"
+      ],
+      "registryTriggerType": null,
+      "actualTriggerPaths": [
+        "not located in routeQueueItem() case list or worker/scheduler.ts jobs this session -- no confirmed automatic trigger found; likely manual/on-demand per STATE_OF_THE_BUILD.md's 2026-08-15 'row #99 Signal Monitoring' session (built as AG-43, real POST /api/intelligence/signal-monitor route documented there)."
+      ],
+      "triggerWiredVerdict": "REGISTRY-GAP: real, working agent (per prior documented live verification), zero agent_registry row exists for it -- the registry seed script's own ROSTER stops at ag-42-change-monitor and was never updated to include this agent, even though its class and migration predate this reconciliation.",
+      "evidence": [
+        "src/lib/agents/funder-signal-monitor-agent.ts:311",
+        "STATE_OF_THE_BUILD.md 2026-08-15 'Signal Monitoring (registry #99)' session (built as AG-43, migration 137)",
+        "grep for 'ag-43' across worker/autonomous-orchestrator.ts case list: zero matches"
+      ],
+      "watchListRef": "ag43ExistsButUnregistered"
+    }
+  ],
+  "watchList": [
+    {
+      "id": "wasBlockedOnRotatedApiKey",
+      "title": "Agents historically blocked on a dead ANTHROPIC_API_KEY (AG-15 Probability, AG-22 Propensity Scoring, and by extension every Claude-calling agent)",
+      "priorFinding": "STATE_OF_THE_BUILD.md documents a long saga (2026-08-02 through 2026-08-06) where the local/platform ANTHROPIC_API_KEY was dead (401 authentication_error), blocking real Claude calls for AG-15/AG-17/AG-19/AG-22/AG-25/AG-28/AG-30 and others. DIRECTIVE-018 (STANDING_DIRECTIVES.md) documents a 2026-08-06 consolidation to one canonical key, plus a real process.env shadowing bug on the local dev machine (a stale Windows User-level ANTHROPIC_API_KEY env var that dotenv's default config() does not override).",
+      "thisSessionStatus": "NOT independently re-tested this session (no live Claude API call was made — PT-09-001 is a static/read-only inventory pass). Flagged as-is for the deep test: confirm live whether a real Claude call from AG-15/AG-22/AG-19/AG-40 succeeds against the CURRENT key in Vercel prod + Railway prod (not just .env.local), since DIRECTIVE-018's own text warns key rotation and env drift between the three locations is the recurring failure mode, not a one-time fix.",
+      "priority": "HIGH — directly gates whether any Claude-dependent agent (roughly half the 43-agent roster) produces real output vs. an empty/degraded fallback."
+    },
+    {
+      "id": "learningAggregatorNowWired_correctsStaleAssumption",
+      "title": "AG-36 Learning Network Aggregator — task description called this 'unwired,' real PT-08 evidence says otherwise",
+      "priorFinding": "Older STATE_OF_THE_BUILD.md/FEATURE_REGISTRY_v2.md entries (July 2026) documented AG-36 as real code, never imported or called anywhere — a genuinely dead/orphaned agent at that time.",
+      "thisSessionStatus": "CORRECTED, not just repeated: test-evidence/pt-08/boot-inventory.json and cron-reconciliation.json (2026-08-19/20) both show 'AG-36 learning network aggregator pipeline' as STARTED with confirmedFiringLive=true, scheduled Sunday 6 AM CST via worker/scheduler.ts, calling runLearningNetworkPipeline() -> learning-network-aggregator-agent.ts. It was fixed and wired in a session between the stale finding and this one. Still worth a deep-test pass to confirm it's writing real platform_learning_patterns rows (not just that the cron fires), since a firing schedule does not by itself prove real output.",
+      "priority": "MEDIUM — trigger wiring is now confirmed real; real-output verification (row counts, content quality) is the remaining open question for PT-09-002/003."
+    },
+    {
+      "id": "roiOptimizerWiredButRowCountUnverified",
+      "title": "AG-39 ROI Optimizer — task description called this 'zero-row,' real PT-08 evidence confirms the trigger fires but does not confirm real roi_insights rows exist",
+      "priorFinding": "Prior sessions (July 2026) found AG-39's run() method (the Claude-calling correlation pass) had no production call site at all — only the telemetry half (trackSubmissionVariables) was live, so /reports/roi read a table nothing populated. A later session (STATE_OF_THE_BUILD.md, referencing commit 6ffd4fd) documented runRoiOptimizerStep() being wired into the nightly sweep.",
+      "thisSessionStatus": "CONFIRMED WIRED this session: worker/autonomous-orchestrator.ts:800-817 runRoiOptimizerStep(), called at line 892 inside the isFirstOfMonthChicago() gate of runOrgPipeline(); routeQueueItem() also has case 'ag-39-roi-optimizer' (line 1971); cron-reconciliation.json's setC confirms the parent 'nightly autonomous pipeline' job is STARTED and confirmedFiringLive. What was NOT verified this session: whether roi_insights actually has any real rows in production today (the original 'zero-row' complaint was about DATA, not wiring) — this needs a live, read-only row-count query against the real database in PT-09-002/003, not assumed from the trigger being wired.",
+      "priority": "HIGH — this is exactly the gap between 'trigger fires' and 'trigger produces real data' that a deep test needs to close; do not close this suspect on wiring evidence alone."
+    },
+    {
+      "id": "numberCollisionPairs",
+      "title": "Agent number-collision pairs — real, extensive, larger than the registry's own seed-script header comment documents",
+      "priorFinding": "scripts/seed-agent-registry.ts's own header comment documents 3 known collisions (AG-23/AG-32 merged; AG-25 dual-use disaster-response/deadline-prediction; AG-29 knowledge-indexer/fundability-scorer) and states these are handled 'explicitly rather than silently picked.'",
+      "thisSessionStatus": "Found FIVE ADDITIONAL, UNDOCUMENTED collisions this session by cross-referencing every real super(orgId, \"agentId\", supabase) literal in src/lib/agents/*.ts against the registry: AG-02 (registry 'eligibility_scoring' vs. orphaned, unwired EligibilityScoringAgent using literal 'ag-02'), AG-08 (registry 'ag-08-nofa-parser' vs. unregistered-but-scheduled RenewalTrackerAgent using literal 'ag-08-renewal-tracker'), AG-09 (registry 'email_parser' vs. unregistered-but-scheduled OutcomeAnalyzerAgent using literal 'ag-09-outcome-analyzer'), AG-10 (registry 'ag-10-grant-dna' vs. unregistered-but-scheduled DocumentExpiryAgent using literal 'ag-10-document-expiry'), AG-11 (registry 'cold_outreach' vs. unregistered-but-scheduled KnowledgeGapAgent using literal 'ag-11-knowledge-gap'), AG-12 (registry 'ag-12-autoapply' vs. unregistered-but-scheduled SearchProfileOptimizerAgent using literal 'ag-12-search-optimizer'). worker/autonomous-orchestrator.ts's own header comment (lines 6-44) independently corroborates every one of these as deliberate code-level labeling ('requested X -> Y (AG-N, exact match)'), so these are not accidental typos — they are real, live, SCHEDULED agents running nightly/monthly/weekly inside runOrgPipeline() under a canonical number the registry has already assigned to a completely different agent. A future Agent Log Viewer or any tooling that joins agent_registry.agent_id against agent_runs.agent_type will misattribute or drop these five agents' real run history entirely. Also found: EligibilityScoringAgent (agentId 'ag-02') is REAL CODE but has NO production instantiation anywhere except a dev/test script (scripts/ff-agent-test.ts) — dead code sharing a canonical number with a live agent, not merely a naming collision. Also found: three separate real budget-generating implementations (budget-agent.ts, budget-builder.ts — both literally 'budget_builder' — and budget-builder-agent.ts — 'ag-06-budget-builder') were not individually disambiguated this pass.",
+      "priority": "HIGH — this is a structural data-integrity gap in the registry itself (6+ real agents are invisible to any registry-driven tooling), not a cosmetic naming issue. Recommend the deep test confirm real agent_runs row counts under each colliding literal to size the actual blast radius (how much history is currently mis-joined or orphaned)."
+    },
+    {
+      "id": "eaAg22EnrichmentPipelineNeverStarted",
+      "title": "worker/enrichment-processor.ts (EA-01..EA-10 + AG-22 propensity scoring) — real code, zero reachability of any kind",
+      "priorFinding": "STATE_OF_THE_BUILD.md's 2026-08-06 session already documented this as real, wired-together code (all 10 EA files + AG-22 exist, worker/enrichment-processor.ts imports and runs all 10 sequentially per company) but 'not called from worker/index.ts's boot sequence yet — it runs standalone/on-demand only, not continuously in production.'",
+      "thisSessionStatus": "CONFIRMED STILL TRUE, with sharper evidence: test-evidence/pt-08/boot-inventory.json explicitly classifies 'enrichment-processor (foundation + corporate/EA-01..EA-10 enrichment, AG-22 propensity scoring)' as DEFINED-NOT-STARTED — one of only 2 such findings in the entire 26-processor boot inventory — and its own summary.registerFindingsFiled calls this out as P1: 'documented boot step, never wired, zero reachability of any kind.' This is not merely 'not continuous' (as the 2026-08-06 framing suggested) — it means there is NO trigger path at all today: not scheduled, not queue-routed, not manual-API-reachable, not even standalone-CLI-reachable per this file's own boot classification. AG-20/AG-21/AG-22 (10 EA agents worth of real code) are fully dark in production.",
+      "priority": "HIGH — three registered agents (AG-20, AG-21, AG-22) plus 8 more unregistered EA-0X agents (EA-02 through EA-07, EA-09, EA-10) have zero reachability. This is the single largest concentration of real-but-completely-unreachable agent code found in this inventory."
+    },
+    {
+      "id": "ag19NeverAutoInstantiated",
+      "title": "AG-19 Relationship Builder Agent — real code, deliberately substituted out of the autonomous nightly path",
+      "priorFinding": "Long-documented in STATE_OF_THE_BUILD.md/AGENT_VERIFICATION_LOG.md across many sessions: RelationshipBuilderAgent is never auto-instantiated by the orchestrator, which substitutes the simpler FunderRelationshipAgent instead for the nightly path. A 2026-08-13 session added an opt-in, default-OFF platform_config flag (feature.relationship_builder_v2) to let orgs individually opt into the real AG-19 path.",
+      "thisSessionStatus": "CONFIRMED STILL THE CASE this session via worker/autonomous-orchestrator.ts's own header comment (line 20): 'requested RelationshipBuilderAgent -> FunderRelationshipAgent (queue-only, see below)'. The opt-in flag's current on/off state for any real org was NOT re-checked this session (would require a live DB query against platform_config, out of this static-inventory pass's scope).",
+      "priority": "MEDIUM — a real, working manual-UI path exists (per prior live-verification), so this is not a broken agent, but its canonical registry row's trigger_type ('scheduled') does not match reality (never auto-fires) — worth the deep test confirming whether any real org currently has the opt-in flag enabled."
+    },
+    {
+      "id": "ag43ExistsButUnregistered",
+      "title": "AG-43 Funder Signal Monitor — beyond the registry's 1-42 range entirely",
+      "priorFinding": "n/a — this is a new finding from this session's code-vs-registry cross-reference, not a carried-forward suspect from the task prompt's own known list.",
+      "thisSessionStatus": "Real, working code confirmed (src/lib/agents/funder-signal-monitor-agent.ts, agentType literal 'ag-43-funder-signals', per STATE_OF_THE_BUILD.md's 2026-08-15 'row #99 Signal Monitoring' session which documented live-verification against real funder data). scripts/seed-agent-registry.ts's ROSTER array stops at ag-42-change-monitor and has never been extended to include it — the live agent_registry table (43 rows, queried read-only this session) confirms this gap is real in production today, not just in the seed script source.",
+      "priority": "LOW-MEDIUM — the agent itself works per prior documentation; this is a registry-completeness gap, not a functional break. Worth a follow-up seed-script update outside this audit's own scope (PT-09 is inventory, not remediation)."
+    }
+  ],
+  "summary": {
+    "totalCanonicalSlotsAG01toAG43": 43,
+    "inRegistryWithCode": 42,
+    "inRegistryNoCode": 1,
+    "codeExistsNotInRegistry": 6,
+    "noRegistryNoCode": 2,
+    "confirmedWiredScheduledOrQueueOrEvent": 42,
+    "confirmedNotWired": 8,
+    "registryMetadataStaleCount": 4,
+    "realOnDiskNumberCollisionsBeyondSeedScriptsOwnDocumentation": 6,
+    "watchListItemCount": 7
+  }
+}
