@@ -1,0 +1,1742 @@
+{
+  "generatedAt": "2026-08-20T03:28:16.887Z",
+  "results": [
+    {
+      "filename": "106_intelligence_library_schema_upgrade.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "106",
+      "missingCount": 20,
+      "perTable": [
+        {
+          "table": "intelligence_funded_proposals",
+          "referenceCount": 47,
+          "referencingFiles": [
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/intelligence/knowledge/page.tsx",
+            "src/app/(dashboard)/intelligence-library/dashboard/DashboardClient.tsx",
+            "src/app/(dashboard)/intelligence-library/page.tsx",
+            "src/app/(dashboard)/reports/funding-summary/page.tsx",
+            "src/app/api/intelligence/ingest/route.ts",
+            "src/app/api/intelligence/library/search/route.ts",
+            "src/app/api/intelligence/proposals/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "033_integration_keys.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "033",
+      "missingCount": 9,
+      "perTable": [
+        {
+          "table": "integration_keys",
+          "referenceCount": 14,
+          "referencingFiles": [
+            "src/app/api/agents/sam-gov/route.ts",
+            "src/app/api/integrations/keys/route.ts",
+            "src/lib/agents/custom-api.ts",
+            "src/lib/agents/sam-gov.ts",
+            "src/lib/autoapply/usage-meter.ts",
+            "src/types/agents.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "060_grantmaker_profiles.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "060",
+      "missingCount": 9,
+      "perTable": [
+        {
+          "table": "intelligence_grantmaker_profiles",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence-library/dashboard/DashboardClient.tsx",
+            "src/lib/intelligence/funder-recommender.ts",
+            "src/lib/intelligence/grantmaker-profiles.ts",
+            "src/lib/intelligence/unified-search.ts",
+            "src/types/database.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "078_forecast_board.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "078",
+      "missingCount": 7,
+      "perTable": [
+        {
+          "table": "funding_forecasts",
+          "referenceCount": 13,
+          "referencingFiles": [
+            "src/app/(dashboard)/reports/forecast/page.tsx",
+            "src/app/api/reports/forecast/route.ts",
+            "src/lib/agents/funding-forecast-agent.ts",
+            "src/lib/agents/impact-simulation-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts"
+          ]
+        },
+        {
+          "table": "board_members",
+          "referenceCount": 116,
+          "referencingFiles": [
+            "src/app/(dashboard)/board/[id]/page.tsx",
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/knowledge-base/edit/page.tsx",
+            "src/app/(dashboard)/onboarding/page.tsx",
+            "src/app/api/board/[id]/route.ts",
+            "src/app/api/intelligence/relationship-graph/analytics/route.ts",
+            "src/app/api/intelligence/relationship-graph/route.ts",
+            "src/app/api/knowledge-base/route.ts"
+          ]
+        },
+        {
+          "table": "board_meetings",
+          "referenceCount": 21,
+          "referencingFiles": [
+            "src/app/(dashboard)/board/[id]/page.tsx",
+            "src/app/api/autonomous/board-packet-trigger/route.ts",
+            "src/app/api/board/[id]/route.ts",
+            "src/app/api/intelligence/relationship-graph/route.ts",
+            "src/lib/agents/board-packet-agent.ts",
+            "worker/autonomous-orchestrator.ts"
+          ]
+        },
+        {
+          "table": "board_meeting_packets",
+          "referenceCount": 21,
+          "referencingFiles": [
+            "src/app/(dashboard)/board/[id]/page.tsx",
+            "src/app/api/board/[id]/route.ts",
+            "src/app/api/intelligence/relationship-graph/route.ts",
+            "src/lib/agents/board-packet-agent.ts",
+            "worker/autonomous-orchestrator.ts"
+          ]
+        },
+        {
+          "table": "impact_simulations",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/simulate/page.tsx",
+            "src/app/api/agents/simulate/route.ts",
+            "src/lib/agents/impact-simulation-agent.ts",
+            "src/lib/agents/simulation-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "080_autonomous_agent_infrastructure.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "080",
+      "missingCount": 7,
+      "perTable": [
+        {
+          "table": "autonomous_triggers",
+          "referenceCount": 6,
+          "referencingFiles": [
+            "src/lib/agents/autonomous-base.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/opportunity-discovery-agent.ts",
+            "src/lib/intelligence/reputation-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts",
+            "worker/autonomous-orchestrator.ts"
+          ]
+        },
+        {
+          "table": "agent_queue",
+          "referenceCount": 117,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/system/SystemClient.tsx",
+            "src/app/api/admin/orgs/[id]/route.ts",
+            "src/app/api/admin/system/route.ts",
+            "src/app/api/autonomous/board-packet-trigger/route.ts",
+            "src/app/api/autonomous/followup-trigger/route.ts",
+            "src/app/api/autonomous/grant-dna-trigger/route.ts",
+            "src/app/api/autonomous/knowledge-indexer-trigger/route.ts",
+            "src/app/api/autonomous/queue/route.ts"
+          ]
+        },
+        {
+          "table": "agent_decisions",
+          "referenceCount": 100,
+          "referencingFiles": [
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/settings/agents/page.tsx",
+            "src/app/api/admin/command-center/route.ts",
+            "src/app/api/autonomous/decisions/route.ts",
+            "src/app/api/funders/[id]/relationship-builder/route.ts",
+            "src/app/api/intelligence/twin/auto-populate/route.ts",
+            "src/app/api/onboarding/complete-setup/route.ts",
+            "src/components/command-center/CommandCenterLive.tsx"
+          ]
+        },
+        {
+          "table": "org_autonomous_config",
+          "referenceCount": 41,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/settings/agents/page.tsx",
+            "src/app/api/admin/orgs/[id]/route.ts",
+            "src/app/api/autoapply/autonomous-status/route.ts",
+            "src/app/api/autonomous/config/route.ts",
+            "src/app/api/funders/[id]/relationship-builder/route.ts",
+            "src/lib/agents/autonomous-base.ts",
+            "src/lib/agents/community-need-predictor-agent.ts"
+          ]
+        },
+        {
+          "table": "agent_runs",
+          "referenceCount": 280,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/improvements/ImprovementsClient.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/admin/orgs/page.tsx",
+            "src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx",
+            "src/app/(dashboard)/billing/page.tsx",
+            "src/app/(dashboard)/outcomes/analytics/page.tsx",
+            "src/app/(dashboard)/research/page.tsx",
+            "src/app/(dashboard)/settings/integrations/page.tsx"
+          ]
+        },
+        {
+          "table": "applications",
+          "referenceCount": 765,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/OrgDetailTabs.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/alerts/page.tsx",
+            "src/app/(dashboard)/applications/list/page.tsx",
+            "src/app/(dashboard)/applications/new/page.tsx",
+            "src/app/(dashboard)/applications/[id]/page.tsx",
+            "src/app/(dashboard)/applications/page.tsx",
+            "src/app/(dashboard)/autoapply/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "014_validations.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "014",
+      "missingCount": 7,
+      "perTable": [
+        {
+          "table": "validations",
+          "referenceCount": 28,
+          "referencingFiles": [
+            "src/app/api/ai/validate/route.ts",
+            "src/components/opportunities/OpportunityDetail.tsx",
+            "src/lib/agents/research/orchestrator.ts",
+            "src/lib/agents/consensus-validator.ts",
+            "src/lib/opportunities/validation.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "035_automation_queue.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "035",
+      "missingCount": 7,
+      "perTable": [
+        {
+          "table": "automation_queue",
+          "referenceCount": 35,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/monitor/MonitorClient.tsx",
+            "src/app/api/admin/jobs/[id]/retry/route.ts",
+            "src/app/api/admin/monitor/route.ts",
+            "src/app/api/automation/queue/route.ts",
+            "src/app/api/automation/stats/route.ts",
+            "src/lib/agents/automation-worker.ts",
+            "src/types/agents.ts",
+            "src/types/database.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "082_ag08_ag12_autonomous_agents.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "082",
+      "missingCount": 6,
+      "perTable": [
+        {
+          "table": "organizations",
+          "referenceCount": 612,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/audit-log/AuditLogClient.tsx",
+            "src/app/(dashboard)/admin/autoapply-ops/AutoApplyOpsClient.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/admin/orgs/OrgsListClient.tsx",
+            "src/app/(dashboard)/admin/orgs/page.tsx",
+            "src/app/(dashboard)/admin/page.tsx",
+            "src/app/(dashboard)/autoapply/controls/page.tsx",
+            "src/app/(dashboard)/autoapply/review-queue/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "053_multichannel_analytics.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "053",
+      "missingCount": 5,
+      "perTable": [
+        {
+          "table": "autoapply_follow_ups",
+          "referenceCount": 19,
+          "referencingFiles": [
+            "src/app/api/autoapply/follow-ups/cancel-all/[funderId]/route.ts",
+            "src/app/api/autoapply/follow-ups/stats/route.ts",
+            "src/app/api/autoapply/follow-ups/[id]/route.ts",
+            "src/app/api/autoapply/follow-ups/route.ts",
+            "src/lib/autoapply/follow-up-scheduler.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "session_recordings",
+          "referenceCount": 7,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/recordings/page.tsx",
+            "src/lib/autoapply/stealth-browser.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/autoapply-queue.test.ts",
+            "worker/queue-processor.ts"
+          ]
+        },
+        {
+          "table": "ab_test_variants",
+          "referenceCount": 10,
+          "referencingFiles": [
+            "src/app/api/autoapply/ab-tests/route.ts",
+            "src/lib/autoapply/ab-testing.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "autoapply_submissions",
+          "referenceCount": 111,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/OrgDetailTabs.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/recordings/page.tsx",
+            "src/app/(dashboard)/autoapply/test-results/page.tsx",
+            "src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx",
+            "src/app/api/admin/autoapply-ops/route.ts",
+            "src/app/api/admin/orgs/[id]/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "099_learning_network_hardening.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "099",
+      "missingCount": 4,
+      "perTable": [
+        {
+          "table": "platform_learning_patterns",
+          "referenceCount": 41,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/learning-network/page.tsx",
+            "src/app/api/intelligence/learning-network/route.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/learning-network-aggregator-agent.ts",
+            "src/lib/agents/simulation-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts"
+          ]
+        },
+        {
+          "table": "org_learning_contributions",
+          "referenceCount": 10,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/learning-network/page.tsx",
+            "src/app/api/intelligence/learning-network/route.ts",
+            "src/lib/agents/learning-network-aggregator-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "013_alerts.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "013",
+      "missingCount": 4,
+      "perTable": [
+        {
+          "table": "alerts",
+          "referenceCount": 215,
+          "referencingFiles": [
+            "src/app/(dashboard)/activity/page.tsx",
+            "src/app/(dashboard)/alerts/page.tsx",
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/draft-generator/queue/page.tsx",
+            "src/app/(dashboard)/intelligence/reputation/page.tsx",
+            "src/app/(dashboard)/intelligence/page.tsx",
+            "src/app/(marketing)/MarketingPageClient.tsx",
+            "src/app/api/activity/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "052_governance_layer.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "052",
+      "missingCount": 4,
+      "perTable": [
+        {
+          "table": "funder_relationships",
+          "referenceCount": 13,
+          "referencingFiles": [
+            "src/lib/autoapply/follow-up-scheduler.ts",
+            "src/lib/autoapply/relationship-manager.ts",
+            "src/lib/autoapply/risk-engine.ts",
+            "src/__tests__/integration/autoapply-risk-scoring.test.ts"
+          ]
+        },
+        {
+          "table": "queue_controls",
+          "referenceCount": 18,
+          "referencingFiles": [
+            "src/app/api/admin/autoapply-ops/route.ts",
+            "src/lib/autoapply/queue-controls.ts",
+            "src/lib/drafts/submission-bridge.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "submission_usage",
+          "referenceCount": 12,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx",
+            "src/app/api/admin/autoapply-ops/route.ts",
+            "src/lib/autoapply/alerting.ts",
+            "src/lib/autoapply/response-analytics.ts",
+            "src/lib/autoapply/usage-meter.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "tier_limits",
+          "referenceCount": 31,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx",
+            "src/app/api/billing/route.ts",
+            "src/app/api/integrations/scraping-targets/route.ts",
+            "src/app/api/intelligence/search/route.ts",
+            "src/lib/autoapply/usage-meter.ts",
+            "src/lib/billing/tier-enforcer.ts",
+            "src/lib/billing/usage-limiter.ts",
+            "src/lib/billing/usage-tracker.ts"
+          ]
+        },
+        {
+          "table": "funders",
+          "referenceCount": 1035,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/agreements/page.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/automation-settings/page.tsx",
+            "src/app/(dashboard)/autoapply/compliance/page.tsx",
+            "src/app/(dashboard)/autoapply/controls/page.tsx",
+            "src/app/(dashboard)/autoapply/follow-ups/page.tsx",
+            "src/app/(dashboard)/autoapply/profiles/page.tsx",
+            "src/app/(dashboard)/autoapply/recordings/page.tsx"
+          ]
+        },
+        {
+          "table": "submission_queue",
+          "referenceCount": 152,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/system/SystemClient.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/review-queue/page.tsx",
+            "src/app/(dashboard)/autoapply/settings/page.tsx",
+            "src/app/(dashboard)/autoapply/page.tsx",
+            "src/app/(dashboard)/donor-discovery/page.tsx",
+            "src/app/(dashboard)/funders/page.tsx",
+            "src/app/api/admin/autoapply-ops/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "097_deadline_prediction_agent.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "097",
+      "missingCount": 3,
+      "perTable": [
+        {
+          "table": "deadline_predictions",
+          "referenceCount": 9,
+          "referencingFiles": [
+            "src/lib/agents/autonomous-digest-agent.ts",
+            "src/lib/agents/deadline-prediction-agent.ts"
+          ]
+        },
+        {
+          "table": "funders",
+          "referenceCount": 1035,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/agreements/page.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/automation-settings/page.tsx",
+            "src/app/(dashboard)/autoapply/compliance/page.tsx",
+            "src/app/(dashboard)/autoapply/controls/page.tsx",
+            "src/app/(dashboard)/autoapply/follow-ups/page.tsx",
+            "src/app/(dashboard)/autoapply/profiles/page.tsx",
+            "src/app/(dashboard)/autoapply/recordings/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "034_custom_connections.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "034",
+      "missingCount": 3,
+      "perTable": [
+        {
+          "table": "custom_api_connections",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/app/api/integrations/custom-api/[id]/route.ts",
+            "src/app/api/integrations/custom-api/route.ts",
+            "src/lib/agents/custom-api.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "scraping_targets",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/app/api/integrations/scraping-targets/[id]/route.ts",
+            "src/app/api/integrations/scraping-targets/route.ts",
+            "src/lib/agents/custom-scrape.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "037_giving_history.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "037",
+      "missingCount": 3,
+      "perTable": [
+        {
+          "table": "funder_giving_history",
+          "referenceCount": 15,
+          "referencingFiles": [
+            "src/lib/agents/competitor-intel.ts",
+            "src/lib/agents/funder-signal-monitor-agent.ts",
+            "src/lib/agents/success-probability.ts",
+            "src/lib/autoapply/amount-optimizer.ts",
+            "src/lib/autoapply/risk-engine.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts",
+            "src/__tests__/integration/autoapply-risk-scoring.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "038_intelligence_tables.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "038",
+      "missingCount": 3,
+      "perTable": [
+        {
+          "table": "funder_relationship_scores",
+          "referenceCount": 16,
+          "referencingFiles": [
+            "src/app/(dashboard)/funders/page.tsx",
+            "src/app/api/funders/[id]/relationship-builder/route.ts",
+            "src/components/funders/FunderDetail.tsx",
+            "src/lib/agents/funder-relationship.ts",
+            "src/lib/agents/relationship-builder-agent.ts",
+            "src/types/agents.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "success_probability_scores",
+          "referenceCount": 13,
+          "referencingFiles": [
+            "src/app/api/agents/success-probability/route.ts",
+            "src/app/api/automation/queue/route.ts",
+            "src/components/applications/ApplicationDetail.tsx",
+            "src/components/applications/pipeline.ts",
+            "src/lib/agents/search-profile-optimizer-agent.ts",
+            "src/lib/agents/success-probability.ts",
+            "src/lib/intelligence/success-probability.ts",
+            "src/types/agents.ts"
+          ]
+        },
+        {
+          "table": "competitor_tracking",
+          "referenceCount": 9,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/competitors/page.tsx",
+            "src/lib/agents/competitor-intel.ts",
+            "src/lib/agents/success-probability.ts",
+            "src/types/agents.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "052_webhook_configs.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "052",
+      "missingCount": 3,
+      "perTable": [
+        {
+          "table": "webhook_configs",
+          "referenceCount": 8,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/webhooks/page.tsx",
+            "src/app/api/autoapply/webhooks/route.ts",
+            "src/lib/autoapply/webhook-notifier.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "103_schoolfunder.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "103",
+      "missingCount": 3,
+      "perTable": [
+        {
+          "table": "schoolfunder_students",
+          "referenceCount": 6,
+          "referencingFiles": [
+            "src/app/(dashboard)/schoolfunder/page.tsx",
+            "src/app/api/schoolfunder/donate/route.ts",
+            "src/app/api/schoolfunder/hours/route.ts",
+            "src/app/api/schoolfunder/route.ts"
+          ]
+        },
+        {
+          "table": "schoolfunder_volunteer_hours",
+          "referenceCount": 4,
+          "referencingFiles": [
+            "src/app/(dashboard)/schoolfunder/page.tsx",
+            "src/app/api/schoolfunder/hours/route.ts",
+            "src/app/api/schoolfunder/route.ts"
+          ]
+        },
+        {
+          "table": "schoolfunder_donations",
+          "referenceCount": 3,
+          "referencingFiles": [
+            "src/app/(dashboard)/schoolfunder/page.tsx",
+            "src/app/api/schoolfunder/donate/route.ts",
+            "src/app/api/schoolfunder/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "098_digest_agent_upgrade.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "098",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "digest_item_log",
+          "referenceCount": 8,
+          "referencingFiles": [
+            "src/lib/agents/autonomous-digest-agent.ts"
+          ]
+        },
+        {
+          "table": "digest_priority_weights",
+          "referenceCount": 6,
+          "referencingFiles": [
+            "src/lib/agents/autonomous-digest-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "100_self_improvement_hardening.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "100",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "agent_performance_metrics",
+          "referenceCount": 12,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/improvements/ImprovementsClient.tsx",
+            "src/app/api/admin/improvements/route.ts",
+            "src/lib/agents/self-improvement-agent.ts"
+          ]
+        },
+        {
+          "table": "improvement_proposals",
+          "referenceCount": 24,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/improvements/ImprovementsClient.tsx",
+            "src/app/api/admin/improvements/[id]/route.ts",
+            "src/app/api/admin/improvements/route.ts",
+            "src/app/api/nav-counts/route.ts",
+            "src/lib/agents/autonomous-digest-agent.ts",
+            "src/lib/agents/self-improvement-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "054_email_calendar_integration.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "054",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "email_connections",
+          "referenceCount": 17,
+          "referencingFiles": [
+            "src/app/(dashboard)/settings/integrations/page.tsx",
+            "src/app/api/email/sync/route.ts",
+            "src/lib/email/gmail-auth.ts",
+            "src/lib/email/gmail-sync.ts",
+            "src/lib/email/sender.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "email_threads",
+          "referenceCount": 18,
+          "referencingFiles": [
+            "src/app/api/email/contacts/route.ts",
+            "src/app/api/email/summarize/route.ts",
+            "src/app/api/email/threads/route.ts",
+            "src/lib/email/contact-extractor.ts",
+            "src/lib/email/gmail-sync.ts",
+            "src/lib/email/thread-linker.ts",
+            "src/lib/integrations/google/email-matcher.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "email_messages",
+          "referenceCount": 20,
+          "referencingFiles": [
+            "src/app/(dashboard)/email/page.tsx",
+            "src/app/api/email/send/route.ts",
+            "src/app/api/email/summarize/route.ts",
+            "src/lib/agents/email-campaign.ts",
+            "src/lib/email/contact-extractor.ts",
+            "src/lib/email/gmail-sync.ts",
+            "src/lib/email/sender.ts",
+            "src/lib/email/sequence-engine.ts"
+          ]
+        },
+        {
+          "table": "calendar_connections",
+          "referenceCount": 20,
+          "referencingFiles": [
+            "src/app/(dashboard)/settings/integrations/page.tsx",
+            "src/app/api/calendar/sync/route.ts",
+            "src/app/api/cron/reminders/route.ts",
+            "src/lib/calendar/gcal-auth.ts",
+            "src/lib/calendar/gcal-sync.ts",
+            "src/lib/calendar/reminder-engine.ts",
+            "src/lib/integrations/google/oauth-state.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "calendar_events",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/lib/calendar/gcal-sync.ts",
+            "src/lib/calendar/reminder-engine.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "email_templates",
+          "referenceCount": 18,
+          "referencingFiles": [
+            "src/app/(dashboard)/email/campaigns/page.tsx",
+            "src/app/(dashboard)/email/templates/page.tsx",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "src/app/api/email/analytics/route.ts",
+            "src/app/api/email/templates/route.ts",
+            "src/lib/email/sequence-engine.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "email_campaign_sequences",
+          "referenceCount": 34,
+          "referencingFiles": [
+            "src/app/(dashboard)/donor-discovery/page.tsx",
+            "src/app/(dashboard)/email/campaigns/[id]/page.tsx",
+            "src/app/(dashboard)/email/campaigns/page.tsx",
+            "src/app/(dashboard)/outreach/campaigns/[id]/page.tsx",
+            "src/app/(dashboard)/outreach/campaigns/page.tsx",
+            "src/app/(dashboard)/outreach/sequences/page.tsx",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "src/app/api/email/analytics/route.ts"
+          ]
+        },
+        {
+          "table": "email_sequence_steps",
+          "referenceCount": 16,
+          "referencingFiles": [
+            "src/app/(dashboard)/email/campaigns/[id]/page.tsx",
+            "src/app/(dashboard)/email/templates/page.tsx",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "src/app/api/email/analytics/route.ts",
+            "src/app/api/email/sequences/[id]/analytics/route.ts",
+            "src/app/api/email/sequences/[id]/route.ts",
+            "src/app/api/intelligence/outreach/queue/route.ts",
+            "src/lib/email/sequence-engine.ts"
+          ]
+        },
+        {
+          "table": "email_sequence_enrollments",
+          "referenceCount": 25,
+          "referencingFiles": [
+            "src/app/(dashboard)/email/campaigns/[id]/page.tsx",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "src/app/api/email/analytics/route.ts",
+            "src/app/api/email/sequences/[id]/analytics/route.ts",
+            "src/app/api/email/sequences/[id]/route.ts",
+            "src/app/api/intelligence/outreach/queue/route.ts",
+            "src/lib/email/sequence-engine.ts",
+            "src/types/database.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "083_followup_sequences.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "083",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "followup_sequences",
+          "referenceCount": 8,
+          "referencingFiles": [
+            "src/app/(dashboard)/outreach/sequences/page.tsx",
+            "src/app/api/outreach/sequences/route.ts",
+            "src/lib/agents/followup-generator-agent.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "followup_enrollments",
+          "referenceCount": 4,
+          "referencingFiles": [
+            "src/types/database.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "095_discovery_matches.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "095",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "discovery_runs",
+          "referenceCount": 0,
+          "referencingFiles": []
+        },
+        {
+          "table": "discovery_matches",
+          "referenceCount": 4,
+          "referencingFiles": [
+            "src/app/api/agents/discovery/route.ts",
+            "src/lib/agents/morning-digest.ts",
+            "src/lib/agents/opportunity-discovery-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "096_knowledge_engine.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "096",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "knowledge_patterns",
+          "referenceCount": 28,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/knowledge/page.tsx",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/knowledge-indexer-agent.ts",
+            "src/lib/drafts/generator.ts",
+            "src/lib/intelligence/knowledge-engine.ts",
+            "src/types/database.ts",
+            "src/__tests__/unit/knowledge-engine.test.ts"
+          ]
+        },
+        {
+          "table": "knowledge_queries",
+          "referenceCount": 5,
+          "referencingFiles": [
+            "src/app/api/intelligence/knowledge-query/route.ts",
+            "src/lib/intelligence/knowledge-engine.ts",
+            "src/__tests__/unit/knowledge-engine.test.ts"
+          ]
+        },
+        {
+          "table": "intelligence_funded_proposals",
+          "referenceCount": 47,
+          "referencingFiles": [
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/intelligence/knowledge/page.tsx",
+            "src/app/(dashboard)/intelligence-library/dashboard/DashboardClient.tsx",
+            "src/app/(dashboard)/intelligence-library/page.tsx",
+            "src/app/(dashboard)/reports/funding-summary/page.tsx",
+            "src/app/api/intelligence/ingest/route.ts",
+            "src/app/api/intelligence/library/search/route.ts",
+            "src/app/api/intelligence/proposals/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "100_prospects_contact_fields.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "100",
+      "missingCount": 2,
+      "perTable": [
+        {
+          "table": "prospects",
+          "referenceCount": 677,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/sales-outreach/SalesOutreachClient.tsx",
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/donor-discovery/discover/page.tsx",
+            "src/app/(dashboard)/donor-discovery/intent-signals/page.tsx",
+            "src/app/(dashboard)/donor-discovery/marketplace/page.tsx",
+            "src/app/(dashboard)/donor-discovery/new/page.tsx",
+            "src/app/(dashboard)/donor-discovery/outreach/prospects/[id]/page.tsx",
+            "src/app/(dashboard)/donor-discovery/outreach/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "075_agent_marketplace.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "075",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "agent_registry",
+          "referenceCount": 12,
+          "referencingFiles": [
+            "src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx",
+            "src/app/(dashboard)/agents/marketplace/page.tsx",
+            "src/app/api/agents/registry/configure/route.ts",
+            "src/app/api/agents/registry/[agentId]/runs/route.ts",
+            "src/app/api/agents/registry/route.ts",
+            "src/app/api/onboarding/complete-setup/route.ts",
+            "src/lib/agents/agent-registry-seed.ts",
+            "src/lib/agents/eligibility-scoring-agent.ts"
+          ]
+        },
+        {
+          "table": "agent_configurations",
+          "referenceCount": 6,
+          "referencingFiles": [
+            "src/app/(dashboard)/agents/marketplace/page.tsx",
+            "src/app/api/agents/registry/configure/route.ts",
+            "src/app/api/agents/registry/route.ts",
+            "src/lib/agents/agent-registry-seed.ts"
+          ]
+        },
+        {
+          "table": "discovery_runs",
+          "referenceCount": 0,
+          "referencingFiles": []
+        },
+        {
+          "table": "discovery_matches",
+          "referenceCount": 4,
+          "referencingFiles": [
+            "src/app/api/agents/discovery/route.ts",
+            "src/lib/agents/morning-digest.ts",
+            "src/lib/agents/opportunity-discovery-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "081_application_followups.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "081",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "application_followups",
+          "referenceCount": 10,
+          "referencingFiles": [
+            "src/lib/agents/followup-generator-agent.ts",
+            "src/worker/jobs/process-followups.ts",
+            "worker/scheduler.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "083_global_learning_network.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "083",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "platform_learning_patterns",
+          "referenceCount": 41,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/learning-network/page.tsx",
+            "src/app/api/intelligence/learning-network/route.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/learning-network-aggregator-agent.ts",
+            "src/lib/agents/simulation-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts"
+          ]
+        },
+        {
+          "table": "org_learning_contributions",
+          "referenceCount": 10,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/learning-network/page.tsx",
+            "src/app/api/intelligence/learning-network/route.ts",
+            "src/lib/agents/learning-network-aggregator-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "085_fundraising_simulator.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "085",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "simulation_scenarios",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/simulate/page.tsx",
+            "src/app/api/reports/simulate/route.ts",
+            "src/lib/agents/simulation-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "086_strategic_advisor.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "086",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "strategic_recommendations",
+          "referenceCount": 20,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/api/admin/orgs/[id]/route.ts",
+            "src/app/api/intelligence/strategic-advisor/route.ts",
+            "src/app/api/nav-counts/route.ts",
+            "src/lib/agents/autonomous-digest-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts",
+            "src/lib/reports/board-report-page.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "089_roi_optimizer.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "089",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "submission_variables",
+          "referenceCount": 17,
+          "referencingFiles": [
+            "src/app/(dashboard)/reports/roi/page.tsx",
+            "src/app/api/autonomous/track-submission/route.ts",
+            "src/app/api/reports/roi/route.ts",
+            "src/lib/agents/roi-optimizer-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "roi_insights",
+          "referenceCount": 21,
+          "referencingFiles": [
+            "src/app/(dashboard)/reports/roi/page.tsx",
+            "src/app/api/reports/roi/route.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/roi-optimizer-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "090_community_need_prediction.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "090",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "community_need_signals",
+          "referenceCount": 25,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/community-need/page.tsx",
+            "src/app/api/intelligence/community-need/route.ts",
+            "src/app/api/intelligence/community-resources/route.ts",
+            "src/app/api/nav-counts/route.ts",
+            "src/lib/agents/autonomous-digest-agent.ts",
+            "src/lib/agents/community-need-predictor-agent.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "091_fundability_intelligence_score.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "091",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "fundability_scores",
+          "referenceCount": 21,
+          "referencingFiles": [
+            "src/app/api/intelligence/fundability/route.ts",
+            "src/components/opportunities/FundabilityPanel.tsx",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/fundability-scorer-agent.ts",
+            "src/lib/agents/strategic-advisor-agent.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "092_autoapply_autonomous_orchestrator.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "092",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "org_autonomous_config",
+          "referenceCount": 41,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/settings/agents/page.tsx",
+            "src/app/api/admin/orgs/[id]/route.ts",
+            "src/app/api/autoapply/autonomous-status/route.ts",
+            "src/app/api/autonomous/config/route.ts",
+            "src/app/api/funders/[id]/relationship-builder/route.ts",
+            "src/lib/agents/autonomous-base.ts",
+            "src/lib/agents/community-need-predictor-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "095_autoapply_portal_type.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "095",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "funders",
+          "referenceCount": 1035,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/agreements/page.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/automation-settings/page.tsx",
+            "src/app/(dashboard)/autoapply/compliance/page.tsx",
+            "src/app/(dashboard)/autoapply/controls/page.tsx",
+            "src/app/(dashboard)/autoapply/follow-ups/page.tsx",
+            "src/app/(dashboard)/autoapply/profiles/page.tsx",
+            "src/app/(dashboard)/autoapply/recordings/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "102_twin_auto_populate_log.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "102",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "organizational_digital_twins",
+          "referenceCount": 48,
+          "referencingFiles": [
+            "src/app/api/intelligence/digital-twin/route.ts",
+            "src/app/api/intelligence/twin/completeness/route.ts",
+            "src/app/api/knowledge-base/route.ts",
+            "src/app/api/onboarding/complete-setup/route.ts",
+            "src/app/api/proposals/generate-package/route.ts",
+            "src/lib/agents/donor-intent-monitor-agent.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/fundability-scorer-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "103_narrative_humanizer.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "103",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "applications",
+          "referenceCount": 765,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/OrgDetailTabs.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/alerts/page.tsx",
+            "src/app/(dashboard)/applications/list/page.tsx",
+            "src/app/(dashboard)/applications/new/page.tsx",
+            "src/app/(dashboard)/applications/[id]/page.tsx",
+            "src/app/(dashboard)/applications/page.tsx",
+            "src/app/(dashboard)/autoapply/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "008_stripe_billing.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "008",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "stripe_webhook_events",
+          "referenceCount": 3,
+          "referencingFiles": [
+            "src/app/api/webhooks/stripe/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "010_opportunity_source_type.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "010",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "opportunities",
+          "referenceCount": 1671,
+          "referencingFiles": [
+            "src/app/(dashboard)/activity/page.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/OrgDetailTabs.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/admin/page.tsx",
+            "src/app/(dashboard)/alerts/page.tsx",
+            "src/app/(dashboard)/applications/new/page.tsx",
+            "src/app/(dashboard)/applications/page.tsx",
+            "src/app/(dashboard)/autoapply/profiles/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "036_automation_notifications.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "036",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "automation_notifications",
+          "referenceCount": 27,
+          "referencingFiles": [
+            "src/app/api/autoapply/review-queue/[id]/reassign/route.ts",
+            "src/app/api/notifications/route.ts",
+            "src/app/api/onboarding/complete-setup/route.ts",
+            "src/components/autoapply/ManualQueue.tsx",
+            "src/lib/agents/automation-worker.ts",
+            "src/lib/agents/custom-api.ts",
+            "src/lib/agents/custom-scrape.ts",
+            "src/lib/calendar/reminder-engine.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "040_competitor_intel_agent.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "040",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "competitor_tracking",
+          "referenceCount": 9,
+          "referencingFiles": [
+            "src/app/(dashboard)/intelligence/competitors/page.tsx",
+            "src/lib/agents/competitor-intel.ts",
+            "src/lib/agents/success-probability.ts",
+            "src/types/agents.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "041_scraping_targets.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "041",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "scraping_targets",
+          "referenceCount": 11,
+          "referencingFiles": [
+            "src/app/api/integrations/scraping-targets/[id]/route.ts",
+            "src/app/api/integrations/scraping-targets/route.ts",
+            "src/lib/agents/custom-scrape.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "051_submission_intelligence.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "051",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "request_profiles",
+          "referenceCount": 21,
+          "referencingFiles": [
+            "src/app/api/autoapply/profiles/[id]/route.ts",
+            "src/app/api/autoapply/profiles/route.ts",
+            "src/components/autoapply/SubmissionPreview.tsx",
+            "src/lib/autoapply/auto-queue-populator.ts",
+            "src/lib/autoapply/receipt-generator.ts",
+            "src/lib/autoapply/submission-validator.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "kb_extended_needs",
+          "referenceCount": 1,
+          "referencingFiles": [
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "pitch_cache",
+          "referenceCount": 7,
+          "referencingFiles": [
+            "src/lib/autoapply/pitch-personalizer.ts"
+          ]
+        },
+        {
+          "table": "org_documents",
+          "referenceCount": 18,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/documents/page.tsx",
+            "src/components/autoapply/ManualQueue.tsx",
+            "src/components/autoapply/SubmissionPreview.tsx",
+            "src/lib/autoapply/document-vault.ts",
+            "src/lib/autoapply/submission-validator.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts",
+            "src/__tests__/integration/autoapply-mutual-exclusion.test.ts"
+          ]
+        },
+        {
+          "table": "submission_receipts",
+          "referenceCount": 4,
+          "referencingFiles": [
+            "src/lib/autoapply/receipt-generator.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "grant_agreements",
+          "referenceCount": 10,
+          "referencingFiles": [
+            "src/app/api/autoapply/agreements/[id]/route.ts",
+            "src/app/api/autoapply/agreements/route.ts",
+            "src/lib/autoapply/response-analytics.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "webhook_configs",
+          "referenceCount": 8,
+          "referencingFiles": [
+            "src/app/(dashboard)/autoapply/webhooks/page.tsx",
+            "src/app/api/autoapply/webhooks/route.ts",
+            "src/lib/autoapply/webhook-notifier.ts",
+            "src/types/database.ts",
+            "src/__tests__/integration/ag19-relationship-builder-flag.test.ts"
+          ]
+        },
+        {
+          "table": "cross_client_submissions",
+          "referenceCount": 5,
+          "referencingFiles": [
+            "src/lib/autoapply/submission-controls.ts",
+            "src/types/database.ts"
+          ]
+        },
+        {
+          "table": "submission_queue",
+          "referenceCount": 152,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/system/SystemClient.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/review-queue/page.tsx",
+            "src/app/(dashboard)/autoapply/settings/page.tsx",
+            "src/app/(dashboard)/autoapply/page.tsx",
+            "src/app/(dashboard)/donor-discovery/page.tsx",
+            "src/app/(dashboard)/funders/page.tsx",
+            "src/app/api/admin/autoapply-ops/route.ts"
+          ]
+        },
+        {
+          "table": "autoapply_submissions",
+          "referenceCount": 111,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/OrgDetailTabs.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/autoapply/analytics/AnalyticsPageClient.tsx",
+            "src/app/(dashboard)/autoapply/recordings/page.tsx",
+            "src/app/(dashboard)/autoapply/test-results/page.tsx",
+            "src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx",
+            "src/app/api/admin/autoapply-ops/route.ts",
+            "src/app/api/admin/orgs/[id]/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "078_donor_discovery_prospects_scored_at.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "078",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "donor_discovery_prospects",
+          "referenceCount": 59,
+          "referencingFiles": [
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/donor-discovery/page.tsx",
+            "src/app/api/autoapply/queue/route.ts",
+            "src/app/api/donor-discovery/pipeline/route.ts",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-autoapply/route.ts",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "src/app/api/donor-discovery/prospects/[id]/route.ts",
+            "src/app/api/donor-discovery/prospects/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "079_donor_discovery_prospects_enrichment_private.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "079",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "donor_discovery_prospects",
+          "referenceCount": 59,
+          "referencingFiles": [
+            "src/app/(dashboard)/dashboard/page.tsx",
+            "src/app/(dashboard)/donor-discovery/page.tsx",
+            "src/app/api/autoapply/queue/route.ts",
+            "src/app/api/donor-discovery/pipeline/route.ts",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-autoapply/route.ts",
+            "src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts",
+            "src/app/api/donor-discovery/prospects/[id]/route.ts",
+            "src/app/api/donor-discovery/prospects/route.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "085_compliance_requirements.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "085",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "compliance_requirements",
+          "referenceCount": 27,
+          "referencingFiles": [
+            "src/app/(dashboard)/compliance/page.tsx",
+            "src/app/api/compliance/route.ts",
+            "src/app/api/intelligence/briefing/route.ts",
+            "src/components/intelligence/IntelligenceBriefingPanel.tsx",
+            "src/lib/intelligence/data/compliance-requirements.ts",
+            "src/lib/intelligence/compliance-library.ts",
+            "src/lib/intelligence/unified-search.ts",
+            "src/types/database.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "086_white_label.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "086",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "consultant_client_access",
+          "referenceCount": 4,
+          "referencingFiles": [
+            "src/app/api/consultant/clients/route.ts",
+            "worker/autoapply-autonomous-orchestrator.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "087_notification_preferences.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "087",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "notification_preferences",
+          "referenceCount": 8,
+          "referencingFiles": [
+            "src/app/api/settings/notifications/route.ts",
+            "src/lib/notifications/notify.ts",
+            "src/types/database.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "097_funding_sources.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "097",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "funding_sources",
+          "referenceCount": 23,
+          "referencingFiles": [
+            "src/app/(dashboard)/research/page.tsx",
+            "src/app/api/reports/funding-summary/route.ts",
+            "src/app/api/sources/registry/route.ts",
+            "src/lib/sources/funding-source-registry.ts",
+            "src/lib/sources/state-sources-registry.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "101_twin_auto_populate_log.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "101",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "organizational_digital_twins",
+          "referenceCount": 48,
+          "referencingFiles": [
+            "src/app/api/intelligence/digital-twin/route.ts",
+            "src/app/api/intelligence/twin/completeness/route.ts",
+            "src/app/api/knowledge-base/route.ts",
+            "src/app/api/onboarding/complete-setup/route.ts",
+            "src/app/api/proposals/generate-package/route.ts",
+            "src/lib/agents/donor-intent-monitor-agent.ts",
+            "src/lib/agents/draft-generation-agent.ts",
+            "src/lib/agents/fundability-scorer-agent.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "102_org_portal_accounts.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "102",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "org_portal_accounts",
+          "referenceCount": 3,
+          "referencingFiles": [
+            "worker/queue-processor.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "105_applications_metadata_column.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "105",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "applications",
+          "referenceCount": 765,
+          "referencingFiles": [
+            "src/app/(dashboard)/admin/orgs/[id]/OrgDetailTabs.tsx",
+            "src/app/(dashboard)/admin/orgs/[id]/page.tsx",
+            "src/app/(dashboard)/alerts/page.tsx",
+            "src/app/(dashboard)/applications/list/page.tsx",
+            "src/app/(dashboard)/applications/new/page.tsx",
+            "src/app/(dashboard)/applications/[id]/page.tsx",
+            "src/app/(dashboard)/applications/page.tsx",
+            "src/app/(dashboard)/autoapply/page.tsx"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "133_foundation_profiles_grant_history.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "133",
+      "missingCount": 1,
+      "perTable": [
+        {
+          "table": "foundation_profiles",
+          "referenceCount": 6,
+          "referencingFiles": [
+            "src/app/api/foundations/[id]/profile/route.ts",
+            "src/app/api/intelligence/twin/auto-populate/route.ts",
+            "src/lib/intelligence/twin-auto-populate.ts"
+          ]
+        }
+      ],
+      "hasLiveConsumer": true
+    },
+    {
+      "filename": "005_browser_automation_agent_type.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "005",
+      "missingCount": 1,
+      "perTable": [],
+      "hasLiveConsumer": false
+    },
+    {
+      "filename": "006_email_matching_agent_type.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "006",
+      "missingCount": 1,
+      "perTable": [],
+      "hasLiveConsumer": false
+    },
+    {
+      "filename": "007_email_campaign_agent.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "007",
+      "missingCount": 1,
+      "perTable": [],
+      "hasLiveConsumer": false
+    },
+    {
+      "filename": "021_billing_tables.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "021",
+      "missingCount": 1,
+      "perTable": [],
+      "hasLiveConsumer": false
+    }
+  ]
+}

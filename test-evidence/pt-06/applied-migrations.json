@@ -1,0 +1,881 @@
+{
+  "generatedAt": "2026-08-20T03:23:36.899Z",
+  "trackingTableQuery": {
+    "queriedFor": "supabase_migrations.schema_migrations (Supabase CLI's standard migration ledger)",
+    "result": "DOES_NOT_EXIST",
+    "evidence": {
+      "note": "Checked whether this project uses Supabase-CLI-managed migration tracking (supabase_migrations.schema_migrations). It does not: the schema itself does not exist. Confirmed two independent ways below. Every migration in this project's history has been applied by hand via a direct DATABASE_URL/psql connection (STANDING_DIRECTIVES.md DIRECTIVE-017), not via `supabase db push`/`supabase migration up`, so there is no ledger table recording which migrations 'ran.' Applied-vs-not-applied status for this audit is therefore determined by live object existence (does the table/column/enum-value the migration file defines actually exist in the production schema right now), the same method MIGRATION_AUDIT.md (2026-07-28/30) used, extended across both known migration directories.",
+      "supabaseMigrationsSchemaExists": false,
+      "supabaseMigrationsSchemaMigrationsTableRegclass": null,
+      "verdict": "NO_TRACKING_TABLE -- applied status determined by live object existence instead"
+    },
+    "conclusion": "This project has no migration-tracking table. Every migration was applied by hand (psql/DATABASE_URL per STANDING_DIRECTIVES.md DIRECTIVE-017), not via Supabase CLI's migration workflow, so there is no ledger of applied migration versions or the timestamps they ran at. 'Applied' below is therefore determined by live object-existence (does the table/column/enum-value the file defines exist in production right now), the same method migration-drift.json uses, not by a recorded version+timestamp pair -- because no such record exists anywhere to query."
+  },
+  "appliedMigrations": [
+    {
+      "filename": "072_donor_discovery_taxonomy_aliases.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "072",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "073_adapter_usage_log.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "073",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "074_donor_discovery_geocache.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "074",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "076_reputation_intelligence.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "076",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "077_intelligence_graph.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "077",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "079_disaster_response.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "079",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "084_learning_network_draft_integration.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "084",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "087_continuous_improvement.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "087",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "088_self_improvement_agent.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "088",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "093_donor_intent_engine.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "093",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "094_twin_powered_draft_generation.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "094",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "096_ag19_relationship_builder_enum.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "096",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "101_orchestrator_enterprise_hardening.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "101",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "104_agent_decisions_missing_columns.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "104",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "106_funder_dna_profiles.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "106",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "107_ag29_embedding_columns.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "107",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "108_ag10_grant_dna_enum.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "108",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "109_agent_runs_output_payload.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "109",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "110_ag26_funding_forecast.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "110",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "111_ag27_board_packet.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "111",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "111_ag29_knowledge_indexer_enum.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "111",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "112_ag41_impact_simulation.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "112",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "113_ag42_change_monitor.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "113",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "114_gmail_confirmation_monitor.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "114",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "115_autoapply_captcha_pause_columns.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "115",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "123_knowledge_engine_draft_integration.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "123",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "124_auto_deploy_disaster_response.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "124",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "125_donation_marketplace.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "125",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "126_outreach_template_content_variants.sql",
+      "directory": "src/supabase/migrations",
+      "prefixRaw": "126",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "001_initial_schema.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "001",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "002_phases_2_5.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "002",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "003_onboarding.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "003",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "009_draft_versions.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "009",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "011_search_profile_configuration.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "011",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "012_opportunity_match_percentage.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "012",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "015_funder_intelligence.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "015",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "016_renewals.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "016",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "017_success_patterns.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "017",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "018_email_activity.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "018",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "020_automation_sessions.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "020",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "022_usage_tracking.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "022",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "023_onboarding_step.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "023",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "024_audit_logs.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "024",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "025_fix_alerts.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "025",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "026_fix_alerts_schema.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "026",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "027_missing_columns.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "027",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "039_funder_relationship_agent.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "039",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "042_historical_awards.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "042",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "043_opportunity_documents.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "043",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "045_autoapply_tables.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "045",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "046_foundation_directory.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "046",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "047_worker_status.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "047",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "048_grant_intelligence.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "048",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "049_auto_queue_config.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "049",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "050_funder_credentials.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "050",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "053_autoapply_missing_columns.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "053",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "054_funders_contact_email.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "054",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "055_admin_sales_outreach.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "055",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "055_sequence_enrollment_variables.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "055",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "056_four_tier_admin_system.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "056",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "057_draft_automation_pipeline.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "057",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "058_lead_enrichment_system.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "058",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "059_budget_patterns.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "059",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "061_corporate_giving_targets.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "061",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "062_community_foundations.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "062",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "063_white_label.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "063",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "065_autoapply_follow_ups.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "065",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "067_donor_discovery_foundation.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "067",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "068_donor_discovery_crawler_core.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "068",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "069_donor_discovery_places_adapter.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "069",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "071_donor_discovery_directory_dedup.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "071",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "072_foundation_directory_990_enrichment.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "072",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "073_onboarding_progress.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "073",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "074_donor_discovery_foundation_linkage_and_scoring.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "074",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "075_donor_discovery_taxonomy_aliases.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "075",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "076_adapter_usage_log.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "076",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "077_donor_discovery_geocache.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "077",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "080_org_settings.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "080",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "081_foundation_profiles.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "081",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "082_outreach_templates.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "082",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "084_grant_financials.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "084",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "088_foundation_profiles_enrichment.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "088",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "089_financial_reconciliation.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "089",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "090_compliance_calendar.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "090",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "091_funder_relationship_events.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "091",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "093_digital_twins.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "093",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "094_agent_registry.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "094",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "098_nonprofits_bmf.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "098",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "099_nonprofits_enrichment.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "099",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "104_organizations_extended_profile.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "104",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "107_corporate_prospects.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "107",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "108_corporate_prospects_ea06_ea10.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "108",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "109_corporate_prospects_ag22_propensity_scoring.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "109",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "110_scrape_jobs_universal_scraper.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "110",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "124_custom_api_connections_error_count.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "124",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "125_submission_queue_error_visibility.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "125",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "126_form_templates_automation_assessment.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "126",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "127_relationship_memory.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "127",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "128_agent_configurations_org_id_drift.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "128",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "129_agent_registry_avg_tokens_column.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "129",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "131_profiles_command_center_layout.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "131",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "132_custom_connector_allowlist.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "132",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "134_automation_notifications_missing_columns.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "134",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "135_opportunities_eligibility_columns.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "135",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "136_contact_outreach_tasks.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "136",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "137_funder_signal_monitoring.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "137",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "138_demo_account_scope.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "138",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    },
+    {
+      "filename": "139_investor_demo_ui_pass_fixes_2026-08-16.sql",
+      "directory": "supabase/migrations",
+      "prefixRaw": "139",
+      "appliedVerdictBasis": "live-object-existence (see migration-drift.json)",
+      "timestamp": null,
+      "timestampUnavailableReason": "no migration-tracking ledger exists in this project (see trackingTableQuery above)"
+    }
+  ],
+  "appliedMigrationsCount": 108
+}

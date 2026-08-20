@@ -1,36 +1,162 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-08 COMPLETE (jobs/queues/worker audit, review pack ready for
-Reid). Headline: the background tier that matters for autonomous agent execution — `worker/
-scheduler.ts`'s 13 pipeline jobs (AG-10, AG-23/32, AG-25, AG-26, AG-27, AG-36, AG-38, AG-42, nightly
-pipeline + AG-28 follow-ups, morning digest, AutoApply overnight orchestrator, both Directive-1
-scraper jobs) — is CONFIRMED LIVE AND RUNNING in production, independent of the disputed
-middleware/cron question below: these jobs run inside the always-on Railway worker process itself,
-never over HTTP, so they are structurally immune to `src/middleware.ts`. All 13 confirmed actually
-firing across a real 5-day production log window. Separately, 24 of 26 inventoried
-processors/consumers start at boot; the 2 that don't are `worker/enrichment-processor.ts`
-(**WGR-033, P1** — a complete, real processor for all 10 EA-01..EA-10 corporate-enrichment agents +
-AG-22 propensity scoring, with ZERO reachability anywhere — not booted, not on-demand, contradicting
-`WORKER_ARCHITECTURE_v2.md`'s own documented boot step 6) and `src/worker/jobs/
-process-discovery-request.ts` (**WGR-034, P3** — orphaned duplicate, capability already covered by a
-running processor). Cron reconciliation found 6 of 11 real `/api/cron/*` route handlers registered
-nowhere (`vercel.json` nor `worker/scheduler.ts`): 4 real gaps (**WGR-035** draft-automation,
-**WGR-036** sales-sends — highest-confidence, a real admin action produces rows nothing ever sends
-— **WGR-037** follow-ups — two-layer dead, producer AND consumer both unreachable — **WGR-038**
-email-sequences, already-known gap now registered for the first time), 1 orphaned-no-gap
-(**WGR-039** draft-queue-check), 1 intentionally retired (`campaigns`, no WGR row). The `agent_queue`
-state machine itself (claim/retry/max-retries-terminal/completion/poison-job-isolation) was exercised
-against a disposable local Postgres DB and found fully correct (`overallVerdict:
-ALL_SEMANTICS_CORRECT`), with one narrower, UNVERIFIED code-read finding (**WGR-040**, P1: no
-per-item execution timeout — a hanging job, unlike a failing one, would block the queue
-indefinitely). The one open question this phase did NOT settle: whether the 5 already-`vercel.json`-
-registered crons (research/grantsgov/reminders/autoapply/domain-warmup) actually succeed in
-production — local dev shows `src/middleware.ts` redirects every `/api/cron/*` call including these
-5 to `/login` before the route's own `CRON_SECRET` check runs (WGR-023, P0, pre-existing), Reid
-reports production returns 401 instead; neither claim independently re-verified against the deployed
-URL this phase (prod-safe/static-read-only scope). Full detail:
-`test-evidence/pt-08/PHASE-08-SUMMARY.md`; short version for review: `test-evidence/pt-08/
-REVIEW-PACK.md`. See "SESSION — August 20, 2026 (audit PT-08 COMPLETE)" entry below.**
+**Updated: August 20, 2026 — audit PT-06-002 COMPLETE: applied-vs-on-disk migration drift map settled
+with a real current figure. Headline: this project has NO Supabase-CLI migration-tracking table
+(`supabase_migrations.schema_migrations` does not exist — confirmed live two independent ways) — every
+migration in this project's history was applied by hand via direct `DATABASE_URL`/psql
+(`STANDING_DIRECTIVES.md` DIRECTIVE-017), never via `supabase db push`/`migration up`, so there has
+never been a ledger of which migrations "ran." Applied status was therefore determined by live
+object-existence across BOTH known migration directories (the same method `MIGRATION_AUDIT.md` used,
+extended to cover `src/supabase/migrations` too, which that audit never touched): of **199** total
+migration files on disk, **108 are APPLIED-AND-ON-DISK**, **57 are ON-DISK-NOT-APPLIED (real drift)**,
+**34 are NO_DDL_UNVERIFIABLE** (RLS/backfill/comment-only, uncheckable by this method), and **2 live
+tables are APPLIED-NOT-ON-DISK** (orphans with no `CREATE TABLE` anywhere on disk). This settles —
+and supersedes — both the stale "28 of 108 unapplied" premise and `MIGRATION_AUDIT.md`'s own "41 of
+112" figure; neither number was wrong for its own scope and moment, both are now stale (file counts
+have grown, and neither covered both directories). All 4 already-known missing-table 500s from
+PT-02 (WGR-006 `consultant_client_access`/086, WGR-007 `followup_sequences`/083, WGR-008
+`schoolfunder`/103, WGR-009 `notification_preferences`/087) are confirmed present in the drift set,
+tying this map directly to real, previously-confirmed user-facing breakage. 12 additional P1 findings
+(**WGR-042 through WGR-053**) were individually column-verified against real `src/`/`worker/` call
+sites this session, covering real, currently-broken features: Competitor Intel Agent's giving-history
+read, the Success Probability Agent's hard-failing write, `WebhookNotifier` silently sending zero
+webhooks ever, the entire AutoApply governance/risk-gating/tier-limit layer, the Intelligence Library's
+winning-phrases/filter UI, the Graph Analytics API route (confirmed 500ing), Sales Outreach contact
+personalization, the Narrative Humanizer's score persistence, the twin auto-populate audit log, and
+the entire Email Hub inbox/thread feature (`email_threads`/`email_messages` — the widest-blast-radius
+finding this pass, ~10 real referencing files). One summary finding (**WGR-041**) ties the whole map
+together. Full detail: **`test-evidence/pt-06/migration-drift.json`**,
+**`test-evidence/pt-06/applied-migrations.json`**,
+**`test-evidence/pt-06/consumer-check.json`**. See "SESSION — August 20, 2026 (audit PT-06-002:
+applied-vs-on-disk migration drift map)" entry below. (PT-08 COMPLETE headline from the prior update —
+the background/worker/cron audit — is preserved in its own session entry further down, unchanged.)**
+
+## SESSION — August 20, 2026 (audit PT-06-002: applied-vs-on-disk migration drift map)
+
+**Scope:** PT-06-002, the centerpiece of this audit phase — settle definitively which migrations are
+live in production versus only on disk, following directly from PT-06-001's own explicit deferral
+("[resolving which directory's copy ran] would need cross-referencing against a real applied-migrations
+ledger in the database ... if one exists ... flagged as the natural next step").
+
+**Step 1 — checked whether that ledger exists, live, rather than assuming.** Queried
+`information_schema.tables` for anything matching `%migration%`: found `auth.schema_migrations` and
+`realtime.schema_migrations` (Supabase's own internal service migrations, not this project's),
+`storage.migrations` (same), and confirmed **no `supabase_migrations` schema exists at all** — two
+independent checks: `to_regclass('supabase_migrations.schema_migrations')` returns `null`, and a
+direct `pg_namespace` scan finds zero schemas named `supabase_migrations` or matching `%migrat%`
+among the project's 8 real non-system schemas (`auth, extensions, graphql, graphql_public, public,
+realtime, storage, vault`). This means the task's literal ask — "capture the full list of APPLIED
+migration versions with their timestamps" — has no ledger to capture from: none was ever written,
+because every migration in this project's history was applied by hand via `psql`/`DATABASE_URL`
+(`STANDING_DIRECTIVES.md` DIRECTIVE-017), never via the Supabase CLI's migration workflow. This
+absence is recorded as the primary finding in `test-evidence/pt-06/applied-migrations.json`, not
+glossed over or silently worked around.
+
+**Step 2 — the real substitute, live object-existence, extended across both directories.** Fetched
+the complete live production schema (`scripts/audit/pt06-002-fetch-live-schema.mjs` →
+`test-evidence/pt-06/live-schema-snapshot.json`): 184 public-schema tables, every one of their
+columns, and all 41 enum types' value lists. Then, for every one of the 199 on-disk migration files
+(both `src/supabase/migrations` and `supabase/migrations`, per PT-06-001's inventory), extracted
+every `CREATE TABLE` / `ALTER TABLE ... ADD COLUMN` / `CREATE TYPE ... AS ENUM` / `ALTER TYPE ... ADD
+VALUE` statement — via a comment-stripped, full-text regex scan (`scripts/audit/
+pt06-002-migration-drift.mjs`) rather than a strict statement-boundary parser, specifically so
+statements textually inside `DO $$ ... $$` blocks are still found (the same gap `MIGRATION_AUDIT.md`
+flagged its own July-28 pass had missed) — and checked every resulting table/column/enum-value
+against the live snapshot. A file with zero such statements (pure RLS/backfill/comment content)
+cannot be classified this way and is kept in its own `NO_DDL_UNVERIFIABLE` bucket rather than
+defaulted into applied or unapplied.
+
+**Real, current result — 199 total files, partition verified to sum exactly:**
+| Bucket | Count |
+|---|---|
+| APPLIED-AND-ON-DISK | 108 |
+| ON-DISK-NOT-APPLIED (drift) | 57 |
+| NO_DDL_UNVERIFIABLE | 34 |
+| **Sum (must equal 199)** | **199 — confirmed** |
+| APPLIED-NOT-ON-DISK (orphan live tables) | 2 |
+
+Spot-checked the methodology against known-good and known-bad cases before trusting the aggregate:
+migration 094 (`agent_registry`) and 104 (`organizations.extended_profile`) — both flagged unapplied
+by `MIGRATION_AUDIT.md` on 2026-07-30 — now correctly show APPLIED (both were genuinely fixed in the
+weeks since, per `STATE_OF_THE_BUILD.md`'s own migration-129/104 session entries), confirming this
+pass reflects real current state rather than stale history repeated. Migration 106
+(`intelligence_library_schema_upgrade`, 20 missing columns on `intelligence_funded_proposals`) and 086
+(`white_label`, `consultant_client_access` — WGR-006's exact target) both produced coherent,
+sensible-looking missing-object lists, not parser noise.
+
+**The 2 orphan tables are real, not a parser gap.** `corporate_relationships` and
+`fundability_deficiencies` both exist live with no `CREATE TABLE` in either directory — grepped both
+and confirmed each is referenced ONLY by a later `REVOKE`/RLS-hardening migration
+(`113_revoke_anon_truncate_batch.sql`, `122_lockdown_no_authenticated_read_path_rls_hardening.sql`),
+never created by one. `122`'s own comment is the clearest evidence this is real, documented drift,
+not an audit artifact: *"fundability_deficiencies (the last is explicitly documented as never-real by
+fundability-scorer-agent.ts's own header comment: 'there is no separate fundability_deficiencies
+table' ... this table is leftover/superseded schema."*
+
+**Step 3 — cross-referenced the 4 known missing-table 500s.** All 4 of PT-02's already-confirmed
+findings map cleanly into ON-DISK-NOT-APPLIED: WGR-006 → `086_white_label.sql`
+(`consultant_client_access`), WGR-007 → `083_followup_sequences.sql` (`followup_sequences`), WGR-008
+→ `103_schoolfunder.sql` (`schoolfunder_students` + 2 siblings), WGR-009 →
+`087_notification_preferences.sql` (`notification_preferences`) — tying this session's schema-level
+drift map directly to real, previously-confirmed user-facing breakage rather than leaving the two
+audits as parallel, unconnected claims. (Note: `086`, `083`, and `103` each collide with an unrelated,
+also-unapplied file of the same number in the other directory — `086_strategic_advisor.sql`,
+`083_global_learning_network.sql`, `103_narrative_humanizer.sql` — consistent with PT-06-001's own
+finding that the two trees' numbering genuinely diverged rather than merely offsetting.)
+
+**Step 4 — register findings for confirmed real breakage.** A coarse table-name grep sweep
+(`scripts/audit/pt06-002-consumer-check.mjs`) found 53 of the 57 drift entries have at least one live
+`src/`/`worker/` reference to the affected table. Of those, 16 were selected for individual
+column-specific verification (`scripts/audit/pt06-002-column-verify.mjs` — grepping the exact missing
+COLUMN name, not just the table name, within the files the table-level sweep found) prioritizing the
+migrations already partially substantiated by `MIGRATION_AUDIT.md`'s 2026-07-30 pass plus the largest
+new gaps found this session. 13 of the 16 confirmed genuine, specific, currently-live breakage
+(two of them, the parallel-tree `101`/`102` twin-auto-populate-log duplicates, sharing one finding
+row) and were registered as **WGR-042 through WGR-053** (12 rows, all P1); the remaining 3
+(033/035's several `agent_type` enum values, `036`'s `notification_channel` enum type,
+`automation_queue.worker_id`) were checked and left
+unregistered — either no live consumer found (matching `MIGRATION_AUDIT.md`'s own prior "no live code
+references it" conclusion for `worker_id`) or genuinely ambiguous without deeper per-agent tracing,
+flagged in `consumer-check.json` rather than force-fit into a register row. One overall summary
+finding, **WGR-041**, ties the full 199/108/57/34/2 count together and explicitly states that the
+remaining ~41 drift entries with a live table-level reference are tracked but not yet individually
+column-verified — a real, stated scope boundary, not a silent gap.
+
+**Register findings, briefly (full detail in each row):** WGR-042 (Competitor Intel Agent's
+`funder_giving_history.grant_purpose`/`.source` read fails) · WGR-043 (Success Probability Agent's
+`success_probability_scores` upsert hard-throws on every run) · WGR-044 (`WebhookNotifier.notify()`
+silently sends zero webhooks, ever, for any org — `webhook_configs` created by the wrong sibling
+migration) · WGR-045 (the entire AutoApply governance/risk-gating/usage-tracking/tier-limit layer —
+`funder_relationships`/`queue_controls`/`submission_usage`/`tier_limits` — doesn't exist, real UI/API
+surface across billing, usage pages, and 3 risk/relationship libs) · WGR-046
+(`intelligence_grantmaker_profiles` missing 9 columns real code still reads, contradicting
+`MIGRATION_AUDIT.md`'s "abandoned redesign" call) · WGR-047 (`board_members` migration-078 column
+names vs. the live schema's real names — directly explains the already-documented, still-live
+Graph Analytics `/api/intelligence/relationship-graph/analytics` 500) · WGR-048
+(`organizational_digital_twins.twin_auto_populate_log`, written by `twin-auto-populate.ts` line 905,
+missing in both migration-tree forks) · WGR-049 (`applications.metadata` — the Narrative Humanizer's
+score has nowhere to persist, across 4 real call sites) · WGR-050
+(`intelligence_funded_proposals` missing 10+ of 20 new columns the Intelligence Library page
+directly reads — `winning_phrases`, `persuasive_elements`, `keywords`, etc.) · WGR-051
+(`prospects.contact_name`/`.contact_title` — `scripts/seed-outreach-prospects.ts`'s own header names
+this exact gap, directly contradicting project memory that called it resolved) · WGR-052
+(`email_threads`/`email_messages` — ~10 real referencing files across the entire Email Hub feature,
+the widest single-migration blast radius found this pass) · WGR-053 (`deadline_predictions` table +
+`funders.next_predicted_open_date`/`.avg_cycle_length_days` — AG-25 `deadline-prediction-agent.ts`'s
+own header comment already documents this table was "created from scratch" by this migration and
+has never landed; its two real output writes and the digest agent's read of the same table both
+fail).
+
+**Step 5 — verifier.** `scripts/audit/verify-pt06-002.mjs`: confirms `applied-migrations.json` records
+the tracking-table query (not just an applied list with no evidence of how it was derived);
+confirms `migration-drift.json`'s three primary buckets partition the on-disk file set with zero
+overlap and zero gap (`199` files, `199` distinct bucket entries); confirms all 4 of WGR-006/007/
+008/009's target files independently appear in `onDiskNotApplied`. `PASS` on all three checks.
+
+**Gates:** no application code touched — this phase is read-only schema introspection plus register/
+governance-doc writes. `pnpm tsc --noEmit` not applicable (no `.ts`/`.tsx` files changed; all new
+scripts are plain `.mjs`). No production writes made or attempted — every query ran over the same
+`default_transaction_read_only = on` session PT-06-001 already proved is engine-enforced.
 
 ## SESSION — August 19, 2026 (audit PT-06: preflight, read-only DB connection proof, migration-file
 inventory across both parallel migrations directories)
