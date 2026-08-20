@@ -1,0 +1,227 @@
+{
+  "generated_at": "2026-08-20T14:35:20.287Z",
+  "target": {
+    "host": "127.0.0.1",
+    "port": "56322",
+    "is_production": false,
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt"
+  },
+  "journey_org": {
+    "id": "f781bc26-0384-4324-bda3-da23ab891bd0",
+    "name": "PT-03 AutoApply-DonorDiscovery Journeys Org"
+  },
+  "journey_user_email": "pt03-journeys-owner@benavora-pt03-test.local",
+  "donor_discovery": {
+    "stages": [
+      {
+        "stage": "prospect",
+        "description": "Seeded one real donor_discovery_requests row + one shared donor_discovery_directory row (with a genuine enrichment shape including the two WGR-017-relevant fields, giving_focus_areas and in_kind_history_signals) + one donor_discovery_prospects row (pipeline_stage='new') via direct DB insert matching migration 067's real schema, then confirmed via the real UI (/donor-discovery/prospects, no filters) that the prospect is genuinely listed.",
+        "action": "Direct DB seed (org-scoped tenant data) + real page.goto() to the real list page.",
+        "simulated": false,
+        "before": {
+          "donor_discovery_prospects_count": 0,
+          "donor_discovery_directory_test_row_exists": false
+        },
+        "after": {
+          "prospect_id": "9035bd14-b168-4e01-8b00-efee0eb04307",
+          "directory_id": "3601069d-732b-40ae-ad23-3169ae96cc10",
+          "request_id": "d0e8e999-21d2-462a-88ba-ccf18593ccca",
+          "pipeline_stage": "new",
+          "listed_on_real_list_page": true
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "prospect seeded and confirmed listed on the real UI"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-01-donor-discovery-prospects-list.png"
+        ]
+      },
+      {
+        "stage": "review",
+        "description": "Clicked the real prospect row (onRowClick navigation, not a URL shortcut) to reach /donor-discovery/prospects/[id] -- WGR-017's fixed detail page. Confirmed real, non-blank content rendered (giving_focus_areas and in_kind_history_signals both visibly present). Then used the real 'Pipeline stage' <select> to move the prospect from new to reviewing.",
+        "action": "Real click-through navigation + real <select> interaction (handleStageChange -> PATCH).",
+        "simulated": false,
+        "before": {
+          "pipeline_stage": "new"
+        },
+        "after": {
+          "pipeline_stage": "reviewing",
+          "main_content_char_length": 1804,
+          "giving_focus_areas_rendered": true,
+          "in_kind_history_signals_rendered": true,
+          "wgr_017_tie_in": "This is the exact page WGR-017 fixed a blank-render bug on (ProspectDetail.tsx lines 574/587, unguarded enrichment.giving_focus_areas.length / enrichment.in_kind_history_signals.length). Confirmed non-blank real render (body text length=1804 chars) with both guarded fields' real content actually visible, not a crash/blank main area."
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "real WGR-017-relevant content rendered; stage change persisted"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-02-donor-discovery-detail-before-review.png",
+          "test-evidence/pt-03/screenshots/j-02-donor-discovery-detail-after-reviewing.png"
+        ]
+      },
+      {
+        "stage": "route_to_destination",
+        "description": "Clicked the real 'Queue in AutoApply' button on the prospect detail page -> POST /api/autoapply/queue with source='donor_discovery' (handleDonorDiscoveryHandoff in src/app/api/autoapply/queue/route.ts). Confirmed the destination this action routes into -- a real funders row plus a real submission_queue row, the actual AutoApply queue -- was genuinely created and correctly linked, and that the UI updated in place to a 'Queued -- view funder' link, not just a client-side optimistic flag.",
+        "action": "Real button click -> real POST /api/autoapply/queue -> real DB writes, independently re-queried.",
+        "simulated": false,
+        "before": {
+          "funders_count": 0,
+          "submission_queue_count": 0
+        },
+        "after": {
+          "funder_id": "6d47041c-ed98-4c30-9e31-af0aa30f243b",
+          "funder_category": "in_kind_donation",
+          "funder_giving_portal_url": "https://httpbin.org/forms/post",
+          "submission_queue_id": "1eb4af8e-e5e0-4833-9504-70acdb1f1e91",
+          "submission_queue_status": "pending",
+          "submission_queue_automation_mode": "donor_discovery",
+          "destination_confirmed": true
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "destination (funders + submission_queue) confirmed created and linked"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-03-donor-discovery-before-route.png",
+          "test-evidence/pt-03/screenshots/j-03-donor-discovery-after-route.png"
+        ]
+      }
+    ],
+    "terminal_state": {
+      "pipeline_stage": "reviewing",
+      "routed": true,
+      "funder_id": "6d47041c-ed98-4c30-9e31-af0aa30f243b",
+      "submission_queue_id": "1eb4af8e-e5e0-4833-9504-70acdb1f1e91"
+    }
+  },
+  "autoapply": {
+    "stages": [
+      {
+        "stage": "queue",
+        "description": "The submission_queue row this journey continues from was created moments earlier by the Donor Discovery journey's real route-to-destination action (status='pending'). Navigated to the real /autoapply dashboard and confirmed it is genuinely listed there via the app's own client-side query -- no test-only shortcut.",
+        "action": "Real page.goto('/autoapply') -- no DB writes in this stage.",
+        "simulated": false,
+        "before": {
+          "submission_queue_id": "1eb4af8e-e5e0-4833-9504-70acdb1f1e91",
+          "submission_queue_status": "pending"
+        },
+        "after": {
+          "ui_row_visible": true,
+          "note": "Real /autoapply dashboard, client-side query against submission_queue -- the exact row created by the Donor Discovery journey's route-to-destination step, no additional writes made in this stage."
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "real dashboard reflects the real queued row"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-04-autoapply-dashboard-queued.png"
+        ]
+      },
+      {
+        "stage": "session",
+        "description": "SAFE-SIMULATED: performed the exact real DB writes worker/queue-processor.ts's dequeue() and createApprovedAutomationSession() perform (submission_queue.status -> 'processing'; a real automation_sessions row created then approved), verbatim by column shape. No browser was launched and no HTTP request was made to any host -- this reproduces only the queue-claim and session-approval bookkeeping, for evidence-capture purposes.",
+        "action": "SAFE-SIMULATED direct DB writes mirroring worker/queue-processor.ts's real column shapes.",
+        "simulated": true,
+        "before": {
+          "submission_queue_status": "pending",
+          "automation_sessions_count": 0
+        },
+        "after": {
+          "automation_session_id": "143b964a-9c7f-4cc8-87aa-27c3cd192f9b",
+          "submission_queue_status": "processing",
+          "automation_session_status": "approved",
+          "ui_shows_running_pill": true,
+          "simulated": true,
+          "external_http_calls_made": 0
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "real dashboard reflects the simulated Running state"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-05-autoapply-dashboard-running.png"
+        ]
+      },
+      {
+        "stage": "form_fill",
+        "description": "SAFE-SIMULATED: inserted a real-shaped form_templates row (portal_url=the safe dummy target, a hand-authored field structure matching that page's own known static fields) and updated the automation_sessions row's mapped_fields, mirroring the real analyzer+filler stage's data shape exactly. No browser was launched and no HTTP request was made to httpbin.org or any other host at any point in this stage. The real dashboard has no distinct visual state for this internal step (it stays 'Running' the whole time submission_queue.status='processing') -- confirmed via screenshot rather than silently assumed.",
+        "action": "SAFE-SIMULATED direct DB writes mirroring worker/queue-processor.ts's real form_templates/mapped_fields shapes.",
+        "simulated": true,
+        "before": {
+          "form_templates_count": 0
+        },
+        "after": {
+          "form_template_id": "17d530ae-3684-418c-8b09-1191a94edebe",
+          "portal_url": "https://httpbin.org/forms/post",
+          "mapped_fields_count": 3,
+          "ui_still_shows_running_no_distinct_form_fill_state": true,
+          "simulated": true,
+          "external_http_calls_made": 0
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "form-fill data persisted; dashboard state unchanged as expected"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-06-autoapply-dashboard-still-running-during-form-fill.png"
+        ]
+      },
+      {
+        "stage": "submit",
+        "description": "SAFE-SIMULATED terminal write: inserted a real-shaped autoapply_submissions row (status='submitted', a clearly-marked simulated confirmation_number/confirmation_data), finalized the automation_sessions row (status='submitted'), and updated submission_queue (status='completed', linked submission_id) -- mirroring worker/queue-processor.ts's own post-success writes exactly by column shape. NEVER a real external submission: no HTTP request was made to httpbin.org or any host at any point in this stage or journey. Reloaded the real /autoapply dashboard and confirmed it now shows this exact row with a green 'Completed' status pill.",
+        "action": "SAFE-SIMULATED direct DB writes mirroring worker/queue-processor.ts's real terminal-state column shapes.",
+        "simulated": true,
+        "before": {
+          "submission_queue_status": "processing",
+          "autoapply_submissions_count": 0
+        },
+        "after": {
+          "autoapply_submission_id": "144b7eb8-1fac-46f3-8c06-dac47e0dc143",
+          "submission_queue_status": "completed",
+          "submission_status": "submitted",
+          "confirmation_number": "SAFE-SIM-VVK4CEZW",
+          "ui_shows_completed_pill": true,
+          "simulated": true,
+          "external_http_calls_made": 0,
+          "note": "SAFE-SIMULATED terminal state. At no point in this entire AutoApply journey (queue, session, form_fill, submit) was an HTTP request issued to https://httpbin.org or any external donation portal -- every write mirrors the real worker's column shapes exactly, produced by this script directly against the local, non-production database."
+        },
+        "assertion": {
+          "pass": true,
+          "detail": "real dashboard reflects the simulated terminal Completed state"
+        },
+        "screenshots": [
+          "test-evidence/pt-03/screenshots/j-07-autoapply-dashboard-completed.png"
+        ]
+      }
+    ],
+    "terminal_state": {
+      "submission_queue_status": "completed",
+      "autoapply_submission_id": "144b7eb8-1fac-46f3-8c06-dac47e0dc143",
+      "confirmation_number": "SAFE-SIM-VVK4CEZW",
+      "simulated": true,
+      "external_calls_made": 0
+    },
+    "no_external_http_calls_made": true
+  },
+  "findings": [
+    {
+      "id": "PT03-004-F01",
+      "journey": "autoapply",
+      "stage": "queue-panel-error-surfacing",
+      "severity": "P3",
+      "description": "src/app/(dashboard)/autoapply/page.tsx's 'QUEUE' mini-panel (~line 634) shows 'Queue is empty.' on any loadQueue() failure (queue.length===0), not just a genuine empty queue -- it never checks queueError, unlike the Session List table ~200 lines below on the same page, which does. Reproduced live this session via a real PGRST200 (embedded funders() join failed before this script's own local-schema FK fix, below) with a real authenticated session token.",
+      "evidence": "code read: src/app/(dashboard)/autoapply/page.tsx lines 632-635 vs 835-836; live repro this session (PGRST200, 'Could not find a relationship between submission_queue and funders'), fixed by this script's own applyLocalSchemaFixes() before any journey stage below depends on it."
+    }
+  ],
+  "fatal_error": null,
+  "summary": {
+    "donor_discovery_stages_total": 3,
+    "donor_discovery_stages_passed": 3,
+    "autoapply_stages_total": 4,
+    "autoapply_stages_passed": 4,
+    "total_findings": 1,
+    "halted_early": false
+  }
+}

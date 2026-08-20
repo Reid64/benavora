@@ -1,7 +1,52 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-03-002: core signup-to-deadline journey. 5/6 stages
-genuinely persist; 1 real P0 finding (WGR-129, draft generation silently loses the draft it just
-generated — HTTP 200 + real Claude content, zero `draft_versions` rows).
+## Last Updated: August 20, 2026 — audit PT-03-004: AutoApply + Donor Discovery journeys, both 7/7
+stages pass. Donor Discovery's real "Queue in AutoApply" routing genuinely feeds the real AutoApply
+queue, which is then driven queue→session→form-fill→SAFE-SIMULATED-submit with zero real external
+HTTP calls. 1 real P3 finding (the /autoapply QUEUE mini-panel silently shows "empty" on a fetch
+error instead of the real error).
+
+## SESSION — August 20, 2026 (audit PT-03-004: AutoApply + Donor Discovery journeys)
+
+**Focus:** two secondary end-to-end journeys, local/non-production only (reused PT-03-001's
+`.pt05-local-stack`): AutoApply (queue → session → form-fill → SAFE-SIMULATED submit, confirming the
+real `/autoapply` dashboard reflects each transition) and Donor Discovery (prospect → review →
+route-to-destination, confirming the destination — a real `funders` row + a real `submission_queue`
+row — actually exists and receives the routed prospect). Deliberately linked, not two disconnected
+fixtures: Donor Discovery's routing step creates the exact `submission_queue` row the AutoApply
+journey then continues from, verifying the real hand-off between the two features. Full detail in
+`STATE_OF_THE_BUILD.md`'s matching entry — summary here.
+
+**Result: both journeys pass fully, 7/7 stages, real before/after DB state and a real screenshot at
+every transition.** WGR-017's fix (the exact page Donor Discovery's "review" stage lands on,
+`/donor-discovery/prospects/[id]`) still holds — confirmed 1,804 real characters of content rendered,
+including both fields WGR-017 unblanked. The routed prospect's destination was independently
+re-queried (a real `funders` row + a real `submission_queue` row, correctly linked), not just trusted
+from the UI's optimistic state.
+
+**"Never a real external submission" is independently checkable, not just prose:** every simulated
+AutoApply stage records `external_http_calls_made: 0`; the journey records
+`no_external_http_calls_made: true`; `verify-pt03-003.mjs` hard-fails without both. The
+session/form-fill/submit stages mirror `worker/queue-processor.ts`'s real DB-write column shapes
+exactly (cited inline in the script) but never launch a browser or contact
+`https://httpbin.org/forms/post` (this repo's own established safe dummy target, referenced by
+string only).
+
+**One real, local-only schema gap found and fixed:** this local stack's `submission_queue` had no FK
+to `funders` (the real migration, `045_autoapply_tables.sql`, defines one) — the real `/autoapply`
+dashboard's embedded `funders()` join failed with a real `PGRST200`, reproduced live with a real
+session token before concluding it was a local-schema gap, not an app defect. Fixed verbatim from the
+real migration.
+
+**One real, low-severity finding, recorded not fixed (never blocked either journey):**
+`src/app/(dashboard)/autoapply/page.tsx`'s "QUEUE" mini-panel shows "Queue is empty." on any failed
+fetch, not just a genuine empty queue — unlike the Session List table ~200 lines below on the same
+page, which does show the real error for the identical failure. Reproduced live via the schema-gap
+`PGRST200` above.
+
+**Verification:** `node scripts/audit/pt03-004-autoapply-donor-journeys.mjs` — 7/7 stages pass.
+`node scripts/audit/verify-pt03-003.mjs` — all checks PASS.
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`.
 
 ## SESSION — August 20, 2026 (audit PT-03-002: core signup-to-deadline journey)
 
