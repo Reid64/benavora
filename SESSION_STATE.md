@@ -1,5 +1,32 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-14 COMPLETE: security review pack ready, 4 P0s (all SSRF/availability), register WGR-001 through WGR-120.
+## Last Updated: August 20, 2026 — audit PT-10: malformed-payload fuzz, 13 routes-return-500 + 1 middleware finding filed (WGR-121/122), register WGR-001 through WGR-122.
+
+## SESSION — August 20, 2026 (audit PT-10: malformed-payload fuzz)
+
+**Focus:** fuzz a representative set of 18 real API input surfaces (from PT-02's `api-routes.json`)
+with malformed payloads -- wrong types, missing required fields, oversized inputs,
+injection-shaped strings -- and assert each returns a clean 4xx with a useful error, never a 500 or
+a partial write. Behavior only; exploitability depth is PT-14's job (already done). Full detail in
+`STATE_OF_THE_BUILD.md`'s matching entry -- summary here.
+
+**Result:** 72 cases, local/branch only (throwaway org+users on a local Supabase stack + an isolated
+`next dev` on port 3299) -- 55 PASS, 1 ACCEPTED_NO_VALIDATION, **16 FINDING**. 13 real 500s across 8
+routes (`WGR-121`, P2) -- one of them (`PATCH /api/knowledge-base`) leaks a raw Postgres error
+string to the client. 3 more (`WGR-122`, P1) are `POST /api/notifications` 307-redirecting to
+`/login` on a valid CRON_SECRET bearer token before its own body validation runs -- the same
+middleware gap as `WGR-111`, now confirmed on a non-cookie auth mechanism. No partial-writes found
+on any 2xx case's follow-up read. Register now runs `WGR-001` through `WGR-122`.
+
+**Gate:** `node scripts/audit/verify-pt10-001.mjs` -- PASS. Cross-checks every case's route against
+`api-routes.json`, requires captured request+response and a recognized verdict on all 72 cases, and
+re-derives verdict/finding counts from `cases[]` to catch drift.
+
+**Next:** the 8 routes in `WGR-121` need real input validation (type/format coercion) before their
+DB layer, not just a wrapped 500; `PATCH /api/knowledge-base`'s raw-Postgres-error leak should be
+fixed first since it's also an information-disclosure issue. `WGR-122` needs the same middleware
+carve-out fix already recommended for `WGR-111`.
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14 COMPLETE: security, review pack ready)
 

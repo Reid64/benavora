@@ -1,6 +1,49 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-14 COMPLETE: security review pack ready. 4 P0s (all SSRF/availability), zero secrets leaked, zero exploitable XSS, one tenant-contained SQLi, RLS/anon 0/184 tables leak.**
+**Updated: August 20, 2026 — audit PT-10: malformed-payload fuzz. 13 routes-return-500 findings + 1 middleware/availability finding filed (WGR-121/122); no partial-writes found.**
+
+## SESSION — August 20, 2026 (audit PT-10: malformed-payload fuzz)
+
+Ran a malformed-payload fuzz across a representative set of 18 real API input surfaces (drawn from
+PT-02's `api-routes.json` working set), through the real, unmodified Next.js API layer against a
+disposable throwaway org+users on a local Supabase stack plus an isolated second `next dev`
+instance (port 3299, its own build output dir via `next.config.mjs`'s `PT_AUDIT_DIST_DIR` hook) --
+never production and never the shared dev server other work in this checkout may be using, per
+`test-evidence/pt-02/BRANCH_STRATEGY.md`. 72 cases total: `invalid_json`, `missing_required`,
+`wrong_type`, `oversized` (250,000-char strings), and `injection_shaped` (SQLi/XSS/path-traversal
+strings) variants applied per-route based on what that route's own `route.ts` source actually
+validates (every case's own `note` field cites the exact validation line read before the case was
+written). Any case whose route has a known target table also got a real service-role follow-up
+SELECT, comparing the stored value against what was sent, to catch silent truncation/corruption a
+bare status-code check would miss.
+
+**Result: 55 PASS, 1 ACCEPTED_NO_VALIDATION (matches the code read, not a finding), 16 FINDING.**
+Of the 16 findings, 13 are real HTTP 500s on malformed-but-plausible input across 8 distinct routes
+(`/api/drafts/queue`, `/api/email/templates`, `/api/financials/budgets`, `/api/outreach/templates`,
+`/api/autoapply/queue`, `/api/donor-discovery/requests`, `/api/compliance`,
+`PATCH /api/knowledge-base`, `/api/reports/board`) -- filed as **`WGR-121`** (P2). One of those 13
+(`PATCH /api/knowledge-base` with a non-numeric `annual_budget` string) is worse than a generic
+500: the response body is the raw, uncaught PostgreSQL error text
+(`"invalid input syntax for type numeric"`), leaking column-type/engine detail to the client
+instead of a wrapped error. The remaining 3 findings are `POST /api/notifications` (the one
+CRON_SECRET-bearer-gated route deliberately included, tested with a real bearer token instead of a
+cookie) redirecting 307 to `/login` before its own body validation runs -- the same root-cause
+middleware gap PT-14 already registered as `WGR-111`, now reproduced for the first time against a
+non-cookie (bearer) auth mechanism and its own route -- filed as **`WGR-122`** (P1). **No
+partial-writes or silent corruption found**: every case whose route accepted a malformed value with
+a 2xx (oversized/injection strings in fields the route deliberately doesn't format-check) round-
+tripped intact on the follow-up read.
+
+**Gate:** `node scripts/audit/verify-pt10-001.mjs` -- PASS. Cross-checks every case's route against
+PT-02's own `api-routes.json` (so a fabricated route can't silently pass), requires request+response
+capture and a recognized verdict on all 72 cases, requires at least 4 of the 6 case categories and
+10+ distinct routes covered, and re-derives `verdictCounts`/`findingCount` from `cases[]` itself to
+catch a hand-edited or partially-regenerated summary.
+
+**Scoped commit:** `test-evidence/`, `scripts/audit/`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`
+-- commit "audit PT-10: malformed-payload fuzz".
+
+---
 
 ## SESSION — August 20, 2026 (audit PT-14 COMPLETE: security, review pack ready)
 

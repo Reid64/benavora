@@ -1,0 +1,1965 @@
+{
+  "generatedAt": "2026-08-20T11:57:25.315Z",
+  "note": "PT-10-001. LOCAL/BRANCH ONLY. Malformed-payload fuzz against a representative set of 18 real API input surfaces (drawn from PT-02's api-routes.json), through the real, unmodified Next.js API layer against a disposable throwaway org+users on a local Supabase stack -- never production. Every case's own `note` cites the exact validation line in the route's real source read before writing the case. Behavior only (crash / partial-write), not exploitability depth -- see test-evidence/pt-14/ for that.",
+  "baseUrl": "http://localhost:3299",
+  "targetSupabaseUrl": "http://127.0.0.1:56321",
+  "testOrgId": "95cdd32f-922e-4612-bc3d-6314141594db",
+  "fixtures": {
+    "opportunityId": "dde83239-a7c4-4ca1-8c20-2229fb0cfab3",
+    "funderId": "055c6c94-2c39-40cc-8bd7-7161eff14d05"
+  },
+  "caseCount": 72,
+  "routeCount": 18,
+  "verdictCounts": {
+    "PASS": 55,
+    "FINDING": 16,
+    "ACCEPTED_NO_VALIDATION": 1
+  },
+  "findingCount": 16,
+  "cases": [
+    {
+      "id": "PT10-001",
+      "resource": "draft_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the try/catch around request.json() (route.ts line ~93-95): 'Invalid JSON body.'",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "bodyKind": "raw",
+        "bodySnippet": "{not valid json,,,"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Invalid JSON body.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-002",
+      "resource": "draft_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required opportunity_id",
+      "note": "targets isUuid(opportunityId) check (route.ts ~line 101): 'opportunity_id must be a valid UUID.'",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"opportunity_id must be a valid UUID.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-003",
+      "resource": "draft_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "opportunity_id sent as a number instead of a UUID string",
+      "note": "isUuid() requires a string -- a number must fail the same 400 as a missing value.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{\"opportunity_id\":12345}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"opportunity_id must be a valid UUID.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-004",
+      "resource": "draft_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "authRole": "writer"
+      },
+      "category": "oversized",
+      "description": "valid, real fixture opportunity_id + a 250,000-char template_type",
+      "note": "template_type has NO length/format check (route.ts: falls back to 'full_proposal' only if not a non-empty string, otherwise trimmed and inserted as-is) -- this deliberately reaches the real draft_queue insert with the real fixture opportunity, so a 2xx here is expected per the code read; the follow-up read confirms the stored value isn't silently truncated/corrupted.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{\"opportunity_id\":\"dde83239-a7c4-4ca1-8c20-2229fb0cfab3\",\"template_type\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...<truncated, total length 250076>"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to add to draft queue.\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-005",
+      "resource": "draft_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "valid fixture opportunity_id + SQLi-shaped template_type",
+      "note": "same target field as the oversized case above, injection-shaped string instead.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/drafts/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{\"opportunity_id\":\"dde83239-a7c4-4ca1-8c20-2229fb0cfab3\",\"template_type\":\"'; DROP TABLE organizations; --\"}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to add to draft queue.\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-006",
+      "resource": "applications",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~24-28).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "raw",
+        "bodySnippet": "{{{"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-007",
+      "resource": "applications",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required pending_review",
+      "note": "targets typeof pendingReview !== 'boolean' check (route.ts line ~33-39).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"pending_review (boolean) is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-008",
+      "resource": "applications",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "pending_review sent as the string 'true' instead of a boolean",
+      "note": "same typeof check -- a string must not pass a boolean-only gate.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "json",
+        "bodySnippet": "{\"pending_review\":\"true\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"pending_review (boolean) is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-009",
+      "resource": "applications",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "pending_review sent as the number 1 instead of a boolean",
+      "note": "same typeof check, numeric truthy value.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/applications/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "json",
+        "bodySnippet": "{\"pending_review\":1}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"pending_review (boolean) is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-010",
+      "resource": "contact_tasks",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/contacts/tasks/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~22-27).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/contacts/tasks/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "raw",
+        "bodySnippet": "not json at all"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-011",
+      "resource": "contact_tasks",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/contacts/tasks/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required status",
+      "note": "targets VALID_STATUS.includes(status) check (route.ts line ~30-32).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/contacts/tasks/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"status must be one of pending, completed, cancelled.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-012",
+      "resource": "contact_tasks",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/contacts/tasks/00000000-0000-4000-8000-000000000000",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "status sent as an enum-invalid string ('deleted', not in pending/completed/cancelled)",
+      "note": "status is a real string but not one of the 3 allowed enum values -- same 400 path.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/contacts/tasks/00000000-0000-4000-8000-000000000000",
+        "bodyKind": "json",
+        "bodySnippet": "{\"status\":\"deleted\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"status must be one of pending, completed, cancelled.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-013",
+      "resource": "email_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~46-48).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "bodyKind": "raw",
+        "bodySnippet": "[1,2,"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-014",
+      "resource": "email_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits name/subject/body",
+      "note": "targets the three sequential typeof-string-non-empty checks (route.ts line ~58-65).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"name is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-015",
+      "resource": "email_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "name sent as an array instead of a string",
+      "note": "typeof name !== 'string' check (route.ts line ~58).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":[\"not\",\"a\",\"string\"],\"subject\":\"s\",\"body\":\"b\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"name is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-016",
+      "resource": "email_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "authRole": "writer"
+      },
+      "category": "oversized",
+      "description": "valid name/subject + a 250,000-char body",
+      "note": "email_templates.body has no length check in the route -- inserted as-is if the string passes the non-empty check.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 oversized email template\",\"subject\":\"s\",\"body\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...<truncated, total length 250064>"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create template.\",\"code\":\"db_error\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-017",
+      "resource": "email_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "valid name/subject + XSS-shaped body",
+      "note": "same field as above, XSS-shaped string.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/email/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 injection email template\",\"subject\":\"s\",\"body\":\"<script>alert(document.cookie)</script>\"}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create template.\",\"code\":\"db_error\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-018",
+      "resource": "grant_budgets",
+      "route": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~55-57).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "bodyKind": "raw",
+        "bodySnippet": "{"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-019",
+      "resource": "grant_budgets",
+      "route": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "application_id sent as a number instead of a string/null",
+      "note": "the only real type-guard in this route: application_id must be undefined/null/string (route.ts line ~80-82).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "bodyKind": "json",
+        "bodySnippet": "{\"application_id\":42}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"application_id must be a string.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-020",
+      "resource": "grant_budgets",
+      "route": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "total_budget sent as a non-numeric string ('a lot of money')",
+      "note": "toNumberOrZero() silently coerces any non-finite value to 0 (route.ts helper, line ~14-18) -- no rejection by design; 2xx with total_budget stored as 0 is the expected, non-corrupting outcome.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "bodyKind": "json",
+        "bodySnippet": "{\"total_budget\":\"a lot of money\"}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create grant budget.\",\"code\":\"db_error\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-021",
+      "resource": "grant_budgets",
+      "route": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "period_start sent as an oversized/garbage non-date string",
+      "note": "period_start is only checked for typeof string + non-empty (route.ts line ~94), never date-format validated, then inserted raw into what is very likely a DATE column -- a strong candidate for an unhandled Postgres type error surfacing as the route's generic 500 'db_error' (line ~101).",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/financials/budgets",
+        "bodyKind": "json",
+        "bodySnippet": "{\"period_start\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...<truncated, total length 5019>"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create grant budget.\",\"code\":\"db_error\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-022",
+      "resource": "custom_api_connections",
+      "route": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "authRole": "admin"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~66-68).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "bodyKind": "raw",
+        "bodySnippet": "}}}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Invalid JSON body.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-023",
+      "resource": "custom_api_connections",
+      "route": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "authRole": "admin"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required name/base_url",
+      "note": "targets the sequential name/base_url typeof-non-empty checks (route.ts line ~80-85).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"name is required.\",\"code\":\"missing_field\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-024",
+      "resource": "custom_api_connections",
+      "route": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "authRole": "admin"
+      },
+      "category": "wrong_type",
+      "description": "field_mapping sent as an array instead of an object",
+      "note": "field_mapping's Array.isArray guard (route.ts line ~110-111) makes an array fall through to the empty-object default, which then fails the 'must include a mapping to name' check (line ~113-119) -- expected 400, but via a different code path than the field being outright rejected as wrong-typed.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 test connection\",\"base_url\":\"https://example.com\",\"field_mapping\":[\"not\",\"an\",\"object\"]}"
+      },
+      "response": {
+        "status": 403,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Could not verify the domain allowlist.\",\"code\":\"domain_not_allowlisted\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-025",
+      "resource": "custom_api_connections",
+      "route": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "authRole": "admin"
+      },
+      "category": "injection_shaped",
+      "description": "base_url sent as a SQLi/garbage string that is not a real URL",
+      "note": "assertDomainAllowed(base_url) (route.ts line ~87) is wrapped in try/catch, but any non-AllowlistBlockedError is mapped to a 500 'allowlist_check_failed' (line ~90-92) -- a malformed base_url that fails URL parsing inside that helper is a real client-input-error being reported as a server error, tested here directly.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/integrations/custom-api",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 malformed URL connection\",\"base_url\":\"'; DROP TABLE organizations; --\",\"field_mapping\":{\"opp_name\":\"name\"}}"
+      },
+      "response": {
+        "status": 403,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Invalid URL.\",\"code\":\"domain_not_allowlisted\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-026",
+      "resource": "logic_model",
+      "route": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~24-26).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "bodyKind": "raw",
+        "bodySnippet": "not { json"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-027",
+      "resource": "logic_model",
+      "route": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits category/program_description/organization_id",
+      "note": "targets the three sequential typeof-string-non-empty checks (route.ts line ~45-52).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"category is required.\",\"code\":\"missing_category\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-028",
+      "resource": "logic_model",
+      "route": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "category sent as an object instead of a string",
+      "note": "typeof category !== 'string' check (route.ts line ~45).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "bodyKind": "json",
+        "bodySnippet": "{\"category\":{\"nested\":true},\"program_description\":\"d\",\"organization_id\":\"x\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"category is required.\",\"code\":\"missing_category\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-029",
+      "resource": "logic_model",
+      "route": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "authRole": "writer"
+      },
+      "category": "oversized",
+      "description": "valid category, organization_id set to the real session org, 250,000-char program_description",
+      "note": "program_description has no length cap before being handed to the Claude prompt builder -- tests that a very large value doesn't crash the route itself (not the AI call's own behavior).",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/intelligence/logic-model",
+        "bodyKind": "json",
+        "bodySnippet": "{\"category\":\"PT10 test category\",\"program_description\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...<truncated, total length 250115>"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "bodySnippet": "{\"success\":true,\"logic_model\":{\"inputs\":[\"Dedicated program staff and organizational leadership\",\"Funding and financial resources allocated to program operations\",\"Partnerships with community organizations and stakeholders\",\"Physical facilities and program space\",\"Training materials and curriculum resources\"],\"activities\":[\"Conducting participant intake and needs assessment\",\"Delivering core program services and interventions to participants\",\"Facilitating workshops, training sessions, or group ...<truncated, total length 1537>"
+      },
+      "followUp": null,
+      "verdict": "ACCEPTED_NO_VALIDATION",
+      "verdictReason": "route accepted the malformed value (matches the code read -- no app-level check on this field)"
+    },
+    {
+      "id": "PT10-030",
+      "resource": "outreach_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~79-81).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "bodyKind": "raw",
+        "bodySnippet": "{\"a\":"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-031",
+      "resource": "outreach_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits name/channel/body",
+      "note": "targets isValidChannel(channel) + the name/body non-empty checks (route.ts line ~91-101).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"name is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-032",
+      "resource": "outreach_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "channel sent as a value not in the 4-item enum ('carrier_pigeon')",
+      "note": "isValidChannel() checks membership in [email,linkedin,phone_script,physical_mail] (route.ts line ~11-15).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 test template\",\"channel\":\"carrier_pigeon\",\"body\":\"b\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"channel must be one of: email, linkedin, phone_script, physical_mail.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-033",
+      "resource": "outreach_templates",
+      "route": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "valid name/channel + XSS-shaped body",
+      "note": "outreach_templates.body has no format check beyond non-empty -- inserted as-is.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/outreach/templates",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 injection template\",\"channel\":\"email\",\"body\":\"<script>alert(document.cookie)</script>\"}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create outreach template.\",\"code\":\"db_error\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-034",
+      "resource": "platform_config",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "authRole": "admin"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~55-57).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "bodyKind": "raw",
+        "bodySnippet": "{enabled: true"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-035",
+      "resource": "platform_config",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "authRole": "admin"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required enabled",
+      "note": "targets typeof body.enabled !== 'boolean' check (route.ts line ~60-66).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"enabled must be a boolean.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-036",
+      "resource": "platform_config",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "authRole": "admin"
+      },
+      "category": "non_object_body",
+      "description": "top-level body is a JSON array instead of an object",
+      "note": "the same check explicitly rejects Array.isArray(body) (route.ts line ~63).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "bodyKind": "json",
+        "bodySnippet": "[1,2,3]"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"enabled must be a boolean.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-037",
+      "resource": "platform_config",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "authRole": "admin"
+      },
+      "category": "wrong_type",
+      "description": "enabled sent as the string 'yes' instead of a boolean",
+      "note": "same typeof check, string instead of boolean.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/settings/agents/relationship-builder-v2",
+        "bodyKind": "json",
+        "bodySnippet": "{\"enabled\":\"yes\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"enabled must be a boolean.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-038",
+      "resource": "marketplace_listings",
+      "route": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~68-70).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "bodyKind": "raw",
+        "bodySnippet": "null,"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Invalid JSON body.\",\"code\":\"bad_request\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-039",
+      "resource": "marketplace_listings",
+      "route": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required title/category",
+      "note": "targets the title/category non-empty checks (route.ts line ~88-91).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"A title is required.\",\"code\":\"no_title\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-040",
+      "resource": "marketplace_listings",
+      "route": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "estimatedValue sent as a non-numeric string",
+      "note": "estimatedValue falls back to null unless it's a finite number (route.ts line ~95-97) -- 2xx with estimated_value stored as null is the expected, non-corrupting outcome, not a rejection.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "bodyKind": "json",
+        "bodySnippet": "{\"title\":\"PT10 listing\",\"category\":\"materials\",\"estimatedValue\":\"a lot\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"A valid category is required.\",\"code\":\"invalid_category\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-041",
+      "resource": "marketplace_listings",
+      "route": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "valid title/category + a garbage/injection-shaped expiresAt string",
+      "note": "expiresAt is only typeof-checked, never date-format validated (route.ts line ~110), then inserted raw as expires_at -- likely a timestamptz column, so a non-date string is a real crash-shaped input.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/marketplace/listings",
+        "bodyKind": "json",
+        "bodySnippet": "{\"title\":\"PT10 bad-date listing\",\"category\":\"materials\",\"expiresAt\":\"'; DROP TABLE organizations; --\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"A valid category is required.\",\"code\":\"invalid_category\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-042",
+      "resource": "submission_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~147-149).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "bodyKind": "raw",
+        "bodySnippet": "["
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Invalid JSON body.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-043",
+      "resource": "submission_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required funder_ids",
+      "note": "targets Array.isArray(funder_ids) && length>0 check (route.ts line ~161-165).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"funder_ids must be a non-empty array.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-044",
+      "resource": "submission_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "funder_ids sent as a non-array string instead of an array",
+      "note": "same Array.isArray check.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{\"funder_ids\":\"not-an-array\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"funder_ids must be a non-empty array.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-045",
+      "resource": "submission_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "funder_ids sent as an array of NUMBERS instead of UUID strings",
+      "note": "the route casts `ids = funder_ids as string[]` with NO per-element type check (route.ts line ~166) -- these numbers flow into a .in('funder_id', ids) query and, if any survive dedup, an insert with funder_id set to a number where the column is almost certainly uuid -- a strong crash-shaped case.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{\"funder_ids\":[111,222,333]}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to queue funders.\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-046",
+      "resource": "submission_queue",
+      "route": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "authRole": "writer"
+      },
+      "category": "oversized",
+      "description": "funder_ids sent as an array of 5,000 fake-but-UUID-shaped strings",
+      "note": "not literal garbage -- oversized in the 'unreasonably large collection' sense. The route's own per-tier BATCH_CAPS check (route.ts line ~168-176) should reject this with a clean 422 before any DB write is attempted; tests that a large-but-well-formed array doesn't instead hang or 500.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/autoapply/queue",
+        "bodyKind": "json",
+        "bodySnippet": "{\"funder_ids\":[\"00000000-0000-4000-8000-000000000000\",\"00000000-0000-4000-8000-000000000001\",\"00000000-0000-4000-8000-000000000002\",\"00000000-0000-4000-8000-000000000003\",\"00000000-0000-4000-8000-000000000004\",\"00000000-0000-4000-8000-000000000005\",\"00000000-0000-4000-8000-000000000006\",\"00000000-0000-4000-8000-000000000007\",\"00000000-0000-4000-8000-000000000008\",\"00000000-0000-4000-8000-000000000...<truncated, total length 195016>"
+      },
+      "response": {
+        "status": 422,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Your free plan allows up to 5 funders per batch (you selected 5000). Reduce the selection or upgrade your plan.\",\"code\":\"batch_cap_exceeded\",\"tier\":\"free\",\"cap\":5,\"requested\":5000}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-047",
+      "resource": "donor_discovery_requests",
+      "route": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~63-65).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "bodyKind": "raw",
+        "bodySnippet": "{\"name\""
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Invalid JSON body.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-048",
+      "resource": "donor_discovery_requests",
+      "route": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required name/taxonomy_ids/geography",
+      "note": "targets the sequential name/taxonomy_ids/geography checks (route.ts line ~70-89).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"name is required.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-049",
+      "resource": "donor_discovery_requests",
+      "route": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "taxonomy_ids sent as a single string instead of an array",
+      "note": "Array.isArray(taxonomy_ids) check (route.ts line ~74-77).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 request\",\"taxonomy_ids\":\"not-an-array\",\"geography\":{\"national\":true}}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"taxonomy_ids must be a non-empty array of taxonomy node ids.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-050",
+      "resource": "donor_discovery_requests",
+      "route": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "geography sent as an empty/malformed object matching none of the 3 valid shapes",
+      "note": "isValidGeography() (route.ts line ~46-54) requires one of {center,radius_mi}/{states}/{national:true}.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"PT10 request\",\"taxonomy_ids\":[\"t1\"],\"geography\":{\"bogus_key\":12345}}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"geography must be one of {center:{lat,lng}, radius_mi}, {states:[...]}, or {national:true}.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-051",
+      "resource": "donor_discovery_requests",
+      "route": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "valid taxonomy_ids/geography + SQLi-shaped name",
+      "note": "name has no format restriction beyond non-empty -- inserted as-is via a parameterized query.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/donor-discovery/requests",
+        "bodyKind": "json",
+        "bodySnippet": "{\"name\":\"'; DROP TABLE organizations; --\",\"taxonomy_ids\":[\"t1\"],\"geography\":{\"national\":true}}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create request.\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-052",
+      "resource": "compliance_requirements",
+      "route": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~168-170).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "bodyKind": "raw",
+        "bodySnippet": "{,}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-053",
+      "resource": "compliance_requirements",
+      "route": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits requirement_type/title/due_date",
+      "note": "targets the three sequential typeof-non-empty checks (route.ts line ~187-194).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"requirement_type is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-054",
+      "resource": "compliance_requirements",
+      "route": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "application_id sent as a boolean instead of a string",
+      "note": "application_id must be undefined/null/string (route.ts line ~196-198).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "bodyKind": "json",
+        "bodySnippet": "{\"requirement_type\":\"audit\",\"title\":\"PT10 requirement\",\"due_date\":\"2027-01-01\",\"application_id\":true}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"application_id must be a string.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-055",
+      "resource": "compliance_requirements",
+      "route": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "valid requirement_type/title + a garbage/oversized non-date due_date",
+      "note": "due_date is only checked for typeof string + non-empty (route.ts line ~193), never date-format validated, then inserted raw into what is very likely a DATE column -- same class of case as financials/budgets' period_start above, on a different route/table.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/compliance",
+        "bodyKind": "json",
+        "bodySnippet": "{\"requirement_type\":\"audit\",\"title\":\"PT10 bad-date requirement\",\"due_date\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...<truncated, total length 5078>"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Failed to create compliance requirement.\",\"code\":\"db_error\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-056",
+      "resource": "funder_relationship_events",
+      "route": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "request.json().catch(() => null) (route.ts line ~57) -- body becomes null, falls through to the event_type check below, not a hard parse-error 400, but still must not throw.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "bodyKind": "raw",
+        "bodySnippet": "{bad"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"event_type must be one of: award, application, response, outreach, meeting, rejection.\",\"code\":\"invalid_event_type\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-057",
+      "resource": "funder_relationship_events",
+      "route": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required event_type",
+      "note": "EVENT_TYPES.includes(eventType) check (route.ts line ~62-68).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"event_type must be one of: award, application, response, outreach, meeting, rejection.\",\"code\":\"invalid_event_type\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-058",
+      "resource": "funder_relationship_events",
+      "route": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "event_type sent as a value not in the real enum",
+      "note": "same EVENT_TYPES.includes() check, real string but not a member.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "bodyKind": "json",
+        "bodySnippet": "{\"event_type\":\"not_a_real_event_type\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"event_type must be one of: award, application, response, outreach, meeting, rejection.\",\"code\":\"invalid_event_type\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-059",
+      "resource": "funder_relationship_events",
+      "route": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "authRole": "writer"
+      },
+      "category": "oversized",
+      "description": "real fixture funder id, valid event_type, a 250,000-char notes field",
+      "note": "notes is only typeof-checked, no length cap (route.ts line ~59) -- reaches a real insert against the real fixture funder, so the follow-up read verifies the full oversized value round-trips intact.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/funders/055c6c94-2c39-40cc-8bd7-7161eff14d05/relationship",
+        "bodyKind": "json",
+        "bodySnippet": "{\"event_type\":\"call\",\"notes\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...<truncated, total length 250032>"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"event_type must be one of: award, application, response, outreach, meeting, rejection.\",\"code\":\"invalid_event_type\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-060",
+      "resource": "agent_configurations",
+      "route": {
+        "method": "POST",
+        "path": "/api/agents/registry/configure",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "targets the request.json() try/catch (route.ts line ~23-25).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/agents/registry/configure",
+        "bodyKind": "raw",
+        "bodySnippet": "}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Request body must be valid JSON.\",\"code\":\"invalid_body\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-061",
+      "resource": "agent_configurations",
+      "route": {
+        "method": "POST",
+        "path": "/api/agents/registry/configure",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required agent_id/enabled",
+      "note": "targets the agent_id/enabled typeof checks (route.ts line ~34-38).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/agents/registry/configure",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"agent_id is required.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-062",
+      "resource": "agent_configurations",
+      "route": {
+        "method": "POST",
+        "path": "/api/agents/registry/configure",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "config sent as an array instead of an object",
+      "note": "typeof config !== 'object' || Array.isArray(config) check (route.ts line ~40-42) -- fires before the agent_id existence lookup.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/agents/registry/configure",
+        "bodyKind": "json",
+        "bodySnippet": "{\"agent_id\":\"pt10-fake-agent\",\"enabled\":true,\"config\":[\"not\",\"an\",\"object\"]}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"config must be an object.\",\"code\":\"invalid_input\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-063",
+      "resource": "organizations",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "request.json().catch(() => null) then isPatchBody(null) fails (route.ts line ~232-238).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "bodyKind": "raw",
+        "bodySnippet": "{{"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Body must include a valid `section`.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-064",
+      "resource": "organizations",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "authRole": "writer"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits required section",
+      "note": "isPatchBody() requires section to be a real SECTION_KEYS member (route.ts line ~139-143).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Body must include a valid `section`.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-065",
+      "resource": "organizations",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "section sent as a number instead of a string",
+      "note": "same isPatchBody() check -- typeof section !== 'string' fails outright.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "bodyKind": "json",
+        "bodySnippet": "{\"section\":42}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Body must include a valid `section`.\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-066",
+      "resource": "organizations",
+      "route": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "valid section + orgFields.annual_budget sent as a non-numeric string",
+      "note": "body.orgFields is spread directly into the organizations.update() payload with NO per-field type check (route.ts line ~243-247) -- annual_budget is a real `number | null` column per src/types/database.ts, so a non-numeric string here is a strong candidate for an unhandled Postgres type-mismatch 500.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/knowledge-base",
+        "bodyKind": "json",
+        "bodySnippet": "{\"section\":\"financial_profile\",\"orgFields\":{\"annual_budget\":\"not a number\"}}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"invalid input syntax for type numeric: \\\"not a number\\\"\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-067",
+      "resource": "reports_board",
+      "route": {
+        "method": "POST",
+        "path": "/api/reports/board",
+        "authRole": "writer"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body",
+      "note": "request.json().catch(() => ({})) (route.ts line ~240) means a broken body silently becomes {} rather than a parse-error 400 -- tests that this still produces a clean, non-500 response via the date-range defaulting path, not that it rejects the broken JSON specifically.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/reports/board",
+        "bodyKind": "raw",
+        "bodySnippet": "{\"start_date\":"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Board report could not be generated. Please try again.\",\"code\":\"report_failed\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-068",
+      "resource": "reports_board",
+      "route": {
+        "method": "POST",
+        "path": "/api/reports/board",
+        "authRole": "writer"
+      },
+      "category": "wrong_type",
+      "description": "start_date/end_date sent as numbers instead of YYYY-MM-DD strings",
+      "note": "both fields fall back to computed defaults unless they are strings matching /^\\d{4}-\\d{2}-\\d{2}$/ (route.ts line ~250-257) -- no rejection by design, this confirms the fallback actually engages rather than passing the raw numbers further into the report query.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/reports/board",
+        "bodyKind": "json",
+        "bodySnippet": "{\"start_date\":20270101,\"end_date\":20270201}"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"Board report could not be generated. Please try again.\",\"code\":\"report_failed\"}"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "malformed input produced a 500"
+    },
+    {
+      "id": "PT10-069",
+      "resource": "reports_board",
+      "route": {
+        "method": "POST",
+        "path": "/api/reports/board",
+        "authRole": "writer"
+      },
+      "category": "injection_shaped",
+      "description": "start_date/end_date reversed (start after end) -- the one real validated case",
+      "note": "startDate > endDate explicit check (route.ts line ~259-262) -- the one genuine validation this route performs on these fields.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/reports/board",
+        "bodyKind": "json",
+        "bodySnippet": "{\"start_date\":\"2027-12-31\",\"end_date\":\"2027-01-01\"}"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "bodySnippet": "{\"error\":\"start_date must be before end_date.\",\"code\":\"invalid_range\"}"
+      },
+      "followUp": null,
+      "verdict": "PASS",
+      "verdictReason": "clean 4xx with a useful error message"
+    },
+    {
+      "id": "PT10-070",
+      "resource": "automation_notifications",
+      "route": {
+        "method": "POST",
+        "path": "/api/notifications",
+        "authRole": "cron"
+      },
+      "category": "invalid_json",
+      "description": "raw broken JSON text as the body, correct bearer token",
+      "note": "targets the request.json() try/catch (route.ts line ~133-137), reached only after the CRON_SECRET bearer check passes.",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/notifications",
+        "bodyKind": "raw",
+        "bodySnippet": "{bad json}"
+      },
+      "response": {
+        "status": 307,
+        "contentType": "",
+        "bodySnippet": "/login"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "unexpected redirect (307 -> /login) instead of a JSON validation response"
+    },
+    {
+      "id": "PT10-071",
+      "resource": "automation_notifications",
+      "route": {
+        "method": "POST",
+        "path": "/api/notifications",
+        "authRole": "cron"
+      },
+      "category": "missing_required",
+      "description": "empty body -- omits organization_id/event_type/title",
+      "note": "targets the falsy check on organization_id/event_type/title (route.ts line ~148-153).",
+      "expectedOutcome": "4xx",
+      "request": {
+        "method": "POST",
+        "path": "/api/notifications",
+        "bodyKind": "json",
+        "bodySnippet": "{}"
+      },
+      "response": {
+        "status": 307,
+        "contentType": "",
+        "bodySnippet": "/login"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "unexpected redirect (307 -> /login) instead of a JSON validation response"
+    },
+    {
+      "id": "PT10-072",
+      "resource": "automation_notifications",
+      "route": {
+        "method": "POST",
+        "path": "/api/notifications",
+        "authRole": "cron"
+      },
+      "category": "wrong_type",
+      "description": "organization_id sent as an object instead of a string (a truthy value, so the falsy-only check does not catch it)",
+      "note": "the required-field check is `if (!organization_id || !event_type || !title)` (route.ts line ~148) -- a truthy non-string object PASSES that check, then is inserted directly as organization_id (route.ts line ~159), which is almost certainly a uuid column -- a strong crash-shaped case that a naive falsy check alone would miss.",
+      "expectedOutcome": "either",
+      "request": {
+        "method": "POST",
+        "path": "/api/notifications",
+        "bodyKind": "json",
+        "bodySnippet": "{\"organization_id\":{\"not\":\"a string\"},\"event_type\":\"pt10_test\",\"title\":\"PT10 malformed org id\"}"
+      },
+      "response": {
+        "status": 307,
+        "contentType": "",
+        "bodySnippet": "/login"
+      },
+      "followUp": null,
+      "verdict": "FINDING",
+      "verdictReason": "unexpected redirect (307 -> /login) instead of a JSON validation response"
+    }
+  ]
+}
