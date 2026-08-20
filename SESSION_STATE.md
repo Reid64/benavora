@@ -1,9 +1,71 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-03-004: AutoApply + Donor Discovery journeys, both 7/7
-stages pass. Donor Discovery's real "Queue in AutoApply" routing genuinely feeds the real AutoApply
-queue, which is then driven queue→session→form-fill→SAFE-SIMULATED-submit with zero real external
-HTTP calls. 1 real P3 finding (the /autoapply QUEUE mini-panel silently shows "empty" on a fetch
-error instead of the real error).
+## Last Updated: August 20, 2026 — audit PT-03-005: kanban stage-transition enforcement + auth flows.
+All 12 documented pipeline stages driven for real across 3 application journeys; `getTransitionRule()`
+correctly rejects all 6 illegal stage-skip cases tested, but nothing downstream enforces it — a direct
+`executeTransition()` call, a raw DB write, and a "viewer"-role session all persisted illegal/
+unauthorized stage changes with zero rejection (3 findings: 2×P0 + 1×P1). Magic-link login and
+session-persistence-across-reload both pass for real; password reset fails on a real, root-caused bug
+(`ResetPasswordPageClient.tsx`'s `useEffect` has no idempotency guard, and `reactStrictMode: true`
+double-invokes `exchangeCodeForSession()` in `next dev`, so a genuinely valid reset link is shown as
+invalid) — 1×P0, confirmed dev-mode-specific, not verified against a production build.
+
+## SESSION — August 20, 2026 (audit PT-03-005: kanban stage-transition enforcement + auth flows)
+
+**Focus:** two concerns against the same reused local (non-production) Supabase stack every PT-03
+session has used. (1) Kanban: drive a real `applications` row through the documented 12-stage
+pipeline using the real, unmodified `getTransitionRule()`/`executeTransition()`/`canMoveToStage()`
+from `src/components/applications/pipeline.ts` (imported via `node --import tsx`, not reimplemented),
+and — the actual point of the task — test whether the transition rules are *enforced*, not just
+correctly computed. (2) Auth: password reset, magic-link login, session persistence across a reload,
+each exercised for real (genuine Mailpit-delivered emails, real form submissions, a real full-page
+reload through the app's middleware). Script: `scripts/audit/pt03-005-kanban-auth.mjs`. Verifier:
+`scripts/audit/verify-pt03-004.mjs` (per the task's literal naming; this project's PT-03 series
+already has real precedent for the verify-script and journey-script numbers diverging). Evidence:
+`test-evidence/pt-03/kanban-auth.json` + 5 screenshots. Full detail in `STATE_OF_THE_BUILD.md`'s
+matching entry — summary here.
+
+**Kanban result: the rule function is correct; nothing below the UI enforces it.**
+`getTransitionRule()` is a real, correct pure function (confirmed: 6/6 illegal stage-skip cases
+correctly rejected). But `executeTransition()` — the one function that actually writes
+`applications.stage` + a `pipeline_history` row — has zero validation of its own; it's only ever
+gated by `StageTransitionModal.tsx`'s pre-submit `canConfirm` check, the sole call site in the whole
+app. No API route exists for stage mutation; the `applications_org_isolation` RLS policy scopes by
+organization only, not by stage value; no CHECK constraint or trigger exists on
+`applications.stage`. **3 real bypass attempts, all 3 persisted with zero rejection:** (1) a direct
+`executeTransition()` call for an illegal `discovered → drafting` skip, bypassing the UI gate —
+persisted (**PT03-KA-F02, P0**); (2) a raw `applications.update({stage:"awarded"})` call, no
+`executeTransition()` involved at all, `discovered → awarded` — persisted (**PT03-KA-F03, P0**); (3)
+a "viewer"-role session's direct `executeTransition()` call for `ready_for_review → submitted`,
+which `canMoveToStage()` says only owner/admin may do — persisted (**PT03-KA-F01, P1**). All 12
+documented `PIPELINE_STAGES` values were reached across 3 real application journeys (including a
+legal backward move with a mandatory note, and both distinct "back to discovered" write paths —
+`denied → discovered` updates the same row, `renewal_opportunity → discovered` creates a genuinely
+new one).
+
+**Auth flows: 2 of 3 pass; password reset fails on a real, root-caused bug (PT03-KA-F04, P0).**
+Magic-link login and session-persistence-across-reload both pass for real (real Mailpit-delivered
+email / real `signInWithOtp()` → real cookie injection → real middleware-gated `/dashboard` render;
+real password login → real `page.reload()` → still authenticated, cookie still present, a second tab
+in the same context also lands authenticated). Password reset genuinely fails: a real, freshly-issued,
+never-reused recovery link is shown as "This link is no longer valid" even though the underlying PKCE
+exchange succeeds server-side (confirmed via a real `200` on `/auth/v1/token?grant_type=pkce`).
+Root-caused via temporary, reverted instrumentation (confirmed reverted via `git diff` — zero trace
+left): `ResetPasswordPageClient.tsx`'s `useEffect` calls `exchangeCodeForSession(code)` with no
+idempotency guard; this app's `reactStrictMode: true` double-invokes it in `next dev`, and the two
+invocations race for the single-use PKCE code_verifier — one wins (the real 200), the other fails
+with `AuthPKCECodeVerifierMissingError` and unconditionally sets `linkError = true`, with no check
+for whether a sibling invocation already succeeded. Confirmed deterministic across 3 diagnostic runs,
+including one with the route pre-warmed to rule out a first-compile/Fast-Refresh remount as an
+alternate cause. Explicitly not claimed as a production-build-verified defect (Strict Mode's
+double-invoke is dev-only; a production-build check was not run this session).
+
+**Real, harness-only fix, not an app bug:** the cleanup routine's own delete order (`profiles` before
+`audit_logs`) hit a real FK violation on a second run, because the session-persistence test's real
+password login triggers a genuine `audit_logs` write via the real dev server (Behavioral Contracts
+§24, working as designed) — fixed the delete order in the harness itself.
+
+**Gates:** no `tsc`/build/lint changes; no `src/` application code left modified (the one temporary
+diagnostic edit to `ResetPasswordPageClient.tsx` was reverted before this commit).
 
 ## SESSION — August 20, 2026 (audit PT-03-004: AutoApply + Donor Discovery journeys)
 

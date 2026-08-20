@@ -1,0 +1,2257 @@
+{
+  "generated_at": "2026-08-20T15:20:16.023Z",
+  "target": {
+    "host": "127.0.0.1",
+    "port": "56322",
+    "api_base": "http://127.0.0.1:56321",
+    "is_production": false,
+    "production_ref_for_comparison": "vbjplpquqxxfbpazyalt"
+  },
+  "kanban": {
+    "stage_count": 12,
+    "stages": [
+      "discovered",
+      "eligibility_review",
+      "qualified",
+      "drafting",
+      "awaiting_documents",
+      "ready_for_review",
+      "submitted",
+      "follow_up_due",
+      "awarded",
+      "denied",
+      "reporting_required",
+      "renewal_opportunity"
+    ],
+    "transition_matrix": [
+      {
+        "from": "discovered",
+        "to": "discovered",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "discovered",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "discovered",
+        "to": "qualified",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "drafting",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "awaiting_documents",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "ready_for_review",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "submitted",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "discovered",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "eligibility_review",
+        "to": "eligibility_review",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "eligibility_score_exists",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "eligibility_review",
+        "to": "drafting",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "awaiting_documents",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "ready_for_review",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "submitted",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "denied",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "eligibility_score_exists",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "eligibility_review",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "eligibility_review",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+      },
+      {
+        "from": "qualified",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "qualified",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "qualified",
+        "to": "qualified",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "qualified",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "qualified",
+        "to": "awaiting_documents",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "ready_for_review",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "submitted",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "qualified",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+      },
+      {
+        "from": "drafting",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "drafting",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "drafting",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "drafting",
+        "to": "drafting",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "drafting",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "draft_not_empty",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "drafting",
+        "to": "ready_for_review",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "drafting",
+        "to": "submitted",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "drafting",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "drafting",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "drafting",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "drafting",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "drafting",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Drafting” you can only advance to “Awaiting Documents”."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "awaiting_documents",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "documents_attached",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "submitted",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awaiting Documents” you can only advance to “Ready for Review”."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awaiting Documents” you can only advance to “Ready for Review”."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awaiting Documents” you can only advance to “Ready for Review”."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awaiting Documents” you can only advance to “Ready for Review”."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awaiting Documents” you can only advance to “Ready for Review”."
+      },
+      {
+        "from": "awaiting_documents",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awaiting Documents” you can only advance to “Ready for Review”."
+      },
+      {
+        "from": "ready_for_review",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "ready_for_review",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "ready_for_review",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "ready_for_review",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "ready_for_review",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "ready_for_review",
+        "to": "ready_for_review",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "ready_for_review",
+        "to": "submitted",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "compliance_check",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "ready_for_review",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Ready for Review” you can only advance to “Submitted”."
+      },
+      {
+        "from": "ready_for_review",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Ready for Review” you can only advance to “Submitted”."
+      },
+      {
+        "from": "ready_for_review",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Ready for Review” you can only advance to “Submitted”."
+      },
+      {
+        "from": "ready_for_review",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Ready for Review” you can only advance to “Submitted”."
+      },
+      {
+        "from": "ready_for_review",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Ready for Review” you can only advance to “Submitted”."
+      },
+      {
+        "from": "submitted",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "submitted",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "submitted",
+        "to": "follow_up_due",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "awarded",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "denied",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "submitted",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Submitted” you can only advance to “Follow-up Due”, “Awarded”, “Denied”."
+      },
+      {
+        "from": "submitted",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Submitted” you can only advance to “Follow-up Due”, “Awarded”, “Denied”."
+      },
+      {
+        "from": "follow_up_due",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "submitted",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "follow_up_due",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "follow_up_due",
+        "to": "awarded",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "denied",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "follow_up_due",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Follow-up Due” you can only advance to “Awarded”, “Denied”."
+      },
+      {
+        "from": "follow_up_due",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Follow-up Due” you can only advance to “Awarded”, “Denied”."
+      },
+      {
+        "from": "awarded",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "submitted",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "follow_up_due",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "awarded",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "awarded",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awarded” you can only advance to “Reporting Required”."
+      },
+      {
+        "from": "awarded",
+        "to": "reporting_required",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "awarded",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Awarded” you can only advance to “Reporting Required”."
+      },
+      {
+        "from": "denied",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "opportunity_recurring",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "submitted",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "follow_up_due",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "awarded",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "denied",
+        "to": "denied",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "denied",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Denied” you can only advance to “Discovered”."
+      },
+      {
+        "from": "denied",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "Applications can't skip stages. From “Denied” you can only advance to “Discovered”."
+      },
+      {
+        "from": "reporting_required",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "submitted",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "follow_up_due",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "awarded",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "denied",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "reporting_required",
+        "to": "reporting_required",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      },
+      {
+        "from": "reporting_required",
+        "to": "renewal_opportunity",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "report_submitted",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "discovered",
+        "allowed": true,
+        "direction": "forward",
+        "condition": "creates_new_application",
+        "requires_note": false,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "eligibility_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "qualified",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "drafting",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "awaiting_documents",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "ready_for_review",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "submitted",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "follow_up_due",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "awarded",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "denied",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "reporting_required",
+        "allowed": true,
+        "direction": "backward",
+        "condition": "none",
+        "requires_note": true,
+        "reason": null
+      },
+      {
+        "from": "renewal_opportunity",
+        "to": "renewal_opportunity",
+        "allowed": false,
+        "direction": "forward",
+        "condition": "none",
+        "requires_note": false,
+        "reason": "The application is already in this stage."
+      }
+    ],
+    "journeys": [
+      {
+        "label": "A: full happy-path arc + legal backward move + renewal cycle",
+        "application_id": "f41e1646-a76a-48c7-af23-dfe963d16f29",
+        "steps": [
+          {
+            "label": "discover -> eligibility review",
+            "from_stage": "discovered",
+            "to_stage": "eligibility_review",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "eligibility_review",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "discovered",
+              "to_stage": "eligibility_review",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:39.776Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved discovered -> eligibility_review, pipeline_history recorded to_stage=\"eligibility_review\"."
+            }
+          },
+          {
+            "label": "eligibility review -> qualified (score now exists)",
+            "from_stage": "eligibility_review",
+            "to_stage": "qualified",
+            "condition": "eligibility_score_exists",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "qualified",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "eligibility_review",
+              "to_stage": "qualified",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:39.838Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved eligibility_review -> qualified, pipeline_history recorded to_stage=\"qualified\"."
+            }
+          },
+          {
+            "label": "BACKWARD: qualified -> eligibility review (note supplied)",
+            "from_stage": "qualified",
+            "to_stage": "eligibility_review",
+            "condition": "none",
+            "requires_note": true,
+            "note": "Reopening for a second eligibility pass before drafting.",
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "eligibility_review",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "qualified",
+              "to_stage": "eligibility_review",
+              "notes": "Reopening for a second eligibility pass before drafting.",
+              "created_at": "2026-08-20T15:19:39.890Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved qualified -> eligibility_review, pipeline_history recorded to_stage=\"eligibility_review\"."
+            }
+          },
+          {
+            "label": "eligibility review -> qualified (re-forward)",
+            "from_stage": "eligibility_review",
+            "to_stage": "qualified",
+            "condition": "eligibility_score_exists",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "qualified",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "eligibility_review",
+              "to_stage": "qualified",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:39.947Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved eligibility_review -> qualified, pipeline_history recorded to_stage=\"qualified\"."
+            }
+          },
+          {
+            "label": "qualified -> drafting",
+            "from_stage": "qualified",
+            "to_stage": "drafting",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "drafting",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "qualified",
+              "to_stage": "drafting",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.001Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved qualified -> drafting, pipeline_history recorded to_stage=\"drafting\"."
+            }
+          },
+          {
+            "label": "drafting -> awaiting documents (draft now non-empty)",
+            "from_stage": "drafting",
+            "to_stage": "awaiting_documents",
+            "condition": "draft_not_empty",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "awaiting_documents",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "drafting",
+              "to_stage": "awaiting_documents",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.026Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved drafting -> awaiting_documents, pipeline_history recorded to_stage=\"awaiting_documents\"."
+            }
+          },
+          {
+            "label": "awaiting documents -> ready for review (0 required documents)",
+            "from_stage": "awaiting_documents",
+            "to_stage": "ready_for_review",
+            "condition": "documents_attached",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "ready_for_review",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "awaiting_documents",
+              "to_stage": "ready_for_review",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.044Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved awaiting_documents -> ready_for_review, pipeline_history recorded to_stage=\"ready_for_review\"."
+            }
+          },
+          {
+            "label": "ready for review -> submitted (manual compliance confirm)",
+            "from_stage": "ready_for_review",
+            "to_stage": "submitted",
+            "condition": "compliance_check",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "submitted",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "ready_for_review",
+              "to_stage": "submitted",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.062Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved ready_for_review -> submitted, pipeline_history recorded to_stage=\"submitted\"."
+            }
+          },
+          {
+            "label": "submitted -> awarded",
+            "from_stage": "submitted",
+            "to_stage": "awarded",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "awarded",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "submitted",
+              "to_stage": "awarded",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.077Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved submitted -> awarded, pipeline_history recorded to_stage=\"awarded\"."
+            }
+          },
+          {
+            "label": "awarded -> reporting required",
+            "from_stage": "awarded",
+            "to_stage": "reporting_required",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "reporting_required",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "awarded",
+              "to_stage": "reporting_required",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.093Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved awarded -> reporting_required, pipeline_history recorded to_stage=\"reporting_required\"."
+            }
+          },
+          {
+            "label": "reporting required -> renewal opportunity (manual report confirm)",
+            "from_stage": "reporting_required",
+            "to_stage": "renewal_opportunity",
+            "condition": "report_submitted",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "renewal_opportunity",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "reporting_required",
+              "to_stage": "renewal_opportunity",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.110Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved reporting_required -> renewal_opportunity, pipeline_history recorded to_stage=\"renewal_opportunity\"."
+            }
+          },
+          {
+            "label": "renewal opportunity -> discovered (NEW application created for next cycle)",
+            "from_stage": "renewal_opportunity",
+            "to_stage": "discovered",
+            "condition": "creates_new_application",
+            "requires_note": false,
+            "note": "Starting the next funding cycle.",
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "renewal_opportunity",
+            "new_application_id": "637d527b-a596-4ab6-9446-27a0cd8cf03c",
+            "new_application_stage": "discovered",
+            "pipeline_history": {
+              "from_stage": "reporting_required",
+              "to_stage": "renewal_opportunity",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.110Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition (creates_new_application): original application stays at \"renewal_opportunity\" (unchanged), a NEW application was created in \"discovered\"."
+            }
+          }
+        ],
+        "new_cycle_application_id": "637d527b-a596-4ab6-9446-27a0cd8cf03c"
+      },
+      {
+        "label": "B: denial + recurring-opportunity reapply (same row, not a new one)",
+        "application_id": "5ab03692-f674-42d5-9f43-5da725141931",
+        "steps": [
+          {
+            "label": "discover -> eligibility review",
+            "from_stage": "discovered",
+            "to_stage": "eligibility_review",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "eligibility_review",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "discovered",
+              "to_stage": "eligibility_review",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.152Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved discovered -> eligibility_review, pipeline_history recorded to_stage=\"eligibility_review\"."
+            }
+          },
+          {
+            "label": "eligibility review -> denied (score exists, alternate edge)",
+            "from_stage": "eligibility_review",
+            "to_stage": "denied",
+            "condition": "eligibility_score_exists",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "denied",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "eligibility_review",
+              "to_stage": "denied",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.167Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved eligibility_review -> denied, pipeline_history recorded to_stage=\"denied\"."
+            }
+          },
+          {
+            "label": "denied -> discovered (reapply: SAME row, opportunity recurs annually)",
+            "from_stage": "denied",
+            "to_stage": "discovered",
+            "condition": "opportunity_recurring",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "discovered",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "denied",
+              "to_stage": "discovered",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.180Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved denied -> discovered, pipeline_history recorded to_stage=\"discovered\"."
+            }
+          }
+        ]
+      },
+      {
+        "label": "C: follow-up path + embedded role-gate bypass test",
+        "application_id": "3ae4666e-d42d-4da8-81da-d4f00509e6a1",
+        "steps": [
+          {
+            "label": "discover -> eligibility review",
+            "from_stage": "discovered",
+            "to_stage": "eligibility_review",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "eligibility_review",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "discovered",
+              "to_stage": "eligibility_review",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.195Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved discovered -> eligibility_review, pipeline_history recorded to_stage=\"eligibility_review\"."
+            }
+          },
+          {
+            "label": "eligibility review -> qualified",
+            "from_stage": "eligibility_review",
+            "to_stage": "qualified",
+            "condition": "eligibility_score_exists",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "qualified",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "eligibility_review",
+              "to_stage": "qualified",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.211Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved eligibility_review -> qualified, pipeline_history recorded to_stage=\"qualified\"."
+            }
+          },
+          {
+            "label": "qualified -> drafting",
+            "from_stage": "qualified",
+            "to_stage": "drafting",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "drafting",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "qualified",
+              "to_stage": "drafting",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.226Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved qualified -> drafting, pipeline_history recorded to_stage=\"drafting\"."
+            }
+          },
+          {
+            "label": "drafting -> awaiting documents",
+            "from_stage": "drafting",
+            "to_stage": "awaiting_documents",
+            "condition": "draft_not_empty",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "awaiting_documents",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "drafting",
+              "to_stage": "awaiting_documents",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.240Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved drafting -> awaiting_documents, pipeline_history recorded to_stage=\"awaiting_documents\"."
+            }
+          },
+          {
+            "label": "awaiting documents -> ready for review",
+            "from_stage": "awaiting_documents",
+            "to_stage": "ready_for_review",
+            "condition": "documents_attached",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "ready_for_review",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "awaiting_documents",
+              "to_stage": "ready_for_review",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.255Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved awaiting_documents -> ready_for_review, pipeline_history recorded to_stage=\"ready_for_review\"."
+            }
+          },
+          {
+            "label": "role-gate bypass: viewer-role session executes ready_for_review -> submitted (owner/admin-only per canMoveToStage)",
+            "application_id": "3ae4666e-d42d-4da8-81da-d4f00509e6a1",
+            "canMoveToStage_viewer": false,
+            "canMoveToStage_owner": true,
+            "viewer_attempted_write": true,
+            "viewer_write_threw": false,
+            "viewer_error": null,
+            "stage_before": "ready_for_review",
+            "stage_after": "submitted",
+            "outcome": "PERSISTED_DESPITE_ROLE_RULE",
+            "finding_id": "PT03-KA-F01",
+            "assertion": {
+              "pass": true,
+              "description": "Role-gate bypass attempt recorded with a real outcome: PERSISTED_DESPITE_ROLE_RULE."
+            }
+          },
+          {
+            "label": "submitted -> follow-up due",
+            "from_stage": "submitted",
+            "to_stage": "follow_up_due",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "follow_up_due",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "submitted",
+              "to_stage": "follow_up_due",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.316Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved submitted -> follow_up_due, pipeline_history recorded to_stage=\"follow_up_due\"."
+            }
+          },
+          {
+            "label": "follow-up due -> denied",
+            "from_stage": "follow_up_due",
+            "to_stage": "denied",
+            "condition": "none",
+            "requires_note": false,
+            "note": null,
+            "rule_allowed": true,
+            "executed": true,
+            "error": null,
+            "stage_after": "denied",
+            "new_application_id": null,
+            "new_application_stage": null,
+            "pipeline_history": {
+              "from_stage": "follow_up_due",
+              "to_stage": "denied",
+              "notes": null,
+              "created_at": "2026-08-20T15:19:40.328Z"
+            },
+            "assertion": {
+              "pass": true,
+              "description": "Legal transition persisted: stage moved follow_up_due -> denied, pipeline_history recorded to_stage=\"denied\"."
+            }
+          }
+        ]
+      }
+    ],
+    "stages_visited": [
+      "awaiting_documents",
+      "awarded",
+      "denied",
+      "discovered",
+      "drafting",
+      "eligibility_review",
+      "follow_up_due",
+      "qualified",
+      "ready_for_review",
+      "renewal_opportunity",
+      "reporting_required",
+      "submitted"
+    ],
+    "illegal_transition_rule_tests": [
+      {
+        "from": "discovered",
+        "to": "drafting",
+        "rule": {
+          "allowed": false,
+          "direction": "forward",
+          "condition": "none",
+          "requires_note": false,
+          "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+        },
+        "assertion": {
+          "pass": true,
+          "description": "getTransitionRule correctly reports this stage-skip as disallowed."
+        }
+      },
+      {
+        "from": "discovered",
+        "to": "awarded",
+        "rule": {
+          "allowed": false,
+          "direction": "forward",
+          "condition": "none",
+          "requires_note": false,
+          "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+        },
+        "assertion": {
+          "pass": true,
+          "description": "getTransitionRule correctly reports this stage-skip as disallowed."
+        }
+      },
+      {
+        "from": "discovered",
+        "to": "discovered",
+        "rule": {
+          "allowed": false,
+          "direction": "forward",
+          "condition": "none",
+          "requires_note": false,
+          "reason": "The application is already in this stage."
+        },
+        "assertion": {
+          "pass": true,
+          "description": "getTransitionRule correctly reports this stage-skip as disallowed."
+        }
+      },
+      {
+        "from": "eligibility_review",
+        "to": "submitted",
+        "rule": {
+          "allowed": false,
+          "direction": "forward",
+          "condition": "none",
+          "requires_note": false,
+          "reason": "Applications can't skip stages. From “Eligibility Review” you can only advance to “Qualified”, “Denied”."
+        },
+        "assertion": {
+          "pass": true,
+          "description": "getTransitionRule correctly reports this stage-skip as disallowed."
+        }
+      },
+      {
+        "from": "qualified",
+        "to": "submitted",
+        "rule": {
+          "allowed": false,
+          "direction": "forward",
+          "condition": "none",
+          "requires_note": false,
+          "reason": "Applications can't skip stages. From “Qualified” you can only advance to “Drafting”."
+        },
+        "assertion": {
+          "pass": true,
+          "description": "getTransitionRule correctly reports this stage-skip as disallowed."
+        }
+      },
+      {
+        "from": "denied",
+        "to": "renewal_opportunity",
+        "rule": {
+          "allowed": false,
+          "direction": "forward",
+          "condition": "none",
+          "requires_note": false,
+          "reason": "Applications can't skip stages. From “Denied” you can only advance to “Discovered”."
+        },
+        "assertion": {
+          "pass": true,
+          "description": "getTransitionRule correctly reports this stage-skip as disallowed."
+        }
+      }
+    ],
+    "enforcement_gap_tests": [
+      {
+        "id": "executeTransition_direct_bypass",
+        "label": "direct executeTransition() call with an illegal stage-skip target, bypassing StageTransitionModal's UI-layer canConfirm gate (the only call site that checks getTransitionRule() before invoking executeTransition)",
+        "application_id": "24b7e15f-3a0a-4d26-80b0-bedfff6725b5",
+        "from": "discovered",
+        "to": "drafting",
+        "ui_rule": {
+          "allowed": false,
+          "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+        },
+        "write_threw": false,
+        "write_error": null,
+        "stage_after": "drafting",
+        "outcome": "PERSISTED",
+        "finding_id": "PT03-KA-F02"
+      },
+      {
+        "id": "raw_update_bypass",
+        "label": "raw supabase.from(\"applications\").update({stage}) call, entirely outside executeTransition() -- tests whether RLS or a DB constraint provides any backstop",
+        "application_id": "16705441-eee5-46a2-b056-3c65eb94b95e",
+        "from": "discovered",
+        "to": "awarded",
+        "ui_rule": {
+          "allowed": false,
+          "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+        },
+        "supabase_error": null,
+        "stage_after": "awarded",
+        "outcome": "PERSISTED",
+        "finding_id": "PT03-KA-F03"
+      },
+      {
+        "id": "role_gate_bypass",
+        "label": "role-gate bypass: viewer-role session executes ready_for_review -> submitted (owner/admin-only per canMoveToStage)",
+        "application_id": "3ae4666e-d42d-4da8-81da-d4f00509e6a1",
+        "canMoveToStage_viewer": false,
+        "canMoveToStage_owner": true,
+        "viewer_attempted_write": true,
+        "viewer_write_threw": false,
+        "viewer_error": null,
+        "stage_before": "ready_for_review",
+        "stage_after": "submitted",
+        "outcome": "PERSISTED_DESPITE_ROLE_RULE",
+        "finding_id": "PT03-KA-F01"
+      }
+    ]
+  },
+  "auth_flows": {
+    "password_reset": {
+      "steps": [
+        {
+          "step": "submit /forgot-password form",
+          "email": "pt03-kanban-auth-owner@benavora-pt03-test.local",
+          "ui_confirmed_sent": true,
+          "screenshot": "test-evidence/pt-03/screenshots/auth-01-forgot-password-sent.png"
+        },
+        {
+          "step": "real recovery email delivered via Mailpit",
+          "subject": "Reset Your Password",
+          "subject_confirms_reset": true
+        },
+        {
+          "step": "followed real /auth/v1/verify link",
+          "flow": "pkce",
+          "redirect_status": 303,
+          "detail": "Real browser client (ForgotPasswordPageClient.tsx's createClient(), @supabase/ssr default) used PKCE -- redirect carried a real one-time ?code=, exchanged by the SAME Playwright page/context that originally requested the reset (so its code_verifier cookie is present), via ResetPasswordPageClient.tsx's own exchangeCodeForSession(code) call -- not simulated here."
+        },
+        {
+          "step": "landed on real /reset-password page with real recovery credentials",
+          "heading": "This link is no longer valid",
+          "link_error_shown": true,
+          "cookie_names_before_submit": [],
+          "cookie_names_at_exchange": [
+            "sb-127-auth-token"
+          ],
+          "console_errors": [
+            "[warning] Image with src \"/benavora_logo.png\" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: \"auto\"' or 'height: \"auto\"' to maintain the aspect ratio.",
+            "[warning] Image with src \"/benavora_logo.png\" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: \"auto\"' or 'height: \"auto\"' to maintain the aspect ratio."
+          ]
+        },
+        {
+          "step": "password form was not reachable -- the page rendered the link-invalid error block instead (see the finding above), so no new password could be submitted through the UI",
+          "new_password_form_submitted": false,
+          "screenshot": "test-evidence/pt-03/screenshots/auth-02-reset-password-complete.png"
+        },
+        {
+          "step": "independent live re-verification against GoTrue (not the UI)",
+          "old_password_accepted": true,
+          "old_password_error": null,
+          "new_password_accepted": false,
+          "expected_given_ui_outcome": "old still accepted, new rejected (password was never actually changed, since the UI never let the form submit)",
+          "matches_expectation": true
+        }
+      ],
+      "outcome": "FAIL"
+    },
+    "magic_link_login": {
+      "steps": [
+        {
+          "step": "scope note",
+          "detail": "/login has no magic-link UI trigger (password-only form, confirmed by reading LoginPageClient.tsx before writing this test) and no in-app page auto-consumes a bare magic-link hash redirect the way /reset-password does for recovery tokens (confirmed by reading every page for a mount-time createClient()+detectSessionInUrl call; only ResetPasswordPageClient.tsx has one). This test exercises the real, underlying Supabase Auth capability end to end via the same self-service signInWithOtp() an in-app trigger would call, and confirms the resulting session is accepted by the app's real middleware-gated pages once its cookies are present in the browser -- the mechanism this app WOULD use if a magic-link UI entry point existed."
+        },
+        {
+          "step": "real self-service signInWithOtp() call",
+          "email": "pt03-kanban-auth-owner@benavora-pt03-test.local",
+          "error": null
+        },
+        {
+          "step": "real magic-link email delivered via Mailpit",
+          "subject": "Your Magic Link",
+          "subject_confirms_magic_link": true
+        },
+        {
+          "step": "followed real /auth/v1/verify link, extracted hash tokens",
+          "type": "magiclink",
+          "redirect_status": 303,
+          "tokens_present": true,
+          "type_is_magiclink": true
+        },
+        {
+          "step": "independent GET /auth/v1/user with the issued token",
+          "status": 200,
+          "id_matches": true,
+          "email_matches": true
+        },
+        {
+          "step": "built real @supabase/ssr session cookie(s) from the magic-link tokens",
+          "cookie_names": [
+            "sb-127-auth-token"
+          ]
+        },
+        {
+          "step": "navigated a real Playwright browser context (cookies injected, no credentials re-entered) to /dashboard",
+          "url_after": "http://localhost:3305/dashboard",
+          "landed_on_dashboard": true,
+          "redirected_to_login": false,
+          "screenshot": "test-evidence/pt-03/screenshots/auth-03-magic-link-dashboard.png"
+        }
+      ],
+      "outcome": "PASS"
+    },
+    "session_persistence_reload": {
+      "steps": [
+        {
+          "step": "real password sign-in via the actual /login form",
+          "password_used": "original (password-reset flow above did not actually change it -- see its own finding)",
+          "url_after_login": "http://localhost:3305/dashboard",
+          "landed_on_dashboard": true,
+          "cookie_names_before_reload": [
+            "sb-127-auth-token"
+          ],
+          "screenshot": "test-evidence/pt-03/screenshots/auth-04-password-login-dashboard.png"
+        },
+        {
+          "step": "page.reload() -- a genuine new HTTP request through the app's middleware, not a client-side soft nav",
+          "url_after_reload": "http://localhost:3305/dashboard",
+          "still_on_dashboard": true,
+          "bounced_to_login": false,
+          "cookie_names_after_reload": [
+            "sb-127-auth-token"
+          ],
+          "auth_cookie_still_present": true,
+          "screenshot": "test-evidence/pt-03/screenshots/auth-05-after-reload.png"
+        },
+        {
+          "step": "second page in the same browser context (same cookie jar) also lands on /dashboard with no re-authentication",
+          "second_tab_landed_on_dashboard": true
+        }
+      ],
+      "outcome": "PASS"
+    }
+  },
+  "findings": [
+    {
+      "id": "PT03-KA-F01",
+      "area": "kanban",
+      "severity": "P1",
+      "description": "canMoveToStage() says only owner/admin may move an application to \"submitted\", but a \"viewer\"-role session's direct executeTransition() call persisted the exact same transition. The role gate is enforced only in StageTransitionModal.tsx's client-side canConfirm check -- executeTransition() itself, and the database (RLS \"applications_org_isolation\" scopes rows by organization only, not by role or target stage value), apply no equivalent check.",
+      "evidence": {
+        "label": "role-gate bypass: viewer-role session executes ready_for_review -> submitted (owner/admin-only per canMoveToStage)",
+        "application_id": "3ae4666e-d42d-4da8-81da-d4f00509e6a1",
+        "canMoveToStage_viewer": false,
+        "canMoveToStage_owner": true,
+        "viewer_attempted_write": true,
+        "viewer_write_threw": false,
+        "viewer_error": null,
+        "stage_before": "ready_for_review",
+        "stage_after": "submitted",
+        "outcome": "PERSISTED_DESPITE_ROLE_RULE",
+        "finding_id": "PT03-KA-F01"
+      }
+    },
+    {
+      "id": "PT03-KA-F02",
+      "area": "kanban",
+      "severity": "P0",
+      "description": "getTransitionRule(discovered, drafting) correctly reports this stage-skip as illegal (allowed=false), but executeTransition() itself performs no such check -- calling it directly (as any caller other than StageTransitionModal.tsx would have to, since it is the pipeline's own exported, reusable function) silently persisted the illegal skip: applications.stage was written to \"drafting\" and a pipeline_history row was created recording from_stage=\"discovered\", to_stage=\"drafting\" as if it were a normal transition. The transition graph is enforced ONLY inside one React component's pre-submit check, nowhere in the reusable executor, an API route (none exists for stage mutation), or the database (no CHECK constraint or trigger on applications.stage transitions; pipeline_stage is a plain enum with no transition awareness).",
+      "evidence": {
+        "id": "executeTransition_direct_bypass",
+        "label": "direct executeTransition() call with an illegal stage-skip target, bypassing StageTransitionModal's UI-layer canConfirm gate (the only call site that checks getTransitionRule() before invoking executeTransition)",
+        "application_id": "24b7e15f-3a0a-4d26-80b0-bedfff6725b5",
+        "from": "discovered",
+        "to": "drafting",
+        "ui_rule": {
+          "allowed": false,
+          "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+        },
+        "write_threw": false,
+        "write_error": null,
+        "stage_after": "drafting",
+        "outcome": "PERSISTED",
+        "finding_id": "PT03-KA-F02"
+      }
+    },
+    {
+      "id": "PT03-KA-F03",
+      "area": "kanban",
+      "severity": "P0",
+      "description": "A raw applications.update({stage:\"awarded\"}) call -- with no call to executeTransition() at all -- against a \"discovered\"-stage row, from a real authenticated session that is a member of the row's own organization, persisted with no error. The applications_org_isolation RLS policy (migration 001) scopes rows by organization_id only; it places no constraint on what value \"stage\" may be set to or on which prior stage value a given target is reachable from. There is no CHECK constraint, trigger, or any other database-level mechanism enforcing BEHAVIORAL_CONTRACTS Sec6's transition graph. Any authenticated writer-or-above session (or a bug in a future UI surface) can set any application straight to \"awarded\" from \"discovered\" with a single REST call.",
+      "evidence": {
+        "id": "raw_update_bypass",
+        "label": "raw supabase.from(\"applications\").update({stage}) call, entirely outside executeTransition() -- tests whether RLS or a DB constraint provides any backstop",
+        "application_id": "16705441-eee5-46a2-b056-3c65eb94b95e",
+        "from": "discovered",
+        "to": "awarded",
+        "ui_rule": {
+          "allowed": false,
+          "reason": "Applications can't skip stages. From “Discovered” you can only advance to “Eligibility Review”."
+        },
+        "supabase_error": null,
+        "stage_after": "awarded",
+        "outcome": "PERSISTED",
+        "finding_id": "PT03-KA-F03"
+      }
+    },
+    {
+      "id": "PT03-KA-F04",
+      "area": "auth",
+      "severity": "P0",
+      "description": "A real, freshly-issued recovery link (not expired, not reused) was rejected by /reset-password as invalid, even though the underlying PKCE code exchange genuinely succeeds server-side. Root-caused by direct instrumentation of ResetPasswordPageClient.tsx (added temporarily, then reverted -- confirmed via \"git diff\" this repo carries no trace of it): its mount useEffect calls supabase.auth.exchangeCodeForSession(code) with no idempotency guard (no ref/flag preventing a repeat call, no AbortController, no cleanup). Because this app has reactStrictMode: true (next.config.mjs), React 18/19 Strict Mode double-invokes every effect on every mount in \"next dev\" -- exactly the \"local/branch\" execution context this task audits. The two invocations race for the single-use PKCE code_verifier stored in the \"sb-127-auth-token-code-verifier\" cookie: a real network response (200, confirmed via response capture) shows the exchange DOES succeed and a real session is briefly established, but the losing invocation's own exchangeCodeForSession call then fails with AuthPKCECodeVerifierMissingError (the verifier was already consumed) and calls setLinkError(true) unconditionally, with no check for whether a sibling invocation already succeeded -- so the user is shown \"This link is no longer valid\" for a link that, in fact, was completely valid and was actually exchanged successfully. This reproduces deterministically (confirmed across three separate diagnostic runs, with the target route pre-warmed to rule out a Next.js dev-server first-compile/Fast-Refresh remount as the cause). Not independently verified against a production build (\"next build && next start\", where Strict Mode's double-invoke does not occur) in this session -- stated as a real, current \"next dev\" defect, not asserted as a confirmed production-impacting one.",
+      "evidence": {
+        "heading": "This link is no longer valid",
+        "cookie_names_before_submit": [],
+        "cookie_names_at_exchange": [
+          "sb-127-auth-token"
+        ],
+        "console_errors": [
+          "[warning] Image with src \"/benavora_logo.png\" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: \"auto\"' or 'height: \"auto\"' to maintain the aspect ratio.",
+          "[warning] Image with src \"/benavora_logo.png\" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: \"auto\"' or 'height: \"auto\"' to maintain the aspect ratio."
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "test-evidence/pt-03/screenshots/auth-01-forgot-password-sent.png",
+    "test-evidence/pt-03/screenshots/auth-02-reset-password-complete.png",
+    "test-evidence/pt-03/screenshots/auth-03-magic-link-dashboard.png",
+    "test-evidence/pt-03/screenshots/auth-04-password-login-dashboard.png",
+    "test-evidence/pt-03/screenshots/auth-05-after-reload.png"
+  ]
+}

@@ -1,11 +1,194 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 20, 2026 — audit PT-03-004: AutoApply (queue→session→form-fill→SAFE-SIMULATED
-submit) and Donor Discovery (prospect→review→route-to-destination) journeys driven end-to-end
-against the real app (local/non-production). Both journeys pass fully, 7/7 stages, with the routed
-Donor Discovery prospect genuinely landing in — and completing — the real AutoApply queue. 1 real,
-low-severity finding (P3): the /autoapply "QUEUE" mini-panel silently shows "Queue is empty." on a
-failed fetch, not just a genuine empty queue. No real external HTTP request was made at any point.**
+**Updated: August 20, 2026 — audit PT-03-005: kanban stage-transition enforcement + auth flows,
+driven end-to-end against the real app (local/non-production). All 12 documented pipeline stages
+reached across 3 real application journeys; the transition-RULE function (`getTransitionRule`)
+correctly rejects every one of 6 illegal stage-skip cases tested — but nothing downstream of that
+one React-component-level check actually stops an illegal write from persisting: a direct
+`executeTransition()` call, a raw `applications.update({stage})` call, and a "viewer"-role session
+all successfully wrote illegal/unauthorized stage changes with zero rejection (3 real findings, 2×P0
++ 1×P1). Of the 3 auth flows exercised for real (password reset via a genuine Mailpit-delivered
+email, self-service magic-link login, session persistence across a real page reload): magic-link
+login and reload-persistence both pass; password reset fails on a real, precisely root-caused bug —
+`ResetPasswordPageClient.tsx`'s `useEffect` calls `exchangeCodeForSession()` with no idempotency
+guard, and this app's `reactStrictMode: true` double-invokes it in `next dev`, so a real, valid
+reset link is shown as "no longer valid" even though the underlying PKCE exchange genuinely succeeds
+server-side (1×P0, confirmed not a production-build-verified claim — Strict Mode's double-invoke is
+dev-only).**
+
+## SESSION — August 20, 2026 (audit PT-03-005: kanban stage-transition enforcement + auth flows)
+
+**Focus:** two concerns, driven against the same local (non-production) Supabase CLI stack every
+prior PT-03 session has reused (`.pt05-local-stack/`, still live). (1) Kanban: drive a real
+`applications` row through the documented 12-stage pipeline (`PIPELINE_STAGES`,
+`src/lib/utils/constants.ts`) using the real, unmodified transition logic in
+`src/components/applications/pipeline.ts` (`getTransitionRule`, `executeTransition`,
+`canMoveToStage`), imported directly via `node --import tsx` — not reimplemented — and assert the
+documented stage-transition rules are actually *enforced*, not just correctly computed. (2) Auth:
+exercise password reset, magic-link login, and session persistence across a reload, each for real —
+a genuine email delivered by the local stack's real Mailpit SMTP catcher (not an admin-generated
+shortcut), a real form submission, a real full-page reload through the app's own middleware. Script:
+`scripts/audit/pt03-005-kanban-auth.mjs`. Verifier: `scripts/audit/verify-pt03-004.mjs` (this
+project's PT-03 series has an established, real precedent of the verify-script number and the
+journey-script number diverging — `verify-pt03-003.mjs` already verifies the journey file named
+`pt03-004-autoapply-donor-journeys.mjs`; the task instructions for this session explicitly named
+`verify-pt03-004.mjs`, matched exactly). Evidence: `test-evidence/pt-03/kanban-auth.json` + 5
+screenshots.
+
+### Part 1 — Kanban: the rule function is correct; nothing enforces it below the UI
+
+**Read `src/components/applications/pipeline.ts` in full before writing anything**, per this
+project's established practice of checking real code before assuming a task's premise. Confirmed:
+`getTransitionRule(from, to)` is a real, pure function implementing BEHAVIORAL_CONTRACTS §6's
+forward-transition graph plus a "any move to an earlier stage is a legal backward move, but requires
+a mandatory note" rule. `executeTransition()` — the one function that actually performs the write
+(`applications.update({stage})` + a `pipeline_history` insert) — is called from exactly one place in
+the whole app, `StageTransitionModal.tsx`'s `handleConfirm()`, which gates the call behind
+`rule?.allowed` (`canConfirm`). **`executeTransition()` itself contains zero validation of its own**
+— no call to `getTransitionRule()`, no check that `condition` was actually satisfied
+(`evaluateCondition()` is likewise UI-only). There is no API route for stage mutation at all (`PATCH
+/api/applications/[id]` is scoped to `pending_review` only, confirmed by reading the file) — the only
+persistence path is a direct client-side Supabase call. The `applications_org_isolation` RLS policy
+(migration 001) scopes rows by `organization_id` only; it places no constraint on what value `stage`
+may be set to. No CHECK constraint or trigger on `applications.stage` exists anywhere in either
+migration tree.
+
+**Journeys — all 12 documented stages reached, real DB writes, real `pipeline_history` rows:**
+3 real applications, driven via a real session-scoped Supabase client (bearer token from a real
+magic-link-authenticated session, not the service-role key — matching exactly what
+`StageTransitionModal.tsx`'s own `createClient()` call would hold):
+- **Journey A** (full happy-path arc + a legal backward move): `discovered → eligibility_review →
+  qualified →` (backward, with a mandatory note, back to) `eligibility_review → qualified → drafting
+  → awaiting_documents → ready_for_review → submitted → awarded → reporting_required →
+  renewal_opportunity →` (the `creates_new_application` edge — confirmed the ORIGINAL application's
+  stage stays `renewal_opportunity`, unchanged, while a genuinely NEW `applications` row is created
+  in `discovered` for the next funding cycle, exactly per this file's own documented special-case
+  behavior).
+- **Journey B** (denial + recurring-opportunity reapply): `discovered → eligibility_review → denied →
+  discovered` — confirmed this reapply edge (`opportunity_recurring` condition, only reachable when
+  the opportunity's `recurrence` is `annual`/`quarterly`/`rolling`) moves the **same** application row
+  back to `discovered`, a real, code-verified distinction from Journey A's `renewal_opportunity →
+  discovered` edge, which creates a new row instead — the same "back to discovered" stage reached by
+  two structurally different write paths.
+- **Journey C** (follow-up path + the role-gate bypass, below): `discovered → eligibility_review →
+  qualified → drafting → awaiting_documents → ready_for_review →` [role-gate bypass tested here] `→
+  submitted → follow_up_due → denied`.
+
+All 12 documented `PIPELINE_STAGES` values were reached: `discovered, eligibility_review, qualified,
+drafting, awaiting_documents, ready_for_review, submitted, awarded, reporting_required,
+renewal_opportunity, denied, follow_up_due`. Every one of the 23 recorded transition steps persisted
+correctly (stage moved to the expected value, `pipeline_history.to_stage` matched) — no legal
+transition silently no-op'd.
+
+**Illegal-transition rule checks (6 cases) — the pure function is correct, 6/6:**
+`discovered→drafting`, `discovered→awarded`, `discovered→discovered` (same-stage), `eligibility_
+review→submitted`, `qualified→submitted`, `denied→renewal_opportunity` — every one correctly returned
+`allowed: false` from `getTransitionRule()`.
+
+**Enforcement-gap tests — 3 real bypass attempts, all 3 illegal/unauthorized writes persisted with
+zero rejection, recorded as findings per this task's own explicit instruction that an unenforced
+illegal transition is a finding, not a footnote:**
+1. **Direct `executeTransition()` call, illegal skip, bypassing the UI gate** — called
+   `executeTransition()` directly (as any caller other than `StageTransitionModal.tsx` would have
+   to, since it's the pipeline's own exported, reusable function) with `discovered → drafting`
+   (already confirmed illegal by the rule function above). **Persisted**: `applications.stage`
+   written to `"drafting"`, a real `pipeline_history` row created recording the skip as if it were a
+   normal transition. **Finding PT03-KA-F02, P0.**
+2. **Raw `supabase.from("applications").update({stage})` call, no `executeTransition()` involved at
+   all** — `discovered → awarded` (a 6-stage skip) via a bare REST update, from a real authenticated
+   session that is a genuine member of the row's own organization. **Persisted**, no error. Confirms
+   the enforcement gap isn't specific to the shared helper function — nothing in the app's data layer
+   at all constrains this. **Finding PT03-KA-F03, P0.**
+3. **Role-gate bypass**: `canMoveToStage("submitted", "viewer")` correctly returns `false` (only
+   owner/admin may move an application to `submitted`, per `BEHAVIORAL_CONTRACTS` §6) — but a real
+   "viewer"-role session's direct `executeTransition()` call for `ready_for_review → submitted`
+   **persisted anyway**. **Finding PT03-KA-F01, P1.**
+
+**Net finding, stated plainly:** the entire stage-transition rule graph and the owner/admin-only
+`submitted` role gate are enforced in exactly one place — the pre-submit check inside one React
+component (`StageTransitionModal.tsx`). Nothing downstream (the reusable executor function, an API
+route, RLS, or a DB constraint/trigger) re-checks either rule. Any caller that reaches
+`executeTransition()` — or bypasses it entirely with a raw REST update — by any means other than that
+one modal (a future UI surface, a script, a bug, a malicious authenticated client) can move any
+application to any stage, regardless of role.
+
+### Part 2 — Auth flows, each exercised for real
+
+**Password reset — FAIL, root-caused precisely (finding PT03-KA-F04, P0).** Real
+`/forgot-password` form submission (Playwright) → a genuine password-reset email, confirmed delivered
+by the local stack's real Mailpit SMTP catcher (`http://127.0.0.1:56324`, Mailpit v1.22.3 — the
+container is misleadingly named `supabase_inbucket_...` but is actually Mailpit, confirmed by
+querying its real REST API) → the real `/auth/v1/verify` redirect followed for real (not simulated).
+**This app's real browser client (`@supabase/ssr`'s `createBrowserClient`, used by
+`ForgotPasswordPageClient.tsx`) defaults to the PKCE flow** — the redirect carries a real, one-time
+`?code=`, not hash tokens (an earlier assumption based on a plain `@supabase/supabase-js` client's
+different default was corrected once the real UI-driven flow was actually run). The real code was
+navigated to on the SAME Playwright page/context that originally requested the reset (so its
+`code_verifier` cookie, `sb-127-auth-token-code-verifier`, is present) — landing on
+`ResetPasswordPageClient.tsx`'s own real `exchangeCodeForSession(code)` call, not simulated.
+
+**Result: a real, freshly-issued, never-reused recovery link is rejected by the page as "This link is
+no longer valid" — even though the underlying exchange genuinely succeeds server-side.**
+Root-caused via temporary, reverted instrumentation of `ResetPasswordPageClient.tsx` (one
+`console.error` line added, the real error object logged, then removed — confirmed via `git diff`
+this repo carries zero trace of it): the effect's `exchangeCodeForSession(code)` call has no
+idempotency guard (no ref/flag preventing a repeat invocation, no `AbortController`, no cleanup
+function). This app has `reactStrictMode: true` (`next.config.mjs`) — React 18/19 Strict Mode
+double-invokes every effect on every mount in `next dev`, the exact "local/branch" execution context
+this task audits (every prior PT-03 script has also run `next dev`, not a production build). The two
+invocations race for the single-use PKCE `code_verifier`: a real network response (`200`, confirmed
+via response capture on `/auth/v1/token?grant_type=pkce`) shows one invocation's exchange genuinely
+succeeds; the other invocation's own `exchangeCodeForSession` call then fails with
+`AuthPKCECodeVerifierMissingError` (the verifier was already consumed) and unconditionally calls
+`setLinkError(true)`, with no check for whether a sibling invocation already succeeded. **Confirmed
+deterministic across 3 separate diagnostic runs**, including one with the `/reset-password` route
+pre-warmed beforehand specifically to rule out a Next.js dev-server first-compile/Fast-Refresh
+remount as an alternate explanation (ruled out: the failure reproduces identically either way).
+**Explicitly not overclaimed**: whether this exact double-invoke race also occurs in a production
+build (`next build && next start`, where Strict Mode's double-invoke does not happen) was not
+independently verified this session — stated as a real, current, deterministically-reproducing
+`next dev` defect, not asserted as a confirmed production-impacting one. Independently re-verified
+against the live Auth server (not trusted from the UI): since the form was never reachable (no
+`#password` input renders when `linkError` is true), the original password still authenticates and
+the intended new password does not — consistent with "the password was genuinely never changed,"
+not a UI-only display glitch masking a real change underneath.
+
+**Magic-link login — PASS.** This app's `/login` page has no magic-link UI trigger at all
+(password-only form, confirmed by reading `LoginPageClient.tsx`) and no page auto-consumes a bare
+magic-link hash redirect the way `/reset-password` does for recovery tokens (confirmed: only
+`ResetPasswordPageClient.tsx` calls `createClient()` in a mount-time `useEffect`) — stated as an
+explicit scope note in the evidence, not silently treated as either "broken" or "the UI supports
+this." Exercised the real, underlying capability end to end instead: a real self-service
+`signInWithOtp()` call (a plain `@supabase/supabase-js` client, implicit flow — the same call an
+in-app "email me a link" button would make) → a genuine Mailpit-delivered "Your Magic Link" email →
+the real `/auth/v1/verify` redirect followed for real, hash tokens extracted → an independent `GET
+/auth/v1/user` re-check (not trusted from the tokens alone: `status 200`, real id/email match) → the
+real `@supabase/ssr` session cookie built from those tokens (mirroring PT-03-001's own established
+technique) and injected into a fresh Playwright browser context via `context.addCookies()` → a real
+navigation to `/dashboard` **confirms the app's own middleware (which re-validates the session
+server-side via `getUser()` on every request) accepts a magic-link-issued session** — landed on the
+real dashboard, not bounced to `/login`.
+
+**Session persistence across a reload — PASS.** A real password sign-in through the actual `/login`
+form (using whichever password is genuinely valid at that point — the reset flow's own failure above
+means the original password, not the "new" one, is still correct; the harness tracks this instead of
+assuming the reset succeeded) → landed on `/dashboard` → a real `page.reload()` (a genuine new HTTP
+request through the app's middleware, not a client-side soft navigation) → confirmed the URL stays on
+`/dashboard`, the page still renders real dashboard content (not the login form), and the `sb-`-prefixed
+auth cookie is still present. A second page opened in the same browser context (same cookie jar, no
+credentials re-entered) also landed on `/dashboard` — cookie-based session reuse confirmed across a
+second "tab," not just the single reloaded one.
+
+**Real, local-stack-only schema/cleanup fix, not an app bug:** the harness's own leftover-cleanup
+routine deleted `profiles` before `audit_logs`, and hit a real FK violation on a second run — because
+the session-persistence test's real password login triggers `LoginPageClient.tsx`'s real
+`recordAuthEvent("login")` call against the real running dev server, writing a genuine `audit_logs`
+row (Behavioral Contracts §24, working as designed). Fixed by deleting `audit_logs` before `profiles`
+in the harness's own cleanup order — this is test-harness bookkeeping, not an application defect.
+
+**Gates:** no `tsc`/build/lint changes — this session added only two new `.mjs` audit scripts and one
+JSON evidence file; no `src/` application code was left modified (the one temporary diagnostic edit
+to `ResetPasswordPageClient.tsx` was reverted before this commit — confirmed via `git diff`).
 
 ## SESSION — August 20, 2026 (audit PT-03-004: AutoApply + Donor Discovery journeys)
 
