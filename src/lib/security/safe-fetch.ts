@@ -30,17 +30,12 @@
 // "never let a fetch land on a private/internal address," independent of
 // whether the target domain was supposed to be reachable at all.
 
-import { promises as dns } from "node:dns";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
-import net from "node:net";
 
-export class SsrfBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SsrfBlockedError";
-  }
-}
+import { SsrfBlockedError, resolveValidatedAddress } from "./ssrf-guard";
+
+export { SsrfBlockedError };
 
 export interface SafeFetchResult {
   ok: boolean;
@@ -55,6 +50,8 @@ export interface SafeFetchResult {
 export interface SafeFetchOptions {
   method?: "GET" | "POST";
   headers?: Record<string, string>;
+  /** Request body — POST only. Content-Length is set automatically when absent from `headers`. */
+  body?: string;
   /** Hard wall-clock timeout for the whole request (including redirects). Default 15s. */
   timeoutMs?: number;
   /** Max response bytes read into memory. Default 2MB. */
@@ -66,103 +63,6 @@ export interface SafeFetchOptions {
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_BYTES = 2_000_000;
 const DEFAULT_MAX_REDIRECTS = 3;
-
-/** True if `ip` (already-parsed dotted-quad IPv4) falls in a blocked range. */
-function isBlockedIPv4(ip: string): boolean {
-  const parts = ip.split(".").map((p) => parseInt(p, 10));
-  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return true; // malformed => fail closed
-  const [a, b] = parts as [number, number, number, number];
-
-  if (a === 0) return true; // 0.0.0.0/8 ("this network")
-  if (a === 10) return true; // RFC1918
-  if (a === 127) return true; // loopback
-  if (a === 169 && b === 254) return true; // link-local, INCLUDES cloud metadata 169.254.169.254
-  if (a === 172 && b >= 16 && b <= 31) return true; // RFC1918
-  if (a === 192 && b === 168) return true; // RFC1918
-  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT / shared address space (RFC6598)
-  if (a === 192 && b === 0 && parts[2] === 0) return true; // IETF protocol assignments
-  if (a === 192 && b === 0 && parts[2] === 2) return true; // TEST-NET-1
-  if (a === 198 && (b === 18 || b === 19)) return true; // benchmarking
-  if (a === 198 && b === 51 && parts[2] === 100) return true; // TEST-NET-2
-  if (a === 203 && b === 0 && parts[2] === 113) return true; // TEST-NET-3
-  if (a >= 224) return true; // multicast (224-239) + reserved (240-255) + broadcast
-
-  return false;
-}
-
-/** True if `ip` (parsed IPv6) falls in a blocked range, including IPv4-mapped addresses. */
-function isBlockedIPv6(ip: string): boolean {
-  const lower = ip.toLowerCase();
-
-  if (lower === "::1") return true; // loopback
-  if (lower === "::") return true; // unspecified
-
-  // IPv4-mapped (::ffff:a.b.c.d) or IPv4-compatible — unwrap and re-check as
-  // IPv4, since this is a well-known way to smuggle a blocked v4 address
-  // through a v6-shaped string.
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped?.[1]) return isBlockedIPv4(mapped[1]);
-
-  // Link-local fe80::/10
-  if (/^fe[89ab][0-9a-f]:/.test(lower)) return true;
-  // Unique local fc00::/7 (fc00:: - fdff::)
-  if (/^f[cd][0-9a-f]{2}:/.test(lower)) return true;
-  // Multicast ff00::/8
-  if (lower.startsWith("ff")) return true;
-
-  return false;
-}
-
-function isBlockedIP(ip: string): boolean {
-  if (net.isIPv4(ip)) return isBlockedIPv4(ip);
-  if (net.isIPv6(ip)) return isBlockedIPv6(ip);
-  return true; // couldn't classify => fail closed
-}
-
-/**
- * Resolve `hostname` and return the first validated, non-blocked address.
- * Throws {@link SsrfBlockedError} if the hostname is an IP literal that's
- * blocked, or if DNS resolution returns no allowed address (fail closed —
- * if *any* resolved address is private, the whole hostname is rejected
- * rather than picking around it, since which address a later connection
- * actually uses isn't fully in our control).
- */
-async function resolveValidatedAddress(
-  hostname: string,
-): Promise<{ address: string; family: 4 | 6 }> {
-  // IP literal — validate directly, no DNS involved.
-  if (net.isIP(hostname)) {
-    if (isBlockedIP(hostname)) {
-      throw new SsrfBlockedError(
-        `Target address ${hostname} resolves to a private/internal range and is blocked.`,
-      );
-    }
-    return { address: hostname, family: net.isIPv6(hostname) ? 6 : 4 };
-  }
-
-  let records: { address: string; family: number }[];
-  try {
-    records = await dns.lookup(hostname, { all: true, verbatim: true });
-  } catch {
-    throw new SsrfBlockedError(`Could not resolve hostname: ${hostname}`);
-  }
-
-  if (records.length === 0) {
-    throw new SsrfBlockedError(`Could not resolve hostname: ${hostname}`);
-  }
-
-  // Fail closed: if any resolved address is blocked, reject the hostname
-  // entirely rather than trying to steer around it.
-  const blocked = records.find((r) => isBlockedIP(r.address));
-  if (blocked) {
-    throw new SsrfBlockedError(
-      `Target hostname resolves to a private/internal address (${blocked.address}) and is blocked.`,
-    );
-  }
-
-  const first = records[0]!;
-  return { address: first.address, family: first.family === 6 ? 6 : 4 };
-}
 
 /**
  * SSRF-safe fetch. Resolves + validates the hostname, pins the TCP
@@ -177,10 +77,16 @@ export async function safeFetch(
   const {
     method = "GET",
     headers = {},
+    body,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxBytes = DEFAULT_MAX_BYTES,
     maxRedirects = DEFAULT_MAX_REDIRECTS,
   } = options;
+
+  const requestHeaders = { ...headers };
+  if (body !== undefined && !Object.keys(requestHeaders).some((h) => h.toLowerCase() === "content-length")) {
+    requestHeaders["Content-Length"] = String(Buffer.byteLength(body));
+  }
 
   const deadline = Date.now() + timeoutMs;
   let currentUrl = url;
@@ -207,7 +113,11 @@ export async function safeFetch(
       pinnedIp,
       family,
       method,
-      headers,
+      // A body is only ever resent on the original hop — a redirect landing
+      // on an attacker-controlled endpoint should not receive a POST body
+      // meant for the originally validated target.
+      body: hop === 0 ? body : undefined,
+      headers: requestHeaders,
       timeoutMs: remainingMs,
       maxBytes,
     });
@@ -252,11 +162,12 @@ function performPinnedRequest(args: {
   pinnedIp: string;
   family: 4 | 6;
   method: string;
+  body: string | undefined;
   headers: Record<string, string>;
   timeoutMs: number;
   maxBytes: number;
 }): Promise<PinnedRequestResult> {
-  const { parsed, pinnedIp, family, method, headers, timeoutMs, maxBytes } =
+  const { parsed, pinnedIp, family, method, body, headers, timeoutMs, maxBytes } =
     args;
   const isHttps = parsed.protocol === "https:";
   const requestFn = isHttps ? httpsRequest : httpRequest;
@@ -370,6 +281,6 @@ function performPinnedRequest(args: {
       req.destroy(new SsrfBlockedError("Request timed out."));
     });
     req.on("error", (err) => reject(err));
-    req.end();
+    req.end(body);
   });
 }

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { safeFetch, SsrfBlockedError } from '@/lib/security/safe-fetch';
+
 // Supported event names for AutoApply webhook notifications.
 export type WebhookEvent =
   | 'submission_completed'
@@ -116,18 +118,21 @@ export class WebhookNotifier {
               ? buildSlackPayload(event, data)
               : buildGenericPayload(event, data);
 
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5_000);
-
           try {
-            await fetch(config.webhook_url, {
+            await safeFetch(config.webhook_url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
-              signal: controller.signal,
+              timeoutMs: 5_000,
             });
-          } finally {
-            clearTimeout(timeoutId);
+          } catch (err) {
+            if (err instanceof SsrfBlockedError) {
+              console.warn(
+                `[WebhookNotifier] Blocked SSRF-unsafe webhook_url for config ${config.id}: ${err.message}`,
+              );
+              return;
+            }
+            throw err;
           }
         } catch (err) {
           console.warn(

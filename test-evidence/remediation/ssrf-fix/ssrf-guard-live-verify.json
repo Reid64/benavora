@@ -1,0 +1,80 @@
+{
+  "capturedAt": "2026-08-20T23:26:46.765Z",
+  "block": [
+    {
+      "name": "cloud-metadata-ip",
+      "url": "http://169.254.169.254/latest/meta-data/",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Target address 169.254.169.254 resolves to a private/internal range and is blocked."
+    },
+    {
+      "name": "localhost",
+      "url": "http://localhost",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Target hostname resolves to a private/internal address (::1) and is blocked."
+    },
+    {
+      "name": "loopback-ip",
+      "url": "http://127.0.0.1",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Target address 127.0.0.1 resolves to a private/internal range and is blocked."
+    },
+    {
+      "name": "rfc1918-10",
+      "url": "http://10.0.0.1",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Target address 10.0.0.1 resolves to a private/internal range and is blocked."
+    },
+    {
+      "name": "rfc1918-192-168",
+      "url": "http://192.168.1.1",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Target address 192.168.1.1 resolves to a private/internal range and is blocked."
+    },
+    {
+      "name": "non-http-file",
+      "url": "file:///etc/passwd",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Unsupported protocol: file: — only http/https are allowed."
+    },
+    {
+      "name": "non-http-gopher",
+      "url": "gopher://internal:70/",
+      "expected": "block",
+      "actual": "blocked",
+      "errorName": "SsrfBlockedError",
+      "errorMessage": "Unsupported protocol: gopher: — only http/https are allowed."
+    }
+  ],
+  "allow": [
+    {
+      "name": "public-https",
+      "url": "https://www.google.com/",
+      "expected": "allow",
+      "actual": "allowed",
+      "resolved": {
+        "address": "2001:4860:4827:7700::",
+        "family": 6
+      }
+    }
+  ],
+  "summary": {
+    "totalBlockCases": 7,
+    "blockCasesCorrectlyBlocked": 7,
+    "totalAllowCases": 1,
+    "allowCasesCorrectlyAllowed": 1,
+    "allPassed": true
+  }
+}

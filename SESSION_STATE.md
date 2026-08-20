@@ -29,7 +29,10 @@ WGR-012/WGR-017 (commit `d5500cd`, `/donor-discovery/prospects/[id]` blank-rende
 WGR-030/WGR-031/WGR-032 (commit `5c747ee`, four API routes silently truncated at PostgREST's 1000-row
 cap — fixed via a new shared `src/lib/supabase/select-all-pages.ts` pagination helper plus, for the
 two id-list-filter cases, a PostgREST `!inner` embed instead of a client-side id list); WGR-138
-(commit `cde8cd9`, Grants.gov dead endpoint + wrong response shape, live-verified 100 real records).
+(commit `cde8cd9`, Grants.gov dead endpoint + wrong response shape, live-verified 100 real records);
+WGR-108/WGR-109/WGR-110 (commit `6dd5f32`, three P0 SSRF findings closed with one new shared guard,
+`src/lib/security/ssrf-guard.ts`, applied at all three raw-fetch/browser-navigation sites — real
+DNS-based live verification, 0 hits on a real local listener, 30 unit tests passing).
 Full detail in `STATE_OF_THE_BUILD.md`'s matching banner.
 
 **Fix applied but NOT marked RESOLVED — live-verification pending an external quota reset:**
@@ -40,6 +43,36 @@ daily quota was exhausted mid-session (`HTTP 429`, resets 2026-08-21T00:00:00Z) 
 live call could confirm > 0 real records through the fixed functions. **Next session: re-run
 `npx tsx scripts/audit/int-fix-live-after.mjs` after that time and flip these three to RESOLVED once
 confirmed.** See `WIRING_GAP_REGISTER.md` rows WGR-139/142/143 (`FIX-APPLIED-PENDING-VERIFICATION`).
+
+---
+
+## Prior Session — August 20, 2026 (remediation: WGR-108/109/110, SSRF guard)
+
+**Focus:** close the three P0 SSRF findings (a user/org-controlled URL fetched or navigated to with
+zero validation at three server-side sites) with one shared guard applied everywhere, not three
+one-off fixes.
+
+**Guard:** `src/lib/security/ssrf-guard.ts` (`assertUrlSafe(url)`) — http/https only, real DNS
+resolution, rejects any resolved or literal address in a private/reserved/loopback/link-local range
+(including the 169.254.169.254 cloud-metadata IP), fail-closed on DNS failure. The existing
+`src/lib/security/safe-fetch.ts` (IP-pinned, redirect-revalidating SSRF-safe fetch, previously used
+by only 2 of the app's user-URL-fetching call sites) now imports its IP-validation logic from this
+guard instead of duplicating it, and gained POST-body support for the webhook-notifier site.
+
+**Applied at all three sites, preserving each site's success-path behavior:** WGR-108
+(`/api/intelligence/ingest`, `fetch()` → `safeFetch()`, blocked → `422`); WGR-109
+(`WebhookNotifier`, `fetch()` → `safeFetch()`, blocked → logged + that config skipped); WGR-110
+(`worker/queue-processor.ts`, `assertUrlSafe(portalUrl)` added right after it's read from `funders`,
+before either of its two real downstream uses — a raw HEAD `fetch()` in `portal-health.ts`'s
+`quickHealthCheck()`, a second real call site found and confirmed this session, and the
+headless-browser `page.goto()`; blocked → existing `SkipError`, already logged/persisted).
+`worker/tsconfig.json` updated to compile `src/lib/security/**/*.ts` into the worker build (it
+wasn't previously included).
+
+**Evidence, real not mocked at this layer:** the guard's own primitive live-verified with real DNS
+against all 7 required block-cases + 1 allow-case (8/8 correct); `safeFetch()` itself run against a
+real local loopback listener (0 hits) and a real public HTTPS URL (real 200) in the same run; 30
+deterministic unit tests passing. `pnpm run build` and `pnpm run build:worker` both exit 0.
 
 ---
 

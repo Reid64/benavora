@@ -56,6 +56,15 @@ data before being marked RESOLVED in the register:**
   pointed at a dead endpoint (real HTTP 403) and, even against the real current one, read the wrong
   response wrapper and stale field names. Fixed and **live-verified through the real, fixed
   `searchGrantsGovOpportunities()` function**: 100 real records returned, 100% shape-valid.
+- WGR-108, WGR-109, WGR-110 — commit `6dd5f32` (2026-08-20): three P0 SSRF findings (a raw
+  `fetch()` on a user-supplied URL in `/api/intelligence/ingest`; a raw `fetch()` on
+  `webhook_configs.webhook_url` in `WebhookNotifier`; unguarded use of `funders.giving_portal_url`
+  in the AutoApply worker, both a raw HEAD `fetch()` — a second real call site found and confirmed
+  this session — and a headless-browser `page.goto`) fixed with one new shared guard,
+  `src/lib/security/ssrf-guard.ts`, applied at all three sites. Live-verified with real (non-mocked)
+  DNS resolution and a real local loopback listener: all 7 required block-cases blocked, a real
+  public HTTPS fetch succeeds, and the listener records 0 hits when targeted through the guarded
+  path. 30 unit tests pass. `pnpm run build` and `pnpm run build:worker` both exit 0.
 
 **Fix applied, live-verification still pending (NOT marked RESOLVED — see register for why):**
 - WGR-139, WGR-142, WGR-143 — commit `cde8cd9` (2026-08-20): the three SAM.gov integration bugs
@@ -71,6 +80,46 @@ data before being marked RESOLVED in the register:**
   2026-08-21T00:00:00Z, run `npx tsx scripts/audit/int-fix-live-after.mjs`, confirm each of the three
   returns > 0 real records, save the results over the existing `*-live-after.json` files (currently
   real 429 captures, not successes), and flip WGR-139/142/143 to RESOLVED.**
+
+---
+
+## SESSION — August 20, 2026 (remediation: WGR-108/109/110, SSRF guard)
+
+**Scope:** close the three P0 SSRF findings — a user-controlled URL fetched with zero validation at
+three server-side call sites — by building one shared guard and applying it everywhere.
+
+**Guard:** `src/lib/security/ssrf-guard.ts` — `assertUrlSafe(url)` rejects non-http(s) schemes,
+resolves the hostname via real DNS, and rejects if any resolved address (or a raw IP-literal host)
+falls in a private/reserved/loopback/link-local range (RFC1918, the 169.254.0.0/16 block that
+includes the cloud metadata IP 169.254.169.254, IPv6 loopback/unique-local/link-local, IPv4-mapped
+IPv6 addresses, etc.) — fail-closed on any DNS failure or unclassifiable address. `src/lib/security/
+safe-fetch.ts` (an existing, more mature SSRF-safe fetch — IP-pinned connections, manual
+redirect-following with re-validation per hop — previously used by only 2 of the app's many
+user-URL-fetching call sites) was refactored to import its IP-validation logic from the new guard
+instead of duplicating it, and gained POST-body support (`SafeFetchOptions.body`, needed for the
+webhook-notifier site, never resent across a redirect hop).
+
+**Applied at all three sites**, preserving each call site's existing success-path behavior:
+- WGR-108 (`src/app/api/intelligence/ingest/route.ts`): `fetch()` → `safeFetch()`; a blocked URL now
+  returns `422 {code: "url_blocked"}` instead of proceeding.
+- WGR-109 (`src/lib/autoapply/webhook-notifier.ts`): `fetch()` → `safeFetch()`; a blocked
+  `webhook_url` logs a specific warning and skips that config, other configured webhooks unaffected.
+- WGR-110 (`worker/queue-processor.ts`): `assertUrlSafe(portalUrl)` added immediately after
+  `giving_portal_url` is read from the `funders` row, before either of its two real downstream uses
+  — a raw HEAD `fetch()` in `worker/portal-health.ts`'s `quickHealthCheck()` (a second real call site
+  found and confirmed this session, not previously documented) and the headless-browser
+  `page.goto()`. A blocked URL throws the pipeline's existing `SkipError`, already logged and
+  persisted to `submission_queue.error_message`. `worker/tsconfig.json` updated to compile
+  `src/lib/security/**/*.ts` into the worker's `dist/` (not previously included).
+
+**Evidence, all real, none mocked at this layer:** `test-evidence/remediation/ssrf-fix/
+ssrf-guard-live-verify.json` (the guard's own primitive, called with real DNS resolution, against
+all 7 required block-cases + 1 allow-case — 8/8 correct); `safefetch-live-verify.json` (`safeFetch()`
+itself run against a real local loopback HTTP listener — 0 hits recorded — and a real public HTTPS
+URL — real 200, real body); `unit-test-output.txt` (30 deterministic unit tests, mocked DNS for the
+hostname-resolves-to-private-IP case, all passing). `pnpm run build` and `pnpm run build:worker`
+(`tsc -p worker/tsconfig.json && tsc-alias`) both exit 0; `dist/src/lib/security/ssrf-guard.js`
+confirmed emitted.
 
 ---
 

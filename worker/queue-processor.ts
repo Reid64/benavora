@@ -17,6 +17,7 @@ import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
 import { quickHealthCheck } from './portal-health.js';
+import { assertUrlSafe, SsrfBlockedError } from '../src/lib/security/ssrf-guard.js';
 import { scoreAndReorderQueue } from './batch-scorer.js';
 import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
@@ -566,6 +567,23 @@ export class QueueProcessor {
     const portalUrl = funder.giving_portal_url;
     const funderContactEmail = funder.contact_email;
     const funderName = funder.name ?? funderId;
+
+    // SSRF guard: giving_portal_url is free-text org/funder-controlled data
+    // (WGR-110) that this pipeline both fetches directly (quickHealthCheck,
+    // a raw HEAD request) and navigates a real headless browser to
+    // (page.goto below) — validate once, here, before either use, and fail
+    // closed rather than let a private/internal/metadata address reach
+    // either.
+    if (portalUrl) {
+      try {
+        await assertUrlSafe(portalUrl);
+      } catch (err) {
+        if (err instanceof SsrfBlockedError) {
+          throw new SkipError(`portal_url_blocked_ssrf: ${err.message}`);
+        }
+        throw err;
+      }
+    }
 
     // Prefer web form; fall back to email; skip if neither is available
     if (!portalUrl && !funderContactEmail) throw new SkipError('no_portal_or_email');

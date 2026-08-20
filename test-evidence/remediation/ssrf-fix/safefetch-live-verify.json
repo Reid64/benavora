@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-08-20T23:27:09.318Z",
+  "loopbackBlocked": {
+    "pass": true,
+    "errorName": "SsrfBlockedError",
+    "errorMessage": "Target address 127.0.0.1 resolves to a private/internal range and is blocked.",
+    "listenerHitCount": 0
+  },
+  "publicUrlAllowed": {
+    "pass": true,
+    "status": 200,
+    "bodyLength": 86198,
+    "finalUrl": "https://www.google.com/"
+  },
+  "summary": {
+    "allPassed": true
+  }
+}

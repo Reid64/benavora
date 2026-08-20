@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { extractSections } from '@/lib/intelligence/section-extractor'
 import { generateEmbedding } from '@/lib/intelligence/embeddings'
 import { ingestNihProposals } from '@/lib/intelligence/ingest-nih-proposals'
+import { safeFetch, SsrfBlockedError } from '@/lib/security/safe-fetch'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -54,19 +55,26 @@ export async function POST(request: Request) {
     if (typeof url !== 'string' || url.trim() === '') {
       return jsonError('url is required for source=url', 'missing_url', 400)
     }
-    let fetchRes: Response
+    let fetchRes: Awaited<ReturnType<typeof safeFetch>>
     try {
-      fetchRes = await fetch(url.trim(), {
+      fetchRes = await safeFetch(url.trim(), {
         headers: { 'User-Agent': 'Benavora Grant Intelligence Crawler/1.0' },
-        signal: AbortSignal.timeout(30_000),
+        timeoutMs: 30_000,
       })
-    } catch {
+    } catch (err) {
+      if (err instanceof SsrfBlockedError) {
+        return jsonError(
+          `URL is not allowed: ${err.message}`,
+          'url_blocked',
+          422,
+        )
+      }
       return jsonError('Failed to fetch the provided URL.', 'fetch_failed', 400)
     }
     if (!fetchRes.ok) {
       return jsonError(`URL returned HTTP ${fetchRes.status}.`, 'fetch_error', 400)
     }
-    const contentType = fetchRes.headers.get('content-type') ?? ''
+    const contentType = fetchRes.headers['content-type'] ?? ''
     if (!contentType.includes('text/')) {
       return jsonError(
         'URL must return text content (text/html or text/plain).',
@@ -74,7 +82,7 @@ export async function POST(request: Request) {
         400,
       )
     }
-    fullText = await fetchRes.text()
+    fullText = fetchRes.body
   } else {
     if (typeof text !== 'string' || text.trim() === '') {
       return jsonError('text is required for source=manual', 'missing_text', 400)
