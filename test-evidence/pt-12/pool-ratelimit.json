@@ -1,0 +1,1127 @@
+{
+  "status": "complete",
+  "recordedAt": "2026-08-20T20:15:37.428Z",
+  "startedAt": "2026-08-20T20:14:43.211Z",
+  "target": {
+    "supabaseUrl": "https://ffghpazvipsqrypkryfj.supabase.co",
+    "branchProjectRef": "ffghpazvipsqrypkryfj",
+    "parentProjectRef": "vbjplpquqxxfbpazyalt",
+    "productionRef": "vbjplpquqxxfbpazyalt",
+    "isProductionTarget": false
+  },
+  "method": {
+    "poolStress": "Burst (Promise.all) of `concurrency` leading-wildcard ILIKE sequential-scan queries against nonprofits.name (1.97M rows on this branch) fired simultaneously per level -- forces the query planner off any btree index so each call holds a real Postgres backend connection open for several seconds, making pool contention observable at moderate concurrency. Read-only.",
+    "rateLimiterContention": "10 replica calls per funder per level, fired inside the SAME Promise.all burst as the pool-stress heavy queries (not a separate, idealized measurement), replicating worker/rate-limiter.ts RateLimiter.canSubmitToDomain()'s exact PostgREST filter shape and its exact fail-open-on-error semantics (source quoted in this script's own header comment)."
+  },
+  "baselines": {
+    "singleHeavyQueryBaselineMs": 5096,
+    "singleLightQueryBaselineMs": 281
+  },
+  "funders": {
+    "shouldBlock": {
+      "id": "71f2855f-8f6e-4bdc-8a0b-57a92e31e787",
+      "organizationId": "bf75d362-473c-4039-9e28-e09ef44ee862",
+      "name": "Lone Star Community Foundation (E2E Seed)",
+      "seededSubmissionId": "90d6f7c8-968b-4efa-8e2e-defb76c9a90b",
+      "seededSubmittedAt": "2026-08-20T20:14:37.626Z"
+    },
+    "shouldAllow": {
+      "id": "49e8d864-e71c-4a71-91a4-695a40ee6bc0",
+      "organizationId": "bf75d362-473c-4039-9e28-e09ef44ee862",
+      "name": "Acme Giving 1780987672660",
+      "confirmedZeroPriorSubmissions": true
+    }
+  },
+  "concurrencyLevelsPlanned": [
+    2,
+    5,
+    10,
+    20,
+    40
+  ],
+  "requestTimeoutMs": 45000,
+  "levels": [
+    {
+      "concurrency": 2,
+      "wallMs": 8458,
+      "poolStress": {
+        "outcomeCounts": {
+          "success": 0,
+          "timeout": 0,
+          "pool_exhaustion_error": 0,
+          "statement_timeout_error": 2,
+          "other_error": 0
+        },
+        "errorSamples": [
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8099,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8457,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          }
+        ],
+        "latencyMs": {
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null,
+          "min": null,
+          "mean": null
+        },
+        "singleHeavyQueryBaselineMs": 5096,
+        "queueingFactor": 1.66,
+        "behavior": "hard_errors"
+      },
+      "rateLimiterContention": {
+        "shouldBlockFunderId": "71f2855f-8f6e-4bdc-8a0b-57a92e31e787",
+        "shouldAllowFunderId": "49e8d864-e71c-4a71-91a4-695a40ee6bc0",
+        "callsPerFunder": 10,
+        "shouldBlock": {
+          "expectedCanSubmit": false,
+          "results": [
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 572,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 426,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 407,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 568,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 567,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 565,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 564,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 563,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 561,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 560,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseAllowCount": 0,
+          "failedOpenCount": 0
+        },
+        "shouldAllow": {
+          "expectedCanSubmit": true,
+          "results": [
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 548,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 545,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 548,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 550,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 553,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 545,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 548,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 550,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 537,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 545,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseBlockCount": 0,
+          "failedOpenCount": 0
+        }
+      }
+    },
+    {
+      "concurrency": 5,
+      "wallMs": 8165,
+      "poolStress": {
+        "outcomeCounts": {
+          "success": 0,
+          "timeout": 0,
+          "pool_exhaustion_error": 0,
+          "statement_timeout_error": 5,
+          "other_error": 0
+        },
+        "errorSamples": [
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8092,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8164,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8088,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8141,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8162,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          }
+        ],
+        "latencyMs": {
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null,
+          "min": null,
+          "mean": null
+        },
+        "singleHeavyQueryBaselineMs": 5096,
+        "queueingFactor": 1.6,
+        "behavior": "hard_errors"
+      },
+      "rateLimiterContention": {
+        "shouldBlockFunderId": "71f2855f-8f6e-4bdc-8a0b-57a92e31e787",
+        "shouldAllowFunderId": "49e8d864-e71c-4a71-91a4-695a40ee6bc0",
+        "callsPerFunder": 10,
+        "shouldBlock": {
+          "expectedCanSubmit": false,
+          "results": [
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 252,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 158,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 158,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 249,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 156,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 303,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 302,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 254,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 242,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 161,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseAllowCount": 0,
+          "failedOpenCount": 0
+        },
+        "shouldAllow": {
+          "expectedCanSubmit": true,
+          "results": [
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 151,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 258,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 257,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 160,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 155,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 292,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 247,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 156,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 153,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 153,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseBlockCount": 0,
+          "failedOpenCount": 0
+        }
+      }
+    },
+    {
+      "concurrency": 10,
+      "wallMs": 8390,
+      "poolStress": {
+        "outcomeCounts": {
+          "success": 0,
+          "timeout": 0,
+          "pool_exhaustion_error": 0,
+          "statement_timeout_error": 10,
+          "other_error": 0
+        },
+        "errorSamples": [
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8077,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8075,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8096,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8092,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8167,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          }
+        ],
+        "latencyMs": {
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null,
+          "min": null,
+          "mean": null
+        },
+        "singleHeavyQueryBaselineMs": 5096,
+        "queueingFactor": 1.65,
+        "behavior": "hard_errors"
+      },
+      "rateLimiterContention": {
+        "shouldBlockFunderId": "71f2855f-8f6e-4bdc-8a0b-57a92e31e787",
+        "shouldAllowFunderId": "49e8d864-e71c-4a71-91a4-695a40ee6bc0",
+        "callsPerFunder": 10,
+        "shouldBlock": {
+          "expectedCanSubmit": false,
+          "results": [
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 538,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 403,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 537,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 331,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 535,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 330,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 402,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 533,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 406,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 326,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseAllowCount": 0,
+          "failedOpenCount": 0
+        },
+        "shouldAllow": {
+          "expectedCanSubmit": true,
+          "results": [
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 527,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 527,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 359,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 380,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 321,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 526,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 521,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 523,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 521,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 315,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseBlockCount": 0,
+          "failedOpenCount": 0
+        }
+      }
+    },
+    {
+      "concurrency": 20,
+      "wallMs": 8539,
+      "poolStress": {
+        "outcomeCounts": {
+          "success": 0,
+          "timeout": 0,
+          "pool_exhaustion_error": 0,
+          "statement_timeout_error": 20,
+          "other_error": 0
+        },
+        "errorSamples": [
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8147,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8145,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8146,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8144,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8146,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          }
+        ],
+        "latencyMs": {
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null,
+          "min": null,
+          "mean": null
+        },
+        "singleHeavyQueryBaselineMs": 5096,
+        "queueingFactor": 1.68,
+        "behavior": "hard_errors"
+      },
+      "rateLimiterContention": {
+        "shouldBlockFunderId": "71f2855f-8f6e-4bdc-8a0b-57a92e31e787",
+        "shouldAllowFunderId": "49e8d864-e71c-4a71-91a4-695a40ee6bc0",
+        "callsPerFunder": 10,
+        "shouldBlock": {
+          "expectedCanSubmit": false,
+          "results": [
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 404,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 346,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8131,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 345,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 342,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 342,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 545,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 347,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 403,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 353,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseAllowCount": 0,
+          "failedOpenCount": 0
+        },
+        "shouldAllow": {
+          "expectedCanSubmit": true,
+          "results": [
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 541,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 367,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 403,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 392,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 537,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8119,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 387,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8115,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 361,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8112,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseBlockCount": 0,
+          "failedOpenCount": 0
+        }
+      }
+    },
+    {
+      "concurrency": 40,
+      "wallMs": 16218,
+      "poolStress": {
+        "outcomeCounts": {
+          "success": 0,
+          "timeout": 0,
+          "pool_exhaustion_error": 0,
+          "statement_timeout_error": 40,
+          "other_error": 0
+        },
+        "errorSamples": [
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8084,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8088,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8080,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8104,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          },
+          {
+            "classification": "statement_timeout_error",
+            "status": 500,
+            "ms": 8174,
+            "error": "{\"code\":\"57014\",\"details\":null,\"hint\":null,\"message\":\"canceling statement due to statement timeout\"}"
+          }
+        ],
+        "latencyMs": {
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null,
+          "min": null,
+          "mean": null
+        },
+        "singleHeavyQueryBaselineMs": 5096,
+        "queueingFactor": 3.18,
+        "behavior": "hard_errors"
+      },
+      "rateLimiterContention": {
+        "shouldBlockFunderId": "71f2855f-8f6e-4bdc-8a0b-57a92e31e787",
+        "shouldAllowFunderId": "49e8d864-e71c-4a71-91a4-695a40ee6bc0",
+        "callsPerFunder": 10,
+        "shouldBlock": {
+          "expectedCanSubmit": false,
+          "results": [
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8096,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8094,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8071,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8124,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8132,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8101,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8109,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8120,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8103,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": false,
+              "failedOpen": false,
+              "ms": 8072,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseAllowCount": 0,
+          "failedOpenCount": 0
+        },
+        "shouldAllow": {
+          "expectedCanSubmit": true,
+          "results": [
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8140,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 16166,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8113,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8123,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8146,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8078,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8112,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8091,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8065,
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "canSubmit": true,
+              "failedOpen": false,
+              "ms": 8175,
+              "httpStatus": 200,
+              "error": null
+            }
+          ],
+          "falseBlockCount": 0,
+          "failedOpenCount": 0
+        }
+      }
+    }
+  ],
+  "completedAt": "2026-08-20T20:15:37.428Z",
+  "cleanup": {
+    "seededSubmissionId": "90d6f7c8-968b-4efa-8e2e-defb76c9a90b",
+    "deleteRequestOk": true,
+    "verifiedAbsent": true
+  },
+  "findings": {
+    "poolStress": {
+      "anyHardErrors": true,
+      "anyOtherErrors": false,
+      "highestGracefulConcurrency": null,
+      "firstDegradedConcurrency": 2,
+      "firstHardErrorConcurrency": 2,
+      "observedStatementTimeoutMs": 8457,
+      "uncontendedBaselineSucceededMs": 5096,
+      "note": "HARD_ERRORS: at least one concurrency level (first: 2) produced real DB-contention failures instead of queueing to success -- pool_exhaustion_error (no free connection) and/or statement_timeout_error (connection acquired, but Postgres canceled the query once concurrent contention pushed its execution time past the server's own statement_timeout; see errorSamples on that level for the exact Postgres error code/message). This is an ungraceful pool-contention failure mode, not a graceful queue. This is a FINDING. Sharp onset: the uncontended single-request baseline (5096ms) succeeded every time this script ran it, but the SAME query run just twice at once (concurrency=2) already failed 2/2 via statement_timeout (observed cutoff ~8457ms, consistent across levels 2 through 20). At the highest tested level (concurrency=40) wall-clock and per-request latency both rose above that fixed cutoff for some requests -- real evidence that some genuine connection-wait queueing IS happening underneath the timeout cancellations, not just a flat constant. CAVEAT: this branch is a smaller/free-tier compute instance than production (same caveat PT-12-002 already states for its own thresholds); the exact ~8457ms statement_timeout value and the exact concurrency onset measured here are properties of THIS branch's compute tier and role-level statement_timeout GUC, not guaranteed to be identical to production's -- but the qualitative behavior (a moderately expensive read-only query, run with even mild concurrency, gets hard-canceled by the database rather than queued to completion) is a property of Postgres/PostgREST's real statement_timeout mechanism and is not branch-specific."
+    },
+    "rateLimiterContention": {
+      "totalFalseAllows": 0,
+      "totalFalseBlocks": 0,
+      "totalBlockCalls": 50,
+      "totalAllowCalls": 50,
+      "note": "Across all 5 levels: shouldBlock funder produced 0/50 false-allows (rate-limit bypass under contention) and shouldAllow funder produced 0/50 false-blocks of legitimate traffic. Zero false-blocks confirms this rate limiter never spuriously blocks legitimate traffic under DB contention, consistent with its fail-open (not fail-closed) design. Zero false-allows in the tested range means the domain-cooldown check held correctly even under real DB contention up to concurrency=40 -- its fail-open design exists but was not actually triggered at this contention level."
+    }
+  }
+}

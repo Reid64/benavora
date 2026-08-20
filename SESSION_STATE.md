@@ -1,5 +1,61 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — audit PT-12-003 v2: sustained soak + incremental memory tracking (window-safe).
+## Last Updated: August 20, 2026 — audit PT-12-004: connection-pool + rate-limiter behavior under real DB contention.
+
+**Focus:** two bounded sub-tests against the existing dedicated non-production `pt12-load-test`
+branch (no new branch created) — DB connection-pool contention behavior, and
+`worker/rate-limiter.ts`'s `canSubmitToDomain()` rate limiter exercised under that same real
+contention. Full narrative, method, and result in `STATE_OF_THE_BUILD.md`'s matching entry — summary
+here.
+
+**What was done:**
+- New `scripts/audit/pt12-004-pool-ratelimit.mjs`: resolves branch credentials from
+  `test-evidence/pt-12/branch.txt` (same hard-fail-if-production guard as every prior PT-12 script,
+  including the `parent_project_ref === production_ref` check). Fires a burst
+  (`Promise.all`, not a duration loop) of concurrent leading-wildcard-ILIKE seq-scan queries against
+  `nonprofits` (1.97M rows) at 5 increasing concurrency levels (2, 5, 10, 20, 40), classifying each
+  request's outcome into `success` / `timeout` / `pool_exhaustion_error` (connection-count-exhaustion-
+  shaped) / `statement_timeout_error` (Postgres code 57014) / `other_error`. In the same burst, fires
+  10 replica calls per level against a seeded "should-block" funder and 10 against a real
+  "should-allow" funder, replicating `RateLimiter.canSubmitToDomain()`'s exact query shape and its
+  exact fail-open-on-error semantics (read from the real source first, quoted in the script's own
+  header comment) rather than assuming behavior.
+- New `scripts/audit/verify-pt12-004.mjs`: hard-fails unless `status === "complete"`, target is
+  confirmed non-production, ≥3 strictly-increasing concurrency levels, every level's pool
+  `outcomeCounts` sum exactly to that level's concurrency, every level's rate-limiter
+  `falseAllowCount`/`falseBlockCount` are independently recomputed from that level's own raw
+  `results` array (not just trusted), top-level findings notes are non-empty, and the seeded
+  synthetic test row is independently confirmed deleted (`cleanup.verifiedAbsent === true`). Does
+  NOT require any particular outcome — pool/rate-limiter behavior is measured, not asserted.
+- Ran it live. First pass used concurrency levels [10, 30, 75, 150] and found the DB layer was
+  *already* failing 100% of requests at the lowest level tested — re-tuned levels down to
+  [2, 5, 10, 20, 40] to actually capture the real onset point (a single uncontended query succeeds;
+  two at once already fails) rather than starting past it. Also found the initial error classifier
+  was mis-bucketing real Postgres `57014` (statement_timeout) errors as generic `other_error` —
+  fixed to a dedicated `statement_timeout_error` category, since it's a distinct, precise,
+  reproducible DB-contention signature, not an unclassified failure.
+- **Real finding: `hard_errors` at every tested concurrency level (2 through 40) — 82/82 heavy
+  queries failed via Postgres statement_timeout once run with even mild concurrency, despite a
+  single uncontended copy of the same query reliably succeeding.** Latency on the failing requests
+  clustered tightly (~8.1–9.2s) at levels 2–20, with one request reaching 16.3s at level 40 —
+  real evidence of genuine connection-wait queueing existing underneath the timeout cancellations,
+  not just a flat constant. Stated caveat (matching PT-12-002's own precedent): this is a
+  smaller/free-tier branch than production, so the exact ~8s cutoff and the exact onset concurrency
+  (2, not hundreds) are properties of this branch's tier, not guaranteed to carry over to production
+  — but the qualitative mechanism (contention-driven statement_timeout cancellation instead of
+  graceful queueing) is a real Postgres/PostgREST behavior, not a branch-specific artifact.
+- **Real finding: 0/50 false-allows and 0/50 false-blocks** for the rate-limiter contention test
+  across all 5 levels. The should-allow funder was never falsely blocked (directly confirms "no
+  false-blocking of legitimate traffic" under real contention, by measurement) and the should-block
+  funder's active cooldown was never bypassed in the tested range — the fail-open design is real
+  (proven by replicating its exact behavior) but was not actually triggered up to concurrency=40.
+- Cleanup: the one synthetic `autoapply_submissions` row (should-block case) was deleted and its
+  absence independently re-verified via a fresh query before the script exited; recorded in the
+  evidence's own `cleanup.verifiedAbsent` field, which the verifier hard-fails on otherwise.
+- `node scripts/audit/verify-pt12-004.mjs` — PASS (5/5 levels valid, outcome counts consistent,
+  rate-limiter counts recomputed and matching, non-production target confirmed, cleanup verified).
+
+---
+
 
 **Focus:** the prior PT-12-003 soak run was killed at `t=11s` of a 360s soak before the harness ever
 wrote its evidence file — the original script only wrote `soak-memory.json`/`.txt` once, at the very

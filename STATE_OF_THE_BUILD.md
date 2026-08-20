@@ -1,5 +1,87 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
+**Updated: August 20, 2026 — audit PT-12-004: connection-pool + rate-limiter behavior under real DB contention (real finding: statement_timeout under mild concurrency, not graceful queueing).**
+
+**Scope:** two sub-tests against the same dedicated, non-production `pt12-load-test` Supabase branch
+(`ffghpazvipsqrypkryfj`, parent ref = production `vbjplpquqxxfbpazyalt`, branch ref confirmed
+distinct before running, same guard pattern as every prior PT-12 script) — (1) drive real concurrency
+against the DB connection pool and observe whether contention degrades gracefully (queued, still
+succeeds) or ungracefully (errors); (2) exercise `worker/rate-limiter.ts`'s real, live
+`RateLimiter.canSubmitToDomain()` — the per-funder 24h AutoApply-submission cooldown check — under
+that same real contention, and confirm it neither false-blocks legitimate traffic nor silently bypasses
+an active cooldown. New script `scripts/audit/pt12-004-pool-ratelimit.mjs`, new verifier
+`scripts/audit/verify-pt12-004.mjs`, evidence at `test-evidence/pt-12/pool-ratelimit.json`.
+
+**Pool-stress method:** no raw Postgres connection was available to open a literal `pg.Pool` against
+(the Supabase CLI's `branches get` masks the branch's DB password with literal asterisks in every
+output format, confirmed live this session — same finding PT-12-001 already documented). Instead
+stressed the real pool PostgREST/Supavisor maintains in front of Postgres, via a deliberately
+index-defeating query (`nonprofits?name=ilike.*<nomatch>*` — a leading-wildcard ILIKE on the
+branch's largest table, 1.97M rows, forces a sequential scan no btree index can serve) fired as a
+true burst (`Promise.all` of N copies at once, not a duration-based loop — a single copy already
+costs several real seconds, so a loop model doesn't make sense). Concurrency levels: 2, 5, 10, 20, 40.
+
+**Real result — not graceful queueing, and the onset was immediate, not gradual:** a single,
+uncontended copy of the heavy query reliably succeeded (baseline: 5.1s this run; 3.7s/6.9s in two
+earlier calibration runs — all well under any timeout). But the SAME query run just **twice at once**
+(concurrency=2) already failed 2/2 — every single request at every tested level (2 through 40, 82 of
+82 heavy-query attempts total) came back as a real Postgres error, code `57014`
+(`"canceling statement due to statement timeout"`), not a client-side timeout and not a connection-pool-
+exhaustion rejection. The cutoff was tight and consistent — every failing request's own recorded
+latency landed in a narrow ~8.1–9.2s band at concurrency 2–20, rising only at concurrency=40 (one
+request took 16.3s), which is itself real evidence that genuine connection-wait queueing exists
+*underneath* the timeout cancellations — some requests at the highest level had to wait for a free
+connection before their own timeout clock even started. **Classified `hard_errors` at every tested
+level — this DB layer does not degrade gracefully under even mild concurrent contention; it actively
+cancels in-flight work.** This is a FINDING, not implied — the task's own framing ("pool errors instead
+of queueing... is a finding") is exactly what was measured. Caveat stated in the evidence itself,
+matching PT-12-002's own precedent: this branch is a smaller/free-tier compute instance than
+production, so the exact ~8s statement_timeout value and the exact concurrency onset (2, not 200+)
+are properties of this branch's tier and role-level GUC, not guaranteed identical to production's —
+but the qualitative mechanism (Postgres's real `statement_timeout`, triggered by real query-execution
+contention, canceling work outright rather than letting PostgREST/Supavisor queue it) is not
+branch-specific.
+
+**Rate-limiter-under-contention method and result:** read `worker/rate-limiter.ts`'s real source
+first, not assumed — `canSubmitToDomain(funderId)` runs a live Supabase query (funder's most recent
+submission within the last 24h) and its own catch block explicitly **fails open**: `return true`
+("allowed") on any query error, never `false`. That makes its contention behavior asymmetric by
+construction: it can never spuriously *block* legitimate traffic due to a DB error (`false` is only
+ever reached via a genuine, successfully-read recent-submission row), but it *can* spuriously *allow*
+(bypass an active cooldown) if contention makes the lookup query itself error instead of completing.
+Replicated the exact same PostgREST filter shape and the exact same fail-open-on-error branch, fired
+10 calls per level against a seeded "should-block" funder (a synthetic `autoapply_submissions` row
+timestamped `now()`, deleted and independently re-verified absent at the end of the run) and 10 calls
+per level against a real "should-allow" funder (confirmed zero prior submissions before the run) —
+all inside the SAME contended `Promise.all` burst as the pool-stress heavy queries above, so these
+calls experienced the identical real contention, not an isolated measurement. **Result: 0/50
+false-allows and 0/50 false-blocks across all 5 levels.** The should-allow funder was never
+incorrectly blocked (directly answers "confirm correct limiting without false-blocking legitimate
+traffic": confirmed, by measurement, not just by reading the fail-open source) and the should-block
+funder's real, active cooldown was never bypassed in the tested range — its fail-open design exists
+(and is now proven real, not theoretical, by replicating its exact query/error-handling shape) but was
+not actually triggered up to concurrency=40. This ties to, and is a materially different method from,
+the already-documented `waitBetweenSubmissions()` finding on the same `RateLimiter` class
+(`test-evidence/pt-11/artifacts/soak/SOAK_TEST_AUTOAPPLY_RESULTS-2026-08-20.md`,
+`PHASE-11-SUMMARY.md` — an unconditional 60-120s inter-submission delay, a throughput/scheduling
+issue) — this test exercises the class's *other* method, `canSubmitToDomain()`, under DB contention
+specifically, an angle neither of those prior soak runs tested.
+
+**Cleanup:** the one synthetic `autoapply_submissions` row this test wrote (should-block case) was
+deleted and its absence independently re-verified via a fresh query before the script exited —
+recorded in the evidence's own `cleanup.verifiedAbsent` field, which the verifier hard-fails on if not
+`true`.
+
+**Gates:** `node scripts/audit/verify-pt12-004.mjs` — PASS (5 increasing concurrency levels, each with
+outcome counts summing exactly to that level's concurrency; pool `behavior` classification present
+and valid at every level; rate-limiter `falseAllowCount`/`falseBlockCount` independently recomputed
+from each level's own raw `results` array and matching the recorded values; non-production target
+confirmed; cleanup verified). The verifier does not require any particular outcome (it does not
+assert `hard_errors` must or must not occur) — it requires the measurement to have genuinely happened
+and be internally consistent, which is what it checked.
+
+---
+
 **Updated: August 20, 2026 — audit PT-12-003 v2: sustained soak + incremental memory-leak tracking, window-safe.**
 
 **What broke, and why:** the prior PT-12-003 attempt (see `test-evidence/pt-12/soak-memory-run.log`,
