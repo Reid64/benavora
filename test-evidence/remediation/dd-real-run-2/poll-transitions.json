@@ -1,0 +1,25 @@
+{
+  "requestId": "f4870e28-5acd-4b92-a1d2-3e326b98d704",
+  "transitions": [
+    {
+      "at": "2026-08-21T18:25:54.534Z",
+      "elapsedMs": 0,
+      "status": "enumerating",
+      "counts": {}
+    },
+    {
+      "at": "2026-08-21T18:26:54.664Z",
+      "elapsedMs": 60130,
+      "status": "complete",
+      "counts": {
+        "linked": 0,
+        "scored": 59,
+        "enriched": 0,
+        "enumerated": 59,
+        "enrichment_errors": []
+      }
+    }
+  ],
+  "lastStatus": "complete",
+  "elapsedMs": 60130
+}

@@ -1,0 +1,28 @@
+{
+  "requestId": "f4870e28-5acd-4b92-a1d2-3e326b98d704",
+  "organizationId": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+  "capturedAt": "2026-08-21T18:30:00Z",
+  "totalProspects": 59,
+  "enumeratedCount": 59,
+  "enrichedCount": 0,
+  "linkedCount": 0,
+  "scoredCount": 59,
+  "scoreDistribution": {
+    "min": 15,
+    "median": 25,
+    "max": 25,
+    "note": "Heavily clustered at 25 (the max observed) - scoring.ts weights on this dataset (no website-derived enrichment, since foundation_directory's website column is mostly null for these rows -> enrichedCount:0) push most real BMF-sourced foundations to the same ceiling score absent enrichment signal; not investigated further, out of this task's scope."
+  },
+  "top10ByScoreThenAssetsDesc": [
+    { "prospect_id": "c8d9c596-8841-4c7c-924b-fd27a15dc868", "score": 25, "legal_name": "GIL CHARITABLE FOUNDATION INC", "hq_address": "DALLAS, TX", "assets": 13503379, "ntee": "X12" },
+    { "prospect_id": "4fab71cf-6354-4c04-8050-dda4557c823a", "score": 25, "legal_name": "KOONCE FAMILY FOUNDATION TR", "hq_address": "DALLAS, TX", "assets": 13153345, "ntee": "X21" },
+    { "prospect_id": "e9d10307-60d7-4f94-bcbf-f6e05d945a23", "score": 25, "legal_name": "BROWNSON HOME INC", "hq_address": "VICTORIA, TX", "assets": 12449125, "ntee": "L20Z" },
+    { "prospect_id": "331e00c5-578c-4518-9f33-f144f97aba5a", "score": 25, "legal_name": "CLIMB HAIER INTERNATIONAL INC", "hq_address": "KATY, TX", "assets": 12315030, "ntee": "X20" },
+    { "prospect_id": "69563b2e-8704-45cc-8988-b4e6189d28df", "score": 25, "legal_name": "LUBBOCK YOUNG WOMENS LEADER FOUNDATION", "hq_address": "LUBBOCK, TX", "assets": 11162175, "ntee": "P20" },
+    { "prospect_id": "98488d75-4de0-4116-834b-d4234eae9f5e", "score": 25, "legal_name": "JACK H AND WILLIAM M LIGHT CHARITABLE TR", "hq_address": "SAN ANTONIO, TX", "assets": 10553522, "ntee": "P20" },
+    { "prospect_id": "eee5a3f1-4f1e-42f2-a58f-3fd65d68d72c", "score": 25, "legal_name": "SWANSON FAMILY FOUNDATION", "hq_address": "HOUSTON, TX", "assets": 9983649, "ntee": "X99" },
+    { "prospect_id": "8d4ff5e3-50a8-477c-b15c-464cb9656c90", "score": 25, "legal_name": "FRAZIER FAMILY FOUNDATION INC", "hq_address": "CORP CHRISTI, TX", "assets": 9746711, "ntee": "P12" },
+    { "prospect_id": "22e070b2-7dfa-49a0-8f16-fd0b902262c9", "score": 25, "legal_name": "LIFEWORKS AFFORDABLE HOUSING CORPORATION", "hq_address": "AUSTIN, TX", "assets": 9280682, "ntee": "L20" },
+    { "prospect_id": "cb71efd5-039e-4cf1-b924-dbd34e9c77b0", "score": 25, "legal_name": "BRIJ & SUNITA AGRAWAL FOUNDATION", "hq_address": "HOUSTON, TX", "assets": 9187812, "ntee": "P20" }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "createdAt": "2026-08-21T18:25:32.042Z",
+  "body": {
+    "name": "TX Human Services/Religion/Housing >= $1M assets (post-fix run)",
+    "taxonomy_ids": [
+      "544eff35-8e7e-45b8-adfb-da23ad1c45af",
+      "35775d98-0bfc-4828-a3dc-519c7dabd637",
+      "ce438d8e-80fd-4989-9f5d-2e012572dcbb"
+    ],
+    "geography": {
+      "states": [
+        "TX"
+      ],
+      "min_assets": 1000000,
+      "limit": 200
+    }
+  },
+  "status": 201,
+  "response": {
+    "request": {
+      "id": "f4870e28-5acd-4b92-a1d2-3e326b98d704",
+      "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+      "name": "TX Human Services/Religion/Housing >= $1M assets (post-fix run)",
+      "taxonomy_ids": [
+        "544eff35-8e7e-45b8-adfb-da23ad1c45af",
+        "35775d98-0bfc-4828-a3dc-519c7dabd637",
+        "ce438d8e-80fd-4989-9f5d-2e012572dcbb"
+      ],
+      "geography": {
+        "limit": 200,
+        "states": [
+          "TX"
+        ],
+        "min_assets": 1000000
+      },
+      "status": "queued",
+      "counts": {},
+      "created_by": "b3ef4d39-fdc2-4d3a-9e93-1e1888b576b4",
+      "created_at": "2026-08-21T18:25:33.767667+00:00",
+      "completed_at": null
+    }
+  }
+}
