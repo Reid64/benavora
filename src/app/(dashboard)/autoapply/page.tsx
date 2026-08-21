@@ -63,6 +63,7 @@ const CARD_BG = "#F8F5EE";
 const ACCENT_TEAL = "#2E6B66";
 const ACCENT_AMBER = "#C17817";
 const ACCENT_SLATE = "#4F6D8F";
+const ACCENT_PLUM = "#7A5980";
 const CARD_SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
 
 interface QueueRow {
@@ -398,31 +399,32 @@ export default function AutoApplyPage() {
   const avgFillTimeSeconds =
     fillDurations.length > 0 ? fillDurations.reduce((a, b) => a + b, 0) / fillDurations.length : null;
 
-  const statFrameStyle = {
-    backgroundColor: FRAME_GOLD,
-    borderRadius: "14px",
-    boxShadow: CARD_SHADOW,
-    padding: "3px",
-    flex: "1",
-  };
-  const statCardStyle = (topBand: string) => ({
-    backgroundColor: CARD_BG,
+  // Header-band treatment (same pattern as the dashboard's flip cards): a
+  // solid-accent band carries the label in white, the tinted body (accent at
+  // ~8% alpha) carries the value in the accent's own color — distinct per
+  // card instead of the old thin borderTop stripe + uniform navy value.
+  const statFrameStyle = (accent: string) => ({
+    backgroundColor: `${accent}14`,
     borderRadius: "11px",
-    padding: "20px",
-    borderTop: `4px solid ${topBand}`,
+    border: `1px solid ${accent}33`,
+    overflow: "hidden" as const,
+    flex: "1",
   });
-  const darkStatLabelStyle = {
+  const statBandStyle = (accent: string) => ({
+    backgroundColor: accent,
+    padding: "7px 16px",
     fontSize: "11px",
-    fontWeight: 600 as const,
-    color: "#64748B",
+    fontWeight: 700 as const,
+    color: "#FFFFFF",
     textTransform: "uppercase" as const,
     letterSpacing: "0.08em",
-  };
+  });
+  const statBodyStyle = { padding: "14px 16px 18px" };
   const darkStatValueStyle = (color: string) => ({
     fontSize: "36px",
     fontWeight: 800 as const,
     color,
-    marginTop: "6px",
+    marginTop: 0,
   });
 
   return (
@@ -561,32 +563,32 @@ export default function AutoApplyPage() {
 
       {/* TOP STATS ROW — real values derived from the same submission_queue rows loaded for the table below */}
       <div className="flex flex-col gap-4 sm:flex-row">
-        <div style={statFrameStyle}>
-          <div style={statCardStyle(ACCENT_TEAL)}>
-            <p style={darkStatValueStyle(FRAME_NAVY)}>{queueLoading ? "—" : sessionsToday}</p>
-            <p style={darkStatLabelStyle}>Sessions Today</p>
+        <div style={statFrameStyle(ACCENT_TEAL)}>
+          <div style={statBandStyle(ACCENT_TEAL)}>Sessions Today</div>
+          <div style={statBodyStyle}>
+            <p style={darkStatValueStyle(ACCENT_TEAL)}>{queueLoading ? "—" : sessionsToday}</p>
           </div>
         </div>
-        <div style={statFrameStyle}>
-          <div style={statCardStyle("#10B981")}>
-            <p style={darkStatValueStyle(FRAME_NAVY)}>
+        <div style={statFrameStyle(ACCENT_PLUM)}>
+          <div style={statBandStyle(ACCENT_PLUM)}>Success Rate</div>
+          <div style={statBodyStyle}>
+            <p style={darkStatValueStyle(ACCENT_PLUM)}>
               {queueLoading ? "—" : successRatePct !== null ? `${successRatePct}%` : "—"}
             </p>
-            <p style={darkStatLabelStyle}>Success Rate</p>
           </div>
         </div>
-        <div style={statFrameStyle}>
-          <div style={statCardStyle(ACCENT_SLATE)}>
-            <p style={darkStatValueStyle(FRAME_NAVY)}>
+        <div style={statFrameStyle(ACCENT_SLATE)}>
+          <div style={statBandStyle(ACCENT_SLATE)}>Avg Fill Time</div>
+          <div style={statBodyStyle}>
+            <p style={darkStatValueStyle(ACCENT_SLATE)}>
               {queueLoading ? "—" : avgFillTimeSeconds !== null ? formatDuration(avgFillTimeSeconds) : "—"}
             </p>
-            <p style={darkStatLabelStyle}>Avg Fill Time</p>
           </div>
         </div>
-        <div style={statFrameStyle}>
-          <div style={statCardStyle(ACCENT_AMBER)}>
-            <p style={darkStatValueStyle(FRAME_NAVY)}>{queueLoading ? "—" : queue.length}</p>
-            <p style={darkStatLabelStyle}>Forms Queued</p>
+        <div style={statFrameStyle(ACCENT_AMBER)}>
+          <div style={statBandStyle(ACCENT_AMBER)}>Forms Queued</div>
+          <div style={statBodyStyle}>
+            <p style={darkStatValueStyle(ACCENT_AMBER)}>{queueLoading ? "—" : queue.length}</p>
           </div>
         </div>
       </div>

@@ -149,6 +149,22 @@ const POLL_INTERVAL_MS = 15_000;
 const SECTION_ACCENT = "#A4712C";
 const CTA_TEAL_BG = "#A4712C";
 const CTA_TEAL_TEXT = "#F8F5EE";
+// "Discover Prospects" is the page's primary action — Royal Violet, distinct
+// from every other bronze/action color on the page.
+const DISCOVER_BG = "#5B21B6";
+// Rust — the top-prospects action color (Featured Prospect + Top Prospects
+// list buttons).
+const RUST = "#A3492F";
+// The six action colors, one per funnel stage, in FUNNEL_STAGES order
+// (new, reviewing, contacted, applied, received, rejected).
+const FUNNEL_STAGE_COLORS: Record<DdFunnelStage, string> = {
+  new: "#2E6B66",
+  reviewing: "#7A5980",
+  contacted: "#4F6D8F",
+  applied: "#C17817",
+  received: "#A3492F",
+  rejected: "#5C6935",
+};
 
 function countsSummary(counts: DdRequestCounts | null): string {
   if (!counts) return "Waiting to start…";
@@ -361,11 +377,11 @@ export default function DonorDiscoveryPage() {
   // style with 4 unrelated colors (sky/cyan/purple/green) for 4 plain counts
   // with no real status difference between them - the exact per-card
   // rainbow pattern PAGE_TREATMENT_PROTOCOL_V2.md rules out.
-  function DarkStatCard({ label, value }: { label: string; value: string }) {
+  function DarkStatCard({ label, value, accent = SECTION_ACCENT }: { label: string; value: string; accent?: string }) {
     return (
       <div style={statFrameStyle}>
         <div style={{ ...statCardStyle, padding: "20px 24px" }}>
-          <p style={{ fontSize: "26px", fontWeight: 900, color: SECTION_ACCENT, margin: 0 }}>{value}</p>
+          <p style={{ fontSize: "26px", fontWeight: 900, color: accent, margin: 0 }}>{value}</p>
           <p
             style={{
               fontSize: "11px",
@@ -469,7 +485,7 @@ export default function DonorDiscoveryPage() {
             </Link>
             <Link
               href="/donor-discovery/new"
-              style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+              style={{ backgroundColor: DISCOVER_BG, color: "#FFFFFF" }}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-opacity hover:opacity-90"
             >
               <Plus className="h-4 w-4" aria-hidden />
@@ -486,7 +502,7 @@ export default function DonorDiscoveryPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div style={statFrameStyle}>
           <div className="p-5" style={statCardStyle}>
-            <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : totalProspects}</p>
+            <p style={accentStatValueStyle("#2E6B66")}>{loading ? "—" : totalProspects}</p>
             <p style={statLabelStyle}>Prospects Identified</p>
           </div>
         </div>
@@ -498,7 +514,7 @@ export default function DonorDiscoveryPage() {
         </div>
         <div style={statFrameStyle}>
           <div className="p-5" style={statCardStyle}>
-            <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : activeCampaignsCount}</p>
+            <p style={accentStatValueStyle("#7A5980")}>{loading ? "—" : activeCampaignsCount}</p>
             <p style={statLabelStyle}>Active Campaigns</p>
           </div>
         </div>
@@ -511,10 +527,10 @@ export default function DonorDiscoveryPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DarkStatCard label="Active Requests" value={loading ? "—" : String(activeRequestsCount)} />
-        <DarkStatCard label="Avg Score" value={loading || avgScore == null ? "—" : String(avgScore)} />
-        <DarkStatCard label="New & Reviewing" value={loading ? "—" : String(highValueCount)} />
-        <DarkStatCard label="Contacted This Month" value={loading ? "—" : String(contactedThisMonth)} />
+        <DarkStatCard label="Active Requests" value={loading ? "—" : String(activeRequestsCount)} accent="#4F6D8F" />
+        <DarkStatCard label="Avg Score" value={loading || avgScore == null ? "—" : String(avgScore)} accent="#C17817" />
+        <DarkStatCard label="New & Reviewing" value={loading ? "—" : String(highValueCount)} accent="#A3492F" />
+        <DarkStatCard label="Contacted This Month" value={loading ? "—" : String(contactedThisMonth)} accent="#5C6935" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -689,7 +705,7 @@ export default function DonorDiscoveryPage() {
                   <Link
                     href={`/donor-discovery/prospects/${p.id}`}
                     style={{
-                      backgroundColor: "#A4712C",
+                      backgroundColor: RUST,
                       color: "white",
                       border: "none",
                       borderRadius: "8px",
@@ -807,30 +823,35 @@ export default function DonorDiscoveryPage() {
         }}
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {FUNNEL_STAGES.map((stage) => (
-            <div
-              key={stage}
-              style={{
-                backgroundColor: "#A4712C",
-                borderRadius: "12px",
-                boxShadow: "0 4px 20px rgba(164,113,44,0.22)",
-                padding: "3px",
-              }}
-            >
-              <Link
-                href={`/donor-discovery/prospects?stage=${stage}`}
-                className="block cursor-pointer text-center transition-colors hover:opacity-90"
+          {FUNNEL_STAGES.map((stage) => {
+            const stageColor = FUNNEL_STAGE_COLORS[stage];
+            return (
+              <div
+                key={stage}
                 style={{
-                  backgroundColor: "#F8F5EE",
-                  borderRadius: "9px",
-                  padding: "12px 16px",
+                  backgroundColor: stageColor,
+                  borderRadius: "12px",
+                  boxShadow: `0 4px 20px ${stageColor}38`,
+                  padding: "3px",
                 }}
               >
-                <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
-                <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
-              </Link>
-            </div>
-          ))}
+                <Link
+                  href={`/donor-discovery/prospects?stage=${stage}`}
+                  className="block cursor-pointer text-center transition-colors hover:opacity-90"
+                  style={{
+                    backgroundColor: "#F8F5EE",
+                    borderRadius: "9px",
+                    padding: "12px 16px",
+                  }}
+                >
+                  <p style={{ fontSize: "24px", fontWeight: 700, color: stageColor }}>
+                    {loading ? "—" : stageCounts[stage]}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
+                </Link>
+              </div>
+            );
+          })}
         </div>
       </Card>
 
@@ -889,7 +910,8 @@ export default function DonorDiscoveryPage() {
                   )}
                   <Link
                     href={`/donor-discovery/prospects/${p.id}`}
-                    className="mt-3 inline-flex items-center justify-center rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/5"
+                    className="mt-3 inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-bold transition hover:opacity-90"
+                    style={{ backgroundColor: RUST, color: "#FFFFFF" }}
                   >
                     Review
                   </Link>
