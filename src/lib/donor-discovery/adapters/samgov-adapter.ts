@@ -139,9 +139,17 @@ function normalizeEntity(raw: RawEntity, naicsCode: string): RawProspect | null 
 }
 
 export interface SearchEntitiesOptions {
-  /** Entity API page size. Default 100 (single page — see file header on pagination scope). */
+  /**
+   * Entity API page size. Default 10 (single page — see file header on
+   * pagination scope). The real Entity Management API v3 hard-caps this at
+   * 10 records ("Size Cannot Exceed 10 Records", HTTP 400 confirmed live for
+   * any value above 10) — a much lower ceiling than the Opportunities API's
+   * own limit param, despite both being SAM.gov endpoints.
+   */
   size?: number;
 }
+
+const ENTITY_API_MAX_SIZE = 10;
 
 /**
  * Searches SAM.gov Entity Management API v3 for entities registered for
@@ -168,7 +176,8 @@ export async function searchEntitiesByNaics(
   // The real Entity Management API v3 rejects "activeDate" outright
   // ("The search parameter, activeDate does not exist.") — not a valid
   // param on this endpoint, despite SAM's own convention elsewhere.
-  url.searchParams.set("size", String(opts.size ?? 100));
+  const size = Math.min(opts.size ?? ENTITY_API_MAX_SIZE, ENTITY_API_MAX_SIZE);
+  url.searchParams.set("size", String(size));
 
   const response = await fetch(url.toString());
   if (response.status === 401 || response.status === 403) {

@@ -15,8 +15,11 @@ const SAM_GOV_SEARCH_URL = "https://api.sam.gov/opportunities/v2/search";
 
 const DEFAULT_LIMIT = 100;
 // postedFrom/postedTo are mandatory on every real opportunities/v2/search
-// call; SAM.gov caps the range at 1 year, so poll the trailing year.
-const DEFAULT_DAYS_BACK = 365;
+// call; SAM.gov caps the range at "no more than 1 year apart" (confirmed
+// live: exactly 365 days back from today is rejected with HTTP 400 "Date
+// range must be no more than 1 year apart" - the boundary is exclusive of a
+// full calendar year), so poll 364 days back, not 365.
+const DEFAULT_DAYS_BACK = 364;
 
 export interface SamGovNormalizedOpportunity {
   /** SAM.gov noticeId — the natural external identifier for dedup. */

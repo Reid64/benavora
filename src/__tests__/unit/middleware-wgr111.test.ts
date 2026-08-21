@@ -13,7 +13,7 @@ import { NextRequest } from "next/server";
 
 import { middleware } from "@/middleware";
 
-function makeRequest(pathname: string, init?: RequestInit) {
+function makeRequest(pathname: string, init?: { method?: string }) {
   return new NextRequest(new URL(`https://www.benavora.com${pathname}`), init);
 }
 
