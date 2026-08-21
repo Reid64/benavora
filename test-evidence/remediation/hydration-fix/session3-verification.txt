@@ -1,0 +1,40 @@
+[OK] landing-page-renders :: body text length: 6488
+[OK] explore-bypass-button-exists :: found 1
+[OK] bypass-reached-dashboard :: URL after bypass click: http://localhost:3100/dashboard
+[OK] dashboard-renders :: body text length: 3218
+[OK] draft-generator-not-bounced :: URL: http://localhost:3100/draft-generator
+[OK] draft-generator-renders :: body text length: 11078
+[OK] opportunities-not-bounced :: URL: http://localhost:3100/opportunities
+[OK] opportunities-renders :: body text length: 16988
+[OK] no-hydration-errors-anywhere :: zero hydration-related messages across all 4 pages
+
+=== All console messages ===
+  [info] (http://localhost:3100/) %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+  [warning] (http://localhost:3100/) Image with src "/benavora_logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also incl
+  [info] (http://localhost:3100/onboarding) %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+  [warning] (http://localhost:3100/onboarding) Image with src "/benavora_logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also incl
+  [log] (http://localhost:3100/onboarding) [Fast Refresh] rebuilding
+  [log] (http://localhost:3100/onboarding) [Fast Refresh] rebuilding
+  [log] (http://localhost:3100/onboarding) [Fast Refresh] done in 50ms
+  [log] (http://localhost:3100/onboarding) [Fast Refresh] done in 637ms
+  [log] (http://localhost:3100/dashboard) [Fast Refresh] rebuilding
+  [log] (http://localhost:3100/dashboard) [Fast Refresh] done in 5248ms
+  [info] (http://localhost:3100/draft-generator) %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+  [warning] (http://localhost:3100/draft-generator) Image with src "/benavora_logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also incl
+  [log] (http://localhost:3100/draft-generator) [Fast Refresh] rebuilding
+  [log] (http://localhost:3100/draft-generator) [Fast Refresh] done in 709ms
+  [info] (http://localhost:3100/opportunities) %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+  [warning] (http://localhost:3100/opportunities) Image with src "/benavora_logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also incl
+
+=== All page errors ===
+
+=== Results summary ===
+PASS  landing-page-renders: body text length: 6488
+PASS  explore-bypass-button-exists: found 1
+PASS  bypass-reached-dashboard: URL after bypass click: http://localhost:3100/dashboard
+PASS  dashboard-renders: body text length: 3218
+PASS  draft-generator-not-bounced: URL: http://localhost:3100/draft-generator
+PASS  draft-generator-renders: body text length: 11078
+PASS  opportunities-not-bounced: URL: http://localhost:3100/opportunities
+PASS  opportunities-renders: body text length: 16988
+PASS  no-hydration-errors-anywhere: zero hydration-related messages across all 4 pages
