@@ -92,39 +92,26 @@ function badgeLabel(count: number): string {
   return count >= 10 ? "9+" : String(count);
 }
 
-const BADGE_CIRCLE_STYLE: CSSProperties = {
-  position: "absolute",
-  top: -4,
-  right: -6,
-  width: 16,
-  height: 16,
-  borderRadius: "50%",
-  backgroundColor: "#EF4444",
+/**
+ * Nav-row notification badge — a rust-colored pill and a normal flex child of
+ * the row, pushed to the row's far right edge via `marginLeft: auto` (not an
+ * overlay on the icon). Shared by NavLink (icon rows) and ChildNavLink
+ * (indented sub-rows). Hidden entirely at count <= 0 (see NavBadge).
+ */
+const BADGE_STYLE: CSSProperties = {
+  marginLeft: "auto",
+  flexShrink: 0,
+  backgroundColor: "#A3492F",
   color: "#FFFFFF",
-  fontSize: "9px",
-  fontWeight: 700,
-  lineHeight: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+  fontSize: "11px",
+  fontWeight: 600,
+  minWidth: "18px",
+  height: "18px",
+  lineHeight: "18px",
+  padding: "0 6px",
+  borderRadius: "9px",
+  textAlign: "center",
 };
-
-/** A 16px circle badge overlaid top-right of the icon it wraps. Hidden at 0. */
-function IconWithBadge({ icon: Icon, count }: { icon: LucideIcon; count: number }) {
-  return (
-    <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
-      <Icon style={{ width: ICON_SIZE, height: ICON_SIZE, flexShrink: 0 }} aria-hidden />
-      {count > 0 && (
-        <span
-          style={BADGE_CIRCLE_STYLE}
-          aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
-        >
-          {badgeLabel(count)}
-        </span>
-      )}
-    </span>
-  );
-}
 
 type NavLinkProps = {
   href: string;
@@ -150,12 +137,9 @@ function NavLink({ href, label, icon, active, badge = 0, id, onClick, iconColor 
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {iconColor ? (
-        <Icon icon={icon} color={iconColor(active)} />
-      ) : (
-        <IconWithBadge icon={icon} count={badge} />
-      )}
+      <Icon icon={icon} color={iconColor ? iconColor(active) : "#FFFFFF"} />
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <NavBadge count={badge} />
     </Link>
   );
 }
@@ -167,14 +151,11 @@ function Icon({ icon: LucideComp, color }: { icon: LucideIcon; color: string }) 
   return <LucideComp style={{ width: ICON_SIZE, height: ICON_SIZE, flexShrink: 0, color }} aria-hidden />;
 }
 
-/** Inline circle badge for text-only sub-links that have no icon to overlay. */
+/** Renders the shared rust-pill badge (BADGE_STYLE) as the row's last flex child. Hidden at count <= 0. */
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span
-      style={{ ...BADGE_CIRCLE_STYLE, position: "static", marginLeft: "auto" }}
-      aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
-    >
+    <span style={BADGE_STYLE} aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}>
       {badgeLabel(count)}
     </span>
   );

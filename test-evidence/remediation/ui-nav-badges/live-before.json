@@ -1,0 +1,124 @@
+{
+  "capturedAt": "2026-08-21T14:59:22.626Z",
+  "baseUrl": "http://localhost:3100",
+  "badgeCount": 3,
+  "badges": [
+    {
+      "label": "Alerts9+",
+      "text": "9+",
+      "backgroundColor": "rgb(163, 73, 47)",
+      "color": "rgb(255, 255, 255)",
+      "fontSize": "11px",
+      "fontWeight": "600",
+      "marginLeft": "100.875px",
+      "borderRadius": "9px",
+      "rowRect": {
+        "left": 8,
+        "right": 231,
+        "top": 289.796875,
+        "bottom": 327.296875,
+        "width": 223
+      },
+      "badgeRect": {
+        "left": 192.5625,
+        "right": 219,
+        "top": 299.546875,
+        "bottom": 317.546875,
+        "width": 26.4375,
+        "height": 18
+      },
+      "iconRect": {
+        "left": 20,
+        "right": 35,
+        "top": 301.046875,
+        "bottom": 316.046875
+      },
+      "rightGap": 12,
+      "intersectsIcon": false,
+      "checks": {
+        "backgroundIsRust": true,
+        "marginLeftAutoResolved": true,
+        "withinRightGap": true,
+        "noIconIntersection": true
+      }
+    },
+    {
+      "label": "Applications1",
+      "text": "1",
+      "backgroundColor": "rgb(163, 73, 47)",
+      "color": "rgb(255, 255, 255)",
+      "fontSize": "11px",
+      "fontWeight": "600",
+      "marginLeft": "68.7656px",
+      "borderRadius": "9px",
+      "rowRect": {
+        "left": 8,
+        "right": 231,
+        "top": 482.296875,
+        "bottom": 519.796875,
+        "width": 223
+      },
+      "badgeRect": {
+        "left": 201,
+        "right": 219,
+        "top": 492.046875,
+        "bottom": 510.046875,
+        "width": 18,
+        "height": 18
+      },
+      "iconRect": {
+        "left": 20,
+        "right": 35,
+        "top": 493.546875,
+        "bottom": 508.546875
+      },
+      "rightGap": 12,
+      "intersectsIcon": false,
+      "checks": {
+        "backgroundIsRust": true,
+        "marginLeftAutoResolved": true,
+        "withinRightGap": true,
+        "noIconIntersection": true
+      }
+    },
+    {
+      "label": "Deadlines9+",
+      "text": "9+",
+      "backgroundColor": "rgb(163, 73, 47)",
+      "color": "rgb(255, 255, 255)",
+      "fontSize": "11px",
+      "fontWeight": "600",
+      "marginLeft": "75.9844px",
+      "borderRadius": "9px",
+      "rowRect": {
+        "left": 8,
+        "right": 231,
+        "top": 674.796875,
+        "bottom": 712.296875,
+        "width": 223
+      },
+      "badgeRect": {
+        "left": 192.5625,
+        "right": 219,
+        "top": 684.546875,
+        "bottom": 702.546875,
+        "width": 26.4375,
+        "height": 18
+      },
+      "iconRect": {
+        "left": 20,
+        "right": 35,
+        "top": 686.046875,
+        "bottom": 701.046875
+      },
+      "rightGap": 12,
+      "intersectsIcon": false,
+      "checks": {
+        "backgroundIsRust": true,
+        "marginLeftAutoResolved": true,
+        "withinRightGap": true,
+        "noIconIntersection": true
+      }
+    }
+  ]
+}

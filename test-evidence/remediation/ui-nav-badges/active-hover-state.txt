@@ -1,0 +1,24 @@
+ACTIVE STATE (Alerts, /alerts): {
+  "hasBadge": true,
+  "rowOverflow": "visible",
+  "rowBg": "rgba(201, 163, 78, 0.22)",
+  "badgeVisible": true,
+  "fullyWithinRow": true,
+  "rowRect": {
+    "left": 8,
+    "right": 231,
+    "width": 223
+  },
+  "badgeRect": {
+    "left": 192.5625,
+    "right": 219,
+    "width": 26.4375
+  }
+}
+HOVER STATE (Deadlines, hovered): {
+  "hasBadge": true,
+  "rowOverflow": "visible",
+  "rowBg": "rgba(201, 163, 78, 0.1)",
+  "badgeVisible": true,
+  "fullyWithinRow": true
+}
