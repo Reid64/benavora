@@ -124,8 +124,22 @@ describe("POST /api/donor-discovery/requests", () => {
   });
 
   it("creates the request scoped to the caller's organization_id from the session, not the body", async () => {
-    const chain = makeChain({ data: mockDdRequest, error: null });
-    const supabase = { from: vi.fn(() => chain) };
+    // Two distinct tables are queried: donor_discovery_taxonomy (the
+    // WGR-159 taxonomy/geography match check, commit 390f1c3) must resolve
+    // to an array of {kind} rows, and donor_discovery_requests (the actual
+    // insert) resolves to the created row. A single shared chain for both
+    // (as this test used pre-WGR-159) makes the taxonomy query see the
+    // insert's single-object result instead of an array, which crashes
+    // `.some()` in the route — reproduced and fixed here.
+    const taxonomyChain = makeChain({ data: [{ kind: "naics" }], error: null });
+    const insertChain = makeChain({ data: mockDdRequest, error: null });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "donor_discovery_taxonomy") return taxonomyChain;
+        if (table === "donor_discovery_requests") return insertChain;
+        throw new Error(`unexpected table: ${table}`);
+      }),
+    };
     mockRequireRole.mockResolvedValue(grantedGate(supabase, "writer", ORG_ID));
 
     const req = makeRequest("http://localhost/api/donor-discovery/requests", {
@@ -138,7 +152,7 @@ describe("POST /api/donor-discovery/requests", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(201);
-    const insertFn = chain.insert as ReturnType<typeof vi.fn>;
+    const insertFn = insertChain.insert as ReturnType<typeof vi.fn>;
     expect(insertFn).toHaveBeenCalledWith(
       expect.objectContaining({ organization_id: ORG_ID }),
     );

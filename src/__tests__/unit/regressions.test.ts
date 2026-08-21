@@ -181,7 +181,13 @@ describe("regression: IRS 990 XML fetch using dead S3 URL / wrong fetch method (
 
     expect(fetchRaw).toHaveBeenCalledWith(directUrl);
     expect(fetchPage).not.toHaveBeenCalled();
-    expect(result).toEqual({ website: "https://example.org", phone: "5125551234" });
+    // normalizeWebsiteCandidate() (added commit e76dac3, 2026-08-15, to
+    // reject placeholder/bare-domain WebsiteAddressTxt values that were
+    // crashing fetchPage()) validates via `new URL(...).toString()`, which
+    // per the WHATWG URL spec normalizes a bare-domain URL by appending the
+    // trailing "/" — a real, correct side effect of that fix, not a bug in
+    // the fetchRaw()-vs-fetchPage() behavior this test actually guards.
+    expect(result).toEqual({ website: "https://example.org/", phone: "5125551234" });
   });
 
   it("never constructs the dead s3.amazonaws.com/irs-form-990 fallback URL", () => {

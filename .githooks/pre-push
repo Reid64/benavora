@@ -11,6 +11,17 @@
 # actually be stopped before it reaches `main` is right here, before `git
 # push` leaves the machine. See STANDING_DIRECTIVES.md DIRECTIVE-019.
 #
+# `npx vitest run` runs after the build (WGR-157, DIRECTIVE-021, 2026-08-21):
+# a green `pnpm run build` says nothing about the test suite — this repo had
+# gone 512-passed/8-failed at HEAD for an unknown number of prior pushes with
+# nothing in this hook catching it, only ever noticed by someone manually
+# running vitest. Excludes src/__tests__/integration-live/** by design (see
+# vitest.config.ts / vitest.integration.config.ts) — those tests depend on a
+# live external system (a separately-deployed worker process, real
+# production org state another session can change) this hook cannot assume
+# is in a known state on every push; run them explicitly via
+# `pnpm run test:integration`.
+#
 # Installed via `pnpm install`'s `prepare` script (scripts/install-git-hooks.mjs),
 # which copies this file to .git/hooks/pre-push. Edit THIS file, not the
 # installed copy — the installed copy is untracked and gets overwritten.
@@ -21,16 +32,35 @@ url="$2"
 echo "pre-push: running 'pnpm run build' before allowing push to $remote ($url)..."
 
 pnpm run build
-status=$?
+build_status=$?
 
-if [ $status -ne 0 ]; then
+if [ $build_status -ne 0 ]; then
   echo ""
-  echo "pre-push: BLOCKED — 'pnpm run build' failed (exit $status)."
+  echo "pre-push: BLOCKED — 'pnpm run build' failed (exit $build_status)."
   echo "pre-push: fix the build before pushing to main. To bypass in a genuine"
   echo "pre-push: emergency, use 'git push --no-verify' — but that reintroduces"
   echo "pre-push: exactly the failure class this hook exists to catch."
   exit 1
 fi
 
-echo "pre-push: build passed, push allowed."
+echo "pre-push: build passed. Running 'npx vitest run'..."
+
+npx vitest run
+test_status=$?
+
+if [ $test_status -ne 0 ]; then
+  echo ""
+  echo "pre-push: BLOCKED — 'npx vitest run' failed (exit $test_status)."
+  echo "pre-push: fix the failing test(s) before pushing to main — do not skip"
+  echo "pre-push: or delete them. If a test depends on a live external system"
+  echo "pre-push: (a separately-deployed worker, real production state another"
+  echo "pre-push: session can change), move it to src/__tests__/integration-live/"
+  echo "pre-push: (run via 'pnpm run test:integration') and leave a mock-based"
+  echo "pre-push: unit replacement in the default suite. To bypass in a genuine"
+  echo "pre-push: emergency, use 'git push --no-verify' — but that reintroduces"
+  echo "pre-push: exactly the failure class this hook exists to catch."
+  exit 1
+fi
+
+echo "pre-push: build and tests passed, push allowed."
 exit 0

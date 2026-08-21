@@ -208,19 +208,25 @@ function randomSuffix(): string {
   });
 
   it("rejects an agent_type not present in the live enum — reproduces the documented enum gap", async () => {
-    // autonomous_orchestrator is one of the worker-inserted ids
-    // (project memory: benavora-agent-type-enum-gap) that was never added to
-    // the agent_type enum. This is a real, currently-unfixed gap — the test
-    // documents it rather than assuming it's been resolved.
+    // 'autonomous_orchestrator' was the original probe value here (a
+    // worker-inserted id never added to the agent_type enum). Commit
+    // c7779b9 (2026-07-31, "docs: agent_type enum gap analysis and fix,
+    // governance update", fix-agent-type-enum-gap.sql) added it to the live
+    // enum via `ALTER TYPE agent_type ADD VALUE IF NOT EXISTS
+    // 'autonomous_orchestrator'` — inserting it now succeeds, which is the
+    // intended fixed behavior, not a regression. Switched to a value
+    // guaranteed to stay outside the enum so this test keeps documenting
+    // the real invariant (an unrecognized agent_type is rejected) instead
+    // of a specific value's now-stale history.
     const { data, error } = await service
       .from("agent_runs")
-      .insert({ organization_id: orgAId, agent_type: "autonomous_orchestrator" })
+      .insert({ organization_id: orgAId, agent_type: "nonexistent_agent_type_probe" })
       .select()
       .single();
     expect(data).toBeNull();
     expect(error).not.toBeNull();
     expect(error!.code).toBe("22P02");
-    expect(error!.message).toContain("autonomous_orchestrator");
+    expect(error!.message).toContain("nonexistent_agent_type_probe");
   });
 
   it("query by agent_type returns only matching rows", async () => {

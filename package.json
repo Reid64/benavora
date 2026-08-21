@@ -13,6 +13,7 @@
         "typecheck": "tsc --noEmit",
         "test": "playwright test --reporter=list",
         "test:unit": "vitest run",
+        "test:integration": "vitest run --config vitest.integration.config.ts",
         "test:all": "vitest run && playwright test --reporter=list",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",

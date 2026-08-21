@@ -9,7 +9,7 @@ export default defineConfig({
       "src/**/*.spec.ts",
       "tests/**/*.test.ts",
     ],
-    exclude: ["node_modules", ".next", "tests/e2e/**"],
+    exclude: ["node_modules", ".next", "tests/e2e/**", "src/__tests__/integration-live/**"],
     passWithNoTests: true,
     setupFiles: ["tests/setup.ts"],
     testTimeout: 30000,

@@ -179,8 +179,13 @@ async function probeLiveOrgBucketReadOnly(
 ): Promise<BucketCheckResult> {
   const category = "org-per-bucket (live)" as const;
 
+  // A successful list() call with 0 entries is NOT a leak — Storage RLS
+  // filters object-level SELECT visibility rather than erroring the whole
+  // list() call, so an org-scoped policy correctly returns an empty array,
+  // not an error, for a bucket the caller can't see into. Only a non-empty
+  // result (an actual object from another org's bucket) is a real leak.
   const { data: listing, error: listErr } = await clients.userB.storage.from(bucketName).list("", { limit: 5 });
-  if (!listErr && listing) {
+  if (!listErr && listing && listing.length > 0) {
     return {
       bucket: bucketName,
       category,

@@ -1,0 +1,4 @@
+
+> benavora@0.1.0 build:worker C:\Users\manag\Documents\benavora
+> tsc -p worker/tsconfig.json && tsc-alias -p worker/tsconfig.json
+

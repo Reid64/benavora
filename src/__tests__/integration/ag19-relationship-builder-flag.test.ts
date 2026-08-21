@@ -89,7 +89,6 @@ function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-const FAITH_FOUNDATION_ORG_ID = "b1ab7402-dfc2-4712-869f-70ea3566cc1d";
 const FEATURE_FLAG_KEY = "feature.relationship_builder_v2";
 
 // Every table with a live FK to organizations(id), captured 2026-08-13 via a
@@ -311,30 +310,45 @@ async function deleteOrgAndAllDependents(
         max_retries: 3,
       };
 
-      // Gen-1 FunderRelationshipAgent's real write to
-      // funder_relationship_scores currently fails against the live schema
-      // (see file header) — routeQueueItem() rejects rather than resolves
-      // on this path. That is itself confirmed, real, current behavior, not
-      // a test artifact: BaseAgent.logStart() writes the agent_runs row
-      // (with the correct agent_type discriminator) BEFORE execute() runs,
-      // so the discriminator check below is unaffected either way.
-      await expect(routeQueueItem(service, item)).rejects.toThrow();
+      // Gen-1 FunderRelationshipAgent's upsert onto funder_relationship_scores
+      // used to fail against the live schema (see file header, and the
+      // original version of this test) — routeQueueItem() rejected rather
+      // than resolved on this path. Commit 9cf763b (2026-08-16, migration
+      // 139) added the columns that upsert targets
+      // (relationship_score/trend/recent_events/is_stale/total_interactions/
+      // successful_applications/last_interaction_at) to the live table, so
+      // the write — and this whole path — now succeeds. Updated to assert
+      // the current, correct behavior instead of the pre-migration-139
+      // failure.
+      const summary = await routeQueueItem(service, item);
+      expect(summary).toContain("funder_relationship completed");
 
       const { data: runs, error: runsError } = await service
         .from("agent_runs")
-        .select("agent_type, status, organization_id")
+        .select("agent_type, status, organization_id, error_message")
         .eq("organization_id", testOrgId)
         .order("created_at", { ascending: false });
       expect(runsError, runsError?.message).toBeNull();
       expect(runs).toHaveLength(1);
       expect(runs![0]!.organization_id).toBe(testOrgId);
       expect(runs![0]!.agent_type).toBe("funder_relationship");
+      expect(runs![0]!.status).toBe("completed");
+      expect(runs![0]!.error_message).toBeNull();
 
       // The Gen-2 agent was never reached on this path.
       const gen2Runs = (runs ?? []).filter(
         (r) => r.agent_type === "ag-19-relationship",
       );
       expect(gen2Runs).toHaveLength(0);
+
+      // The real write FunderRelationshipAgent performs, scoped correctly.
+      const { data: scoreRows, error: scoreError } = await service
+        .from("funder_relationship_scores")
+        .select("organization_id, funder_id")
+        .eq("organization_id", testOrgId)
+        .eq("funder_id", testFunderId);
+      expect(scoreError, scoreError?.message).toBeNull();
+      expect(scoreRows).toHaveLength(1);
     });
 
     it("2. sets feature.relationship_builder_v2 = 'true' for the disposable test org only", async () => {
@@ -407,16 +421,15 @@ async function deleteOrgAndAllDependents(
       expect(memoryRows).toHaveLength(0);
     });
 
-    it("4. Faith Foundation's real org still has no feature.relationship_builder_v2 row and is unaffected by this entire test", async () => {
-      const { data: ffFlag, error: ffFlagError } = await service
-        .from("platform_config")
-        .select("value")
-        .eq("organization_id", FAITH_FOUNDATION_ORG_ID)
-        .eq("key", FEATURE_FLAG_KEY)
-        .maybeSingle();
-      expect(ffFlagError, ffFlagError?.message).toBeNull();
-      expect(ffFlag).toBeNull();
-    });
+    // Test 4 ("Faith Foundation's real org still has no
+    // feature.relationship_builder_v2 row") moved to
+    // src/__tests__/integration-live/ag19-faith-foundation-isolation.test.ts
+    // (WGR-157) — it reads a real, shared production org's live state, which
+    // already failed once from unrelated live-session activity setting that
+    // flag and never unsetting it; a genuine external-system dependency, not
+    // a defect in the flag-routing code the other 3 tests above cover
+    // against this suite's own disposable org. Mock-based replacement of the
+    // underlying org-scoping invariant: src/__tests__/unit/ag19-org-scoping.test.ts.
   },
 );
 

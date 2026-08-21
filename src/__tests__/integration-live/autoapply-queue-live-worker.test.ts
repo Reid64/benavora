@@ -4,8 +4,6 @@ import ws from "ws";
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { SubmissionValidator } from "@/lib/autoapply/submission-validator";
-import { assessSubmissionRisk } from "@/lib/autoapply/risk-engine";
 
 // Node 20 has no native WebSocket; mirrors the workaround in
 // src/lib/supabase/admin.ts and the other suites in this directory — without
@@ -20,6 +18,22 @@ function createClient(url: string, key: string, opts: Record<string, unknown> = 
 }
 
 /**
+ * WGR-157: moved out of src/__tests__/integration/autoapply-queue.test.ts
+ * (excluded from the default `npx vitest run` via vitest.config.ts's
+ * `exclude: [..., "src/__tests__/integration-live/**"]`) — these 2 tests
+ * require the real, separately-deployed Railway worker (benavora-worker) to
+ * be actively polling the real production `submission_queue` table within
+ * 90-180s, a genuine live-external-system dependency the default suite
+ * (and this repo's pre-push build gate) cannot assume is running. Run
+ * explicitly via `pnpm run test:integration`.
+ *
+ * A deterministic, mock-based replacement for the org-readiness gating
+ * decision this suite exercises lives at
+ * src/__tests__/unit/autoapply-queue-gating.test.ts (exercises
+ * QueueProcessor.processItem() directly, fully mocked, no live worker) —
+ * that one runs in the default suite and stays green regardless of whether
+ * the real worker happens to be up when CI runs.
+ *
  * Live end-to-end test of the AutoApply submission_queue pipeline
  * (worker/queue-processor.ts). Per DEMO_READINESS_AUDIT.md, this pipeline had
  * never been exercised by any automated test — e2e/autoapply-dashboard.spec.ts
@@ -58,17 +72,66 @@ const SERVICE_ROLE_KEY = localEnv.SUPABASE_SERVICE_ROLE_KEY;
 const CREDS_AVAILABLE = Boolean(SUPABASE_URL && SERVICE_ROLE_KEY);
 
 const TARGET_URL = "https://httpbin.org/forms/post";
+const TERMINAL_STATUSES = new Set([
+  "completed",
+  "skipped",
+  "failed",
+  "requires_account_setup",
+  "pending_manual",
+]);
 
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// waitForTerminal() / the submission_queue polling helper moved to
-// src/__tests__/integration-live/autoapply-queue-live-worker.test.ts along
-// with the 2 tests that used it (WGR-157) — the tests remaining in this
-// file don't drive a real queue item through the live worker.
+interface QueueRow {
+  id: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
 
-(CREDS_AVAILABLE ? describe : describe.skip)("AutoApply submission_queue pipeline (live)", () => {
+/**
+ * Polls submission_queue.status for a given row until it leaves
+ * pending/processing, matching the set of terminal states
+ * queue-processor.ts's poll loop actually writes (see its catch blocks for
+ * AccountSetupRequiredError / SkipError / generic Error, plus the
+ * risk-engine 'manual' route which writes 'pending_manual' directly inside
+ * processItem() rather than via the loop's own catch).
+ */
+async function waitForTerminal(
+  service: SupabaseClient,
+  queueItemId: string,
+  opts: { timeoutMs: number; pollMs?: number },
+): Promise<{ row: QueueRow; sawProcessing: boolean }> {
+  const pollMs = opts.pollMs ?? 2000;
+  const deadline = Date.now() + opts.timeoutMs;
+  let last: QueueRow | null = null;
+  let sawProcessing = false;
+
+  while (Date.now() < deadline) {
+    const { data, error } = await service
+      .from("submission_queue")
+      .select("id, status, started_at, completed_at")
+      .eq("id", queueItemId)
+      .single();
+    if (error) throw new Error(`poll failed for queue item ${queueItemId}: ${error.message}`);
+
+    last = data as QueueRow;
+    if (last.status === "processing" || last.started_at !== null) sawProcessing = true;
+    if (TERMINAL_STATUSES.has(last.status)) {
+      return { row: last, sawProcessing };
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  throw new Error(
+    `submission_queue item ${queueItemId} never reached a terminal state within ${opts.timeoutMs}ms ` +
+      `(last observed status: "${last?.status}"). Is the Railway worker (benavora-worker) running and polling?`,
+  );
+}
+
+(CREDS_AVAILABLE ? describe : describe.skip)("AutoApply submission_queue pipeline (live, requires the real Railway worker)", () => {
   let service: SupabaseClient;
 
   const orgIds: string[] = [];
@@ -277,116 +340,116 @@ function randomSuffix(): string {
       const { error } = await service.from("organizations").delete().match({ id: orgId });
       if (error) {
         // eslint-disable-next-line no-console
-        console.warn(`[autoapply-queue.test] cleanup failed for org ${orgId}: ${error.message}`);
+        console.warn(`[autoapply-queue-live-worker.test] cleanup failed for org ${orgId}: ${error.message}`);
       }
     }
   }, 60000);
 
-  it("checkOrgReadiness() reports NOT ready when request_profiles/org_documents/KB fields are missing", async () => {
-    const validator = new SubmissionValidator();
-    const report = await validator.checkOrgReadiness(orgIncompleteId, service);
+  it(
+    "real queue item for an unready org: pending -> processing -> skipped, blocked by org_not_ready near-instantly",
+    async () => {
+      const { data: item, error } = await service
+        .from("submission_queue")
+        .insert({
+          organization_id: orgIncompleteId,
+          funder_id: funderIncompleteId,
+          status: "pending",
+        })
+        .select()
+        .single();
+      expect(error, error?.message).toBeNull();
+      expect(item!.status).toBe("pending");
+      queueItemIds.push(item!.id as string);
 
-    expect(report.ready).toBe(false);
-    expect(report.missing_required.length).toBeGreaterThan(0);
-    expect(report.missing_required).toContain("At least one active request profile");
-    expect(report.missing_required).toContain("501(c)(3) determination letter");
-    expect(report.missing_required).toContain("IRS Form 990");
-    expect(
-      report.blockers.some((b) => b.includes("No active request profiles")),
-    ).toBe(true);
-  });
+      const { row, sawProcessing } = await waitForTerminal(service, item!.id as string, {
+        timeoutMs: 90000,
+        pollMs: 2000,
+      });
 
-  it("checkOrgReadiness() reports ready when an active profile and both required documents are present", async () => {
-    const validator = new SubmissionValidator();
-    const report = await validator.checkOrgReadiness(orgReadyId, service);
+      // Real state transition proof: it left pending (either observed
+      // 'processing' directly, or started_at was stamped by dequeue()'s
+      // claim UPDATE before this poll caught up) and landed on a terminal
+      // status recognized by the worker's own catch blocks.
+      expect(sawProcessing).toBe(true);
+      expect(row.started_at).toBeTruthy();
+      expect(row.completed_at).toBeTruthy();
+      expect(row.status).toBe("skipped");
 
-    expect(report.ready).toBe(true);
-    expect(report.missing_required).toEqual([]);
-    expect(report.blockers).toEqual([]);
-    expect(report.score).toBeGreaterThanOrEqual(70);
-  });
+      // org_not_ready throws before any browser/Claude work runs — matches
+      // DEMO_READINESS_AUDIT.md §5/§7's live finding of a ~1-2s skip. A
+      // multi-second gap here would mean it did NOT hit the early gate.
+      const durationMs =
+        new Date(row.completed_at as string).getTime() - new Date(row.started_at as string).getTime();
+      expect(durationMs).toBeLessThan(15000);
+    },
+    120000,
+  );
 
-  // The 2 "real queue item ... " tests that used to live here (requiring the
-  // real, separately-deployed Railway worker to poll and process a live
-  // submission_queue row within 90-180s) moved to
-  // src/__tests__/integration-live/autoapply-queue-live-worker.test.ts
-  // (WGR-157) — a live-external-system dependency the default `vitest run`
-  // suite excludes; run them via `pnpm run test:integration`. A mock-based
-  // unit replacement for the org-readiness gating decision they exercised
-  // lives at src/__tests__/unit/autoapply-queue-gating.test.ts.
+  it(
+    "real queue item for a ready org: proceeds past org_not_ready into real submission logic",
+    async () => {
+      const { data: item, error } = await service
+        .from("submission_queue")
+        .insert({
+          organization_id: orgReadyId,
+          funder_id: funderReadyId,
+          status: "pending",
+        })
+        .select()
+        .single();
+      expect(error, error?.message).toBeNull();
+      queueItemIds.push(item!.id as string);
 
-  // --- automation_level gating (risk-engine.ts) -----------------------------
-  //
-  // AUTOAPPLY_ARCHITECTURE_V2.md §8C documents three automation levels —
-  // full_auto / assisted / manual_only — as a graduated three-tier gate.
-  // assessSubmissionRisk() (src/lib/autoapply/risk-engine.ts), the only place
-  // funders.automation_level is actually read at submission time, does not
-  // implement that: it special-cases 'manual_only' only (+40 risk points,
-  // routing recommendation toward 'manual'), and form-filler-agent.ts never
-  // reads automation_level at all. These tests verify the REAL current
-  // behavior rather than the documented aspiration — 'assisted' and
-  // 'full_auto' currently produce identical risk assessments; only
-  // 'manual_only' changes anything.
-  it("assessSubmissionRisk(): 'assisted' and 'full_auto' currently produce identical scores (no coded distinction)", async () => {
-    const baseParams = {
-      requestProfile: { request_type: "monetary", min_value: 1000, max_value: 5000 },
-      formTemplate: null,
-      orgReadiness: { ready: true, missing_required: [] as string[] },
-      crossClientBlocked: false,
-      supabase: service,
-    };
+      const { row } = await waitForTerminal(service, item!.id as string, {
+        timeoutMs: 180000,
+        pollMs: 3000,
+      });
 
-    const assistedFunderId = `test-risk-assisted-${randomSuffix()}`;
-    const fullAutoFunderId = `test-risk-full-auto-${randomSuffix()}`;
+      expect(row.started_at).toBeTruthy();
+      expect(row.completed_at).toBeTruthy();
 
-    const assisted = await assessSubmissionRisk({
-      ...baseParams,
-      funder: { id: assistedFunderId, name: "Test Funder (assisted)", automation_level: "assisted" },
-    });
-    const fullAuto = await assessSubmissionRisk({
-      ...baseParams,
-      funder: { id: fullAutoFunderId, name: "Test Funder (full_auto)", automation_level: "full_auto" },
-    });
+      // Distinguish "reached real form-fill/submission logic" from "blocked
+      // at the gate": queue-processor.ts's processItem() only reaches the
+      // automation_sessions insert (createApprovedAutomationSession) or the
+      // autoapply_submissions insert AFTER checkOrgReadiness() passes and the
+      // risk engine has run — a 'pending_manual' status is itself written by
+      // the risk-engine 'manual' route, which also only runs after the
+      // org-readiness gate. Any one of these is proof this item was not
+      // stopped by org_not_ready.
+      const { data: sessions } = await service
+        .from("automation_sessions")
+        .select("id, status")
+        .eq("funder_id", funderReadyId);
+      const { data: submissions } = await service
+        .from("autoapply_submissions")
+        .select("id, status")
+        .eq("funder_id", funderReadyId);
 
-    expect(assisted.score).toBe(fullAuto.score);
-    expect(assisted.classification).toBe(fullAuto.classification);
-    expect(assisted.recommendation).toBe(fullAuto.recommendation);
-    expect(assisted.factors.some((f) => f.name === "manual_only_portal")).toBe(false);
-    expect(fullAuto.factors.some((f) => f.name === "manual_only_portal")).toBe(false);
-  });
+      const reachedRealPipeline =
+        row.status === "pending_manual" ||
+        (sessions?.length ?? 0) > 0 ||
+        (submissions?.length ?? 0) > 0;
 
-  it("assessSubmissionRisk(): 'manual_only' adds a real +40 point risk factor and forces a manual route", async () => {
-    const baseParams = {
-      requestProfile: { request_type: "monetary", min_value: 1000, max_value: 5000 },
-      formTemplate: null,
-      orgReadiness: { ready: true, missing_required: [] as string[] },
-      crossClientBlocked: false,
-      supabase: service,
-    };
+      expect(
+        reachedRealPipeline,
+        `expected the ready org to progress past org_not_ready into real submission logic; ` +
+          `final queue status was "${row.status}" with no automation_sessions/autoapply_submissions rows created`,
+      ).toBe(true);
 
-    const assistedFunderId = `test-risk-assisted-${randomSuffix()}`;
-    const manualOnlyFunderId = `test-risk-manual-only-${randomSuffix()}`;
-
-    const assisted = await assessSubmissionRisk({
-      ...baseParams,
-      funder: { id: assistedFunderId, name: "Test Funder (assisted)", automation_level: "assisted" },
-    });
-    const manualOnly = await assessSubmissionRisk({
-      ...baseParams,
-      funder: { id: manualOnlyFunderId, name: "Test Funder (manual_only)", automation_level: "manual_only" },
-    });
-
-    const manualOnlyFactor = manualOnly.factors.find((f) => f.name === "manual_only_portal");
-    expect(manualOnlyFactor).toBeTruthy();
-    expect(manualOnlyFactor!.points).toBe(40);
-    expect(manualOnly.score).toBe(assisted.score + 40);
-    expect(manualOnly.recommendation).toBe("manual");
-  });
+      // Also verify by contrast: this took meaningfully longer than the
+      // unready org's near-instant skip, consistent with real browser/Claude
+      // work having actually run (not a second early-gate rejection).
+      const durationMs =
+        new Date(row.completed_at as string).getTime() - new Date(row.started_at as string).getTime();
+      expect(durationMs).toBeGreaterThan(1000);
+    },
+    200000,
+  );
 });
 
 if (!CREDS_AVAILABLE) {
   // eslint-disable-next-line no-console
   console.warn(
-    "[autoapply-queue.test] skipped entirely — .env.local is missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY",
+    "[autoapply-queue-live-worker.test] skipped entirely — .env.local is missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY",
   );
 }

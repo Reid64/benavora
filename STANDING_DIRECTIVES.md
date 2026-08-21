@@ -482,6 +482,39 @@ the full finding and fix evidence.
 
 ---
 
+## DIRECTIVE-021: `vitest run` Must Exit 0 Before Any Commit — No "Pre-Existing Failures" Status
+
+### Rule
+`npx vitest run` must exit 0 (0 failures) before creating any commit. "Pre-existing failures,"
+"already broken before this session," or any equivalent framing is not an accepted status in any
+run report, session log, or register entry — a failing test is either fixed, or the specific test
+is reclassified (per the WGR-157 disposition method: real defect → fix the source; stale test →
+update it and cite the commit that changed the behavior; genuinely live-external-system-dependent →
+move it to `src/__tests__/integration-live/` with a mock-based unit replacement left in the default
+suite) and the suite goes back to 0 failures. Never `.skip()` or `.todo()` a failing test to make the
+suite green, and never delete a test to make a number improve.
+
+`npx vitest run` runs in `.githooks/pre-push` after `pnpm run build` (WGR-157) — this directive is
+enforced structurally at push time, not just by convention.
+
+### Why this directive exists
+WGR-157 (2026-08-21) found this repo had been carrying 7-8 failing tests at HEAD across at least two
+same-day sessions before this one, each one re-discovering and re-documenting the same failures as
+"pre-existing" rather than closing them — including two NEW failures (`autoapply-mutual-exclusion`
+live-timing flake, a `donor-discovery-requests.test.ts` mock gap from commit `390f1c3`) that
+accumulated in the gap between those sessions with nothing forcing them to zero. A failing-test count
+that's allowed to sit at "pre-existing, not investigated further" is exactly the same structural gap
+DIRECTIVE-020 closed for type/lint validation: a real, cheap, already-written check whose signal gets
+silently discounted instead of acted on. Of the 8 failures WGR-157 found, only 3 were genuinely
+undeserving of a fix-in-place (real dependencies on a live, separately-deployed worker process or
+real production state another session could change) — the other 5 were a stale test lagging a real
+code fix by days, or an actual production defect (4 Storage buckets with zero RLS policy at all) that
+had been sitting undetected specifically because its own test's failure was being waved through as
+"pre-existing." See WGR-157 (`test-evidence/_register/WIRING_GAP_REGISTER.md`) for the full
+disposition table.
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:
