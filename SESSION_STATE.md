@@ -8476,3 +8476,11 @@ Fixed `src/components/dashboard/FlipCards.tsx` (6 stat cards, data in `src/app/(
 2. **Flip-back control**: new "Back" pill button, bottom-right of the flipped face only, white back-arrow SVG + text, `stopPropagation()` + explicit `setFlipped(...,false)` so it flips back without navigating and without double-firing the card's click-to-flip handler. CTA link got a `maxWidth` + ellipsis so it can't visually collide with the button.
 
 All colors are literal inline hex/rgba — required, since this app's `globals.css` compat layer (37 `!important` rules) overrides Tailwind classes and CSS vars. Live-verified with a magic-link-login Playwright script against the real dashboard: `getComputedStyle()` confirms each band's `background-image` is the exact expected gradient, band text is white, body background is the tinted rgba (not the old flat cream), and clicking "Back" returns the card's transform to identity without changing `page.url()`. 22/22 automated assertions pass. Screenshots + computed-style dump in `test-evidence/remediation/ui-dashboard/`. `pnpm run build` exit 0.
+
+---
+
+## Research Page Bronze-to-Teal Button Recolor — August 20, 2026
+
+Recolored the overused bronze `#A4712C` buttons on `src/app/(dashboard)/research/page.tsx` to teal `#2E6B66` (white text unchanged). Found 8 literal `#A4712C` occurrences; 6 were real buttons/button-styled links (Visit, Browse all resources, Poll Now, Search, Apply, Pull Historical Awards) — all recolored via one `replace_all` edit on the identical `backgroundColor: "#A4712C",` string. 2 were not buttons and left alone: `PageHeader`'s `accent` prop (page-title border/text color) and the Research/Search-Configuration tab's active-underline indicator (no fill, just a border). No inline hover states existed to preserve.
+
+Live-verified via magic-link-login Playwright script against the real `/research` page: `getComputedStyle()` on one live instance of each of the 6 button types confirms `background-color: rgb(46, 107, 102)` + `color: rgb(255, 255, 255)`; confirmed the PageHeader title color is unchanged (still bronze, correctly out of scope). 15/15 automated assertions pass. Screenshots + computed-style dump in `test-evidence/remediation/ui-research/`. `pnpm run build` exit 0.

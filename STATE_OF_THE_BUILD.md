@@ -13755,4 +13755,26 @@ Live-verified via magic-link-login Playwright script against the real dashboard 
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+---
+
+## RESEARCH PAGE — BRONZE/GOLD BUTTON RECOLOR (August 20, 2026)
+
+`src/app/(dashboard)/research/page.tsx` — this is the only page-related file with the bronze `#A4712C` hex; `src/app/(dashboard)/research/match/page.tsx` and the embedded `SearchConfiguration` (Search Configuration tab) had none. Found 8 literal `#A4712C` occurrences; 6 were real buttons/button-styled links (recolored), 2 were not buttons and were left alone:
+
+**Recolored (bronze `#A4712C` → teal `#2E6B66`, white text unchanged):**
+1. "Visit" — resource-card link (`ResourceCard`, repeats once per research resource; 57 rendered live)
+2. "Browse all N resources" / "Hide" — resources-section toggle button
+3. "Poll Now" / "Polling…" — Funding Source Directory poll button
+4. "Search" — discovered-opportunities search submit button
+5. "Apply" — opportunity-card action link (repeats per undrafted opportunity; 99 rendered live)
+6. "Pull Historical Awards" / "Pulling…" — USAspending.gov competitive-intelligence button
+
+**Left unchanged (not buttons):** `PageHeader`'s `accent="#A4712C"` prop (colors the page title's left border bar and title text — a section-frame accent, not a button, per `PageHeader.tsx`'s own doc comment) and the active-tab underline's `borderBottom` on the Research/Search Configuration tab switcher (a navigation indicator with no background fill, not a colored button). No hover states existed inline on any of the 6 buttons before this change, so none needed preserving.
+
+All 6 used the exact literal string `backgroundColor: "#A4712C",` (identical across all 6 sites, single `replace_all` edit) — this page already used only inline hex, no Tailwind color classes, consistent with the `globals.css` `!important`-override constraint documented in the draft-editor and dashboard sections above.
+
+Live-verified via magic-link-login Playwright script against the real `/research` page: `getComputedStyle()` on one live instance of each of the 6 button types confirms `background-color: rgb(46, 107, 102)` and `color: rgb(255, 255, 255)`, and confirms the PageHeader title's `color` is unchanged at `rgb(164, 113, 44)` (bronze, correctly out of scope). 15/15 automated assertions pass. Screenshots + computed-style dump in `test-evidence/remediation/ui-research/`.
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*

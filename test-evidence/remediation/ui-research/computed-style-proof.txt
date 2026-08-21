@@ -1,0 +1,36 @@
+[OK] button[Poll Now]-background-teal :: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] button[Poll Now]-text-white :: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] button[Search]-background-teal :: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] button[Search]-text-white :: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] button[Pull Historical Awards]-background-teal :: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] button[Pull Historical Awards]-text-white :: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] button[Browse all resources]-background-teal :: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] button[Browse all resources]-text-white :: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] visit-links-count :: found 57 'Visit' resource links
+[OK] button[Visit (resource link)]-background-teal :: <A> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] button[Visit (resource link)]-text-white :: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] apply-links-count :: found 99 exact-'Apply' opportunity links (0 is valid if all opportunities already have applications)
+[OK] button[Apply (opportunity link)]-background-teal :: <A> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] button[Apply (opportunity link)]-text-white :: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] page-header-accent-unchanged :: PageHeader title color: rgb(164, 113, 44) (expected bronze rgb(164, 113, 44) — not a button, out of scope)
+
+=== Console errors captured ===
+Failed to load resource: the server responded with a status of 404 ()
+Failed to load resource: the server responded with a status of 404 ()
+
+=== Results summary ===
+PASS  button[Poll Now]-background-teal: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  button[Poll Now]-text-white: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  button[Search]-background-teal: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  button[Search]-text-white: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  button[Pull Historical Awards]-background-teal: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  button[Pull Historical Awards]-text-white: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  button[Browse all resources]-background-teal: <BUTTON> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  button[Browse all resources]-text-white: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  visit-links-count: found 57 'Visit' resource links
+PASS  button[Visit (resource link)]-background-teal: <A> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  button[Visit (resource link)]-text-white: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  apply-links-count: found 99 exact-'Apply' opportunity links (0 is valid if all opportunities already have applications)
+PASS  button[Apply (opportunity link)]-background-teal: <A> background-color: rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  button[Apply (opportunity link)]-text-white: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  page-header-accent-unchanged: PageHeader title color: rgb(164, 113, 44) (expected bronze rgb(164, 113, 44) — not a button, out of scope)

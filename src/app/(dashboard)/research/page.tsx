@@ -233,7 +233,7 @@ function ResourceCard({ resource }: { resource: ResourceDefinition }) {
           marginTop: 12,
           display: "inline-block",
           textAlign: "center",
-          backgroundColor: "#A4712C",
+          backgroundColor: "#2E6B66",
           color: "#FFFFFF",
           fontSize: 12,
           fontWeight: 600,
@@ -416,7 +416,7 @@ function ResourcesSection() {
                 type="button"
                 onClick={() => setShowAll((v) => !v)}
                 style={{
-                  backgroundColor: "#A4712C",
+                  backgroundColor: "#2E6B66",
                   color: "#FFFFFF",
                   border: "none",
                   borderRadius: 8,
@@ -641,7 +641,7 @@ function FundingSourceDirectorySection() {
           onClick={() => void handlePollNow()}
           disabled={polling}
           style={{
-            backgroundColor: "#A4712C",
+            backgroundColor: "#2E6B66",
             color: "#FFFFFF",
             border: "none",
             borderRadius: 8,
@@ -1089,7 +1089,7 @@ export default function ResearchPage() {
             <button
               type="submit"
               style={{
-                backgroundColor: "#A4712C",
+                backgroundColor: "#2E6B66",
                 color: "#FFFFFF",
                 border: "none",
                 borderRadius: "12px",
@@ -1249,7 +1249,7 @@ export default function ResearchPage() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          backgroundColor: "#A4712C",
+                          backgroundColor: "#2E6B66",
                           color: "#FFFFFF",
                           borderRadius: "8px",
                           padding: "4px 12px",
@@ -1290,7 +1290,7 @@ export default function ResearchPage() {
               flexShrink: 0,
               alignItems: "center",
               gap: "8px",
-              backgroundColor: "#A4712C",
+              backgroundColor: "#2E6B66",
               color: "#FFFFFF",
               borderRadius: "8px",
               border: "none",
