@@ -1,0 +1,33 @@
+{
+  "requestIds": {
+    "A_states": "ea476cf3-a310-4e82-976a-a6950c493cc7",
+    "B_radius": "9b3b3b51-0dd8-40d1-9e20-c52e1424d6a7"
+  },
+  "transitions": {
+    "A_states": [
+      {
+        "at": "2026-08-21T17:41:15.232Z",
+        "elapsedMs": 1,
+        "status": "failed",
+        "counts": {
+          "error": "google-places adapter requires a radius geography ({center, radius_mi}); state/national geography is not supported by this adapter yet."
+        }
+      }
+    ],
+    "B_radius": [
+      {
+        "at": "2026-08-21T17:41:15.232Z",
+        "elapsedMs": 1,
+        "status": "failed",
+        "counts": {
+          "error": "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
+        }
+      }
+    ]
+  },
+  "lastStatus": {
+    "A_states": "failed",
+    "B_radius": "failed"
+  },
+  "elapsedMs": 1
+}

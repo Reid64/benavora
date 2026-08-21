@@ -1,0 +1,83 @@
+{
+  "createdAt": "2026-08-21T17:40:48.425Z",
+  "requestA": {
+    "body": {
+      "name": "TX Human Services/Religion/Housing (states geography, WGR test)",
+      "taxonomy_ids": [
+        "1f3bd5f4-53de-4400-b034-d273fc3392fb",
+        "5cd58a03-e6a8-4c24-b994-451273f86666",
+        "b054acec-891f-4585-8b26-debd5b03ca81"
+      ],
+      "geography": {
+        "states": [
+          "TX"
+        ]
+      }
+    },
+    "status": 201,
+    "response": {
+      "request": {
+        "id": "ea476cf3-a310-4e82-976a-a6950c493cc7",
+        "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+        "name": "TX Human Services/Religion/Housing (states geography, WGR test)",
+        "taxonomy_ids": [
+          "1f3bd5f4-53de-4400-b034-d273fc3392fb",
+          "5cd58a03-e6a8-4c24-b994-451273f86666",
+          "b054acec-891f-4585-8b26-debd5b03ca81"
+        ],
+        "geography": {
+          "states": [
+            "TX"
+          ]
+        },
+        "status": "queued",
+        "counts": {},
+        "created_by": "b3ef4d39-fdc2-4d3a-9e93-1e1888b576b4",
+        "created_at": "2026-08-21T17:40:49.399337+00:00",
+        "completed_at": null
+      }
+    }
+  },
+  "requestB": {
+    "body": {
+      "name": "TX Human Services/Religion/Housing (Houston 30mi radius)",
+      "taxonomy_ids": [
+        "1f3bd5f4-53de-4400-b034-d273fc3392fb",
+        "5cd58a03-e6a8-4c24-b994-451273f86666",
+        "b054acec-891f-4585-8b26-debd5b03ca81"
+      ],
+      "geography": {
+        "center": {
+          "lat": 29.7604,
+          "lng": -95.3698
+        },
+        "radius_mi": 30
+      }
+    },
+    "status": 201,
+    "response": {
+      "request": {
+        "id": "9b3b3b51-0dd8-40d1-9e20-c52e1424d6a7",
+        "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+        "name": "TX Human Services/Religion/Housing (Houston 30mi radius)",
+        "taxonomy_ids": [
+          "1f3bd5f4-53de-4400-b034-d273fc3392fb",
+          "5cd58a03-e6a8-4c24-b994-451273f86666",
+          "b054acec-891f-4585-8b26-debd5b03ca81"
+        ],
+        "geography": {
+          "center": {
+            "lat": 29.7604,
+            "lng": -95.3698
+          },
+          "radius_mi": 30
+        },
+        "status": "queued",
+        "counts": {},
+        "created_by": "b3ef4d39-fdc2-4d3a-9e93-1e1888b576b4",
+        "created_at": "2026-08-21T17:40:50.150451+00:00",
+        "completed_at": null
+      }
+    }
+  }
+}
