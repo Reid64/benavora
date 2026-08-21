@@ -14,7 +14,11 @@
 
 # next.js
 /.next/
+/.next-*/
 /out/
+
+# disposable local Supabase stacks (supabase start / manually-provisioned rehearsal stacks)
+/.pt05-local-stack/
 
 # production
 /build

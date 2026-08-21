@@ -52,6 +52,26 @@ CREATE TABLE IF NOT EXISTS knowledge_queries (
   created_at       timestamptz NOT NULL DEFAULT now()
 );
 
+-- Real drift found 2026-08-21 (migration-drift remediation, same pattern as
+-- 095_discovery_matches.sql): a prior out-of-band process already created
+-- knowledge_queries using `org_id` with 2 separate insert/select policies
+-- instead of this migration's single unified organization_id-based one.
+-- Table confirmed empty (0 rows) before this fix -- safe rename.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'knowledge_queries' AND column_name = 'org_id'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'knowledge_queries' AND column_name = 'organization_id'
+  ) THEN
+    ALTER TABLE knowledge_queries RENAME COLUMN org_id TO organization_id;
+  END IF;
+END $$;
+
+DROP POLICY IF EXISTS "knowledge_queries_org_insert" ON knowledge_queries;
+DROP POLICY IF EXISTS "knowledge_queries_org_select" ON knowledge_queries;
+
 ALTER TABLE knowledge_queries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "knowledge_queries_org" ON knowledge_queries;

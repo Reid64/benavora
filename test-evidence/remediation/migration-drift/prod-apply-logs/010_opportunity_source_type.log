@@ -1,0 +1,44 @@
+-- ============================================================================
+-- Migration 010 — opportunities.source_type
+--
+-- Adds a coarse funding-SOURCE classification to opportunities, distinct from
+-- the existing fine-grained `category` (funder_category). `source_type` buckets
+-- an opportunity by where the money comes from — federal/state/local government,
+-- private/community foundation, corporate giving, faith-based, or international —
+-- so the Opportunities list can offer source filter tabs + color-coded badges,
+-- and the research agents can tag what kind of source they discovered.
+--
+-- Note: this is NOT the BEHAVIORAL_CONTRACTS "grants.source_type" field — that
+-- contract column maps to the existing `category` via the grants-service alias
+-- (see STATE_OF_THE_BUILD.md). This is a separate, physical classification with
+-- its own enum and value set.
+--
+-- Additive and safe: a NEW nullable column on a NEW enum. Existing rows keep
+-- source_type = NULL (shown as "Unclassified" in the UI); nothing is backfilled
+-- or renamed, and no governance document or RLS policy is touched. Written
+-- idempotently so a re-run via apply-migration.mjs is harmless.
+-- ============================================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'opportunity_source_type') THEN
+    CREATE TYPE opportunity_source_type AS ENUM (
+      'government_federal',
+      'government_state',
+      'government_local',
+      'private_foundation',
+      'corporate_giving',
+      'community_foundation',
+      'faith_based',
+      'international'
+    );
+  END IF;
+END $$;
+DO
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS source_type opportunity_source_type;
+psql:supabase/migrations/010_opportunity_source_type.sql:39: NOTICE:  column "source_type" of relation "opportunities" already exists, skipping
+ALTER TABLE
+CREATE INDEX IF NOT EXISTS idx_opportunities_source_type
+  ON opportunities (source_type);
+CREATE INDEX
+INSERT 0 1

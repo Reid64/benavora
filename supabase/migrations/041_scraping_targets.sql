@@ -19,10 +19,11 @@ CREATE TABLE IF NOT EXISTS scraping_targets (
 
 ALTER TABLE scraping_targets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "scraping_targets_org" ON scraping_targets;
 CREATE POLICY "scraping_targets_org" ON scraping_targets
   USING (
     organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
-CREATE INDEX idx_scrape_targets_org ON scraping_targets(organization_id);
-CREATE INDEX idx_scrape_targets_active ON scraping_targets(organization_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_scrape_targets_org ON scraping_targets(organization_id);
+CREATE INDEX IF NOT EXISTS idx_scrape_targets_active ON scraping_targets(organization_id, is_active);

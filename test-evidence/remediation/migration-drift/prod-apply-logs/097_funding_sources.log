@@ -1,0 +1,47 @@
+-- Migration 097: Funding source registry (source catalog for discovery
+-- adapters -- Grants.gov, SAM.gov, foundation RFP pages, etc).
+--
+-- Deviations from the task-given spec, per this project's established
+-- practice of checking real state before applying a literal migration spec
+-- (see 093/094/095/096 headers for prior instances of this pattern):
+--   - Path/number: the task specified `src/supabase/migrations/098_...sql`.
+--     `src/supabase/migrations/` is a stray duplicate directory the
+--     Management API apply step never reads -- it tops out at 8 files
+--     (072-079). The real tree is `supabase/migrations/`, currently at 096,
+--     so this file uses 097 at the real path.
+--   - No organization_id / RLS: this is a shared, cross-org source catalog
+--     (which discovery adapters exist, how to poll them), not per-org data --
+--     same pattern as disaster_emergency_funds and foundation_directory.
+--   - funding_sources.source_type ('federal'/'state'/'foundation'/etc, the
+--     type of registry entry) is a distinct enum/concept from
+--     opportunities.source_type (migration 010) and the grants API's
+--     source_type alias of category. Not wired to either -- do not conflate.
+CREATE TABLE IF NOT EXISTS funding_sources (
+  id                        uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                      text        NOT NULL,
+  short_name                text,
+  category                  text        NOT NULL,
+  subcategory               text,
+  source_type               text        NOT NULL DEFAULT 'federal',
+  website_url               text,
+  api_url                   text,
+  rss_url                   text,
+  search_url                text,
+  adapter_type              text        DEFAULT 'manual',
+  polling_enabled           boolean     DEFAULT false,
+  polling_frequency         text        DEFAULT 'weekly',
+  last_polled_at            timestamptz,
+  opportunities_found_total integer     DEFAULT 0,
+  active                    boolean     DEFAULT true,
+  notes                     text,
+  geographic_scope          text        DEFAULT 'national',
+  created_at                timestamptz DEFAULT now()
+);
+CREATE TABLE
+CREATE INDEX IF NOT EXISTS idx_funding_sources_category ON funding_sources(category);
+CREATE INDEX
+CREATE INDEX IF NOT EXISTS idx_funding_sources_type ON funding_sources(source_type);
+CREATE INDEX
+CREATE INDEX IF NOT EXISTS idx_funding_sources_polling ON funding_sources(polling_enabled, last_polled_at);
+CREATE INDEX
+INSERT 0 1

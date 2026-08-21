@@ -1,0 +1,29 @@
+-- Migration 085: compliance_requirements - manually tracked compliance
+-- obligations (reporting, spending restrictions, matching funds, regulatory
+-- filings) that aren't derivable from deadlines/renewals/documents.
+CREATE TABLE IF NOT EXISTS compliance_requirements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  application_id uuid REFERENCES applications(id) ON DELETE CASCADE,
+  requirement_type text NOT NULL,
+  title text NOT NULL,
+  due_date date NOT NULL,
+  status text NOT NULL DEFAULT 'upcoming'
+    CHECK (status IN ('upcoming', 'due_soon', 'overdue', 'submitted')),
+  notes text,
+  submitted_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+CREATE TABLE
+ALTER TABLE compliance_requirements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE
+CREATE POLICY "compliance_requirements_org" ON compliance_requirements
+  USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY
+CREATE INDEX IF NOT EXISTS idx_compliance_requirements_org ON compliance_requirements(organization_id);
+CREATE INDEX
+CREATE INDEX IF NOT EXISTS idx_compliance_requirements_application ON compliance_requirements(application_id);
+CREATE INDEX
+CREATE INDEX IF NOT EXISTS idx_compliance_requirements_due_date ON compliance_requirements(due_date);
+CREATE INDEX
+INSERT 0 1

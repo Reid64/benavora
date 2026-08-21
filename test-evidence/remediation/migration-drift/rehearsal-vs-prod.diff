@@ -1,0 +1,2914 @@
+--- test-evidence/remediation/migration-drift/prod-schema-baseline-20260821-174317.sql	2026-08-21 17:43:27.060041600 -0500
++++ test-evidence/remediation/migration-drift/rehearsal-post-apply-schema.sql	2026-08-21 17:44:11.912422800 -0500
+@@ -2,7 +2,7 @@
+ -- PostgreSQL database dump
+ --
+ 
+-\restrict z8nDIFBDRCLXsTdjYILicbiA3AwJw4MOSFmyYWN1Jy6gWzJMyZE0voZaEiWPXtR
++\restrict INwmdejcWEykMfMEwhfSjE9N83j4IKnCWXdtkwZwXjtqiZEWg7EUhSYXHWYF9af
+ 
+ -- Dumped from database version 17.6
+ -- Dumped by pg_dump version 18.3
+@@ -115,7 +115,18 @@
+     'ea10_social_media_analyzer',
+     'ag22_propensity_scoring',
+     'ag-36-learning-network',
+-    'ag-43-funder-signals'
++    'ag-43-funder-signals',
++    'browser_automation',
++    'email_matching',
++    'email_campaign',
++    'custom_scrape_research',
++    'giving_history_extractor',
++    'competitor_intelligence',
++    'semantic_matching',
++    'automation_worker',
++    'csv_import',
++    'notification_dispatcher',
++    'financial_reconciliation'
+ );
+ 
+ 
+@@ -144,6 +155,18 @@
+ 
+ 
+ --
++-- Name: api_auth_type; Type: TYPE; Schema: public; Owner: -
++--
++
++CREATE TYPE public.api_auth_type AS ENUM (
++    'none',
++    'api_key',
++    'bearer',
++    'oauth'
++);
++
++
++--
+ -- Name: audit_action; Type: TYPE; Schema: public; Owner: -
+ --
+ 
+@@ -163,6 +186,17 @@
+ 
+ 
+ --
++-- Name: automation_level; Type: TYPE; Schema: public; Owner: -
++--
++
++CREATE TYPE public.automation_level AS ENUM (
++    'supervised',
++    'semi_autonomous',
++    'autonomous'
++);
++
++
++--
+ -- Name: automation_status; Type: TYPE; Schema: public; Owner: -
+ --
+ 
+@@ -445,6 +479,21 @@
+ 
+ 
+ --
++-- Name: integration_service; Type: TYPE; Schema: public; Owner: -
++--
++
++CREATE TYPE public.integration_service AS ENUM (
++    'sam_gov',
++    'two_captcha',
++    'candid',
++    'gmail',
++    'gcal',
++    'resend',
++    'custom_api'
++);
++
++
++--
+ -- Name: invitation_status; Type: TYPE; Schema: public; Owner: -
+ --
+ 
+@@ -502,6 +551,32 @@
+ 
+ 
+ --
++-- Name: notification_channel; Type: TYPE; Schema: public; Owner: -
++--
++
++CREATE TYPE public.notification_channel AS ENUM (
++    'in_app',
++    'email'
++);
++
++
++--
++-- Name: opportunity_source_type; Type: TYPE; Schema: public; Owner: -
++--
++
++CREATE TYPE public.opportunity_source_type AS ENUM (
++    'government_federal',
++    'government_state',
++    'government_local',
++    'private_foundation',
++    'corporate_giving',
++    'community_foundation',
++    'faith_based',
++    'international'
++);
++
++
++--
+ -- Name: opportunity_status; Type: TYPE; Schema: public; Owner: -
+ --
+ 
+@@ -557,6 +632,18 @@
+ 
+ 
+ --
++-- Name: scrape_schedule; Type: TYPE; Schema: public; Owner: -
++--
++
++CREATE TYPE public.scrape_schedule AS ENUM (
++    'hourly',
++    'daily',
++    'weekly',
++    'monthly'
++);
++
++
++--
+ -- Name: session_type; Type: TYPE; Schema: public; Owner: -
+ --
+ 
+@@ -602,7 +689,8 @@
+     'free',
+     'starter',
+     'professional',
+-    'enterprise'
++    'enterprise',
++    'consultant'
+ );
+ 
+ 
+@@ -1061,6 +1149,58 @@
+ 
+ 
+ --
++-- Name: enforce_application_stage_transition(); Type: FUNCTION; Schema: public; Owner: -
++--
++
++CREATE FUNCTION public.enforce_application_stage_transition() RETURNS trigger
++    LANGUAGE plpgsql SECURITY DEFINER
++    SET search_path TO 'public'
++    AS $$
++DECLARE
++  is_legal_forward_edge boolean;
++BEGIN
++  -- (a) explicit forward edges, transcribed verbatim from pipeline.ts's
++  -- FORWARD const (16 edges across all 12 stages).
++  SELECT EXISTS (
++    SELECT 1 FROM (VALUES
++      ('discovered',          'eligibility_review'),
++      ('eligibility_review',  'qualified'),
++      ('eligibility_review',  'denied'),
++      ('qualified',           'drafting'),
++      ('drafting',            'awaiting_documents'),
++      ('awaiting_documents',  'ready_for_review'),
++      ('ready_for_review',    'submitted'),
++      ('submitted',           'follow_up_due'),
++      ('submitted',           'awarded'),
++      ('submitted',           'denied'),
++      ('follow_up_due',       'awarded'),
++      ('follow_up_due',       'denied'),
++      ('awarded',             'reporting_required'),
++      ('denied',              'discovered'),
++      ('reporting_required',  'renewal_opportunity'),
++      ('renewal_opportunity', 'discovered')
++    ) AS forward_edges(from_stage, to_stage)
++    WHERE forward_edges.from_stage = OLD.stage::text
++      AND forward_edges.to_stage = NEW.stage::text
++  ) INTO is_legal_forward_edge;
++
++  IF is_legal_forward_edge THEN
++    RETURN NEW;
++  END IF;
++
++  -- (b) any backward move (to a strictly earlier stage in the canonical order).
++  IF public.pipeline_stage_rank(NEW.stage) < public.pipeline_stage_rank(OLD.stage) THEN
++    RETURN NEW;
++  END IF;
++
++  RAISE EXCEPTION 'Illegal application stage transition: % -> % is not a legal forward edge or backward move.', OLD.stage, NEW.stage
++    USING ERRCODE = '23514', -- check_violation
++          HINT = 'See src/components/applications/pipeline.ts FORWARD const / getTransitionRule() for the legal transition graph.';
++END;
++$$;
++
++
++--
+ -- Name: increment_usage_tracking(uuid, text, date, date, integer); Type: FUNCTION; Schema: public; Owner: -
+ --
+ 
+@@ -1128,6 +1268,31 @@
+ 
+ 
+ --
++-- Name: pipeline_stage_rank(public.pipeline_stage); Type: FUNCTION; Schema: public; Owner: -
++--
++
++CREATE FUNCTION public.pipeline_stage_rank(stage public.pipeline_stage) RETURNS smallint
++    LANGUAGE sql IMMUTABLE
++    SET search_path TO 'public'
++    AS $$
++  SELECT CASE stage
++    WHEN 'discovered'          THEN 1
++    WHEN 'eligibility_review'  THEN 2
++    WHEN 'qualified'           THEN 3
++    WHEN 'drafting'            THEN 4
++    WHEN 'awaiting_documents'  THEN 5
++    WHEN 'ready_for_review'    THEN 6
++    WHEN 'submitted'           THEN 7
++    WHEN 'follow_up_due'       THEN 8
++    WHEN 'awarded'             THEN 9
++    WHEN 'denied'              THEN 10
++    WHEN 'reporting_required'  THEN 11
++    WHEN 'renewal_opportunity' THEN 12
++  END;
++$$;
++
++
++--
+ -- Name: reassign_paused_submission_queue_item(uuid, uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+ --
+ 
+@@ -1259,21 +1424,21 @@
+ CREATE FUNCTION public.seed_default_platform_config() RETURNS trigger
+     LANGUAGE plpgsql SECURITY DEFINER
+     SET search_path TO 'public'
+-    AS $$
+-BEGIN
+-  INSERT INTO platform_config (organization_id, key, value) VALUES
+-    (NEW.id, 'feature.research_agents',          'false'),
+-    (NEW.id, 'feature.browser_automation',       'false'),
+-    (NEW.id, 'feature.email_integration',        'false'),
+-    (NEW.id, 'feature.cold_outreach_email',      'false'),
+-    (NEW.id, 'feature.stripe_billing',           'false'),
+-    (NEW.id, 'ai.model',                         'claude-sonnet-4-6-20250514'),
+-    (NEW.id, 'ai.max_tokens',                    '4096'),
+-    (NEW.id, 'ai.confidence_threshold',          '70'),
+-    (NEW.id, 'learning.min_outcomes_for_scoring','5'),
+-    (NEW.id, 'learning.proven_narrative_threshold','2');
+-  RETURN NEW;
+-END;
++    AS $$
++BEGIN
++  INSERT INTO platform_config (organization_id, key, value) VALUES
++    (NEW.id, 'feature.research_agents',          'false'),
++    (NEW.id, 'feature.browser_automation',       'false'),
++    (NEW.id, 'feature.email_integration',        'false'),
++    (NEW.id, 'feature.cold_outreach_email',      'false'),
++    (NEW.id, 'feature.stripe_billing',           'true'),
++    (NEW.id, 'ai.model',                         'claude-sonnet-4-6'),
++    (NEW.id, 'ai.max_tokens',                    '4096'),
++    (NEW.id, 'ai.confidence_threshold',          '70'),
++    (NEW.id, 'learning.min_outcomes_for_scoring','5'),
++    (NEW.id, 'learning.proven_narrative_threshold','2');
++  RETURN NEW;
++END;
+ $$;
+ 
+ 
+@@ -1329,6 +1494,43 @@
+ 
+ 
+ --
++-- Name: update_funded_proposals_fts(); Type: FUNCTION; Schema: public; Owner: -
++--
++
++CREATE FUNCTION public.update_funded_proposals_fts() RETURNS trigger
++    LANGUAGE plpgsql
++    AS $$
++BEGIN
++  NEW.full_text_search_vector := to_tsvector('english',
++    coalesce(NEW.grant_program,'') || ' ' ||
++    coalesce(NEW.funder_name,'') || ' ' ||
++    coalesce(NEW.full_text,'')
++  );
++  RETURN NEW;
++END;
++$$;
++
++
++--
++-- Name: ab_test_variants; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.ab_test_variants (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    funder_category text NOT NULL,
++    variant_name text NOT NULL,
++    pitch_style text NOT NULL,
++    emphasis text,
++    submission_count integer DEFAULT 0,
++    success_count integer DEFAULT 0,
++    is_winner boolean DEFAULT false,
++    active boolean DEFAULT true,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: adapter_usage_log; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -1558,7 +1760,8 @@
+     twin_powered boolean DEFAULT false,
+     twin_completeness integer,
+     platform_patterns_applied integer DEFAULT 0,
+-    knowledge_patterns_applied jsonb DEFAULT '[]'::jsonb NOT NULL
++    knowledge_patterns_applied jsonb DEFAULT '[]'::jsonb NOT NULL,
++    metadata jsonb DEFAULT '{}'::jsonb
+ );
+ 
+ 
+@@ -1720,6 +1923,9 @@
+     documents_attached text[],
+     confirmation_email_received boolean DEFAULT false NOT NULL,
+     confirmation_received_at timestamp with time zone,
++    variant_id uuid,
++    response_received_at timestamp with time zone,
++    follow_up_status text DEFAULT 'none'::text,
+     CONSTRAINT autoapply_submissions_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'in_progress'::text, 'submitted'::text, 'failed'::text, 'captcha_blocked'::text, 'account_required'::text, 'site_error'::text, 'already_submitted'::text])))
+ );
+ 
+@@ -2066,6 +2272,40 @@
+ 
+ 
+ --
++-- Name: compliance_requirements; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.compliance_requirements (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    application_id uuid,
++    requirement_type text NOT NULL,
++    title text NOT NULL,
++    due_date date NOT NULL,
++    status text DEFAULT 'upcoming'::text NOT NULL,
++    notes text,
++    submitted_at timestamp with time zone,
++    created_at timestamp with time zone DEFAULT now(),
++    CONSTRAINT compliance_requirements_status_check CHECK ((status = ANY (ARRAY['upcoming'::text, 'due_soon'::text, 'overdue'::text, 'submitted'::text])))
++);
++
++
++--
++-- Name: consultant_client_access; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.consultant_client_access (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    consultant_org_id uuid NOT NULL,
++    client_org_id uuid NOT NULL,
++    access_level text DEFAULT 'read'::text,
++    granted_at timestamp with time zone DEFAULT now(),
++    active boolean DEFAULT true,
++    CONSTRAINT consultant_client_access_access_level_check CHECK ((access_level = ANY (ARRAY['read'::text, 'write'::text, 'admin'::text])))
++);
++
++
++--
+ -- Name: contact_tasks; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -2371,7 +2611,7 @@
+ 
+ CREATE TABLE public.discovery_matches (
+     id uuid DEFAULT gen_random_uuid() NOT NULL,
+-    org_id uuid NOT NULL,
++    organization_id uuid NOT NULL,
+     opportunity_id uuid,
+     external_title text,
+     external_source text,
+@@ -2396,7 +2636,8 @@
+     opportunities_matched integer DEFAULT 0,
+     sources_checked text[],
+     runtime_seconds integer,
+-    created_at timestamp with time zone DEFAULT now()
++    created_at timestamp with time zone DEFAULT now(),
++    organization_id uuid NOT NULL
+ );
+ 
+ 
+@@ -2466,6 +2707,8 @@
+     notes text,
+     assigned_to uuid,
+     created_at timestamp with time zone DEFAULT now() NOT NULL,
++    scored_at timestamp with time zone,
++    enrichment_private jsonb DEFAULT '{}'::jsonb NOT NULL,
+     CONSTRAINT donor_discovery_prospects_score_check CHECK (((score >= 0) AND (score <= 100)))
+ );
+ 
+@@ -2684,6 +2927,33 @@
+ 
+ 
+ --
++-- Name: email_messages; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.email_messages (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    thread_id uuid NOT NULL,
++    gmail_message_id text NOT NULL,
++    direction public.email_direction NOT NULL,
++    from_address text,
++    from_name text,
++    to_addresses text[],
++    cc_addresses text[],
++    subject text,
++    body_text text,
++    body_html text,
++    sent_at timestamp with time zone,
++    has_attachments boolean DEFAULT false,
++    attachment_count integer DEFAULT 0,
++    extracted_contacts jsonb DEFAULT '[]'::jsonb,
++    ai_summary text,
++    sentiment text,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: email_sequence_enrollments; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -2763,6 +3033,31 @@
+ 
+ 
+ --
++-- Name: email_threads; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.email_threads (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    connection_id uuid NOT NULL,
++    gmail_thread_id text NOT NULL,
++    subject text,
++    snippet text,
++    last_message_at timestamp with time zone,
++    message_count integer DEFAULT 0,
++    is_read boolean DEFAULT true,
++    labels text[],
++    linked_funder_id uuid,
++    linked_contact_id uuid,
++    linked_opportunity_id uuid,
++    linked_application_id uuid,
++    auto_linked boolean DEFAULT false,
++    created_at timestamp with time zone DEFAULT now(),
++    updated_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: enrichment_jobs; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -2819,6 +3114,34 @@
+ 
+ 
+ --
++-- Name: followup_enrollments; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.followup_enrollments (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    application_id uuid NOT NULL,
++    sequence_id uuid NOT NULL,
++    enrolled_at timestamp with time zone DEFAULT now(),
++    current_step integer DEFAULT 0,
++    status text DEFAULT 'active'::text
++);
++
++
++--
++-- Name: followup_sequences; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.followup_sequences (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    name text NOT NULL,
++    trigger_stage text NOT NULL,
++    steps jsonb DEFAULT '[]'::jsonb NOT NULL,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: form_templates; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -2899,7 +3222,8 @@
+     funding_categories text[],
+     computed_at timestamp with time zone DEFAULT now(),
+     total_grants_made numeric,
+-    top_recipients jsonb
++    top_recipients jsonb,
++    grant_history jsonb
+ );
+ 
+ 
+@@ -3091,6 +3415,35 @@
+ 
+ 
+ --
++-- Name: funder_relationships; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.funder_relationships (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    funder_id uuid NOT NULL,
++    relationship_status text DEFAULT 'prospect'::text,
++    last_submission_at timestamp with time zone,
++    last_response_at timestamp with time zone,
++    total_submissions integer DEFAULT 0,
++    total_funded numeric(12,2) DEFAULT 0,
++    preferred_channel text,
++    preferred_request_type text,
++    do_not_contact_until timestamp with time zone,
++    contact_notes text,
++    board_meeting_months integer[],
++    fiscal_year_end_month integer,
++    response_time_avg_days integer,
++    funder_preferences jsonb DEFAULT '{}'::jsonb,
++    disallowed_request_types text[],
++    max_ask_amount numeric(12,2),
++    relationship_score numeric(3,1),
++    created_at timestamp with time zone DEFAULT now(),
++    updated_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: funders; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -3145,6 +3498,33 @@
+ 
+ 
+ --
++-- Name: funding_sources; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.funding_sources (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    name text NOT NULL,
++    short_name text,
++    category text NOT NULL,
++    subcategory text,
++    source_type text DEFAULT 'federal'::text NOT NULL,
++    website_url text,
++    api_url text,
++    rss_url text,
++    search_url text,
++    adapter_type text DEFAULT 'manual'::text,
++    polling_enabled boolean DEFAULT false,
++    polling_frequency text DEFAULT 'weekly'::text,
++    last_polled_at timestamp with time zone,
++    opportunities_found_total integer DEFAULT 0,
++    active boolean DEFAULT true,
++    notes text,
++    geographic_scope text DEFAULT 'national'::text,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: grant_agreements; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -3400,7 +3780,28 @@
+     full_text text,
+     reviewer_comments text,
+     metadata jsonb DEFAULT '{}'::jsonb,
+-    created_at timestamp with time zone DEFAULT now()
++    created_at timestamp with time zone DEFAULT now(),
++    embedding extensions.vector(1536),
++    funder_category text,
++    ntee_major text,
++    ntee_code text,
++    success_factors jsonb DEFAULT '[]'::jsonb,
++    keywords jsonb DEFAULT '[]'::jsonb,
++    persuasive_elements jsonb DEFAULT '[]'::jsonb,
++    winning_phrases jsonb DEFAULT '[]'::jsonb,
++    theory_of_change text,
++    evaluation_approach text,
++    budget_structure jsonb DEFAULT '{}'::jsonb,
++    geographic_scope text DEFAULT 'local'::text,
++    org_size_category text,
++    submission_timing jsonb DEFAULT '{}'::jsonb,
++    application_word_count integer,
++    sections_included jsonb DEFAULT '[]'::jsonb,
++    ai_quality_score integer,
++    is_verified boolean DEFAULT false,
++    source_type text DEFAULT 'manual'::text,
++    import_batch text,
++    full_text_search_vector tsvector
+ );
+ 
+ 
+@@ -3445,7 +3846,16 @@
+     source text,
+     last_updated_at timestamp with time zone DEFAULT now(),
+     embedding extensions.vector(1536),
+-    created_at timestamp with time zone DEFAULT now()
++    created_at timestamp with time zone DEFAULT now(),
++    foundation_id uuid,
++    name text,
++    total_annual_giving numeric(14,2),
++    program_priorities text[],
++    typical_award_range jsonb,
++    language_patterns text[],
++    application_url text,
++    last_profiled_at timestamp with time zone,
++    profile_data jsonb DEFAULT '{}'::jsonb
+ );
+ 
+ 
+@@ -3646,7 +4056,7 @@
+ 
+ CREATE TABLE public.knowledge_queries (
+     id uuid DEFAULT gen_random_uuid() NOT NULL,
+-    org_id uuid NOT NULL,
++    organization_id uuid NOT NULL,
+     query_text text NOT NULL,
+     results jsonb,
+     created_at timestamp with time zone DEFAULT now()
+@@ -3750,6 +4160,22 @@
+ 
+ 
+ --
++-- Name: notification_preferences; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.notification_preferences (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    user_id uuid NOT NULL,
++    event_type text NOT NULL,
++    in_app boolean DEFAULT true NOT NULL,
++    email boolean DEFAULT false NOT NULL,
++    created_at timestamp with time zone DEFAULT now(),
++    updated_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: onboarding_steps; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -3902,6 +4328,24 @@
+ 
+ 
+ --
++-- Name: org_portal_accounts; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.org_portal_accounts (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    portal_type text NOT NULL,
++    account_email text,
++    account_created_at timestamp with time zone,
++    deed_verified boolean DEFAULT false NOT NULL,
++    deed_verified_at timestamp with time zone,
++    notes text,
++    created_at timestamp with time zone DEFAULT now(),
++    updated_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: org_settings; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -3955,7 +4399,8 @@
+     twin_completeness_score integer DEFAULT 0,
+     last_rebuilt_at timestamp with time zone,
+     created_at timestamp with time zone DEFAULT now(),
+-    updated_at timestamp with time zone DEFAULT now()
++    updated_at timestamp with time zone DEFAULT now(),
++    twin_auto_populate_log jsonb DEFAULT '[]'::jsonb
+ );
+ 
+ 
+@@ -4305,7 +4750,9 @@
+     has_replied boolean DEFAULT false,
+     has_converted boolean DEFAULT false,
+     converted_org_id uuid,
+-    created_at timestamp with time zone DEFAULT now()
++    created_at timestamp with time zone DEFAULT now(),
++    contact_name text,
++    contact_title text
+ );
+ 
+ 
+@@ -4330,6 +4777,22 @@
+ 
+ 
+ --
++-- Name: queue_controls; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.queue_controls (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    control_type text NOT NULL,
++    target_id text,
++    paused boolean DEFAULT false NOT NULL,
++    paused_by text,
++    paused_at timestamp with time zone,
++    reason text,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: relationship_memory; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -4550,6 +5013,64 @@
+ 
+ 
+ --
++-- Name: schoolfunder_donations; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.schoolfunder_donations (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    org_id uuid NOT NULL,
++    student_id uuid,
++    donor_name text,
++    donor_email text,
++    amount numeric NOT NULL,
++    payment_status text DEFAULT 'pending'::text,
++    stripe_payment_intent_id text,
++    institution_name text,
++    institution_routing_number text,
++    disbursed boolean DEFAULT false,
++    disbursed_at timestamp with time zone,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
++-- Name: schoolfunder_students; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.schoolfunder_students (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    org_id uuid NOT NULL,
++    first_name text NOT NULL,
++    last_name text NOT NULL,
++    email text NOT NULL,
++    school_name text,
++    grade_level text,
++    enrollment_year integer,
++    target_tuition_amount numeric,
++    funded_amount numeric DEFAULT 0,
++    status text DEFAULT 'active'::text,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
++-- Name: schoolfunder_volunteer_hours; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.schoolfunder_volunteer_hours (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    student_id uuid NOT NULL,
++    org_id uuid NOT NULL,
++    hours numeric NOT NULL,
++    activity_description text,
++    verified boolean DEFAULT false,
++    verified_by uuid,
++    hour_value numeric DEFAULT 25,
++    logged_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: scrape_jobs; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -4659,6 +5180,22 @@
+ 
+ 
+ --
++-- Name: session_recordings; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.session_recordings (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    submission_id uuid,
++    organization_id uuid NOT NULL,
++    funder_id uuid NOT NULL,
++    storage_path text NOT NULL,
++    duration_seconds integer,
++    file_size_bytes integer,
++    recorded_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: simulation_scenarios; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -4719,6 +5256,17 @@
+ 
+ 
+ --
++-- Name: stripe_webhook_events; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.stripe_webhook_events (
++    id text NOT NULL,
++    type text,
++    processed_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: submission_queue; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -4762,6 +5310,30 @@
+ 
+ 
+ --
++-- Name: submission_usage; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.submission_usage (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    organization_id uuid NOT NULL,
++    period_start timestamp with time zone NOT NULL,
++    period_end timestamp with time zone NOT NULL,
++    automated_count integer DEFAULT 0,
++    email_count integer DEFAULT 0,
++    manual_count integer DEFAULT 0,
++    overage_automated integer DEFAULT 0,
++    overage_email integer DEFAULT 0,
++    overage_cost numeric(10,2) DEFAULT 0,
++    api_cost_claude numeric(10,2) DEFAULT 0,
++    api_cost_openai numeric(10,2) DEFAULT 0,
++    proxy_cost numeric(10,2) DEFAULT 0,
++    captcha_cost numeric(10,2) DEFAULT 0,
++    using_own_keys boolean DEFAULT false,
++    created_at timestamp with time zone DEFAULT now()
++);
++
++
++--
+ -- Name: submission_variables; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -4915,6 +5487,23 @@
+ 
+ 
+ --
++-- Name: tier_limits; Type: TABLE; Schema: public; Owner: -
++--
++
++CREATE TABLE public.tier_limits (
++    id uuid DEFAULT gen_random_uuid() NOT NULL,
++    tier_name text NOT NULL,
++    monthly_automated integer NOT NULL,
++    monthly_email integer NOT NULL,
++    monthly_manual integer NOT NULL,
++    daily_max integer NOT NULL,
++    overage_rate_automated numeric(6,2) NOT NULL,
++    overage_rate_email numeric(6,2) NOT NULL,
++    allow_own_keys boolean DEFAULT false NOT NULL
++);
++
++
++--
+ -- Name: usage_metrics; Type: TABLE; Schema: public; Owner: -
+ --
+ 
+@@ -4991,11 +5580,12 @@
+ CREATE TABLE public.webhook_configs (
+     id uuid DEFAULT gen_random_uuid() NOT NULL,
+     organization_id uuid NOT NULL,
+-    webhook_type text DEFAULT 'slack'::text NOT NULL,
++    type text DEFAULT 'slack'::text NOT NULL,
+     webhook_url text NOT NULL,
+     events text[] DEFAULT '{submission_completed,submission_failed}'::text[] NOT NULL,
+-    active boolean DEFAULT true NOT NULL,
+-    created_at timestamp with time zone DEFAULT now()
++    is_active boolean DEFAULT true NOT NULL,
++    created_at timestamp with time zone DEFAULT now(),
++    updated_at timestamp with time zone DEFAULT now() NOT NULL
+ );
+ 
+ 
+@@ -5018,6 +5608,14 @@
+ 
+ 
+ --
++-- Name: ab_test_variants ab_test_variants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.ab_test_variants
++    ADD CONSTRAINT ab_test_variants_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: adapter_usage_log adapter_usage_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -5354,6 +5952,22 @@
+ 
+ 
+ --
++-- Name: compliance_requirements compliance_requirements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.compliance_requirements
++    ADD CONSTRAINT compliance_requirements_pkey PRIMARY KEY (id);
++
++
++--
++-- Name: consultant_client_access consultant_client_access_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.consultant_client_access
++    ADD CONSTRAINT consultant_client_access_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: contact_tasks contact_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -5698,6 +6312,22 @@
+ 
+ 
+ --
++-- Name: email_messages email_messages_organization_id_gmail_message_id_key; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_messages
++    ADD CONSTRAINT email_messages_organization_id_gmail_message_id_key UNIQUE (organization_id, gmail_message_id);
++
++
++--
++-- Name: email_messages email_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_messages
++    ADD CONSTRAINT email_messages_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: email_sequence_enrollments email_sequence_enrollments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -5738,6 +6368,22 @@
+ 
+ 
+ --
++-- Name: email_threads email_threads_organization_id_gmail_thread_id_key; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_organization_id_gmail_thread_id_key UNIQUE (organization_id, gmail_thread_id);
++
++
++--
++-- Name: email_threads email_threads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: enrichment_jobs enrichment_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -5754,6 +6400,22 @@
+ 
+ 
+ --
++-- Name: followup_enrollments followup_enrollments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.followup_enrollments
++    ADD CONSTRAINT followup_enrollments_pkey PRIMARY KEY (id);
++
++
++--
++-- Name: followup_sequences followup_sequences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.followup_sequences
++    ADD CONSTRAINT followup_sequences_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: form_templates form_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -5890,6 +6552,22 @@
+ 
+ 
+ --
++-- Name: funder_relationships funder_relationships_organization_id_funder_id_key; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.funder_relationships
++    ADD CONSTRAINT funder_relationships_organization_id_funder_id_key UNIQUE (organization_id, funder_id);
++
++
++--
++-- Name: funder_relationships funder_relationships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.funder_relationships
++    ADD CONSTRAINT funder_relationships_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: funders funders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -5914,6 +6592,14 @@
+ 
+ 
+ --
++-- Name: funding_sources funding_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.funding_sources
++    ADD CONSTRAINT funding_sources_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: grant_agreements grant_agreements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6194,6 +6880,22 @@
+ 
+ 
+ --
++-- Name: notification_preferences notification_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.notification_preferences
++    ADD CONSTRAINT notification_preferences_pkey PRIMARY KEY (id);
++
++
++--
++-- Name: notification_preferences notification_preferences_user_id_organization_id_event_type_key; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.notification_preferences
++    ADD CONSTRAINT notification_preferences_user_id_organization_id_event_type_key UNIQUE (user_id, organization_id, event_type);
++
++
++--
+ -- Name: onboarding_steps onboarding_steps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6266,6 +6968,22 @@
+ 
+ 
+ --
++-- Name: org_portal_accounts org_portal_accounts_organization_id_portal_type_key; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.org_portal_accounts
++    ADD CONSTRAINT org_portal_accounts_organization_id_portal_type_key UNIQUE (organization_id, portal_type);
++
++
++--
++-- Name: org_portal_accounts org_portal_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.org_portal_accounts
++    ADD CONSTRAINT org_portal_accounts_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: org_settings org_settings_organization_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6506,6 +7224,14 @@
+ 
+ 
+ --
++-- Name: queue_controls queue_controls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.queue_controls
++    ADD CONSTRAINT queue_controls_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: relationship_memory relationship_memory_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6594,6 +7320,30 @@
+ 
+ 
+ --
++-- Name: schoolfunder_donations schoolfunder_donations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_donations
++    ADD CONSTRAINT schoolfunder_donations_pkey PRIMARY KEY (id);
++
++
++--
++-- Name: schoolfunder_students schoolfunder_students_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_students
++    ADD CONSTRAINT schoolfunder_students_pkey PRIMARY KEY (id);
++
++
++--
++-- Name: schoolfunder_volunteer_hours schoolfunder_volunteer_hours_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_volunteer_hours
++    ADD CONSTRAINT schoolfunder_volunteer_hours_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: scrape_jobs scrape_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6642,6 +7392,14 @@
+ 
+ 
+ --
++-- Name: session_recordings session_recordings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.session_recordings
++    ADD CONSTRAINT session_recordings_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: simulation_scenarios simulation_scenarios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6666,6 +7424,14 @@
+ 
+ 
+ --
++-- Name: stripe_webhook_events stripe_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.stripe_webhook_events
++    ADD CONSTRAINT stripe_webhook_events_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: submission_queue submission_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6682,6 +7448,14 @@
+ 
+ 
+ --
++-- Name: submission_usage submission_usage_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.submission_usage
++    ADD CONSTRAINT submission_usage_pkey PRIMARY KEY (id);
++
++
++--
+ -- Name: submission_variables submission_variables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6762,6 +7536,22 @@
+ 
+ 
+ --
++-- Name: tier_limits tier_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.tier_limits
++    ADD CONSTRAINT tier_limits_pkey PRIMARY KEY (id);
++
++
++--
++-- Name: tier_limits tier_limits_tier_name_key; Type: CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.tier_limits
++    ADD CONSTRAINT tier_limits_tier_name_key UNIQUE (tier_name);
++
++
++--
+ -- Name: application_documents uq_application_documents; Type: CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -6842,6 +7632,34 @@
+ 
+ 
+ --
++-- Name: audit_logs_action_idx; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX audit_logs_action_idx ON public.audit_logs USING btree (action);
++
++
++--
++-- Name: audit_logs_created_at_idx; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX audit_logs_created_at_idx ON public.audit_logs USING btree (created_at DESC);
++
++
++--
++-- Name: audit_logs_organization_id_idx; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX audit_logs_organization_id_idx ON public.audit_logs USING btree (organization_id);
++
++
++--
++-- Name: audit_logs_user_id_idx; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX audit_logs_user_id_idx ON public.audit_logs USING btree (user_id);
++
++
++--
+ -- Name: autoapply_follow_ups_funder_id_idx; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -6968,6 +7786,13 @@
+ 
+ 
+ --
++-- Name: donor_discovery_prospects_scored_at_idx; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX donor_discovery_prospects_scored_at_idx ON public.donor_discovery_prospects USING btree (scored_at);
++
++
++--
+ -- Name: donor_discovery_requests_organization_id_status_idx; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -6989,6 +7814,13 @@
+ 
+ 
+ --
++-- Name: idx_ab_variants_category; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_ab_variants_category ON public.ab_test_variants USING btree (organization_id, funder_category, active);
++
++
++--
+ -- Name: idx_adapter_usage_log_org_adapter_called_at; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7129,6 +7961,41 @@
+ 
+ 
+ --
++-- Name: idx_auto_notif_read; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_auto_notif_read ON public.automation_notifications USING btree (is_read, created_at DESC);
++
++
++--
++-- Name: idx_auto_queue_config_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_auto_queue_config_org ON public.auto_queue_config USING btree (organization_id);
++
++
++--
++-- Name: idx_auto_queue_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_auto_queue_org ON public.automation_queue USING btree (organization_id);
++
++
++--
++-- Name: idx_auto_queue_priority; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_auto_queue_priority ON public.automation_queue USING btree (priority DESC, created_at);
++
++
++--
++-- Name: idx_auto_queue_status; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_auto_queue_status ON public.automation_queue USING btree (status);
++
++
++--
+ -- Name: idx_auto_screenshots_session; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7199,6 +8066,27 @@
+ 
+ 
+ --
++-- Name: idx_autoapply_review_queue_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_autoapply_review_queue_org ON public.autoapply_review_queue USING btree (organization_id);
++
++
++--
++-- Name: idx_autoapply_review_queue_status; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_autoapply_review_queue_status ON public.autoapply_review_queue USING btree (status);
++
++
++--
++-- Name: idx_autoapply_screenshots_submission; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_autoapply_screenshots_submission ON public.autoapply_screenshots USING btree (submission_id);
++
++
++--
+ -- Name: idx_autoapply_submissions_confirmation_pending; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7304,6 +8192,13 @@
+ 
+ 
+ --
++-- Name: idx_competitor_funder; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_competitor_funder ON public.competitor_tracking USING btree (funder_id) WHERE (funder_id IS NOT NULL);
++
++
++--
+ -- Name: idx_competitor_observed; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7339,6 +8234,48 @@
+ 
+ 
+ --
++-- Name: idx_compliance_requirements_application; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_compliance_requirements_application ON public.compliance_requirements USING btree (application_id);
++
++
++--
++-- Name: idx_compliance_requirements_due_date; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_compliance_requirements_due_date ON public.compliance_requirements USING btree (due_date);
++
++
++--
++-- Name: idx_compliance_requirements_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_compliance_requirements_org ON public.compliance_requirements USING btree (organization_id);
++
++
++--
++-- Name: idx_consultant_client_access_client; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_consultant_client_access_client ON public.consultant_client_access USING btree (client_org_id);
++
++
++--
++-- Name: idx_consultant_client_access_consultant; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_consultant_client_access_consultant ON public.consultant_client_access USING btree (consultant_org_id);
++
++
++--
++-- Name: idx_consultant_client_access_dedup; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE UNIQUE INDEX idx_consultant_client_access_dedup ON public.consultant_client_access USING btree (consultant_org_id, client_org_id);
++
++
++--
+ -- Name: idx_contacts_funder; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7465,6 +8402,41 @@
+ 
+ 
+ --
++-- Name: idx_discovery_matches_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_discovery_matches_org ON public.discovery_matches USING btree (organization_id);
++
++
++--
++-- Name: idx_discovery_matches_run; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_discovery_matches_run ON public.discovery_matches USING btree (discovery_run_id);
++
++
++--
++-- Name: idx_discovery_matches_score; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_discovery_matches_score ON public.discovery_matches USING btree (match_score DESC);
++
++
++--
++-- Name: idx_discovery_runs_date; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_discovery_runs_date ON public.discovery_runs USING btree (run_date DESC);
++
++
++--
++-- Name: idx_discovery_runs_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_discovery_runs_org ON public.discovery_runs USING btree (organization_id);
++
++
++--
+ -- Name: idx_documents_category; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7591,6 +8563,13 @@
+ 
+ 
+ --
++-- Name: idx_email_messages_sent; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_email_messages_sent ON public.email_messages USING btree (sent_at DESC);
++
++
++--
+ -- Name: idx_email_messages_thread; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7598,6 +8577,13 @@
+ 
+ 
+ --
++-- Name: idx_email_threads_funder; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_email_threads_funder ON public.email_threads USING btree (linked_funder_id);
++
++
++--
+ -- Name: idx_email_threads_gmail; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7605,6 +8591,13 @@
+ 
+ 
+ --
++-- Name: idx_email_threads_last_msg; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_email_threads_last_msg ON public.email_threads USING btree (last_message_at DESC);
++
++
++--
+ -- Name: idx_email_threads_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7640,6 +8633,41 @@
+ 
+ 
+ --
++-- Name: idx_follow_ups_scheduled; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_follow_ups_scheduled ON public.autoapply_follow_ups USING btree (scheduled_at, status) WHERE (status = 'pending'::text);
++
++
++--
++-- Name: idx_followup_enrollments_application; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_followup_enrollments_application ON public.followup_enrollments USING btree (application_id);
++
++
++--
++-- Name: idx_followup_enrollments_sequence; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_followup_enrollments_sequence ON public.followup_enrollments USING btree (sequence_id);
++
++
++--
++-- Name: idx_followup_enrollments_status; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_followup_enrollments_status ON public.followup_enrollments USING btree (status);
++
++
++--
++-- Name: idx_followup_sequences_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_followup_sequences_org ON public.followup_sequences USING btree (organization_id);
++
++
++--
+ -- Name: idx_forecasts_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7703,6 +8731,55 @@
+ 
+ 
+ --
++-- Name: idx_funded_proposals_amount; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funded_proposals_amount ON public.intelligence_funded_proposals USING btree (award_amount);
++
++
++--
++-- Name: idx_funded_proposals_fts; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funded_proposals_fts ON public.intelligence_funded_proposals USING gin (full_text_search_vector);
++
++
++--
++-- Name: idx_funded_proposals_funder_type; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funded_proposals_funder_type ON public.intelligence_funded_proposals USING btree (funder_type);
++
++
++--
++-- Name: idx_funded_proposals_ntee; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funded_proposals_ntee ON public.intelligence_funded_proposals USING btree (ntee_major, ntee_code);
++
++
++--
++-- Name: idx_funded_proposals_year; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funded_proposals_year ON public.intelligence_funded_proposals USING btree (award_year);
++
++
++--
++-- Name: idx_funder_credentials_funder; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funder_credentials_funder ON public.funder_credentials USING btree (funder_id);
++
++
++--
++-- Name: idx_funder_credentials_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funder_credentials_org ON public.funder_credentials USING btree (organization_id);
++
++
++--
+ -- Name: idx_funder_dna_funder; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7752,6 +8829,13 @@
+ 
+ 
+ --
++-- Name: idx_funder_rel_funder; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funder_rel_funder ON public.funder_relationship_scores USING btree (funder_id);
++
++
++--
+ -- Name: idx_funder_rel_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7773,6 +8857,13 @@
+ 
+ 
+ --
++-- Name: idx_funder_relationships_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funder_relationships_org ON public.funder_relationships USING btree (organization_id, funder_id);
++
++
++--
+ -- Name: idx_funders_category; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7801,6 +8892,27 @@
+ 
+ 
+ --
++-- Name: idx_funding_sources_category; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funding_sources_category ON public.funding_sources USING btree (category);
++
++
++--
++-- Name: idx_funding_sources_polling; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funding_sources_polling ON public.funding_sources USING btree (polling_enabled, last_polled_at);
++
++
++--
++-- Name: idx_funding_sources_type; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_funding_sources_type ON public.funding_sources USING btree (source_type);
++
++
++--
+ -- Name: idx_giving_history_funder; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7815,6 +8927,13 @@
+ 
+ 
+ --
++-- Name: idx_giving_history_year; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_giving_history_year ON public.funder_giving_history USING btree (fiscal_year DESC);
++
++
++--
+ -- Name: idx_grant_budgets_application; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7871,6 +8990,13 @@
+ 
+ 
+ --
++-- Name: idx_grantmaker_profiles_foundation_id; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE UNIQUE INDEX idx_grantmaker_profiles_foundation_id ON public.intelligence_grantmaker_profiles USING btree (foundation_id);
++
++
++--
+ -- Name: idx_grantmaker_profiles_geo; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7892,6 +9018,13 @@
+ 
+ 
+ --
++-- Name: idx_integ_keys_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_integ_keys_org ON public.integration_keys USING btree (organization_id);
++
++
++--
+ -- Name: idx_integration_keys_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -7962,6 +9095,27 @@
+ 
+ 
+ --
++-- Name: idx_knowledge_patterns_category; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_knowledge_patterns_category ON public.knowledge_patterns USING btree (category);
++
++
++--
++-- Name: idx_knowledge_patterns_type; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_knowledge_patterns_type ON public.knowledge_patterns USING btree (pattern_type);
++
++
++--
++-- Name: idx_knowledge_queries_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_knowledge_queries_org ON public.knowledge_queries USING btree (organization_id);
++
++
++--
+ -- Name: idx_learning_patterns_type; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8018,6 +9172,20 @@
+ 
+ 
+ --
++-- Name: idx_nonprofits_last_enriched_at; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_nonprofits_last_enriched_at ON public.nonprofits USING btree (last_enriched_at);
++
++
++--
++-- Name: idx_nonprofits_ntee; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_nonprofits_ntee ON public.nonprofits USING btree (ntee_code);
++
++
++--
+ -- Name: idx_nonprofits_state; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8046,6 +9214,20 @@
+ 
+ 
+ --
++-- Name: idx_notification_prefs_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_notification_prefs_org ON public.notification_preferences USING btree (organization_id);
++
++
++--
++-- Name: idx_notification_prefs_user; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_notification_prefs_user ON public.notification_preferences USING btree (user_id);
++
++
++--
+ -- Name: idx_onboarding_org_step; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8088,6 +9270,13 @@
+ 
+ 
+ --
++-- Name: idx_opportunities_match_percentage; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_opportunities_match_percentage ON public.opportunities USING btree (match_percentage DESC NULLS LAST);
++
++
++--
+ -- Name: idx_opportunities_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8095,6 +9284,13 @@
+ 
+ 
+ --
++-- Name: idx_opportunities_source_type; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_opportunities_source_type ON public.opportunities USING btree (source_type);
++
++
++--
+ -- Name: idx_opportunities_status; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8109,6 +9305,13 @@
+ 
+ 
+ --
++-- Name: idx_org_portal_accounts_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_org_portal_accounts_org ON public.org_portal_accounts USING btree (organization_id);
++
++
++--
+ -- Name: idx_org_settings_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8263,6 +9466,13 @@
+ 
+ 
+ --
++-- Name: idx_prob_scores_app; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_prob_scores_app ON public.success_probability_scores USING btree (application_id);
++
++
++--
+ -- Name: idx_prob_scores_opp; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8298,6 +9508,13 @@
+ 
+ 
+ --
++-- Name: idx_proposals_embedding; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_proposals_embedding ON public.intelligence_funded_proposals USING ivfflat (embedding extensions.vector_cosine_ops) WITH (lists='100');
++
++
++--
+ -- Name: idx_prospects_email; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8347,6 +9564,13 @@
+ 
+ 
+ --
++-- Name: idx_queue_controls_active; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_queue_controls_active ON public.queue_controls USING btree (control_type, paused) WHERE (paused = true);
++
++
++--
+ -- Name: idx_rel_memory_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8417,6 +9641,41 @@
+ 
+ 
+ --
++-- Name: idx_schoolfunder_donations_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_schoolfunder_donations_org ON public.schoolfunder_donations USING btree (org_id);
++
++
++--
++-- Name: idx_schoolfunder_donations_student; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_schoolfunder_donations_student ON public.schoolfunder_donations USING btree (student_id);
++
++
++--
++-- Name: idx_schoolfunder_students_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_schoolfunder_students_org ON public.schoolfunder_students USING btree (org_id);
++
++
++--
++-- Name: idx_schoolfunder_volunteer_hours_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_schoolfunder_volunteer_hours_org ON public.schoolfunder_volunteer_hours USING btree (org_id);
++
++
++--
++-- Name: idx_schoolfunder_volunteer_hours_student; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_schoolfunder_volunteer_hours_student ON public.schoolfunder_volunteer_hours USING btree (student_id);
++
++
++--
+ -- Name: idx_scrape_jobs_keyword; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8438,6 +9697,20 @@
+ 
+ 
+ --
++-- Name: idx_scrape_targets_active; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_scrape_targets_active ON public.scraping_targets USING btree (organization_id, is_active);
++
++
++--
++-- Name: idx_scrape_targets_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_scrape_targets_org ON public.scraping_targets USING btree (organization_id);
++
++
++--
+ -- Name: idx_scraping_targets_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8445,6 +9718,13 @@
+ 
+ 
+ --
++-- Name: idx_session_recordings_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_session_recordings_org ON public.session_recordings USING btree (organization_id, recorded_at DESC);
++
++
++--
+ -- Name: idx_simulations_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8452,6 +9732,13 @@
+ 
+ 
+ --
++-- Name: idx_solicitation_registrations_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_solicitation_registrations_org ON public.solicitation_registrations USING btree (organization_id);
++
++
++--
+ -- Name: idx_submission_queue_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8480,6 +9767,13 @@
+ 
+ 
+ --
++-- Name: idx_submission_usage_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_submission_usage_org ON public.submission_usage USING btree (organization_id, period_start);
++
++
++--
+ -- Name: idx_subscriptions_org; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8571,6 +9865,20 @@
+ 
+ 
+ --
++-- Name: idx_webhook_configs_active; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_webhook_configs_active ON public.webhook_configs USING btree (organization_id, is_active);
++
++
++--
++-- Name: idx_webhook_configs_org; Type: INDEX; Schema: public; Owner: -
++--
++
++CREATE INDEX idx_webhook_configs_org ON public.webhook_configs USING btree (organization_id);
++
++
++--
+ -- Name: renewals_application_id_idx; Type: INDEX; Schema: public; Owner: -
+ --
+ 
+@@ -8676,6 +9984,13 @@
+ 
+ 
+ --
++-- Name: intelligence_funded_proposals funded_proposals_fts_trigger; Type: TRIGGER; Schema: public; Owner: -
++--
++
++CREATE TRIGGER funded_proposals_fts_trigger BEFORE INSERT OR UPDATE ON public.intelligence_funded_proposals FOR EACH ROW EXECUTE FUNCTION public.update_funded_proposals_fts();
++
++
++--
+ -- Name: renewals renewals_updated_at; Type: TRIGGER; Schema: public; Owner: -
+ --
+ 
+@@ -8683,6 +9998,13 @@
+ 
+ 
+ --
++-- Name: applications trg_enforce_application_stage_transition; Type: TRIGGER; Schema: public; Owner: -
++--
++
++CREATE TRIGGER trg_enforce_application_stage_transition BEFORE UPDATE ON public.applications FOR EACH ROW WHEN ((new.stage IS DISTINCT FROM old.stage)) EXECUTE FUNCTION public.enforce_application_stage_transition();
++
++
++--
+ -- Name: organizations trg_seed_platform_config; Type: TRIGGER; Schema: public; Owner: -
+ --
+ 
+@@ -8953,6 +10275,14 @@
+ 
+ 
+ --
++-- Name: autoapply_submissions autoapply_submissions_variant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.autoapply_submissions
++    ADD CONSTRAINT autoapply_submissions_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.ab_test_variants(id);
++
++
++--
+ -- Name: automation_notifications automation_notifications_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -9201,6 +10531,38 @@
+ 
+ 
+ --
++-- Name: compliance_requirements compliance_requirements_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.compliance_requirements
++    ADD CONSTRAINT compliance_requirements_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.applications(id) ON DELETE CASCADE;
++
++
++--
++-- Name: compliance_requirements compliance_requirements_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.compliance_requirements
++    ADD CONSTRAINT compliance_requirements_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
++-- Name: consultant_client_access consultant_client_access_client_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.consultant_client_access
++    ADD CONSTRAINT consultant_client_access_client_org_id_fkey FOREIGN KEY (client_org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
++-- Name: consultant_client_access consultant_client_access_consultant_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.consultant_client_access
++    ADD CONSTRAINT consultant_client_access_consultant_org_id_fkey FOREIGN KEY (consultant_org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: contact_tasks contact_tasks_contact_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -9329,6 +10691,14 @@
+ 
+ 
+ --
++-- Name: discovery_runs discovery_runs_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.discovery_runs
++    ADD CONSTRAINT discovery_runs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: documents documents_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -9577,6 +10947,22 @@
+ 
+ 
+ --
++-- Name: email_messages email_messages_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_messages
++    ADD CONSTRAINT email_messages_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
++-- Name: email_messages email_messages_thread_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_messages
++    ADD CONSTRAINT email_messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.email_threads(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: email_sequence_enrollments email_sequence_enrollments_contact_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -9681,6 +11067,54 @@
+ 
+ 
+ --
++-- Name: email_threads email_threads_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.email_connections(id) ON DELETE CASCADE;
++
++
++--
++-- Name: email_threads email_threads_linked_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_linked_application_id_fkey FOREIGN KEY (linked_application_id) REFERENCES public.applications(id) ON DELETE SET NULL;
++
++
++--
++-- Name: email_threads email_threads_linked_contact_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_linked_contact_id_fkey FOREIGN KEY (linked_contact_id) REFERENCES public.contacts(id) ON DELETE SET NULL;
++
++
++--
++-- Name: email_threads email_threads_linked_funder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_linked_funder_id_fkey FOREIGN KEY (linked_funder_id) REFERENCES public.funders(id) ON DELETE SET NULL;
++
++
++--
++-- Name: email_threads email_threads_linked_opportunity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_linked_opportunity_id_fkey FOREIGN KEY (linked_opportunity_id) REFERENCES public.opportunities(id) ON DELETE SET NULL;
++
++
++--
++-- Name: email_threads email_threads_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.email_threads
++    ADD CONSTRAINT email_threads_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: enrichment_jobs enrichment_jobs_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -9697,6 +11131,30 @@
+ 
+ 
+ --
++-- Name: followup_enrollments followup_enrollments_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.followup_enrollments
++    ADD CONSTRAINT followup_enrollments_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.applications(id) ON DELETE CASCADE;
++
++
++--
++-- Name: followup_enrollments followup_enrollments_sequence_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.followup_enrollments
++    ADD CONSTRAINT followup_enrollments_sequence_id_fkey FOREIGN KEY (sequence_id) REFERENCES public.followup_sequences(id) ON DELETE CASCADE;
++
++
++--
++-- Name: followup_sequences followup_sequences_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.followup_sequences
++    ADD CONSTRAINT followup_sequences_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: form_templates form_templates_funder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -9857,6 +11315,22 @@
+ 
+ 
+ --
++-- Name: funder_relationships funder_relationships_funder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.funder_relationships
++    ADD CONSTRAINT funder_relationships_funder_id_fkey FOREIGN KEY (funder_id) REFERENCES public.funders(id);
++
++
++--
++-- Name: funder_relationships funder_relationships_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.funder_relationships
++    ADD CONSTRAINT funder_relationships_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
++
++
++--
+ -- Name: funders funders_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -10001,6 +11475,14 @@
+ 
+ 
+ --
++-- Name: intelligence_grantmaker_profiles intelligence_grantmaker_profiles_foundation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.intelligence_grantmaker_profiles
++    ADD CONSTRAINT intelligence_grantmaker_profiles_foundation_id_fkey FOREIGN KEY (foundation_id) REFERENCES public.foundation_directory(id);
++
++
++--
+ -- Name: intelligence_grantmaker_profiles intelligence_grantmaker_profiles_funder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -10121,6 +11603,22 @@
+ 
+ 
+ --
++-- Name: notification_preferences notification_preferences_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.notification_preferences
++    ADD CONSTRAINT notification_preferences_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
++-- Name: notification_preferences notification_preferences_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.notification_preferences
++    ADD CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: onboarding_steps onboarding_steps_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -10193,6 +11691,14 @@
+ 
+ 
+ --
++-- Name: org_portal_accounts org_portal_accounts_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.org_portal_accounts
++    ADD CONSTRAINT org_portal_accounts_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: org_settings org_settings_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -10569,6 +12075,54 @@
+ 
+ 
+ --
++-- Name: schoolfunder_donations schoolfunder_donations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_donations
++    ADD CONSTRAINT schoolfunder_donations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
++
++
++--
++-- Name: schoolfunder_donations schoolfunder_donations_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_donations
++    ADD CONSTRAINT schoolfunder_donations_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.schoolfunder_students(id);
++
++
++--
++-- Name: schoolfunder_students schoolfunder_students_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_students
++    ADD CONSTRAINT schoolfunder_students_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
++
++
++--
++-- Name: schoolfunder_volunteer_hours schoolfunder_volunteer_hours_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_volunteer_hours
++    ADD CONSTRAINT schoolfunder_volunteer_hours_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
++
++
++--
++-- Name: schoolfunder_volunteer_hours schoolfunder_volunteer_hours_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_volunteer_hours
++    ADD CONSTRAINT schoolfunder_volunteer_hours_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.schoolfunder_students(id);
++
++
++--
++-- Name: schoolfunder_volunteer_hours schoolfunder_volunteer_hours_verified_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.schoolfunder_volunteer_hours
++    ADD CONSTRAINT schoolfunder_volunteer_hours_verified_by_fkey FOREIGN KEY (verified_by) REFERENCES public.profiles(id);
++
++
++--
+ -- Name: scrape_results scrape_results_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -10593,6 +12147,14 @@
+ 
+ 
+ --
++-- Name: session_recordings session_recordings_submission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.session_recordings
++    ADD CONSTRAINT session_recordings_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES public.autoapply_submissions(id) ON DELETE CASCADE;
++
++
++--
+ -- Name: simulation_scenarios simulation_scenarios_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -10657,6 +12219,14 @@
+ 
+ 
+ --
++-- Name: submission_usage submission_usage_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
++--
++
++ALTER TABLE ONLY public.submission_usage
++    ADD CONSTRAINT submission_usage_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
++
++
++--
+ -- Name: submission_variables submission_variables_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+ --
+ 
+@@ -11022,6 +12592,22 @@
+ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: audit_logs audit_logs: members can insert; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY "audit_logs: members can insert" ON public.audit_logs FOR INSERT TO authenticated WITH CHECK ((organization_id = public.current_org_id()));
++
++
++--
++-- Name: audit_logs audit_logs: owner/admin can select; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY "audit_logs: owner/admin can select" ON public.audit_logs FOR SELECT TO authenticated USING (((organization_id = public.current_org_id()) AND (EXISTS ( SELECT 1
++   FROM public.profiles
++  WHERE ((profiles.id = auth.uid()) AND (profiles.organization_id = public.current_org_id()) AND (profiles.role = ANY (ARRAY['owner'::public.user_role, 'admin'::public.user_role])))))));
++
++
++--
+ -- Name: audit_logs audit_logs_org_isolation; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -11040,12 +12626,30 @@
+ 
+ 
+ --
++-- Name: automation_notifications auto_notif_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY auto_notif_org ON public.automation_notifications USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: auto_queue_config; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+ ALTER TABLE public.auto_queue_config ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: auto_queue_config auto_queue_config_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY auto_queue_config_org ON public.auto_queue_config USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: auto_queue_config auto_queue_config_org_insert; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -11251,6 +12855,15 @@
+ ALTER TABLE public.automation_queue ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: automation_queue automation_queue_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY automation_queue_org ON public.automation_queue USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: automation_queue automation_queue_org_isolation; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -11266,6 +12879,15 @@
+ ALTER TABLE public.automation_screenshots ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: automation_screenshots automation_screenshots_org_isolation; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY automation_screenshots_org_isolation ON public.automation_screenshots USING ((session_id IN ( SELECT automation_sessions.id
++   FROM public.automation_sessions
++  WHERE (automation_sessions.organization_id = public.current_org_id()))));
++
++
++--
+ -- Name: automation_sessions; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11287,6 +12909,15 @@
+ ALTER TABLE public.automation_steps ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: automation_steps automation_steps_org_isolation; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY automation_steps_org_isolation ON public.automation_steps USING ((session_id IN ( SELECT automation_sessions.id
++   FROM public.automation_sessions
++  WHERE (automation_sessions.organization_id = public.current_org_id()))));
++
++
++--
+ -- Name: autonomous_triggers; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11433,6 +13064,15 @@
+ ALTER TABLE public.competitor_tracking ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: competitor_tracking competitor_tracking_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY competitor_tracking_org ON public.competitor_tracking USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: compliance_events; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11448,6 +13088,36 @@
+ 
+ 
+ --
++-- Name: compliance_requirements; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.compliance_requirements ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: compliance_requirements compliance_requirements_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY compliance_requirements_org ON public.compliance_requirements USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
++-- Name: consultant_client_access; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.consultant_client_access ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: consultant_client_access consultant_client_access_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY consultant_client_access_org ON public.consultant_client_access USING ((consultant_org_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: contact_tasks; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11534,6 +13204,15 @@
+ 
+ 
+ --
++-- Name: custom_api_connections custom_api_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY custom_api_org ON public.custom_api_connections USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: custom_connector_allowlist; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11632,39 +13311,30 @@
+ ALTER TABLE public.discovery_matches ENABLE ROW LEVEL SECURITY;
+ 
+ --
+--- Name: discovery_matches discovery_matches_org_insert; Type: POLICY; Schema: public; Owner: -
++-- Name: discovery_matches discovery_matches_org; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+-CREATE POLICY discovery_matches_org_insert ON public.discovery_matches FOR INSERT TO authenticated WITH CHECK ((org_id = ( SELECT profiles.organization_id
++CREATE POLICY discovery_matches_org ON public.discovery_matches USING ((organization_id = ( SELECT profiles.organization_id
+    FROM public.profiles
+   WHERE (profiles.id = auth.uid()))));
+ 
+ 
+ --
+--- Name: discovery_matches discovery_matches_org_select; Type: POLICY; Schema: public; Owner: -
++-- Name: discovery_runs; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+-CREATE POLICY discovery_matches_org_select ON public.discovery_matches FOR SELECT TO authenticated USING ((org_id = ( SELECT profiles.organization_id
+-   FROM public.profiles
+-  WHERE (profiles.id = auth.uid()))));
+-
++ALTER TABLE public.discovery_runs ENABLE ROW LEVEL SECURITY;
+ 
+ --
+--- Name: discovery_matches discovery_matches_org_update; Type: POLICY; Schema: public; Owner: -
++-- Name: discovery_runs discovery_runs_org; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+-CREATE POLICY discovery_matches_org_update ON public.discovery_matches FOR UPDATE TO authenticated USING ((org_id = ( SELECT profiles.organization_id
++CREATE POLICY discovery_runs_org ON public.discovery_runs USING ((organization_id = ( SELECT profiles.organization_id
+    FROM public.profiles
+   WHERE (profiles.id = auth.uid()))));
+ 
+ 
+ --
+--- Name: discovery_runs; Type: ROW SECURITY; Schema: public; Owner: -
+---
+-
+-ALTER TABLE public.discovery_runs ENABLE ROW LEVEL SECURITY;
+-
+---
+ -- Name: documents; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11860,6 +13530,21 @@
+ 
+ 
+ --
++-- Name: email_messages; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.email_messages ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: email_messages email_messages_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY email_messages_org ON public.email_messages USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: email_sequence_steps email_seq_steps_org; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -11922,6 +13607,21 @@
+ 
+ 
+ --
++-- Name: email_threads; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.email_threads ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: email_threads email_threads_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY email_threads_org ON public.email_threads USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: enrichment_jobs; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -11941,6 +13641,38 @@
+ 
+ 
+ --
++-- Name: followup_enrollments; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.followup_enrollments ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: followup_enrollments followup_enrollments_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY followup_enrollments_org ON public.followup_enrollments USING ((application_id IN ( SELECT applications.id
++   FROM public.applications
++  WHERE (applications.organization_id = ( SELECT profiles.organization_id
++           FROM public.profiles
++          WHERE (profiles.id = auth.uid()))))));
++
++
++--
++-- Name: followup_sequences; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.followup_sequences ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: followup_sequences followup_sequences_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY followup_sequences_org ON public.followup_sequences USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: funding_forecasts forecasts_org; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -12168,6 +13900,15 @@
+ ALTER TABLE public.funder_relationship_scores ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: funder_relationship_scores funder_relationship_scores_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY funder_relationship_scores_org ON public.funder_relationship_scores USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: funder_relationship_signals; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -12202,6 +13943,15 @@
+ ALTER TABLE public.funding_forecasts ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: funder_giving_history giving_history_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY giving_history_org ON public.funder_giving_history USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: grant_agreements; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -12317,6 +14067,15 @@
+ ALTER TABLE public.integration_keys ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: integration_keys integration_keys_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY integration_keys_org ON public.integration_keys USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: integration_keys integration_keys_org_isolation; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -12545,19 +14304,10 @@
+ ALTER TABLE public.knowledge_queries ENABLE ROW LEVEL SECURITY;
+ 
+ --
+--- Name: knowledge_queries knowledge_queries_org_insert; Type: POLICY; Schema: public; Owner: -
+---
+-
+-CREATE POLICY knowledge_queries_org_insert ON public.knowledge_queries FOR INSERT TO authenticated WITH CHECK ((org_id = ( SELECT profiles.organization_id
+-   FROM public.profiles
+-  WHERE (profiles.id = auth.uid()))));
+-
+-
+---
+--- Name: knowledge_queries knowledge_queries_org_select; Type: POLICY; Schema: public; Owner: -
++-- Name: knowledge_queries knowledge_queries_org; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+-CREATE POLICY knowledge_queries_org_select ON public.knowledge_queries FOR SELECT TO authenticated USING ((org_id = ( SELECT profiles.organization_id
++CREATE POLICY knowledge_queries_org ON public.knowledge_queries USING ((organization_id = ( SELECT profiles.organization_id
+    FROM public.profiles
+   WHERE (profiles.id = auth.uid()))));
+ 
+@@ -12674,6 +14424,21 @@
+ 
+ 
+ --
++-- Name: notification_preferences; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: notification_preferences notification_preferences_self; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY notification_preferences_self ON public.notification_preferences USING (((user_id = auth.uid()) AND (organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid())))));
++
++
++--
+ -- Name: onboarding_steps; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -12721,6 +14486,15 @@
+ ALTER TABLE public.opportunity_probability_scores ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: opportunity_probability_scores opportunity_probability_scores_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY opportunity_probability_scores_org ON public.opportunity_probability_scores USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: opportunity_probability_scores opportunity_probability_scores_org_isolation; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -12773,6 +14547,21 @@
+ 
+ 
+ --
++-- Name: org_portal_accounts; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.org_portal_accounts ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: org_portal_accounts org_portal_accounts_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY org_portal_accounts_org ON public.org_portal_accounts USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: org_settings; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -12827,6 +14616,15 @@
+ ALTER TABLE public.organizational_digital_twins ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: organizational_digital_twins organizational_digital_twins_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY organizational_digital_twins_org ON public.organizational_digital_twins USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: organizational_digital_twins organizational_digital_twins_org_isolation; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -13208,6 +15006,51 @@
+ ALTER TABLE public.sales_sends ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: schoolfunder_donations; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.schoolfunder_donations ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: schoolfunder_donations schoolfunder_donations_org_isolation; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY schoolfunder_donations_org_isolation ON public.schoolfunder_donations USING ((org_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
++-- Name: schoolfunder_students; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.schoolfunder_students ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: schoolfunder_students schoolfunder_students_org_isolation; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY schoolfunder_students_org_isolation ON public.schoolfunder_students USING ((org_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
++-- Name: schoolfunder_volunteer_hours; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.schoolfunder_volunteer_hours ENABLE ROW LEVEL SECURITY;
++
++--
++-- Name: schoolfunder_volunteer_hours schoolfunder_volunteer_hours_org_isolation; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY schoolfunder_volunteer_hours_org_isolation ON public.schoolfunder_volunteer_hours USING ((org_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: scrape_jobs; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -13226,6 +15069,15 @@
+ ALTER TABLE public.scraping_targets ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: scraping_targets scraping_targets_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY scraping_targets_org ON public.scraping_targets USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: scraping_targets scraping_targets_org_isolation; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -13324,6 +15176,12 @@
+ ALTER TABLE public.strategic_recommendations ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: stripe_webhook_events; Type: ROW SECURITY; Schema: public; Owner: -
++--
++
++ALTER TABLE public.stripe_webhook_events ENABLE ROW LEVEL SECURITY;
++
++--
+ -- Name: submission_variables sub_vars_org; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -13426,6 +15284,15 @@
+ ALTER TABLE public.success_probability_scores ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: success_probability_scores success_probability_scores_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY success_probability_scores_org ON public.success_probability_scores USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: suppression_list; Type: ROW SECURITY; Schema: public; Owner: -
+ --
+ 
+@@ -13574,6 +15441,15 @@
+ ALTER TABLE public.webhook_configs ENABLE ROW LEVEL SECURITY;
+ 
+ --
++-- Name: webhook_configs webhook_configs_org; Type: POLICY; Schema: public; Owner: -
++--
++
++CREATE POLICY webhook_configs_org ON public.webhook_configs USING ((organization_id = ( SELECT profiles.organization_id
++   FROM public.profiles
++  WHERE (profiles.id = auth.uid()))));
++
++
++--
+ -- Name: webhook_configs webhook_configs_org_delete; Type: POLICY; Schema: public; Owner: -
+ --
+ 
+@@ -13626,5 +15502,5 @@
+ -- PostgreSQL database dump complete
+ --
+ 
+-\unrestrict z8nDIFBDRCLXsTdjYILicbiA3AwJw4MOSFmyYWN1Jy6gWzJMyZE0voZaEiWPXtR
++\unrestrict INwmdejcWEykMfMEwhfSjE9N83j4IKnCWXdtkwZwXjtqiZEWg7EUhSYXHWYF9af
+ 

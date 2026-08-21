@@ -1,0 +1,18 @@
+-- 105_applications_metadata_column.sql — mirrors
+-- src/supabase/migrations/103_narrative_humanizer.sql in this fork. See
+-- that file's header for the full rationale (narrative-humanizer.ts's
+-- humanization_score needs somewhere to live; no `metadata` column existed
+-- on `applications` in either migration fork before this).
+--
+-- See [[benavora-two-parallel-migrations-directories]] (project memory) /
+-- 102_twin_auto_populate_log.sql's own header for why this is applied in
+-- both forks rather than guessing which one is actually live.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'applications')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'applications' AND column_name = 'metadata') THEN
+    ALTER TABLE applications ADD COLUMN metadata jsonb DEFAULT '{}';
+  END IF;
+END $$;
+DO
+INSERT 0 1

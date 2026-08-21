@@ -1,8 +1,17 @@
 -- Email Integration Tables
 
-CREATE TYPE email_sync_status AS ENUM ('active', 'paused', 'error', 'disconnected');
-CREATE TYPE email_direction AS ENUM ('inbound', 'outbound');
-CREATE TYPE calendar_sync_status AS ENUM ('active', 'paused', 'error', 'disconnected');
+DO $$ BEGIN
+  CREATE TYPE email_sync_status AS ENUM ('active', 'paused', 'error', 'disconnected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE TYPE email_direction AS ENUM ('inbound', 'outbound');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE TYPE calendar_sync_status AS ENUM ('active', 'paused', 'error', 'disconnected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS email_connections (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -182,22 +191,31 @@ ALTER TABLE email_campaign_sequences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_sequence_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_sequence_enrollments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "email_conn_org" ON email_connections;
 CREATE POLICY "email_conn_org" ON email_connections USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "email_threads_org" ON email_threads;
 CREATE POLICY "email_threads_org" ON email_threads USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "email_messages_org" ON email_messages;
 CREATE POLICY "email_messages_org" ON email_messages USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "cal_conn_org" ON calendar_connections;
 CREATE POLICY "cal_conn_org" ON calendar_connections USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "cal_events_org" ON calendar_events;
 CREATE POLICY "cal_events_org" ON calendar_events USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "email_templates_org" ON email_templates;
 CREATE POLICY "email_templates_org" ON email_templates USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "email_sequences_org" ON email_campaign_sequences;
 CREATE POLICY "email_sequences_org" ON email_campaign_sequences USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "email_seq_steps_org" ON email_sequence_steps;
 CREATE POLICY "email_seq_steps_org" ON email_sequence_steps USING (sequence_id IN (SELECT id FROM email_campaign_sequences WHERE organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())));
+DROP POLICY IF EXISTS "email_enrollments_org" ON email_sequence_enrollments;
 CREATE POLICY "email_enrollments_org" ON email_sequence_enrollments USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Indexes
-CREATE INDEX idx_email_threads_org ON email_threads(organization_id);
-CREATE INDEX idx_email_threads_last_msg ON email_threads(last_message_at DESC);
-CREATE INDEX idx_email_threads_funder ON email_threads(linked_funder_id);
-CREATE INDEX idx_email_messages_thread ON email_messages(thread_id);
-CREATE INDEX idx_email_messages_sent ON email_messages(sent_at DESC);
-CREATE INDEX idx_cal_events_org ON calendar_events(organization_id);
-CREATE INDEX idx_cal_events_start ON calendar_events(start_time);
-CREATE INDEX idx_email_enrollments_next ON email_sequence_enrollments(next_send_at) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_email_threads_org ON email_threads(organization_id);
+CREATE INDEX IF NOT EXISTS idx_email_threads_last_msg ON email_threads(last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_threads_funder ON email_threads(linked_funder_id);
+CREATE INDEX IF NOT EXISTS idx_email_messages_thread ON email_messages(thread_id);
+CREATE INDEX IF NOT EXISTS idx_email_messages_sent ON email_messages(sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cal_events_org ON calendar_events(organization_id);
+CREATE INDEX IF NOT EXISTS idx_cal_events_start ON calendar_events(start_time);
+CREATE INDEX IF NOT EXISTS idx_email_enrollments_next ON email_sequence_enrollments(next_send_at) WHERE status = 'active';

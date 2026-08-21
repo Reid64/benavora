@@ -1,0 +1,5 @@
+BEGIN
+psql:test-evidence/remediation/migration-drift/wgr130-131-prod-verify.sql:52: NOTICE:  illegal transition correctly rejected: Illegal application stage transition: discovered -> awarded is not a legal forward edge or backward move.
+psql:test-evidence/remediation/migration-drift/wgr130-131-prod-verify.sql:52: NOTICE:  RESULT legal_transition_persisted=t illegal_transition_rejected=t illegal_stage_unchanged=t
+DO
+ROLLBACK

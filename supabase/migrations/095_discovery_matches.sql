@@ -33,6 +33,22 @@ CREATE TABLE IF NOT EXISTS discovery_runs (
   created_at             timestamptz NOT NULL DEFAULT now()
 );
 
+-- Real drift found 2026-08-21 (migration-drift remediation): a prior,
+-- out-of-band process had already created discovery_runs from an earlier
+-- version of this spec that omitted organization_id entirely, with RLS
+-- never enabled and zero policies -- readable/writable by any authenticated
+-- user, any org. CREATE TABLE IF NOT EXISTS above is correctly a no-op
+-- against that existing table, so this DO block repairs it in place (table
+-- confirmed empty, 0 rows, before this fix -- no backfill needed).
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'discovery_runs' AND column_name = 'organization_id'
+  ) THEN
+    ALTER TABLE discovery_runs ADD COLUMN organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
 ALTER TABLE discovery_runs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "discovery_runs_org" ON discovery_runs;
@@ -56,6 +72,27 @@ CREATE TABLE IF NOT EXISTS discovery_matches (
   actioned_at         timestamptz,
   created_at          timestamptz NOT NULL DEFAULT now()
 );
+
+-- Same drift as discovery_runs above: a prior out-of-band process already
+-- created discovery_matches using `org_id` (this schema's universal
+-- convention is `organization_id`) with 3 separate insert/select/update
+-- policies instead of this migration's single unified one. Table confirmed
+-- empty (0 rows) before this fix -- safe rename, no data loss.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'discovery_matches' AND column_name = 'org_id'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'discovery_matches' AND column_name = 'organization_id'
+  ) THEN
+    ALTER TABLE discovery_matches RENAME COLUMN org_id TO organization_id;
+  END IF;
+END $$;
+
+DROP POLICY IF EXISTS "discovery_matches_org_insert" ON discovery_matches;
+DROP POLICY IF EXISTS "discovery_matches_org_select" ON discovery_matches;
+DROP POLICY IF EXISTS "discovery_matches_org_update" ON discovery_matches;
 
 ALTER TABLE discovery_matches ENABLE ROW LEVEL SECURITY;
 

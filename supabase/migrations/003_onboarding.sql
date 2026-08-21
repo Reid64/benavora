@@ -22,7 +22,13 @@ ALTER TABLE organizations
 -- Backfill: every organization that already exists predates onboarding and
 -- should not be interrupted. Only rows created after this migration default to
 -- false and flow through the wizard.
-UPDATE organizations SET onboarding_completed = true;
+-- Guarded (WGR-068, 2026-08-21): re-running this unconditionally would flip
+-- onboarding_completed back to true for any org that has legitimately
+-- diverged since the first run (e.g. a real new org mid-wizard) -- confirmed
+-- live via a real re-apply test. The WHERE clause makes it a true one-time
+-- backfill: a second run only ever touches rows that still need it, which by
+-- definition no row does once this migration has run to completion.
+UPDATE organizations SET onboarding_completed = true WHERE onboarding_completed IS NOT true;
 
 -- ============================================================================
 -- END Migration 003

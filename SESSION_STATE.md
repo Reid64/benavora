@@ -1,5 +1,5 @@
 # BENAVORA — Session State
-## Last Updated: August 21, 2026 — WGR-157 fixed (zero-failure vitest baseline, vitest added to pre-push). See Session 11 below and banner.
+## Last Updated: August 21, 2026 — Migration ledger reconciled, 49 migrations applied to production (WGR-041-052, WGR-130/131 resolved). See Session 12 below and banner.
 
 ---
 
@@ -8646,3 +8646,25 @@ No file under `src/` was changed as part of the one (a) real-defect fix — it w
 Committed `484788e` ("fix(WGR-157): zero-failure vitest baseline, integration tests separated, vitest added to pre-push"), pushed (`a3c7388..484788e main -> main`) — live-verified the new two-stage gate actually ran both stages: pre-push output shows `pre-push: running 'pnpm run build'...` then, after it passed, `pre-push: build passed. Running 'npx vitest run'...`, then `pre-push: build and tests passed, push allowed.` (`push-wgr157-2026-08-21.log`).
 
 WGR-157 flipped **RESOLVED**.
+
+---
+
+## Session 12 — August 21, 2026: Migration ledger reconciled, 49 migrations applied to production after rehearsal
+
+`supabase_migrations.schema_migrations` confirmed to not exist in production at all (this project has never run `supabase db push`) — every migration to date applied by hand via psql/DATABASE_URL. New `scripts/audit-migration-ledger.ts` probed production for every object each of the 145 real files in `supabase/migrations/` creates or alters: **90 APPLIED-UNRECORDED, 28 PARTIAL, 19 MISSING, 8 NO-OP**. `143_shared_bucket_storage_rls_policies.sql` (last session's fix) showed NO-OP — its policies are built via dynamic `EXECUTE format(...)` SQL this static probe can't see inside; already independently confirmed live via `pg_policies` last session.
+
+Stood up a disposable Postgres 17 container (matching production's real 17.6, not the task-stated 15) via Docker, restored a fresh `pg_dump --schema-only` of production's `public` schema into it, created the ledger table there too, and rehearsed all 47 MISSING/PARTIAL files in filename order, one transaction each. First pass: 9 failures. 5 were plain non-idempotency (unguarded `CREATE TYPE`/`CREATE TABLE`/`CREATE POLICY`/`CREATE INDEX` — fixed with `IF NOT EXISTS`/`DROP POLICY IF EXISTS`/`DO $$...EXCEPTION WHEN duplicate_object` guards). 4 were real column/table-name drift between the checked-in file and a table that already existed live with a different shape, created out-of-band: `funder_credentials`/`autoapply_review_queue`/`solicitation_registrations` policies referenced `organization_members`, a table that has never existed anywhere in this schema (rewritten to the real, live, correct `profiles`-based pattern); `webhook_configs` had `webhook_type`/`active` instead of `type`/`is_active` (app code confirmed to already expect the latter); `discovery_matches`/`knowledge_queries` had `org_id` instead of `organization_id`. All fixed, each verified empty (0 rows) before any rename. Three consecutive clean rehearsal passes from a fresh dump (47/47, 0 errors) before proceeding.
+
+Applied all 47 to production: full `pg_dump` backup taken first (`prod-pre-20260821-174513.sql`), one transaction each, ledger row inserted after every success. **47/47 succeeded, 0 errors** — identical to rehearsal. Ledger seeded with 98 ledger-row-only inserts for the already-applied files (no re-apply, per task instruction).
+
+Step 6 verification (`npx vitest run`) caught one gap the rehearsal process itself structurally couldn't: `052_governance_layer.sql`/`053_multichannel_analytics.sql` (both in the clean 47) create 4 org-scoped tables — `ab_test_variants`, `funder_relationships`, `session_recordings`, `submission_usage` — but never enable RLS on any of them at all. A live cross-org SELECT sweep found real leakage. Fixed via new `144_governance_analytics_rls_hardening.sql`, rehearsed then applied to production immediately given the live-leak severity. Separately, manually re-verifying two register rows (WGR-042/WGR-043) against live columns (not trusting the ledger-audit script, which only checks a `CREATE TABLE`'s target table exists, not that an already-existing table's inline column list is complete) found `funder_giving_history`/`success_probability_scores` had the same silent-column-drift bug as the 4 files above, just not exercised by rehearsal since neither table's own creation had failed. Fixed via `145_giving_history_and_probability_scores_column_drift.sql`. Also hardened `003_onboarding.sql`'s unguarded backfill (a P1 finding from a prior idempotency dry-run) with a `WHERE onboarding_completed IS NOT true` guard.
+
+Final state: 147 files on disk, 147 ledger rows, 0 MISSING, 0 PARTIAL. `npx vitest run` exit 0 (521 passed), `storage-rls.test.ts` and `agent-runs.test.ts` specifically both green. `pnpm run build` exit 0.
+
+WGR-130/WGR-131 (the applications stage-transition trigger, previously FIX-APPLIED-BRANCH-VERIFIED but never applied to production) verified live: migration 141 (part of the 47) is now in production. Live-verified with a disposable org+application row wrapped in `BEGIN;...ROLLBACK;` (not the original branch-verify script, which mutated real production application rows and wasn't safe to re-run here) — legal transition persisted, illegal skip (`discovered -> awarded`) rejected by the trigger with `SQLSTATE 23514`, stage confirmed unchanged on independent re-read. Both flipped **RESOLVED**.
+
+Register: 13 of the ~21-row migration/schema-drift Batch 1 cluster (WGR-041 through WGR-052) flipped RESOLVED with live-column evidence; WGR-130/131 also RESOLVED. 13 rows left CONFIRMED-BROKEN with an explicit reason each — mostly application-code bugs (wrong column names in `pipeline.ts`/`rubric-extractor.ts`/agent files) or findings scoped to the `src/supabase/migrations/` tree (out of this remediation's explicit root-directory-only scope), not missing migrations.
+
+Housekeeping: appended today's findings to the working-copy `MIGRATION_IDEMPOTENCY_AUDIT.md` (including an explicit note on the ledger-audit script's own column-detection blind spot, so a future session doesn't have to rediscover it); removed 16 stale `.next-pt*`/`.next-*-2026-*` entries from `tsconfig.json`'s `include` list and deleted the 5 that still existed on disk; added `/.next-*/` and `/.pt05-local-stack/` to `.gitignore`.
+
+No `src/` application code was changed this session — every fix was a database migration or a config/doc file.

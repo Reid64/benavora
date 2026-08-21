@@ -3,28 +3,42 @@
 -- Apply AFTER 001_initial_schema.sql
 -- ============================================================
 
--- New enums
-CREATE TYPE automation_status AS ENUM (
-  'pending', 'in_progress', 'awaiting_approval', 'approved',
-  'submitted', 'failed', 'cancelled'
-);
+-- New enums (idempotency-hardened 2026-08-21, WGR migration-drift remediation:
+-- Postgres has no CREATE TYPE ... IF NOT EXISTS, so each is wrapped in a
+-- DO block catching duplicate_object -- same end state, safe to re-run.)
+DO $$ BEGIN
+  CREATE TYPE automation_status AS ENUM (
+    'pending', 'in_progress', 'awaiting_approval', 'approved',
+    'submitted', 'failed', 'cancelled'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE subscription_tier AS ENUM ('free', 'starter', 'professional', 'enterprise');
+DO $$ BEGIN
+  CREATE TYPE subscription_tier AS ENUM ('free', 'starter', 'professional', 'enterprise');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE audit_action AS ENUM (
-  'create', 'update', 'delete', 'login', 'logout',
-  'export', 'invite', 'role_change', 'billing_change',
-  'agent_run', 'submission'
-);
+DO $$ BEGIN
+  CREATE TYPE audit_action AS ENUM (
+    'create', 'update', 'delete', 'login', 'logout',
+    'export', 'invite', 'role_change', 'billing_change',
+    'agent_run', 'submission'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'cancelled');
+DO $$ BEGIN
+  CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- Phase 2: Research Agent Tables
 -- ============================================================
 
 -- Cache for web fetches to avoid re-scraping
-CREATE TABLE research_cache (
+CREATE TABLE IF NOT EXISTS research_cache (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   url text NOT NULL,
@@ -35,10 +49,11 @@ CREATE TABLE research_cache (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_research_cache_url ON research_cache(organization_id, url);
-CREATE INDEX idx_research_cache_expires ON research_cache(expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_research_cache_url ON research_cache(organization_id, url);
+CREATE INDEX IF NOT EXISTS idx_research_cache_expires ON research_cache(expires_at);
 
 ALTER TABLE research_cache ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "research_cache_org_isolation" ON research_cache;
 CREATE POLICY "research_cache_org_isolation" ON research_cache
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
@@ -46,7 +61,7 @@ CREATE POLICY "research_cache_org_isolation" ON research_cache
 -- Phase 3: Browser Automation Tables
 -- ============================================================
 
-CREATE TABLE automation_sessions (
+CREATE TABLE IF NOT EXISTS automation_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   application_id uuid REFERENCES applications(id) ON DELETE SET NULL,
@@ -67,15 +82,16 @@ CREATE TABLE automation_sessions (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_auto_sessions_org ON automation_sessions(organization_id);
-CREATE INDEX idx_auto_sessions_app ON automation_sessions(application_id);
-CREATE INDEX idx_auto_sessions_status ON automation_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_auto_sessions_org ON automation_sessions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_auto_sessions_app ON automation_sessions(application_id);
+CREATE INDEX IF NOT EXISTS idx_auto_sessions_status ON automation_sessions(status);
 
 ALTER TABLE automation_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "automation_sessions_org_isolation" ON automation_sessions;
 CREATE POLICY "automation_sessions_org_isolation" ON automation_sessions
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-CREATE TABLE automation_steps (
+CREATE TABLE IF NOT EXISTS automation_steps (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL REFERENCES automation_sessions(id) ON DELETE CASCADE,
   step_number integer NOT NULL,
@@ -89,12 +105,13 @@ CREATE TABLE automation_steps (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_auto_steps_session ON automation_steps(session_id);
+CREATE INDEX IF NOT EXISTS idx_auto_steps_session ON automation_steps(session_id);
 
 -- automation_steps has no organization_id of its own; scope it through its
 -- parent session (mirrors the campaign_steps -> email_campaigns policy). Without
 -- this, an authenticated org member cannot read their own session's steps.
 ALTER TABLE automation_steps ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "automation_steps_org_isolation" ON automation_steps;
 CREATE POLICY "automation_steps_org_isolation" ON automation_steps
   USING (
     session_id IN (
@@ -103,7 +120,7 @@ CREATE POLICY "automation_steps_org_isolation" ON automation_steps
     )
   );
 
-CREATE TABLE automation_screenshots (
+CREATE TABLE IF NOT EXISTS automation_screenshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL REFERENCES automation_sessions(id) ON DELETE CASCADE,
   step_id uuid REFERENCES automation_steps(id) ON DELETE SET NULL,
@@ -113,10 +130,11 @@ CREATE TABLE automation_screenshots (
   captured_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_auto_screenshots_session ON automation_screenshots(session_id);
+CREATE INDEX IF NOT EXISTS idx_auto_screenshots_session ON automation_screenshots(session_id);
 
 -- Same parent-scoped isolation for screenshots (no organization_id column).
 ALTER TABLE automation_screenshots ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "automation_screenshots_org_isolation" ON automation_screenshots;
 CREATE POLICY "automation_screenshots_org_isolation" ON automation_screenshots
   USING (
     session_id IN (
@@ -130,7 +148,7 @@ CREATE POLICY "automation_screenshots_org_isolation" ON automation_screenshots
 -- ============================================================
 
 -- OAuth tokens and integration settings
-CREATE TABLE integrations (
+CREATE TABLE IF NOT EXISTS integrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   provider text NOT NULL, -- 'google', 'stripe', etc.
@@ -146,14 +164,15 @@ CREATE TABLE integrations (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_integrations_org_provider ON integrations(organization_id, provider);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_integrations_org_provider ON integrations(organization_id, provider);
 
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "integrations_org_isolation" ON integrations;
 CREATE POLICY "integrations_org_isolation" ON integrations
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Synced email threads from Gmail
-CREATE TABLE synced_email_threads (
+CREATE TABLE IF NOT EXISTS synced_email_threads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   gmail_thread_id text NOT NULL, -- Gmail's thread ID
@@ -167,15 +186,16 @@ CREATE TABLE synced_email_threads (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_email_threads_gmail ON synced_email_threads(organization_id, gmail_thread_id);
-CREATE INDEX idx_email_threads_org ON synced_email_threads(organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_threads_gmail ON synced_email_threads(organization_id, gmail_thread_id);
+CREATE INDEX IF NOT EXISTS idx_email_threads_org ON synced_email_threads(organization_id);
 
 ALTER TABLE synced_email_threads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "synced_email_threads_org_isolation" ON synced_email_threads;
 CREATE POLICY "synced_email_threads_org_isolation" ON synced_email_threads
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Individual email messages
-CREATE TABLE synced_email_messages (
+CREATE TABLE IF NOT EXISTS synced_email_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   thread_id uuid NOT NULL REFERENCES synced_email_threads(id) ON DELETE CASCADE,
@@ -193,15 +213,16 @@ CREATE TABLE synced_email_messages (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_email_messages_gmail ON synced_email_messages(organization_id, gmail_message_id);
-CREATE INDEX idx_email_messages_thread ON synced_email_messages(thread_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_messages_gmail ON synced_email_messages(organization_id, gmail_message_id);
+CREATE INDEX IF NOT EXISTS idx_email_messages_thread ON synced_email_messages(thread_id);
 
 ALTER TABLE synced_email_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "synced_email_messages_org_isolation" ON synced_email_messages;
 CREATE POLICY "synced_email_messages_org_isolation" ON synced_email_messages
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Junction: link email threads to CRM records
-CREATE TABLE email_thread_links (
+CREATE TABLE IF NOT EXISTS email_thread_links (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   thread_id uuid NOT NULL REFERENCES synced_email_threads(id) ON DELETE CASCADE,
@@ -212,11 +233,12 @@ CREATE TABLE email_thread_links (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_email_links_thread ON email_thread_links(thread_id);
-CREATE INDEX idx_email_links_funder ON email_thread_links(funder_id);
-CREATE INDEX idx_email_links_contact ON email_thread_links(contact_id);
+CREATE INDEX IF NOT EXISTS idx_email_links_thread ON email_thread_links(thread_id);
+CREATE INDEX IF NOT EXISTS idx_email_links_funder ON email_thread_links(funder_id);
+CREATE INDEX IF NOT EXISTS idx_email_links_contact ON email_thread_links(contact_id);
 
 ALTER TABLE email_thread_links ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "email_thread_links_org_isolation" ON email_thread_links;
 CREATE POLICY "email_thread_links_org_isolation" ON email_thread_links
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
@@ -228,7 +250,7 @@ ALTER TABLE deadlines ADD COLUMN IF NOT EXISTS google_calendar_event_id text;
 -- ============================================================
 
 -- Subscription records (mirrors Stripe data)
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   stripe_subscription_id text UNIQUE,
@@ -242,14 +264,15 @@ CREATE TABLE subscriptions (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_subscriptions_org ON subscriptions(organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_org ON subscriptions(organization_id);
 
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "subscriptions_org_isolation" ON subscriptions;
 CREATE POLICY "subscriptions_org_isolation" ON subscriptions
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Invoice records
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   stripe_invoice_id text UNIQUE,
@@ -264,14 +287,15 @@ CREATE TABLE invoices (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_invoices_org ON invoices(organization_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_org ON invoices(organization_id);
 
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "invoices_org_isolation" ON invoices;
 CREATE POLICY "invoices_org_isolation" ON invoices
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Daily usage tracking
-CREATE TABLE usage_metrics (
+CREATE TABLE IF NOT EXISTS usage_metrics (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   metric_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -281,15 +305,16 @@ CREATE TABLE usage_metrics (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_usage_metrics_unique ON usage_metrics(organization_id, metric_date, metric_name);
-CREATE INDEX idx_usage_metrics_org ON usage_metrics(organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_metrics_unique ON usage_metrics(organization_id, metric_date, metric_name);
+CREATE INDEX IF NOT EXISTS idx_usage_metrics_org ON usage_metrics(organization_id);
 
 ALTER TABLE usage_metrics ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "usage_metrics_org_isolation" ON usage_metrics;
 CREATE POLICY "usage_metrics_org_isolation" ON usage_metrics
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Audit logs
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   user_id uuid REFERENCES profiles(id),
@@ -302,17 +327,18 @@ CREATE TABLE audit_logs (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_audit_logs_org ON audit_logs(organization_id);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_date ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_org ON audit_logs(organization_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_date ON audit_logs(created_at);
 
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "audit_logs_org_isolation" ON audit_logs;
 CREATE POLICY "audit_logs_org_isolation" ON audit_logs
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- User invitations
-CREATE TABLE user_invitations (
+CREATE TABLE IF NOT EXISTS user_invitations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   email text NOT NULL,
@@ -326,16 +352,17 @@ CREATE TABLE user_invitations (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_invitations_token ON user_invitations(token);
-CREATE INDEX idx_invitations_org ON user_invitations(organization_id);
-CREATE INDEX idx_invitations_email ON user_invitations(email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_token ON user_invitations(token);
+CREATE INDEX IF NOT EXISTS idx_invitations_org ON user_invitations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_email ON user_invitations(email);
 
 ALTER TABLE user_invitations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "user_invitations_org_isolation" ON user_invitations;
 CREATE POLICY "user_invitations_org_isolation" ON user_invitations
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
 -- Onboarding progress
-CREATE TABLE onboarding_steps (
+CREATE TABLE IF NOT EXISTS onboarding_steps (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   step_number integer NOT NULL,
@@ -347,9 +374,10 @@ CREATE TABLE onboarding_steps (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_onboarding_org_step ON onboarding_steps(organization_id, step_number);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_onboarding_org_step ON onboarding_steps(organization_id, step_number);
 
 ALTER TABLE onboarding_steps ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "onboarding_steps_org_isolation" ON onboarding_steps;
 CREATE POLICY "onboarding_steps_org_isolation" ON onboarding_steps
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 

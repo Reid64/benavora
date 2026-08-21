@@ -1,6 +1,20 @@
 -- Migration 050: Funder credentials, screenshot audit trail, human review queue,
 -- solicitation registrations, and portal health columns.
 -- NOTE: Apply manually via Supabase SQL Editor.
+--
+-- Fixed 2026-08-21 (migration-drift remediation): every policy below
+-- originally scoped org membership via `organization_members`, a table that
+-- does not exist anywhere in this schema -- this file could never have
+-- succeeded past its first CREATE POLICY as originally written. The tables
+-- it creates DO exist live today (a prior partial run got that far before
+-- failing), and their real, live, currently-working policies use this
+-- schema's actual and only org-membership pattern: `profiles.organization_id`
+-- keyed by `profiles.id = auth.uid()` (confirmed live via `pg_policies`,
+-- identical policy names, `profiles`-based logic). Rewritten to match —
+-- same intended access control, the real mechanism instead of a
+-- never-existed one — plus DROP POLICY IF EXISTS guards throughout so this
+-- file is safe to re-run against both a fresh database and this already-
+-- partially-applied production state.
 
 -- Funder portal credentials (encrypted at the application layer)
 CREATE TABLE IF NOT EXISTS funder_credentials (
@@ -22,32 +36,28 @@ CREATE TABLE IF NOT EXISTS funder_credentials (
 
 ALTER TABLE funder_credentials ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "funder_credentials_org_select" ON funder_credentials;
 CREATE POLICY "funder_credentials_org_select" ON funder_credentials
-  FOR SELECT USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR SELECT TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "funder_credentials_org_insert" ON funder_credentials;
 CREATE POLICY "funder_credentials_org_insert" ON funder_credentials
-  FOR INSERT WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "funder_credentials_org_update" ON funder_credentials;
 CREATE POLICY "funder_credentials_org_update" ON funder_credentials
-  FOR UPDATE USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR UPDATE TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "funder_credentials_org_delete" ON funder_credentials;
 CREATE POLICY "funder_credentials_org_delete" ON funder_credentials
-  FOR DELETE USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR DELETE TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
 CREATE INDEX IF NOT EXISTS idx_funder_credentials_org ON funder_credentials(organization_id);
@@ -65,23 +75,29 @@ CREATE TABLE IF NOT EXISTS autoapply_screenshots (
 
 ALTER TABLE autoapply_screenshots ENABLE ROW LEVEL SECURITY;
 
+-- Matches the real live policies exactly (confirmed via pg_policies): INSERT
+-- must allow submission_id IS NULL -- screenshot-manager.ts captures and
+-- uploads screenshots before the autoapply_submissions row exists yet (see
+-- its own CaptureAndUploadParams doc comment), so a strict submission_id IN
+-- (...) check (no NULL allowance) would reject every one of those inserts.
+DROP POLICY IF EXISTS "autoapply_screenshots_org_select" ON autoapply_screenshots;
 CREATE POLICY "autoapply_screenshots_org_select" ON autoapply_screenshots
-  FOR SELECT USING (
-    submission_id IN (
-      SELECT id FROM autoapply_submissions
-      WHERE organization_id IN (
-        SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-      )
+  FOR SELECT TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM autoapply_submissions s
+      WHERE s.id = autoapply_screenshots.submission_id
+        AND s.organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
     )
   );
 
+DROP POLICY IF EXISTS "autoapply_screenshots_org_insert" ON autoapply_screenshots;
 CREATE POLICY "autoapply_screenshots_org_insert" ON autoapply_screenshots
-  FOR INSERT WITH CHECK (
-    submission_id IN (
-      SELECT id FROM autoapply_submissions
-      WHERE organization_id IN (
-        SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-      )
+  FOR INSERT TO authenticated WITH CHECK (
+    submission_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM autoapply_submissions s
+      WHERE s.id = autoapply_screenshots.submission_id
+        AND s.organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
     )
   );
 
@@ -104,25 +120,22 @@ CREATE TABLE IF NOT EXISTS autoapply_review_queue (
 
 ALTER TABLE autoapply_review_queue ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "autoapply_review_queue_org_select" ON autoapply_review_queue;
 CREATE POLICY "autoapply_review_queue_org_select" ON autoapply_review_queue
-  FOR SELECT USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR SELECT TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "autoapply_review_queue_org_insert" ON autoapply_review_queue;
 CREATE POLICY "autoapply_review_queue_org_insert" ON autoapply_review_queue
-  FOR INSERT WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "autoapply_review_queue_org_update" ON autoapply_review_queue;
 CREATE POLICY "autoapply_review_queue_org_update" ON autoapply_review_queue
-  FOR UPDATE USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR UPDATE TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
 CREATE INDEX IF NOT EXISTS idx_autoapply_review_queue_org ON autoapply_review_queue(organization_id);
@@ -143,25 +156,22 @@ CREATE TABLE IF NOT EXISTS solicitation_registrations (
 
 ALTER TABLE solicitation_registrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "solicitation_registrations_org_select" ON solicitation_registrations;
 CREATE POLICY "solicitation_registrations_org_select" ON solicitation_registrations
-  FOR SELECT USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR SELECT TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "solicitation_registrations_org_insert" ON solicitation_registrations;
 CREATE POLICY "solicitation_registrations_org_insert" ON solicitation_registrations
-  FOR INSERT WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "solicitation_registrations_org_update" ON solicitation_registrations;
 CREATE POLICY "solicitation_registrations_org_update" ON solicitation_registrations
-  FOR UPDATE USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+  FOR UPDATE TO authenticated USING (
+    organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
   );
 
 CREATE INDEX IF NOT EXISTS idx_solicitation_registrations_org ON solicitation_registrations(organization_id);

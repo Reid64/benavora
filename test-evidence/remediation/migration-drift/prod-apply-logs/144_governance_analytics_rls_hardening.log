@@ -1,0 +1,63 @@
+-- ============================================================================
+-- BENAVORA - Migration 144: RLS hardening for 4 org-scoped tables that had
+-- none at all (WGR migration-drift remediation, 2026-08-21)
+--
+-- Real, live cross-org data leak found by src/__tests__/integration/rls.test.ts
+-- immediately after applying migrations 052_governance_layer.sql and
+-- 053_multichannel_analytics.sql to production (both files, as originally
+-- written, create org-scoped tables -- organization_id present -- but never
+-- enable RLS or create a policy on any of them; this repo's default schema
+-- ACLs grant anon+authenticated full CRUD on every new table by design, see
+-- STANDING_DIRECTIVES.md's "public schema default ACL" finding, so an
+-- RLS-less org-scoped table is readable/writable cross-org by any
+-- authenticated user from the moment it exists). Confirmed live: a real
+-- cross-org SELECT sweep found rows leaking on all 4 tables below.
+--
+-- Not folded into 052/053 themselves -- those files are already applied
+-- (recorded in supabase_migrations.schema_migrations) and this project's
+-- convention (migrations 112-123, "*_rls_hardening.sql") is a dedicated
+-- follow-up file for RLS gaps found after the fact, not silently editing an
+-- already-applied migration's history.
+--
+-- queue_controls and tier_limits (also created by 052_governance_layer.sql)
+-- are deliberately NOT included here -- neither has an organization_id
+-- column; both are genuinely global/shared config (queue_controls is a
+-- platform-wide pause/control-plane table, tier_limits is the one row per
+-- subscription tier), matching this schema's existing shared-table
+-- convention (agent_registry, worker_status, tier_limits' own siblings).
+-- ============================================================================
+ALTER TABLE funder_relationships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE
+DROP POLICY IF EXISTS "funder_relationships_org" ON funder_relationships;
+psql:supabase/migrations/144_governance_analytics_rls_hardening.sql:31: NOTICE:  policy "funder_relationships_org" for relation "funder_relationships" does not exist, skipping
+DROP POLICY
+CREATE POLICY "funder_relationships_org" ON funder_relationships
+  USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY
+ALTER TABLE submission_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE
+DROP POLICY IF EXISTS "submission_usage_org" ON submission_usage;
+psql:supabase/migrations/144_governance_analytics_rls_hardening.sql:36: NOTICE:  policy "submission_usage_org" for relation "submission_usage" does not exist, skipping
+DROP POLICY
+CREATE POLICY "submission_usage_org" ON submission_usage
+  USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY
+ALTER TABLE session_recordings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE
+DROP POLICY IF EXISTS "session_recordings_org" ON session_recordings;
+psql:supabase/migrations/144_governance_analytics_rls_hardening.sql:41: NOTICE:  policy "session_recordings_org" for relation "session_recordings" does not exist, skipping
+DROP POLICY
+CREATE POLICY "session_recordings_org" ON session_recordings
+  USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY
+ALTER TABLE ab_test_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE
+DROP POLICY IF EXISTS "ab_test_variants_org" ON ab_test_variants;
+psql:supabase/migrations/144_governance_analytics_rls_hardening.sql:46: NOTICE:  policy "ab_test_variants_org" for relation "ab_test_variants" does not exist, skipping
+DROP POLICY
+CREATE POLICY "ab_test_variants_org" ON ab_test_variants
+  USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY
+-- ============================================================================
+-- END Migration 144
+-- ============================================================================

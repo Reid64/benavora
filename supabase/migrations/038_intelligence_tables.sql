@@ -5,7 +5,7 @@
 ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'success_probability';
 
 -- 50. funder_relationship_scores -----------------------------------------------
-CREATE TABLE funder_relationship_scores (
+CREATE TABLE IF NOT EXISTS funder_relationship_scores (
   id                      uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id         uuid          NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   funder_id               uuid          NOT NULL REFERENCES funders(id) ON DELETE CASCADE,
@@ -20,14 +20,15 @@ CREATE TABLE funder_relationship_scores (
 );
 
 ALTER TABLE funder_relationship_scores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "funder_relationship_scores_org" ON funder_relationship_scores;
 CREATE POLICY "funder_relationship_scores_org" ON funder_relationship_scores
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-CREATE INDEX idx_funder_rel_org    ON funder_relationship_scores (organization_id);
-CREATE INDEX idx_funder_rel_funder ON funder_relationship_scores (funder_id);
+CREATE INDEX IF NOT EXISTS idx_funder_rel_org    ON funder_relationship_scores (organization_id);
+CREATE INDEX IF NOT EXISTS idx_funder_rel_funder ON funder_relationship_scores (funder_id);
 
 -- 51. success_probability_scores -----------------------------------------------
-CREATE TABLE success_probability_scores (
+CREATE TABLE IF NOT EXISTS success_probability_scores (
   id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id  uuid          NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   application_id   uuid          NOT NULL REFERENCES applications(id) ON DELETE CASCADE UNIQUE,
@@ -41,14 +42,15 @@ CREATE TABLE success_probability_scores (
 );
 
 ALTER TABLE success_probability_scores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "success_probability_scores_org" ON success_probability_scores;
 CREATE POLICY "success_probability_scores_org" ON success_probability_scores
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-CREATE INDEX idx_prob_scores_org ON success_probability_scores (organization_id);
-CREATE INDEX idx_prob_scores_app ON success_probability_scores (application_id);
+CREATE INDEX IF NOT EXISTS idx_prob_scores_org ON success_probability_scores (organization_id);
+CREATE INDEX IF NOT EXISTS idx_prob_scores_app ON success_probability_scores (application_id);
 
 -- 52. competitor_tracking ------------------------------------------------------
-CREATE TABLE competitor_tracking (
+CREATE TABLE IF NOT EXISTS competitor_tracking (
   id                  uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id     uuid          NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   opportunity_id      uuid          REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -61,9 +63,10 @@ CREATE TABLE competitor_tracking (
 );
 
 ALTER TABLE competitor_tracking ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "competitor_tracking_org" ON competitor_tracking;
 CREATE POLICY "competitor_tracking_org" ON competitor_tracking
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-CREATE INDEX idx_competitor_org         ON competitor_tracking (organization_id);
-CREATE INDEX idx_competitor_opportunity ON competitor_tracking (opportunity_id);
-CREATE INDEX idx_competitor_observed    ON competitor_tracking (observed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_competitor_org         ON competitor_tracking (organization_id);
+CREATE INDEX IF NOT EXISTS idx_competitor_opportunity ON competitor_tracking (opportunity_id);
+CREATE INDEX IF NOT EXISTS idx_competitor_observed    ON competitor_tracking (observed_at DESC);

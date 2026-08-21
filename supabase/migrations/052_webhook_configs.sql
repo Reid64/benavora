@@ -1,4 +1,18 @@
 -- Migration 052 — webhook_configs (AutoApply webhook notification configs per org).
+--
+-- Fixed 2026-08-21 (migration-drift remediation): the live table (created by
+-- an out-of-band process, not this file) has `webhook_type`/`active` instead
+-- of the `type`/`is_active`/`updated_at` columns this file defines -- and,
+-- confirmed by grepping real callers (src/app/api/autoapply/webhooks/route.ts,
+-- src/lib/autoapply/webhook-notifier.ts, src/types/database.ts), the actual
+-- application code queries `type`/`is_active`, not the live table's real
+-- column names. This is a real, currently-live bug this migration closes,
+-- not just an idempotency gap. Table confirmed empty (0 rows) before this
+-- fix -- safe rename, no data loss. The 4 real live policies
+-- (webhook_configs_org_select/insert/update/delete, profiles-based, correct)
+-- are untouched; this file's own "webhook_configs_org" policy is additive
+-- and redundant with them (RLS permissive policies OR together, so this
+-- changes nothing about actual access), not a replacement.
 CREATE TABLE IF NOT EXISTS webhook_configs (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -10,10 +24,37 @@ CREATE TABLE IF NOT EXISTS webhook_configs (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'webhook_configs' AND column_name = 'webhook_type'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'webhook_configs' AND column_name = 'type'
+  ) THEN
+    ALTER TABLE webhook_configs RENAME COLUMN webhook_type TO type;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'webhook_configs' AND column_name = 'active'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'webhook_configs' AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE webhook_configs RENAME COLUMN active TO is_active;
+  END IF;
+END $$;
+
+ALTER TABLE webhook_configs ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 ALTER TABLE webhook_configs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "webhook_configs_org" ON webhook_configs;
 CREATE POLICY "webhook_configs_org" ON webhook_configs
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-CREATE INDEX idx_webhook_configs_org ON webhook_configs(organization_id);
-CREATE INDEX idx_webhook_configs_active ON webhook_configs(organization_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_webhook_configs_org ON webhook_configs(organization_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_configs_active ON webhook_configs(organization_id, is_active);
