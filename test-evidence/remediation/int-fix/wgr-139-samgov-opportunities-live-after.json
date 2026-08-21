@@ -1,8 +1,36 @@
 {
-  "capturedAt": "2026-08-20T22:39:39.937Z",
+  "capturedAt": "2026-08-21T06:53:46.636Z",
   "finding": "WGR-139",
   "function": "searchSamGovOpportunities()",
-  "count": 0,
-  "sample": [],
+  "count": 100,
+  "sample": [
+    {
+      "externalId": "ccab37d9ea1e4fc6a9349e68eb1f8998",
+      "name": "Tables and Chairs Rentals GUAM",
+      "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=ccab37d9ea1e4fc6a9349e68eb1f8998",
+      "amount": null,
+      "deadline": "2026-08-27",
+      "category": "Government Federal",
+      "source": "sam_gov"
+    },
+    {
+      "externalId": "cb0ea9bd66e642d3b1d16d8565463144",
+      "name": "GUAM ARMY NATIONAL GUARD RECRUITING and RETENTION BATTALION ADMINISTRATIVE ASSISTANT SUPPORT SERVICES",
+      "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=cb0ea9bd66e642d3b1d16d8565463144",
+      "amount": null,
+      "deadline": "2026-08-27",
+      "category": "Government Federal",
+      "source": "sam_gov"
+    },
+    {
+      "externalId": "c55477772b4648dc839b3ce84ddddf4c",
+      "name": "Audio Visual Equipment Installation New SATCOM Facility",
+      "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=c55477772b4648dc839b3ce84ddddf4c",
+      "amount": null,
+      "deadline": "2026-09-15",
+      "category": "Government Federal",
+      "source": "sam_gov"
+    }
+  ],
   "shapeOk": true
 }

@@ -1,0 +1,247 @@
+[
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/campaigns",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::8dl7t-1787296792131-3b28c4663958",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/autoapply",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::zpqwq-1787296792395-b11017e76700",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/follow-ups",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::zb8mp-1787296792658-c6bf8585ef3d",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/reminders",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::t7fks-1787296792815-8a49b0cc69e9",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/email-sequences",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::5xp8z-1787296793038-dfa1a16cc056",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/domain-warmup",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::8dl7t-1787296793183-d57b4b6b442d",
+    "body": {
+      "error": "Unauthorized",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/sales-sends",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::9l4gs-1787296793305-9460a09ec174",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/draft-automation",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::ss7pf-1787296793420-efc0e733c029",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/draft-queue-check",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::hlsbb-1787296793542-526179671324",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/research",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::dfqwp-1787296793717-9c5f9242389d",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/cron/grantsgov",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::hlsbb-1787296793921-c648d8b2b751",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/sources/samgov",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::2pcmh-1787296794045-b51854622b56",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/sources/propublica",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::dxhgw-1787296794152-7888c612f3d1",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "GET",
+    "path": "/api/sources/grantsgov",
+    "status": 401,
+    "location": null,
+    "xVercelId": "cle1::iad1::hdvcc-1787296794312-3956e3e0c2ce",
+    "body": {
+      "error": "Unauthorized.",
+      "code": "unauthorized"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "POST",
+    "path": "/api/webhooks/stripe",
+    "status": 500,
+    "location": null,
+    "xVercelId": "cle1::iad1::9l4gs-1787296794465-f91002acbde3",
+    "body": {
+      "error": "Billing is not configured.",
+      "code": "not_configured"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "POST",
+    "path": "/api/webhooks/resend",
+    "status": 500,
+    "location": null,
+    "xVercelId": "cle1::iad1::dfqwp-1787296794751-d206754b8a82",
+    "body": {
+      "error": "Webhook secret not configured"
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "POST",
+    "path": "/api/admin/webhooks/email-events",
+    "status": 500,
+    "location": null,
+    "xVercelId": "cle1::iad1::q7x6s-1787296794949-241dce22436e",
+    "body": {
+      "error": "Webhook secret not configured."
+    },
+    "ok": true
+  },
+  {
+    "check": "no-auth-expect-non-redirect",
+    "method": "POST",
+    "path": "/api/admin/webhooks/email-reply",
+    "status": 500,
+    "location": null,
+    "xVercelId": "cle1::iad1::4bn54-1787296795149-9131fdf744a2",
+    "body": {
+      "error": "Webhook secret not configured."
+    },
+    "ok": true
+  },
+  {
+    "check": "wgr154-state-portals-still-redirects",
+    "method": "GET",
+    "path": "/api/sources/state-portals",
+    "status": 307,
+    "location": "/login",
+    "xVercelId": "cle1::zb8mp-1787296795359-0ddad8eea9ed",
+    "ok": true
+  },
+  {
+    "check": "valid-cron-secret-expect-non-401",
+    "ok": null,
+    "note": "NOT COMPLETED - CRON_SECRET's real value is write-only (vercel env pull returns empty for it and every other encrypted var checked this session); Vercel runtime-logs API returned 403 Forbidden for this token/plan; deliberately did not rotate the live secret to a known value to work around this. See this file's header comment."
+  }
+]

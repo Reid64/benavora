@@ -1,0 +1,69 @@
+WGR-111 live production verification — 2026-08-21
+Target: https://www.benavora.com (deployment dpl_56bAoAYZfK97EonWBgZxny1ioP2M,
+commit 031de0b)
+Full machine-readable results: test-evidence/remediation/wgr-111/live-after.json
+Script: scripts/audit/wgr111-live-after.mjs
+
+PASS CRITERION: the middleware fix is specifically about no longer
+redirecting these routes to /login before their own auth check runs. A real
+307/302 with Location: /login is a FAIL; anything else (401, 400, 500 from
+the route's OWN logic) is a PASS for this check.
+
+No-auth requests (no Authorization header, no session cookie):
+
+  CRON_SECRET-gated (14 routes) — all real 401 JSON, never a redirect:
+    GET  /api/cron/campaigns              -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/autoapply              -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/follow-ups             -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/reminders              -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/email-sequences        -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/domain-warmup          -> 401 {"error":"Unauthorized","code":"unauthorized"}
+    GET  /api/cron/sales-sends            -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/draft-automation       -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/draft-queue-check      -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/research               -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/cron/grantsgov              -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/sources/samgov              -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/sources/propublica          -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+    GET  /api/sources/grantsgov           -> 401 {"error":"Unauthorized.","code":"unauthorized"}
+
+  Signature-gated webhook routes (4 routes) — no redirect, but a real 500,
+  NOT 401: STRIPE_WEBHOOK_SECRET / RESEND_WEBHOOK_SECRET are genuinely
+  absent from Vercel production (already-tracked WGR-003 gap, confirmed
+  again live via `vercel env ls production` this session — neither var is
+  in the list). This is NOT a WGR-111 regression: the important fact these
+  responses prove is that middleware no longer blocks them either. Once
+  those secrets are set in Vercel (a WGR-003 fix, out of this task's scope),
+  the same routes will start returning a real 401/400 from their own
+  signature check instead of this 500.
+    POST /api/webhooks/stripe             -> 500 {"error":"Billing is not configured.","code":"not_configured"}
+    POST /api/webhooks/resend             -> 500 {"error":"Webhook secret not configured"}
+    POST /api/admin/webhooks/email-events -> 500 {"error":"Webhook secret not configured."}
+    POST /api/admin/webhooks/email-reply  -> 500 {"error":"Webhook secret not configured."}
+
+WGR-154 control (deliberately NOT exempted — no CRON_SECRET check of its
+own, must still rely on the session gate):
+    GET  /api/sources/state-portals?state=TX -> 307 Location: /login (unchanged, correct)
+
+Valid-CRON_SECRET-bearer test: NOT COMPLETED.
+  CRON_SECRET's real value is write-only — `npx vercel env pull
+  --environment=production` returned an EMPTY value for CRON_SECRET and,
+  confirmed the same session, for every other encrypted var checked
+  (SAM_GOV_API_KEY, SUPABASE_SERVICE_ROLE_KEY, INTEGRATION_ENCRYPTION_KEY,
+  UNSUBSCRIBE_HMAC_SECRET all pulled empty too). The Vercel runtime-logs API
+  (mcp__claude_ai_Vercel__get_runtime_logs) returned a real, repeated
+  "403 Forbidden - You don't have permission to access this resource." for
+  this token/plan, so past real Cron-triggered requests couldn't be checked
+  either. Deliberately did NOT rotate the live CRON_SECRET to a known value
+  to work around this — that would be a real, hard-to-reverse change to a
+  production secret with no explicit authorization from Reid, and risks
+  breaking real Vercel Cron/automation if its actual bearer-injection
+  behavior differs from assumption. Left open: Reid can run one curl with
+  the real secret himself, e.g.
+    curl -i https://www.benavora.com/api/cron/reminders -H "Authorization: Bearer <real CRON_SECRET>"
+  and expect a non-401 (likely 200); or this resolves itself naturally the
+  next time a real Vercel Cron job fires post-fix (reminders 08:00 UTC same
+  day; research/grantsgov/domain-warmup 06:00-07:00 UTC the following day).
+
+RESULT: 19/19 completed checks pass. 1 check (valid-secret positive proof)
+not completed for the documented reason above.

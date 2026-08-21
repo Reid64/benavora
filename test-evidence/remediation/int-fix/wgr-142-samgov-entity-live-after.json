@@ -1,9 +1,55 @@
 {
-  "capturedAt": "2026-08-20T22:39:41.962Z",
+  "capturedAt": "2026-08-21T06:53:49.574Z",
   "finding": "WGR-142",
   "function": "searchEntitiesByNaics('236220')",
-  "count": 0,
-  "error": "SAM.gov entity search HTTP 429 for NAICS 236220.",
-  "sample": [],
+  "count": 10,
+  "error": null,
+  "sample": [
+    {
+      "legal_name": "L.D.P. COSTRUZIONI S.R.L.",
+      "website": null,
+      "hq_address": "Via Dietro Antonio Salieri 2A, Verona",
+      "geo": null,
+      "phone": null,
+      "naics_codes": [
+        "236220"
+      ],
+      "source_adapters": [
+        "samgov"
+      ],
+      "directory_id": "1cedfdd8-f972-4a9f-8d49-7a379bb29ab9",
+      "from_cache": false
+    },
+    {
+      "legal_name": "GENERAL CONTRACT COSTRUZIONI SRLS",
+      "website": null,
+      "hq_address": "VIA DELL'EDILIZIA 59, VICENZA",
+      "geo": null,
+      "phone": null,
+      "naics_codes": [
+        "236220"
+      ],
+      "source_adapters": [
+        "samgov"
+      ],
+      "directory_id": "3da2984a-f925-4165-b0a4-eac583991ca5",
+      "from_cache": false
+    },
+    {
+      "legal_name": "Green Zone Oasis",
+      "website": "https://www.greenzone-oasis.com",
+      "hq_address": "Karrada Maryam, Locality 226, Alley 3, House number 45, Baghdad",
+      "geo": null,
+      "phone": null,
+      "naics_codes": [
+        "236220"
+      ],
+      "source_adapters": [
+        "samgov"
+      ],
+      "directory_id": "9fc8459d-90ea-446a-b5e7-961107156f2c",
+      "from_cache": false
+    }
+  ],
   "shapeOk": true
 }

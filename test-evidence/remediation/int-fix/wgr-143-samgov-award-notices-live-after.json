@@ -1,9 +1,55 @@
 {
-  "capturedAt": "2026-08-20T22:39:42.250Z",
+  "capturedAt": "2026-08-21T06:54:53.176Z",
   "finding": "WGR-143",
   "function": "searchRecentAwardRecipients(90)",
-  "count": 0,
-  "error": "SAM.gov award recipient search HTTP 429.",
-  "sample": [],
+  "count": 678,
+  "error": null,
+  "sample": [
+    {
+      "legal_name": "DJ&A, P.C.",
+      "website": null,
+      "hq_address": "2000 MAPLE ST, Missoula, MT, 59808",
+      "geo": null,
+      "phone": null,
+      "naics_codes": [
+        "541330"
+      ],
+      "source_adapters": [
+        "samgov"
+      ],
+      "directory_id": "561d6a62-808e-443b-b6ba-f9a89ccf25aa",
+      "from_cache": false
+    },
+    {
+      "legal_name": "MOTHER DAUGHTER CONTRACTING SERVICES LLC",
+      "website": null,
+      "hq_address": "Charlottesville, VA, 22911",
+      "geo": null,
+      "phone": null,
+      "naics_codes": [
+        "721110"
+      ],
+      "source_adapters": [
+        "samgov"
+      ],
+      "directory_id": "b9d2c187-fa23-4ff0-b167-09805c384efc",
+      "from_cache": false
+    },
+    {
+      "legal_name": "202 GROUP LLC",
+      "website": null,
+      "hq_address": "1250 CONNECTICUT AVE NW STE 700, WASHINGTON, DC, 20036",
+      "geo": null,
+      "phone": null,
+      "naics_codes": [
+        "513210"
+      ],
+      "source_adapters": [
+        "samgov"
+      ],
+      "directory_id": "9559e053-90c7-4f81-858d-5c977d8ab8be",
+      "from_cache": false
+    }
+  ],
   "shapeOk": true
 }

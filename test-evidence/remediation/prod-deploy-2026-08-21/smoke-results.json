@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-08-21T06:47:20.916Z",
+  "deployment": "dpl_695pVGDQ7TbKzNUMGpj2Mp48cG1C",
+  "checks": [
+    {
+      "step": "ssrf-wgr108-intelligence-ingest",
+      "ok": true,
+      "detail": {
+        "target": "http://169.254.169.254/latest/meta-data/",
+        "status": 422,
+        "body": {
+          "error": "URL is not allowed: Target address 169.254.169.254 resolves to a private/internal range and is blocked.",
+          "code": "url_blocked"
+        }
+      }
+    },
+    {
+      "step": "ssrf-wgr108-intelligence-ingest",
+      "ok": true,
+      "detail": {
+        "target": "http://127.0.0.1:22/",
+        "status": 422,
+        "body": {
+          "error": "URL is not allowed: Target address 127.0.0.1 resolves to a private/internal range and is blocked.",
+          "code": "url_blocked"
+        }
+      }
+    },
+    {
+      "step": "ssrf-wgr108-intelligence-ingest",
+      "ok": true,
+      "detail": {
+        "target": "http://localhost:5432/",
+        "status": 422,
+        "body": {
+          "error": "URL is not allowed: Target hostname resolves to a private/internal address (127.0.0.1) and is blocked.",
+          "code": "url_blocked"
+        }
+      }
+    },
+    {
+      "step": "ssrf-wgr109-110-guard-primitive",
+      "ok": true,
+      "detail": {
+        "target": "http://169.254.169.254/latest/meta-data/",
+        "blocked": true,
+        "error": "Target address 169.254.169.254 resolves to a private/internal range and is blocked."
+      }
+    },
+    {
+      "step": "ssrf-wgr109-110-guard-primitive",
+      "ok": true,
+      "detail": {
+        "target": "http://127.0.0.1:22/",
+        "blocked": true,
+        "error": "Target address 127.0.0.1 resolves to a private/internal range and is blocked."
+      }
+    },
+    {
+      "step": "ssrf-wgr109-110-guard-primitive",
+      "ok": true,
+      "detail": {
+        "target": "http://localhost:5432/",
+        "blocked": true,
+        "error": "Target hostname resolves to a private/internal address (::1) and is blocked."
+      }
+    },
+    {
+      "step": "draft-generation-http",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "hasSavedVersion": true,
+        "draftId": "93168872-2276-4918-8aa0-f39e2cd5a7b6"
+      }
+    },
+    {
+      "step": "draft-versions-row-count",
+      "ok": true,
+      "detail": {
+        "draftId": "93168872-2276-4918-8aa0-f39e2cd5a7b6",
+        "rows": [
+          {
+            "id": "93168872-2276-4918-8aa0-f39e2cd5a7b6",
+            "created_at": "2026-08-21T06:50:29.777218+00:00"
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "step": "donor-discovery-prospect-nonblank",
+      "ok": true,
+      "detail": {
+        "id": "19ec603e-bb4d-4e10-9482-e864dc85f511",
+        "mainTextLen": 653
+      }
+    },
+    {
+      "step": "donor-discovery-prospect-nonblank",
+      "ok": true,
+      "detail": {
+        "id": "16934ed5-1d76-4cfa-9b3a-f087cabfd7ef",
+        "mainTextLen": 667
+      }
+    },
+    {
+      "step": "donor-discovery-prospect-nonblank",
+      "ok": true,
+      "detail": {
+        "id": "aff22886-83e0-4fab-99eb-d5f0c380d23d",
+        "mainTextLen": 649
+      }
+    }
+  ]
+}
