@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-08-21T16:55:00Z",
+  "endpoint": "GET https://www.benavora.com/api/donor-discovery/pipeline",
+  "authenticatedAs": "info@faithfoundationsf.org",
+  "status": 200,
+  "body": {
+    "stages": {
+      "new": { "count": 0, "top": [] },
+      "reviewing": { "count": 0, "top": [] },
+      "contacted": { "count": 0, "top": [] },
+      "applied": { "count": 0, "top": [] },
+      "received": { "count": 0, "top": [] },
+      "rejected": { "count": 0, "top": [] },
+      "archived": { "count": 0, "top": [] }
+    },
+    "totalProspects": 0,
+    "avgScore": null
+  }
+}

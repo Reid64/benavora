@@ -37,11 +37,23 @@ import pLimit from "p-limit";
 
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { findOrCreateProspect, upsertDirectoryRecord } from "../src/lib/donor-discovery/directory";
+import { parseSeedArgs, isAllowedToSeed, looksLikeTestOrg, TEST_ORG_PATTERN } from "./lib/seed-org-guard";
 
-const ORGANIZATION_ID = "b1ab7402-dfc2-4712-869f-70ea3566cc1d";
+const ORGANIZATION_ID_DEFAULT = "b1ab7402-dfc2-4712-869f-70ea3566cc1d";
 const BATCH_SIZE = 1000;
 const CONCURRENCY = 30;
 const SOURCE_ADAPTER = "foundation_directory_seed";
+
+// Guard added after WGR-156 (2026-08-21): this script previously had no
+// safety rail at all and dumped the entire national foundation_directory
+// (133,812 rows) into ORGANIZATION_ID's real "New" pipeline stage with no
+// limit and no check that the target was a test org. Two independent rails
+// now apply, both required unless explicitly overridden (logic lives in
+// scripts/lib/seed-org-guard.ts, unit-tested there without a live DB):
+//   1. The target org's name/email/contact_email must match TEST_ORG_PATTERN,
+//      OR --allow-real-org must be passed explicitly.
+//   2. Rows processed is capped at --limit (default 200) regardless of how
+//      many foundation_directory rows exist.
 
 interface FoundationRow {
   id: string;
@@ -76,6 +88,8 @@ function hqAddress(city: string | null, state: string | null): string | null {
 }
 
 async function main() {
+  const { orgId: ORGANIZATION_ID, allowRealOrg, limit } = parseSeedArgs(process.argv.slice(2), ORGANIZATION_ID_DEFAULT);
+
   let supabase: ReturnType<typeof createAdminClient>;
   try {
     supabase = createAdminClient();
@@ -85,14 +99,29 @@ async function main() {
 
   const { data: org, error: orgError } = await supabase
     .from("organizations")
-    .select("id, name")
+    .select("id, name, email, contact_email")
     .eq("id", ORGANIZATION_ID)
     .maybeSingle();
 
   if (orgError) fatal(`org lookup failed: ${orgError.message}`);
   if (!org) fatal(`organization ${ORGANIZATION_ID} not found`);
 
-  ok("org", `seeding into ${(org as { name: string }).name} (${ORGANIZATION_ID})`);
+  const orgRow = org as { id: string; name: string | null; email: string | null; contact_email: string | null };
+  const isTestOrg = looksLikeTestOrg(orgRow);
+
+  if (!isAllowedToSeed(orgRow, allowRealOrg)) {
+    fatal(
+      `Refusing to seed into "${orgRow.name}" (${ORGANIZATION_ID}) -- its name/email/contact_email ` +
+        `does not match ${TEST_ORG_PATTERN} (a test-org pattern). This looks like a real customer ` +
+        `org. Pass --allow-real-org to seed into it anyway (WGR-156: this exact script previously ` +
+        `dumped 133,812 rows into a real customer's pipeline with no guard).`,
+    );
+  }
+
+  ok(
+    "org",
+    `seeding into ${orgRow.name} (${ORGANIZATION_ID})${isTestOrg ? " [test org]" : " [--allow-real-org]"}, limit=${limit}`,
+  );
 
   // Reuse an existing seed request if one is already on file (idempotent re-run).
   const { data: existingRequest, error: existingRequestError } = await supabase
@@ -136,7 +165,7 @@ async function main() {
   if (countError) fatal(`foundation_directory count failed: ${countError.message}`);
   console.log(`\nSeeding ~${(totalFoundations ?? 0).toLocaleString()} foundations into donor_discovery ...\n`);
 
-  const limit = pLimit(CONCURRENCY);
+  const concurrencyLimit = pLimit(CONCURRENCY);
 
   let cursor: string | null = null;
   let totalRead = 0;
@@ -146,18 +175,22 @@ async function main() {
   let totalFailed = 0;
 
   for (;;) {
+    const remaining = limit - totalRead;
+    if (remaining <= 0) break;
+    const pageSize = Math.min(BATCH_SIZE, remaining);
+
     let pageQuery = supabase
       .from("foundation_directory")
       .select("id, name, city, state, ein, website, phone, asset_amount, giving_total, ntee_code")
       .order("id", { ascending: true })
-      .limit(BATCH_SIZE);
+      .limit(pageSize);
 
     if (cursor) pageQuery = pageQuery.gt("id", cursor);
 
     const { data: page, error: pageError } = await pageQuery;
     if (pageError) {
       fail("batch read", pageError);
-      totalFailed += BATCH_SIZE;
+      totalFailed += pageSize;
       break;
     }
 
@@ -166,7 +199,7 @@ async function main() {
 
     const results = await Promise.all(
       rows.map((foundation) =>
-        limit(async () => {
+        concurrencyLimit(async () => {
           try {
             const directoryRecord = await upsertDirectoryRecord({
               legal_name: foundation.name,

@@ -165,13 +165,24 @@ const FUNNEL_STAGE_COLORS: Record<DdFunnelStage, string> = {
   rejected: "#5C6935",
 };
 
-function countsSummary(counts: DdRequestCounts | null): string {
-  if (!counts) return "Waiting to start…";
+/**
+ * WGR-156: previously ignored `status` entirely, so a request that finished
+ * with an empty `counts` JSONB (e.g. a bulk seed script that wrote prospects
+ * directly rather than through the real dd-request-processor.ts worker, so
+ * counts was never populated) rendered "Waiting to start..." under a
+ * "Completed" status badge - a real, misleading display bug. `status` now
+ * distinguishes "no counts yet because it hasn't run" from "no counts
+ * because this completed request never recorded any" - only the former is
+ * genuinely "Waiting to start...".
+ */
+function countsSummary(counts: DdRequestCounts | null, status: DdRequestStatus): string {
   const parts: string[] = [];
-  if (counts.enumerated != null) parts.push(`${counts.enumerated} enumerated`);
-  if (counts.enriched != null) parts.push(`${counts.enriched} enriched`);
-  if (counts.scored != null) parts.push(`${counts.scored} scored`);
-  return parts.length > 0 ? parts.join(" · ") : "Waiting to start…";
+  if (counts?.enumerated != null) parts.push(`${counts.enumerated} enumerated`);
+  if (counts?.enriched != null) parts.push(`${counts.enriched} enriched`);
+  if (counts?.scored != null) parts.push(`${counts.scored} scored`);
+  if (parts.length > 0) return parts.join(" | ");
+  if (status === "complete") return "Completed - no counts recorded";
+  return "Waiting to start...";
 }
 
 function formatGeography(geography: unknown): string {
@@ -768,7 +779,7 @@ export default function DonorDiscoveryPage() {
                       style={{ width: `${STATUS_PROGRESS_PCT[req.status]}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 text-xs text-text-muted">{countsSummary(req.counts)}</p>
+                  <p className="mt-1.5 text-xs text-text-muted">{countsSummary(req.counts, req.status)}</p>
 
                   <p className="mt-2 text-xs text-text-muted">{formatRelative(req.created_at)}</p>
                 </div>

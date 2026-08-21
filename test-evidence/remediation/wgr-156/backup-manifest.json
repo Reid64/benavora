@@ -1,0 +1,11 @@
+{
+  "createdAt": "2026-08-21T16:48:15Z",
+  "organizationId": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+  "file": "test-evidence/remediation/wgr-156/prospects-backup-20260821T164815Z.csv.gz",
+  "rowCount": 133812,
+  "sha256": "fe01ff24f3b10d59a3d54808def257852fc97845b6b0a7e93247b8844fdf447c",
+  "sizeBytes": 6656933,
+  "sourceTable": "donor_discovery_prospects",
+  "command": "psql \"$DATABASE_URL\" -c \"\\copy (SELECT * FROM donor_discovery_prospects WHERE organization_id = 'b1ab7402-dfc2-4712-869f-70ea3566cc1d' ORDER BY created_at) TO STDOUT WITH CSV HEADER\" | gzip",
+  "verify": "gzip -dc test-evidence/remediation/wgr-156/prospects-backup-20260821T164815Z.csv.gz | sha256sum -- recompute and compare against sha256 above; row count = (gzip -dc ... | wc -l) - 1 for the header"
+}
