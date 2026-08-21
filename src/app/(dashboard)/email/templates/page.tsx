@@ -16,7 +16,6 @@ import {
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   LoadingSpinner,
@@ -33,7 +32,6 @@ import type { Tables } from "@/types/database";
 // (the `<code>` pills) is preserved as-is, only its literal-white background
 // swapped for the section's ivory token.
 const FRAME_RUST = "#A3492F";
-const ACCENT_BRONZE = "#A4712C";
 const CARD_BG = "#F8F5EE";
 
 type Template = Tables<"email_templates">;

@@ -457,6 +457,31 @@ run will report PENDING/INDETERMINATE, not a real PASS/FAIL verdict.
 
 ---
 
+## DIRECTIVE-020: Never Set `ignoreBuildErrors` or `ignoreDuringBuilds` in `next.config.mjs`
+
+### Rule
+`next.config.mjs`'s `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds` must never be set
+to `true`. `next build` must always run its own real type-check and lint pass. If build time or
+memory is the actual constraint, fix that constraint directly (raise `NODE_OPTIONS
+--max-old-space-size`, reduce `experimental.cpus`, split the build, add CI memory/time budget) —
+never trade away type/lint correctness to make a slow or memory-tight build machine look green.
+
+### Why this directive exists
+Commit `9cf763b` (2026-08-16) added both flags, with a comment claiming `pnpm run typecheck` and
+`pnpm run lint` already covered this as "their own gates." That claim was never actually true in
+practice: nothing in `.githooks/pre-push` (DIRECTIVE-019, the only real gate this repo tier has) ran
+either of those commands — the pre-push hook runs `pnpm run build` alone. From `9cf763b` through
+WGR-161's fix (2026-08-21), every local pre-push build gate and every Vercel production deploy in
+that window — including all of PT-00 through PT-15's remediation work and every commit landed during
+that stretch — verified webpack bundling only. Zero of them ever ran a real type-check or lint pass
+against this repo, silently, for 5 days. Restoring both flags to their default (unset/false) found 12
+real pre-existing lint errors (11 `@typescript-eslint/no-unused-vars` across 10 files, 1 stray unused
+function) the moment the real check ran again — proof the gate had been silently dark, not merely
+redundant with some other check. See WGR-161 (`test-evidence/_register/WIRING_GAP_REGISTER.md`) for
+the full finding and fix evidence.
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:

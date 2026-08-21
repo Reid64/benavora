@@ -41,7 +41,6 @@ interface ConfigureResponse {
   };
 }
 
-const SECTION_FRAME = "#B88A2E"; // Gold — Draft & Automation family (Agent Marketplace was never assigned a section in the v2 design system doc; this closes that gap)
 
 const cardStyle = {
   backgroundColor: "#F8F5EE",

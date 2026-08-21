@@ -46,12 +46,6 @@ function toStr(val: unknown): string {
   return String(val).trim();
 }
 
-function toAmount(val: unknown): number | null {
-  if (val === null || val === undefined || val === "") return null;
-  const n = Number(val);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 // Grants.gov close dates arrive as "MM/DD/YYYY"; normalise to ISO (YYYY-MM-DD).
 function toIsoDate(val: unknown): string | null {
   const raw = toStr(val);

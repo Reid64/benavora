@@ -45,7 +45,6 @@ import {
 const SECTION_FRAME = "#7A5980";
 const CANVAS = "#D8D3C8";
 const CARD_BG = "#F8F5EE";
-const BORDER = "rgba(16,27,45,0.15)";
 const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TRACK_BG = "rgba(16,27,45,0.08)";

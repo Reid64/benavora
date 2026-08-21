@@ -265,10 +265,13 @@ function ResourcesSection() {
     [],
   );
 
-  const matchesQuery = (r: ResourceDefinition) =>
-    !query ||
-    r.name.toLowerCase().includes(query) ||
-    r.category.toLowerCase().includes(query);
+  const matchesQuery = useCallback(
+    (r: ResourceDefinition) =>
+      !query ||
+      r.name.toLowerCase().includes(query) ||
+      r.category.toLowerCase().includes(query),
+    [query],
+  );
 
   const searchResults = useMemo(() => {
     if (!isSearching) return [];
@@ -277,7 +280,7 @@ function ResourcesSection() {
         matchesQuery(r) &&
         (selectedCategory === "All" || r.category === selectedCategory),
     ).sort((a, b) => a.name.localeCompare(b.name));
-  }, [isSearching, query, selectedCategory]);
+  }, [isSearching, matchesQuery, selectedCategory]);
 
   const groupedAdditional = useMemo(() => {
     const filtered = additionalResources

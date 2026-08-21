@@ -36,7 +36,6 @@ import type { Enums, Tables } from "@/types/database";
 // (RESULT_COLOR badges below) are never touched by this system.
 const FRAME_NAVY = "#101B2D";
 const ACCENT_TEAL = "#2E6B66";
-const ACCENT_SLATE = "#4F6D8F";
 const CARD_BG = "#F8F5EE";
 const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
 

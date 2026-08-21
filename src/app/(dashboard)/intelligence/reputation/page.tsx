@@ -27,7 +27,6 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 // never received the v2 rollout - same real gap as AutoApply's.
 // SEVERITY_COLORS below is real semantic severity data — explicitly
 // preserved untouched, per this task's own instruction.
-const SECTION_FRAME = "#7A5980";
 const CANVAS = "#D8D3C8";
 const CARD_BG = "#F8F5EE";
 const BORDER = "rgba(16,27,45,0.15)";

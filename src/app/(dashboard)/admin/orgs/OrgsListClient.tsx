@@ -12,7 +12,6 @@ import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 // Impersonate is safety-sensitive and stays a distinct warning amber, never
 // blended into the section's navy/gold treatment.
 const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
 const CARD_BG = "#F8F5EE";
 const IMPERSONATE_WARNING = "#C2410C";
 

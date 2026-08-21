@@ -1,5 +1,5 @@
 # BENAVORA — Session State
-## Last Updated: August 20, 2026 — AUDIT PROGRAM COMPLETE (PT-00 through PT-15). See banner below.
+## Last Updated: August 21, 2026 — WGR-161 fixed (build-time type/lint suppression removed). See Session 10 below and banner.
 
 ---
 
@@ -8612,3 +8612,17 @@ Committed `390f1c3`, pushed, deployed to production (`dpl_3ftSigAs17JBQHx143zFA6
 Registered **WGR-160** (P1, audit-program): PT-08 confirmed `DdRequestProcessor` *starts* at boot and exercised the generic `agent_queue` state machine against a disposable local DB, but never created a real request and let the live worker actually process it; PT-09's 43-agent execution proof doesn't include `DdRequestProcessor` at all (it's not an `AG-XX`-registered agent class) — so WGR-158, a bug that broke 100% of real requests from day one, survived both phases undetected. Not a criticism of either phase's own stated scope — flagged as a genuine coverage gap in the audit program as a whole.
 
 WGR-158, WGR-159 flipped **RESOLVED**.
+
+---
+
+## Session 10 — August 21, 2026: WGR-161 fixed — `next.config.mjs` build-time type/lint suppression removed, 12 accumulated errors fixed
+
+`next.config.mjs` had carried `typescript.ignoreBuildErrors: true` and `eslint.ignoreDuringBuilds: true` since commit `9cf763b` (2026-08-16), with a comment claiming `pnpm run typecheck`/`pnpm run lint` already covered the same ground as separate gates. Checked rather than trusted: `.githooks/pre-push` (the only real push-time gate this repo has) runs `pnpm run build` alone, never `typecheck` or `lint`. From `9cf763b` through this session, every pre-push gate and every Vercel production deploy verified webpack bundling only — 5 days, including the entire PT-00 through PT-15 audit program, with real type/lint correctness unchecked.
+
+Removed both flags (kept the `PT_AUDIT_DIST_DIR` conditional and bundle-analyzer wrapper untouched). First real build with both checks restored: **0 type errors, 12 lint errors** (`@typescript-eslint/no-unused-vars` — unused color-token `const`s or one stray unused import per file, across 10 dashboard pages plus an unused `toAmount()` helper in `grantsgov-client.ts`), plus 1 non-blocking `react-hooks/exhaustive-deps` warning in `research/page.tsx`. Fixed all of it by deleting genuinely dead code — no `@ts-ignore`, no `eslint-disable`, no `tsconfig` loosening; the warning fixed by wrapping `matchesQuery` in `useCallback` keyed on `query`. `pnpm run build` now exits 0 with real type validation and linting running (log has neither "Skipping validation of types" nor "Skipping linting"). `pnpm run build:worker` exits 0, unchanged.
+
+`npx vitest run`: 7 files / 8 tests failing, 512 passing, 13 todo — confirmed via `git status`/diff that none of this session's changed files overlap any failing test's code path. 6 of the 8 match the WGR-157 baseline exactly; 2 are new since that baseline was recorded but pre-date this session's own changes — `autoapply-mutual-exclusion.test.ts` (live Railway-worker-timing dependency) and a `donor-discovery-requests.test.ts` taxonomy-validation mock gap dating to the WGR-159 commit (`390f1c3`). Neither touched, per this task's scope (type/lint restoration only).
+
+Confirmed `.githooks/pre-push` needs no change — it already runs `pnpm run build` and nothing else; that build is now the real gate. Added **DIRECTIVE-020** to `STANDING_DIRECTIVES.md` (never set `ignoreBuildErrors`/`ignoreDuringBuilds`; fix the real build-time/memory constraint instead) and registered **WGR-161** (P0, Audit-program, RESOLVED) in `WIRING_GAP_REGISTER.md` with full before/after build logs and the vitest run under `test-evidence/remediation/wgr-161/`.
+
+Committed `fix(WGR-161): restore type and lint validation in next build, fix 12 accumulated errors`, pushed (pre-push build gate ran the real check for the first time on this push), deployed to production via `npx vercel deploy --prod`.

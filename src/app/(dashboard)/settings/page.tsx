@@ -54,7 +54,6 @@ type OrgUser = Pick<
 // Deep Navy. Secondary accent: Rich Gold. Danger Zone's own red styling
 // (nav highlight + DangerZoneSection) is never touched by this system.
 const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
 const CARD = "#F8F5EE";
 const ACCENT = FRAME_NAVY;
 const TOGGLE_BLUE = "#0EA5E9";

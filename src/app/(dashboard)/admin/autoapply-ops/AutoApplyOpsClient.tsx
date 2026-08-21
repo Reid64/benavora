@@ -37,7 +37,6 @@ import { useProfile } from "@/lib/hooks/useProfile";
 // are left untouched.
 const FRAME_NAVY = "#101B2D";
 const ACCENT_GOLD = "#B88A2E";
-const CARD_BG = "#F8F5EE";
 
 function Framed({ children }: { children: ReactNode }) {
   return (

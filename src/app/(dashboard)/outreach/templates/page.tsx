@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import Link from "next/link";
 import { ArrowLeft, FileText, Linkedin, Mail, Phone, Plus } from "lucide-react";
 
-import { Badge, Button, Card, EmptyState, Input, Modal, Select, Textarea } from "@/components/ui";
+import { Badge, Button, EmptyState, Input, Modal, Select, Textarea } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative } from "@/lib/utils/formatters";

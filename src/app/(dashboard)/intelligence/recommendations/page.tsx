@@ -24,7 +24,6 @@ import { createClient } from "@/lib/supabase/client";
 // DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Plum. Secondary accent: Slate
 // Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
 // never received the v2 rollout - same real gap as AutoApply's.
-const SECTION_FRAME = "#7A5980";
 const CANVAS = "#D8D3C8";
 const CARD_BG = "#F8F5EE";
 const BORDER = "rgba(16,27,45,0.15)";

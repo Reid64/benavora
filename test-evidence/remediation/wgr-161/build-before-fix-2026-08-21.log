@@ -1,0 +1,54 @@
+
+> benavora@0.1.0 build C:\Users\manag\Documents\benavora
+> next build
+
+  ▲ Next.js 14.2.35
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · cpus
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+Failed to compile.
+
+./src/app/(dashboard)/admin/autoapply-ops/AutoApplyOpsClient.tsx
+40:7  Error: 'CARD_BG' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/admin/orgs/OrgsListClient.tsx
+15:7  Error: 'ACCENT_GOLD' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/agents/marketplace/page.tsx
+44:7  Error: 'SECTION_FRAME' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/email/templates/page.tsx
+19:3  Error: 'Card' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+36:7  Error: 'ACCENT_BRONZE' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/intelligence/page.tsx
+48:7  Error: 'BORDER' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/intelligence/recommendations/page.tsx
+27:7  Error: 'SECTION_FRAME' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/intelligence/reputation/page.tsx
+30:7  Error: 'SECTION_FRAME' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/outcomes/page.tsx
+39:7  Error: 'ACCENT_SLATE' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/outreach/templates/page.tsx
+7:25  Error: 'Card' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/app/(dashboard)/research/page.tsx
+280:6  Warning: React Hook useMemo has a missing dependency: 'matchesQuery'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/app/(dashboard)/settings/page.tsx
+57:7  Error: 'ACCENT_GOLD' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./src/lib/sources/grantsgov-client.ts
+49:10  Error: 'toAmount' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+ ELIFECYCLE  Command failed with exit code 1.

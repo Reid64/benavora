@@ -7,6 +7,11 @@ const withBundleAnalyzer = createBundleAnalyzer({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // PT-10 (malformed-payload audit): isolates this run's build output from any
+  // concurrently-running shared `next dev`/`next build` process sharing this
+  // checkout's default .next/ dir (WGR-001/WGR-013 contention pattern). Only
+  // takes effect when PT_AUDIT_DIST_DIR is set; unset in normal operation.
+  ...(process.env.PT_AUDIT_DIST_DIR ? { distDir: process.env.PT_AUDIT_DIST_DIR } : {}),
   // Native/ESM packages that must not be bundled by webpack — loaded at runtime
   // via Node.js import(). archiver v8 is pure ESM; playwright ships native
   // binaries; playwright-extra + puppeteer-extra-plugin-stealth pull transitive
@@ -37,18 +42,6 @@ const nextConfig = {
   // Supabase Storage / external images are configured here as features are built.
   images: {
     remotePatterns: [],
-  },
-  // `pnpm run typecheck` (tsc --noEmit) and `pnpm run lint` (next lint) already
-  // run as their own gates. Re-running a full type-check + lint pass inside
-  // `next build` duplicates that work across the whole repo and was the
-  // difference between a build that fits under the CI timeout and one that
-  // doesn't. Type/lint correctness is still enforced — just by those
-  // dedicated gates instead of a second time here.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
 };
 
