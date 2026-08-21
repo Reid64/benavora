@@ -61,6 +61,40 @@ const PUBLIC_PATHS = [
 // src/app/(dashboard)/onboarding/page.tsx.
 const ONBOARDING_SKIP_COOKIE = "benavora_onboarding_skip";
 
+// WGR-111: real external callers - Vercel Cron, and Stripe/Resend webhook
+// delivery - never carry a Supabase session cookie, so without this
+// exemption every one of these routes was 307-redirected to /login before
+// its own CRON_SECRET bearer check or Stripe/Resend signature verification
+// ever ran. Each entry below was independently confirmed (not assumed) to
+// perform its own equivalent gate before any work - see
+// test-evidence/remediation/wgr-111/route-gate-audit.md for the per-route
+// evidence. Deliberately an exact-path allowlist, not a /api/cron/* or
+// /api/sources/* prefix: sibling routes in those same directories
+// (/api/sources/state-portals, /api/sources/registry, /api/sources/poll) are
+// NOT secret-gated and must keep relying on the session check below -
+// see WGR-154 for the one of those three (state-portals) that has no gate of
+// its own at all, deliberately left un-exempted rather than silently opened.
+const SECRET_GATED_PATHS = new Set([
+  "/api/cron/campaigns",
+  "/api/cron/autoapply",
+  "/api/cron/follow-ups",
+  "/api/cron/reminders",
+  "/api/cron/email-sequences",
+  "/api/cron/domain-warmup",
+  "/api/cron/sales-sends",
+  "/api/cron/draft-automation",
+  "/api/cron/draft-queue-check",
+  "/api/cron/research",
+  "/api/cron/grantsgov",
+  "/api/sources/samgov",
+  "/api/sources/propublica",
+  "/api/sources/grantsgov",
+  "/api/webhooks/stripe",
+  "/api/webhooks/resend",
+  "/api/admin/webhooks/email-events",
+  "/api/admin/webhooks/email-reply",
+]);
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   // Supabase auth callback (email confirmation, recovery, magic links) and the
@@ -70,6 +104,7 @@ function isPublicPath(pathname: string): boolean {
   // US-03). The page and its accept endpoint are reached via a bearer token.
   if (pathname === "/invite" || pathname.startsWith("/invite/")) return true;
   if (pathname === "/api/users/accept") return true;
+  if (SECRET_GATED_PATHS.has(pathname)) return true;
   return false;
 }
 
