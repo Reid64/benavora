@@ -13809,4 +13809,22 @@ Live-verified: stashed the fix and reproduced the exact hydration error live (8 
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026; opportunities page color pass added August 20, 2026; marketing-page hydration fix added August 21, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+---
+
+## SESSION 3 (August 21, 2026): HYDRATION RE-VERIFY + AUTOAPPLY/DONOR-DISCOVERY COLOR PASS + FULL HANDOFF DOC
+
+Re-verified the marketing-page hydration fix (already committed by an earlier session that same day, `ce545fe`) across all four required pages — landing (`/`), dashboard, draft generator, opportunities — reached via a real authenticated user going through the "Explore the platform first" onboarding bypass. 0 hydration errors anywhere, 9/9 automated assertions pass. This also re-confirms `48216d3`'s revert (`96ed8d0`, deliberate, by Reid) left the onboarding-bypass flow itself working correctly — see `BENAVORA_SESSION_HANDOFF_2026-08-21.md` §2a for the full nuance on what's live vs. reverted in that specific code path.
+
+**AutoApply page** (`src/app/(dashboard)/autoapply/page.tsx`): the top-four stat cards (Sessions Today, Success Rate, Avg Fill Time, Forms Queued) converted from a thin `borderTop`-stripe pattern to the same header-band treatment used on the dashboard's flip cards — solid-accent band with white label text, tinted body with the value in the accent's own color. Four distinct hexes: teal `#2E6B66`, plum `#7A5980` (new `ACCENT_PLUM` constant, replacing the previous green `#10B981` Success Rate card), slate blue `#4F6D8F`, amber `#C17817` (the latter two constants already existed and were already assigned to these same two cards — only Success Rate's color and the header-band structure changed).
+
+**Donor Discovery page** (`src/app/(dashboard)/donor-discovery/page.tsx`): "Discover Prospects" button (the page's primary action) → royal violet `#5B21B6` (new `DISCOVER_BG` constant, scoped to only this button — the shared `CTA_TEAL_BG` constant it used to read from is still used elsewhere on the page for unrelated CTA chips, left untouched). The 6-stage Pipeline Funnel boxes (previously all-identical bronze frames) → one of six action colors each, by stage, both the outer frame and the value-number text: teal/plum/slate/amber/rust/olive (`#2E6B66`/`#7A5980`/`#4F6D8F`/`#C17817`/`#A3492F`/`#5C6935`). The "Featured Prospect" spotlight button and all 5 "Top Prospects" list "Review" buttons (the latter previously Tailwind classes that silently fail to render under this app's `globals.css` override — now real inline hex) → rust `#A3492F`. The `DarkStatCard` row (Active Requests / Avg Score / New & Reviewing / Contacted This Month — previously **all four** hardcoded to the same bronze `SECTION_ACCENT`, the literal "all bronze/gold" problem this task named) → 4 distinct hexes via a new optional `accent` prop. Two more bronze stat numbers in the row above (Prospects Identified, Active Campaigns) → teal/plum.
+
+Live-verified via `getComputedStyle()` against the real pages, logged in as Faith Foundation (a real onboarded org): 17/17 automated assertions pass. Screenshots + full dump in `test-evidence/remediation/ui-autoapply/` and `test-evidence/remediation/ui-donor-discovery/`.
+
+`pnpm run build` exit 0. `pnpm run build:worker` exit 0.
+
+A full handoff doc for a fresh session was written: **`BENAVORA_SESSION_HANDOFF_2026-08-21.md`** — audit-program status, all 16 P0s' individual status, the migration-drift P1 cluster and its CLI-account blocker, this session's UI work, known environment gotchas (Claude Code version pin, Vercel manual-deploy requirement, PowerShell 5 syntax, multi-worktree build contention), and prioritized next steps. Read that file first in any future session.
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026; opportunities page color pass added August 20, 2026; marketing-page hydration fix added August 21, 2026; session 3 (AutoApply/Donor Discovery color pass + handoff doc) added August 21, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
