@@ -13725,4 +13725,18 @@ Treat "30 agents built and wired" as accurate for "built"; for "wired to a live 
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+## DRAFT-EDITOR UNRESOLVED-GAPS UX (August 20, 2026)
+
+`src/components/draft-generator/DraftEditor.tsx` — the "N unresolved gaps" / "Next gap →" feature (edit mode is the primary path: `canEdit(profile?.role)` gates `readOnly`, so owner/admin/writer see the textarea+backdrop, not the read-only span view). Two real bugs found and fixed, live-verified against a real draft (application `581f6778-5984-4226-ba8a-2b792042319d`, 7 real `[NEEDS INPUT: ...]` gaps, Faith Foundation org) via a magic-link-login Playwright script:
+
+1. **No highlighting at all in edit mode.** The backdrop layer behind the textarea rendered plain invisible text — the only visual cue was the browser's native text-selection on whatever gap was last clicked, gone the moment focus moved. Fixed: `buildBackdropNodes` now paints a persistent amber highlight behind every gap, with the active gap getting a stronger fill + ring (same treatment applied to the read-only span view via `buildInteractiveNodes`).
+2. **`measureCaretTop`'s scroll-position math was wrong**, not just missing highlighting — its hidden mirror element copied the textarea's computed `width` onto a `box-sizing: content-box` mirror, but under this app's global Tailwind `border-box` reset, computed `width` is already the border-box value. The mirror rendered wider than the real textarea, wrapped fewer lines, and under-estimated the caret's vertical offset — so "Next gap"/badge-click scrolled to a position near-but-not-on the actual gap (confirmed live: `selectionStart` correctly pointed at the gap's char index, but the visible viewport showed unrelated text several hundred px away). Fixed by deriving mirror width from `ta.clientWidth` minus padding instead of copying computed `width`.
+3. Also fixed: read-only mode's badge/next-gap navigation called `window.scrollTo(...)`, but the read-only container is itself `overflow-y-auto` — the wrong scroll context, so it visibly did nothing. Replaced with `el.scrollIntoView({block:"center"})` + `el.focus()` on the actual gap span.
+
+Added: a "← Prev" button next to "Next gap →"; clamping of the active-gap index when the gap count shrinks (a gap gets resolved) so it never points past the end of the array. Count-decrementing-as-gaps-resolve was already correct (gaps are recomputed via `useMemo` from the live textarea value) — not a bug, just verified.
+
+Live-verified before/after in `test-evidence/remediation/gaps-ux/` (5 before + 5 after screenshots): all 7 gaps highlighted simultaneously with one stronger "active" highlight, badge-click and Next-gap both auto-scroll the active gap into view and focus it, count drops 7→6 on resolving a gap. Read-only mode's `scrollIntoView` fix was verified by code inspection only (no viewer-role test account exists for the Faith Foundation org — only `owner` and `writer`) rather than a live screenshot.
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useCallback, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from "react";
 import { AlertTriangle, RefreshCw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui";
@@ -46,33 +46,79 @@ function extractGaps(text: string): Gap[] {
   return gaps;
 }
 
+// Every unresolved gap gets a persistent highlight so the operator can see
+// all of them at a glance; the active/current gap gets a stronger highlight
+// (solid fill + ring) so it reads as the focused one among the set.
+const GAP_HIGHLIGHT_BG = "rgba(245, 158, 11, 0.22)";
+const GAP_ACTIVE_BG = "rgba(245, 158, 11, 0.55)";
+const GAP_ACTIVE_RING = "0 0 0 2px rgba(180, 83, 9, 0.9)";
+
 /**
  * Read-only view: render each [NEEDS INPUT] marker as clickable, colored,
- * underlined text — no background, no border — with a sequential DOM id
+ * underlined text with a persistent highlight — with a sequential DOM id
  * (gap-0, gap-1, …) so the badge and Next Gap button can scroll to them.
+ * Clicking a gap also makes it the active gap.
  *
- * Edit mode does NOT use this: the textarea is a single text layer, so gaps are
- * simply visible as their literal "[NEEDS INPUT: …]" text and navigated via
- * textarea selection (the backdrop renders plain, un-highlighted text).
+ * Edit mode does NOT use this: see buildBackdropNodes below, which paints the
+ * same highlights behind the textarea instead.
  */
-function buildInteractiveNodes(text: string, gaps: Gap[]) {
+function buildInteractiveNodes(
+  text: string,
+  gaps: Gap[],
+  activeIndex: number,
+  onSelectGap: (index: number) => void,
+) {
   if (gaps.length === 0) return [text];
   const nodes: (string | ReactElement)[] = [];
   let cursor = 0;
-  gaps.forEach((gap, seqIndex) => {
+  gaps.forEach((gap, i) => {
     if (gap.index > cursor) nodes.push(text.slice(cursor, gap.index));
-    const i = seqIndex;
+    const isActive = i === activeIndex;
     nodes.push(
       <span
         key={gap.index}
         id={`gap-${i}`}
-        className="text-amber-400 font-semibold cursor-pointer underline decoration-amber-400"
-        onClick={() =>
-          document
-            .getElementById(`gap-${i}`)
-            ?.scrollIntoView({ behavior: "smooth", block: "center" })
-        }
-        title="Click to highlight — fill in this section"
+        tabIndex={-1}
+        className={`cursor-pointer font-semibold underline decoration-amber-500 ${isActive ? "text-amber-900" : "text-amber-700"}`}
+        style={{
+          backgroundColor: isActive ? GAP_ACTIVE_BG : GAP_HIGHLIGHT_BG,
+          borderRadius: "3px",
+          boxShadow: isActive ? GAP_ACTIVE_RING : undefined,
+        }}
+        onClick={() => onSelectGap(i)}
+        title="Click to jump to this gap"
+      >
+        {text.slice(gap.index, gap.index + gap.length)}
+      </span>,
+    );
+    cursor = gap.index + gap.length;
+  });
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+/**
+ * Edit-mode backdrop: same highlight treatment as buildInteractiveNodes, but
+ * text stays transparent (the real, editable text is the textarea layer on
+ * top) — only each gap's highlight background is visible, showing through
+ * the textarea's transparent background.
+ */
+function buildBackdropNodes(text: string, gaps: Gap[], activeIndex: number) {
+  if (gaps.length === 0) return [text];
+  const nodes: (string | ReactElement)[] = [];
+  let cursor = 0;
+  gaps.forEach((gap, i) => {
+    if (gap.index > cursor) nodes.push(text.slice(cursor, gap.index));
+    const isActive = i === activeIndex;
+    nodes.push(
+      <span
+        key={gap.index}
+        style={{
+          backgroundColor: isActive ? GAP_ACTIVE_BG : GAP_HIGHLIGHT_BG,
+          borderRadius: "3px",
+          boxShadow: isActive ? GAP_ACTIVE_RING : undefined,
+          color: "transparent",
+        }}
       >
         {text.slice(gap.index, gap.index + gap.length)}
       </span>,
@@ -88,6 +134,14 @@ function buildInteractiveNodes(text: string, gaps: Gap[]) {
  * measured with a hidden mirror element that mimics the textarea's box and font.
  * Counting "\n" alone undercounts wrapped lines (a long paragraph is one logical
  * line but many visual rows), which made gap navigation under-scroll badly.
+ *
+ * The mirror's content width is derived from `clientWidth` (which already
+ * excludes border and any scrollbar gutter) minus padding, rather than
+ * copying the computed `width` onto a `content-box` mirror directly — under
+ * this app's global `box-sizing: border-box` reset, computed `width` is the
+ * border-box width, so a content-box mirror set to that value renders wider
+ * than the real textarea, wraps fewer lines, and under-estimates the caret's
+ * vertical offset (gap navigation would center on the wrong line).
  */
 function measureCaretTop(ta: HTMLTextAreaElement, index: number): number {
   const cs = getComputedStyle(ta);
@@ -95,12 +149,14 @@ function measureCaretTop(ta: HTMLTextAreaElement, index: number): number {
   const m = mirror.style as unknown as Record<string, string>;
   const r = cs as unknown as Record<string, string>;
   const props = [
-    "width", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
     "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
     "lineHeight", "textTransform",
   ];
   for (const p of props) m[p] = r[p] ?? "";
+  const paddingLeft = parseFloat(cs.paddingLeft) || 0;
+  const paddingRight = parseFloat(cs.paddingRight) || 0;
+  m.width = `${Math.max(0, ta.clientWidth - paddingLeft - paddingRight)}px`;
   m.boxSizing = "content-box";
   m.position = "absolute";
   m.top = "0";
@@ -152,10 +208,34 @@ export function DraftEditor({
     };
   }, [value]);
 
-  // Nodes for read-only view: clickable colored-underline spans with DOM ids.
+  // Clamp the active gap index when the gap list shrinks (a gap was resolved)
+  // or the draft was reloaded, so it never points past the end of the array.
+  useEffect(() => {
+    if (currentGapIndex >= gaps.length && gaps.length > 0) {
+      setCurrentGapIndex(0);
+    }
+  }, [gaps.length, currentGapIndex]);
+
+  const selectReadOnlyGap = useCallback((index: number) => {
+    setCurrentGapIndex(index);
+    const el = document.getElementById(`gap-${index}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus({ preventScroll: true });
+    }
+  }, []);
+
+  // Nodes for read-only view: clickable, persistently-highlighted spans with
+  // DOM ids; the active gap gets a stronger highlight.
   const readOnlyNodes = useMemo(
-    () => buildInteractiveNodes(value, gaps),
-    [value, gaps],
+    () => buildInteractiveNodes(value, gaps, currentGapIndex, selectReadOnlyGap),
+    [value, gaps, currentGapIndex, selectReadOnlyGap],
+  );
+
+  // Nodes for the edit-mode backdrop: same highlights, invisible text.
+  const backdropNodes = useMemo(
+    () => buildBackdropNodes(value, gaps, currentGapIndex),
+    [value, gaps, currentGapIndex],
   );
 
   // Keep backdrop scroll in sync with the textarea via CSS transform.
@@ -183,39 +263,40 @@ export function DraftEditor({
     [syncScroll],
   );
 
-  // Read-only mode: the draft box is full-height and the page scrolls, so we
-  // scroll the window to the gap's on-page position rather than relying on
-  // scrollIntoView (which targets the wrong scroll context here).
-  const scrollWindowToGap = useCallback((idx: number) => {
-    const el = document.getElementById(`gap-${idx}`);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      window.scrollTo({ top: window.scrollY + rect.top - 150, behavior: "smooth" });
-    }
-  }, []);
-
-  // Badge click: jump to the first gap.
+  // Badge click: jump focus to the first gap and smooth-scroll it into view.
   const handleGapBadgeClick = useCallback(() => {
+    setCurrentGapIndex(0);
     if (readOnly) {
-      scrollWindowToGap(0);
+      selectReadOnlyGap(0);
     } else {
       const firstGap = gaps[0];
       if (firstGap) scrollToGapInTextarea(firstGap);
     }
-    setCurrentGapIndex(0);
-  }, [readOnly, gaps, scrollToGapInTextarea, scrollWindowToGap]);
+  }, [readOnly, gaps, scrollToGapInTextarea, selectReadOnlyGap]);
 
-  // Next Gap button: cycle through each gap in order.
+  // Next Gap button: advance to the next gap (wrapping) and auto-scroll it in.
   const handleNextGap = useCallback(() => {
-    const idx = currentGapIndex % Math.max(1, gaps.length);
+    const nextIdx = (currentGapIndex + 1) % Math.max(1, gaps.length);
+    setCurrentGapIndex(nextIdx);
     if (readOnly) {
-      scrollWindowToGap(idx);
+      selectReadOnlyGap(nextIdx);
     } else {
-      const gap = gaps[idx];
+      const gap = gaps[nextIdx];
       if (gap) scrollToGapInTextarea(gap);
     }
-    setCurrentGapIndex((i) => (i + 1) % Math.max(1, gaps.length));
-  }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea, scrollWindowToGap]);
+  }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea, selectReadOnlyGap]);
+
+  // Previous Gap button: same as Next, in reverse (wrapping).
+  const handlePrevGap = useCallback(() => {
+    const prevIdx = (currentGapIndex - 1 + Math.max(1, gaps.length)) % Math.max(1, gaps.length);
+    setCurrentGapIndex(prevIdx);
+    if (readOnly) {
+      selectReadOnlyGap(prevIdx);
+    } else {
+      const gap = gaps[prevIdx];
+      if (gap) scrollToGapInTextarea(gap);
+    }
+  }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea, selectReadOnlyGap]);
 
   return (
     <div className="flex h-full flex-col space-y-3">
@@ -278,6 +359,17 @@ export function DraftEditor({
                 {gaps.length} unresolved {gaps.length === 1 ? "gap" : "gaps"}
               </button>
 
+              {gaps.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrevGap}
+                  className="inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-50 px-2 py-0.5 font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                  title="Scroll to previous gap"
+                >
+                  ← Prev
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleNextGap}
@@ -335,8 +427,9 @@ export function DraftEditor({
               : undefined
           }
         >
-          {/* Backdrop — plain transparent text, no gap highlighting. Gaps are
-              visible as literal "[NEEDS INPUT: …]" text in the textarea layer. */}
+          {/* Backdrop — transparent text with visible highlight spans behind
+              each unresolved gap (shows through the textarea's transparent
+              background); the active gap gets a stronger highlight. */}
           <div
             className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
             aria-hidden
@@ -351,7 +444,7 @@ export function DraftEditor({
                 ...(dark ? { fontSize: "14px", lineHeight: "1.7" } : {}),
               }}
             >
-              {value}
+              {backdropNodes}
             </div>
           </div>
 

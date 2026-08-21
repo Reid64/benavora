@@ -8453,3 +8453,15 @@ Remediation applied to the current benavora manifest:
 - Ledger seeded with 44 entries (every queue at `status: complete` or `status: superseded`), each with its file's SHA256 hash.
 - All 44 corresponding queue YAMLs moved from `library\benavora\` to `archive\benavora\`. `queue-pt-00-baseline.yaml` (in `projects\benavora\`, `status: failed`) and all genuinely-pending files (`queue-40..44`, `queue-62`, `queue-pt-01..15`) were left in place — none of those are complete/superseded.
 - `powershell -ExecutionPolicy Bypass -File .\forge-orchestrator.ps1 -project benavora -dryRun` confirms: 0 queues runnable right now (the remaining `pending` entries are legitimately blocked — `governance-final-sync-20260812` depends on four `failed` audit queues, and `pt-01..15` depend on `pt-00-baseline` which is `status: failed`), zero v2-rollout queues appear anywhere in the plan.
+
+---
+
+## Draft-Editor Unresolved-Gaps UX — August 20, 2026
+
+Fixed `src/components/draft-generator/DraftEditor.tsx`'s "N unresolved gaps" / "Next gap →" UX. The feature existed but was broken in two real ways, not just cosmetically incomplete — see `STATE_OF_THE_BUILD.md`'s matching section for full root-cause detail:
+
+1. Edit mode (the primary path — `canEdit()` gates `readOnly`, so owner/admin/writer see this) rendered zero gap highlighting; the backdrop layer behind the textarea was fully invisible text.
+2. The scroll-to-gap math (`measureCaretTop`) was independently broken: its hidden mirror element mis-measured the textarea's content width under this app's global `border-box` reset, wrapping fewer lines than the real textarea and landing the scroll position near-but-not-on the actual gap. This explains the reported "must manually scroll to find it" symptom even though scroll code already existed.
+3. Read-only mode's nav called `window.scrollTo` while the actual scroll container was an inner `overflow-y-auto` div — fixed with `el.scrollIntoView({block:"center"})` + `.focus()`.
+
+All gaps now get a persistent highlight; the active one gets a stronger highlight + ring; badge-click and "Next gap →" (plus a new "← Prev") auto-scroll and focus the active gap; count decrements live as gaps are edited out (this part was already correct). Live-verified with a real draft (7 real `[NEEDS INPUT]` gaps, Faith Foundation org, magic-link Playwright login) — before/after screenshots in `test-evidence/remediation/gaps-ux/`. `pnpm run build` exit 0.
