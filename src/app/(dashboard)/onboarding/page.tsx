@@ -1424,9 +1424,18 @@ function OnboardingPageInner() {
   // Lets a user browse the dashboard before finishing the wizard. Progress
   // already saved so far is untouched; onboarding_completed stays false, so
   // a fresh login (new browser session) lands back on /onboarding.
+  //
+  // Hard navigation (window.location), not router.push: this is the one place
+  // a stale client-side route cache would be actively harmful - router.push
+  // can serve an already-fetched RSC response for "/dashboard" from before
+  // the skip cookie existed (e.g. the sidebar's persistent logo link
+  // prefetches "/dashboard" on mount, while onboarding is still incomplete),
+  // silently re-rendering onboarding content instead of navigating. A full
+  // page load always re-runs middleware fresh against the cookie that was
+  // just set, so it can't reuse a stale pre-cookie result.
   function handleExploreFirst() {
     skipOnboardingForSession();
-    router.push("/dashboard");
+    window.location.href = "/dashboard";
   }
 
   // ---------------------------------------------------------------------------

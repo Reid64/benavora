@@ -164,7 +164,21 @@ export async function middleware(request: NextRequest) {
   // the current browser session once the user picks "Explore the platform
   // first" on the wizard (sets ONBOARDING_SKIP_COOKIE, a session cookie with
   // no Max-Age) - a fresh login in a new session still lands on /onboarding.
-  if (profile.organization_id && !request.nextUrl.pathname.includes("onboarding")) {
+  //
+  // Page requests only (same over-broad-middleware class as WGR-111): API
+  // routes are excluded because redirecting a JSON caller to an HTML page is
+  // never correct for any caller, gated or not - each route enforces its own
+  // authorization. Without this exclusion, background polling made while a
+  // user is legitimately viewing /onboarding (e.g. the sidebar's nav-counts
+  // poll) silently 307s to the onboarding HTML page instead of getting JSON
+  // back; fetch() follows the redirect, res.ok is true, and res.json() then
+  // throws on the HTML body - confirmed live, reproduces on every page load
+  // before the skip cookie exists.
+  if (
+    profile.organization_id &&
+    !request.nextUrl.pathname.includes("onboarding") &&
+    !request.nextUrl.pathname.startsWith("/api/")
+  ) {
     const skipOnboarding = request.cookies.get(ONBOARDING_SKIP_COOKIE);
     if (!skipOnboarding) {
       const { data: org } = await supabase

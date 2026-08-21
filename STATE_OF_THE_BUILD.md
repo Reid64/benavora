@@ -13795,4 +13795,18 @@ Live-verified via magic-link-login Playwright script against the real `/opportun
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026; opportunities page color pass added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+---
+
+## "EXPLORE THE PLATFORM FIRST" ONBOARDING BYPASS — FIX (August 20, 2026) — see WGR-154
+
+Investigated a report that clicking "Explore the platform first" on `/onboarding` (`src/app/(dashboard)/onboarding/page.tsx`) produced dev-server activity but no visible navigation — user stuck on onboarding. The mechanism itself (`skipOnboardingForSession()` sets a `benavora_onboarding_skip` session cookie; `src/middleware.ts`'s onboarding gate checks it before redirecting to `/onboarding`) matches the intended design in `INTERACTION_MAPS_v2.md` §1.4 exactly, and **5 consecutive live browser tests against current `main` all succeeded** — could not force a hard reproduction of the reported symptom.
+
+Found and fixed two real, 100%-reproducible defects in this same code path anyway, both the same over-broad-middleware class as WGR-111:
+1. **`src/middleware.ts`'s onboarding gate applied to `/api/*` routes**, not just pages — confirmed on every test run: the sidebar's background polling (`/api/nav-counts`, `/api/notifications`), made while legitimately viewing `/onboarding` before the skip cookie exists, got silently 307-redirected to the `/onboarding` HTML page instead of JSON. `fetch()` follows the redirect, `res.ok` is true, `res.json()` throws on the HTML body, caught and swallowed client-side — invisible in the UI, but real and reproducible. Fixed by excluding `/api/*` from the gate condition.
+2. **`handleExploreFirst` relied on Next.js's client-side SPA router** (`router.push("/dashboard")`), which can serve a stale prefetched RSC response for a destination whose access conditions changed since the cache entry was populated — the most plausible explanation for an *intermittent* version of the reported symptom under real browser conditions (idle-mouse Link hover-prefetch) that a scripted test with fixed timing doesn't naturally trigger. Fixed by switching to a hard `window.location.href = "/dashboard"` navigation, which always re-runs middleware fresh against the just-set cookie.
+
+Live-re-verified: `/api/nav-counts` no longer redirected while on `/onboarding` (was 100% redirected before, 0% after, across 6 poll requests); clicking the button lands on `/dashboard`; the "1 of 7 · Resume setup" banner is still present afterward, confirming onboarding progress is preserved and re-completable, not deleted (this is a bypass, not a removal — matches the requirement). 7/7 automated assertions pass. Evidence in `test-evidence/remediation/onboarding-bypass/`.
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026; opportunities page color pass added August 20, 2026; onboarding-bypass fix (WGR-154) added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
