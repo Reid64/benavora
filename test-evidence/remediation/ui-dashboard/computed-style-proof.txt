@@ -1,0 +1,95 @@
+[OK] card-count :: found 6 flip-card wrappers (expected 6)
+{
+  "index": 0,
+  "labelText": "KNOWLEDGE BASE",
+  "frontBackgroundColor": "rgba(184, 138, 46, 0.08)",
+  "bandBackgroundImage": "linear-gradient(90deg, rgb(184, 138, 46), rgb(212, 169, 77))",
+  "bandColor": "rgb(255, 255, 255)"
+}
+{
+  "index": 1,
+  "labelText": "INTELLIGENCE LIBRARY",
+  "frontBackgroundColor": "rgba(122, 89, 128, 0.08)",
+  "bandBackgroundImage": "linear-gradient(90deg, rgb(122, 89, 128), rgb(155, 123, 163))",
+  "bandColor": "rgb(255, 255, 255)"
+}
+{
+  "index": 2,
+  "labelText": "DEADLINES",
+  "frontBackgroundColor": "rgba(193, 120, 23, 0.08)",
+  "bandBackgroundImage": "linear-gradient(90deg, rgb(193, 120, 23), rgb(224, 160, 61))",
+  "bandColor": "rgb(255, 255, 255)"
+}
+{
+  "index": 3,
+  "labelText": "FUNDER RESEARCH",
+  "frontBackgroundColor": "rgba(79, 109, 143, 0.08)",
+  "bandBackgroundImage": "linear-gradient(90deg, rgb(79, 109, 143), rgb(118, 145, 175))",
+  "bandColor": "rgb(255, 255, 255)"
+}
+{
+  "index": 4,
+  "labelText": "AUTOAPPLY",
+  "frontBackgroundColor": "rgba(46, 107, 102, 0.08)",
+  "bandBackgroundImage": "linear-gradient(90deg, rgb(46, 107, 102), rgb(76, 148, 141))",
+  "bandColor": "rgb(255, 255, 255)"
+}
+{
+  "index": 5,
+  "labelText": "PLATFORM HEALTH",
+  "frontBackgroundColor": "rgba(16, 185, 129, 0.08)",
+  "bandBackgroundImage": "linear-gradient(90deg, rgb(16, 185, 129), rgb(52, 211, 153))",
+  "bandColor": "rgb(255, 255, 255)"
+}
+[OK] card-band-color[KNOWLEDGE BASE] :: expected #B88A2E (rgb(184, 138, 46)) in band background-image; got: linear-gradient(90deg, rgb(184, 138, 46), rgb(212, 169, 77))
+[OK] card-band-text-white[KNOWLEDGE BASE] :: band label color: rgb(255, 255, 255)
+[OK] card-front-tinted-not-flat-cream[KNOWLEDGE BASE] :: front background-color: rgba(184, 138, 46, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+[OK] card-band-color[INTELLIGENCE LIBRARY] :: expected #7A5980 (rgb(122, 89, 128)) in band background-image; got: linear-gradient(90deg, rgb(122, 89, 128), rgb(155, 123, 163))
+[OK] card-band-text-white[INTELLIGENCE LIBRARY] :: band label color: rgb(255, 255, 255)
+[OK] card-front-tinted-not-flat-cream[INTELLIGENCE LIBRARY] :: front background-color: rgba(122, 89, 128, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+[OK] card-band-color[DEADLINES] :: expected #C17817 (rgb(193, 120, 23)) in band background-image; got: linear-gradient(90deg, rgb(193, 120, 23), rgb(224, 160, 61))
+[OK] card-band-text-white[DEADLINES] :: band label color: rgb(255, 255, 255)
+[OK] card-front-tinted-not-flat-cream[DEADLINES] :: front background-color: rgba(193, 120, 23, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+[OK] card-band-color[FUNDER RESEARCH] :: expected #4F6D8F (rgb(79, 109, 143)) in band background-image; got: linear-gradient(90deg, rgb(79, 109, 143), rgb(118, 145, 175))
+[OK] card-band-text-white[FUNDER RESEARCH] :: band label color: rgb(255, 255, 255)
+[OK] card-front-tinted-not-flat-cream[FUNDER RESEARCH] :: front background-color: rgba(79, 109, 143, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+[OK] card-band-color[AUTOAPPLY] :: expected #2E6B66 (rgb(46, 107, 102)) in band background-image; got: linear-gradient(90deg, rgb(46, 107, 102), rgb(76, 148, 141))
+[OK] card-band-text-white[AUTOAPPLY] :: band label color: rgb(255, 255, 255)
+[OK] card-front-tinted-not-flat-cream[AUTOAPPLY] :: front background-color: rgba(46, 107, 102, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+[OK] card-band-color[PLATFORM HEALTH] :: expected #10B981 (rgb(16, 185, 129)) in band background-image; got: linear-gradient(90deg, rgb(16, 185, 129), rgb(52, 211, 153))
+[OK] card-band-text-white[PLATFORM HEALTH] :: band label color: rgb(255, 255, 255)
+[OK] card-front-tinted-not-flat-cream[PLATFORM HEALTH] :: front background-color: rgba(16, 185, 129, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+[OK] flip-back-button-exists :: found 1 'Back' buttons on flipped card
+[OK] flip-back-button-bottom-right :: button box: {"x":408.28125,"y":440,"width":55.375,"height":23}, card box: {"x":264,"y":302,"width":208.65625,"height":170}
+[OK] flip-back-button-computed-style :: {"background":"rgb(184, 138, 46)","color":"rgb(255, 255, 255)","position":"absolute"}
+[OK] flip-back-no-navigation :: before: http://localhost:3000/dashboard, after: http://localhost:3000/dashboard
+[OK] flip-back-returned-to-front :: transform: matrix(1, 0, 0, 1, 0, 0)
+
+=== Console errors captured ===
+(none)
+
+=== Results summary ===
+PASS  card-count: found 6 flip-card wrappers (expected 6)
+PASS  card-band-color[KNOWLEDGE BASE]: expected #B88A2E (rgb(184, 138, 46)) in band background-image; got: linear-gradient(90deg, rgb(184, 138, 46), rgb(212, 169, 77))
+PASS  card-band-text-white[KNOWLEDGE BASE]: band label color: rgb(255, 255, 255)
+PASS  card-front-tinted-not-flat-cream[KNOWLEDGE BASE]: front background-color: rgba(184, 138, 46, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+PASS  card-band-color[INTELLIGENCE LIBRARY]: expected #7A5980 (rgb(122, 89, 128)) in band background-image; got: linear-gradient(90deg, rgb(122, 89, 128), rgb(155, 123, 163))
+PASS  card-band-text-white[INTELLIGENCE LIBRARY]: band label color: rgb(255, 255, 255)
+PASS  card-front-tinted-not-flat-cream[INTELLIGENCE LIBRARY]: front background-color: rgba(122, 89, 128, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+PASS  card-band-color[DEADLINES]: expected #C17817 (rgb(193, 120, 23)) in band background-image; got: linear-gradient(90deg, rgb(193, 120, 23), rgb(224, 160, 61))
+PASS  card-band-text-white[DEADLINES]: band label color: rgb(255, 255, 255)
+PASS  card-front-tinted-not-flat-cream[DEADLINES]: front background-color: rgba(193, 120, 23, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+PASS  card-band-color[FUNDER RESEARCH]: expected #4F6D8F (rgb(79, 109, 143)) in band background-image; got: linear-gradient(90deg, rgb(79, 109, 143), rgb(118, 145, 175))
+PASS  card-band-text-white[FUNDER RESEARCH]: band label color: rgb(255, 255, 255)
+PASS  card-front-tinted-not-flat-cream[FUNDER RESEARCH]: front background-color: rgba(79, 109, 143, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+PASS  card-band-color[AUTOAPPLY]: expected #2E6B66 (rgb(46, 107, 102)) in band background-image; got: linear-gradient(90deg, rgb(46, 107, 102), rgb(76, 148, 141))
+PASS  card-band-text-white[AUTOAPPLY]: band label color: rgb(255, 255, 255)
+PASS  card-front-tinted-not-flat-cream[AUTOAPPLY]: front background-color: rgba(46, 107, 102, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+PASS  card-band-color[PLATFORM HEALTH]: expected #10B981 (rgb(16, 185, 129)) in band background-image; got: linear-gradient(90deg, rgb(16, 185, 129), rgb(52, 211, 153))
+PASS  card-band-text-white[PLATFORM HEALTH]: band label color: rgb(255, 255, 255)
+PASS  card-front-tinted-not-flat-cream[PLATFORM HEALTH]: front background-color: rgba(16, 185, 129, 0.08) (flat CARD_BG would be rgb(248, 245, 238))
+PASS  flip-back-button-exists: found 1 'Back' buttons on flipped card
+PASS  flip-back-button-bottom-right: button box: {"x":408.28125,"y":440,"width":55.375,"height":23}, card box: {"x":264,"y":302,"width":208.65625,"height":170}
+PASS  flip-back-button-computed-style: {"background":"rgb(184, 138, 46)","color":"rgb(255, 255, 255)","position":"absolute"}
+PASS  flip-back-no-navigation: before: http://localhost:3000/dashboard, after: http://localhost:3000/dashboard
+PASS  flip-back-returned-to-front: transform: matrix(1, 0, 0, 1, 0, 0)

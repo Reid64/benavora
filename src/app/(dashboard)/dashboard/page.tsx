@@ -587,6 +587,7 @@ export default async function DashboardPage() {
       frontGradient: CARD_BG,
       borderColor: "rgba(184,138,46,0.4)",
       accentGradient: "linear-gradient(90deg,#B88A2E,#D4A94D)",
+      accentHex: "#B88A2E",
       href: "/knowledge-base",
       ctaLabel: "Complete setup",
       back: (
@@ -622,6 +623,7 @@ export default async function DashboardPage() {
       frontGradient: CARD_BG,
       borderColor: "rgba(122,89,128,0.4)",
       accentGradient: "linear-gradient(90deg,#7A5980,#9B7BA3)",
+      accentHex: "#7A5980",
       href: "/intelligence-library",
       ctaLabel: "Open library",
       back: (
@@ -648,6 +650,7 @@ export default async function DashboardPage() {
       frontGradient: CARD_BG,
       borderColor: "rgba(193,120,23,0.4)",
       accentGradient: "linear-gradient(90deg,#C17817,#E0A03D)",
+      accentHex: "#C17817",
       href: "/deadlines",
       ctaLabel: "View all deadlines",
       back: (
@@ -688,6 +691,7 @@ export default async function DashboardPage() {
       frontGradient: CARD_BG,
       borderColor: "rgba(79,109,143,0.4)",
       accentGradient: "linear-gradient(90deg,#4F6D8F,#7691AF)",
+      accentHex: "#4F6D8F",
       href: "/research",
       ctaLabel: "Open research",
       back: (
@@ -713,6 +717,7 @@ export default async function DashboardPage() {
       frontGradient: CARD_BG,
       borderColor: "rgba(46,107,102,0.4)",
       accentGradient: "linear-gradient(90deg,#2E6B66,#4C948D)",
+      accentHex: "#2E6B66",
       href: "/autoapply",
       ctaLabel: "View sessions",
       back: (
@@ -737,6 +742,7 @@ export default async function DashboardPage() {
       frontGradient: CARD_BG,
       borderColor: "rgba(16,185,129,0.4)",
       accentGradient: "linear-gradient(90deg,#10B981,#34D399)",
+      accentHex: "#10B981",
       href: "/knowledge-base",
       ctaLabel: "Improve score",
       back: (

@@ -8465,3 +8465,14 @@ Fixed `src/components/draft-generator/DraftEditor.tsx`'s "N unresolved gaps" / "
 3. Read-only mode's nav called `window.scrollTo` while the actual scroll container was an inner `overflow-y-auto` div — fixed with `el.scrollIntoView({block:"center"})` + `.focus()`.
 
 All gaps now get a persistent highlight; the active one gets a stronger highlight + ring; badge-click and "Next gap →" (plus a new "← Prev") auto-scroll and focus the active gap; count decrements live as gaps are edited out (this part was already correct). Live-verified with a real draft (7 real `[NEEDS INPUT]` gaps, Faith Foundation org, magic-link Playwright login) — before/after screenshots in `test-evidence/remediation/gaps-ux/`. `pnpm run build` exit 0.
+
+---
+
+## Dashboard Flip-Card Color Pass — August 20, 2026
+
+Fixed `src/components/dashboard/FlipCards.tsx` (6 stat cards, data in `src/app/(dashboard)/dashboard/page.tsx`). Two changes:
+
+1. **Full-card color**: each card's existing accent hex (previously a thin 3px top strip) now fills a header band (`accentGradient`, white text) with a tinted body (`${accentHex}14`, ~8% alpha). Chose header-band over full-saturation fill because each card's back-face content is hardcoded dark-navy text in `page.tsx` (assumes a light background) — a full dark fill would have made 6 separately-authored back faces illegible. Added `accentHex` (solid base hex) to `FlipCardData`.
+2. **Flip-back control**: new "Back" pill button, bottom-right of the flipped face only, white back-arrow SVG + text, `stopPropagation()` + explicit `setFlipped(...,false)` so it flips back without navigating and without double-firing the card's click-to-flip handler. CTA link got a `maxWidth` + ellipsis so it can't visually collide with the button.
+
+All colors are literal inline hex/rgba — required, since this app's `globals.css` compat layer (37 `!important` rules) overrides Tailwind classes and CSS vars. Live-verified with a magic-link-login Playwright script against the real dashboard: `getComputedStyle()` confirms each band's `background-image` is the exact expected gradient, band text is white, body background is the tinted rgba (not the old flat cream), and clicking "Back" returns the card's transform to identity without changing `page.url()`. 22/22 automated assertions pass. Screenshots + computed-style dump in `test-evidence/remediation/ui-dashboard/`. `pnpm run build` exit 0.

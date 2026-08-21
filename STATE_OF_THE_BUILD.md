@@ -13739,4 +13739,20 @@ Live-verified before/after in `test-evidence/remediation/gaps-ux/` (5 before + 5
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+---
+
+## DASHBOARD FLIP-CARD COLOR PASS (August 20, 2026)
+
+`src/components/dashboard/FlipCards.tsx` (rendered by the 6 stat cards defined in `src/app/(dashboard)/dashboard/page.tsx`'s `cards` array). Each card already had a distinct accent color (previously a thin 3px strip, one `accentGradient` per card): Knowledge Base `#B88A2E`→`#D4A94D` (gold), Intelligence Library `#7A5980`→`#9B7BA3` (plum), Deadlines `#C17817`→`#E0A03D` (amber), Funder Research `#4F6D8F`→`#7691AF` (slate blue), AutoApply `#2E6B66`→`#4C948D` (teal), Platform Health `#10B981`→`#34D399` (green).
+
+**Fill style chosen: header-band + tinted body, not full saturated fill.** A full-saturation fill was ruled out because each card's back-face content is authored per-card in `page.tsx` with hardcoded dark-navy text (`WHITE` is aliased to `#101B2D`, not actual white — a holdover from when panels were light) assuming a light background; a dark fill would have made all 6 back faces illegible without a much larger, riskier edit rewriting every embedded text color. Instead: a solid-gradient header band (`card.accentGradient`, full accent color, `#FFFFFF` label text) plus a tinted body (`${card.accentHex}14` — the card's new solid base hex at ~8% alpha over the page background). This keeps every card visibly, distinctly colored while leaving the existing dark-on-light body text (front value/sub, back content, CTA link) untouched and readable. Added `accentHex` to `FlipCardData` (the solid base hex per card, first stop of each `accentGradient`) so the component doesn't need to parse gradient strings.
+
+Also added: an explicit "Back" flip-back control, bottom-right of the flipped (back) face only — small pill button, accent-colored, white back-arrow SVG + "Back" text, `position: absolute; bottom: 8px; right: 8px` inside the back face's positioned content wrapper. `onClick` calls `e.stopPropagation()` (so the card's outer click-to-flip handler doesn't double-fire) then sets that card's flip state to `false` directly (not toggle). The CTA `Link` got `maxWidth: calc(100% - 56px)` + ellipsis so long labels can't visually collide with the button's hit target.
+
+All colors are literal inline hex/rgba (no Tailwind classes, no CSS vars) per this app's `globals.css` compatibility layer (37 `!important` rules) that silently overrides both — confirmed this is a real constraint, not overstated, and the component already followed it before this change.
+
+Live-verified via magic-link-login Playwright script against the real dashboard (Faith Foundation org): `getComputedStyle()` on all 6 rendered cards confirms each header band's `background-image` is the exact expected `linear-gradient(...)` with the card's accent hex, band text is `rgb(255, 255, 255)`, and the front/back body `background-color` is the tinted rgba (not the old flat cream `rgb(248, 245, 238)`). Flip-back button: confirmed present, positioned bottom-right (box geometry checked against the card's bounding box), computed background/color/position read back correctly, and clicking it does not change `page.url()` while the card's 3D transform genuinely returns to `matrix(1, 0, 0, 1, 0, 0)` (front-facing). 22/22 automated assertions pass. Screenshots + full computed-style dump in `test-evidence/remediation/ui-dashboard/`.
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
