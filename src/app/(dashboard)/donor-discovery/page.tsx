@@ -107,7 +107,6 @@ interface IntentSignalRow {
 }
 
 const HIGH_INTENT_THRESHOLD = 75;
-const INTENT_SIGNAL_LOOKBACK = 1000;
 
 const FUNNEL_STAGES: DdFunnelStage[] = [
   "new",
@@ -221,64 +220,30 @@ export default function DonorDiscoveryPage() {
     try {
       const supabase = createClient();
 
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const [
-        requestsRes,
-        pipelineRes,
-        intentSignalsRes,
-        contactedCountRes,
-        activeCampaignsRes,
-        autoApplyRes,
-      ] = await Promise.all([
+      const [requestsRes, pipelineRes, statsRes] = await Promise.all([
         fetch("/api/donor-discovery/requests", { cache: "no-store" }),
         fetch("/api/donor-discovery/pipeline", { cache: "no-store" }),
-        // High Intent stat + latest-signal-per-company reduction — RLS scopes
-        // this to the caller's org (corporate_intent_signals, migration 093).
-        supabase
-          .from("corporate_intent_signals")
-          .select("company_name, intent_score, created_at")
-          .order("created_at", { ascending: false })
-          .limit(INTENT_SIGNAL_LOOKBACK),
-        // "Contacted This Month" — donor_discovery_prospects has no per-stage
-        // transition timestamp, so this counts prospects in an engaged stage
-        // whose row was created this month (a proxy, not a literal
-        // moved-to-Contacted date — see file header).
-        supabase
-          .from("donor_discovery_prospects")
-          .select("*", { count: "exact", head: true })
-          .in("pipeline_stage", ["contacted", "applied", "received"])
-          .gte("created_at", startOfMonth.toISOString()),
-        // Active Outreach Campaigns — email_campaign_sequences, NOT
-        // sales_campaigns (see file header for why).
-        supabase
-          .from("email_campaign_sequences")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "active"),
-        // Submissions via AutoApply — completed rows in this org's
-        // submission_queue (migration 045_autoapply_tables.sql).
-        supabase
-          .from("submission_queue")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "completed"),
+        // High-Intent Signals + Live Intent Signals feed, Contacted This
+        // Month, Active Campaigns, AutoApply Submissions — server-derived
+        // organization_id scoping (see route file header for why this moved
+        // off raw browser queries that relied solely on RLS).
+        fetch("/api/donor-discovery/stats", { cache: "no-store" }),
       ]);
 
-      setContactedThisMonth(contactedCountRes.count ?? 0);
-      setActiveCampaignsCount(activeCampaignsRes.count ?? 0);
-      setAutoApplySubmissionsCount(autoApplyRes.count ?? 0);
-
-      const intentRows = (intentSignalsRes.data ?? []) as IntentSignalRow[];
-      setRecentSignals(intentRows.slice(0, 5));
-      const latestScoreByCompany = new Map<string, number | null>();
-      for (const row of intentRows) {
-        const key = row.company_name.trim().toLowerCase();
-        if (!latestScoreByCompany.has(key)) latestScoreByCompany.set(key, row.intent_score);
+      if (statsRes.ok) {
+        const stats = (await statsRes.json()) as {
+          contactedThisMonth: number;
+          activeCampaignsCount: number;
+          autoApplySubmissionsCount: number;
+          highIntentCount: number;
+          recentSignals: IntentSignalRow[];
+        };
+        setContactedThisMonth(stats.contactedThisMonth);
+        setActiveCampaignsCount(stats.activeCampaignsCount);
+        setAutoApplySubmissionsCount(stats.autoApplySubmissionsCount);
+        setHighIntentCount(stats.highIntentCount);
+        setRecentSignals(stats.recentSignals ?? []);
       }
-      setHighIntentCount(
-        Array.from(latestScoreByCompany.values()).filter((s) => s != null && s >= HIGH_INTENT_THRESHOLD).length,
-      );
 
       let requestRows: DdRequestRow[] = [];
       if (!requestsRes.ok) {
