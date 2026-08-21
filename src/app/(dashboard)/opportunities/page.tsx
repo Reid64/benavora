@@ -118,9 +118,15 @@ const HOUSING_KEYWORDS = ["housing", "homeless", "shelter", "transitional"];
 // Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
 // never received the v2 rollout (still the old sky-blue/cyan palette on a
 // literal white page background) - same real gap as AutoApply's.
+// SECTION_ACCENT stays bronze — it's the page-frame accent only (title text,
+// left border, and the card/stat-box outer-wrapper "frame" backgrounds), not
+// a button. Real action buttons use CTA_TEAL_BG/CTA_TEAL_TEXT (generic
+// action = Slate Blue, incl. the primary "Run Land Bank Discovery" action)
+// or ADD_OPPORTUNITY_BG (the one button that gets its own distinct color).
 const SECTION_ACCENT = "#A4712C";
-const CTA_TEAL_BG = "#A4712C";
-const CTA_TEAL_TEXT = "#F8F5EE";
+const CTA_TEAL_BG = "#4F6D8F";
+const CTA_TEAL_TEXT = "#FFFFFF";
+const ADD_OPPORTUNITY_BG = "#5C6935";
 
 /** Org-level org.source is never set to "land_bank" — only opportunities are.
  * Detects a housing-focused org from its free-text profile fields, since
@@ -382,9 +388,9 @@ export default function OpportunitiesPage() {
   const showEmpty = !loading && !error && opportunities.length === 0;
 
   const chipStyle = (active: boolean): CSSProperties => ({
-    backgroundColor: active ? SECTION_ACCENT : "#F8F5EE",
+    backgroundColor: active ? CTA_TEAL_BG : "#F8F5EE",
     color: active ? "#FFFFFF" : "#64748B",
-    border: active ? `1px solid ${SECTION_ACCENT}` : "1px solid rgba(16,27,45,0.15)",
+    border: active ? `1px solid ${CTA_TEAL_BG}` : "1px solid rgba(16,27,45,0.15)",
     borderRadius: "20px",
     padding: "6px 16px",
     fontSize: "13px",
@@ -441,7 +447,7 @@ export default function OpportunitiesPage() {
               <Link
                 href="/opportunities/new"
                 style={{
-                  backgroundColor: CTA_TEAL_BG,
+                  backgroundColor: ADD_OPPORTUNITY_BG,
                   color: CTA_TEAL_TEXT,
                   border: "none",
                   borderRadius: "8px",
@@ -686,10 +692,10 @@ export default function OpportunitiesPage() {
                 marginBottom: "24px",
               }}
             >
-              <StatCard label="Open Opportunities" value={String(stats.open)} accent={SECTION_ACCENT} />
-              <StatCard label="High Probability >70%" value={String(stats.highProbability)} accent="#16A34A" />
-              <StatCard label="Closing This Week" value={String(stats.closingThisWeek)} accent="#D97706" />
-              <StatCard label="Total Potential" value={formatCurrency(stats.totalValue)} accent={SECTION_ACCENT} />
+              <StatCard label="Open Opportunities" value={String(stats.open)} accent="#101B2D" />
+              <StatCard label="High Probability >70%" value={String(stats.highProbability)} accent="#2E6B66" />
+              <StatCard label="Closing This Week" value={String(stats.closingThisWeek)} accent="#7A5980" />
+              <StatCard label="Total Potential" value={formatCurrency(stats.totalValue)} accent="#4F6D8F" />
             </div>
 
             {/* Opportunity cards */}

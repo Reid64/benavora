@@ -1,0 +1,35 @@
+[OK] run-discovery-button-background :: <BUTTON> background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+[OK] run-discovery-button-color :: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] add-opportunity-button-background :: <A> background-color: rgb(92, 105, 53) (expected rgb(92, 105, 53))
+[OK] add-opportunity-button-color :: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] filter-chip-active-background :: 'All' chip background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+[OK] apply-now-count :: found 325 'Apply Now' links
+[OK] apply-now-button-background :: <A> background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+[OK] apply-now-button-color :: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] stat-box[Open Opportunities]-color :: value="325" color=rgb(16, 27, 45) (expected rgb(16, 27, 45))
+[OK] stat-box[High Probability]-color :: value="0" color=rgb(46, 107, 102) (expected rgb(46, 107, 102))
+[OK] stat-box[Closing This Week]-color :: value="13" color=rgb(122, 89, 128) (expected rgb(122, 89, 128))
+[OK] stat-box[Total Potential]-color :: value="$688,625,773" color=rgb(79, 109, 143) (expected rgb(79, 109, 143))
+[OK] discover-more-landbank-button-background :: <BUTTON> background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+[OK] discover-more-landbank-button-color :: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+[OK] page-title-accent-unchanged :: title color: rgb(164, 113, 44) (expected bronze rgb(164, 113, 44) — frame accent, not a button, out of scope)
+
+=== Console errors captured ===
+(none)
+
+=== Results summary ===
+PASS  run-discovery-button-background: <BUTTON> background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+PASS  run-discovery-button-color: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  add-opportunity-button-background: <A> background-color: rgb(92, 105, 53) (expected rgb(92, 105, 53))
+PASS  add-opportunity-button-color: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  filter-chip-active-background: 'All' chip background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+PASS  apply-now-count: found 325 'Apply Now' links
+PASS  apply-now-button-background: <A> background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+PASS  apply-now-button-color: <A> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  stat-box[Open Opportunities]-color: value="325" color=rgb(16, 27, 45) (expected rgb(16, 27, 45))
+PASS  stat-box[High Probability]-color: value="0" color=rgb(46, 107, 102) (expected rgb(46, 107, 102))
+PASS  stat-box[Closing This Week]-color: value="13" color=rgb(122, 89, 128) (expected rgb(122, 89, 128))
+PASS  stat-box[Total Potential]-color: value="$688,625,773" color=rgb(79, 109, 143) (expected rgb(79, 109, 143))
+PASS  discover-more-landbank-button-background: <BUTTON> background-color: rgb(79, 109, 143) (expected rgb(79, 109, 143))
+PASS  discover-more-landbank-button-color: <BUTTON> color: rgb(255, 255, 255) (expected rgb(255, 255, 255))
+PASS  page-title-accent-unchanged: title color: rgb(164, 113, 44) (expected bronze rgb(164, 113, 44) — frame accent, not a button, out of scope)

@@ -13777,4 +13777,22 @@ Live-verified via magic-link-login Playwright script against the real `/research
 
 ---
 
-*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
+---
+
+## OPPORTUNITIES PAGE — COLOR PASS (August 20, 2026)
+
+`src/app/(dashboard)/opportunities/page.tsx`. This page shared its bronze constant (`CTA_TEAL_BG`/`CTA_TEAL_TEXT` — misleadingly named "teal" but had held the bronze `#A4712C` value) across several genuinely different buttons, so a straight value-swap on the constant would have colored "Add Opportunity" the same as every other button. Split into three roles instead:
+
+- `SECTION_ACCENT` (`#A4712C`, unchanged) — the page-frame accent only: title text, left border bar, and the card/stat-box outer-wrapper "frame" backgrounds (the bronze rgba box-shadows on those frames are unaffected literals, not tied to this constant). Not a button; kept bronze, same precedent as the Research page's `PageHeader` accent.
+- `CTA_TEAL_BG`/`CTA_TEAL_TEXT` (repurposed to `#4F6D8F` slate blue / `#FFFFFF` white, was `#A4712C`/`#F8F5EE`) — the generic action-button color. Covers: "Run Land Bank Discovery" (header button — this page's closest match to the task's "Run Discovery," now the primary filled action), "Discover More Land Bank Opportunities" (duplicate CTA in the Land Bank spotlight section), "Apply Now" (per-opportunity-card link, 325 rendered live), and the filter-chip active state (`All`/`Federal`/etc. — a real `<button>` with a solid bronze fill when active, so it counted as a "bronze/gold button" even though step 1 didn't name it explicitly).
+- `ADD_OPPORTUNITY_BG` (new, `#5C6935` olive) — "Add Opportunity" alone, so it reads as a visually distinct secondary action next to the slate-blue primary ones.
+
+Left unchanged, not buttons: the per-opportunity-card factor-weight progress-bar fill (still literal `#A4712C`, a data-viz bar not a button).
+
+**Stat boxes**: `StatCard`'s `accent` prop drives only the number's `color`; the card's bronze outer-frame wrapper is separate and untouched. Reassigned all 4, in order, to the exact set specified: Open Opportunities → `#101B2D` (navy, was `SECTION_ACCENT`/bronze), High Probability >70% → `#2E6B66` (teal, was `#16A34A` green), Closing This Week → `#7A5980` (plum, was `#D97706` amber), Total Potential → `#4F6D8F` (slate blue, was `SECTION_ACCENT`/bronze) — per the task's explicit instruction to assign the given 4-hex set to all 4 boxes in order, not just the ones that happened to already be bronze.
+
+Live-verified via magic-link-login Playwright script against the real `/opportunities` page: `getComputedStyle()` confirms every recolored button's `background-color`/`color` and every stat number's `color`, plus confirms the page title's `color` is unchanged bronze (frame accent, correctly out of scope). 15/15 automated assertions pass. Screenshots + computed-style dump in `test-evidence/remediation/ui-opportunities/`.
+
+---
+
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026; FORGE orchestrator hardening section added August 18, 2026; draft-editor gaps UX section added August 20, 2026; dashboard flip-card color pass added August 20, 2026; research page bronze-to-teal button recolor added August 20, 2026; opportunities page color pass added August 20, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*
