@@ -43,7 +43,7 @@ doing any work.
 | `/api/sources/samgov` | SECRET-GATED | `GET()` line 39-40+: `cronSecret`/`authHeader` check (matches `grantsgov` pattern per its own header comment) |
 | `/api/sources/propublica` | SECRET-GATED | `GET()` line 26-29: same pattern |
 | `/api/sources/grantsgov` | SECRET-GATED | `GET()` line 32-35: same pattern |
-| `/api/sources/state-portals` | **UNGATED** | `GET()` (full file read) has zero auth check of any kind — no `CRON_SECRET`, no session check, no signature. Not referenced in `vercel.json`'s `crons[]` and not one of WGR-023/WGR-111's originally-documented 14 cron_secret routes — a previously-undocumented gap. Currently only protected by `middleware.ts`'s own default (any non-public path requires a valid session) — i.e. today it is reachable by *any* authenticated user of *any* role/org, not by an anonymous caller, purely because `middleware.ts` gates it as a side effect, not because the route protects itself. **New finding, not exempted, not given a `CRON_SECRET` check** (see decision below) — filed as **WGR-149** in the register. |
+| `/api/sources/state-portals` | **UNGATED** | `GET()` (full file read) has zero auth check of any kind — no `CRON_SECRET`, no session check, no signature. Not referenced in `vercel.json`'s `crons[]` and not one of WGR-023/WGR-111's originally-documented 14 cron_secret routes — a previously-undocumented gap. Currently only protected by `middleware.ts`'s own default (any non-public path requires a valid session) — i.e. today it is reachable by *any* authenticated user of *any* role/org, not by an anonymous caller, purely because `middleware.ts` gates it as a side effect, not because the route protects itself. **New finding, not exempted, not given a `CRON_SECRET` check** (see decision below) — filed as **WGR-155** in the register. |
 | `/api/sources/registry` | SESSION-GATED (not applicable) | `GET()` line 20-23: explicit `supabase.auth.getUser()` + `x-organization-id` header check before its one privileged action (seeding `funding_sources`); a normal authenticated on-demand route, not a cron/webhook target. No exemption needed or added. |
 | `/api/sources/poll` | SESSION-GATED (not applicable) | `requireAuth()` line 29-40: explicit `supabase.auth.getUser()` + `x-organization-id` header check; own header comment explicitly contrasts itself with the `CRON_SECRET`-gated `grantsgov`/`samgov` siblings as "the on-demand, session-scoped... sibling a user can trigger from the app." No exemption needed or added. |
 
@@ -66,7 +66,7 @@ doing any work.
 - **18 SECRET-GATED** — all 18 get a `src/middleware.ts` path exemption (step 6).
 - **1 UNGATED** (`/api/sources/state-portals`) — NOT exempted (would remove its
   only real protection, the middleware's own session requirement, without
-  replacing it with anything). Registered as a new finding (WGR-149) instead
+  replacing it with anything). Registered as a new finding (WGR-155) instead
   of silently fixed, per this task's own instruction for a webhook-shaped
   case; the same conservative treatment (don't exempt an unprotected route)
   is applied here even though it isn't a third-party webhook.
