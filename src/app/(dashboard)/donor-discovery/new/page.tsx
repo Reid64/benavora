@@ -96,6 +96,10 @@ export default function NewDonorDiscoveryPage() {
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [radiusMiles, setRadiusMiles] = useState(25);
   const [selectedStates, setSelectedStates] = useState<Set<string>>(new Set());
+  // BMF-only options (states/national geography, WGR-158/159) — left blank
+  // by default (no asset floor, adapter's own default limit of 200).
+  const [minAssets, setMinAssets] = useState("");
+  const [resultLimit, setResultLimit] = useState("");
 
   // Review + launch state
   const [requestName, setRequestName] = useState("");
@@ -166,11 +170,21 @@ export default function NewDonorDiscoveryPage() {
   }
 
   function buildGeography(): Record<string, unknown> {
-    if (geoMode === "national") return { national: true };
     if (geoMode === "radius" && geocodeResult) {
       return { center: { lat: geocodeResult.lat, lng: geocodeResult.lng }, radius_mi: radiusMiles };
     }
-    return { states: Array.from(selectedStates) };
+    // states/national both route to the BMF (foundation_directory) adapter
+    // (WGR-158/159) — min_assets/limit are that adapter's own filter
+    // parameters, carried inside the geography object the same way
+    // radius_mi is Places' own parameter within a radius geography.
+    const parsedAssets = minAssets.trim() ? Number(minAssets) : undefined;
+    const parsedLimit = resultLimit.trim() ? Number(resultLimit) : undefined;
+    const bmfExtras: Record<string, unknown> = {};
+    if (parsedAssets !== undefined && Number.isFinite(parsedAssets)) bmfExtras.min_assets = parsedAssets;
+    if (parsedLimit !== undefined && Number.isFinite(parsedLimit)) bmfExtras.limit = parsedLimit;
+
+    if (geoMode === "national") return { national: true, ...bmfExtras };
+    return { states: Array.from(selectedStates), ...bmfExtras };
   }
 
   async function handleLaunch() {
@@ -352,6 +366,27 @@ export default function NewDonorDiscoveryPage() {
               <p className="text-sm text-navy-500">
                 This request is not scoped to a specific location — enumeration runs across all US regions.
               </p>
+            )}
+
+            {(geoMode === "states" || geoMode === "national") && (
+              <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                <Input
+                  label="Minimum total assets (optional)"
+                  type="number"
+                  min={0}
+                  value={minAssets}
+                  onChange={(e) => setMinAssets(e.target.value)}
+                  placeholder="e.g. 1000000"
+                />
+                <Input
+                  label="Result limit"
+                  type="number"
+                  min={1}
+                  value={resultLimit}
+                  onChange={(e) => setResultLimit(e.target.value)}
+                  placeholder="200 (default)"
+                />
+              </div>
             )}
           </div>
         </Card>

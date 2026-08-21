@@ -1,5 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerate, type DdGeography } from '../src/lib/donor-discovery/adapters/google-places.js';
+import {
+  enumerate as enumeratePlaces,
+  type DdGeography,
+  type RadiusGeography,
+} from '../src/lib/donor-discovery/adapters/google-places.js';
+import {
+  enumerate as enumerateBmf,
+  type BmfGeography,
+} from '../src/lib/donor-discovery/adapters/bmf-directory.js';
 import { findOrCreateProspect, parseGeo } from '../src/lib/donor-discovery/directory.js';
 import { extractFromWebsite } from '../src/lib/enrichment/web-extractor.js';
 import { linkFoundationForDirectoryRecord } from '../src/lib/donor-discovery/foundation-linkage.js';
@@ -115,6 +123,20 @@ const ENRICHMENT_TTL_DAYS = 180; // matches donor_discovery_directory.enriched_a
 
 function sleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Dispatch rule (WGR-158/WGR-159): `{center, radius_mi}` geography routes to
+ * the Google Places adapter (NAICS taxonomy); `{states:[...]}` and
+ * `{national:true}` route to the BMF/foundation_directory adapter (NTEE
+ * taxonomy) — the exact two shapes google-places.ts's own
+ * `requireRadiusGeography()` rejects. This is checked in exactly one place
+ * (here) so the worker and the API route's pre-validation (WGR-159's own
+ * fix — reject an unsupported taxonomy/geography combination at creation
+ * time, not silently queue it) agree on the same rule.
+ */
+export function isBmfGeography(geography: DdGeography): geography is BmfGeography {
+  return 'states' in geography || 'national' in geography;
 }
 
 /**
@@ -279,14 +301,18 @@ export class DdRequestProcessor {
   async processItem(item: DdRequestRow): Promise<void> {
     // Fail fast on a malformed request (no real column named
     // `naics_taxonomy_nodes` exists on donor_discovery_requests — the real
-    // column is `taxonomy_ids`, a uuid[] resolved to NAICS codes below) —
-    // avoids an unnecessary donor_discovery_taxonomy round-trip when there's
-    // nothing to look up.
+    // column is `taxonomy_ids`, a uuid[] resolved to NAICS/NTEE codes below)
+    // — avoids an unnecessary donor_discovery_taxonomy round-trip when
+    // there's nothing to look up.
     if (!item.taxonomy_ids || item.taxonomy_ids.length === 0) {
       throw new Error('malformed_request: taxonomy_ids is empty or missing');
     }
 
-    // --- Resolve taxonomy_ids -> NAICS codes (Phase 1: Google Places only) ---
+    const useBmf = isBmfGeography(item.geography);
+    const requiredKind = useBmf ? 'ntee' : 'naics';
+    const adapterName = useBmf ? 'bmf_directory' : 'google_places';
+
+    // --- Resolve taxonomy_ids -> the codes the chosen adapter needs ---
     const { data: taxonomyRows, error: taxonomyError } = await this.supabase
       .from('donor_discovery_taxonomy')
       .select('id, code, kind')
@@ -297,29 +323,35 @@ export class DdRequestProcessor {
     }
 
     const rows = (taxonomyRows ?? []) as TaxonomyRow[];
-    const naicsCodes = rows.filter((r) => r.kind === 'naics').map((r) => r.code);
-    const nonNaicsCount = rows.length - naicsCodes.length;
+    const matchedCodes = rows.filter((r) => r.kind === requiredKind).map((r) => r.code);
+    const unmatchedCount = rows.length - matchedCodes.length;
 
-    if (nonNaicsCount > 0) {
+    if (unmatchedCount > 0) {
       console.warn(
-        `[DdRequestProcessor] Request ${item.id}: ${nonNaicsCount} non-NAICS taxonomy ` +
-          `node(s) skipped — civic/association enumeration adapters are Phase 4 ` +
-          `(architecture doc §2A items 2-5).`,
+        `[DdRequestProcessor] Request ${item.id}: ${unmatchedCount} taxonomy node(s) not of ` +
+          `kind '${requiredKind}' skipped — this request's geography routes to the ${adapterName} ` +
+          `adapter, which only resolves '${requiredKind}'-kind taxonomy.`,
       );
     }
 
-    if (naicsCodes.length === 0) {
+    if (matchedCodes.length === 0) {
       throw new Error(
-        'no_naics_taxonomy_nodes: request has no NAICS taxonomy nodes resolvable by the ' +
-          'Google Places adapter (Phase 1)',
+        `no_${requiredKind}_taxonomy_nodes: request has no ${requiredKind}-kind taxonomy nodes ` +
+          `resolvable by the ${adapterName} adapter (this request's geography routes here — see ` +
+          'isBmfGeography()).',
       );
     }
 
-    // --- Enumerate via the Google Places registry adapter (§2A) ---
-    const enumerateResult = await enumerate({
-      naicsCodes,
-      geography: item.geography,
-    });
+    // --- Enumerate via the geography-dispatched registry adapter ---
+    const enumerateResult = useBmf
+      ? await enumerateBmf({
+          nteeMajorGroups: matchedCodes,
+          geography: item.geography as BmfGeography,
+        })
+      : await enumeratePlaces({
+          naicsCodes: matchedCodes,
+          geography: item.geography as RadiusGeography,
+        });
 
     // --- Create/reuse org-scoped prospect rows linked to the shared directory ---
     // findOrCreateProspect is idempotent per (organization_id, directory_id) —
@@ -335,8 +367,8 @@ export class DdRequestProcessor {
     const enumeratedCount = uniqueDirectoryIds.length;
 
     console.log(
-      `[DdRequestProcessor] Request ${item.id}: enumerated ${enumeratedCount} prospect(s) ` +
-        `via ${enumerateResult.requestsMade} Places request(s) (~$${enumerateResult.estCostUsd.toFixed(2)})`,
+      `[DdRequestProcessor] Request ${item.id}: enumerated ${enumeratedCount} prospect(s) via ` +
+        `${adapterName} (${enumerateResult.requestsMade} request(s), ~$${enumerateResult.estCostUsd.toFixed(2)})`,
     );
 
     await this.supabase

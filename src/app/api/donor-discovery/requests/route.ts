@@ -42,15 +42,53 @@ function isRadiusGeography(v: unknown): v is RadiusGeography {
   );
 }
 
+// WGR-158/159: {states:[...]} and {national:true} route to the BMF
+// (foundation_directory) adapter — min_assets/limit are that adapter's own
+// filter parameters, carried inside the geography object the same way
+// radius_mi is Places' own parameter within a radius geography. Both are
+// optional; when present they must be sane numbers, rejected here (400)
+// rather than silently ignored or passed through to fail deep in the
+// worker.
+function hasValidOptionalBmfExtras(raw: Record<string, unknown>): boolean {
+  if ("min_assets" in raw && raw["min_assets"] !== undefined) {
+    const v = raw["min_assets"];
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return false;
+  }
+  if ("limit" in raw && raw["limit"] !== undefined) {
+    const v = raw["limit"];
+    if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) return false;
+  }
+  return true;
+}
+
 function isValidGeography(v: unknown): v is DdGeography {
   if (v === null || typeof v !== "object") return false;
   const raw = v as Record<string, unknown>;
   if (isRadiusGeography(raw)) return true;
-  if (Array.isArray(raw["states"]) && raw["states"].every((s) => typeof s === "string")) {
+  if (
+    Array.isArray(raw["states"]) &&
+    raw["states"].every((s) => typeof s === "string") &&
+    raw["states"].length > 0 &&
+    hasValidOptionalBmfExtras(raw)
+  ) {
     return true;
   }
-  if (raw["national"] === true) return true;
+  if (raw["national"] === true && hasValidOptionalBmfExtras(raw)) return true;
   return false;
+}
+
+/**
+ * The two geography families route to different enumeration adapters with
+ * different taxonomy kinds (worker/dd-request-processor.ts's
+ * `isBmfGeography()`/dispatch rule, mirrored here): radius -> Google Places
+ * -> NAICS taxonomy; states/national -> BMF/foundation_directory -> NTEE
+ * taxonomy. A request whose taxonomy_ids don't include any node of the
+ * kind its own geography needs would previously get a normal 201 here and
+ * only fail once the worker claimed it seconds later (WGR-159's own
+ * original finding) — checked at creation time now instead.
+ */
+function requiredTaxonomyKind(geography: DdGeography): "naics" | "ntee" {
+  return isRadiusGeography(geography) ? "naics" : "ntee";
 }
 
 export async function POST(request: Request) {
@@ -84,7 +122,35 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "geography must be one of {center:{lat,lng}, radius_mi}, {states:[...]}, or {national:true}.",
+          "geography must be one of {center:{lat,lng}, radius_mi}, {states:[...]} (non-empty, " +
+          "optionally with min_assets/limit), or {national:true} (optionally with min_assets/limit).",
+      },
+      { status: 400 },
+    );
+  }
+
+  // WGR-159: reject a taxonomy/geography combination that would only ever
+  // fail once the worker claims it, rather than silently queuing it.
+  const requiredKind = requiredTaxonomyKind(geography);
+  const { data: taxonomyRows, error: taxonomyError } = await supabase
+    .from("donor_discovery_taxonomy")
+    .select("kind")
+    .in("id", taxonomy_ids as string[]);
+
+  if (taxonomyError) {
+    return NextResponse.json({ error: "Failed to validate taxonomy_ids." }, { status: 500 });
+  }
+  const hasMatchingKind = ((taxonomyRows ?? []) as Array<{ kind: string }>).some(
+    (r) => r.kind === requiredKind,
+  );
+  if (!hasMatchingKind) {
+    const geographyKind = requiredKind === "naics" ? "a radius (center/radius_mi)" : "a states or national";
+    return NextResponse.json(
+      {
+        error:
+          `None of the given taxonomy_ids are '${requiredKind}'-kind taxonomy nodes. ${geographyKind} ` +
+          `geography requires at least one '${requiredKind}'-kind taxonomy node.`,
+        code: "taxonomy_geography_mismatch",
       },
       { status: 400 },
     );
