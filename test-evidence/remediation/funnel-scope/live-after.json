@@ -1,0 +1,55 @@
+{
+  "capturedAt": "2026-08-21T15:43:03.957Z",
+  "baseUrl": "https://www.benavora.com",
+  "funnelCounts": {
+    "new": "133812",
+    "reviewing": "0",
+    "contacted": "0",
+    "applied": "0",
+    "received": "0",
+    "rejected": "0"
+  },
+  "statValues": [
+    {
+      "label": "Prospects Identified",
+      "found": true,
+      "value": "133812"
+    },
+    {
+      "label": "High-Intent Signals",
+      "found": true,
+      "value": "0"
+    },
+    {
+      "label": "Active Campaigns",
+      "found": true,
+      "value": "0"
+    },
+    {
+      "label": "AutoApply Submissions",
+      "found": true,
+      "value": "0"
+    },
+    {
+      "label": "Active Requests",
+      "found": true,
+      "value": "0"
+    },
+    {
+      "label": "Avg Score",
+      "found": true,
+      "value": "—"
+    },
+    {
+      "label": "New & Reviewing",
+      "found": true,
+      "value": "133812"
+    },
+    {
+      "label": "Contacted This Month",
+      "found": true,
+      "value": "0"
+    }
+  ],
+  "pageErrors": []
+}

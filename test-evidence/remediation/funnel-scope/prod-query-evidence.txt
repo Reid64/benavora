@@ -1,0 +1,65 @@
+=== org identity ===
+                  id                  |       name       
+--------------------------------------+------------------
+ b1ab7402-dfc2-4712-869f-70ea3566cc1d | FAITH Foundation
+(1 row)
+
+
+=== foundation_directory row count (the IRS BMF reference table) ===
+ count  
+--------
+ 133812
+(1 row)
+
+
+=== donor_discovery_prospects per-stage counts for this org ===
+   stage   | count  
+-----------+--------
+ new       | 133812
+ reviewing |      0
+ contacted |      0
+ applied   |      0
+ received  |      0
+ rejected  |      0
+(6 rows)
+
+
+=== donor_discovery_requests rows for this org (the stuck job) ===
+                  id                  |           name            |  status  | counts |          created_at           | completed_at |           age           
+--------------------------------------+---------------------------+----------+--------+-------------------------------+--------------+-------------------------
+ cf95be82-b66c-48af-a00b-782852b132b5 | Foundation Directory Seed | complete | {}     | 2026-07-26 06:30:26.759195+00 |              | 26 days 09:13:39.307968
+(1 row)
+
+
+=== RLS policies on the 4 stat-query tables ===
+         tablename         |               policyname                |  cmd   |                         qual                         
+---------------------------+-----------------------------------------+--------+------------------------------------------------------
+ corporate_intent_signals  | intent_signals_org                      | ALL    | (org_id = ( SELECT profiles.organization_id         +
+                           |                                         |        |    FROM profiles                                    +
+                           |                                         |        |   WHERE (profiles.id = auth.uid())))
+ donor_discovery_prospects | donor_discovery_prospects_org_isolation | ALL    | (organization_id = current_org_id())
+ email_campaign_sequences  | email_sequences_org                     | ALL    | (organization_id = ( SELECT profiles.organization_id+
+                           |                                         |        |    FROM profiles                                    +
+                           |                                         |        |   WHERE (profiles.id = auth.uid())))
+ submission_queue          | submission_queue_org_delete             | DELETE | (organization_id = ( SELECT profiles.organization_id+
+                           |                                         |        |    FROM profiles                                    +
+                           |                                         |        |   WHERE (profiles.id = auth.uid())))
+ submission_queue          | submission_queue_org_insert             | INSERT | 
+ submission_queue          | submission_queue_org_select             | SELECT | (organization_id = ( SELECT profiles.organization_id+
+                           |                                         |        |    FROM profiles                                    +
+                           |                                         |        |   WHERE (profiles.id = auth.uid())))
+ submission_queue          | submission_queue_org_update             | UPDATE | (organization_id = ( SELECT profiles.organization_id+
+                           |                                         |        |    FROM profiles                                    +
+                           |                                         |        |   WHERE (profiles.id = auth.uid())))
+(7 rows)
+
+
+=== RLS enabled check ===
+          relname          | relrowsecurity 
+---------------------------+----------------
+ corporate_intent_signals  | t
+ donor_discovery_prospects | t
+ email_campaign_sequences  | t
+ submission_queue          | t
+(4 rows)
+
