@@ -2,6 +2,25 @@
 
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+
+// Proper Next.js font loading (build-time self-hosted, not a runtime
+// fonts.googleapis.com request) instead of the inline @import this used to
+// carry inside the raw <style> block below. That @import's single-quoted
+// url('...') was a real hydration-mismatch source: React's server renderer
+// HTML-entity-escapes apostrophes in a <style> tag's text children
+// (' -> &#x27;), but <style> is a browser "raw text" element whose content
+// the HTML parser never entity-decodes, so the SSR'd DOM's actual text node
+// kept the literal &#x27; while the client's first render produced a real
+// apostrophe - a genuine content difference, not a false positive, and
+// exactly the "Text content does not match server-rendered HTML" error this
+// component threw on every load.
+const interFont = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], display: "swap" });
+const plusJakartaSansFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 // ─── Brand Tokens ─────────────────────────────────────────────────────────────
 // Dashboard/Home section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
@@ -41,8 +60,8 @@ const B = {
   borderFaint:"rgba(255,255,255,0.06)",
 };
 
-const sans    = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-const display = "'Plus Jakarta Sans', 'Inter', sans-serif";
+const sans    = `${interFont.style.fontFamily}, -apple-system, BlinkMacSystemFont, sans-serif`;
+const display = `${plusJakartaSansFont.style.fontFamily}, ${interFont.style.fontFamily}, sans-serif`;
 
 // ─── Animated Counter ─────────────────────────────────────────────────────────
 function Counter({ target, suffix = "", decimals = 0 }: { target: number; suffix?: string; decimals?: number }) {
@@ -235,7 +254,6 @@ export default function BenavoraMarketing() {
   return (
     <div style={{ backgroundColor: B.bg, color: B.textPrimary, fontFamily: sans, minHeight: "100vh", overflowX: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         ::selection { background: ${B.blue}; color: #fff; }
         body { -webkit-font-smoothing: antialiased; }
