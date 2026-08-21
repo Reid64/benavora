@@ -32,7 +32,12 @@ two id-list-filter cases, a PostgREST `!inner` embed instead of a client-side id
 (commit `cde8cd9`, Grants.gov dead endpoint + wrong response shape, live-verified 100 real records);
 WGR-108/WGR-109/WGR-110 (commit `6dd5f32`, three P0 SSRF findings closed with one new shared guard,
 `src/lib/security/ssrf-guard.ts`, applied at all three raw-fetch/browser-navigation sites — real
-DNS-based live verification, 0 hits on a real local listener, 30 unit tests passing).
+DNS-based live verification, 0 hits on a real local listener, 30 unit tests passing); WGR-129
+(commit `fc8d0fe`, `POST /api/ai/draft` could 200 while persisting zero `draft_versions` rows —
+root cause: a persist error caught and swallowed, not schema drift or a missing call. Fixed by
+making the insert throw instead; live-verified with two real Claude calls — a forced failure now
+returns a real 500 with zero rows persisted, a real success writes a row whose content matches the
+response byte-for-byte).
 Full detail in `STATE_OF_THE_BUILD.md`'s matching banner.
 
 **Fix applied, branch-verified, NOT marked RESOLVED — production-apply deliberately deferred:**
@@ -53,6 +58,34 @@ daily quota was exhausted mid-session (`HTTP 429`, resets 2026-08-21T00:00:00Z) 
 live call could confirm > 0 real records through the fixed functions. **Next session: re-run
 `npx tsx scripts/audit/int-fix-live-after.mjs` after that time and flip these three to RESOLVED once
 confirmed.** See `WIRING_GAP_REGISTER.md` rows WGR-139/142/143 (`FIX-APPLIED-PENDING-VERIFICATION`).
+
+---
+
+## Prior Session — August 20, 2026 (remediation: WGR-129, silent AI-draft data loss)
+
+**Focus:** close P0 WGR-129 — `POST /api/ai/draft` could return a real `200` with a full generated
+draft while persisting zero rows to `draft_versions`, with no user-facing signal the draft was lost.
+
+**Root cause (b of a/b/c/d, confirmed not the others):** `generateDraft()`'s `draft_versions` insert
+(`src/lib/drafts/generator.ts`) checked for a write error, `console.error()`'d it, and continued
+with `savedVersion:null` instead of failing. The live schema matches the insert exactly (checked
+directly, not assumed) — not schema drift; the insert is always made — not a missing call; there is
+no skip conditional.
+
+**Fix:** the insert now throws on failure; the route's existing (already-correct) catch block turns
+that into a real `500` + `agent_runs.status='failed'` instead of a silent `200`.
+`GenerateDraftOutput.savedVersion` / `DraftResult.savedVersion` tightened from nullable to required.
+The only other real caller (`auto-generator.ts`, the AutoApply draft queue) already handles a thrown
+error correctly — fixed for free.
+
+**Verification, real data, two real Claude calls:** a real dev server against the local Supabase
+stack, a real throwaway writer session. Dropping the `version_number` trigger first (the finding's
+own documented real failure mode) → real `500`, zero rows persisted, `agent_runs` marked `failed`.
+Trigger restored → real `200`, the persisted row read back matches the response `content`
+byte-for-byte.
+
+**Evidence:** `test-evidence/remediation/draft-loss-fix/draft-loss-fix-verify.json`. `pnpm run
+build` exit 0. Register: WGR-129 → `RESOLVED`.
 
 ---
 

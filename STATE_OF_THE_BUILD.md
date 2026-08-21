@@ -65,6 +65,21 @@ data before being marked RESOLVED in the register:**
   DNS resolution and a real local loopback listener: all 7 required block-cases blocked, a real
   public HTTPS fetch succeeds, and the listener records 0 hits when targeted through the guarded
   path. 30 unit tests pass. `pnpm run build` and `pnpm run build:worker` both exit 0.
+- WGR-129 — commit `fc8d0fe` (2026-08-20): `POST /api/ai/draft` could return a real `200` with a
+  full generated draft while persisting zero rows to `draft_versions`. Root cause (b): the
+  `draft_versions` insert in `generateDraft()` (`src/lib/drafts/generator.ts`) caught its own write
+  error, `console.error()`'d it, and continued with `savedVersion:null` instead of failing — not a
+  missing call, not schema drift (the live schema matches the insert column-for-column, no PT-06
+  finding flags this table), not a skip conditional. Fixed by making the insert `throw` on failure,
+  which the route's already-correct `catch` block turns into a real `500` and an
+  `agent_runs.status='failed'` row instead of a silent `200`. `GenerateDraftOutput.savedVersion` /
+  `DraftResult.savedVersion` tightened from nullable to required, making "a 200 always has a real
+  saved draft" a compile-time guarantee. Live-verified with two real (non-mocked) Claude API calls
+  against a real dev server + the local Supabase stack: dropping the `version_number` trigger first
+  (reproducing the exact real failure mode this finding documents) now produces a real `500` with
+  zero rows persisted and `agent_runs` marked `failed`; with the trigger restored, a second real
+  generation returns `200` and the `draft_versions` row read back afterward matches the response
+  body's `content` byte-for-byte. `pnpm run build` exit 0.
 
 **Fix applied, branch-verified, production-apply deliberately deferred (NOT marked RESOLVED):**
 - WGR-130, WGR-131 — commit `9b8982e` (2026-08-20): the applications stage-transition state
@@ -104,6 +119,54 @@ data before being marked RESOLVED in the register:**
   2026-08-21T00:00:00Z, run `npx tsx scripts/audit/int-fix-live-after.mjs`, confirm each of the three
   returns > 0 real records, save the results over the existing `*-live-after.json` files (currently
   real 429 captures, not successes), and flip WGR-139/142/143 to RESOLVED.**
+
+---
+
+## SESSION — August 20, 2026 (remediation: WGR-129, silent AI-draft data loss)
+
+**Scope:** close P0 WGR-129 — `POST /api/ai/draft` could return a genuine `200` with a full
+generated draft while persisting zero rows to `draft_versions`, losing the draft with no
+user-facing signal.
+
+**Root cause, confirmed precisely (b of a/b/c/d — a persist that fails and is caught-and-ignored):**
+`generateDraft()`'s `draft_versions` insert (`src/lib/drafts/generator.ts`) checked the Supabase
+write for an error, `console.error()`'d it, and fell through with `savedVersion:null` rather than
+failing. Not (a) — the insert call is real and always made. Not (c) — the live `draft_versions`
+schema (checked directly against the local stack, not assumed) matches the insert's columns
+exactly, and no PT-06 migration-drift finding flags this table. Not (d) — there is no conditional
+skipping the write.
+
+**Fix:** the insert now `throw`s on failure instead of swallowing it. `POST /api/ai/draft`'s
+existing `catch` block (already correct, untouched) turns that into a real `500
+{code:"generation_failed"}` and marks `agent_runs.status='failed'` — fail loud, never silent.
+`GenerateDraftOutput.savedVersion` and `DraftResult.savedVersion` (`src/types/ai.ts`) tightened from
+`SavedDraftVersion | null` to `SavedDraftVersion`, so "a 200 response always has a real persisted
+draft" is a compile-time guarantee, not just a runtime one. The only other real caller of
+`generateDraft()` (`src/lib/drafts/auto-generator.ts`, the AutoApply draft-queue worker) already
+wraps the call in a try/catch that marks its queue item failed on any thrown error — this fix makes
+that path correct too, with no change needed there.
+
+**Verification — real data, two real (non-mocked) Claude API calls, not a code read:** a real dev
+server was started against the already-running local Supabase stack, with a real throwaway
+org/opportunity/writer session (no browser — real `signInWithPassword` + real `@supabase/ssr`
+cookie derivation). (1) **Failure case:** `trg_set_draft_version_number` was dropped first,
+reproducing the exact real failure mode this finding's own root-cause section documents
+(`version_number` NOT NULL, no default, no trigger to assign it) — a real `POST /api/ai/draft`
+returned `500`, zero `draft_versions` rows exist for the call, and `agent_runs.error_message` reads
+the real underlying Postgres not-null-violation message. (2) **Success case:** trigger restored, a
+second real generation returned `200` with a real 3,576-character draft; the `draft_versions` row it
+wrote was read back independently and its `content` matches the response body's `content`
+byte-for-byte; `agent_runs.status='completed'`.
+
+**Not touched, deliberately out of scope:** the correlated stuck-'running'-forever/`maxDuration`
+latency symptom this finding also describes (a separate timeout concern, not the persistence-swallow
+bug); a parallel `savedVersion?: SavedDraftVersion | null` "best-effort save" pattern noticed in
+`HumanizeResult` (`/api/ai/humanize`, `src/types/ai.ts`) during this pass — same shape, different
+endpoint, not part of WGR-129, flagged here as a worthwhile follow-up rather than fixed silently.
+
+**Evidence:** `test-evidence/remediation/draft-loss-fix/draft-loss-fix-verify.json`.
+**Reproduction:** `node scripts/audit/draft-loss-fix-verify.mjs` (spins up the dev server, fixtures,
+and both real cases end to end). `pnpm run build` exit 0.
 
 ---
 

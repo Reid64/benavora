@@ -267,8 +267,8 @@ export interface GenerateDraftOutput {
   /** Approximate word count of the draft. */
   wordCount: number;
   sources: KnowledgeSource[];
-  /** The draft_versions row saved on generation (null if the save failed). */
-  savedVersion: SavedDraftVersion | null;
+  /** The draft_versions row saved on generation. Always present — generateDraft() throws rather than returning with an unsaved draft (WGR-129). */
+  savedVersion: SavedDraftVersion;
   tokensUsed: number;
   rubricDimensionSummary: Array<{
     name: string;
@@ -961,8 +961,13 @@ export async function generateDraft(
     })),
   ];
 
-  // Save the draft version. Best-effort: a save failure must not fail generation.
-  let savedVersion: SavedDraftVersion | null = null;
+  // Save the draft version. NOT best-effort (WGR-129): a generated draft the
+  // caller can't retrieve later is equivalent to no draft at all, so a save
+  // failure here must fail the whole generation loudly (throw), not be
+  // swallowed into a 200 response with savedVersion:null. The caller
+  // (POST /api/ai/draft) already has a correct catch block that surfaces a
+  // 500 and marks the agent_run failed — this just stops bypassing it.
+  let savedVersion: SavedDraftVersion;
   {
     const { data: version, error: versionError } = await supabase
       .from("draft_versions")
@@ -979,17 +984,18 @@ export async function generateDraft(
       })
       .select("id, version_number, humanization_status, created_at")
       .single();
-    if (versionError) {
-      console.error("DRAFT VERSION SAVE ERROR:", versionError.message);
-    } else if (version) {
-      savedVersion = {
-        id: version.id as string,
-        versionNumber: version.version_number as number,
-        humanizationStatus:
-          version.humanization_status as SavedDraftVersion["humanizationStatus"],
-        createdAt: version.created_at as string,
-      };
+    if (versionError || !version) {
+      throw new Error(
+        `Failed to save draft version: ${versionError?.message ?? "no row returned"}`,
+      );
     }
+    savedVersion = {
+      id: version.id as string,
+      versionNumber: version.version_number as number,
+      humanizationStatus:
+        version.humanization_status as SavedDraftVersion["humanizationStatus"],
+      createdAt: version.created_at as string,
+    };
   }
 
   // Mirror the draft onto the most recent application for this opportunity.

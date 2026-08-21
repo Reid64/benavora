@@ -113,10 +113,11 @@ export interface DraftResult {
   confidenceScore: number;
   sources: KnowledgeSource[];
   /**
-   * The version auto-persisted to draft_versions on generation. Null only if
-   * the (best-effort) save failed - generation itself still succeeds.
+   * The version persisted to draft_versions on generation. Always present on
+   * a 200 response (WGR-129) - a save failure makes the whole request fail
+   * (5xx), it is never reported as a successful draft with no saved row.
    */
-  savedVersion?: SavedDraftVersion | null;
+  savedVersion: SavedDraftVersion;
   /** Scoring rubric dimensions retrieved from the intelligence library (if available). */
   rubric?: RubricDimension[] | null;
   /** True when the rubric was inferred from the opportunity description rather than matched from the database. */

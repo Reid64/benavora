@@ -1,0 +1,38 @@
+{
+  "capturedAt": "2026-08-21T00:31:14.746Z",
+  "failureCase": {
+    "description": "draft_versions.version_number trigger dropped, then POST /api/ai/draft called for real",
+    "http_status": 500,
+    "http_ok": false,
+    "response_body": {
+      "error": "The draft could not be generated. Please try again.",
+      "code": "generation_failed"
+    },
+    "draft_versions_count_before": 0,
+    "draft_versions_count_after": 0,
+    "agent_run_status": "failed",
+    "agent_run_error_message": "Failed to save draft version: null value in column \"version_number\" of relation \"draft_versions\" violates not-null constraint",
+    "outcome": "PASS — endpoint failed loud (non-200), zero rows persisted, agent_run marked failed"
+  },
+  "successCase": {
+    "description": "trigger restored, POST /api/ai/draft called for real, response compared against the real persisted row",
+    "http_status": 200,
+    "http_ok": true,
+    "response_content_length": 3576,
+    "response_confidence_score": 55,
+    "saved_version_id": "e5034fcb-8387-4dc3-b46d-5de813331899",
+    "draft_versions_count_before": 0,
+    "draft_versions_count_after": 1,
+    "db_row_found": true,
+    "db_row_content_length": 3576,
+    "db_row_version_number": 1,
+    "content_matches_response_exactly": true,
+    "agent_run_status": "completed",
+    "outcome": "PASS — 200, real row persisted, content matches response exactly, agent_run marked completed"
+  },
+  "summary": {
+    "failureCasePassed": true,
+    "successCasePassed": true,
+    "allPassed": true
+  }
+}
