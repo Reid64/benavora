@@ -2149,3 +2149,94 @@ Per-org autonomous mode settings — the toggles and confidence threshold slider
 | donor_discovery_directory | Unknown | 500K+ per org |
 | pig_nodes | 0 | 10M+ |
 | pig_edges | 0 | 50M+ |
+
+---
+
+## knowledge schema (dedicated schema, not public)
+
+Added by `supabase/migrations/146_knowledge_schema.sql` (FORGE queue `mkt-07`, per `BENAVORA_MARKETING_SITE_BLUEPRINT.md` §7, architecture decisions M-006/M-007). Backs Benavora Assist (the marketing-site chatbot) and, in a later phase, the in-app knowledge surface. Lives in its own Postgres schema (`knowledge`), not `public` — do not confuse with the pre-existing, unrelated `public.knowledge_base`, `public.knowledge_patterns`, or `public.knowledge_queries` tables documented elsewhere in this file.
+
+RLS posture: deny-all. All four tables have `ENABLE ROW LEVEL SECURITY` with zero policies, plus an explicit `REVOKE ALL ... FROM anon, authenticated` and `GRANT ALL ... TO service_role`. Confirmed live: `anon` key querying `knowledge.sources` via PostgREST returns HTTP 406 `PGRST106` ("Invalid schema: knowledge") — the schema is not even exposed to PostgREST, a stronger boundary than a per-row RLS denial. Every read/write must go through `service_role`, via `src/lib/knowledge/db.ts`'s `knowledgeDb()` (built on the shared `createAdminClient()` factory in `src/lib/supabase/admin.ts`, WGR-158) or the `knowledge.search`/`knowledge.rate_count` `SECURITY DEFINER` functions.
+
+### knowledge.sources
+Corpus source registry — one row per document collection (an IRS pub series, an association's resource library, etc.), tagged with the rights class that governs how it may be surfaced.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | default gen_random_uuid() |
+| name | text NOT NULL | |
+| publisher | text NOT NULL | |
+| tier | smallint NOT NULL | CHECK 1-4, per blueprint §7.4 seed tiers |
+| rights | text NOT NULL | CHECK IN ('host','index','link') |
+| license_note | text | |
+| url | text NOT NULL UNIQUE | |
+| format | text NOT NULL | CHECK IN ('pdf','html','epub','xlsx','csv','txt') |
+| topics | text[] NOT NULL DEFAULT '{}' | |
+| public_listing | boolean NOT NULL DEFAULT true | |
+| added_at | timestamptz NOT NULL DEFAULT now() | |
+
+### knowledge.documents
+One fetched artifact per source.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | default gen_random_uuid() |
+| source_id | uuid NOT NULL | FK → knowledge.sources(id) ON DELETE CASCADE |
+| title | text NOT NULL | |
+| canonical_url | text NOT NULL | |
+| storage_path | text | Populated for `host`-rights documents only |
+| sha256 | text NOT NULL | Idempotency key for re-ingestion, paired with source_id |
+| byte_size | integer | |
+| fetched_at | timestamptz NOT NULL DEFAULT now() | |
+| status | text NOT NULL DEFAULT 'fetched' | CHECK IN ('fetched','chunked','embedded','failed') |
+| error | text | |
+
+**Unique:** (source_id, sha256)
+
+### knowledge.chunks
+Embedded, searchable passages, ~800 tokens with 120 overlap per the ingestion pipeline (§7.2).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | default gen_random_uuid() |
+| document_id | uuid NOT NULL | FK → knowledge.documents(id) ON DELETE CASCADE |
+| ordinal | integer NOT NULL | |
+| content | text NOT NULL | |
+| token_count | integer NOT NULL | |
+| embedding | vector(1536) | pgvector; indexed via ivfflat (vector_cosine_ops, lists=100) |
+| tsv | tsvector | GENERATED ALWAYS AS to_tsvector('english', content) STORED; indexed via GIN |
+| metadata | jsonb NOT NULL DEFAULT '{}' | |
+
+**Unique:** (document_id, ordinal)
+
+### knowledge.queries
+Query/answer log for both chatbot surfaces, and the basis for the public-surface rate limit.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | default gen_random_uuid() |
+| surface | text NOT NULL | CHECK IN ('public','app') |
+| org_id | uuid | Set only for the in-app surface |
+| client_key | text | Rate-limit key for the public surface (e.g. IP-derived) |
+| question | text NOT NULL | |
+| answer | text | |
+| chunk_ids | uuid[] NOT NULL DEFAULT '{}' | Chunks cited in the answer |
+| model | text | |
+| latency_ms | integer | |
+| created_at | timestamptz NOT NULL DEFAULT now() | |
+
+**Index:** (client_key, created_at DESC)
+
+### Functions
+
+**`knowledge.search(query_embedding vector(1536), query_text text, match_count integer DEFAULT 8)`** — `SECURITY DEFINER`, `SET search_path = knowledge, public, extensions` (the `extensions` schema is required live: this project's `vector` extension is installed there, not `public` — confirmed via `pg_extension.extnamespace`, and the function fails with `operator does not exist: extensions.vector <=> extensions.vector` without it). Hybrid retrieval: pgvector cosine top-20 unioned with Postgres full-text (`ts_rank_cd` on `chunks.tsv`) top-20, combined by reciprocal rank fusion (`1.0 / (60 + rank)`), filtered to `sources.rights IN ('host','index')` (never `link`), returns top `match_count` by fused score. `REVOKE ALL ... FROM PUBLIC, anon, authenticated`; `GRANT EXECUTE ... TO service_role` only.
+
+**`knowledge.rate_count(p_client_key text, p_window interval DEFAULT interval '24 hours')`** — `SECURITY DEFINER`, `SET search_path = knowledge`. Counts `knowledge.queries` rows for a `client_key` within the window, backing the public surface's per-IP 30-questions/day budget guard (blueprint §7.3). Same revoke/grant posture as `knowledge.search`.
+
+### TypeScript access layer
+
+`src/lib/knowledge/db.ts` — `knowledgeDb()` returns `createAdminClient().schema('knowledge')` (reuses the WGR-158 shared service-role factory, does not construct a second client); exports `Source`/`Document`/`Chunk`/`SearchHit` types matching the columns above; `searchKnowledge(embedding, text, k = 8)` wraps `.rpc('search', ...)`; `rateCount(clientKey)` wraps `.rpc('rate_count', ...)`. Both throw on a Supabase error rather than swallowing it.
+
+### Verification evidence
+
+`test-evidence/knowledge/knw-001-verify.txt` — live `information_schema.tables`/`pg_proc` query output confirming all four tables and both functions exist, plus the anon-key PostgREST denial proof (406 `PGRST106`).

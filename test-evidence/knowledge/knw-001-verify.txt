@@ -1,0 +1,25 @@
+=== knowledge schema verification, 2026-08-22T07:06:55Z ===
+
+-- SELECT table_name FROM information_schema.tables WHERE table_schema='knowledge' ORDER BY 1;
+ table_name 
+------------
+ chunks
+ documents
+ queries
+ sources
+(4 rows)
+
+
+-- SELECT proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE nspname='knowledge';
+  proname   
+------------
+ rate_count
+ search
+(2 rows)
+
+
+=== STEP 4: anon-key RLS-denial proof against knowledge.sources ===
+client: @supabase/supabase-js, anon key, .schema('knowledge').from('sources').select('*')
+status: 406 Not Acceptable
+data: null
+error: {"code":"PGRST106","details":null,"hint":"Only the following schemas are exposed: public, graphql_public","message":"Invalid schema: knowledge"}
