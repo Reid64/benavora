@@ -8667,4 +8667,20 @@ Register: 13 of the ~21-row migration/schema-drift Batch 1 cluster (WGR-041 thro
 
 Housekeeping: appended today's findings to the working-copy `MIGRATION_IDEMPOTENCY_AUDIT.md` (including an explicit note on the ledger-audit script's own column-detection blind spot, so a future session doesn't have to rediscover it); removed 16 stale `.next-pt*`/`.next-*-2026-*` entries from `tsconfig.json`'s `include` list and deleted the 5 that still existed on disk; added `/.next-*/` and `/.pt05-local-stack/` to `.gitignore`.
 
+---
+
+## Session 13 — August 21, 2026: mkt-001 — marketing theme/nav/footer infrastructure
+
+Built the theme-tokens + nav/footer/CTA/section-component slice of `BENAVORA_MARKETING_SITE_BLUEPRINT.md`'s FORGE `mkt-00` queue item (not the MDX loader or the 22 page skeletons — out of scope this pass).
+
+STEP 1 (`test-evidence/marketing/mkt-001-inventory.md`): `src/app/(marketing)/layout.tsx` already existed and already exempts `/` and `/how-it-works` from shared chrome, since both are the self-contained dark v15 landing page (`MarketingPageClient.tsx`) and its deep-dive continuation (`HowItWorksClient.tsx`) with their own nav/footer/global CSS. Preserved that exemption rather than rewriting the 1000+ line landing page's internal nav, which is far outside this task's 10 named steps.
+
+Created exactly to spec: `src/lib/marketing/theme.ts`, `src/lib/marketing/nav.ts`, `src/components/marketing/MarketingNav.tsx` (hover+click mega-menus, active-route underline, custom hamburger, mobile panel; wordmark imported from the existing `src/components/layout/Logo.tsx` — no marketing-specific wordmark component existed), `MarketingFooter.tsx`, `Cta.tsx`, `Section.tsx`. Edited `src/app/(marketing)/layout.tsx` (Fraunces → `--mk-display`, Inter → `--mk-body` via `next/font/google`; wires the three new components for every non-exempt route). `src/app/layout.tsx` left untouched per the task's explicit instruction.
+
+`next.config.mjs`: one `redirects()` entry, `/for-consultants` → `/solutions` (`permanent: true`), all existing keys preserved. Documented, not fixed (out of scope): `/solutions` and the other new-IA nav targets (`/platform`, `/agents`, `/why-benavora`, `/trust`, `/company`, `/resources`, `/demo`) have no page yet and aren't in `src/middleware.ts`'s `PUBLIC_PATHS`, so anonymous visitors following them land on `/login` until a later `mkt-0X` step builds those pages and updates `PUBLIC_PATHS` alongside them. Deliberately did not touch `middleware.ts` speculatively — the nav data's `TOP_LINKS` "Agents" link (`/agents`) collides with the real, already-protected `src/app/(dashboard)/agents` route, so a blanket new-route exemption risked de-protecting a live authenticated feature.
+
+Verification: `pnpm tsc --noEmit` 0 new errors (10 pre-existing `bmf-directory-adapter.test.ts` errors confirmed via `git log`/`git status` to predate and be unrelated to this session). Playwright against `next dev -p 3100` on `/pricing` (named by the task; `/` skipped per the documented exemption): nav renders, Platform mega-menu opens on hover, Book Demo button computed `backgroundColor` = `rgb(196, 102, 58)`. Screenshots in `test-evidence/marketing/mkt-001/`. `/` and `/how-it-works` re-verified at HTTP 200 post-edit. `pnpm run build` exit 0 with real lint+type validation. `npx vitest run` exit 0 (521 passed, 13 todo, 1 skipped, 0 failed).
+
+Committed as `mkt: ...` (files created/changed by this task only — `src/lib/marketing/`, `src/components/marketing/`, `src/app/(marketing)/layout.tsx`, `next.config.mjs`, `test-evidence/marketing/`). Not pushed, per the task's explicit instruction that FORGE pushes on queue completion.
+
 No `src/` application code was changed this session — every fix was a database migration or a config/doc file.

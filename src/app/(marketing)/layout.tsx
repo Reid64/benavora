@@ -1,11 +1,15 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Fraunces, Inter } from "next/font/google";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { mk } from "@/lib/marketing/theme";
 
-// Marketing route-group layout. Provides the shared light nav + footer for the
-// secondary marketing pages (/privacy, /terms, /for-consultants).
+// Marketing route-group layout. Provides the shared forest/paper nav + footer
+// (src/components/marketing/MarketingNav.tsx, MarketingFooter.tsx) for the
+// secondary marketing pages (/for-consultants, /pricing, /privacy, /terms,
+// /security).
 //
 // The landing page ("/") is the converted v15 marketing page — it is fully
 // self-contained (its own nav, footer, and GLOBAL CSS, including a `nav {}`
@@ -15,15 +19,21 @@ import { usePathname } from "next/navigation";
 // /how-it-works is a deep-dive continuation of the landing page (same dark B-token
 // visual system, its own nav/footer) rather than a standalone marketing sub-page —
 // same reasoning as "/", so it's exempted the same way.
+// See test-evidence/marketing/mkt-001-inventory.md for the full reasoning.
 
-const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "How It Works", href: "/#how" },
-  { label: "Features", href: "/#features" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "FAQ", href: "/#faq" },
-  { label: "For Agencies", href: "/for-consultants" },
-  { label: "Security", href: "/security" },
-];
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--mk-display",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--mk-body",
+  display: "swap",
+});
 
 export default function MarketingLayout({
   children,
@@ -39,80 +49,13 @@ export default function MarketingLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface text-slate-800">
-      {/* Top nav */}
-      <header className="sticky top-0 z-40 border-b border-[#e5e7eb] bg-white/90 backdrop-blur">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">
-          <Link href="/" className="flex items-center ml-0" aria-label="Benavora home">
-            <Image
-              src="/benavora_logo.png"
-              alt="Benavora"
-              width={84}
-              height={56}
-              style={{ height: "56px", width: "auto" }}
-            />
-          </Link>
-
-          <div className="hidden items-center gap-7 lg:flex">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm text-slate-800 transition hover:text-[#B88A2E]"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link
-              href="/login"
-              className="text-sm text-slate-800 transition hover:text-[#B88A2E]"
-            >
-              Login
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-lg bg-gradient-to-r from-[#B88A2E] to-[#D4A94D] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-900/10 transition hover:from-[#A47823] hover:to-[#B88A2E] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B88A2E] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-            >
-              Start Free Trial
-            </Link>
-          </div>
-        </nav>
-      </header>
-
-      <main className="flex-1">{children}</main>
-
-      {/* Footer */}
-      <footer className="border-t border-[#e5e7eb] bg-slate-50">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-slate-400 sm:flex-row">
-          <p>© 2026 Benavora. All rights reserved.</p>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            <Link href="/privacy" className="transition hover:text-[#B88A2E]">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="transition hover:text-[#B88A2E]">
-              Terms of Service
-            </Link>
-            <Link
-              href="/for-consultants"
-              className="transition hover:text-[#B88A2E]"
-            >
-              For Consultants
-            </Link>
-            <Link href="/security" className="transition hover:text-[#B88A2E]">
-              Security
-            </Link>
-            <a
-              href="mailto:support@benavora.com"
-              className="transition hover:text-[#B88A2E]"
-            >
-              support@benavora.com
-            </a>
-          </div>
-        </div>
-      </footer>
+    <div
+      className={`${fraunces.variable} ${inter.variable}`}
+      style={{ background: mk.paper, color: mk.ink, minHeight: "100vh" }}
+    >
+      <MarketingNav />
+      {children}
+      <MarketingFooter />
     </div>
   );
 }

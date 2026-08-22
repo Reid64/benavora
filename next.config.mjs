@@ -43,6 +43,20 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  // mkt-001: /for-consultants predates the new marketing IA (src/lib/marketing/nav.ts,
+  // ALL_MARKETING_ROUTES) and has no direct replacement page yet, so it points at the
+  // closest existing hub, /solutions. /privacy, /terms, /security are NOT redirected -
+  // they are still linked directly from the new footer (FOOTER_COLUMNS in nav.ts) and
+  // stay live at their current paths.
+  async redirects() {
+    return [
+      {
+        source: "/for-consultants",
+        destination: "/solutions",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);
