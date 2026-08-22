@@ -230,6 +230,94 @@ Each phase ends with governance-doc updates and a build+Playwright gate. Nothing
 
 ---
 
+## 8A. Grantmaker mode + scoring rubric (added 2026-08-22)
+
+**Why this section exists:** the first real production Donor Discovery run
+(`f4870e28-...`, 2026-08-21, Faith Foundation, TX, NTEE P/X/L, assets >= $1M)
+enumerated 59 "foundations" that scored a suspiciously narrow 15-25 range,
+then — discovered live during this session — got silently flattened to a
+uniform **15/100 for all 59** by an unrelated opportunistic re-scoring job
+four hours later (`score_donor_prospect`/`ScoringEngine`, scoring-engine.ts —
+see below). Root cause was two compounding defects, both fixed 2026-08-22:
+
+1. **BMF adapter filtered the wrong thing.** `nteeMajorGroups` (P/X/L) was
+   applied directly against `foundation_directory.ntee_code` — the entity's
+   own primary IRS classification. That finds organizations whose primary
+   activity IS housing/human-services/religion delivery (i.e. legally a
+   private foundation, but functionally an operating charity — a peer for
+   the same grants FAITH Foundation applies for, not a funder of them), not
+   organizations that *fund* those causes. `foundation_type` (`02`/`03`/`04`
+   — private-foundation legal codes) covers 133,498 of 133,812 rows
+   (99.8%) on its own, so it can't discriminate either. Fixed in
+   `src/lib/donor-discovery/adapters/bmf-directory.ts`: grantmaker mode
+   (default) filters structurally on `foundation_type IN ('02','03','04') OR
+   ntee_code ILIKE 'T2%' OR ntee_code ILIKE 'T3%'` (NTEE's own "Private/
+   Public Grantmaking Foundations" classification), THEN cause-matches the
+   requested codes against what the foundation actually funds, tiered:
+   `990pf_grants_data` (itemized 990-PF Part XV grants-paid recipient data —
+   **does not exist in this schema**, confirmed 2026-08-22: no dedicated
+   990-PF grants-paid/officers/application-procedures table, `officers` is
+   100% empty on `foundation_directory`, `intelligence_grantmaker_profiles`
+   — this doc's own KB8 table — has 0 rows) → `ntee_code_direct` (the
+   foundation's own NTEE code already starts with the requested cause
+   letter) → `name_keyword_match` (keyword match on legal name, for T-coded
+   "pure philanthropy" foundations with no cause signal in their own NTEE
+   code). The method used is recorded per-prospect as
+   `enrichment.match_basis`. Pre-2026-08-22 behavior (cause codes matched
+   directly, no structural filter) is preserved behind
+   `geography.operating_nonprofits: true`.
+
+2. **Two independent scorers wrote the same columns with no coordination.**
+   `worker/dd-request-processor.ts`'s synchronous per-request scoring stage
+   uses the deterministic `scoring.ts` (`scoreProspect`); a separate
+   opportunistic worker job (`score-donor-prospect.ts`, `ScoringEngine` in
+   `scoring-engine.ts`) re-scores any never-scored prospect with its own
+   7-signal weight scheme and a Claude-generated rationale. For a BMF-native
+   prospect with no website on file, `ScoringEngine` has nothing to
+   contribute beyond `foundationLinkageFound` (its other 6 signals all need
+   web-enrichment fields), yet it unconditionally overwrote the richer
+   deterministic score — confirmed live: all 59 `f4870e28` prospects'
+   `scored_at` stamps cluster ~4 hours after the request completed,
+   identical flat score of 15. Fixed: `claimNextScoreDonorProspectJob` now
+   only claims prospects whose linked directory record has a `website` —
+   nothing for `ScoringEngine` to add otherwise, no more clobbering.
+
+### Scoring rubric (`src/lib/donor-discovery/scoring.ts`, `DEFAULT_SCORING_WEIGHTS`, sums to 100)
+
+Rebalanced 2026-08-22 to add four signals that fire from BMF data alone —
+grantmaker-mode prospects have zero web enrichment by construction (no
+website on file for most of `foundation_directory`), so the original six
+weights (all but `linkedFoundation`/`geoMatch` require web-enrichment jsonb)
+produced almost no spread. The original `geoMatch` also had a live bug:
+`bmf-directory.ts`'s `hqAddress()` omitted zip, and `isGeoMatch`'s
+`extractStateFromAddress()` regex required a trailing 5-digit zip to extract
+a state — so `geoMatch` silently never fired for any BMF-sourced record even
+when the record was obviously within the requested state (that WAS the
+enumeration filter). Both fixed: `hqAddress()` now includes zip when
+available; the regex now also accepts a bare trailing state code.
+
+| Signal | Weight | Fires from | Notes |
+|---|---|---|---|
+| `givingProgram` | 15 | web enrichment | `has_giving_program` |
+| `donationForm` | 15 | web enrichment | `has_donation_form` |
+| `inKindSignals` | 10 | web enrichment | keyword match on `giving_focus_areas` |
+| `linkedFoundation` | 10 | BMF (always 1.0 for BMF-native rows) | scaled by `linkage_confidence` |
+| `geoMatch` | 10 | BMF or web (fixed 2026-08-22) | within the *requested* geography |
+| `sizeAppropriate` | 5 | BMF (needs org `annual_budget` + linked giving capacity) | ratio in [0.02, 200] |
+| `assetSize` **(new)** | 15 | BMF (`enrichment.asset_amount`) | tiered: <$2M=0.25, $2-10M=0.5, $10-50M=0.75, >=$50M=1.0 |
+| `grantmakerType` **(new)** | 10 | BMF (`is_grantmaker_ntee`/`is_grantmaker_foundation_type`) | 1.0 if NTEE T2x/T3x-confirmed, 0.5 if foundation_type-only |
+| `geoProximityToOrg` **(new)** | 5 | BMF (org `city`/`state` vs. prospect `hq_address`) | 1.0 same city, 0.5 same state — distinct from `geoMatch`, which only checks the *requested* geography, not proximity to the org itself |
+| `matchBasisQuality` **(new)** | 5 | BMF (`enrichment.match_basis`) | 1.0 `ntee_code_direct`/`990pf_grants_data`, 0.5 `name_keyword_match`, 0 `operating_nonprofit_mode` |
+
+**Worked example** (real shape from the `f4870e28` re-run): a $200M,
+NTEE-T-confirmed, directly-cause-matched foundation headquartered in the
+org's own city scores `linkedFoundation`(10) + `geoMatch`(10) +
+`assetSize`(15) + `grantmakerType`(10) + `geoProximityToOrg`(5) +
+`matchBasisQuality`(5) = **55**, versus a $1.1M, foundation_type-only,
+keyword-matched, out-of-state foundation at `linkedFoundation`(10) +
+`assetSize`(3.75) + `grantmakerType`(5) + `matchBasisQuality`(2.5) = **~21**
+— real, ranked spread from BMF data alone, no web enrichment required.
+
 ## 9. Open Decisions (Reid)
 
 1. Confirm connector vendors for V1 (Apollo.io? Hunter.io? others?)

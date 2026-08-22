@@ -287,7 +287,14 @@ async function deleteOrgAndAllDependents(
         .select("id")
         .eq("organization_id", testOrgId);
       expect(remainingRuns ?? []).toHaveLength(0);
-    }, 60_000);
+      // 2026-08-22: bumped 60_000 -> 120_000 — a real "Hook timed out in
+      // 60000ms" was observed under a full `vitest run` (this suite's real
+      // DB delete cascade contending with rls.test.ts's ~53s full-table
+      // sweep and form-analyzer-filler.test.ts's real Playwright sessions
+      // running concurrently); the test passes cleanly standalone (~59s
+      // total). Not a defect in this file or its target code — pure
+      // resource-contention headroom.
+    }, 120_000);
 
     it("1. flag unset/false: routing instantiates the Gen-1 FunderRelationshipAgent — confirmed via the real agent_runs.agent_type discriminator, not the Gen-2 one", async () => {
       // Precondition: confirm the flag is genuinely absent for this org

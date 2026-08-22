@@ -104,6 +104,8 @@ interface ScoringDirectoryRow {
 interface OrganizationScoringContextRow {
   annual_budget: number | null;
   donor_discovery_scoring_weights: Json | null;
+  city: string | null;
+  state: string | null;
 }
 
 interface FoundationGivingCapacityRow {
@@ -591,7 +593,7 @@ export class DdRequestProcessor {
 
     const { data: orgRow, error: orgError } = await this.supabase
       .from('organizations')
-      .select('annual_budget, donor_discovery_scoring_weights')
+      .select('annual_budget, donor_discovery_scoring_weights, city, state')
       .eq('id', item.organization_id)
       .maybeSingle();
 
@@ -656,6 +658,8 @@ export class DdRequestProcessor {
           linkedFoundationGivingCapacity: row.linked_foundation_id
             ? givingCapacityByFoundationId.get(row.linked_foundation_id) ?? null
             : null,
+          organizationCity: org?.city ?? null,
+          organizationState: org?.state ?? null,
         },
         weights,
       );

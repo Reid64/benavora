@@ -58,6 +58,11 @@ function hasValidOptionalBmfExtras(raw: Record<string, unknown>): boolean {
     const v = raw["limit"];
     if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) return false;
   }
+  // Grantmaker mode (default, false/omitted) vs the pre-2026-08-22 behavior
+  // (true) — see bmf-directory.ts's module doc.
+  if ("operating_nonprofits" in raw && raw["operating_nonprofits"] !== undefined) {
+    if (typeof raw["operating_nonprofits"] !== "boolean") return false;
+  }
   return true;
 }
 

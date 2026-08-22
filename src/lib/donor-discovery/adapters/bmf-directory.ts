@@ -17,6 +17,59 @@ import type { DonorDirectoryUpsertShape, EnumerateResult } from "@/lib/donor-dis
  * Returns the same `EnumerateResult` shape google-places.ts's `enumerate()`
  * does, so the request worker can call either adapter through one uniform
  * interface.
+ *
+ * ## Grantmaker mode (default) vs operating_nonprofits mode
+ *
+ * `foundation_directory`'s 133,812 rows are IRS-registered private
+ * foundations (`foundation_type` in ('02','03','04') covers 133,498 of them
+ * -- effectively the whole table, since this table is BMF-filtered to PF
+ * status at ingestion time already). That column alone can't separate a
+ * genuine *grantmaker* (writes checks to other orgs) from a *private
+ * operating foundation* that runs its own direct-service programs (IRS still
+ * calls it a "private foundation" for tax purposes, but it isn't a funding
+ * prospect for another nonprofit -- it's a peer/competitor for the same
+ * grants). Two structural signals combine to identify a genuine grantmaker:
+ *   - `foundation_type` in ('02','03','04') -- private-foundation legal code
+ *   - `ntee_code` starting 'T2' or 'T3' -- NTEE's own "Private Grantmaking
+ *     Foundations" (T2x) / "Public Foundations" (T3x) classification, i.e.
+ *     the org's *primary* IRS activity code is literally "grantmaking."
+ * The original 2026-08-21 run (`f4870e28-...`) filtered directly on the
+ * *cause* NTEE codes (P/X/L) as if they were the entity's own type -- that
+ * finds orgs whose primary IRS classification IS housing/human-services/
+ * religion delivery, i.e. operating charities that happen to be legally
+ * structured as a private foundation, not funders of those causes. This mode
+ * fixes that: the structural filter above narrows to genuine grantmaking
+ * entities first, then the requested cause codes (P/X/L, ...) are matched
+ * against *what the foundation funds*, not what IRS thinks the foundation
+ * itself is.
+ *
+ * Cause matching, in priority order (recorded per-prospect as `match_basis`):
+ *   1. `990pf_grants_data` -- would use itemized 990-PF Part XV grants-paid
+ *      recipient data (grantee name/NTEE) if it existed. **It does not** --
+ *      no dedicated 990-PF grants-paid/officers/application-procedures table
+ *      exists in this schema (verified 2026-08-22; only summary revenue/
+ *      asset/NTEE index fields are ingested, in
+ *      `foundation_directory.enrichment->propublica`). This tier is
+ *      documented, never silently skipped, so a future session that DOES
+ *      ingest 990-PF Schedule I/Part XV data has an obvious place to wire it
+ *      in ahead of the two fallbacks below.
+ *   2. `ntee_code_direct` -- the foundation's own `ntee_code` already starts
+ *      with one of the requested cause letters (e.g. a foundation coded
+ *      "P20" when the request asked for cause "P"). A real, if imperfect,
+ *      signal: many single-cause family foundations get NTEE-coded by the
+ *      cause they fund rather than "T" (pure philanthropy).
+ *   3. `name_keyword_match` -- keyword match against the foundation's legal
+ *      `name` for the requested cause(s) (CAUSE_KEYWORDS below), used only
+ *      when the foundation is genuinely cause-agnostic in its own NTEE code
+ *      (T-coded, or NTEE missing) -- the task's specified fallback for "no
+ *      990-PF grant-recipient data."
+ * A foundation matching neither (1), (2), nor (3) for any requested cause is
+ * excluded from grantmaker-mode results.
+ *
+ * Setting `operating_nonprofits: true` on the geography restores the exact
+ * pre-2026-08-22 behavior: no structural grantmaker filter, cause codes
+ * matched directly against `ntee_code` (the org's own primary
+ * classification), `match_basis` always `"operating_nonprofit_mode"`.
  */
 
 export interface StatesGeography {
@@ -25,24 +78,52 @@ export interface StatesGeography {
   min_assets?: number;
   /** Cap on rows enumerated, ordered by assets desc. Defaults to DEFAULT_LIMIT. */
   limit?: number;
+  /** false/omitted (default) = grantmaker mode (see module doc). true = pre-2026-08-22 behavior. */
+  operating_nonprofits?: boolean;
 }
 
 export interface NationalGeography {
   national: true;
   min_assets?: number;
   limit?: number;
+  operating_nonprofits?: boolean;
 }
 
 export type BmfGeography = StatesGeography | NationalGeography;
 
 export interface EnumerateBmfParams {
-  /** Single-letter NTEE major group codes, e.g. ["P", "X", "L"]. */
+  /** Single-letter NTEE major group codes, e.g. ["P", "X", "L"] -- cause codes in grantmaker mode, entity-type codes in operating_nonprofits mode. */
   nteeMajorGroups: string[];
   geography: BmfGeography;
 }
 
 export const DEFAULT_LIMIT = 200;
 export const MAX_LIMIT = 1000;
+
+// Grantmaker-mode fetches a wider candidate pool than `limit` before applying
+// in-application cause matching (SQL can filter the structural grantmaker
+// signal and geography/assets, but not a keyword scan over `name`), so a
+// state with few T2/T3-coded or cause-NTEE-coded foundations doesn't come up
+// short of `limit` just because low-asset non-matches were fetched first.
+const CANDIDATE_FETCH_MULTIPLIER = 5;
+const MAX_CANDIDATE_FETCH = 5000;
+
+export type MatchBasis = "990pf_grants_data" | "ntee_code_direct" | "name_keyword_match" | "operating_nonprofit_mode";
+
+// Cause keyword fallback (match_basis: name_keyword_match) -- used only when
+// a foundation's own ntee_code doesn't already start with the requested
+// cause letter (i.e. it's T-coded or uncoded), per the module doc's tier 3.
+// Keyed by NTEE major group letter; extend as new cause codes are requested.
+const CAUSE_KEYWORDS: Record<string, string[]> = {
+  P: ["human service", "family service", "social service", "community service", "children", "youth", "family"],
+  X: ["church", "ministry", "ministries", "faith", "christian", "catholic", "jewish", "baptist", "ymca", "religious"],
+  L: ["housing", "shelter", "homeless", "habitat"],
+  T: ["foundation", "charitable trust", "philanthrop"],
+  B: ["education", "school", "scholarship", "university", "college"],
+  E: ["health", "hospital", "medical", "clinic"],
+  N: ["recreation", "sports", "youth development"],
+  O: ["youth development", "boy scout", "girl scout", "4-h"],
+};
 
 function isStatesGeography(g: BmfGeography): g is StatesGeography {
   return "states" in g;
@@ -53,10 +134,20 @@ export function requireBmfGeography(geography: unknown): BmfGeography {
   if (geography && typeof geography === "object") {
     const g = geography as Record<string, unknown>;
     if (Array.isArray(g.states) && g.states.every((s) => typeof s === "string")) {
-      return { states: g.states, min_assets: numberOrUndefined(g.min_assets), limit: numberOrUndefined(g.limit) };
+      return {
+        states: g.states,
+        min_assets: numberOrUndefined(g.min_assets),
+        limit: numberOrUndefined(g.limit),
+        operating_nonprofits: g.operating_nonprofits === true,
+      };
     }
     if (g.national === true) {
-      return { national: true, min_assets: numberOrUndefined(g.min_assets), limit: numberOrUndefined(g.limit) };
+      return {
+        national: true,
+        min_assets: numberOrUndefined(g.min_assets),
+        limit: numberOrUndefined(g.limit),
+        operating_nonprofits: g.operating_nonprofits === true,
+      };
     }
   }
   throw new Error(
@@ -74,9 +165,66 @@ function clampLimit(limit: number | undefined): number {
   return Math.max(1, Math.min(requested, MAX_LIMIT));
 }
 
-function hqAddress(city: string | null, state: string | null): string | null {
-  if (city && state) return `${city}, ${state}`;
-  return city ?? state ?? null;
+// Includes zip when available so the scoring layer's address-derived state
+// match (extractStateFromAddress()'s "City, ST 12345"-shaped regex) actually
+// fires for BMF-sourced records -- previously omitted, which silently
+// disabled the geoMatch scoring signal for every BMF prospect ever enumerated
+// (see DONOR_DISCOVERY_ARCHITECTURE.md's scoring rubric section).
+function hqAddress(city: string | null, state: string | null, zip: string | null): string | null {
+  const cityState = city && state ? `${city}, ${state}` : (city ?? state ?? null);
+  if (!cityState) return null;
+  const zip5 = zip?.trim().slice(0, 5);
+  if (state && zip5 && /^\d{5}$/.test(zip5)) return `${cityState} ${zip5}`;
+  return cityState;
+}
+
+function nteeMajorGroup(ntee: string | null): string | null {
+  if (!ntee) return null;
+  const letter = ntee.trim().charAt(0).toUpperCase();
+  return /^[A-Z]$/.test(letter) ? letter : null;
+}
+
+function isGrantmakerNteeCode(ntee: string | null): boolean {
+  const code = ntee?.trim().toUpperCase() ?? "";
+  return code.startsWith("T2") || code.startsWith("T3");
+}
+
+const GRANTMAKER_FOUNDATION_TYPES = new Set(["02", "03", "04"]);
+
+function isGrantmakerFoundationType(foundationType: string | null): boolean {
+  return foundationType !== null && GRANTMAKER_FOUNDATION_TYPES.has(foundationType.trim());
+}
+
+/**
+ * Cause-match one row against the requested cause codes in grantmaker mode.
+ * Returns the matched cause code and match_basis, or null if no requested
+ * cause matches by any tier. Tier 1 (990pf_grants_data) is structurally
+ * unavailable -- see module doc -- and intentionally never returned here.
+ */
+function matchCause(
+  row: FoundationRow,
+  requestedCauses: string[],
+): { cause: string; matchBasis: MatchBasis } | null {
+  const rowMajorGroup = nteeMajorGroup(row.ntee_code);
+
+  // Tier 2: the foundation's own primary NTEE classification already is one
+  // of the requested causes.
+  if (rowMajorGroup && requestedCauses.includes(rowMajorGroup)) {
+    return { cause: rowMajorGroup, matchBasis: "ntee_code_direct" };
+  }
+
+  // Tier 3: keyword match on name, for foundations whose own NTEE code
+  // carries no cause signal (T-coded "pure philanthropy" or missing).
+  const haystack = row.name.toLowerCase();
+  for (const cause of requestedCauses) {
+    const keywords = CAUSE_KEYWORDS[cause];
+    if (!keywords) continue;
+    if (keywords.some((kw) => haystack.includes(kw))) {
+      return { cause, matchBasis: "name_keyword_match" };
+    }
+  }
+
+  return null;
 }
 
 interface FoundationRow {
@@ -84,24 +232,28 @@ interface FoundationRow {
   name: string;
   city: string | null;
   state: string | null;
+  zip: string | null;
   ein: string;
   website: string | null;
   phone: string | null;
   asset_amount: number | null;
   giving_total: number | null;
   ntee_code: string | null;
+  foundation_type: string | null;
 }
 
 /**
- * Enumerates `foundation_directory` rows matching the given NTEE major
- * groups + geography + asset floor, ordered by `asset_amount` descending,
- * capped at `geography.limit` (default 200, hard cap 1000). Each match is
+ * Enumerates `foundation_directory` rows matching the given cause codes +
+ * geography + asset floor, ordered by `asset_amount` descending, capped at
+ * `geography.limit` (default 200, hard cap 1000). Each match is
  * merge-upserted into the shared `donor_discovery_directory` via the same
  * `upsertDirectoryRecord()` every other adapter uses, then linked back to
  * its source `foundation_directory` row with `linkage_confidence: 1` (exact
  * link -- the directory record IS this foundation_directory row, not a
  * fuzzy match), matching the pattern `scripts/seed-foundation-prospects.ts`
  * used -- but filtered, not a full-table dump (WGR-156's root cause).
+ *
+ * See module doc for grantmaker-mode vs operating_nonprofits-mode behavior.
  */
 export async function enumerate(params: EnumerateBmfParams): Promise<EnumerateResult> {
   if (params.nteeMajorGroups.length === 0) {
@@ -115,21 +267,36 @@ export async function enumerate(params: EnumerateBmfParams): Promise<EnumerateRe
   const geography = params.geography;
   const limit = clampLimit(geography.limit);
   const minAssets = geography.min_assets;
+  const operatingNonprofits = geography.operating_nonprofits === true;
 
   const supabase = createAdminClient();
 
-  // ntee_code's first character is the major group letter (e.g. "P20" -> "P").
-  // PostgREST has no native "first char of column" filter, so an
-  // `.or()` of one `ilike` per requested letter does the equivalent of
-  // `LEFT(ntee_code, 1) IN (...)` without a raw SQL fragment.
-  const nteeOr = params.nteeMajorGroups.map((code) => `ntee_code.ilike.${code}%`).join(",");
+  const selectCols = "id, name, city, state, zip, ein, website, phone, asset_amount, giving_total, ntee_code, foundation_type";
 
-  let query = supabase
-    .from("foundation_directory")
-    .select("id, name, city, state, ein, website, phone, asset_amount, giving_total, ntee_code")
-    .or(nteeOr)
-    .order("asset_amount", { ascending: false, nullsFirst: false })
-    .limit(limit);
+  let query;
+
+  if (operatingNonprofits) {
+    // Pre-2026-08-22 behavior: cause codes matched directly against
+    // ntee_code (the org's own primary classification), no structural
+    // grantmaker filter. SQL can express this filter directly, so no
+    // over-fetch is needed.
+    const nteeOr = params.nteeMajorGroups.map((code) => `ntee_code.ilike.${code}%`).join(",");
+    query = supabase.from("foundation_directory").select(selectCols).or(nteeOr).order("asset_amount", {
+      ascending: false,
+      nullsFirst: false,
+    }).limit(limit);
+  } else {
+    // Grantmaker mode: structural filter only in SQL (foundation_type in
+    // (02,03,04) OR ntee T2%/T3%); cause matching happens in application
+    // code below since it needs the name-keyword fallback SQL can't express.
+    const grantmakerOr = "foundation_type.in.(02,03,04),ntee_code.ilike.T2%,ntee_code.ilike.T3%";
+    query = supabase
+      .from("foundation_directory")
+      .select(selectCols)
+      .or(grantmakerOr)
+      .order("asset_amount", { ascending: false, nullsFirst: false })
+      .limit(Math.min(limit * CANDIDATE_FETCH_MULTIPLIER, MAX_CANDIDATE_FETCH));
+  }
 
   if (isStatesGeography(geography)) {
     if (geography.states.length === 0) {
@@ -148,16 +315,36 @@ export async function enumerate(params: EnumerateBmfParams): Promise<EnumerateRe
     throw new Error(`bmf_directory_query_failed: ${error.message}`);
   }
 
-  const rows = (data ?? []) as FoundationRow[];
+  let rows = (data ?? []) as FoundationRow[];
+  let droppedByCauseMismatch = 0;
+
+  const matchByRowId = new Map<string, { cause: string; matchBasis: MatchBasis }>();
+
+  if (!operatingNonprofits) {
+    const matched: FoundationRow[] = [];
+    for (const row of rows) {
+      const match = matchCause(row, params.nteeMajorGroups);
+      if (match) {
+        matchByRowId.set(row.id, match);
+        matched.push(row);
+      }
+    }
+    droppedByCauseMismatch = rows.length - matched.length;
+    rows = matched.slice(0, limit);
+  }
 
   const prospects: DonorDirectoryUpsertShape[] = [];
   const directoryIds: string[] = [];
 
   for (const row of rows) {
+    const matchBasis: MatchBasis = operatingNonprofits
+      ? "operating_nonprofit_mode"
+      : (matchByRowId.get(row.id)?.matchBasis ?? "operating_nonprofit_mode");
+
     const upserted: DonorDirectoryUpsertShape = {
       legal_name: row.name,
       website: row.website,
-      hq_address: hqAddress(row.city, row.state),
+      hq_address: hqAddress(row.city, row.state, row.zip),
       geo: null, // foundation_directory has no lat/lng column
       phone: row.phone,
       naics_codes: [],
@@ -175,8 +362,13 @@ export async function enumerate(params: EnumerateBmfParams): Promise<EnumerateRe
         enrichment: {
           ein: row.ein,
           ntee_code: row.ntee_code,
+          foundation_type: row.foundation_type,
           asset_amount: row.asset_amount,
           giving_total: row.giving_total,
+          match_basis: matchBasis,
+          grantmaker_mode: !operatingNonprofits,
+          is_grantmaker_ntee: isGrantmakerNteeCode(row.ntee_code),
+          is_grantmaker_foundation_type: isGrantmakerFoundationType(row.foundation_type),
         },
       });
     } catch (err) {
@@ -206,8 +398,11 @@ export async function enumerate(params: EnumerateBmfParams): Promise<EnumerateRe
 
   console.log(
     `[bmf-directory] Enumerated ${rows.length} foundation_directory row(s) ` +
-      `(NTEE ${params.nteeMajorGroups.join("/")}, ${isStatesGeography(geography) ? geography.states.join(",") : "national"}` +
-      `${minAssets !== undefined ? `, assets>=${minAssets}` : ""}, limit ${limit}) -> ${directoryIds.length} directory record(s) linked`,
+      `(mode=${operatingNonprofits ? "operating_nonprofits" : "grantmaker"}, cause ${params.nteeMajorGroups.join("/")}, ` +
+      `${isStatesGeography(geography) ? geography.states.join(",") : "national"}` +
+      `${minAssets !== undefined ? `, assets>=${minAssets}` : ""}, limit ${limit}` +
+      `${!operatingNonprofits ? `, ${droppedByCauseMismatch} dropped by cause mismatch` : ""}) -> ` +
+      `${directoryIds.length} directory record(s) linked`,
   );
 
   return {

@@ -64,6 +64,23 @@ interface TaxonomyLabelRow {
  * `claimNextEnrichDonorProspectJob` — a plain scan rather than a
  * `FOR UPDATE SKIP LOCKED` claim; `ScoringEngine.score` is idempotent, so two
  * workers racing on the same prospect just means one wasted scoring pass.
+ *
+ * Real defect found + fixed 2026-08-22: every one of `ScoringEngine`'s seven
+ * signals except `foundationLinkageFound` depends on web-enrichment fields
+ * (`has_giving_program`, `has_donation_form`, `in_kind_history_signals`,
+ * `csr_page_url`, `company_size_estimate`) that only ever get populated for a
+ * directory record with a `website` (see `enrichment-agent.ts`). For a
+ * grantmaker-mode/BMF-sourced prospect (no website on file — see
+ * `bmf-directory.ts`), this job had nothing to contribute beyond what
+ * `scoring.ts`'s deterministic pass already computed, yet it still
+ * unconditionally overwrote `score`/`score_rationale` — collapsing a real,
+ * spread-producing deterministic score down to whatever
+ * `foundationLinkageFound` alone is worth (flat 15/100 for every BMF
+ * prospect, confirmed live against request `f4870e28-...`'s 59 prospects,
+ * all re-scored to an identical 15 by this job ~4 hours after the request
+ * completed). Filtered here to only claim prospects whose linked directory
+ * record actually has a `website` — nothing for this engine to add
+ * otherwise, and no clobbering.
  */
 export async function claimNextScoreDonorProspectJob(
   supabase: SupabaseClient,
@@ -72,8 +89,9 @@ export async function claimNextScoreDonorProspectJob(
 
   const { data, error } = await supabase
     .from("donor_discovery_prospects")
-    .select("id")
+    .select("id, donor_discovery_directory!inner(website)")
     .or(`scored_at.is.null,scored_at.lt.${staleCutoffIso}`)
+    .not("donor_discovery_directory.website", "is", null)
     .order("created_at", { ascending: true })
     .limit(CLAIM_SCAN_LIMIT)
     .maybeSingle();

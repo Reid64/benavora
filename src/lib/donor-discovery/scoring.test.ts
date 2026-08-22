@@ -143,7 +143,7 @@ describe("scoreProspect — weight math", () => {
     expect(result.score).toBe(0);
   });
 
-  it("sums all fired signals and caps at 100", () => {
+  it("sums all fired legacy (web-enrichment) signals", () => {
     const record = baseRecord({
       enrichment: {
         has_giving_program: true,
@@ -162,6 +162,40 @@ describe("scoreProspect — weight math", () => {
         linkedFoundationGivingCapacity: 50_000,
       }),
     );
+    const expected =
+      DEFAULT_SCORING_WEIGHTS.givingProgram +
+      DEFAULT_SCORING_WEIGHTS.donationForm +
+      DEFAULT_SCORING_WEIGHTS.inKindSignals +
+      DEFAULT_SCORING_WEIGHTS.linkedFoundation +
+      DEFAULT_SCORING_WEIGHTS.geoMatch +
+      DEFAULT_SCORING_WEIGHTS.sizeAppropriate;
+    expect(result.score).toBe(expected);
+  });
+
+  it("sums every signal (legacy + grantmaker-mode) and caps at 100", () => {
+    const record = baseRecord({
+      enrichment: {
+        has_giving_program: true,
+        has_donation_form: true,
+        giving_focus_areas: ["in-kind material donations"],
+        asset_amount: 100_000_000,
+        is_grantmaker_ntee: true,
+        match_basis: "ntee_code_direct",
+      },
+      hq_address: "1 Main St, Burnet, TX 78611",
+      linked_foundation_id: "f-1",
+      linkage_confidence: 1,
+    });
+    const result = scoreProspect(
+      record,
+      baseContext({
+        geography: { states: ["TX"] },
+        organizationAnnualBudget: 500_000,
+        linkedFoundationGivingCapacity: 50_000,
+        organizationCity: "Burnet",
+        organizationState: "TX",
+      }),
+    );
     expect(result.score).toBe(100);
   });
 
@@ -170,6 +204,131 @@ describe("scoreProspect — weight math", () => {
     const weights = parseScoringWeights({ givingProgram: 40 });
     const result = scoreProspect(record, baseContext({ geography: { states: ["TX"] } }), weights);
     expect(result.score).toBe(40);
+  });
+});
+
+describe("scoreProspect — grantmaker-mode signals (fire from BMF data alone, no web enrichment)", () => {
+  it("assetSize: tiers score higher for a bigger asset base", () => {
+    const small = scoreProspect(
+      baseRecord({ enrichment: { asset_amount: 1_500_000 } }),
+      baseContext({ geography: { national: true } }),
+    );
+    const medium = scoreProspect(
+      baseRecord({ enrichment: { asset_amount: 5_000_000 } }),
+      baseContext({ geography: { national: true } }),
+    );
+    const large = scoreProspect(
+      baseRecord({ enrichment: { asset_amount: 75_000_000 } }),
+      baseContext({ geography: { national: true } }),
+    );
+    expect(small.score).toBeLessThan(medium.score);
+    expect(medium.score).toBeLessThan(large.score);
+  });
+
+  it("assetSize: does not fire when asset_amount is missing or non-positive", () => {
+    const result = scoreProspect(
+      baseRecord({ enrichment: { asset_amount: 0 } }),
+      baseContext({ geography: { national: true } }),
+    );
+    expect(result.score).toBe(DEFAULT_SCORING_WEIGHTS.geoMatch); // only national geoMatch fires
+  });
+
+  it("grantmakerType: full credit for NTEE-confirmed grantmaker, half for foundation_type-only", () => {
+    const nteeConfirmed = scoreProspect(
+      baseRecord({ enrichment: { is_grantmaker_ntee: true } }),
+      baseContext({ geography: { states: ["TX"] } }),
+    );
+    const typeOnly = scoreProspect(
+      baseRecord({ enrichment: { is_grantmaker_foundation_type: true } }),
+      baseContext({ geography: { states: ["TX"] } }),
+    );
+    expect(nteeConfirmed.score).toBe(DEFAULT_SCORING_WEIGHTS.grantmakerType);
+    expect(typeOnly.score).toBe(Math.round(DEFAULT_SCORING_WEIGHTS.grantmakerType * 0.5));
+  });
+
+  it("geoProximityToOrg: full credit for same city, half for same state, zero otherwise", () => {
+    const sameCity = scoreProspect(
+      baseRecord({ hq_address: "1 Main St, Burnet, TX 78611" }),
+      baseContext({ geography: { national: true }, organizationCity: "Burnet", organizationState: "TX" }),
+    );
+    const sameState = scoreProspect(
+      baseRecord({ hq_address: "1 Main St, Austin, TX 78701" }),
+      baseContext({ geography: { national: true }, organizationCity: "Burnet", organizationState: "TX" }),
+    );
+    const otherState = scoreProspect(
+      baseRecord({ hq_address: "1 Main St, Tulsa, OK 74103" }),
+      baseContext({ geography: { national: true }, organizationCity: "Burnet", organizationState: "TX" }),
+    );
+    const nationalBase = DEFAULT_SCORING_WEIGHTS.geoMatch;
+    expect(sameCity.score).toBe(nationalBase + DEFAULT_SCORING_WEIGHTS.geoProximityToOrg);
+    expect(sameState.score).toBe(nationalBase + Math.round(DEFAULT_SCORING_WEIGHTS.geoProximityToOrg * 0.5));
+    expect(otherState.score).toBe(nationalBase);
+  });
+
+  it("matchBasisQuality: full credit for ntee_code_direct, half for name_keyword_match, zero for operating_nonprofit_mode", () => {
+    const direct = scoreProspect(
+      baseRecord({ enrichment: { match_basis: "ntee_code_direct" } }),
+      baseContext({ geography: { states: ["TX"] } }),
+    );
+    const keyword = scoreProspect(
+      baseRecord({ enrichment: { match_basis: "name_keyword_match" } }),
+      baseContext({ geography: { states: ["TX"] } }),
+    );
+    const operatingMode = scoreProspect(
+      baseRecord({ enrichment: { match_basis: "operating_nonprofit_mode" } }),
+      baseContext({ geography: { states: ["TX"] } }),
+    );
+    expect(direct.score).toBe(DEFAULT_SCORING_WEIGHTS.matchBasisQuality);
+    expect(keyword.score).toBe(Math.round(DEFAULT_SCORING_WEIGHTS.matchBasisQuality * 0.5));
+    expect(operatingMode.score).toBe(0);
+  });
+
+  it("produces real score spread across zero-web-enrichment BMF prospects that previously all scored identically", () => {
+    // Reproduces the real defect found in request f4870e28-... (2026-08-21):
+    // 59 grantmaker-mode BMF prospects, zero web enrichment (no website on
+    // file for any of them), all scored to a single flat value because only
+    // linkedFoundation ever fired. With the four new BMF-native signals,
+    // differing assets/ntee-type/match-basis/proximity must produce
+    // different scores even though `enrichment.has_giving_program` etc. stay
+    // null for every one of them.
+    const orgContext = baseContext({
+      geography: { states: ["TX"] },
+      organizationCity: "Burnet",
+      organizationState: "TX",
+    });
+
+    const smallDistantFoundation = scoreProspect(
+      baseRecord({
+        hq_address: "1 Main St, Dallas, TX 75201",
+        linked_foundation_id: "f-1",
+        linkage_confidence: 1,
+        enrichment: {
+          asset_amount: 1_100_000,
+          is_grantmaker_foundation_type: true,
+          match_basis: "name_keyword_match",
+        },
+      }),
+      orgContext,
+    );
+
+    const largeLocalConfirmedGrantmaker = scoreProspect(
+      baseRecord({
+        hq_address: "1 Main St, Burnet, TX 78611",
+        linked_foundation_id: "f-2",
+        linkage_confidence: 1,
+        enrichment: {
+          asset_amount: 200_000_000,
+          is_grantmaker_ntee: true,
+          match_basis: "ntee_code_direct",
+        },
+      }),
+      orgContext,
+    );
+
+    expect(largeLocalConfirmedGrantmaker.score).toBeGreaterThan(smallDistantFoundation.score);
+    // Neither is a degenerate 0 or 100 — both carry real, distinguishable signal.
+    expect(smallDistantFoundation.score).toBeGreaterThan(0);
+    expect(largeLocalConfirmedGrantmaker.score).toBeLessThan(100);
   });
 });
 

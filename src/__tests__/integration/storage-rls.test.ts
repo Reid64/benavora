@@ -73,6 +73,22 @@ const CREDS_AVAILABLE = Boolean(SUPABASE_URL && SERVICE_ROLE_KEY && ANON_KEY);
 
 const ORG_PER_BUCKET_RE = /^org-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+// Buckets with NO storage.objects policy at all by design — every write path
+// is an offline/admin script using the service-role key (which bypasses RLS
+// entirely), never an authenticated end-user session, so "no authenticated
+// user can INSERT" is the correct, intended state, not the NO_INSERT_POLICY
+// defect this suite was built to catch (see the module doc above — that
+// defect class is a legitimate org owner locked out of their OWN path; this
+// is a bucket with no legitimate authenticated-user path at all).
+//   - knowledge-host (added 2026-08-22, migration 146's `knowledge` schema):
+//     scripts/knowledge/ingest.ts is the only writer, requires
+//     SUPABASE_SERVICE_ROLE_KEY, and stores objects at `{sourceId}/{sha256}.ext`
+//     — no per-organization path segment exists to scope an authenticated
+//     policy to in the first place. Matches the `knowledge` Postgres schema's
+//     own deny-all RLS posture (PostgREST returns 406 "Invalid schema:
+//     knowledge" for the anon key — see SCHEMA_REGISTRY_v2.md).
+const SERVICE_ROLE_ONLY_BUCKETS = new Set(["knowledge-host"]);
+
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -440,6 +456,16 @@ async function testSyntheticOrgPerBucketPair(clients: TestClients, tag: string):
         }
         if (ORG_PER_BUCKET_RE.test(bucket.name)) {
           results.push(await probeLiveOrgBucketReadOnly(bucket.name, clients, RUN_TAG));
+          continue;
+        }
+        if (SERVICE_ROLE_ONLY_BUCKETS.has(bucket.name)) {
+          results.push({
+            bucket: bucket.name,
+            category: "shared path-scoped",
+            status: "SKIPPED",
+            detail:
+              "service-role-only bucket by design (no authenticated-user write path exists) — see SERVICE_ROLE_ONLY_BUCKETS",
+          });
           continue;
         }
         results.push(await testPathScopedBucket(bucket.name, false, clients, RUN_TAG));

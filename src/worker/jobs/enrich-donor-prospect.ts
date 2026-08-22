@@ -69,6 +69,8 @@ interface OrganizationScoringContextRow {
   id: string;
   annual_budget: number | null;
   donor_discovery_scoring_weights: Json | null;
+  city: string | null;
+  state: string | null;
 }
 
 interface FoundationGivingCapacityRow {
@@ -151,7 +153,7 @@ async function rescoreLinkedProspects(
   const organizationIds = Array.from(new Set(prospects.map((p) => p.organization_id)));
   const { data: orgRows, error: orgsError } = await supabase
     .from("organizations")
-    .select("id, annual_budget, donor_discovery_scoring_weights")
+    .select("id, annual_budget, donor_discovery_scoring_weights, city, state")
     .in("id", organizationIds);
 
   if (orgsError) {
@@ -197,6 +199,8 @@ async function rescoreLinkedProspects(
         geography,
         organizationAnnualBudget: org?.annual_budget ?? null,
         linkedFoundationGivingCapacity: givingCapacity,
+        organizationCity: org?.city ?? null,
+        organizationState: org?.state ?? null,
       },
       weights,
     );
