@@ -1,5 +1,5 @@
 # BENAVORA — Session State
-## Last Updated: August 21, 2026 — Migration ledger reconciled, 49 migrations applied to production (WGR-041-052, WGR-130/131 resolved). See Session 12 below and banner.
+## Last Updated: August 22, 2026 — mkt-002: MDX content system, page templates, catch-all route, 20 marketing pages live, 23/23 route smoke pass. See Session 14 below.
 
 ---
 
@@ -8684,3 +8684,21 @@ Verification: `pnpm tsc --noEmit` 0 new errors (10 pre-existing `bmf-directory-a
 Committed as `mkt: ...` (files created/changed by this task only — `src/lib/marketing/`, `src/components/marketing/`, `src/app/(marketing)/layout.tsx`, `next.config.mjs`, `test-evidence/marketing/`). Not pushed, per the task's explicit instruction that FORGE pushes on queue completion.
 
 No `src/` application code was changed this session — every fix was a database migration or a config/doc file.
+
+## Session 14 — August 22, 2026: mkt-002 — MDX content loader, page templates, catch-all route, 20 marketing pages, smoke-test harness
+
+Built the next slice after Session 13's mkt-001 infra: the MDX content system for the 20 routes in the blueprint's IA that don't already have their own `page.tsx` (`/`, `/pricing`, `/how-it-works`, `/privacy`, `/terms`, `/security`, `/login` excluded, as instructed). Checked this against real state instead of trusting it blindly: `nav.ts`'s `ALL_MARKETING_ROUTES` has 23 entries; minus the 3 overlapping exclusions present in it leaves exactly 20, matching the task's count and giving an unambiguous slug/layout structure (6 `/platform/*` + 6 `/solutions/*` typed, 8 singles).
+
+Created `src/lib/marketing/content.ts` (`PageLayout`/`PageMeta`/`MarketingPage`, `listPages`/`readPage`/`getPage`, gray-matter). Created all 20 `.mdx` files under `content/marketing/` with full front matter and 250+ words of Section-11-compliant copy each (present-tense capability statements, human control point named on every agent-acting page, org-specific funding sources on solution pages per the task's list). Faith Foundation named only as "our founding organization" on `company.mdx`; no customer/testimonial/results claims anywhere.
+
+Created `src/components/marketing/PageTemplates.tsx` (`PlatformTemplate` 9-section order per blueprint 5.1, `SolutionTemplate` per this task's literal 6-part order, `SingleTemplate`, new `DemoSlot` placeholder — no IX-0X fixtures exist yet, this is a labeled static box, not a fabricated live demo). Had to mark the file `"use client"`: `Section.tsx`'s `<style jsx>` and `Cta.tsx`'s `onMouseEnter`/`onMouseLeave` both need a client boundary, and the new catch-all route is a Server Component — first build failed with `'client-only' cannot be imported from a Server Component module` before this fix.
+
+Created `src/app/(marketing)/[...slug]/page.tsx`: `generateStaticParams`/`generateMetadata`/`dynamicParams=false`/`notFound()`, `next-mdx-remote/rsc` `compileMDX`, layout-based template dispatch, and a second `getPage()` call to resolve `related` hrefs to real titles server-side (the template can't touch `fs` once it's a Client Component). First `generateMetadata` draft double-appended `" | Benavora"` on top of the root layout's own title template, producing `"X | Benavora | Benavora"` — fixed to return the bare title.
+
+Two more real gaps found and fixed, neither assumed from the task text: (1) `demo.mdx`'s required literal `<!-- ZOHO_BOOKINGS_EMBED -->` does not compile under `next-mdx-remote` v6 (MDX v3 rejects raw `<!--`), replaced with the MDX-native `{/* ZOHO_BOOKINGS_EMBED */}`, same marker text; (2) `src/middleware.ts`'s `PUBLIC_PATHS` — which Session 13 explicitly flagged above as not yet updated for the new IA — had none of the 20 new routes, so all of them 307-redirected to `/login`, and a naive smoke check was passing anyway on the login page's own 200 + real title, silently hiding that only 3 of 23 routes actually rendered. Added the 20 exact paths to `PUBLIC_PATHS` only; `SECRET_GATED_PATHS` and dashboard matchers untouched.
+
+Created `scripts/marketing/smoke-routes.mjs` + `"marketing:smoke"` npm script. Reads `ALL_MARKETING_ROUTES` by evaluating the real `nav.ts` via `tsx` against a temp script file (not `--eval` with an inline string — Windows shell-quoting corrupted the backslash-heavy path), since the array's `...PLATFORM.items.map(...)` spreads defeated a source-text regex (11 of 23 routes on the first attempt). Also fixed a Windows process-cleanup bug: `server.kill()` on a `{shell:true}`-spawned `next start` leaves the `next-server` grandchild bound to port 3101, so the next run silently tests a stale server (produced one false "23/23" pass against a pre-fix server before this was caught) — fixed with `taskkill /pid <pid> /T /F` on `win32`. Evidence: `test-evidence/marketing/mkt-002/routes.json` + one screenshot per route.
+
+Verification, re-run after every fix above: `pnpm tsc --noEmit` exit 0. `pnpm run build` exit 0 (real lint+type validation ran; all 20 new routes appear as `● /[...slug]` SSG in the route table). `pnpm run marketing:smoke` exit 0, **23/23 routes 200** with correct distinct titles. `npx vitest run` exit 0: 521 passed, 13 todo, 1 skipped, 0 failed — same baseline as Session 13, no test files touched.
+
+Committed as `mkt: ...` (files created/changed by this task only — `src/lib/marketing/content.ts`, `src/components/marketing/PageTemplates.tsx`, `src/app/(marketing)/[...slug]/`, `content/marketing/`, `scripts/marketing/`, `src/middleware.ts`, `package.json`, `test-evidence/marketing/mkt-002/`). Not pushed, per the task's explicit instruction that FORGE pushes on queue completion. No file under `src/app/(dashboard)` or `worker/` touched.

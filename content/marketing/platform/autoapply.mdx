@@ -1,0 +1,64 @@
+---
+layout: platform
+title: "AutoApply"
+description: "Fills grant portal application fields from an approved draft and organization profile, then holds the filled form for staff review before submission."
+eyebrow: "Platform"
+hero: "Fills the portal fields from your approved draft and organization profile, then waits for a staff member to review and confirm before anything submits."
+demo: "replay"
+capabilities:
+  - title: "Portal field mapping"
+    body: "Matches an approved draft and organization profile to the specific fields a given grant portal requires."
+  - title: "Attachment handling"
+    body: "Attaches required documents, such as budgets and letters of support, in the format and location the portal specifies."
+  - title: "Pre-submission review hold"
+    body: "Fills the form and stops before submitting, presenting the completed form for staff review."
+  - title: "Risk-based gating"
+    body: "Flags fields it cannot confidently fill, such as ones requiring judgment calls, for mandatory staff completion."
+  - title: "Submission record"
+    body: "Keeps a timestamped record of what was submitted, by whom it was approved, and a copy of the final submitted form."
+problems:
+  - problem: "Re-typing the same organizational facts into a different portal's fields for every application is repetitive and error-prone."
+    solution: "AutoApply maps an approved draft and stored organization profile to the specific portal's fields automatically."
+  - problem: "Staff worry that automated form-filling could submit something without a human ever seeing the final form."
+    solution: "The filled form always stops at a review hold; nothing submits until a staff member confirms it."
+  - problem: "Some portal fields require a judgment call that should not be auto-filled with a guess."
+    solution: "Fields the system cannot confidently fill are flagged and left for a staff member to complete directly."
+steps:
+  - title: "Fill"
+    body: "The AutoApply agent maps approved draft content and profile data to the target portal's specific field structure."
+    agent: "AutoApply agent"
+    humanGate: "Fields requiring judgment are left blank and flagged rather than filled with a guess."
+  - title: "Hold for review"
+    body: "The completed form is presented in full, field by field, exactly as it will appear to the portal."
+    agent: "AutoApply agent"
+    humanGate: "Submission cannot proceed until a staff member reviews the held form."
+  - title: "Submit and record"
+    body: "Once approved, the form is submitted and a timestamped record of the submission and approver is stored."
+    agent: "AutoApply agent"
+    humanGate: "The staff member who approved the submission is recorded against it."
+faq:
+  - question: "Can AutoApply submit an application without anyone reviewing it first?"
+    answer: "No. Every filled form stops at a review hold. Submission requires explicit staff approval."
+  - question: "What happens with fields it is not confident about?"
+    answer: "Those fields are left blank and flagged for a staff member to complete directly rather than filled with a guess."
+  - question: "Does this work on any grant portal?"
+    answer: "It works on portals the system has been configured to map. New portals are added as organizations need them."
+  - question: "Is there a record of what was actually submitted?"
+    answer: "Yes. A timestamped record of the final submitted form and the approving staff member is kept."
+  - question: "What if a submission needs to be corrected after the fact?"
+    answer: "Corrections go through the portal's own amendment process; AutoApply does not alter a submission after it has gone through."
+related:
+  - "/platform/ai-grant-writer"
+  - "/platform/pipeline-crm"
+  - "/platform/analytics"
+---
+
+AutoApply addresses the least interesting and most repetitive part of grant work: re-entering the same organizational facts into a different portal's field structure for every single application. Once a draft has been approved through the AI Grant Writer and the organization's profile data is current, AutoApply maps that content to the specific fields a target portal requires, including attachments such as budgets and letters of support in the format and location the portal specifies.
+
+The system is explicitly built around a review hold, not around unattended submission. After AutoApply fills a form, it stops. The completed form is presented field by field, exactly as it will appear to the portal, for a staff member to review before anything is sent. This is not a configurable option that can be turned off; it is how the system is built, because an application submitted under an organization's identity without a person confirming it first is a risk no automation should carry on its own.
+
+Not every field can be filled with confidence. Some portal fields ask for a judgment call, such as a certification statement or a discretionary narrative choice, that the system is not positioned to make. Those fields are left blank and flagged clearly, rather than filled with a plausible-looking guess, so staff know exactly what still needs their direct attention before the form is complete.
+
+Once a staff member reviews the held form and approves it, the submission proceeds and the system records a timestamp, the approving staff member, and a copy of the final submitted form. This record exists so that months later, when a program officer asks what exactly was submitted and who approved it, the organization has an exact answer rather than a recollection.
+
+AutoApply's value is time saved on data entry, not judgment removed from the process. The organization's staff remain the ones deciding what gets submitted and when.

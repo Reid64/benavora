@@ -92,7 +92,8 @@
         "soak:autoapply": "tsx scripts/soak-test-autoapply-worker.ts",
         "backup:enrichment": "tsx scripts/backup-enrichment-output.ts",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "storybook build"
+        "build-storybook": "storybook build",
+        "marketing:smoke": "node scripts/marketing/smoke-routes.mjs"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",

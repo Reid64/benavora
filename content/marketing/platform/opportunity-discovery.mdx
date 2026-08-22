@@ -1,0 +1,64 @@
+---
+layout: platform
+title: "Opportunity Discovery"
+description: "Pulls funding opportunities from federal, foundation, and corporate sources into a single feed instead of separate portals and mailing lists."
+eyebrow: "Platform"
+hero: "Federal, foundation, and corporate funding sources in one feed, so staff stop checking a dozen separate sites and mailing lists by hand."
+demo: "analysis"
+capabilities:
+  - title: "Multi-source ingestion"
+    body: "Pulls listings from federal grant sources, foundation directories, and corporate giving programs into a single feed."
+  - title: "Deduplication"
+    body: "Collapses the same opportunity when it appears in more than one source, so staff review it once."
+  - title: "Category tagging"
+    body: "Tags each opportunity by funding type, geography, and subject area drawn from its listing."
+  - title: "Freshness tracking"
+    body: "Marks when each opportunity was last checked against its source, so stale listings are visible as stale."
+  - title: "Saved search profiles"
+    body: "Stores a staff-defined search profile per program area so new matches surface automatically as sources update."
+problems:
+  - problem: "Relevant opportunities are spread across federal portals, foundation websites, and corporate giving pages that each require a separate check."
+    solution: "One feed pulls from all three source types and presents them together."
+  - problem: "The same opportunity appears twice under slightly different titles from two directories."
+    solution: "Deduplication logic matches on funder, program, and deadline to collapse duplicates before staff see them."
+  - problem: "A staff member has to remember to re-check a source weekly to catch new postings."
+    solution: "Saved search profiles run against updated sources automatically and surface new matches without a manual re-check."
+steps:
+  - title: "Ingest"
+    body: "Source connectors pull current listings from federal, foundation, and corporate feeds on a scheduled interval."
+    agent: "Opportunity Discovery agent"
+    humanGate: "Staff configure which sources and categories are active for their organization."
+  - title: "Match"
+    body: "New listings are compared against saved search profiles and the organization's stored category preferences."
+    agent: "Opportunity Discovery agent"
+    humanGate: "Staff review matches in the feed; nothing is auto-added to the pipeline without a staff action."
+  - title: "Surface"
+    body: "Matched opportunities appear in the feed with source, deadline, and category, ready for review or hand-off to Funding Intelligence."
+    agent: "Opportunity Discovery agent"
+    humanGate: "A staff member decides which matches move forward to scoring and drafting."
+faq:
+  - question: "Where do the listings come from?"
+    answer: "Federal grant sources, foundation directories, and corporate giving program pages, ingested on a scheduled basis."
+  - question: "Does it find opportunities we are not eligible for?"
+    answer: "Yes, discovery surfaces matches by category and subject area. Eligibility is checked separately by Funding Intelligence."
+  - question: "How current are the listings?"
+    answer: "Each listing shows when it was last checked against its source, so staff can see how fresh a posting is."
+  - question: "Can we tune what shows up in our feed?"
+    answer: "Yes, saved search profiles let staff define program areas, geography, and funding type so the feed matches their focus."
+  - question: "Does discovery submit anything automatically?"
+    answer: "No. Discovery only surfaces opportunities. Nothing moves to drafting or submission without a staff decision."
+related:
+  - "/platform/funding-intelligence"
+  - "/platform/pipeline-crm"
+  - "/platform/analytics"
+---
+
+Opportunity Discovery replaces the routine of checking a dozen separate sites and mailing lists with a single feed. Instead of a staff member visiting a federal grants portal, a state agency site, several foundation directories, and a handful of corporate giving pages on a recurring basis, source connectors pull current listings from all of those categories into one place on a scheduled interval.
+
+The feed is organized by category, geography, and funding type, matched against a saved search profile that staff define for their organization's program areas. When a source posts a new opportunity that matches the profile, it appears in the feed automatically. This does not mean every listing is relevant; it means staff are reviewing a filtered set of candidates instead of raw source pages, and are reviewing them once regardless of how many source lists carried the listing.
+
+Duplication is a real problem in funding research: the same federal opportunity can appear in more than one aggregator, and a foundation's own site can post the same program the discovery feed already surfaced from a directory. Deduplication logic matches on funder name, program title, and deadline to collapse these into a single feed entry, so staff are not reviewing the same opportunity twice under different headlines.
+
+Every listing in the feed shows when it was last checked against its original source. This freshness marker exists because funding listings change: deadlines move, award amounts are revised, and notices are sometimes withdrawn. A listing that has not been re-checked recently is visibly flagged as such, rather than presented with the same confidence as one checked that day.
+
+Discovery does not make a pursue decision and does not hand anything to drafting or submission on its own. Its output is a reviewed, deduplicated, categorized feed. The decision to move a specific opportunity into eligibility scoring, and from there into a draft, is made by a staff member acting on what the feed surfaces.

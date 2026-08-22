@@ -1,0 +1,62 @@
+---
+layout: platform
+title: "Analytics"
+description: "Reports win rate, time spent per stage, and dollars pursued across the pipeline, so decisions about where to focus are based on the organization's own history."
+eyebrow: "Platform"
+hero: "Win rate, time spent per stage, and dollars pursued, drawn from your own pipeline history rather than industry averages."
+demo: "none"
+capabilities:
+  - title: "Win rate by category"
+    body: "Reports award rate broken down by funder type, program area, and dollar range from the organization's own submitted applications."
+  - title: "Time-in-stage reporting"
+    body: "Shows how long applications typically spend in each pipeline stage, highlighting where delays tend to occur."
+  - title: "Dollars pursued vs. awarded"
+    body: "Tracks total requested amounts against total awarded amounts over a selected period."
+  - title: "Funder performance history"
+    body: "Reports outcomes per funder over time, so staff can see which relationships have produced awards."
+  - title: "Staff workload view"
+    body: "Shows how many active applications and tasks are assigned per staff member across the pipeline."
+problems:
+  - problem: "Decisions about which funders or program areas to prioritize are made from memory rather than the organization's actual results."
+    solution: "Win rate and dollars-awarded figures are reported directly from the organization's own submitted application history."
+  - problem: "Nobody can say with confidence where applications typically stall in the process."
+    solution: "Time-in-stage reporting shows which pipeline stage tends to hold applications longest."
+  - problem: "Staff workload is invisible until someone is visibly overloaded."
+    solution: "A workload view shows active application and task counts per staff member."
+steps:
+  - title: "Aggregate"
+    body: "The analytics agent aggregates pipeline stage history, submission outcomes, and dollar amounts from the organization's own records."
+    agent: "Analytics agent"
+    humanGate: "Staff define the reporting period and categories used for each report."
+  - title: "Report"
+    body: "Aggregated figures are presented as win rate, time-in-stage, and dollars pursued versus awarded."
+    agent: "Analytics agent"
+    humanGate: "Reports describe what happened; staff decide what to change in response."
+  - title: "Review"
+    body: "Reports are available for any staff member with pipeline access to review at any time, not only at a scheduled interval."
+    agent: "Analytics agent"
+    humanGate: "No action is taken automatically based on a report; interpretation and any resulting change is a staff decision."
+faq:
+  - question: "Where do the analytics figures come from?"
+    answer: "Directly from the organization's own pipeline and submission records, not from an external benchmark or industry average."
+  - question: "Can we see results for a specific funder or program area?"
+    answer: "Yes, reports can be broken down by funder, program area, and dollar range."
+  - question: "Does the system recommend what to prioritize next?"
+    answer: "No, it reports what happened. Deciding what to prioritize based on that report is a staff decision."
+  - question: "Is staff workload data visible to everyone?"
+    answer: "Workload visibility follows your organization's own access permissions."
+related:
+  - "/platform/pipeline-crm"
+  - "/platform/opportunity-discovery"
+  - "/platform/funding-intelligence"
+---
+
+Analytics is the record-keeping layer underneath the rest of the platform. Every stage change, submission, award, and decline that moves through the Pipeline and CRM system leaves a data point, and Analytics aggregates those data points into reports that describe what actually happened rather than what staff remember happening.
+
+Win rate is reported broken down by funder type, program area, and dollar range, calculated from the organization's own submitted applications rather than an industry benchmark. An organization that has applied to fifteen foundation grants and three federal awards over a year can see its award rate for each category separately, which is a more useful signal than a single blended number or an external average that has nothing to do with its actual funders.
+
+Time-in-stage reporting shows how long applications typically sit in each pipeline stage before moving to the next one. If applications consistently stall for weeks at the drafting stage before moving to submission, that pattern becomes visible in the report rather than remaining a vague sense that things take too long. The same applies to dollars pursued against dollars awarded over a selected period, which gives a concrete return figure rather than an anecdotal one.
+
+Funder performance history accumulates the same way: for any funder the organization has submitted to more than once, the report shows the pattern of outcomes over time, which is useful context before deciding whether to invest more staff time in that relationship.
+
+Analytics does not make a recommendation or take an action based on what it reports. It aggregates and presents figures drawn from the organization's own history. Whether to shift focus toward a higher-performing funder category, reassign workload, or investigate a stage that consistently causes delay is a decision made by staff looking at the report, not by the system itself.

@@ -54,6 +54,29 @@ const PUBLIC_PATHS = [
   "/security",
   "/privacy",
   "/terms",
+  // Marketing site content pages (mkt-XX): src/app/(marketing)/[...slug]/page.tsx,
+  // rendered from content/marketing/*.mdx. Exact-path allowlist, same as the
+  // rest of this list - see src/lib/marketing/nav.ts ALL_MARKETING_ROUTES.
+  "/platform",
+  "/platform/funding-intelligence",
+  "/platform/opportunity-discovery",
+  "/platform/ai-grant-writer",
+  "/platform/autoapply",
+  "/platform/pipeline-crm",
+  "/platform/analytics",
+  "/agents",
+  "/solutions",
+  "/solutions/faith-based",
+  "/solutions/human-services",
+  "/solutions/housing",
+  "/solutions/veterans",
+  "/solutions/education",
+  "/solutions/community-development",
+  "/why-benavora",
+  "/trust",
+  "/company",
+  "/resources",
+  "/demo",
 ];
 
 // Session cookie (no Max-Age) set by the onboarding wizard's "Explore the

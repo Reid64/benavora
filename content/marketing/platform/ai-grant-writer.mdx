@@ -1,0 +1,64 @@
+---
+layout: platform
+title: "AI Grant Writer"
+description: "Drafts grant narrative sections from your organization's own knowledge base, with every factual claim linked back to its source."
+eyebrow: "Platform"
+hero: "Drafts from your organization's own knowledge base, with a citation on every factual claim, so staff edit and approve instead of starting from a blank page."
+demo: "theater"
+capabilities:
+  - title: "Knowledge-base grounded drafting"
+    body: "Pulls program descriptions, outcomes, and organizational facts from your stored knowledge base rather than generating unsourced text."
+  - title: "Section-level citations"
+    body: "Attaches a source reference to each factual claim in a draft, so a reviewer can verify it against the original document."
+  - title: "Notice-aligned structure"
+    body: "Structures the draft to match the sections and word limits stated in the specific notice of funding opportunity."
+  - title: "Multi-draft comparison"
+    body: "Generates alternate phrasings of a section on request, so staff can compare approaches before selecting one."
+  - title: "Edit history"
+    body: "Keeps a record of what the system drafted versus what staff changed, so review time concentrates on the edits that matter."
+problems:
+  - problem: "A blank page for every new application means re-writing the same organizational description from scratch each time."
+    solution: "The grant writer pulls existing organizational facts and program descriptions from the knowledge base as a starting draft."
+  - problem: "Reviewers cannot tell which statements in a draft are supported and which are not."
+    solution: "Every factual claim in the draft carries a citation back to its source document in the knowledge base."
+  - problem: "Draft structure does not match what the specific notice requires, forcing a rewrite after the fact."
+    solution: "The draft is structured against the section headings and word limits stated in the notice being applied to."
+steps:
+  - title: "Retrieve"
+    body: "The writer agent pulls relevant program facts, past outcomes, and organizational details from the knowledge base."
+    agent: "AI Grant Writer agent"
+    humanGate: "Staff confirm the knowledge base entries used are current before drafting begins."
+  - title: "Draft"
+    body: "Narrative sections are generated against the notice's required structure, with a citation attached to each factual sentence."
+    agent: "AI Grant Writer agent"
+    humanGate: "No draft is submitted anywhere at this step; it exists only as an editable document."
+  - title: "Review and approve"
+    body: "Staff edit the draft, verify citations against source documents, and approve the final version."
+    agent: "AI Grant Writer agent"
+    humanGate: "A staff member must approve the draft before it can be attached to a submission."
+faq:
+  - question: "Does the system invent facts about our organization?"
+    answer: "No. Factual claims are pulled from your stored knowledge base and cited. If a fact is not in the knowledge base, it is not asserted."
+  - question: "What if our knowledge base is out of date?"
+    answer: "Outdated source documents produce outdated citations. Staff are shown the source and date so they can catch this before approving."
+  - question: "Can the draft be submitted without a person reading it?"
+    answer: "No. A draft only becomes eligible for submission after a staff member approves it."
+  - question: "Does it write for any notice, or only ones we have used before?"
+    answer: "It drafts against the structure and requirements of the specific notice being applied to, including new ones."
+  - question: "Can we compare more than one version of a section?"
+    answer: "Yes. The system can generate alternate phrasings for a given section on request for staff to compare."
+related:
+  - "/platform/funding-intelligence"
+  - "/platform/autoapply"
+  - "/platform/pipeline-crm"
+---
+
+The AI Grant Writer exists to remove the blank-page problem, not to remove the writer. Every draft it produces starts from the organization's own stored knowledge base: program descriptions, past outcomes, staff qualifications, and organizational history that staff have already recorded, rather than generic language invented for the occasion.
+
+Each factual sentence in a generated draft carries a citation pointing back to the specific knowledge base entry it came from. This is a deliberate constraint: if a claim about the organization cannot be traced to a source document, it does not appear in the draft as a statement of fact. A reviewer checking the draft can click through to the source and confirm it says what the draft claims, the same way they would check a citation in any research document.
+
+Drafts are structured to match the specific notice being applied to, using the section headings, word limits, and required elements stated in that notice rather than a generic template. A notice that asks for a two-page statement of need followed by a one-page evaluation plan produces a draft with those two sections at those lengths, not a five-section template that has to be manually restructured afterward.
+
+Staff can request alternate phrasings of a given section to compare approaches before settling on one, and the system keeps a record of what it drafted versus what staff subsequently edited, so a reviewer coming back to a draft later can see exactly what changed and why.
+
+No draft produced here is submitted anywhere automatically. It exists as an editable document until a staff member reviews it, corrects anything that needs correcting, verifies the citations, and approves it. Only an approved draft becomes eligible to move into AutoApply for portal submission, and that step carries its own separate human review gate.

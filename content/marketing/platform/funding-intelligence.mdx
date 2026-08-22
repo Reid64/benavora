@@ -1,0 +1,64 @@
+---
+layout: platform
+title: "Funding Intelligence"
+description: "Reads the notice of funding opportunity, checks your organization's eligibility against its stated criteria, and flags the requirements you do not currently meet."
+eyebrow: "Platform"
+hero: "Reads the funding notice, checks your organization against its eligibility criteria, and flags what you fail before you spend a week drafting."
+demo: "analysis"
+capabilities:
+  - title: "Notice parsing"
+    body: "Extracts eligibility criteria, deadlines, award ranges, and required attachments directly from the published notice text."
+  - title: "Eligibility scoring"
+    body: "Compares your organization's profile against each stated criterion and reports a match or a gap for every one, not just an overall score."
+  - title: "Gap flagging"
+    body: "Names the specific criteria your organization does not currently meet, so staff can decide to pursue, wait, or pass before drafting starts."
+  - title: "Deadline and requirement tracking"
+    body: "Surfaces required attachments, letters of support, and budget formats stated in the notice alongside the deadline."
+  - title: "Historical comparison"
+    body: "Shows prior opportunities from the same funder that your organization pursued, alongside their outcome."
+problems:
+  - problem: "Staff read a notice end to end before learning the organization does not qualify."
+    solution: "Eligibility scoring runs against the notice text first, so a disqualifying gap surfaces before drafting time is spent."
+  - problem: "Eligibility criteria are scattered across the notice, an appendix, and an FAQ document."
+    solution: "The system reads all published notice materials and consolidates criteria into one list per opportunity."
+  - problem: "Nobody remembers which criteria caused a past decline from the same funder."
+    solution: "Past outcomes from the same funder are attached to the current opportunity for reference."
+steps:
+  - title: "Read"
+    body: "The intelligence agent ingests the notice text and any linked appendices or FAQ documents."
+    agent: "Funding Intelligence agent"
+    humanGate: "Staff confirm the ingested notice matches the published source before scoring runs."
+  - title: "Score"
+    body: "Each eligibility criterion in the notice is checked against the organization's stored profile and prior filings."
+    agent: "Funding Intelligence agent"
+    humanGate: "Staff review the criterion-by-criterion result; the system does not decide whether to pursue."
+  - title: "Flag"
+    body: "Criteria the organization does not meet are listed separately from criteria it meets, with the source text quoted."
+    agent: "Funding Intelligence agent"
+    humanGate: "A staff member makes the pursue-or-pass decision; flags are informational, not a gate that blocks action."
+faq:
+  - question: "Does the system decide whether we should apply?"
+    answer: "No. It reports which criteria you meet and which you do not. The decision to pursue, wait, or pass stays with your staff."
+  - question: "What happens if the notice text changes after it is scored?"
+    answer: "Re-running the read step against the current notice regenerates the score; a stale score is not carried forward silently."
+  - question: "Does this work for state and foundation notices, or only federal ones?"
+    answer: "It works on any notice text the discovery system captures, including federal, state, and foundation sources."
+  - question: "Can we see why a criterion was marked as not met?"
+    answer: "Yes. Every flagged criterion links back to the exact sentence in the notice that produced it."
+  - question: "Does eligibility scoring submit anything on our behalf?"
+    answer: "No. This system only reads and reports. Submission happens later, under a separate human-approved step."
+related:
+  - "/platform/opportunity-discovery"
+  - "/platform/ai-grant-writer"
+  - "/platform/analytics"
+---
+
+Funding Intelligence is the first checkpoint after an opportunity is discovered. Rather than asking staff to read a notice of funding opportunity end to end before deciding whether it is worth pursuing, the system reads the notice, any linked appendices, and any published FAQ, and produces a criterion-by-criterion eligibility comparison against the organization's stored profile.
+
+The output is not a single score. It is a list: for every eligibility requirement stated in the notice, the system reports whether the organization's current profile meets it, and if not, what specifically is missing. A requirement for 501(c)(3) status for at least three years, a requirement for prior experience administering a federal award of a certain size, a requirement for services in a specific geography: each is checked and reported individually, with the source sentence from the notice attached so staff can verify the read is accurate.
+
+This matters because eligibility failures are often buried in an appendix or a supplemental FAQ document, not the headline notice text. A program officer skimming the summary page can miss a disqualifying requirement and spend a week on a draft before discovering the organization was never eligible. Funding Intelligence surfaces that requirement on day one, before any drafting time is committed.
+
+The system also keeps a record of prior opportunities from the same funder that the organization has pursued, including whether they were awarded, declined, or withdrawn. That history sits next to the current opportunity so staff reviewing a new notice from a familiar funder can see what happened last time without searching through email or shared drives.
+
+Nothing here is a gate. The system does not block an application because a criterion is flagged; it surfaces the flag so a person can weigh it. An organization missing one soft-preference criterion out of a dozen might reasonably decide to apply anyway. That judgment call belongs to staff, and Funding Intelligence is built to inform it rather than replace it.
