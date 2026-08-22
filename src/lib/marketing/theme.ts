@@ -3,7 +3,7 @@ export const mk = {
   sage: "#8FA68E",
   paper: "#F7F5EF",
   surface: "#FFFFFF",
-  terracotta: "#C4663A",
+  terracotta: "#B85A2E",
   terracottaHover: "#A9532C",
   ink: "#2B2B28",
   muted: "#6F6F69",

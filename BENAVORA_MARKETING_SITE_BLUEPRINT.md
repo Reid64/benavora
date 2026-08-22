@@ -40,7 +40,7 @@ Marketing theme tokens (new file `src/lib/marketing/theme.ts`, exported constant
 | `sage` | `#8FA68E` | Secondary buttons, icons, dividers on forest |
 | `paper` | `#F7F5EF` | Page background |
 | `surface` | `#FFFFFF` | Cards, panels |
-| `terracotta` | `#C4663A` | Primary CTA only, active-nav underline |
+| `terracotta` | `#B85A2E` | Primary CTA only, active-nav underline |
 | `terracottaHover` | `#A9532C` | CTA hover |
 | `ink` | `#2B2B28` | Body text |
 | `muted` | `#6F6F69` | Captions, secondary text |
@@ -59,6 +59,8 @@ Homepage hero: `forest` band, top 640px, carrying the wordmark, headline, AutoAp
 Nav: sticky, `paper` background with 1px `line` bottom border, `forest` text, terracotta underline on active; Sign In (ghost) and Book Demo (terracotta) pinned right. Nav is light so the gold wordmark sits on paper, not on forest.
 
 Contrast check required in mkt-00 gate: terracotta on white >= 4.5:1 for 14px text, heroMuted on forest >= 4.5:1, ink on paper >= 7:1.
+
+2026-08-22 (mkt-003): `scripts/marketing/contrast-check.mjs` measured the original `terracotta` (`#C4663A`) on `surface` at 3.96:1, below the 4.5:1 gate. Darkened in 4-unit-per-channel steps to `#B85A2E` (15 steps), which measures 4.63:1 and passes. No other token was changed. See `test-evidence/marketing/mkt-003/contrast.json` for the full measured table.
 
 ## 4. Information architecture (22 pages, v1)
 

@@ -1,0 +1,76 @@
+{
+  "generatedFrom": "src/lib/marketing/theme.ts",
+  "pairs": [
+    {
+      "name": "terracotta on surface",
+      "fg": "terracotta",
+      "bg": "surface",
+      "min": 4.5,
+      "gated": true,
+      "fgHex": "#B85A2E",
+      "bgHex": "#FFFFFF",
+      "ratio": 4.63,
+      "passes": true
+    },
+    {
+      "name": "heroMuted on forest",
+      "fg": "heroMuted",
+      "bg": "forest",
+      "min": 4.5,
+      "gated": true,
+      "fgHex": "#B9C8B8",
+      "bgHex": "#1F3A2E",
+      "ratio": 7.06,
+      "passes": true
+    },
+    {
+      "name": "ink on paper",
+      "fg": "ink",
+      "bg": "paper",
+      "min": 7,
+      "gated": true,
+      "fgHex": "#2B2B28",
+      "bgHex": "#F7F5EF",
+      "ratio": 13.02,
+      "passes": true
+    },
+    {
+      "name": "heroText on forest",
+      "fg": "heroText",
+      "bg": "forest",
+      "min": null,
+      "gated": false,
+      "fgHex": "#F7F5EF",
+      "bgHex": "#1F3A2E",
+      "ratio": 11.31,
+      "passes": null
+    },
+    {
+      "name": "muted on paper",
+      "fg": "muted",
+      "bg": "paper",
+      "min": null,
+      "gated": false,
+      "fgHex": "#6F6F69",
+      "bgHex": "#F7F5EF",
+      "ratio": 4.64,
+      "passes": null
+    },
+    {
+      "name": "forest on paper",
+      "fg": "forest",
+      "bg": "paper",
+      "min": null,
+      "gated": false,
+      "fgHex": "#1F3A2E",
+      "bgHex": "#F7F5EF",
+      "ratio": 11.31,
+      "passes": null
+    }
+  ],
+  "terracottaAdjustment": {
+    "hex": "#B85A2E",
+    "steps": 3,
+    "ratio": 4.63
+  }
+}

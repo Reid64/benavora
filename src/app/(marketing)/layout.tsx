@@ -8,18 +8,15 @@ import { mk } from "@/lib/marketing/theme";
 
 // Marketing route-group layout. Provides the shared forest/paper nav + footer
 // (src/components/marketing/MarketingNav.tsx, MarketingFooter.tsx) for the
-// secondary marketing pages (/for-consultants, /pricing, /privacy, /terms,
-// /security).
+// marketing pages.
 //
-// The landing page ("/") is the converted v15 marketing page — it is fully
-// self-contained (its own nav, footer, and GLOBAL CSS, including a `nav {}`
-// rule). Wrapping it in this chrome would duplicate the nav and let the v15
-// global styles collide with it, so we render the landing without chrome.
-//
-// /how-it-works is a deep-dive continuation of the landing page (same dark B-token
-// visual system, its own nav/footer) rather than a standalone marketing sub-page —
-// same reasoning as "/", so it's exempted the same way.
-// See test-evidence/marketing/mkt-001-inventory.md for the full reasoning.
+// /how-it-works is still the old converted v15 marketing page (its own dark
+// B-token visual system, own nav/footer) and is not in scope for the mkt-003
+// Home rewrite, so it keeps rendering standalone until it gets its own
+// Forest-and-paper pass. The landing page ("/") was rewritten in mkt-003 to
+// use the shared mk tokens and no longer brings its own nav/footer, so it now
+// gets the shared chrome like every other marketing page.
+// See test-evidence/marketing/mkt-001-inventory.md and mkt-003-before.md.
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -42,9 +39,9 @@ export default function MarketingLayout({
 }) {
   const pathname = usePathname();
 
-  // Landing page and its deep-dive continuation render standalone (they bring
-  // their own nav + footer, matching the landing page's dark visual system).
-  if (pathname === "/" || pathname === "/how-it-works") {
+  // /how-it-works still renders standalone (own nav + footer, old dark
+  // visual system) until it gets rewritten in a later mkt- queue item.
+  if (pathname === "/how-it-works") {
     return <>{children}</>;
   }
 
