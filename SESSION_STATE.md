@@ -8916,3 +8916,19 @@ Results table:
 Evidence: `test-evidence/verification/ts-04/` — 11 full-page screenshots, `ts-04-results.json`. Registered `WGR-171`, `WGR-172` (both P1, CONFIRMED-BROKEN) and `WGR-173` (P2, CONFIRMED-BROKEN) in `WIRING_GAP_REGISTER.md`.
 
 Files touched: `scripts/audit/ts-04-intelligence-sections-verify.mjs` (new), `scripts/audit/ts-04-diag.mjs` (new), `scripts/audit/ts-04-diag2.mjs` (new), `test-evidence/verification/ts-04/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — verification-only, no fix applied to WGR-171/172/173 this session. Not pushed, per explicit task instruction.
+
+## Session 26 — August 23, 2026: TS-05 — Documents hang re-test (WGR-004 RESOLVED), compliance/outcomes verification
+
+STEP 1 (WGR-004): read `src/app/(dashboard)/documents/page.tsx` and its full dependency chain (`DocumentList.tsx`, `DocumentUploader.tsx`, `src/lib/hooks/useProfile.ts`) end to end before attempting reproduction — the page makes zero direct `/api/...` calls, only 4 parallel Supabase table queries plus a profile fetch, none unbounded or blocking. First reproduction attempt gave a false result: port 3000 was serving an unrelated non-Benavora project (`afs-website`), producing a misleading 404 screenshot; caught and corrected by starting a fresh Benavora dev server on port 3002. Against the correct server: first hit to `/documents` took 10707ms (cold Next.js dev-mode on-demand route compile — within the 15s task ceiling, over the 5s target); every subsequent hit completed in 2874ms, 0 console errors, full real content. No blocking call in the code; the cold/warm gap is dev-mode JIT compilation, not a hang. No fix needed. **WGR-004 marked RESOLVED**, superseding WGR-014's prior bare non-reproduction with an identified mechanism.
+
+STEP 2 (5 screenshots, `waitForLoadState`, foreground): `/documents` 2874ms, `/follow-ups` 798ms, `/compliance` 855ms, `/outcomes` 825ms, `/alerts` 862ms — all well under 5s, real content, 0 console errors. Saved `test-evidence/verification/ts-05/01-documents.png` through `05-alerts.png`.
+
+STEP 3 (3 APIs, synchronous): `POST /api/compliance/check {application_id}` → 200, real `ComplianceChecker` run, correctly found 7 unresolved `[NEEDS INPUT]` placeholders and blocked submission (compliance gate working as designed). `GET /api/alerts` → 200, real regenerated set (729 active: 27 deadline, 686 new-opportunity, 1 draft-review). `GET /api/intelligence/evaluation?category=housing` → 200, real framework + KPIs. All 3 healthy. Saved `test-evidence/verification/ts-05/03-api-responses.json`.
+
+STEP 4 (gates): a dev-server process from this session's own port-3002 startup survived `TaskStop` (orphaned on Windows, still holding `.next/`), causing the first `pnpm run build` to fail `EPERM` on `.next/trace`, then the retry to silently stall ~48 minutes with zero CPU progress (confirmed via `Get-Process` CPU-time sampling, not assumed) before being found and killed directly by PID. After clearing it: `pnpm run build` exit 0. `npx vitest run`: 65 files passed, 1 skipped, 569 tests passed, 13 todo, exit 0.
+
+No new defects found or registered this session — all 5 pages and all 3 APIs are genuinely healthy.
+
+**WGR-004 final status: RESOLVED.** All page load results: `/documents` 2874ms (warm) / 10707ms (cold, dev-mode compile only), `/follow-ups` 798ms, `/compliance` 855ms, `/outcomes` 825ms, `/alerts` 862ms — all pass, all real content, zero console errors.
+
+Files touched: `scripts/ts-05-verify.mjs`, `scripts/ts-05-check404.mjs`, `scripts/ts-05-api-calls.mjs`, `scripts/ts-05-get-app-id.mjs` (new), `test-evidence/verification/ts-05/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md` (WGR-004 marked RESOLVED, WGR-014 superseded), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — no fix was needed. Not pushed, per explicit task instruction.
