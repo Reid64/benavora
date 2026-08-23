@@ -8,9 +8,17 @@ import path from "path";
 import { chromium } from "playwright";
 
 const PORT = 3101;
-const BASE_URL = `http://localhost:${PORT}`;
+// BASE_URL override lets this script smoke-test a deployed target (e.g.
+// https://www.benavora.com) instead of spawning a local `next start`.
+const REMOTE_BASE_URL = process.env.BASE_URL || null;
+const BASE_URL = REMOTE_BASE_URL || `http://localhost:${PORT}`;
 const ROOT = process.cwd();
-const EVIDENCE_DIR = path.join(ROOT, "test-evidence", "marketing", "mkt-002");
+const EVIDENCE_DIR = path.join(
+  ROOT,
+  "test-evidence",
+  "marketing",
+  process.env.EVIDENCE_DIR || "mkt-002"
+);
 const NAV_FILE = path.join(ROOT, "src", "lib", "marketing", "nav.ts");
 
 function readRoutes() {
@@ -66,17 +74,19 @@ async function main() {
   const routes = readRoutes();
   console.log(`Loaded ${routes.length} routes from nav.ts`);
 
-  const server = spawn("npx", ["next", "start", "-p", String(PORT)], {
-    cwd: ROOT,
-    stdio: "inherit",
-    shell: true,
-  });
+  const server = REMOTE_BASE_URL
+    ? null
+    : spawn("npx", ["next", "start", "-p", String(PORT)], {
+        cwd: ROOT,
+        stdio: "inherit",
+        shell: true,
+      });
 
   let exitCode = 0;
   const results = [];
 
   try {
-    await waitForServer(60000);
+    if (!REMOTE_BASE_URL) await waitForServer(60000);
 
     const browser = await chromium.launch();
     const page = await browser.newPage();
@@ -108,10 +118,12 @@ async function main() {
     // server was spawned with shell:true, so server.kill() only kills the
     // shell wrapper on Windows and leaves the next-server child holding the
     // port. taskkill /T kills the whole process tree.
-    if (process.platform === "win32") {
-      spawnSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], { shell: true });
-    } else {
-      server.kill();
+    if (server) {
+      if (process.platform === "win32") {
+        spawnSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], { shell: true });
+      } else {
+        server.kill();
+      }
     }
   }
 

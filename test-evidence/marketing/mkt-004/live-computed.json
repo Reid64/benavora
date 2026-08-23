@@ -1,0 +1,10 @@
+{
+  "captured_at": "2026-08-23T03:35:48.271Z",
+  "base_url": "https://www.benavora.com",
+  "nav_background_color": "rgb(247, 245, 239)",
+  "book_demo_background_color": "rgb(184, 90, 46)",
+  "home_hero_background_color": "rgb(31, 58, 46)",
+  "expected": {
+    "nav_background_color": "rgb(247, 245, 239)"
+  }
+}

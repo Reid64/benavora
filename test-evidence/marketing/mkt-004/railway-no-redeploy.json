@@ -1,0 +1,7 @@
+{
+  "checked_at": "2026-08-23T03:47:56.340Z",
+  "current_deployment_id": "cab3144c-7667-48a6-9620-d10aeca3bc5b",
+  "current_deployment_status": "SUCCESS",
+  "current_deployment_time": "2026-08-21 18:58:43 -05:00",
+  "conclusion": "Railway did not redeploy during this mkt-05/knw-004 fixture session - no worker/ files were changed, and the deployment list confirms the most recent SUCCESS deployment predates this session."
+}
