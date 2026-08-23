@@ -1,0 +1,14 @@
+{
+  "page": "/autoapply/recordings",
+  "failingRequest": "GET https://vbjplpquqxxfbpazyalt.supabase.co/rest/v1/session_recordings?select=*%2Cfunders%28name%29%2Cautoapply_submissions%28status%29&order=created_at.desc",
+  "httpStatus": 400,
+  "responseBody": {
+    "code": "PGRST200",
+    "details": "Searched for a foreign key relationship between 'session_recordings' and 'funders' in the schema 'public', but no matches were found.",
+    "hint": null,
+    "message": "Could not find a relationship between 'session_recordings' and 'funders' in the schema cache"
+  },
+  "userFacingEffect": "Page renders its chrome/filters correctly but shows a visible red banner: \"Could not load recordings.\" See test-evidence/verification/ts-01/03-recordings.png.",
+  "capturedAt": "2026-08-23T06:27:20Z",
+  "note": "The client-side query embeds funders(name) as if session_recordings has a direct FK to funders. No such FK exists in the live schema, so PostgREST's embedded-resource resolution fails on every page load for every org."
+}

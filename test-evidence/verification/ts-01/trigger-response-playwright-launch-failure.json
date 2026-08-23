@@ -1,0 +1,24 @@
+{
+  "endpoint": "POST /api/agents/automation",
+  "applicationId": "1944f4e3-eade-48e7-b314-f5bb8001f56a",
+  "opportunityId": "2679d5eb-33d5-493c-b0a0-81edc43f7c40",
+  "opportunityName": "Rural Housing Preservation Grant",
+  "targetUrl": "https://www.grants.gov/search-grants?opp=USDA-RD-HCFP-HPG-2026",
+  "httpStatus": 200,
+  "responseBody": {
+    "sessionId": "9318a2b7-6e34-4ee7-b2e0-1a766ed77877",
+    "status": "failed",
+    "result": {
+      "sessionId": "9318a2b7-6e34-4ee7-b2e0-1a766ed77877",
+      "status": "failed",
+      "pause": null,
+      "targetUrl": "https://www.grants.gov/search-grants?opp=USDA-RD-HCFP-HPG-2026",
+      "mappedFieldCount": 0,
+      "unmappedRequiredFields": [],
+      "screenshots": [],
+      "notes": "Failed to launch browser: browserType.launch: Executable doesn't exist at /home/sbx_user1051/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell\n(Playwright install-browsers instructions omitted)"
+    }
+  },
+  "capturedAt": "2026-08-23T06:27:01.654Z",
+  "note": "src/app/api/agents/automation/route.ts POSTs to BrowserAutomationAgent.run(), which internally launches a Playwright chromium instance inside the Vercel Node.js serverless function itself (not the Railway worker). The chromium binary is not present in that runtime, so every trigger fails immediately with status:failed before any form-fill or navigation occurs. This is separate from the mature submission_queue/worker/queue-processor.ts AutoApply pipeline on Railway, which does have its own browser automation and is not affected by this finding."
+}

@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-23T06:26:50.438Z",
+  "applicationId": "1944f4e3-eade-48e7-b314-f5bb8001f56a",
+  "sessionId": "9318a2b7-6e34-4ee7-b2e0-1a766ed77877",
+  "statusTransitions": [
+    {
+      "t": "2026-08-23T06:27:01.654Z",
+      "status": "failed",
+      "source": "trigger-response"
+    },
+    {
+      "t": "2026-08-23T06:27:05.094Z",
+      "status": "cancelled",
+      "source": "cancel-response"
+    }
+  ],
+  "externalSubmissionOccurred": false,
+  "consoleErrorCount": 1,
+  "notes": [
+    {
+      "step": "flag-enable",
+      "ok": true
+    },
+    {
+      "step": "review-card-content",
+      "opportunityNameVisible": false
+    },
+    {
+      "step": "action-log-check",
+      "table": "automation_steps",
+      "stepCount": 1,
+      "submitStepFound": false,
+      "confirmationNumber": null
+    },
+    {
+      "step": "flag-restore",
+      "ok": true
+    }
+  ]
+}
