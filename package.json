@@ -55,6 +55,7 @@
         "test:extractor": "tsx scripts/test-extractor.ts",
         "seed:library": "tsx scripts/seed-intelligence-library.ts",
         "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts",
+        "knowledge:ingest": "tsx scripts/knowledge/ingest.ts",
         "seed:platform-patterns": "tsx scripts/seed-platform-patterns.ts",
         "ingest:nonprofits": "tsx scripts/ingest-nonprofit-bmf.ts",
         "build:twins": "tsx scripts/build-digital-twins.ts",

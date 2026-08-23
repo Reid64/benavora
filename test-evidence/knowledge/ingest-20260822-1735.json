@@ -1,0 +1,302 @@
+{
+  "dryRun": false,
+  "only": null,
+  "sources": [
+    {
+      "name": "IRS Publication 557 Tax-Exempt Status for Your Organization",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 4220 Applying for 501(c)(3) Tax-Exempt Status",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 4221-PC Compliance Guide for 501(c)(3) Public Charities",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 4221-PF Compliance Guide for Private Foundations",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 598 Tax on Unrelated Business Income",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 1771 Charitable Contributions Substantiation and Disclosure",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 561 Determining the Value of Donated Property",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 526 Charitable Contributions",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 1828 Tax Guide for Churches and Religious Organizations",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Publication 4302 A Charity's Guide to Vehicle Donations",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Form 990-PF Instructions",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "IRS Form 990 Instructions",
+      "rights": "host",
+      "status": "embedded",
+      "chunks": 200
+    },
+    {
+      "name": "IRS Charities and Nonprofits Life Cycle of a Public Charity",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov Grants 101",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov Grant Lifecycle",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "too-short"
+    },
+    {
+      "name": "Grants.gov Grant Eligibility",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov Grant Terminology",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov Grant Policies",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov Grant Reporting",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov Grant Fraud",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Grants.gov How to Apply for Grants",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "too-short"
+    },
+    {
+      "name": "Grants.gov Applicant Registration",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "SAM.gov Assistance Listings Overview",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "USAspending.gov About",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "too-short"
+    },
+    {
+      "name": "Federal Audit Clearinghouse",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "too-short"
+    },
+    {
+      "name": "2 CFR Part 200 Uniform Guidance",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "HUD Exchange Grantee Resources",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 404"
+    },
+    {
+      "name": "NIH Grants and Funding",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "HHS Grants",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 403"
+    },
+    {
+      "name": "Department of Education Grants",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "DOJ Office of Justice Programs Funding",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "USDA Rural Development Programs",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 403"
+    },
+    {
+      "name": "FEMA Grants",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "AmeriCorps Funding Opportunities",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 403"
+    },
+    {
+      "name": "EDA Funding Opportunities",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 403"
+    },
+    {
+      "name": "VA Supportive Services for Veteran Families",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Census Bureau Data Guidance",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "County Health Rankings Model",
+      "rights": "index",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "The NGO Handbook",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "Invalid PDF structure"
+    },
+    {
+      "name": "Introduction to the Nonprofit Sector",
+      "rights": "host",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 403"
+    },
+    {
+      "name": "OpenStax Principles of Management",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "OpenStax Introduction to Business",
+      "rights": "host",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Fundraising Effectiveness Project Reports",
+      "rights": "index",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "Independent Sector Principles for Good Governance and Ethical Practice",
+      "rights": "index",
+      "status": "embedded (cached)",
+      "chunks": 0
+    },
+    {
+      "name": "National Council of Nonprofits Fundraising",
+      "rights": "index",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 404"
+    },
+    {
+      "name": "National Council of Nonprofits Charitable Solicitation Registration",
+      "rights": "index",
+      "status": "failed",
+      "chunks": 0,
+      "error": "HTTP 404"
+    }
+  ],
+  "totals": {
+    "sources": 46,
+    "embedded": 1,
+    "failed": 13,
+    "chunks": 200,
+    "embeddingCalls": 2
+  }
+}

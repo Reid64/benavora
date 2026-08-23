@@ -1,0 +1,19 @@
+{
+  "dryRun": true,
+  "only": "Publication 557",
+  "sources": [
+    {
+      "name": "IRS Publication 557 Tax-Exempt Status for Your Organization",
+      "rights": "host",
+      "status": "chunked (dry-run)",
+      "chunks": 195
+    }
+  ],
+  "totals": {
+    "sources": 1,
+    "embedded": 0,
+    "failed": 0,
+    "chunks": 195,
+    "embeddingCalls": 0
+  }
+}
