@@ -20,6 +20,26 @@
 # disposable local Supabase stacks (supabase start / manually-provisioned rehearsal stacks)
 /.pt05-local-stack/
 
+# session/investigation working dirs and log output (not source)
+smoke-test-output/
+enrichment-output/
+# Root-scoped only (leading slash): test-evidence/**/*.log and similar are
+# deliberately-organized, committed remediation evidence, not disposable
+# scratch logs -- a bare `*.log` would have untracked hundreds of legitimate
+# evidence files (test-evidence/remediation/wgr-157/, migration-drift/, etc).
+/build-*.log
+/dev-*.log
+/verify-*.log
+/vitest-*.log
+/tsc-*.log
+/dashboard-*.log
+/investigate-*.log
+/*.log
+/phase*.json
+/phase*-output*.json
+scripts/after-screenshots-*.mjs
+scripts/before-screenshots-*.mjs
+
 # production
 /build
 worker/dist/
