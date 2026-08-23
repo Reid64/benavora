@@ -8885,3 +8885,34 @@ Results table:
 Evidence: `test-evidence/verification/ts-03/` — `01-research.png`, `02-funders.png`, `03-match.png`, `results.json`. Registered `WGR-170` (P1, CONFIRMED-BROKEN) in `WIRING_GAP_REGISTER.md`.
 
 Files touched: `scripts/ts-03-research-agents-verify.mjs` (new), `test-evidence/verification/ts-03/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — verification-only, no fix applied to WGR-170 this session. Not pushed, per explicit task instruction.
+
+## Session 25 — August 23, 2026: TS-04 — Intelligence sections verification, WGR-171/172/173 found
+
+STEP 1: `scripts/audit/ts-04-intelligence-sections-verify.mjs`, magic-link auth as `info@faithfoundationsf.org`, foreground, synchronous. Visited all 11 `/intelligence*` pages, `waitForLoadState("networkidle", {timeout:30000})` before each full-page screenshot. All 11 loaded (`loaded:true`), **0 console errors on every single page**. 6/11 showed real non-empty data on first load: `/intelligence`, `/intelligence/match-feed`, `/intelligence/relationship-graph`, `/intelligence/twin`, `/intelligence/gap-analysis`, `/intelligence-library`.
+
+STEP 2 (empty-state pages, API checks): 5/11 pages showed no data on load. 2 of those — `/intelligence/matches` and `/intelligence/knowledge` — are real interactive run/search UIs, correctly empty until the user acts; confirmed both work when invoked directly (`POST /api/agents/semantic-matching {topN:20}` returned 2 real scored matches; `POST /api/intelligence/knowledge-query {query:"housing grants"}` returned a real matched pattern). Not defects.
+
+The other 3 are real, confirmed defects:
+- **WGR-171 (P1):** `POST /api/intelligence/strategic-advisor` ("Run" button) — bare `500`, empty body, `content-type: null`, under 1 second. Not the route's own `jsonError()` path (that returns real JSON). `strategic_recommendations` can never be populated for this org via the UI.
+- **WGR-172 (P1):** `POST /api/intelligence/community-need` ("Run Analysis" button) — identical signature (bare `500`, empty body, `content-type: null`, sub-second). `community_need_signals` can never be populated for this org via the UI.
+- **WGR-173 (P2):** `/intelligence/recommendations` — `GET /api/intelligence/recommendations` itself is healthy (real `200`, well-formed empty array) and `FunderRecommender`'s scoring logic is correctly wired; root cause is upstream — `intelligence_grantmaker_profiles` (the only candidate-funder source table) has **0 rows platform-wide**, confirmed via a direct service-role `count` query. Data-population gap, not a code defect — graded P2, clean degrade.
+
+Results table:
+
+| page | loads | real data | console errors |
+|---|---|---|---|
+| /intelligence | yes | yes | 0 |
+| /intelligence/match-feed | yes | yes | 0 |
+| /intelligence/matches | yes | no (by design, verified working) | 0 |
+| /intelligence/recommendations | yes | no (WGR-173) | 0 |
+| /intelligence/relationship-graph | yes | yes | 0 |
+| /intelligence/strategic-advisor | yes | no (WGR-171) | 0 |
+| /intelligence/twin | yes | yes | 0 |
+| /intelligence/community-need | yes | no (WGR-172) | 0 |
+| /intelligence/gap-analysis | yes | yes | 0 |
+| /intelligence/knowledge | yes | no (by design, verified working) | 0 |
+| /intelligence-library | yes | yes | 0 |
+
+Evidence: `test-evidence/verification/ts-04/` — 11 full-page screenshots, `ts-04-results.json`. Registered `WGR-171`, `WGR-172` (both P1, CONFIRMED-BROKEN) and `WGR-173` (P2, CONFIRMED-BROKEN) in `WIRING_GAP_REGISTER.md`.
+
+Files touched: `scripts/audit/ts-04-intelligence-sections-verify.mjs` (new), `scripts/audit/ts-04-diag.mjs` (new), `scripts/audit/ts-04-diag2.mjs` (new), `test-evidence/verification/ts-04/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — verification-only, no fix applied to WGR-171/172/173 this session. Not pushed, per explicit task instruction.

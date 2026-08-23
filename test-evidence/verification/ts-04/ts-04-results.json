@@ -1,0 +1,173 @@
+{
+  "timestamp": "2026-08-23T07:06:24.493Z",
+  "baseUrl": "https://www.benavora.com",
+  "pages": [
+    {
+      "path": "/intelligence",
+      "screenshot": "test-evidence/verification/ts-04/intelligence-hub.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 1281,
+      "hasNoDataPhrase": false,
+      "realData": true,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": []
+    },
+    {
+      "path": "/intelligence/match-feed",
+      "screenshot": "test-evidence/verification/ts-04/match-feed.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 9663,
+      "hasNoDataPhrase": false,
+      "realData": true,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": []
+    },
+    {
+      "path": "/intelligence/matches",
+      "screenshot": "test-evidence/verification/ts-04/matches.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 288,
+      "hasNoDataPhrase": false,
+      "realData": false,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": [
+        {
+          "api": "/api/agents/semantic-matching",
+          "status": 405,
+          "apiHasData": false,
+          "bodySnippet": "(non-JSON body)"
+        }
+      ]
+    },
+    {
+      "path": "/intelligence/recommendations",
+      "screenshot": "test-evidence/verification/ts-04/recommendations.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 1101,
+      "hasNoDataPhrase": true,
+      "realData": false,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": [
+        {
+          "api": "/api/intelligence/recommendations",
+          "status": 200,
+          "apiHasData": false,
+          "bodySnippet": "{\"recommendations\":[],\"count\":0,\"organization\":{\"name\":\"FAITH Foundation\",\"mission_statement\":\"The FAITH Foundation exists to break the cycle of housing insecurity by providing financial education, homeownership instruction, and direct housing assistance to veterans, individuals experiencing homelessness, single parents, those in recovery, those reentering society, and other economically disadvantaged populations. Through our strategic partnership with Bright Box Homes, we transform charitable g"
+        }
+      ]
+    },
+    {
+      "path": "/intelligence/relationship-graph",
+      "screenshot": "test-evidence/verification/ts-04/relationship-graph.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 1232,
+      "hasNoDataPhrase": false,
+      "realData": true,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": []
+    },
+    {
+      "path": "/intelligence/strategic-advisor",
+      "screenshot": "test-evidence/verification/ts-04/strategic-advisor.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 235,
+      "hasNoDataPhrase": false,
+      "realData": false,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": [
+        {
+          "api": "/api/intelligence/strategic-advisor",
+          "status": 200,
+          "apiHasData": false,
+          "bodySnippet": "{\"recommendations\":[]}"
+        }
+      ]
+    },
+    {
+      "path": "/intelligence/twin",
+      "screenshot": "test-evidence/verification/ts-04/twin.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 927,
+      "hasNoDataPhrase": false,
+      "realData": true,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": []
+    },
+    {
+      "path": "/intelligence/community-need",
+      "screenshot": "test-evidence/verification/ts-04/community-need.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 217,
+      "hasNoDataPhrase": true,
+      "realData": false,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": [
+        {
+          "api": "/api/intelligence/community-need",
+          "status": 200,
+          "apiHasData": false,
+          "bodySnippet": "{\"signals\":[]}"
+        }
+      ]
+    },
+    {
+      "path": "/intelligence/gap-analysis",
+      "screenshot": "test-evidence/verification/ts-04/gap-analysis.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 1996,
+      "hasNoDataPhrase": false,
+      "realData": true,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": []
+    },
+    {
+      "path": "/intelligence/knowledge",
+      "screenshot": "test-evidence/verification/ts-04/knowledge.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 660,
+      "hasNoDataPhrase": true,
+      "realData": false,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": [
+        {
+          "api": "/api/intelligence/knowledge-query",
+          "status": 405,
+          "apiHasData": false,
+          "bodySnippet": "(non-JSON body)"
+        }
+      ]
+    },
+    {
+      "path": "/intelligence-library",
+      "screenshot": "test-evidence/verification/ts-04/intelligence-library.png",
+      "loaded": true,
+      "loadError": null,
+      "textLen": 6570,
+      "hasNoDataPhrase": false,
+      "realData": true,
+      "consoleErrors": 0,
+      "errorMessages": [],
+      "apiChecks": []
+    }
+  ]
+}
