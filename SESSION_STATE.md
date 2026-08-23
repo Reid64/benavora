@@ -1,5 +1,5 @@
 # BENAVORA — Session State
-## Last Updated: August 23, 2026 — Session 29: WGR-099 RESOLVED (WebKit post-login navigation race, real root cause found + fixed) plus one incidental WebKit-only /pricing hydration bug found + fixed. See Session 29 at the end of this file.
+## Last Updated: August 23, 2026 — Session 30: session close - pushed d502269+4957040, deployed to production (SHA `4957040`), Assist chatbot live-reverified against prod still 500 - WGR-174/WGR-166 confirmed still BLOCKED-ON-DEPLOY, migration 147 not applied, no DDL credential reachable this session. See Session 30 at the end of this file.
 
 ---
 
@@ -8990,3 +8990,23 @@ Housekeeping: all local dev/prod servers started for verification (ports 3102/31
 Files touched: `src/app/login/LoginPageClient.tsx` (WGR-099 fix), `src/app/(marketing)/pricing/PricingPageClient.tsx` (incidental WebKit hydration fix), `e2e/critical-paths.spec.ts` (login helper hardening), `scripts/audit/wgr099-*.mjs` (new, verification scripts), `test-evidence/remediation/wgr-099/*` (new), `WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Committed as `fix(WGR-099): Safari WebKit rendering fixes`. Not pushed (per task constraint).
 
 Next session: apply `supabase/migrations/147_knowledge_public_wrappers.sql` once a working `DATABASE_URL` or Management API PAT is available (see WGR-166/WGR-174 for the current credential blocker), then re-run the local-verify POST (or a live prod POST) to confirm a real citation-bearing answer before marking WGR-174 RESOLVED.
+
+---
+
+## Session 30 - August 23, 2026: session close - push, prod deploy, Assist live re-verify
+
+STEP 1: 2 unpushed commits found ahead of `origin/main`: `d502269 fix: knowledge db uses Supabase JS client instead of direct pg connection`, `4957040 fix(WGR-099): Safari WebKit rendering fixes`.
+
+STEP 2: `pnpm run build` exit 0 (412 pages, real type-check+lint output confirmed). `npx vitest run` exit 0: 65 files passed + 1 skipped, 569 tests passed + 13 todo, 0 failed.
+
+STEP 3: `git push origin main` succeeded (`b16a6c6..4957040`), `.githooks/pre-push` hook ran and passed.
+
+Prod deploy: `npx vercel deploy --prod --yes` succeeded, `dpl_6MxKyiY2jtK9DdtNaUQ4ckVq424b`, `readyState: READY`, aliased to `https://www.benavora.com`, SHA `4957040`.
+
+STEP 5: live `POST https://www.benavora.com/api/public/assist`. Task's literal body (`sessionId: "verify-001"`) returned `400 {"error":"invalid-body"}` - the route's real zod schema requires a UUID, not an arbitrary string. Retried with a generated UUID: `500 {"error":"assist-unavailable"}`. Not a new defect - reproduces the already-registered WGR-174 BLOCKED-ON-DEPLOY finding: the code fix (`src/lib/knowledge/db.ts`, commit `d502269`) is correct, but its target migration `supabase/migrations/147_knowledge_public_wrappers.sql` has never been applied to production, so the `public.knowledge_search`/`knowledge_rate_count`/`knowledge_insert_query` wrapper functions it calls don't exist (`PGRST202`). Re-attempted all 3 DDL access paths this session, all still blocked: `DATABASE_URL` via `psql` (`FATAL: password authentication failed`), Supabase MCP connector (account has no access to the real project `vbjplpquqxxfbpazyalt`), Management API PAT (not present in `.env.local`). Full record saved to `test-evidence/remediation/assist-db-fix/prod-verify.json`.
+
+Result: Assist chatbot remains broken in production. WGR-174/WGR-166 stay open. No DDL path reachable from this session; needs a working `DATABASE_URL` password, a Management API PAT, or Reid applying migration 147 directly via the Supabase SQL Editor.
+
+Files touched: `test-evidence/remediation/assist-db-fix/prod-verify.json` (new), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Committed as `docs: fix session close`. Pushed.
+
+Next session: same as above - apply `supabase/migrations/147_knowledge_public_wrappers.sql` once a working DDL credential is available, then re-run the live prod POST to confirm a real citation-bearing answer before marking WGR-174 RESOLVED.

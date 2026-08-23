@@ -1,0 +1,40 @@
+{
+  "test": "POST https://www.benavora.com/api/public/assist",
+  "production_sha_at_test_time": "4957040",
+  "vercel_deployment_id": "dpl_6MxKyiY2jtK9DdtNaUQ4ckVq424b",
+  "request_body_as_sent": {
+    "question": "What is Form 990-PF?",
+    "history": [],
+    "sessionId": "625c45f7-57ff-46fb-aeb8-5b1f47c66c9f"
+  },
+  "note_on_request_body": "Task-specified sessionId 'verify-001' fails the route's real zod schema (sessionId: z.string().uuid()) with 400 invalid-body before reaching any DB code; substituted a valid UUID to exercise the actual code path under test. First attempt (sessionId='verify-001') recorded below for completeness.",
+  "attempt_1": {
+    "sessionId_sent": "verify-001",
+    "http_status": 400,
+    "response_body": { "error": "invalid-body" },
+    "note": "zod schema rejection, not the DB-fix code path -- retried with a valid UUID"
+  },
+  "attempt_2_real_test": {
+    "sessionId_sent": "625c45f7-57ff-46fb-aeb8-5b1f47c66c9f",
+    "http_status": 500,
+    "response_body": { "error": "assist-unavailable" }
+  },
+  "result": "NOT PASSING -- expected, not a new code defect. This is the already-documented WGR-174 BLOCKED-ON-DEPLOY finding, confirmed still open in production.",
+  "root_cause": "supabase/migrations/147_knowledge_public_wrappers.sql (created 3 public-schema SECURITY DEFINER wrapper functions: knowledge_search, knowledge_rate_count, knowledge_insert_query) has never been applied to the real production database (vbjplpquqxxfbpazyalt). The code fix in src/lib/knowledge/db.ts (commit d502269, part of this session's push) correctly calls these wrapper functions via createAdminClient().rpc(...) with no .schema() -- confirmed correct by the local-verify.json evidence from the same day, which reproduced the expected PGRST202 'function not found' error against a local dev server pointed at the same production DB.",
+  "ddl_paths_attempted_this_session": [
+    {
+      "path": "DATABASE_URL via psql (DIRECTIVE-017 Path 1)",
+      "result": "FATAL: password authentication failed for user \"postgres\" against db.vbjplpquqxxfbpazyalt.supabase.co (44.197.89.12) -- host reachable over IPv4, auth rejected. Identical symptom to WGR-166/WGR-174's prior documentation from the same day; re-verified fresh this session per DIRECTIVE-017's re-check requirement, not assumed from the register alone."
+    },
+    {
+      "path": "Supabase MCP connector (mcp__claude_ai_Supabase__list_projects)",
+      "result": "Connected account only has access to 3 unrelated projects (tarritrix, tarritrix-audit, hail-intel-resurrected) -- none is vbjplpquqxxfbpazyalt. No project_id available to call apply_migration/execute_sql against the real database."
+    },
+    {
+      "path": "Supabase Management API PAT",
+      "result": "Not present anywhere in .env.local -- only DATABASE_URL and NEXT_PUBLIC_SUPABASE_URL are set."
+    }
+  ],
+  "conclusion": "Migration 147 remains unapplied to production. No DDL credential reachable from this session can apply it. The Assist chatbot will continue returning 500 in production until a session with a working DATABASE_URL password or a Supabase Management API PAT applies supabase/migrations/147_knowledge_public_wrappers.sql, or until Reid applies it directly via the Supabase SQL Editor.",
+  "verified_at": "2026-08-24T00:00:00Z"
+}
