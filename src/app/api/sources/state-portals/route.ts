@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireRole } from "@/lib/auth/role-gate";
 import { STATE_PORTAL_CONFIGS } from "@/lib/sources/state-portals/portal-config";
 import { scrapePortal } from "@/lib/sources/state-portals/portal-scraper";
 
@@ -12,6 +13,22 @@ import { scrapePortal } from "@/lib/sources/state-portals/portal-scraper";
 // grants.gov/sam.gov sources this does not persist to `opportunities` —
 // it's a read-only preview of what the scraper currently sees for a portal
 // (state portal markup drifts without notice, BLUEPRINT.md §15).
+//
+// WGR-155 fix (2026-08-22): this route is user-triggered (called from
+// /settings/state-portals, not one of vercel.json's crons[] entries — see
+// WIRING_GAP_REGISTER.md), not cron-triggered, so the fix here is
+// `requireRole()` (matching every other user-triggered route in this
+// codebase), not a CRON_SECRET bearer check (that pattern is for
+// src/middleware.ts's SECRET_GATED_PATHS, real external callers with no
+// session cookie — Vercel Cron / webhook delivery — which this route is
+// not). Previously had zero auth check of any kind in the handler itself;
+// the only protection was src/middleware.ts's default session requirement,
+// which blocks anonymous callers but not any authenticated user of any role
+// in any organization triggering an outbound scrape of an arbitrary
+// configured state portal. `requireRole("viewer")` matches this route's
+// read-only/preview nature (no data persisted) and the gate every other
+// GET route in `src/app/api/donor-discovery/` already uses for the same
+// reason.
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -21,6 +38,9 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function GET(request: Request) {
+  const gate = await requireRole("viewer");
+  if ("error" in gate) return gate.error;
+
   const { searchParams } = new URL(request.url);
   const state = searchParams.get("state");
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/layout/Logo";
@@ -19,6 +19,19 @@ import { Logo } from "@/components/layout/Logo";
  *
  * The URL is read from window.location rather than useSearchParams so the page
  * needs no Suspense boundary for static export.
+ *
+ * WGR-133 fix (2026-08-22): `next.config.mjs` sets `reactStrictMode: true`,
+ * which double-invokes every mount effect in `next dev` (and, per React's own
+ * docs, is meant to simulate future concurrent-rendering remounts — not
+ * exclusive to dev, just only *forced* there). The old code below called
+ * `exchangeCodeForSession(code)` with no idempotency guard: both invocations
+ * raced for the single-use PKCE `code_verifier` cookie; the winner exchanged
+ * successfully, but the loser's own call failed with
+ * `AuthPKCECodeVerifierMissingError` (verifier already consumed) and
+ * unconditionally set `linkError(true)` — so a genuinely valid, first-use
+ * link showed "This link is no longer valid" and the password was never
+ * changed. `exchangedRef` makes the exchange run at most once per mount,
+ * closing the race at its source rather than papering over the symptom.
  */
 export default function ResetPasswordPageClient() {
   const router = useRouter();
@@ -29,8 +42,12 @@ export default function ResetPasswordPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
+
     const supabase = createClient();
     const code =
       typeof window !== "undefined"

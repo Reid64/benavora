@@ -1,0 +1,51 @@
+[
+  {
+    "step": "set-baseline-password",
+    "ok": true,
+    "detail": {}
+  },
+  {
+    "step": "generate-recovery-link",
+    "ok": true,
+    "detail": {}
+  },
+  {
+    "step": "real-link-not-rejected-as-invalid",
+    "ok": true,
+    "detail": {
+      "showsLinkInvalid": false,
+      "bodyPreview": "Set a new password\n\nChoose a new password for your account.\n\nNew password\nConfirm new password\nUpdate password\n\nBack to sign in"
+    }
+  },
+  {
+    "step": "update-redirects-to-dashboard",
+    "ok": false,
+    "detail": {
+      "finalUrl": "http://localhost:3103/reset-password#access_token=eyJhbGciOiJFUzI1NiIsImtpZCI6IjBhNDAwYTUzLWEwNzItNGEzNi04Y2UwLWMyYWExODIwODhkMCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3ZianBscHF1cXh4ZmJwYXp5YWx0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJiM2VmNGQzOS1mZGMyLTRkM2EtOWU5My0xZTE4ODhiNTc2YjQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg3NDUxNzAzLCJpYXQiOjE3ODc0NDgxMDMsImVtYWlsIjoiaW5mb0BmYWl0aGZvdW5kYXRpb25zZi5vcmciLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoiaW5mb0BmYWl0aGZvdW5kYXRpb25zZi5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZnVsbF9uYW1lIjoiUmVpZCBXaGl0ZXNpZGVzIiwib3JnYW5pemF0aW9uX25hbWUiOiJGYWl0aCBGb3VuZGF0aW9uIiwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJzdWIiOiJiM2VmNGQzOS1mZGMyLTRkM2EtOWU5My0xZTE4ODhiNTc2YjQifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvdHAiLCJ0aW1lc3RhbXAiOjE3ODc0NDgxMDN9XSwic2Vzc2lvbl9pZCI6IjU1M2UxNzlmLTdhNTUtNGY5OS04MzIzLTM3NjM4NDM3ZTIxMCIsImlzX2Fub255bW91cyI6ZmFsc2V9.7vHPT2Qdci8KywEZaoCjfH4AoT3eoexDPMrb3n8Sk9voAtC3uAEGEzWWbVwiEGtWbYAywI8ZlX8pEHqKar_stQ&expires_at=1787451703&expires_in=3600&refresh_token=frwij4px2pwq&sb=&token_type=bearer&type=recovery"
+    }
+  },
+  {
+    "step": "zero-console-errors-during-flow",
+    "ok": true,
+    "detail": {
+      "errors": []
+    }
+  },
+  {
+    "step": "login-succeeds-with-new-password",
+    "ok": false,
+    "detail": {
+      "error": "Invalid login credentials"
+    }
+  },
+  {
+    "step": "restore-baseline-password",
+    "ok": true,
+    "detail": {}
+  },
+  {
+    "step": "login-succeeds-after-restore",
+    "ok": true,
+    "detail": {}
+  }
+]

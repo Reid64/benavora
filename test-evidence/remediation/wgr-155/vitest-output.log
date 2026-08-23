@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | src/__tests__/unit/wgr-155-state-portals-gate.test.ts
+[22m[39m◇ injected env (6) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+ [32m✓[39m src/__tests__/unit/wgr-155-state-portals-gate.test.ts[2m > [22mGET /api/sources/state-portals auth gate[2m > [22mreturns the requireRole error response (403) for a caller lacking the required role, before any scrape runs
+ [32m✓[39m src/__tests__/unit/wgr-155-state-portals-gate.test.ts[2m > [22mGET /api/sources/state-portals auth gate[2m > [22mcalls requireRole('viewer') and proceeds to scrape for an authorized caller
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 20:45:22
+[2m   Duration [22m 699ms[2m (transform 50ms, setup 60ms, collect 78ms, tests 36ms, environment 0ms, prepare 72ms)[22m
+
