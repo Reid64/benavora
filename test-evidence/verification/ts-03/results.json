@@ -1,0 +1,87 @@
+{
+  "opportunityId": "6ce30570-13fc-4c2b-ae07-c2f5c0020e47",
+  "funderId": "3a0bc27b-30df-4d4d-9d86-1f0738cab85d",
+  "applicationId": "581f6778-5984-4226-ba8a-2b792042319d",
+  "results": [
+    {
+      "name": "POST /api/agents/eligibility",
+      "status": 200,
+      "elapsedMs": 9683,
+      "excerpt": "{\"opportunityId\":\"6ce30570-13fc-4c2b-ae07-c2f5c0020e47\",\"eligibilityScore\":2,\"recommendation\":\"skip\",\"recommendationReasoning\":\"Mission alignment is essentially nonexistent: FAITH Foundation's mission",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/research",
+      "status": 200,
+      "elapsedMs": 1193,
+      "excerpt": "{\"runId\":\"241b8d4f-4250-4419-8fa7-8f6bb25fab21\",\"status\":\"started\",\"result\":{\"opportunitiesFound\":0,\"opportunitiesCreated\":0,\"fundersCreated\":0}}",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/funder-intel",
+      "status": 200,
+      "elapsedMs": 2733,
+      "excerpt": "{\"runId\":\"5fc671a3-23b5-4480-8e19-2decdedeb498\",\"status\":\"completed\",\"result\":{\"funderId\":\"3a0bc27b-30df-4d4d-9d86-1f0738cab85d\",\"intelId\":\"7676da57-1c7a-4ef5-afd4-b3842ac53bd8\",\"priorities\":[],\"recen",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/foundation-finder",
+      "status": 200,
+      "elapsedMs": 422,
+      "excerpt": "{\"pagesScraped\":2,\"opportunitiesCreated\":0,\"errors\":[{\"url\":\"https://www.foundationfinder.org\",\"message\":\"fetch failed\"},{\"url\":\"https://grantsforus.io/foundations\",\"message\":\"HTTP 403: Forbidden\"}],\"",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/nofa-parser",
+      "status": 200,
+      "elapsedMs": 423,
+      "excerpt": "{\"success\":true,\"enrichedFields\":[],\"pdfsProcessed\":0,\"storedCount\":0,\"agent_run_id\":\"247ed1c8-1959-4894-8725-bcfbb922d3ee\"}",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/success-probability",
+      "status": 500,
+      "elapsedMs": 1048,
+      "excerpt": "{\"error\":\"Failed to save probability score.\",\"code\":\"write_failed\"}",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/deadline-prediction",
+      "status": 200,
+      "elapsedMs": 936,
+      "excerpt": "{\"runId\":\"2141c612-ec9b-43b5-83ed-923155956af6\",\"status\":\"completed\",\"result\":{\"category\":null,\"historicalCount\":50,\"predictions\":[{\"predictedDate\":\"2027-04-27\",\"confidence\":0.75,\"patternType\":\"annual",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/semantic-matching",
+      "status": 200,
+      "elapsedMs": 2849,
+      "excerpt": "{\"matches\":[{\"funderId\":\"3a0bc27b-30df-4d4d-9d86-1f0738cab85d\",\"funderName\":\"Walmart\",\"score\":52,\"reasoning\":\"Walmart's Spark Good local community grants program supports nonprofits broadly and has na",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "GET /api/agents/registry",
+      "status": 200,
+      "elapsedMs": 339,
+      "excerpt": "{\"agents\":[{\"agent_id\":\"ag-04-fit-analysis\",\"name\":\"AG-04 — Fit Analysis Agent\",\"description\":\"Deep 'should we actually apply' pass beyond eligibility scoring — ROI, effort estimate, and competitive p",
+      "empty": false,
+      "error": ""
+    },
+    {
+      "name": "POST /api/agents/morning-digest",
+      "status": 200,
+      "elapsedMs": 336,
+      "excerpt": "{\"ok\":true}",
+      "empty": false,
+      "error": ""
+    }
+  ]
+}

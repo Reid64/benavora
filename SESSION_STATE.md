@@ -8856,3 +8856,32 @@ STEP 6b (review): **CONFIRMED BROKEN**, registered `WGR-169` (P1). `POST /api/ai
 Evidence: `test-evidence/verification/ts-02/` — `01-draft-home.png`, `02-draft-view.png`, `03-queue.png`, `04-autonomous.png`, `ts-02-results.json`. Registered `WGR-169` (P1, CONFIRMED-BROKEN) in `WIRING_GAP_REGISTER.md`.
 
 Files touched: `scripts/audit/ts-02-draft-generator-e2e-2026-08-23.mjs` (new), `test-evidence/verification/ts-02/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — verification-only, no fix applied to WGR-169 this session. No live DB toggles required. Not pushed, per explicit task instruction.
+
+## Session 24 — August 23, 2026: TS-03 — Research agents verification, WGR-170 found
+
+STEP 1: task's literal request bodies (`{opportunity_id}`, `{funder_id}`) don't match any real route — read every route from source first. Real shapes: `eligibility`/`nofa-parser` take `{opportunityId}`; `funder-intel` takes `{funderId}`; `research` takes `{agentType}` (no opportunity id at all — used `agentType:"foundation_research"`); `success-probability` takes `{applicationId}`, not an opportunity id; `deadline-prediction`/`semantic-matching` take only optional filters, no id; `foundation-finder`/`morning-digest` take no body; `registry` is `GET`. `opportunities.title`/`applications.status` also don't exist (real: `name`, `stage`) — one live 42703 hit and fixed. Magic-link login as `info@faithfoundationsf.org` succeeded; real ids resolved for org `b1ab7402-...`: opportunity `6ce30570-...` ("FAA Aviation Research Grants Program"), funder `3a0bc27b-...` (Walmart), application `581f6778-...`.
+
+STEP 2: `scripts/ts-03-research-agents-verify.mjs`, foreground, synchronous. First run: all 10 requests 405'd — apex `benavora.com` 308-redirects to `www.benavora.com` and the cookies (scoped to the apex) didn't ride the redirect, landing unauthenticated on `/login` (GET-only, hence 405 on POST). Fixed by targeting `https://www.benavora.com` directly with cookies scoped to that host. Re-run: 9/10 endpoints 200 with real computed data; `success-probability` 500'd.
+
+STEP 3: `/research`, `/funders`, `/research/match` all loaded authenticated (final URLs stayed on target path, no `/login` bounce), `waitForLoadState("networkidle")` before each capture. Saved `test-evidence/verification/ts-03/01-research.png` (195KB), `02-funders.png` (114KB), `03-match.png` (113KB).
+
+STEP 4 (defect registered): **CONFIRMED BROKEN**, registered `WGR-170` (P1). `success-probability`'s 6-factor score computes correctly; failure is in persistence. `src/lib/agents/success-probability.ts:166-186` upserts into `success_probability_scores` with `{onConflict:"application_id"}`, but the live table has no unique/exclusion constraint on that column — reproduced directly with the service-role key: Postgres `42P10`. The route's catch swallows this into the opaque `write_failed` message. Agent 22 cannot persist a score in production today, for any org.
+
+Results table:
+
+| Endpoint | HTTP Status | Real Data | Response Time (ms) | Error |
+|---|---|---|---|---|
+| POST /api/agents/eligibility | 200 | yes | 9683 | |
+| POST /api/agents/research | 200 | yes | 1193 | |
+| POST /api/agents/funder-intel | 200 | yes | 2733 | |
+| POST /api/agents/foundation-finder | 200 | yes | 422 | |
+| POST /api/agents/nofa-parser | 200 | yes | 423 | |
+| POST /api/agents/success-probability | 500 | no | 1048 | write_failed (WGR-170) |
+| POST /api/agents/deadline-prediction | 200 | yes | 936 | |
+| POST /api/agents/semantic-matching | 200 | yes | 2849 | |
+| GET /api/agents/registry | 200 | yes | 339 | |
+| POST /api/agents/morning-digest | 200 | yes | 336 | |
+
+Evidence: `test-evidence/verification/ts-03/` — `01-research.png`, `02-funders.png`, `03-match.png`, `results.json`. Registered `WGR-170` (P1, CONFIRMED-BROKEN) in `WIRING_GAP_REGISTER.md`.
+
+Files touched: `scripts/ts-03-research-agents-verify.mjs` (new), `test-evidence/verification/ts-03/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — verification-only, no fix applied to WGR-170 this session. Not pushed, per explicit task instruction.
