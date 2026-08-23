@@ -1,0 +1,75 @@
+P0 RLS remediation — queue_controls / tier_limits / funding_sources
+Method: Supabase Management API (POST /v1/projects/vbjplpquqxxfbpazyalt/database/query),
+used as the DIRECTIVE-017 Path 2 backup after Path 1 (psql via DATABASE_URL in .env.local)
+failed with "password authentication failed for user postgres" (stale/rotated local
+credential -- DATABASE_URL was not updated for this check, no value logged here).
+
+--- BEFORE (query run 2026-08-23) ---
+SELECT tablename, rowsecurity FROM pg_tables WHERE tablename IN
+('queue_controls','tier_limits','funding_sources') AND schemaname='public';
+
+tablename        | rowsecurity
+------------------+-------------
+funding_sources   | false
+queue_controls    | false
+tier_limits       | false
+
+--- Schema check before writing policies ---
+information_schema.columns for the three tables confirmed neither queue_controls nor
+funding_sources has an organization_id column (queue_controls columns: id, control_type,
+target_id, paused, paused_by, paused_at, reason, created_at). This matches
+supabase/migrations/144_governance_analytics_rls_hardening.sql's own header comment, which
+already documents that queue_controls and tier_limits were deliberately excluded from that
+migration's org-scoped RLS pass because neither has an organization_id column -- both are
+genuinely global/shared config (queue_controls is the platform-wide pause/control-plane
+table; tier_limits is one row per subscription tier). The task-given policy SQL for
+queue_controls (`USING (organization_id = ...)`) does not match this table's real schema and
+was adapted -- see WGR-164 for the substituted policy and rationale.
+
+--- AFTER (query re-run after applying RLS, 2026-08-23) ---
+SELECT tablename, rowsecurity FROM pg_tables WHERE tablename IN
+('queue_controls','tier_limits','funding_sources');
+
+tablename        | rowsecurity
+------------------+-------------
+funding_sources   | true
+queue_controls    | true
+tier_limits       | true
+
+--- Policies applied ---
+tier_limits: ENABLE ROW LEVEL SECURITY; DROP/CREATE POLICY tier_limits_read
+  FOR SELECT USING (true) -- matches task spec exactly (lookup table, no
+  organization_id column; sole write path, recordUsage()/checkAllowance(),
+  is dead code with no callers in src/, confirmed via grep).
+
+funding_sources: ENABLE ROW LEVEL SECURITY; DROP/CREATE POLICY
+  funding_sources_read FOR SELECT USING (true) -- matches task spec.
+  Additionally added funding_sources_insert_authenticated FOR INSERT TO
+  authenticated WITH CHECK (true) -- NOT in the task's literal spec, but
+  required: src/app/api/sources/registry/route.ts's GET handler does a
+  real, live one-time seed INSERT via a user-session client (any
+  authenticated caller with an x-organization-id header, no role check)
+  when the table is empty. Without this policy the RLS-enabled table would
+  silently break that seed path (42501 on INSERT). Updated the route's own
+  stale "the table has no RLS" comment to match.
+
+queue_controls: ENABLE ROW LEVEL SECURITY; DROP/CREATE POLICY
+  queue_controls_admin_rw USING/WITH CHECK (EXISTS (SELECT 1 FROM profiles
+  WHERE profiles.id = auth.uid() AND profiles.role IN ('owner','admin')))
+  -- deviates from the task's literal spec, which named the policy
+  queue_controls_org and gated on `organization_id = ...`. That column does
+  not exist on this table (confirmed via information_schema.columns) --
+  queue_controls is a platform-wide pause/control-plane table, not
+  org-scoped, per supabase/migrations/144_governance_analytics_rls_hardening.sql's
+  own header comment, which already documents this table was deliberately
+  excluded from that migration's org-scoped pass for the same reason.
+  Traced the real call site instead: src/app/api/autoapply/controls/route.ts
+  (GET/POST/DELETE) uses a user-session client (`gate.supabase` from
+  requireRole()) and requires role "owner" for tenant/funder/domain
+  controls, "admin" for platform-type controls. role IN ('owner','admin')
+  matches that gate exactly (ROLE_HIERARCHY: owner=4 >= admin=3, so owner
+  also satisfies the admin-gated path; viewer/writer never reach this
+  route). The other real call site, src/app/api/admin/autoapply-ops/route.ts,
+  uses createAdminClient() (service-role, bypasses RLS regardless).
+  src/lib/drafts/submission-bridge.ts's queue_controls read is unreachable
+  dead code (no `new SubmissionBridge(...)` call site anywhere in src/).

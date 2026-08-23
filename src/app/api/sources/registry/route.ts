@@ -10,8 +10,11 @@ import { createClient } from "@/lib/supabase/server";
 //
 // The seed insert is gated on an authenticated caller with an org context
 // (x-organization-id header — same lightweight pattern as /api/nav-counts)
-// so an anonymous request can't trigger it; the table has no RLS since it's
-// a shared catalog, not org data, so there is nothing else to scope by.
+// so an anonymous request can't trigger it. WGR-164: RLS is now enabled on
+// funding_sources (SELECT open to all, INSERT open to any authenticated
+// user for this seed path) since it's a shared catalog, not org data, so
+// there is nothing to scope reads by, but the default schema ACL otherwise
+// leaves it anon-writable.
 
 export const runtime = "nodejs";
 

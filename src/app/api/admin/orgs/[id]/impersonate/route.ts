@@ -20,6 +20,7 @@ import { logAudit } from "@/lib/audit/logger";
 export const runtime = "nodejs";
 
 const COOKIE_NAME = "impersonation_org_id";
+// WGR-074: bounded to 1 hour per STANDING_DIRECTIVES.
 const COOKIE_MAX_AGE_SECONDS = 60 * 60; // 1 hour
 
 type RouteContext = { params: { id: string } };
