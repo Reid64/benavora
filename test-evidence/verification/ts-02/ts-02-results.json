@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-08-23T06:39:38.789Z",
+  "opportunityId": "8851652c-2def-4bc3-8428-308c4f23fd0b",
+  "applicationId": "61c21595-9aea-4c45-a82e-3c7ace99bc73",
+  "step3": {
+    "httpStatus": 200,
+    "elapsedMs": 187645,
+    "contentLength": 41949,
+    "confidenceScore": 21,
+    "savedVersionId": "c4646a0d-702c-423a-b43c-026c66ac4355",
+    "savedVersionNumber": 25
+  },
+  "step4_wgr129": {
+    "draftVersionsCountForOpportunity": 5,
+    "newestRowId": "c4646a0d-702c-423a-b43c-026c66ac4355",
+    "newestRowMatchesApiResponse": true,
+    "status": "RESOLVED-confirmed"
+  },
+  "step5": {
+    "opportunityNameVisible": true,
+    "visiblePageWordCount": 5901,
+    "nonZero": true
+  },
+  "step6_humanize": {
+    "httpStatus": 200,
+    "humanizationScore": 54,
+    "aiTellsRemovedCount": 4,
+    "draftVersionsCountBefore": 5,
+    "draftVersionsCountAfter": 5,
+    "newDraftVersionsRowCreated": false
+  },
+  "step6_review": {
+    "httpStatus": 504,
+    "hasScore": false,
+    "hasFeedback": false,
+    "bodyKeys": [
+      "error",
+      "code"
+    ]
+  },
+  "consoleErrorCount": 0,
+  "notes": [
+    {
+      "step": "humanize-draft-versions-check",
+      "note": "POST /api/drafts/[id]/humanize does NOT insert a new draft_versions row by design - it updates applications.draft_content + applications.metadata (humanization_score/breakdown) in place (see src/app/api/drafts/[id]/humanize/route.ts). Task STEP 6 expected a new draft_versions row; real behavior is an in-place update, not a new version. Not treated as a defect without further scoping - flagging for the register."
+    }
+  ]
+}
