@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-08-23T20:48:13.604Z",
+  "baseUrl": "https://www.benavora.com",
+  "browser": "webkit",
+  "results": [
+    {
+      "path": "/dashboard",
+      "finalUrl": "https://www.benavora.com/dashboard",
+      "authenticated": true,
+      "loadError": null,
+      "textLen": 4506,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "path": "/opportunities",
+      "finalUrl": "https://www.benavora.com/opportunities",
+      "authenticated": true,
+      "loadError": null,
+      "textLen": 156293,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "path": "/draft-generator",
+      "finalUrl": "https://www.benavora.com/draft-generator",
+      "authenticated": true,
+      "loadError": null,
+      "textLen": 5491,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "path": "/donor-discovery",
+      "finalUrl": "https://www.benavora.com/donor-discovery",
+      "authenticated": true,
+      "loadError": null,
+      "textLen": 5411,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    }
+  ]
+}

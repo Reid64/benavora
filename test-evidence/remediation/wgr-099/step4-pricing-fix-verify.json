@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-08-23T20:54:20.568Z",
+  "results": [
+    {
+      "browser": "webkit",
+      "baseUrl": "http://localhost:3102",
+      "loadError": null,
+      "textLen": 1873,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "browser": "chromium",
+      "baseUrl": "http://localhost:3102",
+      "loadError": null,
+      "textLen": 1873,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    }
+  ]
+}

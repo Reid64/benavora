@@ -1,5 +1,5 @@
 # BENAVORA — Session State
-## Last Updated: August 23, 2026 — Session 28: Assist DB fix attempt, WGR-174 (literal .schema('knowledge') instruction proven broken live, corrected public-wrapper-RPC fix written, blocked on DATABASE_URL auth failure). See Session 28 at the end of this file.
+## Last Updated: August 23, 2026 — Session 29: WGR-099 RESOLVED (WebKit post-login navigation race, real root cause found + fixed) plus one incidental WebKit-only /pricing hydration bug found + fixed. See Session 29 at the end of this file.
 
 ---
 
@@ -8966,5 +8966,27 @@ STEP 6: `pnpm run build` exit 0 (412 pages, full type-check + lint). `npx vitest
 STEP 7: added `WGR-174` to `WIRING_GAP_REGISTER.md` (no pre-existing "Assist 500" row existed to mark RESOLVED, despite the task's premise - the original finding only lived in `test-evidence/marketing/mkt-004/live-assist-root-cause.md`/Session 20's narrative). Status logged as `BLOCKED-ON-DEPLOY`, not `RESOLVED` - the live production defect is not actually fixed yet, only the code is ready. Marking it RESOLVED would misrepresent unverified-in-production work as done.
 
 Files touched: `src/lib/knowledge/db.ts`, `supabase/migrations/147_knowledge_public_wrappers.sql` (new), `test-evidence/remediation/assist-db-fix/local-verify.json` (new), `WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Committed as `fix: knowledge db uses Supabase JS client instead of direct pg connection`. Not pushed (per task constraint).
+
+## Session 29 - August 23, 2026: WGR-099 RESOLVED - Safari/WebKit rendering fixes
+
+STEP 1: `npx playwright install webkit` - already installed, exit 0.
+
+STEP 2: WebKit smoke test, 5 production pages (`https://www.benavora.com`): `/`, `/platform`, `/how-it-works`, `/login` all clean (0 console errors, rendered). `/pricing` had 4 console errors from a broken stylesheet URL. Screenshots + JSON saved to `test-evidence/remediation/wgr-099/`.
+
+STEP 3: magic-link WebKit login as `info@faithfoundationsf.org`, then `/dashboard`, `/opportunities`, `/draft-generator`, `/donor-discovery` - all clean, 0 console errors. Note: this auth method bypasses the real login FORM submission entirely, so it could not by itself confirm or deny WGR-099's actual registered symptom (a `page.waitForURL` timeout on the real login form's redirect) - that gap was closed in STEP 4 below via the real `e2e/critical-paths.spec.ts` spec.
+
+STEP 4a (`/pricing` fix): root cause was a React SSR/CSR hydration mismatch - `src/app/(marketing)/pricing/PricingPageClient.tsx` had a JSX `<style>{`...`}</style>` text-child whose `@import url(...)` contains an ampersand; React HTML-entity-escapes that server-side but browsers never decode entities inside `<style>` raw-text elements, breaking the URL. Fixed with `dangerouslySetInnerHTML`, the same pattern already used by `HowItWorksClient.tsx` for its identical `@import`. Verified via local `pnpm run build` + `next start`: 0 console errors in both webkit and chromium, `textLen` identical to the broken production page (1873 chars) - confirms zero content regression.
+
+STEP 4b (the actual WGR-099 finding): ran the real, registered reproduction - `e2e/critical-paths.spec.ts --project=webkit` (real login FORM, not magic-link) against a real `next dev` server - and reproduced the exact registered symptom fresh: 5/5 webkit tests failed, identical `page.waitForURL: Timeout 30000ms exceeded ... waiting for navigation to "**/dashboard"`. Root cause: `src/app/login/LoginPageClient.tsx` called `router.replace("/dashboard")` immediately followed by `router.refresh()` after `signInWithPassword()` resolved - a soft client-side transition that can outrun the Supabase browser client's auth-cookie write, a race WebKit schedules differently than Chromium/Firefox (matching the register's original hypothesis exactly). Fixed by replacing both calls with a single hard navigation, `window.location.href = "/dashboard"`, which only requests `/dashboard` once the synchronous cookie write is already committed. Also hardened `e2e/critical-paths.spec.ts`'s shared `login()` helper with `waitForLoadState("networkidle")` after the URL match - needed only against `next dev` (a dev-mode-only HMR/router-sync quirk caused a spurious "interrupted by another navigation to /dashboard" on the test's next `page.goto()`; confirmed absent against a real production build).
+
+STEP 5: re-verified against a real `pnpm run build` + `next start` production server (not dev mode, to rule out dev-only artifacts): webkit now passes `e2e/critical-paths.spec.ts` 6/7 (was 0/7 before this fix - all 5 login-dependent tests failed). The one remaining failure ("3. creating an application from an opportunity...") is the pre-existing, cross-browser WGR-100 bug - independently re-run and confirmed to fail identically on `--project=chromium` against the same production server, so it is not WebKit-specific and stays out of scope for WGR-099. A full chromium regression pass (7 tests) shows the identical 6/7 pattern - zero regression from this fix.
+
+STEP 6: `pnpm run build` exit 0 (412 pages). `npx vitest run` exit 0: 65 files passed + 1 skipped, 569 tests passed + 13 todo, 0 failed.
+
+STEP 7: `WIRING_GAP_REGISTER.md` WGR-099 marked RESOLVED with full before/after evidence and reproduction commands.
+
+Housekeeping: all local dev/prod servers started for verification (ports 3102/3103/3104) were stopped before this session closed; none left running.
+
+Files touched: `src/app/login/LoginPageClient.tsx` (WGR-099 fix), `src/app/(marketing)/pricing/PricingPageClient.tsx` (incidental WebKit hydration fix), `e2e/critical-paths.spec.ts` (login helper hardening), `scripts/audit/wgr099-*.mjs` (new, verification scripts), `test-evidence/remediation/wgr-099/*` (new), `WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Committed as `fix(WGR-099): Safari WebKit rendering fixes`. Not pushed (per task constraint).
 
 Next session: apply `supabase/migrations/147_knowledge_public_wrappers.sql` once a working `DATABASE_URL` or Management API PAT is available (see WGR-166/WGR-174 for the current credential blocker), then re-run the local-verify POST (or a live prod POST) to confirm a real citation-bearing answer before marking WGR-174 RESOLVED.

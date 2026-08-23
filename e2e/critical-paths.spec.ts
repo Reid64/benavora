@@ -166,6 +166,11 @@ async function login(page: Page): Promise<void> {
   await page.getByLabel("Password").fill(TEST_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/dashboard", { timeout: 30_000 });
+  // Login is a hard navigation (WGR-099); waitForURL resolves on address-bar
+  // match, but the dashboard's own post-mount data fetches can still be
+  // in flight. WebKit treats a page.goto() issued during that window as
+  // interrupting an "in progress" navigation, so let it settle first.
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
 }
 
 /** Collects uncaught client-side exceptions for the life of the page. */

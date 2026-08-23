@@ -133,14 +133,25 @@ export default function PricingPageClient() {
 
   return (
     <div style={{ backgroundColor: B.bg, color: B.textPrimary, fontFamily: sans }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+      <style
+        // dangerouslySetInnerHTML (not a JSX text child) so the raw CSS string is
+        // never routed through React's text-node SSR/CSR diffing — a plain
+        // `<style>{`...`}</style>` here would HTML-entity-escape the apostrophe/
+        // ampersand in the @import url() server-side but not client-side, causing
+        // a hydration text-mismatch and a broken stylesheet URL in strict-mode
+        // browsers (reproduced on the homepage's own identical pattern, fixed the
+        // same way in HowItWorksClient.tsx).
+        dangerouslySetInnerHTML={{
+          __html: `
+        @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap");
         .pp-tc { transition: all 200ms ease; }
         .pp-card-hover { transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; }
         .pp-card-hover:hover { transform: translateY(-4px); }
         .pp-btn-primary:hover { filter: brightness(1.12); }
         .pp-faq-row:hover { background: ${B.bgRaised} !important; }
-      `}</style>
+      `,
+        }}
+      />
 
       {/* Header */}
       <section style={{ maxWidth: 900, margin: "0 auto", padding: "88px 24px 48px", textAlign: "center" }}>

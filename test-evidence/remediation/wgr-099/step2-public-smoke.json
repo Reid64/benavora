@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-08-23T20:45:45.107Z",
+  "baseUrl": "https://www.benavora.com",
+  "browser": "webkit",
+  "results": [
+    {
+      "path": "/",
+      "loadError": null,
+      "textLen": 2112,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "path": "/platform",
+      "loadError": null,
+      "textLen": 2728,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "path": "/how-it-works",
+      "loadError": null,
+      "textLen": 4477,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    },
+    {
+      "path": "/pricing",
+      "loadError": null,
+      "textLen": 1873,
+      "rendered": true,
+      "consoleErrors": 4,
+      "errorMessages": [
+        "Did not parse stylesheet at 'https://www.benavora.com/&' because non CSS MIME types are not allowed in strict mode.",
+        "Error: Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Error: Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Error: Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ]
+    },
+    {
+      "path": "/login",
+      "loadError": null,
+      "textLen": 363,
+      "rendered": true,
+      "consoleErrors": 0,
+      "errorMessages": []
+    }
+  ]
+}

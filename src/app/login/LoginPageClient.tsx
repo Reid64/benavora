@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -10,7 +9,6 @@ import { recordAuthEvent } from "@/lib/audit/client";
 import { isValidEmail } from "@/lib/utils/validators";
 
 export default function LoginPageClient() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +48,15 @@ export default function LoginPageClient() {
     // (Behavioral Contracts §24). Awaited so the audit fires before navigation.
     await recordAuthEvent("login");
 
-    // Session cookies are set; refresh so the middleware sees them.
-    router.replace("/dashboard");
-    router.refresh();
+    // Hard navigation, not router.replace()+router.refresh(): the Next.js
+    // client router can issue its soft-navigation fetch before the auth
+    // cookies signInWithPassword just wrote are committed and visible to
+    // middleware. WebKit schedules that cookie-write-to-fetch handoff
+    // differently than Chromium/Firefox, so the soft transition raced the
+    // cookie and middleware bounced back to /login (WGR-099). A full
+    // browser navigation only requests /dashboard after this function's
+    // synchronous work (including the cookie write) is done.
+    window.location.href = "/dashboard";
   }
 
   return (
