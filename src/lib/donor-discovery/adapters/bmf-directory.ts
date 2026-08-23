@@ -21,7 +21,7 @@ import type { DonorDirectoryUpsertShape, EnumerateResult } from "@/lib/donor-dis
  * ## Grantmaker mode (default) vs operating_nonprofits mode
  *
  * `foundation_directory`'s 133,812 rows are IRS-registered private
- * foundations (`foundation_type` in ('02','03','04') covers 133,498 of them
+ * foundations (`foundation_type` in ('03','04') covers 133,498 of them
  * -- effectively the whole table, since this table is BMF-filtered to PF
  * status at ingestion time already). That column alone can't separate a
  * genuine *grantmaker* (writes checks to other orgs) from a *private
@@ -29,7 +29,7 @@ import type { DonorDirectoryUpsertShape, EnumerateResult } from "@/lib/donor-dis
  * calls it a "private foundation" for tax purposes, but it isn't a funding
  * prospect for another nonprofit -- it's a peer/competitor for the same
  * grants). Two structural signals combine to identify a genuine grantmaker:
- *   - `foundation_type` in ('02','03','04') -- private-foundation legal code
+ *   - `foundation_type` in ('03','04') -- private-foundation legal code (excludes '02', see GRANTMAKER_FOUNDATION_TYPES)
  *   - `ntee_code` starting 'T2' or 'T3' -- NTEE's own "Private Grantmaking
  *     Foundations" (T2x) / "Public Foundations" (T3x) classification, i.e.
  *     the org's *primary* IRS activity code is literally "grantmaking."
@@ -114,11 +114,19 @@ export type MatchBasis = "990pf_grants_data" | "ntee_code_direct" | "name_keywor
 // a foundation's own ntee_code doesn't already start with the requested
 // cause letter (i.e. it's T-coded or uncoded), per the module doc's tier 3.
 // Keyed by NTEE major group letter; extend as new cause codes are requested.
+// "family" is deliberately excluded from every list below despite being a
+// very common word in foundation cause descriptions -- "X Family Foundation"
+// is the single most common private-foundation naming convention in the IRS
+// BMF regardless of what the foundation actually funds, so including it as a
+// bare keyword false-positive-matched nearly every family-named foundation
+// to cause "P" (live-verified 2026-08-22: the initial keyword list produced
+// a top-15 that was 15/15 "X Family Foundation"-pattern names with no other
+// signal). Only genuinely cause-specific terms are listed.
 const CAUSE_KEYWORDS: Record<string, string[]> = {
-  P: ["human service", "family service", "social service", "community service", "children", "youth", "family"],
+  P: ["human service", "family service", "social service", "community service", "children", "youth"],
   X: ["church", "ministry", "ministries", "faith", "christian", "catholic", "jewish", "baptist", "ymca", "religious"],
   L: ["housing", "shelter", "homeless", "habitat"],
-  T: ["foundation", "charitable trust", "philanthrop"],
+  T: ["charitable trust", "philanthrop", "community foundation"],
   B: ["education", "school", "scholarship", "university", "college"],
   E: ["health", "hospital", "medical", "clinic"],
   N: ["recreation", "sports", "youth development"],
@@ -189,7 +197,15 @@ function isGrantmakerNteeCode(ntee: string | null): boolean {
   return code.startsWith("T2") || code.startsWith("T3");
 }
 
-const GRANTMAKER_FOUNDATION_TYPES = new Set(["02", "03", "04"]);
+// Per the task spec: '03' (4942(j)(3) operating foundation, non-exempt) and
+// '04' (private non-operating foundation -- the classic grantmaking type).
+// '02' (4942(j)(3) OPERATING foundation, exempt from excise tax) is
+// deliberately excluded even though it's also "private foundation" legal
+// status -- live-verified 2026-08-22: HENDRICK HOME FOR CHILDREN
+// (foundation_type='02') is a residential children's home that directly
+// operates its own programs, not a grantmaker, and was a false positive in
+// this filter's first draft before '02' was removed.
+const GRANTMAKER_FOUNDATION_TYPES = new Set(["03", "04"]);
 
 function isGrantmakerFoundationType(foundationType: string | null): boolean {
   return foundationType !== null && GRANTMAKER_FOUNDATION_TYPES.has(foundationType.trim());
@@ -286,10 +302,9 @@ export async function enumerate(params: EnumerateBmfParams): Promise<EnumerateRe
       nullsFirst: false,
     }).limit(limit);
   } else {
-    // Grantmaker mode: structural filter only in SQL (foundation_type in
-    // (02,03,04) OR ntee T2%/T3%); cause matching happens in application
+    // Grantmaker mode: structural filter only in SQL (foundation_type in (03,04) OR ntee T2%/T3%); cause matching happens in application
     // code below since it needs the name-keyword fallback SQL can't express.
-    const grantmakerOr = "foundation_type.in.(02,03,04),ntee_code.ilike.T2%,ntee_code.ilike.T3%";
+    const grantmakerOr = "foundation_type.in.(03,04),ntee_code.ilike.T2%,ntee_code.ilike.T3%";
     query = supabase
       .from("foundation_directory")
       .select(selectCols)

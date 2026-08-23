@@ -148,7 +148,7 @@ describe("bmf-directory adapter: grantmaker mode (default) query construction", 
     await enumerate({ nteeMajorGroups: ["P", "X", "L"], geography: { states: ["TX"] } });
 
     expect(fromMock).toHaveBeenCalledWith("foundation_directory");
-    expect(calls.or[0]?.[0]).toBe("foundation_type.in.(02,03,04),ntee_code.ilike.T2%,ntee_code.ilike.T3%");
+    expect(calls.or[0]?.[0]).toBe("foundation_type.in.(03,04),ntee_code.ilike.T2%,ntee_code.ilike.T3%");
     expect(calls.in[0]).toEqual(["state", ["TX"]]);
     expect(calls.order[0]).toEqual(["asset_amount", { ascending: false, nullsFirst: false }]);
   });
@@ -232,6 +232,23 @@ describe("bmf-directory adapter: grantmaker mode (default) query construction", 
 
     expect(result.directoryIds).toEqual([]);
     expect(result.prospects).toEqual([]);
+  });
+
+  it("does not treat foundation_type='02' (private OPERATING foundation) as a grantmaker type", async () => {
+    // Real defect found live 2026-08-22: HENDRICK HOME FOR CHILDREN
+    // (foundation_type='02') is a residential children's home that directly
+    // operates its own programs -- not a grantmaker -- and was a false
+    // positive before '02' was removed from GRANTMAKER_FOUNDATION_TYPES.
+    const { query } = makeQueryBuilder({
+      data: [foundationRow({ ntee_code: "P20", foundation_type: "02" })],
+      error: null,
+    });
+    const linkQuery = { update: vi.fn().mockReturnValue(updateChain) };
+    fromMock.mockReturnValueOnce(query).mockReturnValueOnce(linkQuery);
+
+    await enumerate({ nteeMajorGroups: ["P"], geography: { states: ["TX"] } });
+
+    expect(lastUpsertedEnrichment?.is_grantmaker_foundation_type).toBe(false);
   });
 
   it("caps the post-cause-match result set at the requested limit", async () => {
