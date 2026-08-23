@@ -14214,7 +14214,27 @@ Files touched: `scripts/audit/ts-04-intelligence-sections-verify.mjs` (new), `sc
 
 **No new defects found or registered this session** — all 5 pages and all 3 APIs are genuinely healthy.
 
-Files touched: `scripts/ts-05-verify.mjs`, `scripts/ts-05-check404.mjs`, `scripts/ts-05-api-calls.mjs`, `scripts/ts-05-get-app-id.mjs` (new), `test-evidence/verification/ts-05/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md` (WGR-004 marked RESOLVED, WGR-014 superseded), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed — no fix was needed. Committed as `test(TS-05): documents hang fix, compliance outcomes verification`. Not pushed.
+Files touched: `scripts/ts-05-verify.mjs`, `scripts/ts-05-check404.mjs`, `scripts/ts-05-api-calls.mjs`, `scripts/ts-05-get-app-id.mjs` (new), `test-evidence/verification/ts-05/*` (new), `test-evidence/_register/WIRING_GAP_REGISTER.md` (WGR-004 marked RESOLVED, WGR-014 superseded), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed - no fix was needed. Committed as `test(TS-05): documents hang fix, compliance outcomes verification`. Not pushed.
+
+---
+
+## Session 27 - August 23, 2026: Overnight verification session close - build/test gates, push, production deploy, marketing smoke test
+
+**Objective:** run the full push-to-production verification chain: build+vitest gates, push the 6 pending commits to origin/main, deploy to Vercel production, smoke-test all marketing routes live, and close the loop by recording final state in this file and SESSION_STATE.md.
+
+**STEP 1 (commits pushed):** 6 commits were ahead of origin/main: `bd71816` (fix: RLS enabled on queue_controls/tier_limits/funding_sources, WGR-074 cookie bounded), `a697075` (test(TS-01)), `5eea6c8` (test(TS-02)), `f0a3a7c` (test(TS-03)), `012e325` (test(TS-04)), `24ba682` (test(TS-05)).
+
+**STEP 2 (gates):** `pnpm run build` exit 0 (full type-check + lint, 412 pages). `npx vitest run` exit 0: 65 test files passed, 1 skipped, 569 tests passed, 13 todo (582 total).
+
+**STEP 3 (push):** `git push origin main` triggered the pre-push hook, which re-runs build+vitest. First attempt failed on one flaky external-dependency test (`src/__tests__/integration/form-analyzer-filler.test.ts`, hits `https://httpbin.org/forms/post`, got a transient HTTP 503 from that third-party site) - not a real code regression; the identical test had passed cleanly in the direct STEP 2 run minutes earlier. Retried once: build+vitest passed clean (65/66 files, 569/582 tests, 0 failures), push succeeded: `bdec98b..24ba682 main -> main`.
+
+**STEP 4 (production deploy - not given an explicit number in the task, but required before STEP 5 can succeed, per this project's standing precedent that GitHub->Vercel auto-deploy is broken):** `npx vercel deploy --prod`. Build completed in Vercel's own environment (Cleveland cle1, 4 cores/8GB), exit 0, `readyState: READY`, aliased to `https://www.benavora.com`. Deployment id `dpl_2ABFmBJzdDV9c16by8hynRP4VbEz`, production SHA `24ba682` (confirmed via `git rev-parse HEAD` immediately before the deploy).
+
+**STEP 5 (smoke test):** `scripts/marketing/smoke-routes.mjs` run with `BASE_URL=https://www.benavora.com` against the live production alias. **23/23 marketing routes returned HTTP 200 with a non-empty title, 0 failures.** Saved to `test-evidence/verification/final/smoke.json` (new path, per task instruction) and the script's own default path `test-evidence/marketing/verification-final/routes.json` (plus 23 full-page screenshots).
+
+**Open P0s at close of this session** (from `WIRING_GAP_REGISTER.md`, all pre-existing, none touched this session): `WGR-023` (middleware has no exemption list for cron/webhook-signature routes - safe today only because every such route independently checks its own secret, not because middleware enforces it), `WGR-074` (admin impersonation cookie unbounded - note: the register row still reads `CONFIRMED-BROKEN` as of this session, but commit `bd71816` pushed this session is titled "WGR-074 cookie bounded", suggesting a fix landed without the register being updated to `RESOLVED` - needs reconciliation next session), `WGR-099` (WebKit post-login navigation race, 0/5 e2e tests passing on WebKit across repeated runs), `WGR-167` (Autoapply/Infra, real production automation-session issue from TS-01). Also still open per Session 20/mkt-004 evidence: `POST /api/public/assist` returns 500 in production (`DATABASE_URL` points at an IPv6-only Supabase direct-DB host, Vercel serverless has no outbound IPv6 route; all 12 pooler regions were tried live, all returned "Tenant or user not found") - not re-tested this session, status unconfirmed as of this write-up.
+
+Files touched: `test-evidence/verification/final/smoke.json` (new), `test-evidence/marketing/verification-final/*` (new, 23 screenshots + `routes.json`), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed this session. Committed as `docs: overnight verification session close`. Pushed.
 
 ---
 

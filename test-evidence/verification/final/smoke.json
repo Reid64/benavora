@@ -1,0 +1,168 @@
+{
+  "total": 23,
+  "passed": 23,
+  "failed": 0,
+  "results": [
+    {
+      "route": "/",
+      "status": 200,
+      "title": "Benavora — AI Grant Automation for Nonprofits",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform",
+      "status": 200,
+      "title": "Platform | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform/funding-intelligence",
+      "status": 200,
+      "title": "Funding Intelligence | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform/opportunity-discovery",
+      "status": 200,
+      "title": "Opportunity Discovery | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform/ai-grant-writer",
+      "status": 200,
+      "title": "AI Grant Writer | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform/autoapply",
+      "status": 200,
+      "title": "AutoApply | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform/pipeline-crm",
+      "status": 200,
+      "title": "Pipeline and CRM | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/platform/analytics",
+      "status": 200,
+      "title": "Analytics | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/how-it-works",
+      "status": 200,
+      "title": "How Benavora Actually Works | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/agents",
+      "status": 200,
+      "title": "Agents | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions",
+      "status": 200,
+      "title": "Solutions | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions/faith-based",
+      "status": 200,
+      "title": "Faith-Based Organizations | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions/human-services",
+      "status": 200,
+      "title": "Human Services | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions/housing",
+      "status": 200,
+      "title": "Housing | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions/veterans",
+      "status": 200,
+      "title": "Veterans Organizations | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions/education",
+      "status": 200,
+      "title": "Education | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/solutions/community-development",
+      "status": 200,
+      "title": "Community Development | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/why-benavora",
+      "status": 200,
+      "title": "Why Benavora | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/trust",
+      "status": 200,
+      "title": "Trust and Governance | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/pricing",
+      "status": 200,
+      "title": "Pricing | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/company",
+      "status": 200,
+      "title": "Company | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/resources",
+      "status": 200,
+      "title": "Resources | Benavora",
+      "pass": true,
+      "error": null
+    },
+    {
+      "route": "/demo",
+      "status": 200,
+      "title": "Book a Demo | Benavora",
+      "pass": true,
+      "error": null
+    }
+  ]
+}
