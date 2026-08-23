@@ -171,6 +171,69 @@ export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {
   };
 }
 
+export interface ClaudeConversationRequest {
+  /** Prior turns plus the final user turn, in order. */
+  messages: { role: "user" | "assistant"; content: string }[];
+  /** Optional system prompt. */
+  system?: string;
+  /** Model id. Defaults to {@link DEFAULT_MODEL}. */
+  model?: string;
+  /** Max output tokens. Defaults to {@link DEFAULT_MAX_TOKENS}. */
+  maxTokens?: number;
+  /** Sampling temperature (0-1). */
+  temperature?: number;
+  /** BYOK override - see {@link ClaudeRequest.apiKey}. */
+  apiKey?: string;
+}
+
+/**
+ * Same contract as {@link callClaude}, but for multi-turn conversations - the
+ * caller supplies the full messages array (prior turns + the current one)
+ * instead of a single prompt string. Used by surfaces that carry chat history,
+ * e.g. Benavora Assist (src/lib/knowledge/assist.ts).
+ */
+export async function callClaudeConversation(
+  req: ClaudeConversationRequest,
+): Promise<ClaudeResponse> {
+  const model = req.model ?? DEFAULT_MODEL;
+  const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+
+  let message;
+  try {
+    message = await getClient(req.apiKey).messages.create({
+      model,
+      max_tokens: maxTokens,
+      ...(req.system ? { system: req.system } : {}),
+      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+      messages: req.messages,
+    });
+  } catch (err) {
+    if (!req.apiKey && isAuthError(err)) {
+      await reportPlatformKeyAuthFailure("callClaudeConversation", err);
+    }
+    throw err;
+  }
+
+  const text = message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+
+  const inputTokens = message.usage.input_tokens;
+  const outputTokens = message.usage.output_tokens;
+
+  return {
+    text,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    model: message.model,
+    stopReason: message.stop_reason,
+  };
+}
+
 export interface ClaudeWebSearchResponse extends ClaudeResponse {
   /** True if Claude actually issued a web_search tool call for this turn. */
   usedWebSearch: boolean;

@@ -4,7 +4,7 @@ import matter from "gray-matter";
 
 export type PageLayout = "platform" | "solution" | "single";
 
-export type DemoKind = "replay" | "theater" | "analysis" | "pipeline" | "none";
+export type DemoKind = "replay" | "theater" | "analysis" | "pipeline" | "assist" | "none";
 
 export type ProblemPair = {
   problem: string;

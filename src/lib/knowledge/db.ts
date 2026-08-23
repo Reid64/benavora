@@ -98,3 +98,29 @@ export async function rateCount(clientKey: string): Promise<number> {
   );
   return Number(rows[0]?.count ?? 0);
 }
+
+export interface QueryLogEntry {
+  surface: "public" | "app";
+  clientKey: string | null;
+  question: string;
+  answer: string | null;
+  chunkIds: string[];
+  model: string | null;
+  latencyMs: number;
+}
+
+export async function insertQuery(entry: QueryLogEntry): Promise<void> {
+  await knowledgePool().query(
+    `insert into knowledge.queries (surface, client_key, question, answer, chunk_ids, model, latency_ms)
+     values ($1,$2,$3,$4,$5,$6,$7)`,
+    [
+      entry.surface,
+      entry.clientKey,
+      entry.question,
+      entry.answer,
+      entry.chunkIds,
+      entry.model,
+      entry.latencyMs,
+    ],
+  );
+}

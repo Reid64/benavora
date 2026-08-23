@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Fraunces, Inter } from "next/font/google";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { AssistWidget } from "@/components/marketing/AssistWidget";
 import { mk } from "@/lib/marketing/theme";
 
 // Marketing route-group layout. Provides the shared forest/paper nav + footer
@@ -53,6 +54,7 @@ export default function MarketingLayout({
       <MarketingNav />
       {children}
       <MarketingFooter />
+      <AssistWidget />
     </div>
   );
 }

@@ -127,6 +127,11 @@ function isPublicPath(pathname: string): boolean {
   // US-03). The page and its accept endpoint are reached via a bearer token.
   if (pathname === "/invite" || pathname.startsWith("/invite/")) return true;
   if (pathname === "/api/users/accept") return true;
+  // Benavora Assist (mkt-08 / knw-003): anonymous public Q&A over the
+  // knowledge corpus, reached from the marketing site by visitors with no
+  // session. Rate-limited per-client-key inside answerPublic() itself, not
+  // by a session or secret.
+  if (pathname === "/api/public/assist") return true;
   if (SECRET_GATED_PATHS.has(pathname)) return true;
   return false;
 }

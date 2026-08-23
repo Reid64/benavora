@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
+import { AssistInline } from "@/components/marketing/AssistInline";
 import { mk, mkRadius } from "@/lib/marketing/theme";
 import type { MarketingPage, DemoKind } from "@/lib/marketing/content";
 
@@ -12,6 +13,7 @@ const DEMO_LABEL: Record<DemoKind, string> = {
   theater: "Draft Generator Theater",
   analysis: "Opportunity Analysis",
   pipeline: "Pipeline Walk-through",
+  assist: "Benavora Assist",
   none: "",
 };
 
@@ -386,6 +388,15 @@ export function SingleTemplate({ page, children }: { page: MarketingPage; childr
       <Section tone="paper">
         <ProseBody>{children}</ProseBody>
       </Section>
+
+      {meta.demo === "assist" ? (
+        <Section tone="tint" id="ask">
+          <Display2>Ask Benavora Assist</Display2>
+          <div style={{ marginTop: 24 }}>
+            <AssistInline />
+          </div>
+        </Section>
+      ) : null}
 
       {isDemo ? null : <CtaBand title="See what your organization qualifies for" />}
     </>

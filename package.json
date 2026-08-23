@@ -159,7 +159,8 @@
         "unzipper": "^0.12.5",
         "user-agents": "^2.1.133",
         "ws": "^8.21.0",
-        "xlsx": "^0.18.5"
+        "xlsx": "^0.18.5",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@next/bundle-analyzer": "^16.2.10",

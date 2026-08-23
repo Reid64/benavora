@@ -1,0 +1,45 @@
+=== knw-003 verification: Benavora Assist ===
+Date: 2026-08-22 (session), Node: v20.20.2
+
+--- Check 1: single question, expect an irs.gov citation ---
+POST http://localhost:3101/api/public/assist
+Body: {"question":"What is Form 990-PF?","history":[],"sessionId":"49eb42ce-9f46-44cb-9d53-4ba81fb65f9f"}
+HTTP status: 200
+Response body:
+{"answer":"Form 990-PF is the annual information return that private foundations must file with the IRS [2]. It serves several purposes:\n\n1. It reports the foundation's financial activity, including investment income and expenses [6].\n2. It is used to calculate and report the excise tax on net investment income under Section 4940 [2].\n3. It documents the foundation's charitable activities, grants, officers, directors, trustees, and highly compensated employees [6].\n4. It may satisfy state reporting requirements in jurisdictions that accept it in place of their own financial report forms [1].\n\nThe return must be filed by the 15th day of the fifth month after the end of the foundation's annual accounting period, which is May 15 for calendar-year filers [2].\n\nIf a foundation receives contributions of $5,000 or more from any single person during the year, it must also complete and attach Schedule B [2].\n\nCompleted Form 990-PF returns are publicly available through the IRS Tax Exempt Organization Search tool at IRS.gov/TEOS [5].\n\nFor full guidance on completing the form, consult the IRS Form 990-PF Instructions and IRS Publication 4221-PF, Compliance Guide for 501(c)(3) Private Foundations [1][2].","citations":[{"n":2,"title":"IRS Publication 4221-PF Compliance Guide for Private Foundations","url":"https://www.irs.gov/pub/irs-pdf/p4221pf.pdf","publisher":"Internal Revenue Service"},{"n":6,"title":"IRS Form 990-PF Instructions","url":"https://www.irs.gov/pub/irs-pdf/i990pf.pdf","publisher":"Internal Revenue Service"},{"n":1,"title":"IRS Form 990-PF Instructions","url":"https://www.irs.gov/pub/irs-pdf/i990pf.pdf","publisher":"Internal Revenue Service"},{"n":5,"title":"IRS Form 990-PF Instructions","url":"https://www.irs.gov/pub/irs-pdf/i990pf.pdf","publisher":"Internal Revenue Service"}],"offerDemo":false,"latencyMs":18278}
+
+--- Check 2: 31 calls with one fixed sessionId, expect 429 on call 31 ---
+rate-limit test sessionId: dad1f4ea-f20f-4924-b643-bb1f243dfbe7
+call 1 -> HTTP 200
+call 2 -> HTTP 200
+call 3 -> HTTP 200
+call 4 -> HTTP 200
+call 5 -> HTTP 200
+call 6 -> HTTP 200
+call 7 -> HTTP 200
+call 8 -> HTTP 200
+call 9 -> HTTP 200
+call 10 -> HTTP 200
+call 11 -> HTTP 200
+call 12 -> HTTP 200
+call 13 -> HTTP 200
+call 14 -> HTTP 200
+call 15 -> HTTP 200
+call 16 -> HTTP 200
+call 17 -> HTTP 200
+call 18 -> HTTP 200
+call 19 -> HTTP 200
+call 20 -> HTTP 200
+call 21 -> HTTP 200
+call 22 -> HTTP 200
+call 23 -> HTTP 200
+call 24 -> HTTP 200
+call 25 -> HTTP 200
+call 26 -> HTTP 200
+call 27 -> HTTP 200
+call 28 -> HTTP 200
+call 29 -> HTTP 200
+call 30 -> HTTP 200
+call 31 -> HTTP 429
+call 31 body:
+{"error":"daily-limit"}
