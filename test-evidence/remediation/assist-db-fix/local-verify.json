@@ -1,0 +1,20 @@
+{
+  "test": "POST http://localhost:3100/api/public/assist",
+  "request_body_as_sent": {
+    "question": "What is Form 990-PF?",
+    "history": [],
+    "sessionId": "11111111-1111-4111-8111-111111111111"
+  },
+  "note_on_request_body": "Task-specified sessionId 'test-session-123' fails the route's real zod schema (sessionId: z.string().uuid()) with 400 invalid-body before reaching any DB code; substituted a valid UUID to exercise the actual code path under test.",
+  "http_status": 500,
+  "response_body": { "error": "assist-unavailable" },
+  "server_log_error": {
+    "code": "PGRST202",
+    "message": "Could not find the function public.knowledge_rate_count(p_client_key) in the schema cache",
+    "details": "Searched for the function public.knowledge_rate_count with parameter p_client_key or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.",
+    "hint": "Perhaps you meant to call the function public.donor_discovery_match_foundations"
+  },
+  "result": "NOT PASSING - expected, not a code defect",
+  "why": "src/lib/knowledge/db.ts was rewritten to call new public-schema wrapper RPCs (knowledge_search, knowledge_rate_count, knowledge_insert_query) defined in supabase/migrations/147_knowledge_public_wrappers.sql. That migration could not be applied to the real production database from this session: DATABASE_URL in .env.local now returns 'password authentication failed for user postgres' against db.vbjplpquqxxfbpazyalt.supabase.co (confirmed independently via both a raw Node pg.Client and raw psql, both reaching the host fine over IPv4 - 44.197.89.12 - and both failing at auth, not network). No Supabase Management API PAT is present in .env.local, and the session's connected Supabase MCP account only has access to unrelated projects (tarritrix, tarritrix-audit, hail-intel-resurrected), not the real production project. This 500/PGRST202 is the expected, correct symptom of the wrapper functions genuinely not existing yet in the target database - it is not a bug in the rewritten application code, and it will resolve once migration 147 is applied with a working credential.",
+  "also_confirmed_this_session": "createAdminClient().schema('knowledge').rpc('rate_count', ...) - i.e. the task's literal STEP 3 instruction - returns PGRST106 'Invalid schema: knowledge' live, with the real service_role key, against the same production project. This is why db.ts was rewritten to call public-schema wrapper functions instead of using .schema('knowledge') directly."
+}

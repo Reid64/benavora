@@ -1,5 +1,5 @@
 # BENAVORA — Session State
-## Last Updated: August 23, 2026 — Marketing layer: fixtures queue staged (not armed), gates re-verified, live production evidence gathered, DATABASE_URL fix + prod deploy. See Session 20 below.
+## Last Updated: August 23, 2026 — Session 28: Assist DB fix attempt, WGR-174 (literal .schema('knowledge') instruction proven broken live, corrected public-wrapper-RPC fix written, blocked on DATABASE_URL auth failure). See Session 28 at the end of this file.
 
 ---
 
@@ -8948,3 +8948,23 @@ STEP 5: `scripts/marketing/smoke-routes.mjs` with `BASE_URL=https://www.benavora
 Open P0s at close (pre-existing, none touched this session): `WGR-023` (middleware has no exemption list for cron/webhook-signature routes), `WGR-074` (impersonation cookie unbounded - register row still says `CONFIRMED-BROKEN` despite this session's pushed commit title claiming it's fixed; needs reconciliation), `WGR-099` (WebKit post-login navigation race, 0/5 e2e passing), `WGR-167` (Autoapply/Infra, TS-01 production automation-session issue). Also still open per Session 20: `POST /api/public/assist` 500s in production (IPv6-only `DATABASE_URL`, no outbound IPv6 from Vercel serverless, all 12 pooler regions tried and failed) - not re-tested this session.
 
 Files touched: `test-evidence/verification/final/smoke.json` (new), `test-evidence/marketing/verification-final/*` (new), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. No `src/` code changed. Committed as `docs: overnight verification session close`. Pushed.
+
+## Session 28 - August 23, 2026: Assist DB fix attempt (WGR-174) - literal instruction proven broken live, corrected fix written, blocked on deploy credential
+
+STEP 1: Read `src/lib/knowledge/db.ts` in full. One direct-Postgres-connection site: `knowledgePool()`, a lazily-constructed `pg.Pool` backed by `process.env.DATABASE_URL`, used by `searchKnowledge`, `rateCount`, and `insertQuery`.
+
+STEP 2: Read `createAdminClient()` (`src/lib/supabase/admin.ts`) - confirmed working service-role Supabase JS client factory. Before rewriting, live-tested the task's literal instruction (`createAdminClient().schema('knowledge').rpc('rate_count', ...)`) against the real production project with the real service_role key: returned `PGRST106 "Invalid schema: knowledge"` - PostgREST's `db-schemas` allow-list only exposes `public, graphql_public`, a routing restriction no key bypasses. Confirmed via `git log`/`git show` this exact approach was already tried and reverted once in this codebase (commit `f5bea0a`) for the identical reason. Deviated from the literal STEP 3 instruction accordingly rather than silently reintroducing a previously-fixed bug.
+
+STEP 3 (corrected): added `supabase/migrations/147_knowledge_public_wrappers.sql` - three `public`-schema `SECURITY DEFINER` wrapper functions (`knowledge_search`, `knowledge_rate_count`, `knowledge_insert_query`) that call the real `knowledge.search`/`knowledge.rate_count`/`knowledge.queries` insert on the caller's behalf, same `REVOKE ALL FROM PUBLIC, anon, authenticated; GRANT EXECUTE TO service_role` lockdown as the existing `knowledge.*` functions. Rewrote `db.ts` to call these wrappers via `createAdminClient().rpc(...)` (no `.schema()`), preserving every exported interface/function signature exactly - `assist.ts` and the two test files that mock this module needed zero changes.
+
+STEP 4: `pnpm tsc --noEmit` - exit 0.
+
+STEP 5: could not fully complete as specified. Migration 147 could not be applied to the real production database this session: `DATABASE_URL` in `.env.local` returns `FATAL: password authentication failed for user "postgres"` against `db.vbjplpquqxxfbpazyalt.supabase.co` - confirmed independently via both a raw Node `pg.Client` and raw `psql` (both reach the host over IPv4, `44.197.89.12`, and both fail at auth, not network). This is the same symptom WGR-166 already logged the same day from a different session; no Supabase Management API PAT is present in `.env.local`, and the session's connected Supabase MCP account has no access to this project. Ran the local test anyway for real evidence: `next dev -p 3100`, POST to `/api/public/assist` (task's literal `sessionId:"test-session-123"` fails the route's own zod `uuid()` schema with 400 before reaching any DB code - substituted a valid UUID). Result: `500 {"error":"assist-unavailable"}`, server log `PGRST202 "Could not find the function public.knowledge_rate_count(p_client_key) in the schema cache"` - the exact, expected symptom of an unapplied migration, confirming the rewritten code reaches the correct function/params and will work once migration 147 is applied with a working credential. Saved to `test-evidence/remediation/assist-db-fix/local-verify.json`. Dev server killed after the test.
+
+STEP 6: `pnpm run build` exit 0 (412 pages, full type-check + lint). `npx vitest run` exit 0: 65 files passed + 1 skipped, 569 tests passed + 13 todo, 0 failed.
+
+STEP 7: added `WGR-174` to `WIRING_GAP_REGISTER.md` (no pre-existing "Assist 500" row existed to mark RESOLVED, despite the task's premise - the original finding only lived in `test-evidence/marketing/mkt-004/live-assist-root-cause.md`/Session 20's narrative). Status logged as `BLOCKED-ON-DEPLOY`, not `RESOLVED` - the live production defect is not actually fixed yet, only the code is ready. Marking it RESOLVED would misrepresent unverified-in-production work as done.
+
+Files touched: `src/lib/knowledge/db.ts`, `supabase/migrations/147_knowledge_public_wrappers.sql` (new), `test-evidence/remediation/assist-db-fix/local-verify.json` (new), `WIRING_GAP_REGISTER.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. Committed as `fix: knowledge db uses Supabase JS client instead of direct pg connection`. Not pushed (per task constraint).
+
+Next session: apply `supabase/migrations/147_knowledge_public_wrappers.sql` once a working `DATABASE_URL` or Management API PAT is available (see WGR-166/WGR-174 for the current credential blocker), then re-run the local-verify POST (or a live prod POST) to confirm a real citation-bearing answer before marking WGR-174 RESOLVED.

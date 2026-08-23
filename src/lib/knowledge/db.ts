@@ -1,5 +1,3 @@
-import { Pool } from "pg";
-
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface Source {
@@ -54,53 +52,40 @@ export function knowledgeDb() {
   return createAdminClient().schema("knowledge");
 }
 
-let pool: Pool | null = null;
-function knowledgePool(): Pool {
-  if (!pool) {
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  }
-  return pool;
-}
-
-// The knowledge schema is deliberately not in PostgREST's exposed-schemas list
-// (service-role-only, SECURITY DEFINER RPCs) - query it over the direct
-// Postgres connection rather than through supabase-js's .schema() helper,
-// which 404s (PGRST106) for any unexposed schema regardless of key.
-//
-// idx_knowledge_chunks_embedding is an ivfflat index built with lists=100,
-// oversized for the current corpus size (~8 rows/list) - the default
-// probes=1 only scans one list and misses most relevant chunks, so bump
-// probes per-session before calling search() to get real recall.
-const IVFFLAT_PROBES = 20;
-
+// The knowledge schema is deliberately not in PostgREST's exposed-schemas
+// list (public, graphql_public only), so .schema('knowledge').rpc(...)
+// 406s (PGRST106) regardless of key - confirmed live with the service_role
+// key. Instead call thin public-schema SECURITY DEFINER wrappers
+// (migration 147) that call into knowledge.search()/rate_count()/queries
+// insert on the caller's behalf, reached over the admin client's normal
+// (no .schema()) REST path - HTTPS, so IPv4-compatible from Vercel, unlike
+// the direct pg connection to the IPv6-only db host this replaces.
 export async function searchKnowledge(
   embedding: number[],
   text: string,
   k = 8,
 ): Promise<SearchHit[]> {
-  const client = await knowledgePool().connect();
-  try {
-    await client.query(`SET ivfflat.probes = ${IVFFLAT_PROBES}`);
-    const { rows } = await client.query(
-      `select * from knowledge.search($1::vector, $2::text, $3::int)`,
-      [`[${embedding.join(",")}]`, text, k],
-    );
-    return rows as SearchHit[];
-  } finally {
-    client.release();
-  }
+  const { data, error } = await createAdminClient().rpc("knowledge_search", {
+    query_embedding: `[${embedding.join(",")}]`,
+    query_text: text,
+    match_count: k,
+  });
+  if (error) throw error;
+  return (data ?? []) as SearchHit[];
 }
 
 export async function rateCount(clientKey: string): Promise<number> {
-  const { rows } = await knowledgePool().query(
-    `select knowledge.rate_count($1::text) as count`,
-    [clientKey],
-  );
-  return Number(rows[0]?.count ?? 0);
+  const { data, error } = await createAdminClient().rpc("knowledge_rate_count", {
+    p_client_key: clientKey,
+  });
+  if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export interface QueryLogEntry {
   surface: "public" | "app";
+  /** Caller's organization - set for the "app" surface, null for "public". */
+  orgId?: string | null;
   clientKey: string | null;
   question: string;
   answer: string | null;
@@ -110,17 +95,15 @@ export interface QueryLogEntry {
 }
 
 export async function insertQuery(entry: QueryLogEntry): Promise<void> {
-  await knowledgePool().query(
-    `insert into knowledge.queries (surface, client_key, question, answer, chunk_ids, model, latency_ms)
-     values ($1,$2,$3,$4,$5,$6,$7)`,
-    [
-      entry.surface,
-      entry.clientKey,
-      entry.question,
-      entry.answer,
-      entry.chunkIds,
-      entry.model,
-      entry.latencyMs,
-    ],
-  );
+  const { error } = await createAdminClient().rpc("knowledge_insert_query", {
+    p_surface: entry.surface,
+    p_org_id: entry.orgId ?? null,
+    p_client_key: entry.clientKey,
+    p_question: entry.question,
+    p_answer: entry.answer,
+    p_chunk_ids: entry.chunkIds,
+    p_model: entry.model,
+    p_latency_ms: entry.latencyMs,
+  });
+  if (error) throw error;
 }
