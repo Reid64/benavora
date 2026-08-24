@@ -231,3 +231,47 @@ called out in each migration file's header comments (`created_by_agent_id`/`qual
 → `pil_agent_registry(agent_id)`, `pil_prospect_classifications.evidence_id` →
 `pil_evidence(id)`) are also not yet applied — both `pil_agent_registry` and `pil_evidence` now
 exist live, so these can be added in a follow-up pass.
+
+**Correction (§8 below): this note was wrong.** The deferred FKs described here were not left
+open — migrations 154/155 already contain their own backfill `ALTER TABLE ... ADD CONSTRAINT`
+statements applying them, within the same PIL-01 batch applied in §7. See §8 for the live
+re-verification.
+
+---
+
+## 8. PIL-02 STEP 1, 2026-08-23 — deferred FKs found already applied; task spec was stale
+
+**Task:** apply three `ALTER TABLE ... ADD CONSTRAINT IF NOT EXISTS` statements for FKs the task
+prompt described as still deferred from PIL-01:
+`pil_prospects_created_by_agent_id_fkey`, `pil_prospects_qualified_by_agent_id_fkey`,
+`pil_prospect_classifications_evidence_id_fkey`; write `supabase/migrations/162_pil_deferred_fks.sql`.
+
+**Live check first** (per `benavora-task-migration-specs-collide`), queried `pg_constraint` via the
+Management API PAT before writing anything: all three real deferred FKs were **already applied**,
+as backfill `ALTER TABLE` statements inside migrations 154 and 155 themselves (see those files'
+own "Backfill" sections) — not left dangling as both the task prompt and this document's stale §7
+note assumed:
+
+| Constraint | Table | Applied in |
+|---|---|---|
+| `pil_prospects_created_by_agent_id_fkey` | `pil_prospects` | migration 155 |
+| `pil_prospect_classifications_evidence_id_fkey` | `pil_prospect_classifications` | migration 154 |
+| `pil_prospect_opportunities_qualified_by_agent_id_fkey` | `pil_prospect_opportunities` | migration 155 |
+
+**Two spec errors found in the task prompt**, not present in the actual applied schema:
+- `pil_prospects_qualified_by_agent_id_fkey` — `pil_prospects` has no `qualified_by_agent_id`
+  column. That column exists only on `pil_prospect_opportunities`; its FK (third row above) is
+  already live under its real name.
+- `REFERENCES public.pil_agent_registry(id)` — `pil_agent_registry`'s primary key is `agent_id
+  text`, not `id`; no `id` column exists on that table. The already-applied FKs correctly
+  reference `pil_agent_registry(agent_id)`.
+
+Postgres also has no `ADD CONSTRAINT IF NOT EXISTS` syntax (only `DROP CONSTRAINT IF EXISTS` is
+supported) — running the task's literal statements would have raised a syntax error before any of
+the above even mattered.
+
+**Resolution:** wrote `supabase/migrations/162_pil_deferred_fks.sql` as an idempotent verification
+migration (a `DO $$` block asserting each real constraint exists via `pg_constraint`, `RAISE
+EXCEPTION` if not) instead of re-running statements that would fail. Applied via the Management
+API PAT — all three assertions passed. Recorded as version `162` in
+`supabase_migrations.schema_migrations`.
