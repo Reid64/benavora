@@ -1,5 +1,6 @@
 import { getPilClient } from "@/lib/pil/db";
 import { loadAgent } from "@/lib/pil/agent-registry-service";
+import { loadAgentImpl } from "@/lib/pil/agents";
 import { logAction } from "@/lib/pil/audit";
 import { checkBudget, recordCost } from "@/lib/pil/cost";
 import { canDelegate, checkAgentAuthorization, PolicyViolationError } from "@/lib/pil/policy";
@@ -120,10 +121,11 @@ export class AgentRunner {
 
     const agentRun = await this.createRun(context, agentDef.default_autonomy_level, "running");
 
-    const implementation = AgentRunner.implementations.get(context.agentCode);
-    if (!implementation) {
-      throw new Error(`No Agent implementation registered for ${context.agentCode}`);
-    }
+    // Explicitly-registered implementations (used by tests to stub an
+    // agent) win over the real factory; everything else resolves through
+    // agents/index.ts, which falls back to a graceful NotImplementedAgent
+    // for any agent_id without a concrete implementation yet.
+    const implementation = AgentRunner.implementations.get(context.agentCode) ?? loadAgentImpl(context.agentCode);
 
     let result: AgentResult;
     try {
