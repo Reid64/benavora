@@ -59,7 +59,9 @@ interface QueueItem {
   // WGR-167: set by POST /api/agents/automation for application-scoped
   // browser-automation runs (automation_mode 'browser_automation'). null for
   // every other automation_mode - the generic funder/request_profile pipeline.
-  automation_session_id: string | null;
+  // undefined if migration 148 hasn't been applied yet and the column
+  // doesn't exist in this environment's submission_queue table.
+  automation_session_id: string | null | undefined;
 }
 
 interface FunderRow {
@@ -320,7 +322,13 @@ export class QueueProcessor {
       await heartbeat.setProcessing(item.id);
 
       try {
-        if (item.automation_session_id !== null) {
+        // Loose truthy check, not `!== null`: a DB deployment where migration
+        // 148 (submission_queue.automation_session_id) hasn't been applied
+        // yet returns this column as `undefined` from select('*'), not
+        // `null` - `undefined !== null` is true, which would misroute every
+        // ordinary funder/request_profile item (no automation session at
+        // all) into processBrowserAutomationItem() and fail it instantly.
+        if (item.automation_session_id) {
           await this.processBrowserAutomationItem(item);
         } else {
           await this.processItem(item);
@@ -554,7 +562,7 @@ export class QueueProcessor {
    */
   private async processBrowserAutomationItem(item: QueueItem): Promise<void> {
     const sessionId = item.automation_session_id;
-    if (sessionId === null) throw new SkipError('no_automation_session_id');
+    if (!sessionId) throw new SkipError('no_automation_session_id');
 
     const sessions = new AutomationSessionManager({
       client: this.supabase,
