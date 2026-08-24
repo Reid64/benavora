@@ -182,3 +182,52 @@ One of the following, decided by Reid, before re-attempting:
 No migration file content was modified. All 12 files
 (`supabase/migrations/150_pil_prospects.sql` ... `161_pil_monitoring.sql`) remain exactly as
 written, unapplied to the live database.
+
+---
+
+## 7. PIL-01 apply, 2026-08-23 — COMPLETE via Management API PAT
+
+Follow-up decision from §6 was resolved: this task explicitly authorized the Management API PAT
+path instead of `mcp__claude_ai_Supabase__apply_migration` (whose connector still cannot see
+`vbjplpquqxxfbpazyalt`, unchanged from §6).
+
+**Pre-check (live, not assumed):** `supabase_migrations.schema_migrations` had 148 rows, latest
+`146_knowledge_schema`; `information_schema.tables` had zero `pil_%` tables. Matches §6's
+unapplied status exactly.
+
+**Apply:** all 12 files applied in order (`150` → `161`) via
+`POST https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query`, each file's SQL
+sent verbatim, no content changes. After each apply, `information_schema.tables` was re-queried
+for that migration's specific tables before recording the version in
+`supabase_migrations.schema_migrations` (a manual INSERT — the raw-SQL endpoint doesn't
+self-register the way `supabase migration up` does) and moving to the next file. All 12 succeeded
+on the first pass.
+
+**Final verification (live):**
+- `supabase_migrations.schema_migrations`: `150_pil_prospects`, `151_pil_identity_resolution`,
+  `152_pil_knowledge_graph`, `153_pil_evidence_provenance`, `154_pil_research_runs`,
+  `155_pil_agent_registry`, `156_pil_delegation`, `157_pil_source_registry`,
+  `158_pil_cost_ledger`, `159_pil_audit`, `160_pil_human_review`, `161_pil_monitoring` — all 12
+  present.
+- `information_schema.tables` — 31 `pil_%` tables, matching `PROSPECT_INTELLIGENCE_SCHEMA.md`'s
+  inventory exactly: `pil_prospects`, `pil_prospect_digital_twins`,
+  `pil_prospect_classifications`, `pil_prospect_opportunities`,
+  `pil_entity_resolution_candidates`, `pil_entity_aliases`, `pil_identity_resolution_log`,
+  `pil_graph_nodes`, `pil_graph_edges`, `pil_graph_edge_evidence`, `pil_evidence`,
+  `pil_source_snapshots`, `pil_contradictions`, `pil_research_goals`, `pil_research_runs`,
+  `pil_research_run_steps`, `pil_agent_registry`, `pil_agent_runs`, `pil_agent_run_events`,
+  `pil_delegated_tasks`, `pil_delegation_budgets`, `pil_source_registry`,
+  `pil_source_provider_credentials`, `pil_cost_ledger`, `pil_cost_budgets`, `pil_audit_log`,
+  `pil_policy_decisions`, `pil_human_review_queue`, `pil_human_review_decisions`,
+  `pil_monitoring_subscriptions`, `pil_monitoring_events`.
+- `SELECT count(*) FROM pil_agent_registry` — **44**, matching the seed data shipped in migration
+  `155_pil_agent_registry.sql` and `PROSPECT_INTELLIGENCE_AGENTS.md`'s 44-agent registry.
+
+**Not run this pass:** `get_advisors` (RLS/security advisor review) — the migration files already
+follow this codebase's established RLS convention (`REVOKE ALL ... FROM anon`, org-scoped
+`SELECT`/`INSERT`/`UPDATE` policies keyed off `profiles.organization_id`) per §5's summary, but an
+independent advisor pass has not yet been run against the live tables. The deferred FK ALTERs
+called out in each migration file's header comments (`created_by_agent_id`/`qualified_by_agent_id`
+→ `pil_agent_registry(agent_id)`, `pil_prospect_classifications.evidence_id` →
+`pil_evidence(id)`) are also not yet applied — both `pil_agent_registry` and `pil_evidence` now
+exist live, so these can be added in a follow-up pass.

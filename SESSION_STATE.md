@@ -9038,3 +9038,19 @@ Also wrote `queue-pil-01-migrations.yaml` to the FORGE benavora project folder: 
 Files touched: `PROSPECT_INTELLIGENCE_SCHEMA.md` (new), `PROSPECT_INTELLIGENCE_AGENTS.md` (new), `PROSPECT_INTELLIGENCE_ARCHITECTURE.md` (new), `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`. FORGE folder additions (outside this repo, not part of this commit): the same 3 docs mirrored, plus `queue-pil-01-migrations.yaml` (new). Committed as `docs(pil): Enterprise Agentic Prospect Intelligence Layer design spec` (docs) and `docs: close PIL design-spec session` (this state-file close-out). Pushed.
 
 Next session: run `queue-pil-01-migrations.yaml` (FORGE) to apply the 12 schema groups as real numbered Supabase migrations, or continue with a later PIL-0x queue if migrations are already in flight - check real migration-directory state first, not this doc's numbers.
+
+---
+
+## Session 32 - August 23, 2026: PIL-01 migrations 150-161 APPLIED to production via Management API PAT
+
+Unblocked `PIL_MIGRATION_PLAN.md` §6 (the connected Supabase MCP connector cannot see project `vbjplpquqxxfbpazyalt`, only 3 unrelated projects under a different org) - this task explicitly authorized a Management API PAT instead.
+
+Pre-check confirmed real live state before touching anything: `supabase_migrations.schema_migrations` had 148 rows, latest `146_knowledge_schema`, zero of `150`-`161` present; zero `pil_%` tables existed. Applied all 12 files (`150_pil_prospects.sql` ... `161_pil_monitoring.sql`, the same files committed in `ec60e68`/`13394ac`/`1cf87d8`, unmodified) one at a time in order via `POST /v1/projects/vbjplpquqxxfbpazyalt/database/query`, verifying each migration's specific tables existed in `information_schema.tables` before recording it in `supabase_migrations.schema_migrations` and moving to the next - all 12 succeeded on the first pass, no failures.
+
+Final live verification: 31 `pil_%` tables total (matches `PROSPECT_INTELLIGENCE_SCHEMA.md`'s inventory exactly), `pil_agent_registry` has 44 rows (matches `PROSPECT_INTELLIGENCE_AGENTS.md`'s 44-agent registry exactly - seed data shipped in migration 155), all 12 versions present in `schema_migrations`.
+
+Out of scope this session: `get_advisors` RLS review, the deferred-FK follow-up ALTERs the migration file headers call out (`created_by_agent_id`/`qualified_by_agent_id` -> `pil_agent_registry.agent_id`, `pil_prospect_classifications.evidence_id` -> `pil_evidence.id`), any application code against the new tables.
+
+Files touched: `PIL_MIGRATION_PLAN.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`.
+
+Next session: add the deferred FK constraints now that `pil_agent_registry`/`pil_evidence` both exist live, then begin PIL-02 (agent runtime) per the FORGE roadmap in `PROSPECT_INTELLIGENCE_ARCHITECTURE.md`.
