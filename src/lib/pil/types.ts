@@ -201,6 +201,8 @@ export type MonitoringTriggerType =
 
 export type MonitoringEventStatus = "new" | "reviewed" | "actioned" | "dismissed";
 
+export type FeatureFlagScopeType = "platform" | "org" | "agent";
+
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
@@ -547,4 +549,29 @@ export interface MonitoringEvent {
   status: MonitoringEventStatus;
   detected_at: ISODateTime;
   created_at: ISODateTime;
+}
+
+// pil_prospect_dossiers (migration 163)
+export interface ProspectDossierRow {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  research_run_id: UUID | null;
+  dossier: Record<string, unknown>;
+  narrative_text: string;
+  generated_at: ISODateTime;
+  version: number;
+  created_at: ISODateTime;
+}
+
+// pil_feature_flags (migration 163)
+export interface FeatureFlag {
+  id: UUID;
+  flag_key: string;
+  scope_type: FeatureFlagScopeType;
+  scope_id: string | null;
+  enabled: boolean;
+  reason: string | null;
+  created_at: ISODateTime;
+  updated_at: ISODateTime;
 }

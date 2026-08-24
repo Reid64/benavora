@@ -4,6 +4,10 @@ import { ChiefProspectIntelligenceOrchestrator } from "@/lib/pil/agents/sup/BEN-
 import { ResearchStrategyArchitect } from "@/lib/pil/agents/sup/BEN-SUP-02";
 import { CrossAgentResearchPlanner } from "@/lib/pil/agents/sup/BEN-SUP-03";
 import { ResearchPortfolioAllocator } from "@/lib/pil/agents/sup/BEN-SUP-04";
+import { ProspectResearchCriticAgent } from "@/lib/pil/agents/sup/BEN-SUP-05";
+import { ResearchRecoveryInvestigatorAgent } from "@/lib/pil/agents/sup/BEN-SUP-06";
+import { AutonomyGovernorAgent } from "@/lib/pil/agents/sup/BEN-SUP-07";
+import { ExecutiveIntelligenceNarrativeAgent } from "@/lib/pil/agents/sup/BEN-SUP-08";
 
 // Agent factory. pil_agent_registry (agent-registry-service.ts) carries only
 // metadata for all 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md; this is
@@ -54,6 +58,10 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-SUP-02": () => new ResearchStrategyArchitect(),
   "BEN-SUP-03": () => new CrossAgentResearchPlanner(),
   "BEN-SUP-04": () => new ResearchPortfolioAllocator(),
+  "BEN-SUP-05": () => new ProspectResearchCriticAgent(),
+  "BEN-SUP-06": () => new ResearchRecoveryInvestigatorAgent(),
+  "BEN-SUP-07": () => new AutonomyGovernorAgent(),
+  "BEN-SUP-08": () => new ExecutiveIntelligenceNarrativeAgent(),
 };
 
 export function loadAgentImpl(agentCode: string): Agent {
