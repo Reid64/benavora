@@ -127,3 +127,58 @@ no-op against current state, which is the correct, safe behavior for an idempote
 - **FK targets:** `organizations`, `profiles` both confirmed present live.
 - **Do not** model any PIL migration on `src/supabase/migrations/` content or numbering — that tree
   is not applied to production.
+
+---
+
+## 6. PIL-01 apply attempt, 2026-08-23 — BLOCKED before any migration ran
+
+**Task:** apply the 12 migration files written for PIL-01
+(`supabase/migrations/150_pil_prospects.sql` through
+`supabase/migrations/161_pil_monitoring.sql`) to live project `vbjplpquqxxfbpazyalt` via
+`mcp__claude_ai_Supabase__apply_migration`, one file at a time in numeric order, with a
+`get_advisors` (security) check after each apply.
+
+**Result: zero migrations applied.** The precondition check before the first `apply_migration`
+call failed, so no DDL was ever attempted against the live database.
+
+### What was checked
+
+1. `mcp__claude_ai_Supabase__list_projects` — returned exactly 3 projects, all under
+   `organization_id: "vlipoynwopxlkdbnwpug"` / `organization_slug: "vlipoynwopxlkdbnwpug"`:
+   `tarritrix` (`jhiplicikizdpdsguimg`), `tarritrix-audit` (`hacsgiylclthwqzbktoe`), and
+   `hail-intel-resurrected` (`tmeplqakevlftjuxjucw`). `vbjplpquqxxfbpazyalt` is not in this list.
+2. `mcp__claude_ai_Supabase__get_project` called directly with `id: "vbjplpquqxxfbpazyalt"` —
+   returned `MCP error -32600: You do not have permission to perform this action`.
+
+This is the exact same connector/account mismatch already recorded in §3 of this document
+(`benavora-supabase-mcp-unauthorized` project memory) — **still unresolved as of this session**,
+confirmed independently rather than assumed from the stale note.
+
+### Why this stopped the run rather than falling back to another path
+
+The task instructions named `mcp__claude_ai_Supabase__apply_migration` specifically and said to
+stop and document rather than attempt an undocumented workaround on failure. Falling back to
+DIRECTIVE-017's `DATABASE_URL`/`psql` path or the Management API PAT (both used to produce every
+other finding in this document, §3) would itself be exactly that kind of undocumented workaround
+for a differently-scoped task — those paths were not authorized for this specific apply-via-MCP
+request, so no migration was applied by any other means either.
+
+### Consequently not run
+
+- `get_advisors` (security) — never called; there was nothing to check after, since no migration
+  applied.
+- `list_tables` post-verification (31 `pil_*` tables) and the anon-role RLS spot-check — not run,
+  same reason.
+
+### Follow-up required before this task can succeed
+
+One of the following, decided by Reid, before re-attempting:
+- Re-authorize the `claude.ai Supabase` MCP connector against the account/organization that
+  actually owns `vbjplpquqxxfbpazyalt` (the connector is currently scoped to an unrelated
+  account), or
+- Explicitly authorize this task to use DIRECTIVE-017's `DATABASE_URL`/`psql` path or Management
+  API PAT instead of the MCP tool for applying these 12 files.
+
+No migration file content was modified. All 12 files
+(`supabase/migrations/150_pil_prospects.sql` ... `161_pil_monitoring.sql`) remain exactly as
+written, unapplied to the live database.
