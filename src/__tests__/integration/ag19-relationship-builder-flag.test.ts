@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 import { randomUUID } from "node:crypto";
+import pLimit from "p-limit";
 
 import { routeQueueItem, type AgentQueueRow } from "../../../worker/autonomous-orchestrator";
 
@@ -210,20 +211,38 @@ const ORG_SCOPED_TABLES: Array<[table: string, column: string]> = [
  * individual delete is best-effort (mirrors this suite's established
  * `try {} catch {}` convention) since most tables will have zero matching
  * rows for any given disposable test org.
+ *
+ * Deletes within a pass run with bounded concurrency, not sequentially — 3
+ * sequential passes over ~103 tables was ~309 awaited round-trips (observed
+ * 2026-08-22: ~140s standalone, exceeding even the 120s hookTimeout on its
+ * own merits, not from contention with other suites as originally assumed).
+ * Firing all ~103 as one unbounded Promise.all was tried first and made
+ * things worse (real "fetch failed" errors, ~145s) — same host, same
+ * moment, over 100 simultaneous connections. Capped at 15 concurrent (this
+ * project's established fan-out limit elsewhere, e.g. Workflow's own agent
+ * concurrency cap) balances round-trip count against not overwhelming a
+ * single host's connection pool. Each table's delete is independent (scoped
+ * to a single disposable org) and best-effort already tolerates any
+ * individual failure.
  */
 async function deleteOrgAndAllDependents(
   service: SupabaseClient,
   orgId: string,
 ): Promise<void> {
+  const limit = pLimit(15);
   for (let pass = 0; pass < 3; pass++) {
-    for (const [table, column] of ORG_SCOPED_TABLES) {
-      try {
-        await service.from(table).delete().eq(column, orgId);
-      } catch {
-        // best-effort cleanup — some tables may not exist in every
-        // environment, or may already be empty for this org.
-      }
-    }
+    await Promise.all(
+      ORG_SCOPED_TABLES.map(([table, column]) =>
+        limit(async () => {
+          try {
+            await service.from(table).delete().eq(column, orgId);
+          } catch {
+            // best-effort cleanup — some tables may not exist in every
+            // environment, or may already be empty for this org.
+          }
+        }),
+      ),
+    );
   }
   const { error } = await service.from("organizations").delete().eq("id", orgId);
   if (error) {
@@ -287,15 +306,19 @@ async function deleteOrgAndAllDependents(
         .select("id")
         .eq("organization_id", testOrgId);
       expect(remainingRuns ?? []).toHaveLength(0);
-      // 2026-08-22: bumped 60_000 -> 120_000 — a real "Hook timed out in
-      // 60000ms" was observed under a full `vitest run` (this suite's real
-      // DB delete cascade contending with rls.test.ts's ~53s full-table
-      // sweep and form-analyzer-filler.test.ts's real Playwright sessions
-      // running concurrently); the test passes cleanly standalone (~59s
-      // total). Not a defect in this file or its target code — pure
-      // resource-contention headroom.
+      // 2026-08-22: the prior 60_000 -> 120_000 hookTimeout bump treated this
+      // as resource contention with other suites, but it reproduced
+      // standalone too (~140s) — root cause was deleteOrgAndAllDependents
+      // running 3 sequential passes x ~103 tables (~309 awaited round-trips).
+      // Fixed by parallelizing deletes within each pass; 120_000 kept as
+      // headroom for real network variance, not to compensate for the
+      // now-fixed sequential-scan cost.
     }, 120_000);
 
+    // Explicit 60_000 timeouts on these 3 live tests, not the 30_000 global
+    // default (vitest.config.ts) — real Claude/agent + DB round-trips
+    // observed 2026-08-22 to occasionally exceed 30s under normal network
+    // variance even though they typically complete in ~5-15s.
     it("1. flag unset/false: routing instantiates the Gen-1 FunderRelationshipAgent — confirmed via the real agent_runs.agent_type discriminator, not the Gen-2 one", async () => {
       // Precondition: confirm the flag is genuinely absent for this org
       // before exercising the unset-flag branch.
@@ -356,7 +379,7 @@ async function deleteOrgAndAllDependents(
         .eq("funder_id", testFunderId);
       expect(scoreError, scoreError?.message).toBeNull();
       expect(scoreRows).toHaveLength(1);
-    });
+    }, 60_000);
 
     it("2. sets feature.relationship_builder_v2 = 'true' for the disposable test org only", async () => {
       const { error: upsertError } = await service.from("platform_config").upsert(
@@ -373,7 +396,7 @@ async function deleteOrgAndAllDependents(
         .maybeSingle();
       expect(flagError, flagError?.message).toBeNull();
       expect(flag?.value).toBe("true");
-    });
+    }, 60_000);
 
     it("3. flag true: routing instantiates RelationshipBuilderAgent (agent_type='ag-19-relationship'), a real run() call completes without error, and it writes a real row correctly scoped to the test org's organization_id", async () => {
       const item: AgentQueueRow = {
@@ -426,7 +449,7 @@ async function deleteOrgAndAllDependents(
         .eq("org_id", testOrgId);
       expect(memoryError, memoryError?.message).toBeNull();
       expect(memoryRows).toHaveLength(0);
-    });
+    }, 60_000);
 
     // Test 4 ("Faith Foundation's real org still has no
     // feature.relationship_builder_v2 row") moved to

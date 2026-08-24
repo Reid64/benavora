@@ -57,6 +57,14 @@ export interface BrowserAutomationInput {
   /** Application whose opportunity portal we are filling. Required. */
   applicationId: string;
   /**
+   * An `automation_sessions` row already created for this run (status
+   * 'pending') - e.g. by the enqueue route, before the worker picked the job
+   * up. When set, execute() resumes this session instead of creating a new
+   * one, so the id returned to the caller at enqueue time is the same id the
+   * worker updates as it runs.
+   */
+  sessionId?: string;
+  /**
    * How the worker should behave after filling:
    *   supervised        — pause for human approval (default, all tiers).
    *   semi_autonomous   — auto-submit when all mapped fields have confidence ≥ 0.9
@@ -156,16 +164,20 @@ export class BrowserAutomationAgent extends BaseAgent<
 
     const context = await this.loadContext(applicationId);
 
-    // Create the session row up front so the run is inspectable even if the
-    // browser work fails (BEHAVIORAL_CONTRACTS §15 - never silently fail).
-    const session = await this.sessions.createSession({
-      applicationId: context.applicationId,
-      opportunityId: context.opportunityId,
-      funderId: context.funderId,
-      targetUrl: context.targetUrl,
-      startedBy: this.triggeredBy,
-    });
-    const sessionId = session.id;
+    // Resume a session the caller already created (queued run), or create one
+    // up front so the run is inspectable even if the browser work fails
+    // (BEHAVIORAL_CONTRACTS §15 - never silently fail).
+    const sessionId = input.sessionId
+      ? (await this.sessions.getSession(input.sessionId)).id
+      : (
+          await this.sessions.createSession({
+            applicationId: context.applicationId,
+            opportunityId: context.opportunityId,
+            funderId: context.funderId,
+            targetUrl: context.targetUrl,
+            startedBy: this.triggeredBy,
+          })
+        ).id;
 
     const engine = new BrowserEngine({
       client: this.client,

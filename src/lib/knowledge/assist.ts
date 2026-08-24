@@ -1,12 +1,19 @@
-import { callClaudeConversation, DEFAULT_MODEL } from "@/lib/ai/claude";
+import type Anthropic from "@anthropic-ai/sdk";
+
+import { callClaudeConversation, callClaudeWithTools, DEFAULT_MODEL } from "@/lib/ai/claude";
 import { generateEmbedding } from "@/lib/intelligence/embeddings";
 import { insertQuery, rateCount, searchKnowledge, type SearchHit } from "@/lib/knowledge/db";
+import { runTool, toolDefinitions } from "@/lib/knowledge/tools";
 
 const MAX_CONTEXT_CHARS = 1200;
 const MAX_HISTORY_TURNS = 6;
 const DAILY_RATE_LIMIT = 30;
 const SEARCH_K = 8;
 const ANSWER_MAX_TOKENS = 700;
+const MAX_TOOL_ROUNDS = 4;
+
+const APP_SYSTEM_PROMPT_SUFFIX =
+  "\nYou are inside the user's Benavora workspace. You may call tools to read their own organization's opportunities, deadlines, pipeline and drafts. Cite workspace data as [workspace]. Never reveal data for any other organization.";
 
 const DEMO_KEYWORDS = [
   "software",
@@ -129,4 +136,108 @@ export async function answerPublic(params: AnswerPublicParams): Promise<AnswerPu
   });
 
   return { answer: response.text, citations, offerDemo, latencyMs };
+}
+
+export function buildAppSystemPrompt(): string {
+  return buildPublicSystemPrompt() + APP_SYSTEM_PROMPT_SUFFIX;
+}
+
+export interface AnswerAppParams {
+  question: string;
+  history: HistoryTurn[];
+  orgId: string;
+  userId: string;
+}
+
+export interface AnswerAppResult {
+  answer: string;
+  citations: Citation[];
+  toolsUsed: string[];
+  latencyMs: number;
+}
+
+/**
+ * Same retrieval as {@link answerPublic}, plus an Anthropic tool-use loop
+ * (capped at {@link MAX_TOOL_ROUNDS} rounds) letting the model read the
+ * caller's own organization's opportunities, deadlines, pipeline, and drafts
+ * (src/lib/knowledge/tools.ts). No daily rate limit - this surface requires
+ * an authenticated session. `orgId` is threaded to every tool call and is
+ * never taken from the model's tool input.
+ */
+export async function answerApp(params: AnswerAppParams): Promise<AnswerAppResult> {
+  const startedAt = Date.now();
+
+  const embedding = await generateEmbedding(params.question);
+  const hits = await searchKnowledge(embedding, params.question, SEARCH_K);
+
+  const recentHistory = params.history.slice(-MAX_HISTORY_TURNS);
+  const messages: Anthropic.MessageParam[] = [
+    ...recentHistory.map((turn) => ({ role: turn.role, content: turn.content })),
+    {
+      role: "user" as const,
+      content: `${formatContext(hits)}\n\nQuestion: ${params.question}`,
+    },
+  ];
+
+  const system = buildAppSystemPrompt();
+  const tools = toolDefinitions();
+  const toolsUsed: string[] = [];
+
+  let response = await callClaudeWithTools({
+    system,
+    messages,
+    tools,
+    maxTokens: ANSWER_MAX_TOKENS,
+  });
+
+  let rounds = 0;
+  while (response.stopReason === "tool_use" && rounds < MAX_TOOL_ROUNDS) {
+    rounds += 1;
+    messages.push({ role: "assistant", content: response.content });
+
+    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+    for (const block of response.content) {
+      if (block.type !== "tool_use") continue;
+      toolsUsed.push(block.name);
+      let resultContent: string;
+      try {
+        const result = await runTool(block.name, params.orgId, block.input as Record<string, unknown>);
+        resultContent = JSON.stringify(result);
+      } catch (err) {
+        resultContent = JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      toolResults.push({ type: "tool_result", tool_use_id: block.id, content: resultContent });
+    }
+    messages.push({ role: "user", content: toolResults });
+
+    response = await callClaudeWithTools({
+      system,
+      messages,
+      tools,
+      maxTokens: ANSWER_MAX_TOKENS,
+    });
+  }
+
+  const text = response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+
+  const citations = extractCitations(text, hits);
+  const latencyMs = Date.now() - startedAt;
+
+  await insertQuery({
+    surface: "app",
+    orgId: params.orgId,
+    clientKey: null,
+    question: params.question,
+    answer: text,
+    chunkIds: hits.map((hit) => hit.chunk_id),
+    model: response.model ?? DEFAULT_MODEL,
+    latencyMs,
+  });
+
+  return { answer: text, citations, toolsUsed: Array.from(new Set(toolsUsed)), latencyMs };
 }

@@ -21,6 +21,7 @@ import {
   Megaphone,
   MonitorDot,
   Radar,
+  ScanSearch,
   Send,
   Settings,
   Shield,
@@ -50,6 +51,13 @@ export type NavItem = {
   requiresOnboarding?: boolean;
   /** Sub-links shown indented below the parent when parent is active. */
   children?: NavChild[];
+  /**
+   * Per-item icon color override, e.g. a section's own accent — mirrors the
+   * pattern already used for PROGRAMS_NAV_ITEMS's green icon. Sidebar/header
+   * *text* stays solid white unconditionally (DESIGN_SYSTEM.md's hard rule);
+   * only the icon may carry a section accent.
+   */
+  iconColor?: (active: boolean) => string;
 };
 
 export type NavOptions = {
@@ -105,6 +113,20 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Donor Intent", href: "/intelligence/donor-intent" },
       { label: "Relationship Graph", href: "/intelligence/relationship-graph" },
       { label: "Strategic Advisor", href: "/intelligence/strategic-advisor" },
+    ],
+  },
+  {
+    label: "Prospect Intelligence",
+    href: "/intelligence/pil",
+    icon: ScanSearch,
+    // Plum #5B21B6 — this section's accent per governance/DESIGN_SYSTEM.md.
+    iconColor: (active) => (active ? "#FFFFFF" : "#5B21B6"),
+    children: [
+      { label: "Prospects", href: "/intelligence/pil/prospects" },
+      { label: "Research Runs", href: "/intelligence/pil/research" },
+      { label: "Review Queue", href: "/intelligence/pil/review-queue" },
+      { label: "Agents", href: "/intelligence/pil/agents" },
+      { label: "Discover", href: "/intelligence/pil/discover" },
     ],
   },
   {

@@ -3,16 +3,32 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createClient } from "@/lib/supabase/server";
 import { AgentError } from "@/lib/agents/base-agent";
-import { BrowserAutomationAgent } from "@/lib/agents/browser-automation";
+import {
+  AutomationSessionManager,
+  AutomationSessionError,
+} from "@/lib/automation/session-manager";
 import { withUsageCheck } from "@/lib/billing/usage-middleware";
 import { SubmissionValidator } from "@/lib/autoapply/submission-validator";
 
 // Browser Automation start endpoint (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS
 // §18). POST { applicationId } authenticates the user, derives organization_id
-// from their profile (never the body), confirms the application exists and has a
-// portal URL, then runs the agent's initial pass: navigate → screenshot →
-// detect/fill form → upload documents → pause at `awaiting_approval`. It NEVER
-// submits - submission happens only after a human approves.
+// from their profile (never the body), confirms the application exists and has
+// a portal URL, then enqueues the run: navigate → screenshot → detect/fill
+// form → upload documents → pause at `awaiting_approval` never happens here.
+//
+// WGR-167: this route used to instantiate BrowserAutomationAgent and run it
+// synchronously, which launches Playwright directly inside this Vercel
+// serverless function - there is no Chromium binary here, so every run
+// failed. The Railway worker (worker/queue-processor.ts) already has
+// Playwright installed and already polls submission_queue, so this route now
+// only creates the automation_sessions row (status 'pending', surfaced to the
+// caller as "queued") and inserts a submission_queue row pointing at it
+// (automation_mode 'browser_automation', automation_session_id set). The
+// worker claims that row like any other submission_queue item and runs
+// BrowserAutomationAgent itself - see
+// worker/queue-processor.ts's processBrowserAutomationItem(). Submission
+// still never happens without a human approval, per §18 - that invariant
+// lives in AutomationSessionManager/approveAndSubmit, untouched here.
 
 export const runtime = "nodejs";
 // Phase 3 sessions may run up to ~5 minutes (BEHAVIORAL_CONTRACTS §18); the
@@ -122,15 +138,26 @@ export async function POST(request: Request) {
     .eq("organization_id", organizationId)
     .maybeSingle();
 
+  const opportunityId = (applicationRow?.opportunity_id as string | null) ?? null;
   let conflictFunderId: string | null = null;
-  if (applicationRow?.opportunity_id) {
+  let targetUrl: string | null = null;
+  if (opportunityId) {
     const { data: opportunityRow } = await supabase
       .from("opportunities")
       .select("funder_id")
-      .eq("id", applicationRow.opportunity_id as string)
+      .eq("id", opportunityId)
       .eq("organization_id", organizationId)
       .maybeSingle();
     conflictFunderId = (opportunityRow?.funder_id as string | null) ?? null;
+
+    if (conflictFunderId) {
+      const { data: funderRow } = await supabase
+        .from("funders")
+        .select("giving_portal_url")
+        .eq("id", conflictFunderId)
+        .maybeSingle();
+      targetUrl = (funderRow?.giving_portal_url as string | null) ?? null;
+    }
   }
 
   if (conflictFunderId) {
@@ -149,24 +176,46 @@ export async function POST(request: Request) {
     }
   }
 
-  // The agent scopes every query by organization_id explicitly, so the session
-  // client (RLS on, as a second barrier) is safe to hand it.
-  const agent = new BrowserAutomationAgent({
+  const sessions = new AutomationSessionManager({
     client: supabase,
     organizationId,
-    triggeredBy: profile.id as string,
   });
 
   try {
-    const outcome = await agent.run({ applicationId: applicationId.trim() });
-    return NextResponse.json({
-      sessionId: outcome.data.sessionId,
-      status: outcome.data.status,
-      result: outcome.data,
+    const session = await sessions.createSession({
+      applicationId: applicationId.trim(),
+      opportunityId,
+      funderId: conflictFunderId,
+      targetUrl,
+      startedBy: profile.id as string,
     });
+
+    const { error: enqueueError } = await supabase.from("submission_queue").insert({
+      organization_id: organizationId,
+      funder_id: conflictFunderId,
+      automation_mode: "browser_automation",
+      automation_session_id: session.id,
+      status: "pending",
+    });
+
+    if (enqueueError) {
+      await sessions
+        .markFailed(session.id, `Failed to enqueue for the automation worker: ${enqueueError.message}`)
+        .catch(() => undefined);
+      return jsonError(
+        "Failed to queue the automation session. Please try again.",
+        "enqueue_failed",
+        500,
+      );
+    }
+
+    return NextResponse.json({ sessionId: session.id, status: "queued" });
   } catch (err) {
     if (err instanceof AgentError) {
       return jsonError(err.message, err.code, err.status);
+    }
+    if (err instanceof AutomationSessionError) {
+      return jsonError(err.message, err.code, 500);
     }
     return jsonError(
       "Browser automation failed to start. Please try again.",

@@ -42,6 +42,8 @@ import {
   claimNextRunConnectorEnrichmentJob,
   handleRunConnectorEnrichmentJob,
 } from '../src/worker/jobs/run-connector-enrichment.js';
+import { BrowserAutomationAgent } from '../src/lib/agents/browser-automation.js';
+import { AutomationSessionManager } from '../src/lib/automation/session-manager.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -54,6 +56,10 @@ interface QueueItem {
   scheduled_for: string | null;
   created_at: string;
   request_profile_id: string | null;
+  // WGR-167: set by POST /api/agents/automation for application-scoped
+  // browser-automation runs (automation_mode 'browser_automation'). null for
+  // every other automation_mode - the generic funder/request_profile pipeline.
+  automation_session_id: string | null;
 }
 
 interface FunderRow {
@@ -314,7 +320,11 @@ export class QueueProcessor {
       await heartbeat.setProcessing(item.id);
 
       try {
-        await this.processItem(item);
+        if (item.automation_session_id !== null) {
+          await this.processBrowserAutomationItem(item);
+        } else {
+          await this.processItem(item);
+        }
         await this.supabase
           .from('submission_queue')
           .update({ status: 'completed', completed_at: new Date().toISOString() })
@@ -528,6 +538,47 @@ export class QueueProcessor {
       `[QueueProcessor] run_connector_enrichment: prospect ${job.prospectId} â€” ` +
         `${result.enrichment.contacts.length} decision-maker contact(s) found via ${job.connectorProvider}`,
     );
+  }
+
+  /**
+   * WGR-167: runs a queued browser-automation session. The automation_sessions
+   * row already exists (created by POST /api/agents/automation, status
+   * 'pending') - this resumes it via BrowserAutomationAgent's sessionId input
+   * rather than creating a second row, so the id already returned to the
+   * caller is the one that updates as the run progresses. Playwright runs
+   * here in the Railway worker, not in the Vercel function that enqueued it.
+   * The agent never submits on its own (BEHAVIORAL_CONTRACTS §18) - it stops
+   * at 'awaiting_approval' or 'failed'; either way the item is done from this
+   * queue's perspective once run() returns, so no separate retry loop applies
+   * here the way it does for processItem()'s funder submissions.
+   */
+  private async processBrowserAutomationItem(item: QueueItem): Promise<void> {
+    const sessionId = item.automation_session_id;
+    if (sessionId === null) throw new SkipError('no_automation_session_id');
+
+    const sessions = new AutomationSessionManager({
+      client: this.supabase,
+      organizationId: item.organization_id,
+    });
+    const session = await sessions.getSession(sessionId);
+    const applicationId = session.application_id;
+    if (applicationId === null) {
+      await sessions.markFailed(sessionId, 'automation_sessions row has no application_id.');
+      throw new Error('automation_session_missing_application_id');
+    }
+
+    try {
+      const agent = new BrowserAutomationAgent({
+        client: this.supabase,
+        organizationId: item.organization_id,
+        triggeredBy: session.started_by,
+      });
+      await agent.run({ applicationId, sessionId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Browser automation failed.';
+      await sessions.markFailed(sessionId, message).catch(() => undefined);
+      throw err;
+    }
   }
 
   private async processItem(item: QueueItem): Promise<void> {

@@ -21,14 +21,23 @@ export interface UseAssistResult {
   loading: boolean;
   error: string | null;
   offerDemo: boolean;
+  /** Tool names the model called for this session's most recent answer (app surface only). */
+  toolsUsed: string[];
 }
 
-export function useAssist(): UseAssistResult {
+export interface UseAssistOptions {
+  /** Defaults to the public marketing surface. Pass "/api/assist" for the in-app surface. */
+  endpoint?: string;
+}
+
+export function useAssist(options: UseAssistOptions = {}): UseAssistResult {
+  const endpoint = options.endpoint ?? "/api/public/assist";
   const [sessionId] = useState(() => crypto.randomUUID());
   const [messages, setMessages] = useState<AssistMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offerDemo, setOfferDemo] = useState(false);
+  const [toolsUsed, setToolsUsed] = useState<string[]>([]);
 
   const send = useCallback(
     async (question: string) => {
@@ -41,7 +50,7 @@ export function useAssist(): UseAssistResult {
       setLoading(true);
 
       try {
-        const res = await fetch("/api/public/assist", {
+        const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: trimmed, history, sessionId }),
@@ -49,6 +58,10 @@ export function useAssist(): UseAssistResult {
 
         if (res.status === 429) {
           setError("You have reached today's limit. Try again tomorrow or book a demo.");
+          return;
+        }
+        if (res.status === 401) {
+          setError("Your session has expired. Please sign in again.");
           return;
         }
         if (!res.ok) {
@@ -59,21 +72,23 @@ export function useAssist(): UseAssistResult {
         const data = (await res.json()) as {
           answer: string;
           citations: AssistCitation[];
-          offerDemo: boolean;
+          offerDemo?: boolean;
+          toolsUsed?: string[];
         };
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: data.answer, citations: data.citations },
         ]);
         if (data.offerDemo) setOfferDemo(true);
+        setToolsUsed(data.toolsUsed ?? []);
       } catch {
         setError("Assist is unavailable right now.");
       } finally {
         setLoading(false);
       }
     },
-    [messages, loading, sessionId],
+    [messages, loading, sessionId, endpoint],
   );
 
-  return { messages, send, loading, error, offerDemo };
+  return { messages, send, loading, error, offerDemo, toolsUsed };
 }

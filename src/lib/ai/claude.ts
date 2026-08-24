@@ -234,6 +234,78 @@ export async function callClaudeConversation(
   };
 }
 
+export interface ClaudeToolSpec {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+export interface ClaudeToolCallRequest {
+  /** Full message history, including any prior assistant tool_use / user tool_result blocks. */
+  messages: Anthropic.MessageParam[];
+  /** Optional system prompt. */
+  system?: string;
+  /** Tools the model may call this turn. */
+  tools: ClaudeToolSpec[];
+  /** Model id. Defaults to {@link DEFAULT_MODEL}. */
+  model?: string;
+  /** Max output tokens. Defaults to {@link DEFAULT_MAX_TOKENS}. */
+  maxTokens?: number;
+  /** BYOK override - see {@link ClaudeRequest.apiKey}. */
+  apiKey?: string;
+}
+
+export interface ClaudeToolCallResponse {
+  /** Raw content blocks (text and/or tool_use) - the caller runs any tool_use blocks itself. */
+  content: Anthropic.ContentBlock[];
+  usage: ClaudeUsage;
+  model: string;
+  stopReason: string | null;
+}
+
+/**
+ * Same contract as {@link callClaudeConversation}, but with Anthropic tool use
+ * (function calling) enabled. Returns the raw content blocks uninterpreted -
+ * the caller is responsible for running any `tool_use` blocks and feeding
+ * `tool_result` blocks back in via `messages` on the next call, looping until
+ * `stopReason` is no longer `"tool_use"`. Used by the in-app Benavora Assist
+ * surface (src/lib/knowledge/assist.ts's `answerApp`).
+ */
+export async function callClaudeWithTools(req: ClaudeToolCallRequest): Promise<ClaudeToolCallResponse> {
+  const model = req.model ?? DEFAULT_MODEL;
+  const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+
+  let message;
+  try {
+    message = await getClient(req.apiKey).messages.create({
+      model,
+      max_tokens: maxTokens,
+      ...(req.system ? { system: req.system } : {}),
+      messages: req.messages,
+      tools: req.tools as unknown as Anthropic.Tool[],
+    });
+  } catch (err) {
+    if (!req.apiKey && isAuthError(err)) {
+      await reportPlatformKeyAuthFailure("callClaudeWithTools", err);
+    }
+    throw err;
+  }
+
+  const inputTokens = message.usage.input_tokens;
+  const outputTokens = message.usage.output_tokens;
+
+  return {
+    content: message.content,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    model: message.model,
+    stopReason: message.stop_reason,
+  };
+}
+
 export interface ClaudeWebSearchResponse extends ClaudeResponse {
   /** True if Claude actually issued a web_search tool call for this turn. */
   usedWebSearch: boolean;

@@ -53,7 +53,11 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
   private readonly maxTokens: number;
 
   constructor(options: ReviewAgentOptions) {
-    super(options);
+    // Section-by-section KB-grounded review is a single but heavy Claude call;
+    // needs more than the 60s default. Cap at 270s to leave a 30s buffer under
+    // the 300s Vercel function limit (same as grants-gov.ts, nofa-parser.ts,
+    // sam-gov.ts, state-scrapers.ts, tdhca-scraper.ts).
+    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }

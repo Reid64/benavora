@@ -438,7 +438,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
             </div>
           )}
           <div>
-            {navItems.map(({ label, href, icon: ItemIcon, children }) => {
+            {navItems.map(({ label, href, icon: ItemIcon, children, iconColor }) => {
               const active = isActive(href);
               const badge = badgeByHref[href] ?? 0;
               return (
@@ -451,6 +451,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
                     badge={badge}
                     id={href === "/intelligence-library" ? "tour-nav-intelligence-library" : undefined}
                     onClick={onClose}
+                    iconColor={iconColor}
                   />
                   {active && children && children.length > 0 && (
                     <div style={{ marginLeft: "23px", marginTop: "2px" }}>

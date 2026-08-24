@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { getPilClient } from "@/lib/pil/db";
 import { createResearchRun } from "@/lib/pil/workflow";
 
+// GET /api/pil/research — list the org's research runs, newest first. Added
+// for the PIL dashboard's run monitor (intelligence/pil/research), which has
+// no other way to enumerate runs — GET /api/pil/research/[runId] only ever
+// returns one run.
 // POST /api/pil/research — starts a Prospect Intelligence research run.
 // (The task spec described this as POST /api/pil/research/start, but a
 // Next.js route file at src/app/api/pil/research/route.ts only ever serves
@@ -15,6 +20,24 @@ export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
+}
+
+export async function GET() {
+  const gate = await requireRole("viewer");
+  if ("error" in gate) return gate.error;
+  const { organizationId } = gate;
+
+  const { data, error } = await getPilClient()
+    .from("pil_research_runs")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return jsonError("Failed to load research runs.", "load_failed", 500);
+  }
+
+  return NextResponse.json({ runs: data ?? [] });
 }
 
 export async function POST(request: Request) {

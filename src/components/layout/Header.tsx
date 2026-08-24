@@ -10,6 +10,7 @@ import { recordAuthEvent } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { AppAssistPanel } from "@/components/assist/AppAssistPanel";
 import type { Enums } from "@/types/database";
 
 type HeaderProps = {
@@ -150,6 +151,7 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [assistOpen, setAssistOpen] = useState(false);
   const [autonomousDraftsCount, setAutonomousDraftsCount] = useState(0);
   const [opportunitiesCount, setOpportunitiesCount] = useState(0);
   const [autoapplyQueuedCount, setAutoapplyQueuedCount] = useState(0);
@@ -271,6 +273,25 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
         </div>
 
         <div className="ml-auto flex items-center gap-4">
+          {/* Benavora Assist */}
+          <button
+            type="button"
+            onClick={() => setAssistOpen(true)}
+            aria-label="Open Benavora Assist"
+            style={{
+              backgroundColor: "#B88A2E",
+              color: "#101B2D",
+              border: "none",
+              borderRadius: 8,
+              padding: "6px 14px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Assist
+          </button>
+
           {/* Global search */}
           <GlobalSearch role={role} />
 
@@ -347,6 +368,8 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
             )}
           </div>
         </div>
+
+        <AppAssistPanel open={assistOpen} onClose={() => setAssistOpen(false)} />
     </header>
   );
 }

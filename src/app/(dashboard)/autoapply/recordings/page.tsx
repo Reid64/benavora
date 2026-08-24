@@ -297,12 +297,38 @@ export default function RecordingsPage() {
     setError(null);
     const supabase = createClient();
     try {
+      // WGR-168: session_recordings.funder_id has no FK constraint to
+      // funders(id) (a plain uuid column, unlike autoapply_submissions.funder_id
+      // which does), so PostgREST can't embed `funders(name)` here - it 400s
+      // with "Could not find a relationship between session_recordings and
+      // funders". Resolve funder names with a separate lookup instead.
       const { data, error: err } = await supabase
         .from("session_recordings")
-        .select("*, funders(name), autoapply_submissions(status)")
+        .select("*, autoapply_submissions(status)")
         .order("created_at", { ascending: false });
       if (err) throw err;
-      setRecordings((data ?? []) as unknown as RecordingRow[]);
+      const rows = (data ?? []) as unknown as RecordingRow[];
+
+      const funderIds = Array.from(new Set(rows.map((r) => r.funder_id).filter(Boolean)));
+      let funderNames = new Map<string, string>();
+      if (funderIds.length > 0) {
+        const { data: funderRows } = await supabase
+          .from("funders")
+          .select("id, name")
+          .in("id", funderIds);
+        funderNames = new Map(
+          (funderRows ?? []).map((f) => [f.id as string, f.name as string]),
+        );
+      }
+
+      setRecordings(
+        rows.map((r) => ({
+          ...r,
+          funders: funderNames.has(r.funder_id)
+            ? { name: funderNames.get(r.funder_id) as string }
+            : null,
+        })),
+      );
     } catch {
       setError("Could not load recordings.");
     } finally {

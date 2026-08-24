@@ -1,0 +1,158 @@
+
+> benavora@0.1.0 knowledge:ingest C:\Users\manag\Documents\benavora
+> tsx scripts/knowledge/ingest.ts
+
+◇ injected env (9) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+IRS Publication 557 Tax-Exempt Status for Your Organization | host | embedded (cached) | 0 chunks
+IRS Publication 4220 Applying for 501(c)(3) Tax-Exempt Status | host | embedded (cached) | 0 chunks
+IRS Publication 4221-PC Compliance Guide for 501(c)(3) Public Charities | host | embedded (cached) | 0 chunks
+IRS Publication 4221-PF Compliance Guide for Private Foundations | host | embedded (cached) | 0 chunks
+IRS Publication 598 Tax on Unrelated Business Income | host | embedded (cached) | 0 chunks
+IRS Publication 1771 Charitable Contributions Substantiation and Disclosure | host | embedded (cached) | 0 chunks
+IRS Publication 561 Determining the Value of Donated Property | host | embedded (cached) | 0 chunks
+IRS Publication 526 Charitable Contributions | host | embedded (cached) | 0 chunks
+IRS Publication 1828 Tax Guide for Churches and Religious Organizations | host | embedded (cached) | 0 chunks
+IRS Publication 4302 A Charity's Guide to Vehicle Donations | host | embedded (cached) | 0 chunks
+IRS Form 990-PF Instructions | host | embedded (cached) | 0 chunks
+IRS Form 990 Instructions | host | embedded | 200 chunks
+IRS Charities and Nonprofits Life Cycle of a Public Charity | host | embedded (cached) | 0 chunks
+Grants.gov Grants 101 | host | embedded (cached) | 0 chunks
+Grants.gov Grant Lifecycle | host | failed | 0 chunks (too-short)
+Grants.gov Grant Eligibility | host | embedded (cached) | 0 chunks
+Grants.gov Grant Terminology | host | embedded (cached) | 0 chunks
+Grants.gov Grant Policies | host | embedded (cached) | 0 chunks
+Grants.gov Grant Reporting | host | embedded (cached) | 0 chunks
+Grants.gov Grant Fraud | host | embedded (cached) | 0 chunks
+Grants.gov How to Apply for Grants | host | failed | 0 chunks (too-short)
+Grants.gov Applicant Registration | host | embedded (cached) | 0 chunks
+SAM.gov Assistance Listings Overview | host | embedded (cached) | 0 chunks
+USAspending.gov About | host | failed | 0 chunks (too-short)
+Federal Audit Clearinghouse | host | failed | 0 chunks (too-short)
+2 CFR Part 200 Uniform Guidance | host | embedded (cached) | 0 chunks
+HUD Exchange Grantee Resources | host | failed | 0 chunks (HTTP 404)
+NIH Grants and Funding | host | embedded (cached) | 0 chunks
+HHS Grants | host | failed | 0 chunks (HTTP 403)
+Department of Education Grants | host | embedded (cached) | 0 chunks
+DOJ Office of Justice Programs Funding | host | embedded (cached) | 0 chunks
+USDA Rural Development Programs | host | failed | 0 chunks (HTTP 403)
+FEMA Grants | host | embedded (cached) | 0 chunks
+AmeriCorps Funding Opportunities | host | failed | 0 chunks (HTTP 403)
+EDA Funding Opportunities | host | failed | 0 chunks (HTTP 403)
+VA Supportive Services for Veteran Families | host | embedded (cached) | 0 chunks
+Census Bureau Data Guidance | host | embedded (cached) | 0 chunks
+County Health Rankings Model | index | embedded (cached) | 0 chunks
+Warning: Ignoring invalid character "33" in hex string
+Warning: Ignoring invalid character "79" in hex string
+Warning: Ignoring invalid character "84" in hex string
+Warning: Ignoring invalid character "89" in hex string
+Warning: Ignoring invalid character "80" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "103" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "114" in hex string
+Warning: Ignoring invalid character "115" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "117" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "45" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "118" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "119" in hex string
+Warning: Ignoring invalid character "112" in hex string
+Warning: Ignoring invalid character "111" in hex string
+Warning: Ignoring invalid character "114" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "111" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "119" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "118" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "45" in hex string
+Warning: Ignoring invalid character "119" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "44" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "45" in hex string
+Warning: Ignoring invalid character "115" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "46" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "105" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "33" in hex string
+Warning: Ignoring invalid character "79" in hex string
+Warning: Ignoring invalid character "84" in hex string
+Warning: Ignoring invalid character "89" in hex string
+Warning: Ignoring invalid character "80" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Ignoring invalid character "116" in hex string
+Warning: Ignoring invalid character "109" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "108" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "103" in hex string
+Warning: Ignoring invalid character "61" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "110" in hex string
+Warning: Ignoring invalid character "34" in hex string
+Warning: Ignoring invalid character "104" in hex string
+Warning: Indexing all PDF objects
+The NGO Handbook | host | failed | 0 chunks (Invalid PDF structure)
+Introduction to the Nonprofit Sector | host | failed | 0 chunks (HTTP 403)
+OpenStax Principles of Management | host | embedded (cached) | 0 chunks
+OpenStax Introduction to Business | host | embedded (cached) | 0 chunks
+Fundraising Effectiveness Project Reports | index | embedded (cached) | 0 chunks
+Independent Sector Principles for Good Governance and Ethical Practice | index | embedded (cached) | 0 chunks
+National Council of Nonprofits Fundraising | index | failed | 0 chunks (HTTP 404)
+National Council of Nonprofits Charitable Solicitation Registration | index | failed | 0 chunks (HTTP 404)
+
+Evidence written to test-evidence\knowledge\ingest-20260822-1735.json

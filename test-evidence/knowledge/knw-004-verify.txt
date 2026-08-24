@@ -1,0 +1,15 @@
+knw-004 live verification - 2026-08-23T03:03:43.683Z
+
+[OK] faith-foundation-opportunity-titles-loaded :: {"count":20}
+[OK] dashboard-loads :: {"consoleErrorCount":0}
+[OK] assist-panel-opens :: {}
+[OK] deadlines-question-answered :: {"answerPreview":"Based on your workspace data, you have two incomplete deadlines in the next 30 days [workspace]:\n\n1. **FY 2026 Continuum of Care Competition and Youth Homelessness Demonstration Program Grants NOFO – "}
+[OK] deadlines-toolsUsed-includes-upcoming_deadlines :: {"toolsUsed":["upcoming_deadlines"]}
+[OK] 990pf-question-answered :: {"answerPreview":"The Form 990-PF is the annual information return that private foundations must file with the IRS. It serves several purposes:\n\n1. It reports the foundation's financial activity, including income, expe"}
+[OK] 990pf-has-irs-gov-citation :: {"citations":[{"n":2,"title":"IRS Publication 4221-PF Compliance Guide for Private Foundations","url":"https://www.irs.gov/pub/irs-pdf/p4221pf.pdf","publisher":"Internal Revenue Service"},{"n":6,"title":"IRS Form 990-PF Instructions","url":"https://www.irs.gov/pub/irs-pdf/i990pf.pdf","publisher":"Internal Revenue Service"},{"n":1,"title":"IRS Form 990-PF Instructions","url":"https://www.irs.gov/pub/irs-pdf/i990pf.pdf","publisher":"Internal Revenue Service"},{"n":5,"title":"IRS Form 990-PF Instructions","url":"https://www.irs.gov/pub/irs-pdf/i990pf.pdf","publisher":"Internal Revenue Service"}]}
+[OK] zero-console-errors-ff-session :: {"errors":[]}
+[OK] beta1-accounts-found :: {"count":2,"profiles":[{"id":"166fe8ae-b62a-4be6-a9bf-599e739671dc","organization_id":"e82ae732-c18d-4a30-8bea-8406ac6ad986","role":"owner"},{"id":"b9da6cef-b851-4d47-a9fb-f3b1c7ec5ab8","organization_id":"e8494d81-3961-4542-87bf-57896e2664da","role":"admin"}]}
+[OK] beta1-assist-call-status :: {"status":200}
+[OK] isolation-no-faith-foundation-titles-in-beta1-answer :: {"leakedTitles":[],"betaAnswerPreview":"Here is your current opportunity [workspace]:\n\n**Critical Paths Spec Grant (E2E Seed)**\n- Funder: Critical Paths Spec Funder (E2E Seed)\n- Amount: $10,000\n- Stage: Open\n- Deadline: Not set\n\nYou have one open opportunity on record. Note that no deadline has been assigned to it yet. You may want to add","betaToolsUsed":["list_opportunities"]}
+
+11/11 checks passed

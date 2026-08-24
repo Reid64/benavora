@@ -1,0 +1,75 @@
+WGR-170 remediation evidence -- success_probability_scores unique constraint
+Session date: 2026-08-23
+
+1. TABLE NAME VERIFICATION
+   The task's literal instruction named `opportunity_probability_scores`, which
+   does not exist. Verified the real table by reading
+   src/app/api/agents/success-probability/route.ts (imports
+   SuccessProbabilityAgent) and src/lib/agents/success-probability.ts, which
+   upserts into `success_probability_scores` with
+   { onConflict: "application_id" } (lines ~166-179).
+
+2. ROOT CAUSE
+   supabase/migrations/038_intelligence_tables.sql's CREATE TABLE for
+   success_probability_scores declares `application_id uuid ... UNIQUE`
+   inline. But per migration 145's own header comment
+   (145_giving_history_and_probability_scores_column_drift.sql), this table
+   already existed live, created out-of-band, before migration 038 ever ran --
+   so 038's `CREATE TABLE IF NOT EXISTS` no-op'd against the live table and
+   its inline UNIQUE constraint was never actually applied live. Migration 145
+   already closed the same drift for the data_quality/created_at/updated_at
+   columns; this closes it for the unique constraint, which is why every
+   success-probability write 42P10's in production.
+
+3. FIX
+   Added supabase/migrations/149_success_probability_scores_unique_constraint.sql:
+     DO $$ BEGIN
+       ALTER TABLE success_probability_scores
+         ADD CONSTRAINT success_probability_scores_application_id_key
+         UNIQUE (application_id);
+     EXCEPTION WHEN duplicate_object THEN NULL;
+     END $$;
+   Idempotent (safe to re-run; no-ops if the constraint already exists).
+
+4. LIVE APPLICATION -- BLOCKED, NOT APPLIED THIS SESSION
+   Attempted via DIRECTIVE-017's DATABASE_URL path (scripts/apply-migration-149-2026-08-23.mjs,
+   same pattern as the repo's existing scripts/apply-migration-140-2026-08-18.mjs):
+
+     $ node scripts/apply-migration-149-2026-08-23.mjs
+     Migration failed: timeout expired
+
+   Also attempted the sibling migration 148 (submission_queue.automation_session_id,
+   WGR-167) via the identical path and got the same class of failure:
+
+     $ node scripts/apply-migration-148-2026-08-23.mjs
+     Error: connect ETIMEDOUT 44.197.89.12:5432
+
+   Confirmed this is a genuine network-level block, not a script or
+   credentials bug, with a raw TCP probe (no psql/pg involved):
+
+     $ node -e "require('net').createConnection({host:'db.vbjplpquqxxfbpazyalt.supabase.co',port:5432,timeout:15000})..."
+     TCP TIMEOUT
+
+   No Supabase Management API PAT (sbp_...) is present in .env.local (only
+   NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY, neither of
+   which can execute arbitrary DDL over PostgREST), so DIRECTIVE-017's second
+   path is also unavailable in this session. The connected Supabase MCP
+   integration is authenticated to a different, unrelated Supabase account
+   (projects: tarritrix, tarritrix-audit, hail-intel-resurrected) -- none of
+   which is this project (vbjplpquqxxfbpazyalt) -- so it cannot be used
+   either without risking writes to the wrong database.
+
+   This matches project memory `benavora-direct-ddl-access-available`, which
+   verified this same DATABASE_URL path working live on 2026-08-02; port 5432
+   is evidently unreachable from this session's network specifically, not a
+   permanent state of the project.
+
+5. STATUS
+   Code fix (migration file) is complete and idempotent. DB-side application
+   is PENDING -- needs to be run from an environment with outbound access to
+   db.vbjplpquqxxfbpazyalt.supabase.co:5432 (or via the Supabase dashboard's
+   SQL editor), e.g.:
+     node scripts/apply-migration-149-2026-08-23.mjs
+   or paste supabase/migrations/149_success_probability_scores_unique_constraint.sql
+   directly into the SQL editor. Until then, success-probability writes will
+   continue to 42P10 in production exactly as WGR-170 describes.

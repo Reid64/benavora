@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Section Color Assignments</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; margin: 0; padding: 24px; background: #0a0a0a; }
+  h1 { color: #fff; font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #999; font-size: 13px; margin: 0 0 20px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .section { background: #18181B; border-radius: 10px; padding: 16px; }
+  .section .name { color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .section .pages { color: #999; font-size: 11px; margin-bottom: 10px; }
+  .swatches { display: flex; gap: 6px; height: 60px; margin-bottom: 6px; }
+  .sw { flex: 1; border-radius: 6px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
+  .sw span { font-size: 10px; font-weight: 700; font-family: monospace; padding: 2px 4px; border-radius: 3px; background: rgba(0,0,0,0.55); color: #fff; }
+  .roles { display: flex; gap: 6px; font-size: 10px; color: #ccc; }
+  .roles > div { flex: 1; text-align: center; }
+</style>
+</head>
+<body>
+<h1>7 sections, each with a frame + secondary accent</h1>
+<p class="sub">Background is Soft Stone #D8D3C8 everywhere, not shown per-card — this is just the two distinguishing colors per section.</p>
+<div class="grid" id="grid"></div>
+
+<script>
+const sections = [
+  { name: "Dashboard / Home", pages: "Dashboard", frame: "#B88A2E", accent: "#101B2D", note: "Gold-led, matches Draft Generator" },
+  { name: "Research & Discovery", pages: "Research, Opportunities, Donor Discovery, Nonprofit Directory, Foundations, Funders, Contacts", frame: "#A4712C", accent: "#4F6D8F", note: "Bronze-led" },
+  { name: "Applications & Pipeline", pages: "Applications, Deadlines, Compliance, Documents, Outcomes, Financials, Marketplace", frame: "#101B2D", accent: "#2E6B66", note: "Navy-led" },
+  { name: "Draft & Automation", pages: "Draft Generator (reference), AutoApply, Knowledge Base, Alerts, Activity", frame: "#B88A2E", accent: "#4F6D8F", note: "Gold-led, full 6-color button family" },
+  { name: "Intelligence & Reports", pages: "Reports x4, Intelligence x13 sub-pages", frame: "#7A5980", accent: "#4F6D8F", note: "Plum-led" },
+  { name: "Outreach & Communication", pages: "Email x3, Outreach x2", frame: "#A3492F", accent: "#A4712C", note: "Rust-led" },
+  { name: "Admin / Platform", pages: "Command Center, Orgs, System Health, Import, Sales Outreach, AutoApply Ops, Monitor, Improvements, Audit Log, Settings", frame: "#101B2D", accent: "#B88A2E", note: "Navy-led, gold secondary (distinct from Applications' teal)" }
+];
+
+const grid = document.getElementById('grid');
+sections.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'section';
+  div.innerHTML = `
+    <div class="name">${s.name}</div>
+    <div class="pages">${s.pages}</div>
+    <div class="swatches">
+      <div class="sw" style="background:${s.frame}"><span>${s.frame}</span></div>
+      <div class="sw" style="background:${s.accent}"><span>${s.accent}</span></div>
+    </div>
+    <div class="roles"><div>Frame</div><div>Secondary accent</div></div>
+    <div style="color:#B88A2E;font-size:11px;margin-top:6px;font-style:italic">${s.note}</div>`;
+  grid.appendChild(div);
+});
+</script>
+</body>
+</html>
