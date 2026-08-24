@@ -1,13 +1,13 @@
 "use client";
 
-// PIL prospect list — GET /api/pil/prospects only returns the pil_prospects
+// PIL prospect list - GET /api/pil/prospects only returns the pil_prospects
 // row itself (id, entity_type, display_name, status, source_of_record,
-// timestamps — see src/lib/pil/types.ts's Prospect interface). Confidence
+// timestamps - see src/lib/pil/types.ts's Prospect interface). Confidence
 // score, last researched date, and research depth are not columns on that
 // table; they only exist per-prospect on the dossier (evidence + research
 // runs, GET /api/pil/prospects/[id]). Rather than fabricate an aggregate,
-// those three columns show "—" here with a link into the dossier where the
-// real numbers live — same "don't fabricate a number that isn't real" rule
+// those three columns show "-" here with a link into the dossier where the
+// real numbers live - same "don't fabricate a number that isn't real" rule
 // already established on /intelligence's module cards.
 //
 // The route also hardcodes status=active server-side, so "Active" is the
@@ -277,7 +277,7 @@ export default function PilProspectsPage() {
           prospectName={researchTarget.display_name}
           onClose={(runId) => {
             setResearchTarget(null);
-            if (runId) showToast("Research started — see the Research monitor for progress.");
+            if (runId) showToast("Research started - see the Research monitor for progress.");
           }}
         />
       )}

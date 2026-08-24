@@ -1,10 +1,10 @@
 "use client";
 
-// PIL human review queue — GET /api/pil/review-queue lists pil_human_review_
+// PIL human review queue - GET /api/pil/review-queue lists pil_human_review_
 // queue rows (src/lib/pil/human-review.ts). The task described each item as
 // carrying a "prospect name" and "critic report", but HumanReviewItem is
 // generic over subject_type/subject_id (identity linkage, capacity
-// determination, policy exceptions, etc. — not only prospects, per
+// determination, policy exceptions, etc. - not only prospects, per
 // HumanReviewType in src/lib/pil/types.ts) and has no dedicated critic-report
 // field; evidence_refs is the one real evidence payload on the row. Subject
 // names resolve to a prospect's display_name only when subject_type is
@@ -158,7 +158,7 @@ function ReviewModal({
         </div>
 
         <div className="text-xs" style={{ color: TEXT_SECONDARY }}>
-          Requested by {item.requested_by_agent_id ?? "a human"} · {formatRelative(item.created_at)}
+          Requested by {item.requested_by_agent_id ?? "a human"} - {formatRelative(item.created_at)}
         </div>
 
         {decidable && (

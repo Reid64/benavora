@@ -1,12 +1,12 @@
 "use client";
 
-// PIL agent activity monitor — GET /api/pil/agents returns the 44
+// PIL agent activity monitor - GET /api/pil/agents returns the 44
 // pil_agent_registry definitions plus runningAgentIds (org-scoped, added to
-// that route for this page — see its header comment). Registry rows carry
+// that route for this page - see its header comment). Registry rows carry
 // no runs-today/success-rate/avg-cost columns; those are computed here from
 // each agent's real run history via GET /api/pil/agents/[agentCode]/runs,
 // fetched in parallel across all registered agents (44 small requests,
-// acceptable for a monitoring page — the alternative was a new bulk
+// acceptable for a monitoring page - the alternative was a new bulk
 // aggregate endpoint, out of scope for this task).
 
 import { useEffect, useMemo, useState } from "react";
@@ -185,7 +185,7 @@ export default function PilAgentsPage() {
                     {agent.name}
                   </p>
                   <p className="mt-0.5 text-xs" style={{ color: TEXT_SECONDARY }}>
-                    {humanizeEnum(agent.family)} · {agent.agent_id}
+                    {humanizeEnum(agent.family)} - {agent.agent_id}
                   </p>
                 </div>
                 <div>
@@ -198,18 +198,18 @@ export default function PilAgentsPage() {
                   Autonomy <span style={{ color: NAVY, fontWeight: 600 }}>{agent.default_autonomy_level}</span>
                 </div>
                 <div className="text-xs" style={{ color: TEXT_SECONDARY }}>
-                  Runs today <span style={{ color: NAVY, fontWeight: 600 }}>{loading ? "…" : stats.runsToday}</span>
+                  Runs today <span style={{ color: NAVY, fontWeight: 600 }}>{loading ? "..." : stats.runsToday}</span>
                 </div>
                 <div className="text-xs" style={{ color: TEXT_SECONDARY }}>
                   Success{" "}
                   <span style={{ color: NAVY, fontWeight: 600 }}>
-                    {loading ? "…" : stats.successRate === null ? "—" : `${Math.round(stats.successRate * 100)}%`}
+                    {loading ? "..." : stats.successRate === null ? "-" : `${Math.round(stats.successRate * 100)}%`}
                   </span>
                 </div>
                 <div className="text-xs" style={{ color: TEXT_SECONDARY }}>
                   Avg cost{" "}
                   <span style={{ color: GOLD, fontWeight: 600 }}>
-                    {loading ? "…" : stats.avgCost === null ? "—" : formatCurrency(stats.avgCost)}
+                    {loading ? "..." : stats.avgCost === null ? "-" : formatCurrency(stats.avgCost)}
                   </span>
                 </div>
               </button>

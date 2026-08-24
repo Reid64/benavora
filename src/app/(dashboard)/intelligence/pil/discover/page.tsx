@@ -1,6 +1,6 @@
 "use client";
 
-// PIL natural-language discovery — POST /api/pil/discover translates the
+// PIL natural-language discovery - POST /api/pil/discover translates the
 // query into a DiscoveryResearchPlan via Claude and creates a
 // pil_research_runs row carrying it (see that route's header comment).
 
@@ -107,7 +107,7 @@ export default function PilDiscoverPage() {
           Natural Language Discovery
         </h1>
         <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
-          Describe who you're looking for in plain English — a research plan and run are created from it.
+          Describe who you are looking for in plain English - a research plan and run are created from it.
         </p>
       </div>
 
@@ -143,7 +143,7 @@ export default function PilDiscoverPage() {
               className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
               style={{ color: PLUM }}
             >
-              Run {result.runId.slice(0, 8)} · Monitor progress
+              Run {result.runId.slice(0, 8)} - Monitor progress
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </div>
@@ -162,7 +162,7 @@ export default function PilDiscoverPage() {
                 Depth / Candidate Limit
               </p>
               <p className="mt-1 text-sm" style={{ color: NAVY }}>
-                {humanizeEnum(result.plan.depth)} · up to {result.plan.candidate_limit} candidates
+                {humanizeEnum(result.plan.depth)} - up to {result.plan.candidate_limit} candidates
               </p>
             </div>
             <div>

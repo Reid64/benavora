@@ -1,11 +1,11 @@
 "use client";
 
-// PIL research run monitor — GET /api/pil/research (added for this page; see
+// PIL research run monitor - GET /api/pil/research (added for this page; see
 // the header comment in src/app/api/pil/research/route.ts) lists every
 // pil_research_runs row for the org. Prospect names are resolved from a
 // separate GET /api/pil/prospects call since ResearchRun only carries
 // prospect_id. "Depth achieved" and "agents involved" aren't dedicated
-// columns on pil_research_runs — depth is read out of structured_plan
+// columns on pil_research_runs - depth is read out of structured_plan
 // (see src/lib/pil/workflow.ts's createResearchRun/advanceRunState, which
 // fold run_type/depth_target and the discovery plan's own `depth` field in
 // there), and "agents involved" starts from initiating_agent_id, expanded
@@ -49,11 +49,11 @@ function Pill({ label, color }: { label: string; color: string }) {
 
 function depthFromPlan(run: ResearchRun): string {
   const plan = run.structured_plan as Record<string, unknown> | null;
-  if (!plan) return "—";
+  if (!plan) return "-";
   if (typeof plan.depth_target === "number") return `Level ${plan.depth_target}`;
   const nlPlan = plan.natural_language_plan as { depth?: string } | undefined;
   if (nlPlan?.depth) return humanizeEnum(nlPlan.depth);
-  return "—";
+  return "-";
 }
 
 function RunSteps({ runId }: { runId: string }) {
@@ -83,7 +83,7 @@ function RunSteps({ runId }: { runId: string }) {
   if (steps === null) {
     return (
       <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
-        Loading steps…
+        Loading steps...
       </p>
     );
   }
@@ -105,7 +105,7 @@ function RunSteps({ runId }: { runId: string }) {
             <span className="font-medium" style={{ color: NAVY }}>
               {humanizeEnum(s.loop_phase)}
             </span>
-            {s.decision && <span style={{ color: TEXT_SECONDARY }}> — {s.decision}</span>}
+            {s.decision && <span style={{ color: TEXT_SECONDARY }}> - {s.decision}</span>}
           </div>
         </li>
       ))}
@@ -177,7 +177,7 @@ export default function PilResearchMonitorPage() {
         </div>
         <div className="flex items-center gap-1.5 text-xs" style={{ color: TEXT_SECONDARY }}>
           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-          {lastPolled ? `Updated ${formatRelative(lastPolled)} · refreshes every 10s` : "Loading…"}
+          {lastPolled ? `Updated ${formatRelative(lastPolled)} - refreshes every 10s` : "Loading..."}
         </div>
       </div>
 
@@ -224,7 +224,7 @@ export default function PilResearchMonitorPage() {
                   </div>
                   <div className="text-xs" style={{ color: TEXT_SECONDARY }}>
                     <span style={{ color: GOLD, fontWeight: 600 }}>{formatCurrency(run.financial_spent)}</span>
-                    {" · "}
+                    {" - "}
                     {run.started_at ? formatRelative(run.started_at) : "Not started"}
                   </div>
                 </button>

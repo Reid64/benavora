@@ -52,7 +52,7 @@ export type NavItem = {
   /** Sub-links shown indented below the parent when parent is active. */
   children?: NavChild[];
   /**
-   * Per-item icon color override, e.g. a section's own accent — mirrors the
+   * Per-item icon color override, e.g. a section's own accent - mirrors the
    * pattern already used for PROGRAMS_NAV_ITEMS's green icon. Sidebar/header
    * *text* stays solid white unconditionally (DESIGN_SYSTEM.md's hard rule);
    * only the icon may carry a section accent.
@@ -67,7 +67,7 @@ export type NavOptions = {
 /**
  * Primary sidebar navigation items in display order.
  * Dashboard, Research, Opportunities, AutoApply, Draft Generator, and Donor
- * Discovery live in the top header bar — they are intentionally absent here.
+ * Discovery live in the top header bar - they are intentionally absent here.
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Alerts", href: "/alerts", icon: Bell },
@@ -119,7 +119,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Prospect Intelligence",
     href: "/intelligence/pil",
     icon: ScanSearch,
-    // Plum #5B21B6 — this section's accent per governance/DESIGN_SYSTEM.md.
+    // Plum #5B21B6 - this section's accent per governance/DESIGN_SYSTEM.md.
     iconColor: (active) => (active ? "#FFFFFF" : "#5B21B6"),
     children: [
       { label: "Prospects", href: "/intelligence/pil/prospects" },
@@ -147,7 +147,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /**
- * Donor Discovery's own top-level entry now lives in the header nav — these
+ * Donor Discovery's own top-level entry now lives in the header nav - these
  * are the drill-down links Sidebar renders in its place, only while the user
  * is inside /donor-discovery/*.
  */
@@ -157,7 +157,7 @@ export const DONOR_DISCOVERY_DRILLDOWN: NavChild = {
 };
 
 /** Intent Signals sits alongside Prospects in the donor-discovery drilldown
- * section — see DONOR_DISCOVERY_DRILLDOWN above for why this isn't a normal
+ * section - see DONOR_DISCOVERY_DRILLDOWN above for why this isn't a normal
  * NAV_ITEMS entry. */
 export const DONOR_DISCOVERY_NAV_ITEMS: NavChild[] = [
   DONOR_DISCOVERY_DRILLDOWN,
@@ -165,13 +165,13 @@ export const DONOR_DISCOVERY_NAV_ITEMS: NavChild[] = [
 ];
 
 /**
- * Program features — org-facing feature programs, shown in their own
+ * Program features - org-facing feature programs, shown in their own
  * "Programs" sidebar section (always visible, not role-gated).
  */
 export const PROGRAMS_NAV_ITEMS: NavItem[] = [];
 
 /**
- * Resources — shared public reference directories (no organization_id
+ * Resources - shared public reference directories (no organization_id
  * scoping), shown in their own sidebar section alongside Programs.
  */
 export const RESOURCES_NAV_ITEMS: NavItem[] = [
@@ -185,7 +185,7 @@ export const SETTINGS_NAV_ITEM: NavItem = {
   icon: Settings,
 };
 
-/** Platform admin section — shown only to owner/admin roles. */
+/** Platform admin section - shown only to owner/admin roles. */
 export const PLATFORM_NAV_ITEMS: NavItem[] = [
   { label: "Command Center", href: "/command-center", icon: Radar },
   { label: "Organizations", href: "/admin/orgs", icon: Building },

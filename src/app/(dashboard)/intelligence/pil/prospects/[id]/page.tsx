@@ -1,7 +1,7 @@
 "use client";
 
-// PIL prospect dossier — GET /api/pil/prospects/[id] returns the prospect
-// row, its evidence (pil_evidence, keyed by entity_table/entity_id — see
+// PIL prospect dossier - GET /api/pil/prospects/[id] returns the prospect
+// row, its evidence (pil_evidence, keyed by entity_table/entity_id - see
 // src/lib/pil/evidence.ts), its graph nodes and edges (extended into this
 // route for the Graph tab, since the original handler only returned nodes),
 // and its research runs. Research run steps are fetched lazily per run from
@@ -75,7 +75,7 @@ function Pill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** A minimal force-directed layout — no external deps. Runs a handful of
+/** A minimal force-directed layout - no external deps. Runs a handful of
  * repulsion + spring + centering passes over fixed-size SVG viewport
  * coordinates and returns final node positions, keyed by node id. */
 function computeForceLayout(
@@ -209,7 +209,7 @@ function GraphView({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEdge[] })
               fontWeight={600}
               fill={NAVY}
             >
-              {n.label.length > 22 ? `${n.label.slice(0, 20)}…` : n.label}
+              {n.label.length > 22 ? `${n.label.slice(0, 20)}...` : n.label}
             </text>
             <text x={pos.x} y={pos.y + 4} textAnchor="middle" fontSize={9} fill={TEXT_SECONDARY}>
               {humanizeEnum(n.node_type)}
@@ -262,7 +262,7 @@ function ResearchRunRow({ run }: { run: ResearchRun }) {
         <div className="border-t px-4 py-3" style={{ borderColor: BORDER }}>
           {loadingSteps ? (
             <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
-              Loading steps…
+              Loading steps...
             </p>
           ) : steps && steps.length > 0 ? (
             <ol className="space-y-2">
@@ -275,7 +275,7 @@ function ResearchRunRow({ run }: { run: ResearchRun }) {
                     <span className="font-medium" style={{ color: NAVY }}>
                       {humanizeEnum(s.loop_phase)}
                     </span>
-                    {s.decision && <span style={{ color: TEXT_SECONDARY }}> — {s.decision}</span>}
+                    {s.decision && <span style={{ color: TEXT_SECONDARY }}> - {s.decision}</span>}
                   </div>
                 </li>
               ))}
@@ -329,7 +329,7 @@ export default function PilProspectDossierPage({ params }: { params: { id: strin
   if (loading) {
     return (
       <div className="min-h-screen p-6" style={{ backgroundColor: CANVAS }}>
-        <p style={{ color: TEXT_SECONDARY }}>Loading dossier…</p>
+        <p style={{ color: TEXT_SECONDARY }}>Loading dossier...</p>
       </div>
     );
   }
@@ -464,17 +464,17 @@ export default function PilProspectDossierPage({ params }: { params: { id: strin
                     </div>
                   </div>
                   <p className="mt-1 text-xs" style={{ color: TEXT_SECONDARY }}>
-                    {humanizeEnum(e.verification_status)} · {e.source_title ?? e.source_url ?? humanizeEnum(e.source_type)}
-                    {e.publisher ? ` · ${e.publisher}` : ""}
+                    {humanizeEnum(e.verification_status)} - {e.source_title ?? e.source_url ?? humanizeEnum(e.source_type)}
+                    {e.publisher ? ` - ${e.publisher}` : ""}
                   </p>
                   {e.evidence_excerpt && (
                     <p className="mt-2 text-xs italic" style={{ color: TEXT_SECONDARY }}>
-                      “{e.evidence_excerpt}”
+                      "{e.evidence_excerpt}"
                     </p>
                   )}
                   <p className="mt-2 text-xs" style={{ color: TEXT_SECONDARY }}>
                     Retrieved {formatRelative(e.retrieved_at)}
-                    {e.last_verified_at ? ` · Last verified ${formatRelative(e.last_verified_at)}` : ""}
+                    {e.last_verified_at ? ` - Last verified ${formatRelative(e.last_verified_at)}` : ""}
                   </p>
                 </div>
               ))
@@ -516,7 +516,7 @@ export default function PilProspectDossierPage({ params }: { params: { id: strin
           onClose={(runId) => {
             setShowResearchModal(false);
             if (runId) {
-              setToast("Research started — see the Research monitor for progress.");
+              setToast("Research started - see the Research monitor for progress.");
               void load();
             }
           }}

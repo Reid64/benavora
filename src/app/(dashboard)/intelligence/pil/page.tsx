@@ -1,11 +1,11 @@
 "use client";
 
-// Prospect Intelligence Layer (PIL) hub — src/lib/pil/types.ts mirrors
+// Prospect Intelligence Layer (PIL) hub - src/lib/pil/types.ts mirrors
 // supabase/migrations/150-163_pil_*.sql; every stat below is read from a real
 // PIL API route, never fabricated. Two stats (active research runs, agents
 // currently running) needed a small additive change to the underlying routes
-// — see the header comments in src/app/api/pil/research/route.ts and
-// src/app/api/pil/agents/route.ts — because the original routes had no way
+// - see the header comments in src/app/api/pil/research/route.ts and
+// src/app/api/pil/agents/route.ts - because the original routes had no way
 // to list runs or report in-flight agent state at all.
 //
 // Colors per governance/DESIGN_SYSTEM.md's PIL section assignment: Navy
@@ -150,7 +150,7 @@ export default function PilHubPage() {
           Prospect Intelligence Layer
         </h1>
         <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
-          Autonomous prospect research, evidence, and human review — one place to watch the whole
+          Autonomous prospect research, evidence, and human review - one place to watch the whole
           pipeline.
         </p>
       </div>

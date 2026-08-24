@@ -19,7 +19,7 @@ export interface StartResearchModalProps {
 }
 
 /** POST /api/pil/research with a goal + depth. Shared by the prospect list's
- * quick action and the dossier's Actions tab — same call, same body shape. */
+ * quick action and the dossier's Actions tab - same call, same body shape. */
 export function StartResearchModal({ prospectId, prospectName, onClose }: StartResearchModalProps) {
   const [goal, setGoal] = useState(`Deepen intelligence on ${prospectName}`);
   const [depth, setDepth] = useState("standard");
@@ -60,7 +60,7 @@ export function StartResearchModal({ prospectId, prospectName, onClose }: StartR
     <Modal
       isOpen
       onClose={() => onClose(null)}
-      title={`Start Research — ${prospectName}`}
+      title={`Start Research - ${prospectName}`}
       description="Kicks off a new pil_research_runs row for this prospect."
       footer={
         <>
