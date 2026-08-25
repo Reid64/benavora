@@ -32,6 +32,9 @@ import { CorporateRelationshipMappingAgent } from "@/lib/pil/agents/rel/BEN-REL-
 import { OrganizationalOverlapAgent } from "@/lib/pil/agents/rel/BEN-REL-04";
 import { WarmIntroductionPathfindingAgent } from "@/lib/pil/agents/rel/BEN-REL-05";
 import { RelationshipStrengthAgent } from "@/lib/pil/agents/rel/BEN-REL-06";
+import { OpportunityQualificationAgent } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { EntityResolutionAgent } from "@/lib/pil/agents/knw/BEN-KNW-02";
+import { EvidenceProvenanceAgent } from "@/lib/pil/agents/knw/BEN-KNW-03";
 
 // Agent factory. pil_agent_registry (agent-registry-service.ts) carries only
 // metadata for all 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md; this is
@@ -110,6 +113,9 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-REL-04": () => new OrganizationalOverlapAgent(),
   "BEN-REL-05": () => new WarmIntroductionPathfindingAgent(),
   "BEN-REL-06": () => new RelationshipStrengthAgent(),
+  "BEN-QLF-04": () => new OpportunityQualificationAgent(),
+  "BEN-KNW-02": () => new EntityResolutionAgent(),
+  "BEN-KNW-03": () => new EvidenceProvenanceAgent(),
 };
 
 export function loadAgentImpl(agentCode: string): Agent {

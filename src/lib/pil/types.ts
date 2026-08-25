@@ -203,6 +203,20 @@ export type MonitoringEventStatus = "new" | "reviewed" | "actioned" | "dismissed
 
 export type FeatureFlagScopeType = "platform" | "org" | "agent";
 
+// pil_prospect_opportunities.classification (migration 150)
+export type ProspectOpportunityClassification =
+  | "tier_1_priority"
+  | "tier_2_cultivate"
+  | "tier_3_monitor"
+  | "research_more"
+  | "low_probability"
+  | "ineligible"
+  | "disqualified";
+
+export type ProspectOpportunityTimingStatus = "approach_now" | "cultivate_first" | "monitor" | "defer";
+
+export type ProspectOpportunityStatus = "open" | "closed_won" | "closed_lost";
+
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
@@ -549,6 +563,29 @@ export interface MonitoringEvent {
   status: MonitoringEventStatus;
   detected_at: ISODateTime;
   created_at: ISODateTime;
+}
+
+// pil_prospect_opportunities (migration 150) -- had no TS interface as of
+// PIL-02/PIL-03 (types.ts covers Groups 1-4 up through pil_contradictions but
+// skips 1.3/1.4); added here for BEN-QLF-04.
+export interface ProspectOpportunity {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  classification: ProspectOpportunityClassification;
+  mission_affinity_score: number | null;
+  capacity_estimate_low: number | null;
+  capacity_estimate_high: number | null;
+  recommended_ask_low: number | null;
+  recommended_ask_high: number | null;
+  timing_status: ProspectOpportunityTimingStatus | null;
+  engagement_strategy: string | null;
+  confidence: number | null;
+  qualified_by_agent_id: string | null;
+  qualified_at: ISODateTime | null;
+  status: ProspectOpportunityStatus;
+  created_at: ISODateTime;
+  updated_at: ISODateTime;
 }
 
 // pil_prospect_dossiers (migration 163)
