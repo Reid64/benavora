@@ -24,6 +24,8 @@ import { NonprofitBoardIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-05
 import { FoundationIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-06";
 import { GivingHistoryIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-07";
 import { WealthCapacityIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-08";
+import { WealthOriginLiquidityEventAgent } from "@/lib/pil/agents/int/BEN-INT-09";
+import { ContactIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-10";
 
 // Agent factory. pil_agent_registry (agent-registry-service.ts) carries only
 // metadata for all 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md; this is
@@ -94,6 +96,8 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-INT-06": () => new FoundationIntelligenceAgent(),
   "BEN-INT-07": () => new GivingHistoryIntelligenceAgent(),
   "BEN-INT-08": () => new WealthCapacityIntelligenceAgent(),
+  "BEN-INT-09": () => new WealthOriginLiquidityEventAgent(),
+  "BEN-INT-10": () => new ContactIntelligenceAgent(),
 };
 
 export function loadAgentImpl(agentCode: string): Agent {
