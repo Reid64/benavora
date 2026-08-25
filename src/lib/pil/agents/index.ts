@@ -16,6 +16,14 @@ import { ExecutiveProspectDiscoveryAgent } from "@/lib/pil/agents/dis/BEN-DIS-05
 import { GeographicFundingDiscoveryAgent } from "@/lib/pil/agents/dis/BEN-DIS-06";
 import { CauseAlignedProspectDiscoveryAgent } from "@/lib/pil/agents/dis/BEN-DIS-07";
 import { HiddenProspectAndCrmRediscoveryAgent } from "@/lib/pil/agents/dis/BEN-DIS-08";
+import { IndividualIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-01";
+import { EmploymentCareerIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-02";
+import { BusinessOwnershipIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-03";
+import { EducationAlumniIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-04";
+import { NonprofitBoardIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-05";
+import { FoundationIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-06";
+import { GivingHistoryIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-07";
+import { WealthCapacityIntelligenceAgent } from "@/lib/pil/agents/int/BEN-INT-08";
 
 // Agent factory. pil_agent_registry (agent-registry-service.ts) carries only
 // metadata for all 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md; this is
@@ -78,6 +86,14 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-DIS-06": () => new GeographicFundingDiscoveryAgent(),
   "BEN-DIS-07": () => new CauseAlignedProspectDiscoveryAgent(),
   "BEN-DIS-08": () => new HiddenProspectAndCrmRediscoveryAgent(),
+  "BEN-INT-01": () => new IndividualIntelligenceAgent(),
+  "BEN-INT-02": () => new EmploymentCareerIntelligenceAgent(),
+  "BEN-INT-03": () => new BusinessOwnershipIntelligenceAgent(),
+  "BEN-INT-04": () => new EducationAlumniIntelligenceAgent(),
+  "BEN-INT-05": () => new NonprofitBoardIntelligenceAgent(),
+  "BEN-INT-06": () => new FoundationIntelligenceAgent(),
+  "BEN-INT-07": () => new GivingHistoryIntelligenceAgent(),
+  "BEN-INT-08": () => new WealthCapacityIntelligenceAgent(),
 };
 
 export function loadAgentImpl(agentCode: string): Agent {
