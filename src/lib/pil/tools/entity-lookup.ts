@@ -26,6 +26,12 @@ export interface EntityMatch {
   entity_type: string | null;
   location: string | null;
   confidence: number;
+  // foundation_directory-only fields, needed by callers (BEN-DIS-03) that
+  // chase a match up with irs_990_lookup (keyed by EIN, not this row's id)
+  // or that derive a Foundation->Cause graph edge from the NTEE code. Never
+  // populated for pil_prospects/pil_graph_nodes matches.
+  ein: string | null;
+  ntee_code: string | null;
 }
 
 function normalize(name: string): string {
@@ -67,12 +73,13 @@ interface FoundationCandidate {
   name: string;
   city: string | null;
   state: string | null;
+  ntee_code: string | null;
 }
 
 async function searchFoundationDirectory(nameToken: string, location?: string): Promise<FoundationCandidate[]> {
   let query = createAdminClient()
     .from("foundation_directory")
-    .select("id, ein, name, city, state")
+    .select("id, ein, name, city, state, ntee_code")
     .ilike("name", `%${nameToken}%`)
     .limit(CANDIDATE_LIMIT);
   if (location) {
@@ -152,6 +159,8 @@ export const entityLookupTool: Tool = {
           entity_type: "foundation",
           location: [f.city, f.state].filter(Boolean).join(", ") || null,
           confidence: similarity(name, f.name),
+          ein: f.ein,
+          ntee_code: f.ntee_code,
         })),
         ...prospects.map((p) => ({
           source: "pil_prospects" as const,
@@ -160,6 +169,8 @@ export const entityLookupTool: Tool = {
           entity_type: p.entity_type,
           location: null,
           confidence: similarity(name, p.display_name),
+          ein: null,
+          ntee_code: null,
         })),
         ...nodes.map((n) => ({
           source: "pil_graph_nodes" as const,
@@ -168,6 +179,8 @@ export const entityLookupTool: Tool = {
           entity_type: n.node_type,
           location: null,
           confidence: similarity(name, n.label),
+          ein: null,
+          ntee_code: null,
         })),
       ]
         .filter((m) => m.confidence > 0)
