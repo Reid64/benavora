@@ -209,6 +209,33 @@ export function extractCandidateNames(text: string, limit: number): string[] {
   return names;
 }
 
+export interface RecordProspectClassificationParams {
+  orgId: string;
+  prospectId: string;
+  dimension: "cause" | "geography" | "affiliation" | "wealth_indicator" | "other";
+  value: string;
+  confidence: number;
+  evidenceId: string | null;
+}
+
+// pil_prospect_classifications has no TS interface/service of its own yet
+// (no prior DIS agent writes to it) -- BEN-DIS-06/07 are the first callers,
+// per their spec's explicit dimension='geography'/'cause' output
+// requirements, so this is a thin insert helper rather than a full service.
+export async function recordProspectClassification(params: RecordProspectClassificationParams): Promise<void> {
+  const { error } = await getPilClient()
+    .from("pil_prospect_classifications")
+    .insert({
+      organization_id: params.orgId,
+      prospect_id: params.prospectId,
+      dimension: params.dimension,
+      value: params.value,
+      confidence: params.confidence,
+      evidence_id: params.evidenceId,
+    });
+  if (error) throw error;
+}
+
 export function hostnameOf(url: string): string | null {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
