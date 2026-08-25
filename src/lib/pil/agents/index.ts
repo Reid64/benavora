@@ -32,17 +32,29 @@ import { CorporateRelationshipMappingAgent } from "@/lib/pil/agents/rel/BEN-REL-
 import { OrganizationalOverlapAgent } from "@/lib/pil/agents/rel/BEN-REL-04";
 import { WarmIntroductionPathfindingAgent } from "@/lib/pil/agents/rel/BEN-REL-05";
 import { RelationshipStrengthAgent } from "@/lib/pil/agents/rel/BEN-REL-06";
+import { FoundationRelationshipMappingAgent } from "@/lib/pil/agents/rel/BEN-REL-07";
+import { ProfessionalConnectionMappingAgent } from "@/lib/pil/agents/rel/BEN-REL-08";
 import { OpportunityQualificationAgent } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import { ProspectDigitalTwinAgent } from "@/lib/pil/agents/knw/BEN-KNW-01";
 import { EntityResolutionAgent } from "@/lib/pil/agents/knw/BEN-KNW-02";
 import { EvidenceProvenanceAgent } from "@/lib/pil/agents/knw/BEN-KNW-03";
 
-// Agent factory. pil_agent_registry (agent-registry-service.ts) carries only
-// metadata for all 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md; this is
-// the map from agent_id to the executable Agent implementation AgentRunner
-// dispatches to. Agents not yet implemented get a graceful
-// NotImplementedAgent rather than a hard failure so AgentRunner.run() can
-// still record a completed pil_agent_runs row for them.
+// Agent factory. pil_agent_registry (agent-registry-service.ts) carries
+// metadata for the 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md plus 4
+// task-directed additions the spec doc doesn't define (BEN-SUP-07/08,
+// migration 163; BEN-REL-07/08, migration 164) -- this is the map from
+// agent_id to the executable Agent implementation AgentRunner dispatches to.
+// Agents not yet implemented get a graceful NotImplementedAgent rather than
+// a hard failure so AgentRunner.run() can still record a completed
+// pil_agent_runs row for them.
+//
+// REL family reconciliation: PROSPECT_INTELLIGENCE_AGENTS.md's Family 4 is a
+// fixed 6-agent list (BEN-REL-01..06); a task spec directed building 8
+// Relationship-family agents, so REL-01..06 were built to the live 6-agent
+// registry/spec (each REL-0N.ts header documents which task-numbered mission
+// landed at that file) and the two dropped missions -- Foundation
+// Relationship Mapping, Professional Connection Mapping -- were built
+// separately as BEN-REL-07/08 (see those files' own headers).
 
 class NotImplementedAgent implements Agent {
   constructor(private readonly agentCode: string) {}
@@ -114,6 +126,8 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-REL-04": () => new OrganizationalOverlapAgent(),
   "BEN-REL-05": () => new WarmIntroductionPathfindingAgent(),
   "BEN-REL-06": () => new RelationshipStrengthAgent(),
+  "BEN-REL-07": () => new FoundationRelationshipMappingAgent(),
+  "BEN-REL-08": () => new ProfessionalConnectionMappingAgent(),
   "BEN-QLF-04": () => new OpportunityQualificationAgent(),
   "BEN-KNW-01": () => new ProspectDigitalTwinAgent(),
   "BEN-KNW-02": () => new EntityResolutionAgent(),
