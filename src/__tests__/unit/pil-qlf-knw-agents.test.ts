@@ -1,5 +1,6 @@
-// Unit tests for BEN-QLF-04 (Opportunity Qualification), BEN-KNW-02 (Entity
-// Resolution), and BEN-KNW-03 (Evidence & Provenance Verification).
+// Unit tests for BEN-QLF-04 (Opportunity Qualification), BEN-KNW-01
+// (Prospect Digital Twin), BEN-KNW-02 (Entity Resolution), and BEN-KNW-03
+// (Evidence & Provenance Verification).
 // Everything is mocked -- no real DB calls, matching pil-sup-agents.test.ts's
 // convention. See each agent file's header comment for how these real
 // agent_ids reconcile against the task numbering (BEN-QUA-01/BEN-KNW-01/
@@ -15,7 +16,7 @@ vi.mock("@/lib/pil/evidence", () => ({
   recordContradiction: vi.fn(),
   getProvenanceHash: vi.fn(() => "fixed-hash"),
 }));
-vi.mock("@/lib/pil/graph", () => ({ getNodesByProspect: vi.fn() }));
+vi.mock("@/lib/pil/graph", () => ({ getNodesByProspect: vi.fn(), getEdges: vi.fn() }));
 vi.mock("@/lib/pil/monitoring", () => ({ getEvents: vi.fn() }));
 vi.mock("@/lib/pil/human-review", () => ({ createReviewItem: vi.fn() }));
 vi.mock("@/lib/pil/audit", () => ({ logAction: vi.fn() }));
@@ -205,6 +206,113 @@ describe("BEN-KNW-02 Entity Resolution Agent", () => {
     expect(mergeLog?.payload).toMatchObject({ action: "merge", primary_prospect_id: "p1", secondary_prospect_id: "p2" });
 
     expect(vi.mocked(createReviewItem)).not.toHaveBeenCalled();
+  });
+});
+
+describe("BEN-KNW-01 Prospect Digital Twin Agent", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("keeps the prior biography and delegates to BEN-KNW-04 when new evidence conflicts with the canonical twin", async () => {
+    const { getPilClient } = await import("@/lib/pil/db");
+    const { getEvidence } = await import("@/lib/pil/evidence");
+    const { getNodesByProspect, getEdges } = await import("@/lib/pil/graph");
+    const { logAction } = await import("@/lib/pil/audit");
+
+    const prospect = {
+      id: "p1",
+      display_name: "Jane Donor",
+      canonical_name: "jane donor",
+      entity_type: "individual",
+    };
+
+    const newEmploymentEvidence = {
+      id: "ev-new",
+      organization_id: ORG_ID,
+      entity_id: "p1",
+      entity_table: "pil_prospects",
+      claim: "Now CEO of Beta Inc",
+      value: null,
+      claim_type: "employment",
+      source_url: "https://example.com/beta",
+      source_title: "Beta profile",
+      source_type: "open_web",
+      publisher: null,
+      retrieved_at: "2026-08-20T00:00:00Z",
+      published_at: "2026-08-20T00:00:00Z",
+      last_verified_at: null,
+      evidence_excerpt: "Jane is CEO of Beta Inc",
+      agent_id: "BEN-INT-02",
+      research_run_id: "run-1",
+      confidence: 0.8,
+      verification_status: "single_source_fact",
+      freshness_status: "fresh",
+      inference_status: "direct",
+      contradiction_status: "none",
+      lineage: [],
+      created_at: "2026-08-20T00:00:00Z",
+    };
+
+    const existingTwin = {
+      id: "twin-1",
+      prospect_id: "p1",
+      organization_id: ORG_ID,
+      twin_version: 3,
+      identity: {},
+      biography: { facts: [{ claim: "Was CFO of Acme Corp", value: null, confidence: 0.9, evidenceId: "ev-old" }] },
+      organizations_summary: [],
+      companies: [],
+      foundations: [],
+      giving_history: [],
+      wealth_indicators: {},
+      relationships_summary: [],
+      evidence_summary: {},
+      timeline: [],
+      affinity: {},
+      capacity: {},
+      opportunities_summary: [],
+      research_gaps: [],
+      contradictions_summary: [],
+      current_strategy: {},
+      monitoring_events_summary: [],
+      completeness_score: 0.5,
+      last_updated_by_agent_id: "BEN-KNW-01",
+      updated_at: "2026-08-01T00:00:00Z",
+      created_at: "2026-01-01T00:00:00Z",
+    };
+
+    vi.mocked(getEvidence).mockResolvedValue([newEmploymentEvidence] as never);
+    vi.mocked(getNodesByProspect).mockResolvedValue([] as never);
+    vi.mocked(getEdges).mockResolvedValue([] as never);
+    vi.mocked(logAction).mockResolvedValue(undefined as never);
+
+    const { client, calls } = makeClient({
+      pil_prospects: { data: prospect, error: null },
+      pil_contradictions: { data: [], error: null },
+      pil_prospect_opportunities: { data: [], error: null },
+      pil_prospect_digital_twins: [
+        { data: existingTwin, error: null }, // load existing twin
+        { data: null, error: null }, // update result
+      ],
+    });
+    vi.mocked(getPilClient).mockReturnValue(client as never);
+
+    const { ProspectDigitalTwinAgent } = await import("@/lib/pil/agents/knw/BEN-KNW-01");
+    const agent = new ProspectDigitalTwinAgent();
+    const context = baseContext({ agentCode: "BEN-KNW-01", prospectId: "p1" });
+
+    const result = await agent.execute(context as never, {} as never);
+
+    const report = (result.conclusions as { report: { twinVersion: number; conflictedFields: string[] } }).report;
+    expect(report.twinVersion).toBe(4);
+    expect(report.conflictedFields).toContain("biography");
+    expect(result.delegations).toContainEqual(
+      expect.objectContaining({ childAgentCode: "BEN-KNW-04" }),
+    );
+
+    const twinUpdate = calls.find((c) => c.table === "pil_prospect_digital_twins" && c.method === "update");
+    expect(twinUpdate).toBeDefined();
+    expect((twinUpdate!.payload as { biography: unknown }).biography).toEqual(existingTwin.biography);
+    expect((twinUpdate!.payload as { twin_version: number }).twin_version).toBe(4);
   });
 });
 

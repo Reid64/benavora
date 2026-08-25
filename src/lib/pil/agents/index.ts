@@ -33,6 +33,7 @@ import { OrganizationalOverlapAgent } from "@/lib/pil/agents/rel/BEN-REL-04";
 import { WarmIntroductionPathfindingAgent } from "@/lib/pil/agents/rel/BEN-REL-05";
 import { RelationshipStrengthAgent } from "@/lib/pil/agents/rel/BEN-REL-06";
 import { OpportunityQualificationAgent } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { ProspectDigitalTwinAgent } from "@/lib/pil/agents/knw/BEN-KNW-01";
 import { EntityResolutionAgent } from "@/lib/pil/agents/knw/BEN-KNW-02";
 import { EvidenceProvenanceAgent } from "@/lib/pil/agents/knw/BEN-KNW-03";
 
@@ -114,6 +115,7 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-REL-05": () => new WarmIntroductionPathfindingAgent(),
   "BEN-REL-06": () => new RelationshipStrengthAgent(),
   "BEN-QLF-04": () => new OpportunityQualificationAgent(),
+  "BEN-KNW-01": () => new ProspectDigitalTwinAgent(),
   "BEN-KNW-02": () => new EntityResolutionAgent(),
   "BEN-KNW-03": () => new EvidenceProvenanceAgent(),
 };

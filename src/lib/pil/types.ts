@@ -588,6 +588,36 @@ export interface ProspectOpportunity {
   updated_at: ISODateTime;
 }
 
+// pil_prospect_digital_twins (migration 150) -- had no TS interface as of
+// PIL-02/PIL-03; added here for BEN-KNW-01.
+export interface ProspectDigitalTwin {
+  id: UUID;
+  prospect_id: UUID;
+  organization_id: UUID;
+  twin_version: number;
+  identity: Record<string, unknown>;
+  biography: Record<string, unknown>;
+  organizations_summary: unknown[];
+  companies: unknown[];
+  foundations: unknown[];
+  giving_history: unknown[];
+  wealth_indicators: Record<string, unknown>;
+  relationships_summary: unknown[];
+  evidence_summary: Record<string, unknown>;
+  timeline: unknown[];
+  affinity: Record<string, unknown>;
+  capacity: Record<string, unknown>;
+  opportunities_summary: unknown[];
+  research_gaps: unknown[];
+  contradictions_summary: unknown[];
+  current_strategy: Record<string, unknown>;
+  monitoring_events_summary: unknown[];
+  completeness_score: number | null;
+  last_updated_by_agent_id: string | null;
+  updated_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
 // pil_prospect_dossiers (migration 163)
 export interface ProspectDossierRow {
   id: UUID;
