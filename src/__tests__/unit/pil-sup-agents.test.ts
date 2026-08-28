@@ -67,6 +67,7 @@ function makeSup04Client(responses: Record<string, unknown>, recorded: RecordedO
         recorded.push({ table, kind: "in", col, val });
         return c;
       }),
+      order: vi.fn(() => c),
       then: (resolve: (v: unknown) => void) =>
         Promise.resolve(responses[table] ?? { data: null, error: null }).then(resolve),
     };
@@ -78,8 +79,14 @@ function makeSup04Client(responses: Record<string, unknown>, recorded: RecordedO
 describe("BEN-SUP-01 Chief Prospect Intelligence Orchestrator", () => {
   beforeEach(() => vi.resetAllMocks());
 
+  function mockNoCriticBlock(getPilClientMock: ReturnType<typeof vi.fn>, recorded: RecordedOp[]) {
+    getPilClientMock.mockReturnValue(
+      makeSup04Client({ pil_agent_runs: { data: [], error: null } }, recorded) as never,
+    );
+  }
+
   it("creates research runs for a prospect with no prior runs", async () => {
-    const { pilResearchRuns, pilProspects } = await import("@/lib/pil/db");
+    const { pilResearchRuns, pilProspects, getPilClient } = await import("@/lib/pil/db");
     const { createResearchRun, advanceRunState } = await import("@/lib/pil/workflow");
     const { logAction } = await import("@/lib/pil/audit");
     const { createReviewItem } = await import("@/lib/pil/human-review");
@@ -92,6 +99,7 @@ describe("BEN-SUP-01 Chief Prospect Intelligence Orchestrator", () => {
     } as never);
     vi.mocked(logAction).mockResolvedValue(undefined as never);
     vi.mocked(createReviewItem).mockResolvedValue({} as never);
+    mockNoCriticBlock(vi.mocked(getPilClient), []);
 
     vi.mocked(createResearchRun).mockImplementation(
       async (params: { orgId: string; prospectId?: string | null; runType?: string; goal: string; triggeredBy: string }) =>
@@ -124,8 +132,224 @@ describe("BEN-SUP-01 Chief Prospect Intelligence Orchestrator", () => {
     expect(vi.mocked(createResearchRun)).toHaveBeenCalledTimes(3);
     expect(vi.mocked(advanceRunState)).toHaveBeenCalledTimes(3);
     expect(result.status).toBe("running");
-    expect(result.delegations.map((d) => d.childAgentCode)).toEqual(["BEN-SUP-02", "BEN-DIS-01"]);
+    // BEN-SUP-03 is appended because this cycle dispatched runs (Step 4);
+    // BEN-SUP-02/BEN-DIS-01 remain first, in their original order/behavior.
+    expect(result.delegations.map((d) => d.childAgentCode)).toEqual(["BEN-SUP-02", "BEN-DIS-01", "BEN-SUP-03"]);
     expect((result.conclusions.plan as { gapFamilies: string[] }).gapFamilies.length).toBe(3);
+    expect(result.conclusions.blockedByCriticVerdict).toBe(false);
+    expect(result.conclusions.blockedByUnresolvedRecovery).toBe(false);
+  });
+
+  it("regression: BEN-SUP-02 and BEN-DIS-01 delegation behavior is unchanged", async () => {
+    const { pilResearchRuns, pilProspects, getPilClient } = await import("@/lib/pil/db");
+    const { createResearchRun, advanceRunState } = await import("@/lib/pil/workflow");
+    const { logAction } = await import("@/lib/pil/audit");
+    const { createReviewItem } = await import("@/lib/pil/human-review");
+
+    vi.mocked(pilResearchRuns).mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+    } as never);
+    vi.mocked(pilProspects).mockReturnValue({
+      eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+    } as never);
+    vi.mocked(logAction).mockResolvedValue(undefined as never);
+    vi.mocked(createReviewItem).mockResolvedValue({} as never);
+    mockNoCriticBlock(vi.mocked(getPilClient), []);
+
+    vi.mocked(createResearchRun).mockImplementation(
+      async (params: { orgId: string; prospectId?: string | null; runType?: string; goal: string; triggeredBy: string }) =>
+        ({
+          id: `run-${params.runType}`,
+          organization_id: params.orgId,
+          goal_id: null,
+          prospect_id: params.prospectId ?? null,
+          initiating_agent_id: params.triggeredBy,
+          natural_language_query: params.goal,
+          structured_plan: { run_type: params.runType, depth_target: null },
+          status: "planning",
+          token_budget: null,
+          tokens_consumed: 0,
+          financial_budget: null,
+          financial_spent: 0,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-01-01T00:00:00Z",
+        }) as never,
+    );
+    vi.mocked(advanceRunState).mockResolvedValue({} as never);
+
+    const { ChiefProspectIntelligenceOrchestrator } = await import("@/lib/pil/agents/sup/BEN-SUP-01");
+    const orchestrator = new ChiefProspectIntelligenceOrchestrator();
+    const context = baseContext({ prospectId: "prospect-1", goal: "Build a complete profile for this prospect" });
+
+    const result = await orchestrator.execute(context as never, {} as never);
+
+    expect(result.delegations[0]?.childAgentCode).toBe("BEN-SUP-02");
+    expect(result.delegations[1]?.childAgentCode).toBe("BEN-DIS-01");
+    expect(result.delegations.some((d) => d.childAgentCode === "BEN-SUP-02")).toBe(true);
+    expect(result.delegations.some((d) => d.childAgentCode === "BEN-DIS-01")).toBe(true);
+  });
+
+  it("delegates to BEN-SUP-03 and BEN-SUP-04 when runs are dispatched and a family is already complete", async () => {
+    const { pilResearchRuns, pilProspects, getPilClient } = await import("@/lib/pil/db");
+    const { createResearchRun, advanceRunState } = await import("@/lib/pil/workflow");
+    const { logAction } = await import("@/lib/pil/audit");
+    const { createReviewItem } = await import("@/lib/pil/human-review");
+
+    const completedRun = {
+      id: "run-existing",
+      organization_id: ORG_ID,
+      goal_id: null,
+      prospect_id: "prospect-1",
+      initiating_agent_id: "BEN-SUP-01",
+      natural_language_query: "prior goal",
+      structured_plan: { run_type: "prospect_intelligence" },
+      status: "completed",
+      token_budget: null,
+      tokens_consumed: 0,
+      financial_budget: null,
+      financial_spent: 0,
+      started_at: "2026-01-01T00:00:00Z",
+      completed_at: "2026-01-01T01:00:00Z",
+      created_at: "2026-01-01T00:00:00Z",
+    };
+
+    vi.mocked(pilResearchRuns).mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: [completedRun], error: null }),
+    } as never);
+    vi.mocked(pilProspects).mockReturnValue({
+      eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+    } as never);
+    vi.mocked(logAction).mockResolvedValue(undefined as never);
+    vi.mocked(createReviewItem).mockResolvedValue({} as never);
+    mockNoCriticBlock(vi.mocked(getPilClient), []);
+
+    vi.mocked(createResearchRun).mockImplementation(
+      async (params: { orgId: string; prospectId?: string | null; runType?: string; goal: string; triggeredBy: string }) =>
+        ({
+          id: `run-${params.runType}`,
+          organization_id: params.orgId,
+          goal_id: null,
+          prospect_id: params.prospectId ?? null,
+          initiating_agent_id: params.triggeredBy,
+          natural_language_query: params.goal,
+          structured_plan: { run_type: params.runType },
+          status: "planning",
+          token_budget: null,
+          tokens_consumed: 0,
+          financial_budget: null,
+          financial_spent: 0,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-01-01T00:00:00Z",
+        }) as never,
+    );
+    vi.mocked(advanceRunState).mockResolvedValue({} as never);
+
+    const { ChiefProspectIntelligenceOrchestrator } = await import("@/lib/pil/agents/sup/BEN-SUP-01");
+    const orchestrator = new ChiefProspectIntelligenceOrchestrator();
+    const context = baseContext({ prospectId: "prospect-1", goal: "Discover and qualify this prospect" });
+
+    const result = await orchestrator.execute(context as never, {} as never);
+
+    expect(result.delegations.some((d) => d.childAgentCode === "BEN-SUP-03")).toBe(true);
+    expect(result.delegations.some((d) => d.childAgentCode === "BEN-SUP-04")).toBe(true);
+    expect(result.status).toBe("running");
+  });
+
+  it("blocks the objective when a pending BEN-SUP-05 deny verdict exists for this research run", async () => {
+    const { pilResearchRuns, pilProspects, getPilClient } = await import("@/lib/pil/db");
+    const { createResearchRun, advanceRunState } = await import("@/lib/pil/workflow");
+    const { logAction } = await import("@/lib/pil/audit");
+    const { createReviewItem } = await import("@/lib/pil/human-review");
+
+    const completedRuns = [
+      { runType: "discovery" },
+      { runType: "prospect_intelligence" },
+      { runType: "qualification" },
+    ].map((r, i) => ({
+      id: `run-${i}`,
+      organization_id: ORG_ID,
+      goal_id: null,
+      prospect_id: "prospect-1",
+      initiating_agent_id: "BEN-SUP-01",
+      natural_language_query: "prior goal",
+      structured_plan: { run_type: r.runType },
+      status: "completed",
+      token_budget: null,
+      tokens_consumed: 0,
+      financial_budget: null,
+      financial_spent: 0,
+      started_at: "2026-01-01T00:00:00Z",
+      completed_at: "2026-01-01T01:00:00Z",
+      created_at: "2026-01-01T00:00:00Z",
+    }));
+
+    vi.mocked(pilResearchRuns).mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: completedRuns, error: null }),
+    } as never);
+    vi.mocked(pilProspects).mockReturnValue({
+      eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+    } as never);
+    vi.mocked(logAction).mockResolvedValue(undefined as never);
+    vi.mocked(createReviewItem).mockResolvedValue({} as never);
+
+    const agentRunFixture = [
+      {
+        id: "ar-target",
+        organization_id: ORG_ID,
+        agent_id: "BEN-INT-08",
+        research_run_id: "run-0",
+        delegated_task_id: null,
+        goal_id: null,
+        status: "completed",
+        autonomy_level_used: "A2",
+        input: {},
+        output: null,
+        tokens_consumed: 0,
+        cost_usd: 0,
+        started_at: null,
+        completed_at: null,
+        error: null,
+        created_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    const policyDecisionFixture = [
+      {
+        id: "pd-1",
+        organization_id: ORG_ID,
+        actor_agent_id: "BEN-SUP-05",
+        action_requested: "critic_review:ar-target",
+        policy_name: "pil_critic_verdict",
+        decision: "deny",
+        reason: "Entity ambiguity detected.",
+        related_delegated_task_id: null,
+        created_at: "2026-01-01T02:00:00Z",
+      },
+    ];
+
+    const recorded: RecordedOp[] = [];
+    vi.mocked(getPilClient).mockReturnValue(
+      makeSup04Client(
+        { pil_agent_runs: { data: agentRunFixture, error: null }, pil_policy_decisions: { data: policyDecisionFixture, error: null } },
+        recorded,
+      ) as never,
+    );
+
+    vi.mocked(createResearchRun).mockResolvedValue({} as never);
+    vi.mocked(advanceRunState).mockResolvedValue({} as never);
+
+    const { ChiefProspectIntelligenceOrchestrator } = await import("@/lib/pil/agents/sup/BEN-SUP-01");
+    const orchestrator = new ChiefProspectIntelligenceOrchestrator();
+    const context = baseContext({ prospectId: "prospect-1", goal: "Build a complete profile for this prospect" });
+
+    const result = await orchestrator.execute(context as never, {} as never);
+
+    expect(vi.mocked(createResearchRun)).not.toHaveBeenCalled();
+    expect(result.status).toBe("blocked");
+    expect(result.conclusions.objectiveSatisfied).toBe(false);
+    expect(result.conclusions.blockedByCriticVerdict).toBe(true);
+    expect(result.delegations).toEqual([]);
   });
 });
 
