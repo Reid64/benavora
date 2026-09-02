@@ -1,16 +1,42 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
   hostnameOf,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
   upsertCounterpartyNode,
   upsertProspectNode,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
+import { getEvidence } from "@/lib/pil/evidence";
 import { upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem, ProspectEntityType } from "@/lib/pil/types";
+
+// Six domain dimensions this agent's report scores coverage across, per
+// PIL_AGENT_COMPLETE_ROSTER.md's "Core Intelligence" BEN_INT_06Decision.v1
+// contract. Coverage is computed from persisted pil_evidence state
+// (getEvidence), not just evidence created this run, matching BEN-INT-05/08's
+// own established getEvidence(prospect.id, context.orgId) pattern for
+// reading the full existing dossier.
+const FOUNDATION_DIMENSIONS = [
+  "Foundation Legal Identity",
+  "Foundation Type",
+  "Trustees/Officers",
+  "Assets And Filing Periods",
+  "Grant History",
+  "Application Access And Restrictions",
+] as const;
+
+export interface FoundationIntelligenceReport {
+  prospectId: string;
+  ein: string | null;
+  dimensionCoverage: Record<string, boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+}
 
 // BEN-INT-06 -- Foundation Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3"). Develops detailed
@@ -56,6 +82,11 @@ export class FoundationIntelligenceAgent implements Agent {
 
     const evidenceCreated: EvidenceItem[] = [];
     const foundationNode = await upsertProspectNode(context.orgId, prospect, "foundation");
+    // Tracked for the delegation-gap analysis below -- only incremented
+    // inside the officer loop, which is only reached when ein and the 990
+    // lookup both succeeded.
+    let officersFound = 0;
+    let applicationEvidenceRecorded = false;
 
     const lookup = await callTool(context, runner, "entity_lookup", { name: prospect.display_name, type: "foundation" });
     const ein = lookup.success
@@ -124,6 +155,7 @@ export class FoundationIntelligenceAgent implements Agent {
 
         for (const officer of data.officers) {
           if (!officer.name) continue;
+          officersFound += 1;
           evidenceCreated.push(
             await recordIntelligenceEvidence({
               orgId: context.orgId,
@@ -191,16 +223,129 @@ export class FoundationIntelligenceAgent implements Agent {
             verificationStatus: "single_source_fact",
           }),
         );
+        applicationEvidenceRecorded = true;
       }
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
+    // Everything below is secondary reasoning layered on top of the
+    // evidence-gathering above, which has already durably committed via
+    // individually atomic recordIntelligenceEvidence()/upsertEdge() calls. A
+    // bug here must never discard that already-collected evidence or fail
+    // this run -- recovery starts from persisted truth, and captured
+    // evidence stays immutable regardless of what happens next.
+    let report: FoundationIntelligenceReport = {
+      prospectId: prospect.id,
+      ein,
+      dimensionCoverage: Object.fromEntries(FOUNDATION_DIMENSIONS.map((d) => [d, false])),
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+    };
+    let delegations: DelegationRequest[] = [];
+
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const financialEvidence = allEvidence.filter((e) => e.claim_type === "foundation_financials");
+      const has990IdentityEvidence = allEvidence.some((e) => e.source_type === "irs_form_990");
+      const hasOfficerEvidence = allEvidence.some((e) => e.claim_type === "foundation_officers");
+      const hasGrantHistory = financialEvidence.some(
+        (e) => (e.value as { totalGrantsPaid?: number | null } | null)?.totalGrantsPaid != null,
+      );
+      const hasApplicationEvidence = allEvidence.some((e) => e.claim_type === "foundation_application_procedures");
+
+      const dimensionCoverage: Record<string, boolean> = {
+        "Foundation Legal Identity": has990IdentityEvidence,
+        "Foundation Type": true,
+        "Trustees/Officers": hasOfficerEvidence,
+        "Assets And Filing Periods": financialEvidence.length > 0,
+        "Grant History": hasGrantHistory,
+        "Application Access And Restrictions": hasApplicationEvidence,
+      };
+
+      // Priority order per the roster's BEN-INT-06 delegation list -- stop
+      // once MAX_DELEGATIONS_PER_RUN candidates are collected, even if a
+      // lower-priority condition below also holds. BEN-KNW-03 is
+      // deliberately the lowest-priority of the five and is the one
+      // expected to get dropped by the cap, since this agent has the
+      // largest target list of the BEN-INT-06..10 family.
+      const candidates: DelegationRequest[] = [];
+      const pushCandidate = (childAgentCode: string, objective: string) => {
+        candidates.push({
+          childAgentCode,
+          objective,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      };
+
+      if (!ein) {
+        pushCandidate(
+          "BEN-KNW-02",
+          `Prospect ${context.prospectId} has no EIN resolved by this BEN-INT-06 run -- the foundation's own legal identity is unconfirmed, blocking downstream research.`,
+        );
+      }
+      if (ein) {
+        pushCandidate(
+          "BEN-INT-07",
+          `BEN-INT-06 resolved EIN ${ein} for prospect ${context.prospectId}'s foundation this run -- cross-reference giving history for any donor/trustee linked to this foundation.`,
+        );
+      }
+      if (officersFound > 0) {
+        pushCandidate(
+          "BEN-REL-02",
+          `BEN-INT-06 discovered ${officersFound} officer/trustee relationship(s) for prospect ${context.prospectId}'s foundation this run -- map cross-prospect board overlap.`,
+        );
+      }
+      if (applicationEvidenceRecorded) {
+        pushCandidate(
+          "BEN-QLF-02",
+          `BEN-INT-06 recorded a fresh grant-application-access page for prospect ${context.prospectId}'s foundation this run -- assess Applicant Class/Program Restrictions/Deadline funding eligibility.`,
+        );
+      }
+      if (evidenceCreated.length > 0) {
+        pushCandidate(
+          "BEN-KNW-03",
+          `BEN-INT-06 recorded ${evidenceCreated.length} new evidence item(s) for prospect ${context.prospectId} this run -- verify provenance before treating as authoritative.`,
+        );
+      }
+
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        ein,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "ben-int-06.gap_analysis_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { error: message },
+          policy_decision: null,
+          ip_address: null,
+        });
+      } catch {
+        // Audit logging is best-effort -- never let it mask the
+        // already-collected evidence this run already durably recorded.
+      }
+      delegations = [];
+    }
+
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: { prospectId: prospect.id, ein },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

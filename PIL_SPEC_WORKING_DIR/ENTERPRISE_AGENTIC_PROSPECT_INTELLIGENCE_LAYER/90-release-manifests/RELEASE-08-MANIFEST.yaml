@@ -1,0 +1,15 @@
+release_id: PIL-RELEASE-08
+version: "1.0.0"
+title: Corporate Giving Discovery Agent
+type: cumulative_new_agent_release
+inherits: PIL-REMEDIATION-07-v2.0.0
+new_agent:
+  id: BEN-DIS-04
+  path: 20-agents/discovery/BEN-DIS-04-corporate-giving-discovery.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-DIS-04-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 10
+remaining_agent_specifications: 34
+truthful_status: {implementation_claimed: false, tests_claimed: false, production_score_preassigned: false}
+next_agent: BEN-DIS-05

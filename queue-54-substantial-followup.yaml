@@ -1,0 +1,147 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STANDING_DIRECTIVES.md
+  - FEATURE_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: fix-foundation-scraper-pagination-001
+    phase: build
+    description: "Fix the PostgREST pagination bug in foundation-scraper.ts's loadEinsMissingWebsite() - affects the LIVE weekly S2 scraper, not just US6"
+    prompt: |
+      Real bug found 2026-08-14 (US6 row investigation): foundation-scraper.ts's loadEinsMissingWebsite() requests pages of 5000 via .range(), but PostgREST caps every response at 1000 rows (db.max_rows config), so its data.length < PAGE end-of-data check is true on the very first page - the EIN index silently scopes to an arbitrary 1000 of 114,037+ real candidates. This function is shared by the LIVE weekly S2 scraper (Sunday 3AM CST job) and US6's foundation-990 template - both are affected, this is real production impact, not just a template quirk.
+
+      1. Read foundation-scraper.ts's loadEinsMissingWebsite() in full.
+      2. Fix the pagination: change the end-of-data check from `data.length < PAGE` to `data.length === 0` (the identified one-line fix), and verify the .range() offset math actually increments correctly across pages - read it carefully, don't just apply the one-line change blind, confirm the surrounding loop logic is sound.
+      3. Real live test: run the fixed function (or a small test harness calling it directly) and confirm it now genuinely paginates past 1000 rows - query a real count of eligible candidates first (foundation_directory WHERE website IS NULL or similar per the function's real filter), then confirm the fixed function's returned candidate count is close to that real total, not capped at 1000.
+      4. This is shared production code - run pnpm run build and pnpm tsc --noEmit and confirm nothing else that imports this function breaks.
+    expected_outputs:
+      - src/lib/scraper/foundation-scraper.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: fix-us7-extraction-accuracy-001
+    phase: build
+    description: "Address the byline/reporter-misattribution defect in extractStructured() found during US7 verification"
+    prompt: |
+      Real defect found 2026-08-14: US7's nonprofit-contact extraction once wrote a newspaper reporter's byline email (found in a syndicated news article republished on the org's own /news/ page) as the nonprofit's own official contact. extractStructured()'s schema/prompt (src/lib/scraper-v2/extractor.ts, US4) has no way today to distinguish "this organization's own official contact" from "any person's contact info that happens to appear on the page."
+
+      1. Read extractStructured() and its current prompt/schema in full.
+      2. Improve the extraction prompt to explicitly prefer organizational contact patterns (info@/contact@/admin@-style addresses, contact info found near "Contact Us"/"Get in Touch" headings or in a footer/contact-page context) and explicitly exclude byline/reporter/author-attribution patterns (text near "By [Name]," article bylines, quoted-source attributions, syndicated news content markers). This is a heuristic improvement, not a hard rule - state clearly in the prompt what should be deprioritized, not absolutely forbidden, since some orgs' real official contact could coincidentally sit near article-like text.
+      3. Real regression test: re-run against the exact failing case (Anderson Center Services Inc's page that misattributed the reporter's email) and confirm the fix now either correctly extracts the org's real contact or correctly returns null rather than the reporter's info. Also re-run against at least 2 of the real successful US7 cases from 2026-08-14 (wwvremc.com, ezramedical.org) to confirm the prompt change didn't regress correct extractions.
+    expected_outputs:
+      - src/lib/scraper-v2/extractor.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: fix-state-portals-table-001
+    phase: build
+    description: "Fix the state_portals table gap - integrations page queries a table that doesn't exist anywhere in migrations"
+    prompt: |
+      Real bug found during State Portal scoping (2026-08-13): src/app/(dashboard)/settings/integrations/page.tsx queries a state_portals table (.from("state_portals"), line 149) for its "N Active" badge, but repo-wide grep confirms no CREATE TABLE for state_portals exists in either migration tree - this badge has almost certainly always silently rendered 0.
+
+      1. Read the integrations page's use of this query in full - what does "N Active" actually need to represent (a count of configured/enabled state portal sources)?
+      2. Read src/lib/sources/state-portals/portal-config.ts's STATE_PORTAL_CONFIGS and src/lib/agents/state-portal.ts's PORTAL_REGISTRY - these are the real, existing config sources this badge should plausibly be counting.
+      3. Rather than creating a new speculative table, prefer the simplest correct fix: point the badge's query at whatever real, already-existing source of truth reflects "active" state portals today (e.g. a static count derived from PORTAL_REGISTRY's real entries, or a real org-scoped feature-flag table if one already gates this). Only create a new table if no existing real data source can answer this correctly - state your reasoning either way.
+      4. Real live test: confirm the badge now renders a real, non-hardcoded, non-zero-by-default count reflecting actual configuration.
+    expected_outputs:
+      - src/app/(dashboard)/settings/integrations/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: retry-990-schedule-i-streaming-001
+    phase: build
+    description: "4th attempt at row #66's positive Schedule I case - stream the ZIP download instead of buffering the whole file"
+    prompt: |
+      Three prior attempts (documented in FEATURE_REGISTRY_v2.md row #66) each hit a different real obstacle: small-foundation sampling (real zero-grant results, not a bug), unzipper corruption on large archives, and most recently (2026-08-14) large batch-ZIP downloads (500MB+) failing outright via fetch(...).arrayBuffer() in this sandbox. The fix hypothesis identified but not attempted: stream the download instead of buffering the whole file in memory.
+
+      1. Read scripts/investigate-990-schedule-i.ts (2026-08-14's script) in full - reuse its candidate-selection and ZIP64-aware central-directory parsing logic unchanged, only fix the download mechanism.
+      2. Modify the batch-ZIP fetch to stream to a local temp file (or stream directly into the ZIP64 central-directory reader if that's architecturally cleaner) instead of a single arrayBuffer() call, so a 500MB+ transfer doesn't need to complete and fully buffer before any processing can begin.
+      3. Real live test: re-run against the same real candidate pool (150 large foundations, ranked by asset_amount/giving_total) used 2026-08-14. If a real populated Schedule I is found this time, confirm the extraction produces correct real per-recipient grant line items (cross-check a few against the raw filing, same discipline as the original US4 verification). If still blocked, document the new failure honestly and specifically - do not force a fabricated positive result.
+      4. Update row #66 with today's date and the real outcome, whatever it is.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intelligence-library-session-a-001
+    phase: build
+    description: "Run the two remaining ingestion scripts INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md cleared as safe today"
+    prompt: |
+      Read INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md's Session A recommendation in full - it explicitly cleared running ingest:federal-register and ingest:samhsa-hrsa today as low-risk (no new code needed, unauthenticated public APIs, small hard-coded caps, real precedent from the NIH/NSF run completing in under 5 minutes).
+
+      1. Run pnpm ingest:federal-register and pnpm ingest:samhsa-hrsa for real.
+      2. Confirm real row counts landed under the FEDERAL_REGISTER and USASPENDING source labels in intelligence_funded_proposals (live psql query, per the scoping doc's own verification method).
+      3. Update FEATURE_REGISTRY_v2.md rows #168/#169 (and row D5 if relevant) to reflect the real current state - scripts exist AND have now produced real rows, with the actual counts.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: file_exists
+        files: [FEATURE_REGISTRY_v2.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: build-ca-state-portal-parser-001
+    phase: build
+    description: "Build the California Grants Portal RSS/XML parser - Step 1 from STATE_PORTAL_SCOPING_2026-08-13.md's recommended build order"
+    prompt: |
+      Read STATE_PORTAL_SCOPING_2026-08-13.md's Section 3 (#1 California) and Section 5 (recommended build order, item 1) in full before starting - this is a properly-scoped, evidence-backed build target, not a fresh investigation.
+
+      1. Build a real RSS/XML parser (not an HTML scraper) against https://www.grants.ca.gov/grants/feed/. Parse title/link/description/pubDate and the content:encoded field's Agency/Department Name and Application Close Date fields, per the scoping doc's own findings on the feed's real structure.
+      2. Map the applicant_type-nonprofit CSS class (confirmed present on the HTML article elements per the scoping doc) to a nonprofit-eligibility flag - confirm live whether this signal is also present in the feed's content:encoded field, or whether it requires a secondary per-grant HTML fetch (the scoping doc flagged this as unconfirmed - resolve it here).
+      3. Wire real inserts into opportunities, following the same dedup/insert pattern the existing NIH RePORTER/NSF ingestion scripts use (read one of those for the real pattern to match, don't invent a new one) - source label CA_GRANTS_PORTAL or similar, org-appropriate category tagging.
+      4. Real live test: run it for real, confirm real opportunity rows are inserted, cross-check at least 2 inserted rows against the live feed's actual current content to confirm no fabrication.
+      5. This is a new general-purpose state-portal source, not wired into any of the four existing colliding implementations the scoping doc documented (portal-scraper.ts, state-portal.ts, state-scrapers.ts, tdhca-scraper.ts) - do not attempt to reconcile those four in this prompt, that's explicitly deferred per the scoping doc's own item 3. Keep this a clean, standalone addition.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: substantial-work-verify-sync-001
+    phase: build
+    description: "Final verification and governance sync for this entire follow-up run"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Confirm the earlier D7 registry correction (moot DATAOCEAN backup concern per Reid) actually landed - check git log for a commit matching "D7 - DATAOCEAN backup concern is moot". If it's missing, apply that correction now as part of this prompt.
+      3. Confirm every row touched by this queue (foundation-scraper.ts fix, US7 accuracy fix, state_portals table fix, row #66, rows #168/#169, row #56/State Portal for the new CA parser) has a real, dated, evidence-cited update in FEATURE_REGISTRY_v2.md.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a summary, explicit about anything still incomplete or newly blocked (e.g. if row #66's 4th attempt still didn't confirm a positive case, say so plainly, don't bury it under the other wins in this queue).
+      5. Scoped git add (only files actually touched across this queue's prompts - do not use git add -A), commit with message "fix: foundation-scraper pagination bug (live S2 scraper impact), US7 extraction accuracy, state_portals table gap; retry 990-PF Schedule I with streaming; run Intelligence Library Session A; build CA state portal RSS parser", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

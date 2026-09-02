@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { getBudgetSummary } from "@/lib/pil/cost";
 
 // GET /api/pil/cost/summary — budget summary for the caller's org.
@@ -11,7 +11,7 @@ import { getBudgetSummary } from "@/lib/pil/cost";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const gate = await requireRole("viewer");
+  const gate = await requirePilRole("viewer");
   if ("error" in gate) return gate.error;
   const { organizationId } = gate;
 

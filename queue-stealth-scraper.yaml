@@ -1,0 +1,199 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STATE_OF_THE_BUILD.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: scraper-001
+    phase: scraper
+    description: "Install scraper dependencies"
+    prompt: |
+      Read package.json in full. Read STANDING_DIRECTIVES.md completely.
+      Install these dependencies WITHOUT adding to any FORGE queue prompt — run directly:
+      pnpm add crawlee playwright playwright-extra playwright-extra-plugin-stealth playwright-extra-plugin-recaptcha @sparticuz/chromium-min
+      pnpm add user-agents random-useragent p-limit p-retry node-fetch
+      pnpm add -D @types/node-fetch
+      After install verify pnpm tsc --noEmit passes.
+      git add -A; git commit -m 'deps: stealth scraper dependencies installed'; git push
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: halt
+
+  - id: scraper-002
+    phase: scraper
+    description: "Build stealth browser core"
+    prompt: |
+      Read src/lib/browser/stealth-browser.ts in full. Read STANDING_DIRECTIVES.md enrichment section.
+      Create src/lib/scraper/stealth-engine.ts — next-generation stealth scraper core.
+      This is a Playwright-based engine with full undetectability:
+      1. FINGERPRINT RANDOMIZATION: randomize canvas fingerprint, WebGL vendor/renderer, platform string, hardwareConcurrency, deviceMemory, screen resolution, timezone offset on every new browser context
+      2. USER AGENT ROTATION: rotate from a pool of 50 real Chrome/Firefox user agents using user-agents package. Match UA to corresponding platform string.
+      3. HUMAN BEHAVIOR SIMULATION: random mouse movements before clicking, random scroll patterns, random delays between 800-3000ms between actions, random viewport sizes from common resolutions
+      4. STEALTH PLUGINS: use playwright-extra with stealth plugin to pass all bot detection tests (navigator.webdriver=false, chrome runtime present, permissions API working)
+      5. PROXY SUPPORT: accept optional proxy config. If SCRAPER_API_KEY env var present use ScraperAPI proxy (http://scraperapi:[key]@proxy-server.scraperapi.com:8001). If not present run without proxy.
+      6. REQUEST INTERCEPTION: block images, fonts, and media to speed up scraping. Only load HTML and scripts.
+      7. RETRY LOGIC: on detection (403, 429, CAPTCHA detected) rotate proxy and UA, wait random 5-15s, retry up to 3 times
+      8. CAPTCHA HANDLING: detect reCAPTCHA and hCaptcha presence. If TWOCAPTCHA_API_KEY present attempt solve. If not present skip page and log.
+
+      Export class StealthEngine with methods:
+      - async init(): Promise<void> — launch browser with stealth config
+      - async fetchPage(url: string): Promise<string | null> — fetch page HTML with full stealth
+      - async extractEmails(html: string): Promise<string[]> — extract emails from HTML
+      - async extractPhone(html: string): Promise<string | null> — extract phone from HTML
+      - async findContactPage(baseUrl: string): Promise<string | null> — find /contact or /about page
+      - async close(): Promise<void> — cleanup
+
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(scraper): stealth engine core with fingerprint randomization and proxy support'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [src/lib/scraper/stealth-engine.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: scraper-003
+    phase: scraper
+    description: "Build foundation enrichment scraper"
+    prompt: |
+      Read src/lib/scraper/stealth-engine.ts in full. Read SCHEMA_REGISTRY_v2.md for foundation_directory schema. Read STANDING_DIRECTIVES.md enrichment waterfall.
+      Create src/lib/scraper/foundation-scraper.ts — foundation enrichment agent using StealthEngine.
+      This agent enriches foundation_directory records with websites, emails, phones using multiple strategies in waterfall order:
+
+      STRATEGY 1 — IRS 990 XML index:
+      Download https://apps.irs.gov/pub/epostcard/990/xml/2024/index_2024.csv using StealthEngine (browser-level headers bypass IRS server blocks).
+      Parse CSV to get xml_url for each EIN matching foundation_directory.
+      Fetch each xml_url using StealthEngine. Parse XML to extract WebsiteAddressTxt, PhoneNum, BusinessName.
+      Write website, phone to foundation_directory WHERE ein matches.
+
+      STRATEGY 2 — Google search fallback:
+      For foundations still missing website after Strategy 1:
+      Search Google: `"{foundation_name}" {city} {state} foundation site:*` using StealthEngine.
+      Extract first result URL that isn't linkedin/facebook/instagram/youtube.
+      Validate URL returns 200. Write as website.
+
+      STRATEGY 3 — Contact page extraction:
+      For foundations that now have a website:
+      Use StealthEngine.findContactPage() to navigate to /contact or /about.
+      Extract all emails using StealthEngine.extractEmails().
+      Extract phone using StealthEngine.extractPhone().
+      Write email, phone back to foundation_directory and donor_discovery_prospects.
+
+      Processing:
+      - Batch size: 20 foundations at a time
+      - Concurrency: 3 parallel browser contexts via p-limit
+      - Checkpoint every 100 records to enrichment-output/scraper-checkpoint.json
+      - Log every 20 records: timestamp, processed count, enriched count, strategy used
+      - 200ms minimum delay between requests per context
+      - Skip on any unrecoverable error, continue to next foundation
+
+      Export async function runFoundationScraper(startOffset?: number): Promise<void>
+
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(scraper): foundation enrichment agent with 3-strategy waterfall'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [src/lib/scraper/foundation-scraper.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: scraper-004
+    phase: scraper
+    description: "Build scraper CLI script and Railway worker job"
+    prompt: |
+      Read src/lib/scraper/foundation-scraper.ts in full. Read src/lib/worker/scheduler.ts in full.
+      Create scripts/run-foundation-scraper.ts — CLI entry point:
+      Reads SCRAPER_START_OFFSET from env (default 0).
+      Reads SCRAPER_BATCH_LIMIT from env (default 10000 — max foundations to process per run).
+      Initializes StealthEngine, runs runFoundationScraper(offset).
+      Logs start/end counts and enrichment rate.
+      Writes final stats to enrichment-output/scraper-stats.json.
+      Register in package.json: "scrape:foundations": "tsx scripts/run-foundation-scraper.ts"
+
+      Also add to Railway worker scheduler:
+      In src/lib/worker/scheduler.ts add a weekly job (Sunday 3AM CST) that calls runFoundationScraper().
+      Job name: foundation-enrichment-weekly.
+      Only runs if ENABLE_SCRAPER env var = 'true' to prevent accidental runs.
+
+      Create src/app/api/scraper/status/route.ts — GET endpoint returning:
+      - Last run timestamp from scraper-stats.json
+      - Total foundations enriched
+      - Current enrichment rate (websites found / total)
+      - Next scheduled run
+
+      Add scraper status card to dashboard AI triggers panel showing enrichment progress.
+
+      Run pnpm tsc --noEmit. Fix all errors.
+      git add -A; git commit -m 'feat(scraper): CLI runner + Railway weekly job + status API'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+      - type: file_exists
+        files: [scripts/run-foundation-scraper.ts, src/app/api/scraper/status/route.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: scraper-005
+    phase: scraper
+    description: "Build nonprofit contact scraper"
+    prompt: |
+      Read src/lib/scraper/stealth-engine.ts in full. Read SCHEMA_REGISTRY_v2.md for nonprofits table schema.
+      Create src/lib/scraper/nonprofit-scraper.ts — enriches nonprofits table with contact data.
+      Target: nonprofits WHERE website IS NOT NULL AND email IS NULL — approximately 6,066 records.
+      For each nonprofit with a website:
+      1. Use StealthEngine.fetchPage(website) to load homepage
+      2. Use StealthEngine.findContactPage(website) to find contact/about page
+      3. Extract emails, phone from contact page
+      4. UPDATE nonprofits SET email=..., phone=... WHERE id=...
+      Also UPDATE donor_discovery_prospects SET email=..., phone=... WHERE ein matches.
+      Batch size 10, concurrency 2, 500ms delay between requests.
+      Register as "scrape:nonprofits": "tsx scripts/run-nonprofit-scraper.ts" in package.json.
+      Create scripts/run-nonprofit-scraper.ts as CLI entry point.
+      Run pnpm tsc --noEmit. Fix all errors.
+      git add -A; git commit -m 'feat(scraper): nonprofit contact extraction agent'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [src/lib/scraper/nonprofit-scraper.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: scraper-006
+    phase: scraper
+    description: "Update governance docs after scraper build"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md and FEATURE_REGISTRY_v2.md and STANDING_DIRECTIVES.md.
+      Update FEATURE_REGISTRY_v2.md: add new scraper features as BUILT:
+      - S1: Stealth Engine Core — src/lib/scraper/stealth-engine.ts — BUILT
+      - S2: Foundation Enrichment Scraper — src/lib/scraper/foundation-scraper.ts — BUILT
+      - S3: Nonprofit Contact Scraper — src/lib/scraper/nonprofit-scraper.ts — BUILT
+      - S4: Scraper Railway Worker Job — weekly scheduler integration — BUILT
+      - S5: Scraper Status API — /api/scraper/status — BUILT
+      Update STANDING_DIRECTIVES.md Directive 1: mark scraper as BUILT, update current state.
+      Update STATE_OF_THE_BUILD.md scraper section.
+      Update SESSION_STATE.md.
+      git add -A; git commit -m 'governance: stealth scraper build complete'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

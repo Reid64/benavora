@@ -1,0 +1,418 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-70: THE BENAVORA ADAPTER - PROGRAM FINALE
+#
+# Prospect-intel surfaces inside Benavora as its donor-
+# intelligence engine - through a boundary that keeps both
+# products extractable. The architecture decision this queue
+# enforces in machinery: adapters/benavora depends on
+# packages/contracts ONLY. Not services, not core, not graph -
+# types and API shapes alone. Benavora integrates as any
+# external partner would: SDK + API keys + webhooks. If Reid
+# sells either product separately someday, the seam is already
+# clean - and the lint rule, not discipline, keeps it that way.
+#
+# The Benavora-side implementation belongs to the benavora
+# repo's own FORGE program - this queue's final deliverable is
+# that queue file, generated ready-to-run.
+#
+# Established patterns throughout.
+# ============================================================
+
+prompts:
+
+  - id: pi70-001
+    phase: build
+    description: "Preflight + the integration architecture"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. pi-61 state confirmed: production live, gates green
+         (read the go-live evidence). Ratchet re-run green.
+      2. Write docs\architecture\BENAVORA_INTEGRATION.md: the
+         integration shape - Benavora consumes prospect-intel as
+         a service partner: (a) tenant provisioning (a Benavora
+         org maps to a prospect-intel org, created via a
+         partner-authenticated provisioning API; the mapping
+         lives on BOTH sides - here as an external_ref on
+         organizations); (b) auth model (partner API keys for
+         service-to-service; end-user actions attributed via a
+         partner-asserted user context per the API contract -
+         define it); (c) the consumption surfaces (SDK over the
+         full API + Benavora-shaped read views + webhooks);
+         (d) data-flow boundaries (Benavora's donor records
+         enter ONLY via the partner import path with correct
+         source classing - the 141k-prospect seeding question
+         addressed honestly: bulk third-party lists do NOT get
+         first-party consent status; they enter as a
+         partner-imported source class with its own
+         permissibility, defined here);
+         (e) the extractability guarantee restated with its
+         enforcement.
+      3. Capture to evidence\pi-70\preflight.txt.
+      4. Create scripts\verify\verify-pi70-001.mjs: the doc
+         covers all five areas; ratchet green.
+      5. Run: node scripts/verify/verify-pi70-001.mjs
+    expected_outputs:
+      - docs/architecture/BENAVORA_INTEGRATION.md
+      - scripts/verify/verify-pi70-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi70-002
+    phase: build
+    description: "The dependency boundary, machine-enforced"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Scaffold adapters\benavora\ as a workspace package; the
+         eslint no-restricted-imports rule scoped to it: ONLY
+         @prospect-intel/contracts (plus its own deps and
+         node/std) - imports from services/core/graph/connectors
+         forbidden; the same rule mirrored as a CI check
+         (a dedicated lint job failing the pipeline).
+      2. Prove it: a scratch file importing packages/services
+         fails lint (captured verbatim), removed after capture.
+         A second proof at build level: the adapter package
+         builds in ISOLATION (a temp-directory build with only
+         contracts linked - the extraction rehearsal; script it:
+         scripts\proofs\adapter-isolation-build.mjs, kept as a
+         permanent proof).
+      3. Evidence to evidence\pi-70\boundary.txt.
+      4. Create scripts\verify\verify-pi70-002.mjs: the lint
+         rejection captured, the isolation build green.
+      5. Run: node scripts/verify/verify-pi70-002.mjs
+    expected_outputs:
+      - adapters/benavora/package.json
+      - scripts/proofs/adapter-isolation-build.mjs
+      - scripts/verify/verify-pi70-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-003
+    phase: build
+    description: "The client SDK: the typed doorway"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\benavora\src\sdk\: the typed TypeScript client
+         for the full API_CONTRACTS surface - commissioning
+         sessions, profiles, objectives, portfolios, dossiers,
+         escalations, the read views (pi70-006's, stubbed types
+         now, completed then); auth via API key + the
+         partner-asserted user context; typed errors from the
+         API envelope; retry/backoff on 429/5xx (a client-side
+         mirror of the gateway discipline); npm-publishable
+         shape (exports map, d.ts, version 0.1.0, README with
+         quickstart).
+      2. Vitest against a mock server (the API contract as
+         fixtures): every endpoint method round-trips typed;
+         error envelope mapping; retry behavior; the key never
+         logged.
+      3. Green; evidence\pi-70\sdk-tests.txt. The isolation
+         build re-run green with the SDK in place.
+      4. Create scripts\verify\verify-pi70-003.mjs: standard plus
+         the isolation re-run.
+      5. Run: node scripts/verify/verify-pi70-003.mjs
+    expected_outputs:
+      - adapters/benavora/src/sdk/index.ts
+      - scripts/verify/verify-pi70-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-004
+    phase: build
+    description: "Partner auth + tenant provisioning"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0034_partner_keys.sql: api_keys (partner id,
+         key HASH - never plaintext at rest; prefix for
+         identification, scopes, created/revoked, last_used) +
+         organizations.external_ref per the integration doc.
+         Standard migration pattern.
+      2. The provisioning surface on apps\api: partner-key-authed
+         endpoints - provision an org (idempotent on external_ref
+         - a re-provision returns the existing mapping, never a
+         duplicate org), link users (the asserted-context model),
+         key management (rotate/revoke, admin-authed). Key
+         verification middleware (constant-time hash compare,
+         scope enforcement per endpoint, revoked keys refused,
+         last_used updated).
+      3. Vitest + API tests: provision idempotency; a revoked
+         key's next call 401s; scope enforcement (a read-scoped
+         key cannot provision); the hash-only-at-rest assertion
+         (query the table in the test - no plaintext).
+      4. Green; evidence\pi-70\provisioning-tests.txt. Matrix
+         green with the new table.
+      5. Create scripts\verify\verify-pi70-004.mjs: standard plus
+         the idempotency and hash-at-rest tests present.
+      6. Run: node scripts/verify/verify-pi70-004.mjs
+    expected_outputs:
+      - supabase/migrations/0034_partner_keys.sql
+      - scripts/verify/verify-pi70-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-005
+    phase: build
+    description: "Webhooks: signed, retried, honest delivery"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0035_webhooks.sql (endpoints per partner+org,
+         secret hash, event subscriptions; deliveries with
+         attempt state) + the delivery service as a workflow-
+         engine consumer (the event bus already carries
+         everything - objective completed, package ready,
+         escalation raised, budget stop: the subscribed taxonomy
+         events fan out to registered endpoints): HMAC-SHA256
+         signed payloads (signature header, timestamp,
+         replay-window documentation), delivery retries on the
+         engine's backoff with DLQ parking after exhaustion
+         (a dead webhook endpoint never blocks anything else),
+         delivery history queryable via the API.
+      2. Vitest: signature verifiable by a reference consumer
+         implementation (ship the verify helper in the SDK);
+         tampered payload fails verification; retry/park behavior
+         with a scripted failing endpoint; per-endpoint isolation
+         (one dead endpoint, others deliver).
+      3. Green; evidence\pi-70\webhook-tests.txt. Matrix green.
+      4. Create scripts\verify\verify-pi70-005.mjs: standard plus
+         the tamper and isolation tests present.
+      5. Run: node scripts/verify/verify-pi70-005.mjs
+    expected_outputs:
+      - supabase/migrations/0035_webhooks.sql
+      - packages/services/src/webhooks/index.ts
+      - scripts/verify/verify-pi70-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-006
+    phase: build
+    description: "The Benavora-shaped read views"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The denormalized read endpoints Benavora's donor-
+         discovery UI needs (per the integration doc): a
+         qualified-prospect list view (tier, composite, capacity
+         range + basis, top warm path summary, freshness - one
+         call, paginated, filterable); a dossier-summary view
+         (the twin's headline per section + citation counts -
+         Benavora renders summaries and deep-links to the
+         console for full citation navigation: the two-product
+         UX boundary stated in the doc); a warm-paths view
+         (ranked strategies, hops summarized). Each shaped in
+         contracts (the SDK types complete now), each respecting
+         critic gating (unapproved conclusions absent - re-assert
+         here at the view layer).
+      2. Vitest + API tests: view correctness against fixture
+         portfolios (field-level assertions); pagination; the
+         critic-gating re-assertion; org scoping.
+      3. Green; evidence\pi-70\views-tests.txt.
+      4. Create scripts\verify\verify-pi70-006.mjs: standard plus
+         the critic-gating view test present.
+      5. Run: node scripts/verify/verify-pi70-006.mjs
+    expected_outputs:
+      - apps/api/src/routes/partner-views.ts
+      - scripts/verify/verify-pi70-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-007
+    phase: build
+    description: "The reference integration: a simulated Benavora, end to end"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\benavora-reference-integration.mjs: a
+         test harness ACTING as Benavora, using ONLY the SDK
+         (the adapter package as an external consumer - the
+         proof imports nothing else from the repo): provisions
+         a tenant via partner key -> imports 20 donor-like
+         records through the partner import path (the partner-
+         imported source class, correct permissibility) ->
+         commissions research via SDK (a sentence, clarify,
+         approve) -> receives the lifecycle webhooks on a local
+         listener (signatures verified with the SDK helper) ->
+         reads the qualified-prospect and dossier-summary views
+         -> re-provisions idempotently. Against the real
+         standing stack (FakeProvider reasonable). Every step
+         asserted.
+      2. Trail to evidence\pi-70\reference-integration.json.
+      3. Create scripts\verify\verify-pi70-007.mjs: the trail
+         complete including verified webhook signatures and the
+         SDK-only import assertion (grep the proof's imports).
+      4. Run: node scripts/verify/verify-pi70-007.mjs
+    expected_outputs:
+      - scripts/proofs/benavora-reference-integration.mjs
+      - evidence/pi-70/reference-integration.json
+      - scripts/verify/verify-pi70-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-008
+    phase: build
+    description: "Boundary security review"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The partner boundary attacked: cross-tenant provisioning
+         (partner A's key attempting to touch partner B's
+         external_refs - refused); scope escalation (read key ->
+         write attempts across the surface); webhook replay (a
+         captured delivery re-sent outside the replay window -
+         the reference consumer rejects; document that the
+         REJECTION lives in the consumer helper and the window
+         is the contract); key brute-force posture (rate limiting
+         on key auth failures - add if absent); the views leaking
+         across orgs under a mis-scoped key (systematic per
+         view); SSRF via webhook endpoint registration (private-
+         range endpoint URLs refused at registration - the
+         pi-60 guard's second application).
+      2. Findings fixed or registered per the pi-60 discipline;
+         evidence to evidence\pi-70\boundary-security.txt.
+      3. Create scripts\verify\verify-pi70-008.mjs: all six
+         attack classes with passes.
+      4. Run: node scripts/verify/verify-pi70-008.mjs
+    expected_outputs:
+      - packages/core/src/__tests__/hardening/partner-boundary.test.ts
+      - scripts/verify/verify-pi70-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-009
+    phase: build
+    description: "The handoff artifact: Benavora's own integration queue, generated ready-to-run"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\integration\BENAVORA_INTEGRATION_GUIDE.md:
+         the Benavora-side implementation guide - SDK install,
+         key setup, the provisioning flow, the import mapping
+         from Benavora's donor tables to the partner import
+         format (name the actual Benavora structures:
+         donor_discovery_prospects and foundation_directory -
+         the mapping tables sketched), webhook endpoint
+         requirements, the UI surfaces (where the read views
+         land in Benavora's donor discovery pages, deep-link
+         patterns to the console), env vars, and the honest
+         sequencing note (Benavora-side work runs in the
+         benavora repo's OWN FORGE program - never cross-repo
+         from this one).
+      2. Generate docs\integration\queue-donor-intel-integration.yaml:
+         a complete, ready-to-run FORGE queue FOR THE BENAVORA
+         PROJECT (project: benavora; its governance docs; the
+         established benavora conventions - ASCII, flat prompts,
+         command gates, scoped commits, Vercel manual deploy)
+         implementing the guide: SDK install + typed config,
+         provisioning wiring, the import mapping + a bounded
+         first sync, webhook receiver endpoint (signature-
+         verified), the donor-discovery UI surfaces consuming
+         the read views, e2e verification. 8-10 prompts, the
+         real thing - Reid copies it to
+         C:\Users\manag\Documents\FORGE\projects\benavora\ when
+         the benavora side is ready to run it.
+      3. Create scripts\verify\verify-pi70-009.mjs: the guide's
+         sections present; the generated queue parses as valid
+         YAML with a flat prompts list and benavora project
+         header.
+      4. Run: node scripts/verify/verify-pi70-009.mjs
+    expected_outputs:
+      - docs/integration/BENAVORA_INTEGRATION_GUIDE.md
+      - docs/integration/queue-donor-intel-integration.yaml
+      - scripts/verify/verify-pi70-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi70-010
+    phase: build
+    description: "PROGRAM COMPLETE: the final summary, the extraction proof, the last commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The final ratchet: EVERYTHING - the full proof ladder,
+         pnpm -r test, the adapter isolation build, the fleet
+         evals (pipeline tier), the go-live gate re-walk - green
+         together one last time.
+      2. Write docs\PROGRAM_COMPLETE.md: the program summary -
+         all queues with their headline proofs; the fleet board
+         final state (44/44 with tier counts); the directive's
+         Section 21 deliverables each mapped to where it lives
+         (the TRACEABILITY_MATRIX brought current - every
+         deliverable DELIVERED or honestly dispositioned);
+         cumulative program spend; the honest-limits register
+         with owners; the extraction guarantee (the isolation
+         build as standing proof); and what operation looks like
+         from here (the runbook, the benavora handoff queue, the
+         unblock list).
+      3. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-70
+         complete - ALL 23 QUEUES COMPLETE; the program is
+         delivered; operational mode begins.
+      4. Scoped add: adapters/ apps/ packages/ supabase/migrations/
+         scripts/ docs/ evidence/pi-70/ SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "benavora adapter: contracts-only boundary
+         machine-enforced, SDK + provisioning + signed webhooks +
+         partner views, reference integration proven, handoff
+         queue generated - PROGRAM COMPLETE (pi-70)"
+         Push. Governance sync.
+      5. Create scripts\verify\verify-pi70-010.mjs: the final
+         ratchet green, PROGRAM_COMPLETE.md's sections present,
+         the traceability matrix shows zero unaddressed
+         deliverables.
+      6. Run: node scripts/verify/verify-pi70-010.mjs
+    expected_outputs:
+      - docs/PROGRAM_COMPLETE.md
+      - scripts/verify/verify-pi70-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi70-010.mjs"
+    max_retries: 3
+    on_fail: halt

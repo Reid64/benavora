@@ -1,0 +1,175 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-03: END-TO-END WORKFLOWS  (evidence-standard)
+# depends_on: pt-02 (needs API/auth truth).
+# Real user journeys start to finish, LOCAL + branch. Never a
+# real outbound comm / real submit against production.
+# Evidence: per-journey step log with DB state captured
+# before/after each transition + screenshots at each stage.
+# HALTS at end for review. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt03-001
+    phase: build
+    description: "Preflight + journey environment"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00/01/02 artifacts. Create test-evidence\pt-03\.
+      2. Establish the journey environment: local dev + a branch/local
+         DB and an authenticated test session (magic-link pattern, no
+         password touched). Confirm target is NOT the production ref for
+         any write step; capture to test-evidence\pt-03\environment.txt.
+      3. Create scripts\audit\verify-pt03-001.mjs: fails unless
+         environment.txt shows a non-prod write target and a live
+         authenticated session was established.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-03: preflight + journey environment"
+      5. Run: node scripts/audit/verify-pt03-001.mjs
+    expected_outputs:
+      - test-evidence/pt-03/environment.txt
+      - scripts/audit/verify-pt03-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt03-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt03-002
+    phase: build
+    description: "Core journey: signup -> onboarding -> discovery -> draft -> pipeline -> deadline"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      Drive the primary end-to-end journey a real customer takes, on
+      local/branch. At each stage capture the DB row state before and
+      after, plus a screenshot.
+      1. signup -> onboarding completion -> a discovery run -> generate a
+         draft -> move an item through the pipeline -> set/hit a deadline.
+         Assert each stage actually persists (row written, status changed)
+         and the UI reflects it.
+      2. Any stage that silently no-ops, loses data, or shows success
+         without persistence is a register finding (severity by stage
+         centrality). Write test-evidence\pt-03\core-journey.json with the
+         per-stage before/after state + screenshot paths.
+      3. Create scripts\audit\verify-pt03-002.mjs: fails unless
+         core-journey.json records every stage with before/after DB state.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-03: core signup-to-deadline journey"
+      5. Run: node scripts/audit/verify-pt03-002.mjs
+    expected_outputs:
+      - test-evidence/pt-03/core-journey.json
+      - scripts/audit/verify-pt03-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt03-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt03-003
+    phase: build
+    description: "AutoApply + Donor Discovery journeys with safe-simulated terminal actions"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. AUTOAPPLY: queue -> session -> form-fill -> SAFE-SIMULATED submit
+         (never a real external submission) -> confirm UI status reflects
+         the simulated result. Capture each transition.
+      2. DONOR DISCOVERY: prospect -> review -> route-to-destination;
+         confirm the destination actually exists and receives the routed
+         prospect (ties to WGR-017's fixed detail page). Capture.
+      3. Write test-evidence\pt-03\autoapply-donor-journeys.json. Any
+         broken hand-off (submit not reflected, destination missing) is a
+         finding.
+      4. Create scripts\audit\verify-pt03-003.mjs: fails unless both
+         journeys record their full step chain with terminal state.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-03: autoapply + donor-discovery journeys"
+      6. Run: node scripts/audit/verify-pt03-003.mjs
+    expected_outputs:
+      - test-evidence/pt-03/autoapply-donor-journeys.json
+      - scripts/audit/verify-pt03-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt03-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt03-004
+    phase: build
+    description: "Kanban 12-stage transitions + auth flows (reset, magic link, session persistence)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. KANBAN: drive an item through the documented 12-stage pipeline,
+         asserting the stage-transition rules are enforced (illegal
+         transitions rejected, legal ones persist). Capture the transition
+         matrix.
+      2. AUTH FLOWS: password reset, magic-link login, and session
+         persistence across a reload - each exercised for real on
+         local/branch, captured.
+      3. Write test-evidence\pt-03\kanban-auth.json. Any unenforced illegal
+         transition or broken auth flow is a finding.
+      4. Create scripts\audit\verify-pt03-004.mjs: fails unless the kanban
+         transition matrix and all three auth flows are recorded with
+         outcomes.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-03: kanban transitions + auth flows"
+      6. Run: node scripts/audit/verify-pt03-004.mjs
+    expected_outputs:
+      - test-evidence/pt-03/kanban-auth.json
+      - scripts/audit/verify-pt03-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt03-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt03-005
+    phase: build
+    description: "PHASE 03 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-03\PHASE-03-SUMMARY.md: journeys driven,
+         pass/fail per stage, broken hand-offs, kanban enforcement, auth
+         flow results. Every number cites evidence.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-03\REVIEW-PACK.md: are the core journeys
+         operable end-to-end; the highest-severity breaks; next-phase note.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-03 COMPLETE: E2E workflows, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt03-005.mjs: fails unless summary +
+         review pack exist non-empty and the register grew.
+      6. Run: node scripts/audit/verify-pt03-005.mjs
+    expected_outputs:
+      - test-evidence/pt-03/PHASE-03-SUMMARY.md
+      - test-evidence/pt-03/REVIEW-PACK.md
+      - scripts/audit/verify-pt03-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt03-005.mjs"
+    max_retries: 2
+    on_fail: halt

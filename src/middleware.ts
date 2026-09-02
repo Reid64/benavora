@@ -116,6 +116,9 @@ const SECRET_GATED_PATHS = new Set([
   "/api/webhooks/resend",
   "/api/admin/webhooks/email-events",
   "/api/admin/webhooks/email-reply",
+  // Prometheus scrape target - carries METRICS_SCRAPE_SECRET as a bearer
+  // token (src/app/api/metrics/route.ts), never a Supabase session cookie.
+  "/api/metrics",
 ]);
 
 function isPublicPath(pathname: string): boolean {
@@ -132,6 +135,9 @@ function isPublicPath(pathname: string): boolean {
   // session. Rate-limited per-client-key inside answerPublic() itself, not
   // by a session or secret.
   if (pathname === "/api/public/assist") return true;
+  // Uptime monitoring hits this every 60s with no session (task WGR-health).
+  // Returns only status enums, never raw error text, since the body is public.
+  if (pathname === "/api/health") return true;
   if (SECRET_GATED_PATHS.has(pathname)) return true;
   return false;
 }

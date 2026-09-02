@@ -1,0 +1,299 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- BEHAVIORAL_CONTRACTS.md
+- STANDING_DIRECTIVES.md
+- STATE_OF_THE_BUILD.md
+prompts:
+
+- id: agentic-001
+  name: Governance sync and opportunity discovery full agentic upgrade
+  prompt: |
+    First: sync governance docs:
+    $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/lib/agents/opportunity-discovery-agent.ts in FULL.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read AGENTS_v2.md section for AG-02 through AG-05 in FULL.
+
+    FULL AGENTIC UPGRADE — opportunity-discovery-agent.ts:
+
+    True agentic behavior means the agent perceives its environment, decides what to do next from multiple options, executes, observes the result, and loops. Implement this perception-decision-execution loop:
+
+    PERCEPTION PHASE: At start of each run, the agent builds a state snapshot:
+    - How many opportunities were added in last 7 days? (query opportunities table)
+    - What is the org's current eligibility score distribution? (query opportunity_probability_scores)
+    - Are any critical deadlines approaching in next 14 days with no application started?
+    - What was the discovery success rate of last 3 runs? (query agent_runs)
+    - What search profiles are active and when did each last run?
+
+    DECISION PHASE: Based on state snapshot, the agent chooses its strategy:
+    - If last 3 runs found 0 new opportunities: expand search radius, try new keyword combinations
+    - If > 5 critical deadlines with no applications: prioritize deadline-near discovery over broad discovery
+    - If eligibility scores averaging below 50: shift to federal sources with higher eligibility match
+    - If search profiles all ran within 3 days: skip redundant sources, focus on new SAM.gov postings only
+
+    EXECUTION PHASE: Execute chosen strategy with full Claude API integration:
+    - SAM.gov API call: GET https://api.sam.gov/opportunities/v2/search with NAICS codes from org profile, deadline filter, award ceiling matching org budget range
+    - Grants.gov XML feed: parse latest 500 entries, filter by CFDA matching org NTEE
+    - Foundation search: query nonprofits table WHERE asset_amount BETWEEN org_budget*5 AND org_budget*200 AND state=org_state
+    - For each source: deduplicate against existing opportunities by title similarity (Levenshtein < 10%) and funder name match
+
+    OBSERVATION PHASE: After execution, the agent evaluates its own results:
+    - Were new opportunities found? How many vs last run?
+    - Average eligibility_score of new opportunities (trigger eligibility scorer immediately if batch > 5)
+    - Chain to probability-scoring-agent if any new opportunity has eligibility_score >= 65
+
+    CHAIN TRIGGER: After run, if new opportunities >= 3 AND avg_eligibility >= 60: insert into agent_queue with next_agent='ag-03-probability-scorer', priority=high, trigger_source='chain'.
+
+    Every logDecision() must describe which strategy branch was chosen and why.
+    This file must be minimum 320 lines of real agentic implementation.
+
+    Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-02 opportunity discovery full agentic upgrade -- perception-decision-execution loop, strategy branching, chain trigger'; git push.
+
+- id: agentic-002
+  name: Probability scoring full agentic upgrade with self-calibration
+  prompt: |
+    Read src/lib/agents/probability-scoring-agent.ts in FULL.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for opportunity_probability_scores in FULL.
+
+    FULL AGENTIC UPGRADE — probability-scoring-agent.ts:
+
+    SELF-CALIBRATION LOOP: This agent must calibrate its own predictions against actual outcomes:
+
+    1. CALIBRATION QUERY: At start of every run, query:
+       SELECT ops.overall_score, o.outcome_result, o.amount_awarded
+       FROM opportunity_probability_scores ops
+       JOIN outcomes o ON ops.opportunity_id = o.opportunity_id AND ops.org_id = o.org_id
+       WHERE ops.org_id = $orgId AND o.created_at >= NOW() - INTERVAL '180 days'
+       Calculate: avg predicted score for awarded outcomes, avg predicted score for denied outcomes.
+       If calibration data exists (n >= 5): adjust scoring prompt with calibration note.
+
+    2. CALIBRATED SCORING PROMPT: The Claude system prompt must be 300+ words and include:
+       - Exact scoring rubric: 0-100 where 75+ = strong apply, 60-74 = apply, 45-59 = review, <45 = likely pass
+       - Calibration adjustment: "Historical data shows this org's winning grants average X score and denied grants average Y score. Calibrate accordingly."
+       - Required output schema with all fields typed
+       - Instructions to weight these factors in order: NTEE alignment (30%), geographic eligibility (25%), financial capacity match (20%), track record (15%), program fit (10%)
+
+    3. CONFIDENCE BANDS: For each score, include confidence_band:
+       - high: strong data match on 4+ factors
+       - medium: data match on 2-3 factors
+       - low: 0-1 factor matches or missing org data
+
+    4. RECOMMENDATION TEXT: Must be 2-3 sentences minimum per opportunity. Not "Apply" but "Strong apply — NTEE alignment is direct (Health Services matches HHS priority), org budget of $X is within funder range, and recent similar award by [funder] to comparable org in [state] supports high confidence."
+
+    5. CHAIN DECISION: After scoring batch:
+       - Opportunities with overall_score >= 80: chain to draft-generation-agent immediately
+       - Opportunities with overall_score 65-79: chain to fundability-scorer to identify improvements
+       - Opportunities with overall_score < 45: create notification "Low probability — consider skipping"
+
+    6. SCORE HISTORY: Insert into opportunity_probability_scores even if record exists — track score history with generated_at timestamp. This enables trend detection (score improving over time as org improves).
+
+    Minimum 280 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-03 probability scorer full agentic upgrade -- self-calibration, confidence bands, recommendation text, chain decisions'; git push.
+
+- id: agentic-003
+  name: Draft generation fully agentic with twin-powered context and compliance gate
+  prompt: |
+    Read src/lib/agents/draft-generation-agent.ts in FULL. Every line.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read src/lib/agents/roi-optimizer-agent.ts — find and read the getSubmissionRecommendations function.
+    Read BEHAVIORAL_CONTRACTS.md sections 16-17 in FULL.
+
+    FULL AGENTIC UPGRADE — draft-generation-agent.ts:
+
+    HARD LIMITS (enforce in code, not just comments):
+    ```typescript
+    // HARD LIMIT ENFORCEMENT — runs before any draft is saved
+    private enforceHardLimits(draft: Partial<Application>): void {
+      if (draft.submitted_at !== undefined) throw new Error('HARD_LIMIT: auto_generated drafts cannot have submitted_at');
+      if (draft.pending_review !== true) throw new Error('HARD_LIMIT: auto_generated drafts must have pending_review=true');
+      if (draft.auto_generated !== true) throw new Error('HARD_LIMIT: must mark auto_generated=true');
+      if (draft.draft_source === 'manual') throw new Error('HARD_LIMIT: auto drafts cannot have manual source');
+    }
+    ```
+    Call enforceHardLimits() immediately before every INSERT into applications. No exceptions.
+
+    FIVE-PHASE DRAFT GENERATION:
+
+    Phase 1 — INTELLIGENCE GATHERING:
+    - Digital Twin: load organizational_digital_twins record, calculate completeness (non-null sections / total sections)
+    - KB data: load knowledge_base_profiles — mission, programs, impact, financial, leadership
+    - ROI Recommendations: call getSubmissionRecommendations(orgId) — inject top 3 as "Winning submission patterns for this org"
+    - Platform Patterns: query platform_learning_patterns for NTEE — inject top 3 patterns with success rates
+    - Funder Intelligence: query nonprofits table for funder details — past award amounts, focus areas, geographic preferences
+    - Fundability: query fundability_scores for this opportunity — inject probability and key deficiencies
+
+    Phase 2 — NARRATIVE STRATEGY:
+    Call Claude (max_tokens: 300) with gathered intelligence:
+    System: "You are a senior grant writer. Based on the org profile and funder intelligence, define the optimal narrative strategy for this application in 3 bullet points. Focus on: (1) strongest alignment angle to lead with, (2) key proof points to emphasize, (3) risk factors to address proactively."
+    Store strategy decision in agent_decisions with decisionType='narrative_strategy'.
+
+    Phase 3 — SECTION DRAFTING:
+    Generate each required section separately with targeted prompts:
+    - Executive Summary (max_tokens: 500): 300-500 words, lead with primary alignment angle from strategy
+    - Problem Statement (max_tokens: 600): Use community_need_signals if available, cite specific local data
+    - Program Description (max_tokens: 800): Map programs to funder priorities explicitly
+    - Budget Narrative (max_tokens: 400): Use budget_builder patterns, justify every major line item
+    - Evaluation Plan (max_tokens: 400): Outcome metrics matching funder's stated interests
+    - Org Capacity (max_tokens: 300): Lead with track record most relevant to this funder type
+
+    Phase 4 — COMPLIANCE CHECK:
+    Before finalizing, call compliance-check-agent logic inline:
+    - Word count within funder limits (if specified in opportunity.requirements)
+    - All required sections present
+    - No prohibited language (religious preference if funder is government, etc.)
+    - Budget totals balance
+    If any check fails: add compliance_warning to application record, do not block draft but flag in pending_review notes.
+
+    Phase 5 — CONFIDENCE SCORING:
+    Final confidence = base_confidence * twin_multiplier * pattern_multiplier
+    - twin_multiplier: twin_completeness >= 80 ? 1.1 : twin_completeness >= 60 ? 1.0 : 0.85
+    - pattern_multiplier: patterns_applied >= 2 ? 1.05 : 1.0
+    - base_confidence: from Phase 2 strategy + Phase 3 quality scores
+    Cap at 95. Store in confidence_score field.
+
+    This file must be minimum 450 lines. Run pnpm tsc --noEmit, fix ALL errors.
+    git add -A; git commit -m 'feat: AG-05 draft generation fully agentic -- 5-phase pipeline, hard limit enforcement, twin-powered, compliance gate'; git push.
+
+- id: agentic-004
+  name: Relationship builder full agentic upgrade with introduction path generation
+  prompt: |
+    Read src/lib/agents/relationship-builder-agent.ts in FULL.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for relationship_recommendations and intelligence_relationship_nodes tables in FULL.
+
+    FULL AGENTIC UPGRADE — relationship-builder-agent.ts:
+
+    TRUE AGENTIC INTRODUCTION PATH GENERATION:
+
+    1. MULTI-HOP NETWORK TRAVERSAL: The agent must find introduction paths up to 3 hops deep:
+       - Direct (1 hop): Org board member directly knows funder officer
+       - One hop (2 hops): Org board member → mutual connection → funder officer
+       - Two hop (3 hops): Org board member → connection A → connection B → funder officer
+       For each path found, calculate path_strength score: direct=0.95, one_hop=0.70, two_hop=0.45
+
+    2. BOARD MEMBER RESEARCH: For each board member in KB leadership_board array, call Claude with web_search:
+       - Search: "[person name] board member nonprofit [city]"
+       - Search: "[person name] LinkedIn professional background"
+       - Extract: current employer, other board memberships, university affiliations, previous employers
+       Store findings in intelligence_relationship_nodes if table exists, else in agent_decisions.
+
+    3. FUNDER OFFICER MATCHING: For each target funder (from relationships + pig_nodes), research:
+       - "[funder name] program officer board of directors"
+       - Extract names of key decision makers
+       - Attempt to match against board member connections found in step 2
+
+    4. WARM INTRODUCTION SCRIPT: For each path found, generate a specific introduction script:
+       - Direct: "Board member [Name] has a direct relationship with [Funder] Program Officer [Name]. Recommend [Name] send personal email introducing [Org]."
+       - One hop: "[Name] → [Mutual] → [Funder Officer]. Recommend asking [Name] to request introduction through [Mutual]."
+       Include email subject line suggestion and opening line.
+
+    5. PRIORITY RANKING: Rank all paths by: path_strength * funder_readiness_score * opportunity_value_score
+       funder_readiness: intent_score from corporate_intent_signals if exists, else 0.5
+       opportunity_value: highest eligibility_score of open opportunities from this funder / 100
+
+    6. ACTION QUEUE: For paths with priority_score >= 0.6, insert into a notifications record with specific action steps and 14-day follow-up reminder.
+
+    7. CHAIN: After finding 3+ high-priority paths, chain to autonomous-digest-agent to include in morning summary.
+
+    Minimum 300 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-06 relationship builder full agentic -- multi-hop traversal, board research, introduction scripts, priority ranking'; git push.
+
+- id: agentic-005
+  name: Deadline prediction full agentic with pattern learning
+  prompt: |
+    Read src/lib/agents/deadline-prediction-agent.ts in FULL.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for deadline_predictions table in FULL.
+
+    FULL AGENTIC UPGRADE — deadline-prediction-agent.ts:
+
+    TRUE AGENTIC DEADLINE INTELLIGENCE:
+
+    1. HISTORICAL PATTERN LEARNING: Query own prediction history for accuracy:
+       SELECT dp.predicted_deadline, o.deadline as actual_deadline,
+              ABS(EXTRACT(DAY FROM (dp.predicted_deadline - o.deadline))) as days_off
+       FROM deadline_predictions dp JOIN opportunities o ON dp.opportunity_id=o.id
+       WHERE dp.org_id=$orgId AND o.deadline IS NOT NULL
+       Calculate: avg_days_off, accuracy_within_7_days_pct, accuracy_within_30_days_pct
+       Inject accuracy stats into Claude prompt as self-calibration.
+
+    2. MULTI-SOURCE DEADLINE DETECTION: For each opportunity without a deadline:
+       a. Parse opportunity description text for date patterns using regex: /(?:due|deadline|closes?|submit(?:ted)?\s+by|applications?\s+(?:due|accepted)\s+(?:through|until|by))[:\s]+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{4})/gi
+       b. Query SAM.gov if federal opportunity: GET /opportunities/v2/search?noticeId=[id]
+       c. Web search: "[funder name] [grant program name] 2025 2026 deadline application"
+       d. Check funder's previous grant cycles: query other opportunities from same funder, calculate typical cycle length
+
+    3. CONFIDENCE SCORING PER SOURCE:
+       - Explicit text in opportunity description: confidence=0.95
+       - SAM.gov API confirmed: confidence=0.98
+       - Web search explicit date found: confidence=0.80
+       - Pattern from previous cycles: confidence=0.65
+       - Estimated from typical cycles: confidence=0.45
+
+    4. URGENCY TIERS WITH SPECIFIC ACTIONS:
+       - RED (0-7 days): Create CRITICAL notification immediately, chain to draft-generation-agent if no draft exists
+       - AMBER (8-21 days): Create HIGH priority notification, chain to probability-scorer if not yet scored
+       - YELLOW (22-45 days): Add to weekly digest
+       - GREEN (46+ days): No immediate action, track only
+
+    5. RECURRENCE PREDICTION: For funders with 2+ historical grant cycles, predict next cycle open date:
+       avg_cycle_length = AVG days between grant cycles, next_predicted_open = last_deadline + avg_cycle_length
+       Store in a separate field. Alert org 30 days before predicted open.
+
+    Minimum 280 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-07 deadline prediction full agentic -- pattern learning, multi-source detection, urgency tiers, recurrence prediction'; git push.
+
+- id: agentic-006
+  name: Autonomous digest agent full agentic with intelligent prioritization
+  prompt: |
+    Read src/lib/agents/autonomous-digest-agent.ts in FULL.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read AGENTS_v2.md section for Digest Agent in FULL.
+
+    FULL AGENTIC UPGRADE — autonomous-digest-agent.ts:
+
+    The digest agent must be truly intelligent — not a data dump but a curated, prioritized briefing that surfaces the 3-5 most important actions for the day.
+
+    INTELLIGENCE CURATION ALGORITHM:
+
+    1. DATA COLLECTION — query all of these for last 24 hours:
+       - New opportunities discovered (agent_runs WHERE agent_type='discovery' AND created_at >= yesterday)
+       - Opportunities scored >= 75 (opportunity_probability_scores WHERE created_at >= yesterday)
+       - Drafts generated and pending review (applications WHERE auto_generated=true AND pending_review=true AND created_at >= yesterday)
+       - Critical deadline alerts (deadline_predictions WHERE urgency='critical')
+       - High-intent corporate signals (corporate_intent_signals WHERE intent_score >= 80 AND created_at >= yesterday)
+       - Strategic recommendations IMMEDIATE/URGENT (strategic_recommendations WHERE urgency IN ('immediate','urgent') AND status='pending')
+       - Community need spikes (community_need_signals WHERE severity='critical' AND created_at >= yesterday)
+       - Relationship opportunities (relationship_recommendations WHERE created_at >= yesterday AND priority_score >= 0.7)
+       - Self-improvement proposals requiring review (improvement_proposals WHERE status='proposed' AND created_at >= yesterday)
+
+    2. PRIORITY SCORING: Each item receives a digest_priority score:
+       - immediate strategic recommendation: 100
+       - critical deadline + no application: 95
+       - draft ready for review: 85
+       - high-intent corporate signal >= 85: 80
+       - community need spike: 75
+       - high probability opportunity >= 80: 70
+       - urgent relationship opportunity: 65
+       - improvement proposal: 40
+       Sort all items by digest_priority DESC, take top 8.
+
+    3. NARRATIVE GENERATION: Call Claude to write the digest narrative (max_tokens: 800):
+       System: "You are writing a morning briefing for a nonprofit executive director. Be concise, specific, and action-oriented. Lead with the most time-sensitive item. Use numbered list format. Each item: one sentence what, one sentence why it matters, one sentence what to do. Total digest: 300-400 words."
+       User: [structured data of top 8 priority items]
+
+    4. DELIVERY: Store digest in agent_runs.output_payload as { narrative: string, items: PriorityItem[], generated_at: timestamp }. Create notification with priority='digest' and the narrative text.
+
+    5. ADAPTIVE LEARNING: Track which digest items the user acts on (check agent_decisions for same day follow-up). After 30 days, adjust priority weights based on which item types actually get actioned.
+
+    Minimum 300 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: Digest Agent full agentic upgrade -- intelligent curation, priority scoring, narrative generation, adaptive learning'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

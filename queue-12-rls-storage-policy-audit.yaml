@@ -1,0 +1,68 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - SCHEMA_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 2
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q12-001
+    phase: audit
+    description: "Systematic RLS policy audit — every table, every command type"
+    prompt: |
+      This session found RLS/auth gaps twice by accident (documents bucket storage.objects policy, the
+      earlier admin role-gating gap). Build a systematic audit instead of relying on incidents to surface
+      the next one. For every table in the live production schema: confirm RLS is enabled, list every
+      policy and which commands (SELECT/INSERT/UPDATE/DELETE) it covers, flag any table with RLS enabled
+      but zero policies (meaning it's fully locked, likely unintentional) and any table with RLS disabled
+      entirely (meaning it's fully open, likely a real security gap).
+      Write findings to RLS_POLICY_AUDIT.md. Do not fix anything yet — comprehensive discovery first.
+      git add RLS_POLICY_AUDIT.md; git commit -m 'docs: systematic RLS policy audit across all production tables'; git push
+    gates:
+      - type: file_exists
+        files: [RLS_POLICY_AUDIT.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q12-002
+    phase: audit
+    description: "Systematic Storage bucket policy audit — every bucket"
+    prompt: |
+      For every Storage bucket in production (list via Storage API): confirm storage.objects has a policy
+      scoped to that bucket, report what access pattern each policy grants (public, org-scoped, owner-only,
+      or none). Flag any bucket with zero object-level policy — per tonight's finding, bucket creation
+      alone does not create access policies, so this is a real, recurring class of gap to check systematically.
+      Write findings to STORAGE_POLICY_AUDIT.md.
+      git add STORAGE_POLICY_AUDIT.md; git commit -m 'docs: systematic storage bucket policy audit'; git push
+    gates:
+      - type: file_exists
+        files: [STORAGE_POLICY_AUDIT.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q12-003
+    phase: governance
+    description: "Consolidate all audit findings into a single prioritized fix backlog"
+    prompt: |
+      Read RLS_POLICY_AUDIT.md, STORAGE_POLICY_AUDIT.md, SCHEMA_DRIFT_AUDIT.md, and MIGRATION_AUDIT.md
+      in full. Consolidate every real, confirmed gap found across all of them into a single ranked backlog
+      document, ordered by severity (security/data-isolation gaps first, then functional gaps, then
+      cosmetic/doc-accuracy items). This becomes the definitive next-session priority list.
+      Create MASTER_BACKLOG.md with this consolidated, ranked list.
+      git add MASTER_BACKLOG.md; git commit -m 'governance: consolidate all audit findings into ranked master backlog'; git push
+    gates:
+      - type: file_exists
+        files: [MASTER_BACKLOG.md]
+    max_retries: 2
+    on_fail: continue

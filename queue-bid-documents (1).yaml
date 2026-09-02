@@ -1,0 +1,151 @@
+project: afs-website
+governance: [CLAUDE.md, ARCHITECTURE.md, SCHEMA.md, SPEC_QUOTE_BUILDER.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: bid-doc-001
+    phase: investigate
+    description: "Determine the real trigger point and data model for bid documents before writing code"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read ARCHITECTURE.md's order lifecycle section, SCHEMA.md's
+      quote_requests/quotes/quote_line_items tables, SPEC_QUOTE_BUILDER.md,
+      app/api/admin/quote-requests/[id]/send/route.ts (the existing "send
+      formal quote" action -- this is the closest existing precedent),
+      components/admin/GbpPhotosTab.tsx and app/api/admin/gbp/[id]/approve
+      and reject routes (the closest existing precedent for a queue-then-
+      approve-then-fire-external-action pattern), and
+      ORDER_LIFECYCLE_DECISION.md (2026-07-30, already in this repo).
+
+      Background, from the business owner directly: AFS uses a distinct
+      "bid" document for project-level bids (example: bidding as a
+      subcontractor on a construction project through a GC, not a direct
+      flashing-profile customer order) -- this is a different workflow
+      from the existing quote_requests -> quotes customer-facing RFQ
+      pipeline, though it may share underlying infrastructure. Pricing on
+      these bid documents will be entered manually by one of two named
+      staff (Trica or Steve) for the foreseeable future, not computed by
+      any pricing engine. Determine: should bid documents be a new,
+      parallel data model (a new bids table, distinct from
+      quote_requests/quotes), or should they extend the existing
+      quote_requests/quotes tables with a new document "type"? Base this
+      decision on whether project-bid line items (see the real example
+      structure below) fit the existing quote_requests.line_items JSONB
+      shape or need a genuinely different shape.
+
+      Real example bid document structure (from an actual AFS bid sent to
+      a real project, NBISD Long Creek Ph 1 via Omega Waterproofing):
+      AFS header (logo, address, phone), project name, GC/contact name,
+      date, then repeating blocks of {work description} -> {qty rows: a
+      quantity, a dimension/spec string, a unit price, an extended price}
+      -> closing disclaimers (price validity window, delivery terms, tax
+      exclusion) and a free-text note to the customer.
+
+      Also determine the claim-lock data model: what's needed to support
+      (a) any staff member claiming an unclaimed bid, (b) either of the
+      two named staff releasing/reclaiming a bid the other currently has
+      claimed (mutual override, not admin-gated), (c) automatic release
+      after a period of inactivity so an incapacitated claimant can never
+      permanently block a bid, (d) a lightweight "who is currently
+      viewing this" presence indicator, reusing this project's existing
+      Supabase Realtime infrastructure (already used for delivery-
+      tracking's live driver dot and the production queue's live
+      updates -- read lib/data/command-center-dashboard.ts and
+      components/admin/ProductionQueueRealtime.tsx for the existing
+      pattern to follow, not invent a new one).
+
+      Write BID_DOCUMENT_SCOPE.md at the project root: the data-model
+      decision with reasoning, the exact new table(s)/columns needed (or
+      confirmation that existing tables suffice, with reasoning), the
+      claim-lock mechanism design, where this surfaces in Command Center
+      (new tab? extension of an existing one?), and exactly what
+      bid-doc-002 and bid-doc-003 should each build, precisely enough
+      that neither needs further judgment calls.
+
+      Do not write any code or migration in this prompt. Investigation
+      and a decision record only.
+    gates:
+      - type: file_exists
+        files:
+          - BID_DOCUMENT_SCOPE.md
+
+  - id: bid-doc-002
+    phase: implement
+    description: "Build the bid document data model, claim-lock system, and Command Center UI per BID_DOCUMENT_SCOPE.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read BID_DOCUMENT_SCOPE.md in full -- it is the spec for this
+      prompt. Implement exactly what it specifies for the data model,
+      migration, claim-lock mechanism (claim, mutual release/reclaim
+      between any staff member -- not admin-gated, per explicit business
+      instruction --, automatic staleness release, and a live presence
+      indicator via Supabase Realtime), and the Command Center UI surface
+      for viewing/claiming/editing a bid and manually entering pricing
+      per line item.
+
+      Follow this codebase's existing conventions exactly: pnpm only,
+      afs-* Tailwind tokens only, TypeScript strict mode with zero any
+      types, admin_audit_log entries for claim/release/transfer actions
+      matching the existing pattern used elsewhere in Command Center, RLS
+      policies matching the existing admin/operator patterns already
+      established (see 007_delivery_tracking.sql's is_operator() usage
+      for the reference pattern).
+
+      Do not build the PDF generation or the email-send step in this
+      prompt -- those are bid-doc-003's scope.
+
+      Run pnpm tsc --noEmit and fix any errors before finishing.
+      Run pnpm run build and confirm it succeeds.
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md per this
+      project's own established convention -- cite exact files changed,
+      exact gate results, and be explicit about anything not live-
+      verified due to lack of test credentials.
+    gates:
+      - type: compile
+      - type: build
+
+  - id: bid-doc-003
+    phase: implement
+    description: "Build PDF bid document generation, admin approval step, and Resend email delivery"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read BID_DOCUMENT_SCOPE.md and the actual diff bid-doc-002 produced
+      (git diff against the previous commit) before writing any code.
+
+      Build a PDF generator for the bid document, following the same
+      technical pattern already used in lib/utils/invoice-pdf.ts (same
+      PDF library/approach, do not introduce a new one) but structured to
+      match the real bid-document layout described in bid-doc-001's
+      investigation: AFS header with the company logo (use the exact
+      logo asset already present at public/afs-logo-512.png -- do not
+      generate or substitute a different logo), project/contact info
+      block, dated bid, repeating line-item groups with description/qty/
+      spec/unit price/extended price, closing disclaimers, and a free-
+      text note field.
+
+      Build the approval step: once a claimed bid has pricing entered,
+      the claiming staff member can mark it ready and generate the PDF
+      for review before sending -- do not auto-send on save.
+
+      Wire real Resend email delivery for the "send this bid to the
+      customer" action -- this project has an existing Resend client
+      (lib/resend/client.ts, lib/resend/send.ts,
+      lib/resend/templates/base.ts) already used for invoice email; reuse
+      that client and the existing base template shell rather than
+      building a second, separate email-sending path. Attach the
+      generated PDF. Log the send to the appropriate audit trail.
+
+      Follow this codebase's existing conventions exactly throughout.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: bid document PDF generation and Resend email delivery"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with the final
+      state, matching this project's established documentation depth --
+      be explicit about whether the actual PDF output and email send
+      were live-verified or only code-reviewed.
+    gates:
+      - type: compile
+      - type: build

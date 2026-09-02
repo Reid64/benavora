@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
 
 import {
+  AutoSaveIndicator,
   Button,
   Card,
   EmptyState,
@@ -14,6 +15,7 @@ import {
 import { DraftEditor } from "@/components/draft-generator/DraftEditor";
 import { ConfidenceIndicator } from "@/components/draft-generator/ConfidenceIndicator";
 import { KnowledgePreview } from "@/components/draft-generator/KnowledgePreview";
+import { useAutoSave } from "@/lib/autosave";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
@@ -70,7 +72,6 @@ export default function DraftEditorPage({
   const [confidence, setConfidence] = useState<number | null>(null);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
 
-  const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [rescoring, setRescoring] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -122,29 +123,33 @@ export default function DraftEditorPage({
     void load();
   }, [load]);
 
-  async function handleSave() {
-    if (!data) return;
-    setSaving(true);
-    setError(null);
-    setNotice(null);
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("applications")
-      .update({
-        draft_content: draftText,
-        draft_confidence_score: confidence,
-        draft_knowledge_sources: sources as unknown as Json,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", data.application.id);
+  // Persists draft_content (plus the confidence/sources it was scored
+  // against) to the application row. Shared by auto-save (debounced
+  // keystrokes + 30s timer) and the manual Save button below.
+  const saveDraft = useCallback(
+    async (draft: unknown) => {
+      if (!data) return;
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from("applications")
+        .update({
+          draft_content: draft as string,
+          draft_confidence_score: confidence,
+          draft_knowledge_sources: sources as unknown as Json,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.application.id);
 
-    setSaving(false);
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-    setNotice("Draft saved.");
-  }
+      if (updateError) throw new Error(updateError.message);
+    },
+    [data, confidence, sources],
+  );
+
+  const autosave = useAutoSave(draftText, saveDraft, {
+    interval: 30000,
+    debounce: 1500,
+    enabled: editable && Boolean(data),
+  });
 
   const handleRegenerate = useCallback(async () => {
     if (!data) return;
@@ -297,16 +302,25 @@ export default function DraftEditorPage({
             </Link>
           </p>
         </div>
-        {editable && (
-          <Button
-            variant="secondary"
-            onClick={handleRegenerate}
-            isLoading={regenerating}
-          >
-            <Sparkles className="h-4 w-4" aria-hidden />
-            Regenerate with AI
-          </Button>
-        )}
+        <div className="flex items-center gap-4">
+          {editable && (
+            <AutoSaveIndicator
+              isSaving={autosave.isSaving}
+              lastSaved={autosave.lastSaved}
+              error={autosave.error}
+            />
+          )}
+          {editable && (
+            <Button
+              variant="secondary"
+              onClick={handleRegenerate}
+              isLoading={regenerating}
+            >
+              <Sparkles className="h-4 w-4" aria-hidden />
+              Regenerate with AI
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -340,9 +354,13 @@ export default function DraftEditorPage({
           <Card>
             <DraftEditor
               value={draftText}
-              onChange={(v) => { setDraftText(v); setIsDirty(true); }}
-              onSave={editable ? handleSave : undefined}
-              saving={saving}
+              onChange={(v) => {
+                setDraftText(v);
+                setIsDirty(true);
+                autosave.handleChange(v);
+              }}
+              onSave={editable ? autosave.saveNow : undefined}
+              saving={autosave.isSaving}
               readOnly={!editable}
               label="Draft content"
               isDirty={isDirty}

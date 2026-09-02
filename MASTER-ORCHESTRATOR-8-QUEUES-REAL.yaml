@@ -1,0 +1,200 @@
+orchestration:
+  project: benavora
+  execution_model: sequential_with_gates
+  total_queues: 8
+  estimated_duration: 40-60 hours
+  start_date: "2026-09-01"
+  target_completion: "2026-09-04"
+  
+  description: |
+    Master orchestration file for complete Benavora PIL (Prospect Intelligence Layer) 
+    platform build + P0 fixes + operational hardening.
+    
+    Execution order is dependency-based:
+    1. Complete PIL agents (3 final agents: APP family)
+    2. Create PIL infrastructure (dossier schema, RLS, orchestrator)
+    3. Rewire AutoApply to consume from dossiers (not raw prospects)
+    4. Fix critical P0 bugs (SAM.gov, email cron, autosave, RLS)
+    5. Build observability (metrics, dashboards, alerting)
+    6. Deploy feature flags (gradual PIL rollout)
+    7. Implement disaster recovery (PITR, backups, circuit breaker)
+    8. Setup E2E testing (Playwright, CI/CD)
+
+queues:
+  - queue_id: 1
+    name: "PIL App Agents Completion"
+    file: "queue-pil-app-agents-REAL.yaml"
+    prompts: 3
+    duration_hours: 3
+    description: "Build final 3 PIL agents: BEN-APP-01 (orchestrator), BEN-APP-02 (prioritizer), BEN-APP-03 (submission orchestrator). Completes all 47 PIL agents."
+    dependencies: []
+    gates:
+      - compile
+      - test
+    gates_critical: true
+    on_failure: "STOP: Cannot proceed without APP family agents"
+    
+  - queue_id: 2
+    name: "PIL Dossier Infrastructure"
+    file: "queue-integration-pil-dossier-REAL.yaml"
+    prompts: 5
+    duration_hours: 4
+    description: "Create pil_prospects, pil_research_runs, pil_prospect_dossiers, pil_agent_run_events tables. Deploy discovery webhook. Build orchestrator to manage agent cascade."
+    dependencies: [1]
+    gates:
+      - migration-applied
+      - rls-enabled
+      - code-compile
+    gates_critical: true
+    on_failure: "STOP: Database schema required for all downstream systems"
+    
+  - queue_id: 3
+    name: "AutoApply Dossier Rewire"
+    file: "queue-autoapply-rewire-dossiers-REAL.yaml"
+    prompts: 5
+    duration_hours: 5
+    description: "Rewrite AutoApply to consume from pil_prospect_dossiers instead of raw prospects. Integrate amount-optimizer, pitch-personalizer. Update UI to show dossier intelligence context."
+    dependencies: [2]
+    gates:
+      - code-compile
+      - queue-table-ready
+    gates_critical: true
+    on_failure: "STOP: AutoApply pipeline depends on dossier context"
+    
+  - queue_id: 4
+    name: "P0 Critical Fixes"
+    file: "queue-p0-fixes-critical-REAL.yaml"
+    prompts: 6
+    duration_hours: 6
+    description: "Fix WGR-139/142/143 (SAM.gov integration), register email cron routes, implement keystroke + timer auto-save, add RLS to sales tables + suppression list (CAN-SPAM compliance)."
+    dependencies: [2]
+    gates:
+      - sam-gov-verify
+      - email-routes-registered
+      - code-compile
+    gates_critical: false
+    on_failure: "WARN: Proceed to next queue. P0 fixes non-blocking; can be retried later."
+    
+  - queue_id: 5
+    name: "Observability & Monitoring"
+    file: "queue-observability-monitoring-REAL.yaml"
+    prompts: 5
+    duration_hours: 4
+    description: "Add Prometheus metrics for users + agents. Setup Grafana dashboards. Create alert rules for failure detection. Implement structured JSON logging. Add OpenTelemetry tracing."
+    dependencies: [3, 4]
+    gates:
+      - metrics-export
+      - code-compile
+    gates_critical: false
+    on_failure: "WARN: Observability enhances debugging but not blocking. Retry in next phase."
+    
+  - queue_id: 6
+    name: "Feature Flags & Gradual Rollout"
+    file: "queue-feature-flags-pil-rollout-REAL.yaml"
+    prompts: 5
+    duration_hours: 3
+    description: "Integrate LaunchDarkly. Define 5 feature flags for PIL rollout (pil-enabled, pil-dossier-ui, pil-autoapply-source, etc). Implement 7-week rollout schedule: 10% → 25% → 50% → 100%."
+    dependencies: [3, 5]
+    gates:
+      - ld-integration
+      - code-compile
+    gates_critical: false
+    on_failure: "WARN: Can proceed without feature flags; manual environment config fallback."
+    
+  - queue_id: 7
+    name: "Disaster Recovery"
+    file: "queue-disaster-recovery-REAL.yaml"
+    prompts: 5
+    duration_hours: 3
+    description: "Enable Supabase PITR (7-day recovery). Setup S3 backup automation (daily full backups). Implement circuit breaker pattern. Create incident response runbook. Deploy health check endpoint."
+    dependencies: [2]
+    gates:
+      - pitr-enabled
+      - s3-backups
+      - health-endpoint
+    gates_critical: false
+    on_failure: "WARN: Disaster recovery recommended but not blocking. Setup in next maintenance window."
+    
+  - queue_id: 8
+    name: "E2E Testing & CI/CD"
+    file: "queue-ci-playwright-e2e-REAL.yaml"
+    prompts: 5
+    duration_hours: 5
+    description: "Setup Playwright for end-to-end testing. Write critical user flow tests. Build GitHub Actions CI pipeline. Create local test runner script."
+    dependencies: [3, 4]
+    gates:
+      - playwright-install
+      - tests-run
+    gates_critical: false
+    on_failure: "WARN: E2E tests improve confidence but not blocking. Can be added in next sprint."
+
+execution_strategy: |
+  **PHASE 1: CORE (Queues 1-3, ~12 hours)**
+  Complete PIL agents → Dossier infrastructure → AutoApply rewire
+  MUST complete in order. Each must gate-pass before next starts.
+  If any queue fails: stop immediately, escalate to Reid.
+  
+  **PHASE 2: STABILIZATION (Queues 4-5, ~10 hours)**
+  Run P0 fixes in parallel with observability. Both can start after Queue 3.
+  If P0 fixes fail: continue, retry later. Observability runs regardless.
+  
+  **PHASE 3: HARDENING (Queues 6-8, ~11 hours)**
+  Run feature flags, disaster recovery, E2E testing in parallel.
+  All depend on Core phase. Can start once Core is complete.
+  Failures are non-blocking; can be retried in next iteration.
+
+deployment_checklist:
+  after_completion:
+    - "Verify all 47 PIL agents pass unit tests"
+    - "Verify pil_prospect_dossiers table has sample enriched data"
+    - "Verify AutoApply queue shows dossier-enriched submissions"
+    - "Run manual smoke test: create org → discovery import → PIL research → AutoApply queue"
+    - "Verify metrics export from /api/metrics"
+    - "Verify LaunchDarkly feature flags are created and working"
+    - "Verify PITR restore works (test on staging)"
+    - "Verify Playwright E2E tests all pass"
+    - "Run `npx vercel deploy --prod` to deploy all changes"
+    - "Monitor logs for 24 hours: check error rates, latency, agent success rates"
+    - "Verify no data loss from RLS changes"
+
+rollback_plan:
+  if_core_fails: |
+    If any Core phase queue (1-3) fails:
+    1. Document error
+    2. Fix in-place (do not revert)
+    3. Re-run failed queue
+    4. Only revert to previous deployment if cannot fix within 1 hour
+  
+  if_observability_fails: |
+    Non-blocking. Observability can be retried later without blocking rollout.
+  
+  if_disaster_recovery_fails: |
+    Non-blocking. Keep existing backups; retry DR setup in next maintenance window.
+
+monitoring_post_deployment:
+  success_metrics:
+    - "All 47 PIL agents executing successfully"
+    - "Average dossier completion time: < 2 minutes per prospect"
+    - "AutoApply submission success rate: > 75%"
+    - "API latency p95: < 2 seconds"
+    - "Error rate: < 0.5%"
+    - "PIL feature flag rollout on schedule (10% at end of week 1)"
+  
+  failure_thresholds:
+    - "If error_rate > 5%: immediate rollback"
+    - "If api_latency_p95 > 5s: immediate rollback"
+    - "If dossier_completion < 50%: stop queue population, investigate"
+    - "If SAM.gov integration > 1% error: disable, revert to old parser"
+
+estimated_post_deployment:
+  - 48 hours: Full feature flag rollout to 10% (beta customers)
+  - 1 week: Expand to 25% (early adopters)
+  - 2 weeks: Expand to 50% (general availability)
+  - 3 weeks: 100% rollout, retire old prospect system
+
+notes:
+  - This orchestrator supersedes all previous queue files (old thin files discarded)
+  - Execution: Copy each queue file to FORGE projects folder, run forge.ps1
+  - Total effort: 40-60 hours FORGE execution + 8-10 hours manual testing/verification
+  - No manual code edits needed if prompts are read carefully
+  - All governance docs updated after completion for next session

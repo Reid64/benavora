@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { listAgents } from "@/lib/pil/agent-registry-service";
 import { getPilClient } from "@/lib/pil/db";
 import type { AgentRunStatus } from "@/lib/pil/types";
@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 const IN_FLIGHT_STATUSES: AgentRunStatus[] = ["planning", "running", "observing", "replanning"];
 
 export async function GET() {
-  const gate = await requireRole("viewer");
+  const gate = await requirePilRole("viewer");
   if ("error" in gate) return gate.error;
   const { organizationId } = gate;
 

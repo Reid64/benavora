@@ -1,0 +1,890 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-01: ARCHITECTURE DOCUMENT GENERATION
+#
+# Produces the documentary subset of EAPIL Section 21's 45
+# deliverables. These documents are the CONTRACT the entire
+# implementation (pi-10 onward) is built against, and the pack
+# Reid approves at the pi-02 hard gate.
+#
+# SOURCE AUTHORITY ORDER for every prompt in this queue:
+#   1. docs/EAPIL_DIRECTIVE.md        (the governing directive)
+#   2. DECISION_LOG.md                (8 binding decisions + D-009)
+#   3. docs/EAPIL_DISSECTION_MEMO.md  (approved strategy)
+# Where these conflict, higher authority wins and the conflict is
+# recorded in ARCHITECTURE_OPEN_QUESTIONS.md rather than silently
+# resolved.
+#
+# WRITING STANDARD: implementation-ready, not conceptual. Every
+# schema gets column-level DDL-style definitions. Every contract
+# gets machine-checkable fields. A developer (or FORGE queue) must
+# be able to build from these documents without re-deriving intent.
+# ASCII only. All docs live in docs/architecture/.
+# ============================================================
+
+prompts:
+
+  - id: pi01-001
+    phase: build
+    description: "Preflight: source docs verified readable, architecture index and open-questions ledger created"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read in full, confirming each exists and is non-empty:
+         docs/EAPIL_DIRECTIVE.md, DECISION_LOG.md,
+         docs/EAPIL_DISSECTION_MEMO.md, STANDING_DIRECTIVES.md.
+         If EAPIL_DIRECTIVE.md is a placeholder (pi00-009 flagged case),
+         HALT: write docs/architecture/DIRECTIVE-MISSING.md and exit the
+         verify script with 1 - the directive is the root authority and
+         nothing may be generated without it.
+
+      2. Create docs\architecture\ARCHITECTURE_INDEX.md: the full inventory
+         of documents this queue will produce (list every file named in
+         prompts 002-017 below), each with: owner queue prompt id, its EAPIL
+         Section 21 deliverable numbers, and its downstream consumer queues
+         (pi-10..pi-70 per the library manifest). Include the authority-order
+         rule verbatim from this queue's header.
+
+      3. Create docs\architecture\ARCHITECTURE_OPEN_QUESTIONS.md: empty
+         ledger with columns ID | Raised by | Question | Options |
+         Recommendation | Status(OPEN/ANSWERED). Every prompt in this queue
+         appends here instead of guessing whenever the directive is silent
+         or ambiguous on a real design point. This ledger is a primary input
+         to the pi-02 review pack.
+
+      4. Create scripts\verify\verify-pi01-001.mjs: exits 0 only if the
+         directive file exists, is over 2000 lines or 80KB (a placeholder
+         fails), and both new architecture files exist with required
+         headings.
+
+      5. Run: node scripts/verify/verify-pi01-001.mjs
+    expected_outputs:
+      - docs/architecture/ARCHITECTURE_INDEX.md
+      - docs/architecture/ARCHITECTURE_OPEN_QUESTIONS.md
+      - scripts/verify/verify-pi01-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi01-002
+    phase: build
+    description: "BLUEPRINT.md - system architecture"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the source authorities per the queue header before writing.
+
+      Write docs\architecture\BLUEPRINT.md covering, at implementation depth:
+
+      1. System overview: the operating model loop (DISCOVER through REPLAN,
+         verbatim from the directive) mapped onto concrete components.
+      2. Package architecture: the nine workspace members from pi-00, each
+         with its responsibility, its public surface, and its allowed
+         dependencies (mirror the enforced graph from pi00-003; state the
+         adapters/benavora contracts-only rule as load-bearing).
+      3. Runtime topology: Railway worker pool (durable executors), Vercel
+         (console + API edge), Supabase (single Postgres for relational,
+         graph, vector, workflow state, ledgers), and the reasoning for
+         one-database-many-schemas per D-003/D-004.
+      4. The kernel-and-contracts pattern: one agent runtime, 44 behavioral
+         contracts as data; why this satisfies the directive's normative
+         agent definition; the exact loop stages the kernel implements and
+         which are durable checkpoints.
+      5. Data flow narratives for three end-to-end scenarios, each traced
+         component by component with the tables touched: (a) NL objective to
+         qualified prospect with warm path; (b) the septic-installer style
+         universal target-profile run; (c) a monitoring trigger (foundation
+         filing) reopening a prospect.
+      6. Tenancy model: org_id + RLS everywhere, tenant 1 = Faith Foundation,
+         cross-tenant data strictly prohibited except explicitly-designed
+         anonymized learning aggregates (mark as Phase 6+ decision, log an
+         open question).
+      7. Failure domains and blast-radius table: what breaks when Postgres,
+         the worker pool, the model gateway, or a connector is down, and the
+         designed degradation for each.
+
+      Create scripts\verify\verify-pi01-002.mjs: exits 0 only if BLUEPRINT.md
+      exists, exceeds 400 lines, and contains all seven numbered section
+      headings plus the three scenario traces.
+      Run: node scripts/verify/verify-pi01-002.mjs
+    expected_outputs:
+      - docs/architecture/BLUEPRINT.md
+      - scripts/verify/verify-pi01-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-003
+    phase: build
+    description: "SCHEMA_REGISTRY part 1: tenancy, identity, RBAC, structural entity archetypes, target profiles"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\SCHEMA_REGISTRY.md (part 1 of 4; later prompts
+      append). Standard for every table in this registry: full column list
+      with types, nullability, defaults, PK/FK/unique constraints, indexes
+      with their justifying query, RLS policy description, and a one-line
+      purpose. DDL-style blocks, ready to become migrations in pi-10.
+
+      Sections this prompt writes:
+
+      1. Conventions: schema pi for everything; uuid PKs via gen_random_uuid;
+         created_at/updated_at on every table; org_id NOT NULL + RLS on every
+         tenant-scoped table; soft-delete policy (state it: deleted_at, no
+         hard deletes on evidence-bearing tables ever).
+      2. Tenancy + identity: organizations, users, memberships (role enum:
+         owner/admin/analyst/viewer), api_keys (hashed), tenant_settings.
+      3. RBAC/ABAC: role_permissions, data_class_grants (the mechanism by
+         which policy allows/prohibits data classes per tenant per agent -
+         this table is what the policy engine reads).
+      4. STRUCTURAL ENTITY ARCHETYPES per D-008 - exactly five entity
+         tables sharing a common core (entity_id, org_id... plus canonical
+         name, resolution_status, twin_state jsonb, research_gap summary):
+         entities_person (employment-history-bearing fields),
+         entities_organization (NAICS/type/size/geography fields),
+         entities_foundation (assets, filing linkage, giving-program fields),
+         entities_government (jurisdiction/program fields),
+         entities_program_opportunity (funding program/opportunity fields).
+         Plus entity_external_ids (source system, external id, confidence)
+         for cross-source identity anchoring.
+      5. TARGET PROFILES per D-008: target_profiles (org-scoped, name,
+         description, archetype, taxonomy_codes text[], geography jsonb
+         with radius support, size_filters jsonb, required_evidence jsonb,
+         affinity_criteria jsonb, engaged_agent_families text[],
+         schedule jsonb for continuous monitoring, created_by, version);
+         target_profile_runs linking profiles to goals. State explicitly:
+         a new prospect type is a new row here, never new code.
+      6. Cause/geo taxonomies: taxonomy_nodes (kind: naics/cause/civic,
+         code, label, parent_id) - shared, not org-scoped; seeded in pi-10.
+
+      Create scripts\verify\verify-pi01-003.mjs: exits 0 only if the file
+      exists containing all five entity archetype tables, target_profiles
+      with the schedule column, and RLS notation on every org-scoped table
+      in this part (scan for tables lacking an RLS line).
+      Run: node scripts/verify/verify-pi01-003.mjs
+    expected_outputs:
+      - docs/architecture/SCHEMA_REGISTRY.md
+      - scripts/verify/verify-pi01-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-004
+    phase: build
+    description: "SCHEMA_REGISTRY part 2: goals, delegation, runs, durable workflow tables"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Append to docs\architecture\SCHEMA_REGISTRY.md (same standard):
+
+      1. goals: the 22-state lifecycle enum verbatim from the directive
+         (PROPOSED..REOPENED), org_id, objective text, structured_plan jsonb
+         (the NL-compiler output shape, cross-referenced to API_CONTRACTS),
+         owner_agent, budgets (token/tool/financial as separate numeric
+         columns plus consumed counterparts), confidence_threshold,
+         freshness_requirement, parent_goal_id, state transition audit via
+         goal_transitions (goal_id, from_state, to_state, actor, reason,
+         at) - every transition writes a row, no exceptions.
+      2. delegated_tasks: ALL sixteen DelegatedTask fields from the
+         directive verbatim (task_id..max_autonomy) as columns with types,
+         plus state, claimed_by, lease_expires_at, heartbeat_at, attempt,
+         max_attempts, result jsonb, error jsonb. Constraint notes encoding
+         the delegation rules: child authority never exceeds parent
+         (enforced in kernel + CHECK where expressible), bounded depth
+         (depth column + CHECK), cancellation cascade semantics.
+      3. agent_runs: one row per kernel loop execution - agent_id, goal_id,
+         task_id, loop_iterations, tools_invoked jsonb, tokens_in/out,
+         cost_usd, evidence_claim_ids uuid[], outcome enum, started/ended.
+      4. Durable workflow infrastructure per D-004: outbox (aggregate_id,
+         event_type, payload, published_at nullable), events (append-only
+         bus with consumer offsets table), dead_letters (source table, ref,
+         error, attempts, parked_at, resolution), idempotency_keys (key,
+         scope, first_seen, result_hash), compensations (task_id, action,
+         state).
+      5. Lease/claiming semantics documented as a protocol: claim query
+         (FOR UPDATE SKIP LOCKED), heartbeat cadence, expiry reclaim,
+         effectively-once guarantees and their limits - written precisely
+         enough that pi-12 implements without interpretation.
+
+      Create scripts\verify\verify-pi01-004.mjs: exits 0 only if the file
+      now contains the 22 goal states, all 16 DelegatedTask field names,
+      and the five workflow tables.
+      Run: node scripts/verify/verify-pi01-004.mjs
+    expected_outputs:
+      - docs/architecture/SCHEMA_REGISTRY.md
+      - scripts/verify/verify-pi01-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-005
+    phase: build
+    description: "SCHEMA_REGISTRY part 3: evidence/provenance, audit, cost, snapshots"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Append to docs\architecture\SCHEMA_REGISTRY.md:
+
+      1. claims: ALL 21 evidence fields from the directive verbatim
+         (claim_id..lineage) with types; verification_status enum with the 8
+         statuses verbatim (VERIFIED_FACT..STALE); inference_status;
+         contradiction linkage (contradicts_claim_id, superseded_by_claim_id);
+         entity_id FK polymorphic pattern documented (archetype + id).
+         Append-only: corrections are new claims superseding old ones,
+         never UPDATEs to claim content - state this as a hard invariant
+         with the audit reasoning.
+      2. sources: registry of source instances (source_type, publisher,
+         url pattern, tier, permissibility_class FK to policy tables,
+         reliability_score maintained by BEN-OPS-01).
+      3. source_snapshots: content-addressed capture (sha256, storage ref,
+         retrieved_at, http metadata) so every claim's evidence_excerpt is
+         reconstructable against the exact bytes retrieved.
+      4. audit_log: append-only, every consequential system action (actor:
+         agent or human, action, object refs, before/after refs where
+         applicable, at); partitioning note for scale.
+      5. cost_ledger per D-005: every model call and metered tool call -
+         agent_id, tenant org_id, goal_id, task_id, provider, model, class
+         (haiku/sonnet/frontier), tokens_in/out, unit_cost, cost_usd,
+         at; materialized rollup views per tenant/day and per agent/day
+         (the BEN-OPS-01 and budget-enforcement read paths).
+
+      Create scripts\verify\verify-pi01-005.mjs: exits 0 only if the file
+      now contains all 21 claim field names, all 8 verification statuses,
+      the append-only invariant statement, and the cost_ledger with class
+      column.
+      Run: node scripts/verify/verify-pi01-005.mjs
+    expected_outputs:
+      - docs/architecture/SCHEMA_REGISTRY.md
+      - scripts/verify/verify-pi01-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-006
+    phase: build
+    description: "SCHEMA_REGISTRY part 4: knowledge graph, vector retrieval, consolidated cross-check"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Append to docs\architecture\SCHEMA_REGISTRY.md:
+
+      1. graph_nodes: node_id, org_id, archetype + entity ref, labels,
+         properties jsonb; graph_edges: edge_id, org_id, from/to node,
+         edge_type (typed enum seed list: OWNS, EMPLOYED_BY, BOARD_MEMBER_OF,
+         TRUSTEE_OF, DONATED_TO, GRANTED_TO, FOUNDED, ALUMNI_OF, MEMBER_OF,
+         LOCATED_IN, CONNECTED_TO - extensible via taxonomy, log the
+         governance of adding edge types as an open question if unclear),
+         strength, confidence, valid_from, valid_to, superseded_by_edge_id,
+         supporting_claim_ids uuid[] NOT NULL (the no-unevidenced-edges
+         invariant: an edge without claims cannot exist - CHECK cardinality),
+         contradiction_status.
+      2. Multi-hop query layer spec per D-003: the recursive CTE pattern with
+         hop limit, org_id isolation inside the recursion (state why it must
+         be inside), cycle prevention, strength/confidence aggregation along
+         paths, and the pathfinding result shape (hops, per-hop evidence,
+         composite confidence, friction estimate) consumed by BEN-REL-05.
+      3. Vector layer: embeddings table (object_type, object_id, model,
+         dims, embedding vector, content_hash) with pgvector index notes;
+         which objects get embedded at launch (claims evidence_excerpts,
+         entity twin summaries, target profile descriptions) and the
+         re-embedding trigger policy.
+      4. CONSOLIDATED CROSS-CHECK section closing the registry: full table
+         inventory with counts by area; every FK verified to reference a
+         defined table (list any dangling refs found and fix them in place);
+         every enum defined exactly once; a Mermaid ERD of the core
+         relationships; total table count stated.
+
+      Create scripts\verify\verify-pi01-006.mjs: exits 0 only if the file
+      contains graph_edges with supporting_claim_ids, the recursive CTE
+      section, the cross-check inventory with a stated total table count,
+      and zero occurrences of the string TODO or TBD in the whole registry.
+      Run: node scripts/verify/verify-pi01-006.mjs
+    expected_outputs:
+      - docs/architecture/SCHEMA_REGISTRY.md
+      - scripts/verify/verify-pi01-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-007
+    phase: build
+    description: "AGENT_CONTRACT_SPEC.md - the behavioral contract schema and kernel interface"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\AGENT_CONTRACT_SPEC.md:
+
+      1. The BehavioralContract type, field by field, covering EVERY item the
+         directive's Section 2 requires (unique id, name, family, mission,
+         objective type, inputs, outputs, permitted tools, permitted data
+         sources, restricted data classes, planning behavior, observation
+         behavior, replanning behavior, delegation permissions, default
+         autonomy, human boundary, evidence requirements, confidence
+         requirements, success criteria, failure criteria, escalation
+         conditions, memory scope, cost/tool budget, execution cadence,
+         evaluation suite ref) - each field with its TypeScript type, its
+         zod refinement rules, and which kernel loop stage consumes it.
+      2. The kernel-contract interface: exactly which contract fields the
+         kernel reads at each loop stage (goal intake, observe, plan, tool
+         select, execute, collect evidence, evaluate, replan, escalate/stop),
+         and the invariant that a contract can never grant what policy
+         denies (policy engine is the ceiling; contract is a further
+         restriction only).
+      3. Autonomy encoding: A0-A4 + H1/H2 as contract fields with the
+         enforcement point for each (which component refuses what, where);
+         the never-self-escalate rule as a kernel invariant with its audit
+         trail.
+      4. Prompt architecture per contract: system prompt template structure,
+         versioning (prompts are versioned artifacts in the repo, referenced
+         by hash in agent_runs), and the variable-injection contract.
+      5. Contract file format and location: packages/contracts/src/agents/
+         <family>/<id>.ts, one file per agent, exporting a typed constant;
+         registry index asserting uniqueness of ids at build time.
+      6. A COMPLETE WORKED EXAMPLE: BEN-DIS-03 Foundation Discovery Agent
+         written in full against this spec (every field populated with real
+         values derived from the directive's registry entry) - this example
+         is the template prompts 008-013 replicate 43 more times.
+
+      Create scripts\verify\verify-pi01-007.mjs: exits 0 only if the file
+      contains all 24 contract field definitions, the worked BEN-DIS-03
+      example, and the policy-ceiling invariant statement.
+      Run: node scripts/verify/verify-pi01-007.mjs
+    expected_outputs:
+      - docs/architecture/AGENT_CONTRACT_SPEC.md
+      - scripts/verify/verify-pi01-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-008
+    phase: build
+    description: "Behavioral contracts: Family 1 SUPERVISORY - BEN-SUP-01 through BEN-SUP-06"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\contracts\FAMILY-1-SUPERVISORY.md containing
+      the complete behavioral contracts for BEN-SUP-01 (Chief Prospect
+      Intelligence Orchestrator), BEN-SUP-02 (Research Strategy Architect),
+      BEN-SUP-03 (Cross-Agent Research Planner), BEN-SUP-04 (Research
+      Portfolio Allocator), BEN-SUP-05 (Prospect Research Critic and
+      Red-Team), BEN-SUP-06 (Research Recovery Investigator).
+
+      Rules for this and every contract prompt:
+      - Every contract populates ALL 24 fields from AGENT_CONTRACT_SPEC.md,
+        at the depth of the BEN-DIS-03 worked example - no field skipped,
+        no "see directive" shortcuts.
+      - Missions, responsibilities, autonomy defaults, human boundaries, and
+        cadences come from the directive's registry entries verbatim where
+        given; where the directive gives responsibilities but the spec needs
+        structure (inputs/outputs/tools/evidence requirements), derive them
+        faithfully and mark derived fields with [DERIVED].
+      - Model class per D-005: SUP-01/02/03/05 frontier; SUP-04/06 sonnet
+        unless a reasoned exception is recorded.
+      - SUP-05 additionally gets its blocking-review protocol: the exact
+        conditions that route a conclusion to the critic (consequential
+        classes enumerated), the six verdicts verbatim (PASS..BLOCK_POLICY),
+        separate-context guarantee (no shared memory scope with the
+        producing agent), and the cannot-certify-own-work invariant.
+      - SUP-04 additionally gets the marginal-value model: the inputs to its
+        allocation reasoning (research state, evidence sufficiency, cost
+        ledger, profile priorities) and its authority limits.
+      - Each contract ends with an evaluation-suite sketch: 3-5 named golden
+        cases with pass criteria (full suites are pi-60 work; the sketch
+        binds intent now).
+
+      Create scripts\verify\verify-pi01-008.mjs: exits 0 only if the file
+      contains six contracts each containing all 24 field headings, the six
+      SUP-05 verdicts, and at least three evaluation cases per contract.
+      Run: node scripts/verify/verify-pi01-008.mjs
+    expected_outputs:
+      - docs/architecture/contracts/FAMILY-1-SUPERVISORY.md
+      - scripts/verify/verify-pi01-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-009
+    phase: build
+    description: "Behavioral contracts: Family 2 DISCOVERY - BEN-DIS-01 through BEN-DIS-08"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\contracts\FAMILY-2-DISCOVERY.md: complete
+      contracts for BEN-DIS-01 (Individual Prospect Discovery), BEN-DIS-02
+      (Major Donor Discovery), BEN-DIS-03 (Foundation Discovery - lift the
+      worked example from AGENT_CONTRACT_SPEC.md as the canonical copy and
+      note the spec example now references here), BEN-DIS-04 (Corporate
+      Giving Discovery), BEN-DIS-05 (Executive Prospect Discovery),
+      BEN-DIS-06 (Geographic Funding Discovery), BEN-DIS-07 (Cause-Aligned
+      Prospect Discovery), BEN-DIS-08 (Hidden Prospect and CRM Rediscovery).
+
+      Same rules as pi01-008, plus family-specific requirements:
+      - Every discovery contract's inputs include target_profiles (D-008
+        universal model): the contract must state how it interprets a
+        profile's archetype, taxonomy codes, geography, and filters - the
+        septic-installer class of run flows through DIS-06/DIS-04 via
+        profiles, and the contracts must make that concrete.
+      - BEN-DIS-02 carries the directive's rule verbatim: wealth alone does
+        not establish donor propensity.
+      - BEN-DIS-08's human boundary verbatim: no automatic solicitation
+        escalation.
+      - Outputs are ranked candidates with preliminary evidence refs
+        (claim_ids) and research justification - never bare name lists.
+      - Model class: sonnet for all eight; extraction sub-steps route haiku
+        via the model gateway (state this in permitted tools).
+
+      Create scripts\verify\verify-pi01-009.mjs: exits 0 only if the file
+      contains eight contracts with all 24 fields each, the DIS-02 propensity
+      rule, and target_profiles named in every contract's inputs.
+      Run: node scripts/verify/verify-pi01-009.mjs
+    expected_outputs:
+      - docs/architecture/contracts/FAMILY-2-DISCOVERY.md
+      - scripts/verify/verify-pi01-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-010
+    phase: build
+    description: "Behavioral contracts: Family 3 CORE INTELLIGENCE - BEN-INT-01 through BEN-INT-10"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\contracts\FAMILY-3-INTELLIGENCE.md: complete
+      contracts for BEN-INT-01 (Individual Intelligence), BEN-INT-02
+      (Employment and Career), BEN-INT-03 (Business Ownership), BEN-INT-04
+      (Education and Alumni), BEN-INT-05 (Nonprofit Board), BEN-INT-06
+      (Foundation Intelligence), BEN-INT-07 (Giving History), BEN-INT-08
+      (Wealth and Capacity), BEN-INT-09 (Wealth Origin and Liquidity Event),
+      BEN-INT-10 (Contact Intelligence).
+
+      Same rules as pi01-008, plus:
+      - BEN-INT-05's evidence preference order verbatim from the directive
+        (nonprofit website, Form 990, official biography, authoritative
+        filing) encoded in its evidence requirements.
+      - BEN-INT-07's critical distinction verbatim: documented giving stays
+        separate from estimated giving - reflected in its output schema.
+      - BEN-INT-08: required outputs verbatim (evidence, confidence,
+        estimated capacity range, major uncertainties, the four-way
+        wealth/liquidity/capacity/propensity distinction); public-evidence
+        launch mode per D-006 stated in permitted data sources (licensed
+        adapters listed as interface-only, unavailable at launch); human
+        boundary verbatim on sensitive/high-impact capacity determinations.
+      - BEN-INT-09's three output labels verbatim (VERIFIED/INFERRED/
+        UNKNOWN).
+      - BEN-INT-10's restrictions verbatim (no prohibited data brokerage,
+        no inappropriate private contact harvesting, source permissions
+        observed) cross-referenced to PRIVACY_CONTROLS.md sections.
+
+      Create scripts\verify\verify-pi01-010.mjs: exits 0 only if the file
+      contains ten contracts with all 24 fields, the INT-08 four-way
+      distinction, and the INT-09 three labels.
+      Run: node scripts/verify/verify-pi01-010.mjs
+    expected_outputs:
+      - docs/architecture/contracts/FAMILY-3-INTELLIGENCE.md
+      - scripts/verify/verify-pi01-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-011
+    phase: build
+    description: "Behavioral contracts: Family 4 RELATIONSHIP - BEN-REL-01 through BEN-REL-06"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\contracts\FAMILY-4-RELATIONSHIP.md: complete
+      contracts for BEN-REL-01 (Relationship Discovery), BEN-REL-02 (Board
+      Relationship Mapping), BEN-REL-03 (Corporate Relationship Mapping),
+      BEN-REL-04 (Organizational Overlap), BEN-REL-05 (Warm Introduction
+      Pathfinding), BEN-REL-06 (Relationship Strength).
+
+      Same rules as pi01-008, plus:
+      - All six operate on the graph layer: permitted tools name the
+        multi-hop query interface from SCHEMA_REGISTRY part 4, and outputs
+        write edges only through the evidence path (supporting_claim_ids
+        mandatory).
+      - BEN-REL-05's path output fields verbatim from the directive (hop
+        count, relationship evidence, confidence, relationship strength,
+        freshness, recommended introducer, friction estimate, alternative
+        paths).
+      - BEN-REL-06's five-level output scale verbatim (VERY_STRONG..
+        SPECULATIVE) with the factor list from the directive encoded as its
+        evaluation inputs.
+
+      Create scripts\verify\verify-pi01-011.mjs: exits 0 only if the file
+      contains six contracts with all 24 fields, the REL-05 eight path
+      fields, and the REL-06 five-level scale.
+      Run: node scripts/verify/verify-pi01-011.mjs
+    expected_outputs:
+      - docs/architecture/contracts/FAMILY-4-RELATIONSHIP.md
+      - scripts/verify/verify-pi01-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-012
+    phase: build
+    description: "Behavioral contracts: Family 5 QUALIFICATION + Family 6 STRATEGY - BEN-QLF-01..05, BEN-STR-01..04"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\contracts\FAMILY-5-6-QUALIFICATION-STRATEGY.md:
+      complete contracts for BEN-QLF-01 (Mission Affinity), BEN-QLF-02
+      (Funding Eligibility), BEN-QLF-03 (Philanthropic Capacity and
+      Propensity), BEN-QLF-04 (Opportunity Qualification), BEN-QLF-05
+      (Timing and Readiness), BEN-STR-01 (Prospect Engagement Strategy),
+      BEN-STR-02 (Best First Ask), BEN-STR-03 (Cultivation Strategy),
+      BEN-STR-04 (Next-Best-Action).
+
+      Same rules as pi01-008, plus:
+      - BEN-QLF-01 must-produce list verbatim (score, evidence, explanation,
+        confidence, contradictions).
+      - BEN-QLF-04's seven classifications verbatim (TIER_1_PRIORITY..
+        DISQUALIFIED); autonomy A3 per the directive; its aggregation
+        inputs enumerate the specialist output types it consumes.
+      - BEN-STR-02's output shape verbatim from the directive example
+        (recommended range, confidence, rationale bullets) and its human
+        boundary verbatim: final solicitation decision.
+      - BEN-STR-04's output action set verbatim (research deeper..
+        reprioritize) and its role closing the loop to operations; A3.
+      - Consequential-conclusion routing: QLF-03, QLF-04, STR-02 outputs
+        are enumerated as critic-reviewable classes cross-referenced to
+        SUP-05's protocol.
+
+      Create scripts\verify\verify-pi01-012.mjs: exits 0 only if the file
+      contains nine contracts with all 24 fields, the seven QLF-04
+      classifications, and the STR-04 action set.
+      Run: node scripts/verify/verify-pi01-012.mjs
+    expected_outputs:
+      - docs/architecture/contracts/FAMILY-5-6-QUALIFICATION-STRATEGY.md
+      - scripts/verify/verify-pi01-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-013
+    phase: build
+    description: "Behavioral contracts: Family 7 KNOWLEDGE INTEGRITY + BEN-OPS-01"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\contracts\FAMILY-7-KNOWLEDGE-OPS.md: complete
+      contracts for BEN-KNW-01 (Prospect Digital Twin), BEN-KNW-02 (Entity
+      Resolution), BEN-KNW-03 (Evidence and Provenance Verification),
+      BEN-KNW-04 (Contradiction and Freshness Investigator), and BEN-OPS-01
+      (Agent Fleet Performance and Learning).
+
+      Same rules as pi01-008, plus:
+      - BEN-KNW-02: four verdicts verbatim (MATCH/PROBABLE_MATCH/UNRESOLVED/
+        NOT_MATCH); frontier model at high stakes per D-005; human boundary
+        verbatim on sensitive/high-impact identity linkage; its relationship
+        to the deterministic entity-resolution support engine (engine
+        blocks/scores candidates, agent reasons the hard cases) made
+        explicit.
+      - BEN-KNW-04: the temporal-truth example pattern from the directive
+        encoded as evaluation cases; supersession authority defined (it may
+        mark claims/edges superseded, never delete).
+      - BEN-OPS-01: inputs and outputs verbatim from the directive; the
+        may-recommend-but-never list verbatim (autonomy increases, security
+        policy, privacy policy, canonical facts, safety controls, production
+        governance) encoded as prohibited actions the policy engine
+        enforces, not just contract text; A1/A2.
+      - Close the file with a fleet roll-up table: all 44 ids, family,
+        model class, default autonomy, human boundary one-liner - the
+        single-page registry view for the pi-02 review pack.
+
+      Create scripts\verify\verify-pi01-013.mjs: exits 0 only if the file
+      contains five contracts with all 24 fields, the OPS-01 prohibition
+      list, and a roll-up table with exactly 44 data rows.
+      Run: node scripts/verify/verify-pi01-013.mjs
+    expected_outputs:
+      - docs/architecture/contracts/FAMILY-7-KNOWLEDGE-OPS.md
+      - scripts/verify/verify-pi01-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-014
+    phase: build
+    description: "SERVICE_REGISTRY.md + TOOL_CONTRACTS.md - the deterministic layer"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\SERVICE_REGISTRY.md: every deterministic
+         service from the directive's Section 13 list and final fleet
+         support list, consolidated and de-duplicated into a single
+         registry. For each service: id, package home (which workspace
+         member), responsibility, public interface sketch (TypeScript
+         signatures), backing tables (cross-ref SCHEMA_REGISTRY), failure
+         modes, and the directive rule it exists to satisfy. Mark clearly
+         which services are Phase 1 (pi-10..13) vs later, matching the
+         library manifest. Include at minimum: policy enforcement, consent/
+         permissibility, durable workflow engine, outbox/event bus,
+         connector gateway, crawler, browser automation broker, document
+         retrieval/parsing, Form 990 parser, SEC/EDGAR adapter, search
+         adapter, CRM connectors, contact normalization, entity-resolution
+         support engine, dedup engine, graph store service, evidence
+         ledger service, audit ledger service, snapshot service, rate
+         limiter, cost ledger service, model gateway, notification service,
+         feature flags, kill switches, observability, evaluation
+         infrastructure. State the anti-pattern rule verbatim: none of
+         these are agents and none may be counted as agents.
+
+      2. Write docs\architecture\TOOL_CONTRACTS.md: the typed tool interface
+         the kernel exposes to agents - tool id, input schema (zod),
+         output schema, data classes produced, permissibility requirements,
+         cost metering hooks, rate-limit key, idempotency behavior, error
+         taxonomy. Then the launch tool catalog mapping services to tools
+         (which agents may use which tools comes from contracts; this doc
+         defines the tools themselves). Every connector from D-006's launch
+         set appears as at least one tool.
+
+      Create scripts\verify\verify-pi01-014.mjs: exits 0 only if both files
+      exist, SERVICE_REGISTRY contains at least 24 service entries and the
+      anti-pattern rule, and TOOL_CONTRACTS defines the tool interface
+      fields and at least 12 launch tools.
+      Run: node scripts/verify/verify-pi01-014.mjs
+    expected_outputs:
+      - docs/architecture/SERVICE_REGISTRY.md
+      - docs/architecture/TOOL_CONTRACTS.md
+      - scripts/verify/verify-pi01-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-014.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-015
+    phase: build
+    description: "EVENT_TAXONOMY.md + API_CONTRACTS.md"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\EVENT_TAXONOMY.md: the complete event
+         catalog for the outbox/bus - naming convention (domain.object.verb),
+         payload schema per event, producers, consumers, and ordering/
+         idempotency notes. Cover at minimum: goal lifecycle transitions
+         (all 22 states), task delegation/claim/heartbeat/complete/fail/
+         dead-letter, claim written/superseded/contradicted, entity
+         created/resolved/merged, edge written/superseded, critic verdicts,
+         monitoring triggers (the directive Section 15 list: company sale,
+         acquisition, IPO, executive appointment, retirement, foundation
+         appointment, board appointment, new nonprofit affiliation, major
+         public gift, new foundation filing, giving program launch,
+         geographic expansion, significant business event, philanthropic
+         announcement), budget threshold crossings, kill-switch activations.
+
+      2. Write docs\architecture\API_CONTRACTS.md: the tenant-scoped API
+         surface for apps/api - resource-oriented endpoints with request/
+         response schemas for: goals (create from NL objective or structured
+         plan, list, state, cancel), target profiles CRUD, prospects/dossiers
+         (read with claims+confidence+freshness), graph queries (paths,
+         neighbors), evidence inspection (claim by id with snapshot ref),
+         opportunities and rankings, research queue, agent activity/audit,
+         operator controls (budgets, autonomy, kill switches - owner/admin
+         only), webhooks for adapters (the benavora adapter consumes ONLY
+         this surface - restate the boundary). Auth model: api_keys +
+         session, org scoping on every route, role requirements per
+         endpoint. Framework choice for apps/api: make a reasoned
+         recommendation (record it in ARCHITECTURE_OPEN_QUESTIONS.md as
+         ANSWERED with the recommendation and rationale for Reid's pi-02
+         review rather than silently deciding).
+
+      Create scripts\verify\verify-pi01-015.mjs: exits 0 only if both files
+      exist, the taxonomy covers the 14 monitoring triggers, and
+      API_CONTRACTS contains the adapter-boundary restatement and per-
+      endpoint role requirements.
+      Run: node scripts/verify/verify-pi01-015.mjs
+    expected_outputs:
+      - docs/architecture/EVENT_TAXONOMY.md
+      - docs/architecture/API_CONTRACTS.md
+      - scripts/verify/verify-pi01-015.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-015.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-016
+    phase: build
+    description: "AUTONOMY_POLICY.md + PRIVACY_CONTROLS.md - Section 9 and Section 19 as enforceable specifications"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\AUTONOMY_POLICY.md: A0-A4 definitions
+         verbatim from the directive; H1/H2 modeled separately verbatim;
+         per-level permitted operation classes (concrete: which tool
+         classes, which write targets, which external effects at each
+         level); tenant policy overrides (a tenant may lower, never raise,
+         a contract's ceiling); the enforcement architecture (policy engine
+         checks at tool-select and at execute; violations blocked + audited,
+         never silently downgraded); the never-self-escalate invariant and
+         the no-self-approval rules from Section 8 verbatim; kill-switch
+         semantics (global, per-tenant, per-agent, per-connector) and their
+         precedence.
+
+      2. Write docs\architecture\PRIVACY_CONTROLS.md: every Section 19 item
+         as an enforceable control with its enforcement point - sensitive
+         personal data classes enumerated (the data_class system from
+         SCHEMA_REGISTRY part 1), data minimization rules, source
+         permissibility classes and the consent ledger, ToS/robots
+         handling policy (state the policy the crawler enforces and log an
+         open question for any judgment Reid should ratify), licensed-data
+         limitation handling, identity-linkage sensitivity tiers, contact
+         information rules, retention schedules per data class, tenant
+         isolation restatement, human-review requirements, the automated-
+         outreach boundary (this system recommends, Benavora executes,
+         humans approve - restate from the directive's boundaries), the
+         protected-characteristics prohibition verbatim with its blocklist
+         mechanism, and the public-availability-is-not-permission principle
+         verbatim.
+
+      Create scripts\verify\verify-pi01-016.mjs: exits 0 only if both files
+      exist, AUTONOMY_POLICY contains all five A-levels + H1/H2 + the
+      precedence rules, and PRIVACY_CONTROLS contains the protected-
+      characteristics prohibition and retention schedules.
+      Run: node scripts/verify/verify-pi01-016.mjs
+    expected_outputs:
+      - docs/architecture/AUTONOMY_POLICY.md
+      - docs/architecture/PRIVACY_CONTROLS.md
+      - scripts/verify/verify-pi01-016.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-016.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-017
+    phase: build
+    description: "EVALUATION_FRAMEWORK.md + ROADMAP.md"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\EVALUATION_FRAMEWORK.md: the six success
+         dimensions verbatim from the directive Section 17 (outcome,
+         operational, quality, efficiency, learning, evidence) each with
+         concrete measurable definitions and their data sources
+         (cost_ledger, agent_runs, claims, human corrections); the
+         per-agent evaluation suite structure (golden cases, adversarial
+         cases, regression cases, budget cases); the harness architecture
+         (how suites run against a seeded test tenant, pass criteria,
+         CI integration in pi-60); the BEN-OPS-01 consumption model; and
+         the learning-boundary restatement from Section 18 (what learning
+         may and may never modify).
+
+      2. Write docs\architecture\ROADMAP.md: the phase plan from the
+         library manifest expanded with per-phase exit criteria (what must
+         be demonstrably true, with evidence, to call each phase done),
+         the progressive-value milestones (kernel+discovery+intelligence =
+         first shippable research capability), external dependencies per
+         phase (Google Places key fix, any licensed provider decision,
+         Railway service provisioning), and risk register (top 8 program
+         risks with mitigations - include model-cost overrun, source
+         anti-bot escalation, entity-resolution precision, and solo-
+         operator bus factor).
+
+      Create scripts\verify\verify-pi01-017.mjs: exits 0 only if both files
+      exist, the framework contains all six success dimensions with
+      measurable definitions, and the roadmap contains exit criteria for
+      all 8 phases and a risk register with at least 8 entries.
+      Run: node scripts/verify/verify-pi01-017.mjs
+    expected_outputs:
+      - docs/architecture/EVALUATION_FRAMEWORK.md
+      - docs/architecture/ROADMAP.md
+      - scripts/verify/verify-pi01-017.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-017.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi01-018
+    phase: build
+    description: "Cross-document consistency audit, governance updates, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Run a real consistency audit across every file in docs\architecture
+         and docs\architecture\contracts, writing findings to
+         docs\architecture\CONSISTENCY_AUDIT.md:
+         - Every table referenced by any contract/tool/API doc exists in
+           SCHEMA_REGISTRY (list misses).
+         - Every tool named in any contract exists in TOOL_CONTRACTS.
+         - Every event named anywhere exists in EVENT_TAXONOMY.
+         - Agent id uniqueness across all contract files: exactly 44
+           distinct BEN-* ids, each appearing in exactly one family file.
+         - Every [DERIVED] marker counted and listed (Reid reviews these).
+         - Autonomy defaults in contracts never exceed what AUTONOMY_POLICY
+           permits for their operation classes.
+         - Zero TODO/TBD strings anywhere in docs/architecture.
+         Fix real misses in place where the fix is mechanical (a missing
+         cross-reference); log judgment-requiring mismatches to
+         ARCHITECTURE_OPEN_QUESTIONS.md instead of guessing.
+
+      2. Update ARCHITECTURE_INDEX.md: final file list with line counts;
+         update SESSION_STATE.md and STATE_OF_THE_BUILD.md (pi-01 complete,
+         real doc inventory with line counts from disk, open-question count,
+         next queue pi-02-architecture-review).
+
+      3. Scoped add: docs/architecture/ scripts/verify/ SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "architecture: full documentary spec - schemas, 44
+         contracts, services, tools, events, APIs, autonomy, privacy,
+         evaluation, roadmap (pi-01)"
+         Push. Re-run the governance sync to the FORGE projects folder.
+
+      4. Create scripts\verify\verify-pi01-018.mjs: exits 0 only if
+         CONSISTENCY_AUDIT.md exists reporting exactly 44 unique agent ids
+         and zero unresolved mechanical misses, and git log -1 contains
+         "(pi-01)".
+
+      5. Run: node scripts/verify/verify-pi01-018.mjs
+    expected_outputs:
+      - docs/architecture/CONSISTENCY_AUDIT.md
+      - scripts/verify/verify-pi01-018.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi01-018.mjs"
+    max_retries: 3
+    on_fail: halt

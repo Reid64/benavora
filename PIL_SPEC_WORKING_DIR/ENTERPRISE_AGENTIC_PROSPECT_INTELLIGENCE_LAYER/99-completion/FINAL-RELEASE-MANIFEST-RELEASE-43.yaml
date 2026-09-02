@@ -1,0 +1,10 @@
+release: 43-autoapply-integration
+version: 3.0.0
+root: ENTERPRISE_AGENTIC_PROSPECT_INTELLIGENCE_LAYER
+canonical_agents: 47
+services: 46
+files: 177
+entrypoint: 30-autoapply-integration/00-complete-gap-analysis-and-agent-count.md
+hash_manifest: 99-completion/SHA256SUMS-RELEASE-43.json
+implementation_claimed: false
+production_ready_claimed: false

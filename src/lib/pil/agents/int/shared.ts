@@ -16,6 +16,11 @@ import type { EvidenceItem, EvidenceVerificationStatus, GraphNode, GraphNodeType
 
 export const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
+// Bounds per-run delegation fan-out: AgentRunner executes delegations
+// synchronously/inline (agent-runner.ts's delegate()), so an unbounded
+// candidate list would block this run on N cascading child runs.
+export const MAX_DELEGATIONS_PER_RUN = 3;
+
 export async function getProspectById(orgId: string, prospectId: string): Promise<Prospect | null> {
   const { data, error } = await getPilClient()
     .from("pil_prospects")

@@ -1,0 +1,50 @@
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+project: Tarritrix
+prompts:
+- id: a47-001
+  name: A-47 LLM Citation Tracking Engine Schema
+  prompt: "Read AGENTS.md A-47 entry in full.\n\nWrite migration C:\\Users\\manag\\Documents\\Tarritrix\\supabase\\migrations\\20260728400000_a47_llm_citation.sql:\nCREATE TABLE IF NOT EXISTS target_query_lists (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, query_text TEXT NOT NULL, service_type TEXT, city TEXT, priority INTEGER DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS llm_citation_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, engine TEXT CHECK (engine IN ('chatgpt','perplexity','claude','google_ai_overview')) NOT NULL, query_text TEXT NOT NULL, response_snippet TEXT, cited_url TEXT, cited_page_id UUID REFERENCES pages(id), citation_context TEXT, is_competitor BOOLEAN DEFAULT false, occurred_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS llm_citation_summary (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, page_id UUID REFERENCES pages(id), engine TEXT NOT NULL, period_start DATE NOT NULL, period_end DATE NOT NULL, citation_count INTEGER DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS citation_displacement_alerts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, query_text TEXT NOT NULL, engine TEXT NOT NULL, previously_cited_url TEXT, now_citing_url TEXT, competitor_domain TEXT, detected_at TIMESTAMPTZ NOT NULL DEFAULT now());\nALTER TABLE target_query_lists ENABLE ROW LEVEL SECURITY;\nALTER TABLE llm_citation_events ENABLE ROW LEVEL SECURITY;\nALTER TABLE llm_citation_summary ENABLE ROW LEVEL SECURITY;\nALTER TABLE citation_displacement_alerts ENABLE ROW LEVEL SECURITY;\nCREATE POLICY tql_op ON target_query_lists FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nCREATE POLICY lce_op ON llm_citation_events FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nCREATE POLICY lcs_op ON llm_citation_summary FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nCREATE POLICY cda_op ON citation_displacement_alerts FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nsupabase db push.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-47 LLM citation tracking schema 4 tables'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+
+- id: a47-002
+  name: A-47 LLM Citation Tracking Engine Implementation
+  prompt: "Read AGENTS.md A-47 entry in full. Note cost caps per tier: Starter $20 Growth $50 Authority $100 Dominance $200 monthly.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-47-llm-citation-tracker.ts\nExtends BaseAgent. Input: { client_id: string, engine: 'chatgpt'|'perplexity'|'claude'|'google_ai_overview' }. process(): (1) Check monthly cost cap: query llm_calls for this client this month, if approaching tier cap return early. (2) Fetch target_query_lists for client (max 50 queries per day). (3) For each query: call LLM API (use existing LLM router from src/lib/llm/). (4) Parse response for citations: look for URLs, links, source attributions. (5) Match cited URLs against client's published pages table. (6) If match found: insert llm_citation_event with cited_page_id. (7) Detect displacement: if prior citation event for same query shows different URL now competitor: insert citation_displacement_alert. (8) Upsert llm_citation_summary rolling up counts. Return { queries_run, citations_found, displacement_alerts }.\n\nWrite src\\app\\api\\agents\\a-47\\trigger\\route.ts with getOperatorContext() auth.\n\nWrite tests\\unit\\agents\\a-47.test.ts: 4 tests including cost cap enforcement and displacement detection.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-47 LLM Citation Tracking Engine implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-47-llm-citation-tracker.ts
+    - src/app/api/agents/a-47/trigger/route.ts
+
+- id: a48-001
+  name: A-48 GBP Control Center Schema and Implementation
+  prompt: "Read AGENTS.md A-48 GBP Control Center entry in full. Read BEHAVIORAL_CONTRACTS.md Contracts 79-82 governing GBP. Read SCHEMA_REGISTRY.md for existing GBP tables.\n\nSTEP 1 - Verify gbp_posts gbp_reviews gbp_qa tables exist from prior schema work. If any missing add to migration C:\\Users\\manag\\Documents\\Tarritrix\\supabase\\migrations\\20260728410000_a48_gbp_control.sql.\n\nSTEP 2 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-48-gbp-control-center.ts\nExtends BaseAgent. Input: { client_id: string, action: 'sync_reviews'|'create_post'|'respond_to_review'|'sync_qa', gbp_location_id?: string }. process():\n- sync_reviews: fetch reviews from GBP API using client OAuth credentials from client_gsc_credentials (check if GBP creds stored there or separate table). Insert new reviews to gbp_reviews. Flag negative reviews for operator attention.\n- create_post: HUMAN APPROVAL GATE (Contract 79) — insert to approvals table with risk_class=3, do not post until approved. Return pending approval ID.\n- respond_to_review: HUMAN APPROVAL GATE — same pattern, no auto-posting.\n- sync_qa: fetch Q&A from GBP API, insert to gbp_qa table.\nNAP consistency: verify any data written matches clients.business_name/address/phone (Contract 81).\nReturn { action_taken, records_affected, approval_required, approval_id }.\n\nSTEP 3 - Write trigger route. Write 4 tests including approval gate enforcement.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-48 GBP Control Center implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-48-gbp-control-center.ts
+    - src/app/api/agents/a-48/trigger/route.ts
+
+- id: a49-001
+  name: A-49 GSC Intelligence Engine Implementation
+  prompt: "Read AGENTS.md A-49 GSC Intelligence Engine entry in full. Read SCHEMA_REGISTRY.md for client_gsc_credentials and page_indexation tables.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-49-gsc-intelligence-engine.ts\nExtends BaseAgent. Input: { client_id: string, action: 'sync_performance'|'submit_sitemap'|'request_indexing'|'analyze_queries' }. process():\n- sync_performance: fetch Search Analytics data from GSC API for last 90 days, store clicks impressions position ctr per page per query. Verify page_performance_daily table columns against SCHEMA_REGISTRY.md. Upsert to page_performance_daily.\n- submit_sitemap: SITEMAP GATE (Contract 83) — only submit if client has > 5 published pages. Submit sitemap URL to GSC API. Log result.\n- request_indexing: for pages with gsc_index_status='not_indexed' from page_indexation table, call GSC URL Inspection API to request indexing. Rate limit: max 10 per day per client.\n- analyze_queries: identify high-impression low-CTR pages (impressions > 100, CTR < 2%). Flag for A-11 content refresh. Return analysis summary.\nReturn { action_taken, records_affected, quota_remaining }.\n\nWrite trigger route. Write 4 tests including sitemap gate and rate limiting.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-49 GSC Intelligence Engine implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-49-gsc-intelligence-engine.ts
+    - src/app/api/agents/a-49/trigger/route.ts
+
+- id: phase2-dashboard
+  name: Phase 2 Agent Dashboard Integration
+  prompt: "Read existing dashboard files before writing.\n\nSTEP 1 - Add citation tracking to IntelligenceRow.tsx. Update Card 1 (currently Storm Intelligence) to also show LLM citation count from /api/dashboard/llm-citations if route exists or create it: GET with getOperatorContext() auth, query llm_citation_summary for operator clients, return total citations this week.\n\nSTEP 2 - Add GBP/GSC status to client SplitView detail panel. In SplitView.tsx Overview tab: add GBP review count, pending GBP approval count, GSC indexation rate from page_indexation table.\n\nSTEP 3 - Add pending approvals count to PlatformPulseBar. Update /api/dashboard/d1-001 route to include pending_approvals count from approvals table.\n\nSTEP 4 - pnpm tsc --noEmit 0 errors. pnpm run build succeeds.\n\nSTEP 5 - Update STATE_OF_THE_BUILD.md marking Phase 2 agents A-47 A-48 A-49 complete. Update SESSION_STATE.md.\n\nvercel --prod. Report URL.\n\ngit add -A; git commit --no-verify -m 'feat: Phase 2 agents complete A-47 A-48 A-49 dashboard integration deployed'; git push origin main\ngit tag v1.3.0-phase2; git push origin v1.3.0-phase2\nReport commit hash and tag."
+  gates:
+  - type: compile
+  - type: build

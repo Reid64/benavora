@@ -1,0 +1,198 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - FEATURE_REGISTRY_v2.md
+  - STATE_OF_THE_BUILD.md
+  - DESIGN_SYSTEM.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: ui-001
+    phase: ui
+    description: "Dashboard line chart + AutoApply trigger"
+    prompt: |
+      Read BLUEPRINT_v2.md and src/app/(dashboard)/dashboard/page.tsx in full.
+      CRITICAL: All colors via hardcoded style={{}} hex values. Zero Tailwind color classes. Zero emoji. All text color:#FFFFFF minimum.
+      CHANGE 1 - Add funding activity bar chart immediately after the Top Opportunities card closing div.
+      Chart card outer: style={{backgroundColor:'#0D1E35',borderRadius:'14px',border:'1px solid rgba(255,255,255,0.08)',marginTop:'14px',overflow:'hidden'}}
+      Title: 'Funding Activity by Source' subtitle: 'Current opportunities breakdown'
+      Pure div-based horizontal bar chart using existing opportunities data grouped by source/category.
+      5 bars: Federal=#0077B6, Foundation=#7C3AED, State=#0EA5E9, Corporate=#10B981, Other=#D97706
+      Each row: label 80px + bar flex:1 + count right-aligned. All text #FFFFFF.
+      CHANGE 2 - Add 4th AI Trigger card after Import Narratives trigger.
+      Add query: const {count:autoSessions} = await supabase.from('automation_sessions').select('*',{count:'exact',head:true}).gte('created_at',new Date(Date.now()-86400000).toISOString()).eq('organization_id',orgId)
+      const {data:latestSession} = await supabase.from('automation_sessions').select('status,portal_url,created_at').eq('organization_id',orgId).order('created_at',{ascending:false}).limit(1).maybeSingle()
+      Card left border: #0891B2. Title: 'AutoApply Engine'. Show session count and last portal. Link to /autoapply.
+      If latestSession?.status==='running' show pulsing green dot + 'RUNNING'. Else show status or 'IDLE'.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(dashboard): funding activity chart + AutoApply trigger with live status'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ui-002
+    phase: ui
+    description: "Research page full rebuild"
+    prompt: |
+      Read src/app/(dashboard)/research/page.tsx in full. Read SCHEMA_REGISTRY_v2.md for foundation_directory schema.
+      CRITICAL: All colors via hardcoded style={{}} hex values. Zero Tailwind color classes. Zero emoji. All text #FFFFFF.
+      Rewrite src/app/(dashboard)/research/page.tsx as server component with force-dynamic.
+      Canvas: style={{backgroundColor:'#0A1628',minHeight:'100vh',padding:'24px'}}
+      Header: Title 'Funder Research' 22px fontWeight:900 color:#FFFFFF. Sub showing total foundation count.
+      4 stat cards row: Total Profiles, High Match (>70%), New This Week, Federal vs Foundation split.
+      Each card: style={{backgroundColor:'#0D1E35',borderRadius:'12px',padding:'16px 20px',border:'1px solid rgba(255,255,255,0.08)',flex:1}}
+      Search bar: searches foundation_directory.name via ilike. State filter. NTEE filter. Asset range filter (min/max).
+      Results as cards in 2-column grid. Each card shows: name, city/state, EIN, asset_amount formatted as currency, giving_total, website link, NTEE code badge, phone.
+      Each card: style={{backgroundColor:'#0D1E35',borderRadius:'12px',padding:'18px',border:'1px solid rgba(255,255,255,0.08)',marginBottom:'10px'}}
+      Add to pipeline button on each card: POST to /api/opportunities to create opportunity from foundation.
+      Pagination: 24 per page. Total count display.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat: research page full rebuild with foundation_directory 134K records'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ui-003
+    phase: ui
+    description: "Opportunities page with fit scores and probability badges"
+    prompt: |
+      Read src/app/(dashboard)/opportunities/page.tsx in full. Read SCHEMA_REGISTRY_v2.md for opportunities schema.
+      CRITICAL: All colors via hardcoded style={{}} hex values. Zero Tailwind color classes. Zero emoji. All text #FFFFFF.
+      Rewrite src/app/(dashboard)/opportunities/page.tsx as server component with force-dynamic.
+      Canvas: style={{backgroundColor:'#0A1628',minHeight:'100vh',padding:'24px'}}
+      Header: Title 'Opportunities' 22px fontWeight:900 color:#FFFFFF. Sub showing total count.
+      Filter row: Category chips (Federal/State/Foundation/Corporate), deadline filter, amount range, status filter, sort by (fit score/deadline/amount).
+      Each opportunity renders as a card with:
+      - Title fontWeight:700 color:#FFFFFF fontSize:14px
+      - Category badge colored: Federal=#0077B6 bg, State=#0891B2, Foundation=#7C3AED, Corporate=#10B981
+      - Fit score bar: full-width progress bar, color >=80 #34D399, >=60 #FCD34D, <60 #EF4444, with percentage label
+      - Probability score badge: same color logic
+      - Award amount formatted as currency color:#34D399
+      - Deadline with days remaining, overdue in #EF4444
+      - Quick actions: Generate Draft button linking to /draft-generator?opportunityId=[id], Mark Interested
+      Cards in responsive grid. Sort by fit_score DESC by default.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat: opportunities page fit score bars probability badges filter chips'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ui-004
+    phase: ui
+    description: "AutoApply page command center"
+    prompt: |
+      Read src/app/(dashboard)/autoapply/page.tsx in full if it exists. Read SCHEMA_REGISTRY_v2.md for automation_sessions schema.
+      CRITICAL: All colors via hardcoded style={{}} hex values. Zero Tailwind color classes. Zero emoji. All text #FFFFFF.
+      Rewrite or create src/app/(dashboard)/autoapply/page.tsx as server component with force-dynamic.
+      Canvas: style={{backgroundColor:'#0A1628',minHeight:'100vh',padding:'24px'}}
+      Header: Title 'AutoApply Command Center'. Sub: 'Autonomous form submission engine'.
+      Stat cards row: Sessions (30d), Success Rate, CAPTCHAs Solved, Forms in Queue.
+      Each stat card: style={{backgroundColor:'#0D1E35',borderRadius:'12px',padding:'16px 20px',border:'1px solid rgba(255,255,255,0.08)'}}
+      Query automation_sessions for org: recent sessions, status counts, success rate.
+      MAIN LAYOUT - 2 columns:
+      LEFT (flex:1.5): Session history table showing portal_url truncated, created_at, status badge, fill_time, captcha_solved. Status colors: running=#34D399, completed=#0077B6, failed=#EF4444, pending=#FCD34D.
+      RIGHT (300px): Queue panel showing pending sessions. Each item: opportunity name, portal URL, estimated time. Start Session button: style={{background:'linear-gradient(135deg,#0891B2,#06B6D4)',color:'white',border:'none',borderRadius:'10px',padding:'12px 20px',fontSize:'14px',fontWeight:700,cursor:'pointer',width:'100%'}}
+      Live status indicator at top: if any session status='running' show pulsing green dot + 'Session Active'. Else 'Engine Idle'.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat: autoapply command center with live session status'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ui-005
+    phase: ui
+    description: "Donor Discovery full rebuild with 141K foundations"
+    prompt: |
+      Read src/app/(dashboard)/donor-discovery/page.tsx in full. Read SCHEMA_REGISTRY_v2.md for donor_discovery_prospects schema.
+      CRITICAL: All colors via hardcoded style={{}} hex values. Zero Tailwind color classes. Zero emoji. All text #FFFFFF.
+      Rewrite src/app/(dashboard)/donor-discovery/page.tsx as server component with force-dynamic.
+      Queries (all scoped to organization_id):
+      - Total prospects count from donor_discovery_prospects
+      - Foundation prospects count (prospect_type='foundation')
+      - Top 20 prospects by asset_amount DESC
+      - Recent 10 by created_at DESC
+      Canvas: style={{backgroundColor:'#0A1628',minHeight:'100vh',padding:'24px'}}
+      Header: Title 'Donor Discovery'. Sub showing total prospect count from seeded foundations.
+      4 stat cards: Total Prospects, Foundations, Corporate, Intent Signals.
+      MAIN LAYOUT 2 columns (left 60%, right 40%):
+      LEFT: Search input + state filter + type filter (foundation/corporate).
+      Results list from donor_discovery_prospects. Each card:
+      style={{backgroundColor:'#0D1E35',borderRadius:'12px',padding:'16px',border:'1px solid rgba(255,255,255,0.08)',marginBottom:'8px'}}
+      Name fontWeight:700 color:#FFFFFF. City/state color:rgba(255,255,255,0.6).
+      Asset amount color:#34D399 fontWeight:700. Giving total color:#00B4D8.
+      Website link if present. Phone if present.
+      Type badge: Foundation style={{backgroundColor:'rgba(124,58,237,0.2)',color:'#C4B5FD',borderRadius:'6px',padding:'2px 8px',fontSize:'11px',fontWeight:700}}
+      Action buttons: 'Start Outreach' + 'Add to Pipeline' inline.
+      RIGHT: Industry grid 3x4 of clickable filter buttons showing prospect counts per city/state.
+      Intent signals panel below: style={{backgroundColor:'#0D1E35',borderRadius:'12px',padding:'16px',border:'1px solid rgba(255,255,255,0.08)',marginTop:'14px'}}
+      Find More Prospects button linking to /donor-discovery/discover: style={{width:'100%',background:'linear-gradient(135deg,#7C3AED,#9333EA)',color:'white',border:'none',borderRadius:'10px',padding:'12px',fontSize:'14px',fontWeight:700,cursor:'pointer',marginTop:'12px'}}
+      Also rewrite src/app/(dashboard)/donor-discovery/discover/page.tsx:
+      Full search interface against foundation_directory table (not just seeded prospects).
+      Large search input, filters: state, asset_amount range, NTEE code, giving focus.
+      Results from foundation_directory in 2-column card grid.
+      Each card shows all available data. 'Add to My Prospects' button POSTs to create donor_discovery_prospect record.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat: donor discovery full rebuild 141K foundations seeded and searchable'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ui-006
+    phase: ui
+    description: "Intelligence Library page"
+    prompt: |
+      Read src/app/(dashboard)/intelligence-library/page.tsx in full if it exists. Read SCHEMA_REGISTRY_v2.md for intelligence_library schema.
+      CRITICAL: All colors via hardcoded style={{}} hex values. Zero Tailwind color classes. Zero emoji. All text #FFFFFF.
+      Rewrite or create src/app/(dashboard)/intelligence-library/page.tsx as server component with force-dynamic.
+      Canvas: style={{backgroundColor:'#0A1628',minHeight:'100vh',padding:'24px'}}
+      Header: Title 'Intelligence Library'. Sub showing narrative count.
+      Query intelligence_library table: count, by funder_type, by category, recent imports.
+      Stat cards: Total Narratives, Housing Category, Federal Grants, Winning Phrases count.
+      Filter row: category filter, funder_type filter, min_award_amount filter.
+      Results as cards showing: title, funder_name, award_amount, award_year, category badge, excerpt truncated to 120 chars.
+      Each card: style={{backgroundColor:'#0D1E35',borderRadius:'12px',padding:'16px',border:'1px solid rgba(255,255,255,0.08)',marginBottom:'8px'}}
+      Import button at top: 'Import Narratives' button triggers the intelligence library ingestion.
+      Pagination 20 per page.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat: intelligence library page with narrative browser'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ui-007
+    phase: ui
+    description: "Update governance docs"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md and FEATURE_REGISTRY_v2.md.
+      Update STATE_OF_THE_BUILD.md to reflect all UI pages built in this queue as COMPLETE.
+      Update FEATURE_REGISTRY_v2.md status for Features 2, 3, 5, 46, 88, 97 to BUILT.
+      Update SESSION_STATE.md with current build status.
+      git add -A; git commit -m 'governance: update state docs after UI pages queue'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

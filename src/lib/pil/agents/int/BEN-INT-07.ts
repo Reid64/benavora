@@ -1,16 +1,40 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
   hostnameOf,
   looksLikeRoundEstimate,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
 import { getPilClient } from "@/lib/pil/db";
+import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges, getNodesByProspect } from "@/lib/pil/graph";
-import type { EvidenceItem, GraphNode } from "@/lib/pil/types";
+import type { EvidenceItem, GraphEdge, GraphNode } from "@/lib/pil/types";
+
+// The six BEN-INT-07 output-contract dimensions (roster "Core Intelligence"
+// section / PIL_AGENT_DEPENDENCIES.yaml's BEN-INT-07 entry). Coverage is
+// computed from persisted giving_history evidence (getEvidence()), not just
+// evidence created this run -- matching BEN-INT-08's own coverage pattern.
+const GIVING_HISTORY_DIMENSIONS = [
+  "Donor Attribution",
+  "Gift/Grant Status",
+  "Recipient And Purpose",
+  "Amount/Currency/Date",
+  "Vehicle And Intermediary",
+  "Repeat-Pattern Analysis",
+] as const;
+
+export interface GivingHistoryIntelligenceReport {
+  prospectId: string;
+  dimensionCoverage: Record<string, boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+  givingMentionsFound: number;
+}
 
 // BEN-INT-07 -- Giving History Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3", line ~518). Reconstructs
@@ -85,11 +109,13 @@ export class GivingHistoryIntelligenceAgent implements Agent {
       }
     }
 
+    let hasSolidGiftEvidence = false;
     for (const mention of mentions) {
       // Round press-release figures ("$1 million commitment") are an
       // estimate until a filing confirms them, per spec's observation
       // behavior -- never recorded as verified_fact.
       const isEstimate = looksLikeRoundEstimate(mention.claim);
+      if (!isEstimate) hasSolidGiftEvidence = true;
       evidenceCreated.push(
         await recordIntelligenceEvidence({
           orgId: context.orgId,
@@ -117,9 +143,10 @@ export class GivingHistoryIntelligenceAgent implements Agent {
     // corroborated giving-history entry distinct from a personal gift.
     const personNodes = await getNodesByProspect(prospect.id, context.orgId);
     const personNode = personNodes.find((n) => n.node_type === "person");
+    let trusteeEdges: GraphEdge[] = [];
     if (personNode) {
       const edges = await getEdges(personNode.id);
-      const trusteeEdges = edges.filter((e) => e.edge_type === "trustee_of");
+      trusteeEdges = edges.filter((e) => e.edge_type === "trustee_of");
       for (const edge of trusteeEdges) {
         const { data: targetNodeRow } = await getPilClient()
           .from("pil_graph_nodes")
@@ -152,16 +179,105 @@ export class GivingHistoryIntelligenceAgent implements Agent {
             verificationStatus: "corroborated_fact",
           }),
         );
+        hasSolidGiftEvidence = true;
       }
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 400);
 
+    // Gap-analysis + delegation-construction + report-construction. Runs
+    // strictly after every evidence write above has already durably
+    // committed, so a bug here can never discard evidence this run already
+    // recorded ("recovery starts from persisted truth ... captured evidence
+    // stays immutable") -- on failure this still returns status: "completed"
+    // with evidenceCreated intact and delegations: [].
+    let delegations: DelegationRequest[] = [];
+    let report: GivingHistoryIntelligenceReport = {
+      prospectId: prospect.id,
+      dimensionCoverage: Object.fromEntries(GIVING_HISTORY_DIMENSIONS.map((d) => [d, false])),
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+      givingMentionsFound: mentions.length,
+    };
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const givingEvidence = allEvidence.filter((e) => e.claim_type === "giving_history");
+      const hasDollarFigure = /\$\s?[\d,.]+/.test(givingEvidence.map((e) => e.claim).join(" "));
+      const hasTrusteeshipRecord = givingEvidence.some((e) => e.source_type === "irs_form_990");
+      const dimensionCoverage: Record<string, boolean> = {
+        "Donor Attribution": givingEvidence.length > 0,
+        "Gift/Grant Status": givingEvidence.some((e) => e.verification_status !== "estimate"),
+        "Recipient And Purpose": hasTrusteeshipRecord,
+        "Amount/Currency/Date": hasTrusteeshipRecord || hasDollarFigure,
+        "Vehicle And Intermediary": hasTrusteeshipRecord,
+        "Repeat-Pattern Analysis": givingEvidence.length > 1,
+      };
+
+      const isIdentityAmbiguous = mentions.length === 0 && trusteeEdges.length === 0;
+      const candidates: DelegationRequest[] = [];
+      if (isIdentityAmbiguous) {
+        candidates.push({
+          childAgentCode: "BEN-KNW-02",
+          objective: `Resolve identity ambiguity for prospect ${context.prospectId} -- BEN-INT-07 found zero giving-history mentions and zero foundation-trusteeship edges this run.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      if (trusteeEdges.length > 0) {
+        candidates.push({
+          childAgentCode: "BEN-INT-06",
+          objective: `Deepen the foundation dossier for prospect ${context.prospectId}'s ${trusteeEdges.length} trustee_of foundation(s) now that grant history has been totalled here.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      if (hasSolidGiftEvidence) {
+        candidates.push({
+          childAgentCode: "BEN-QLF-03",
+          objective: `Score capacity/propensity for prospect ${context.prospectId} using the documented non-estimate gift evidence BEN-INT-07 recorded this run.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      if (evidenceCreated.length > 0) {
+        candidates.push({
+          childAgentCode: "BEN-KNW-03",
+          objective: `Verify the ${evidenceCreated.length} giving-history evidence item(s) BEN-INT-07 recorded this run for prospect ${context.prospectId}.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+        givingMentionsFound: mentions.length,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "ben-int-07.gap_analysis_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { error: message },
+        policy_decision: null,
+        ip_address: null,
+      });
+      delegations = [];
+    }
+
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: { prospectId: prospect.id, givingMentionsFound: mentions.length },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

@@ -1,0 +1,561 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-11: LEDGERS + POLICY ENGINE
+#
+# Builds the truth infrastructure (evidence/provenance claims,
+# source snapshots, audit ledger, cost ledger) and the policy
+# enforcement engine (permissibility, data classes, autonomy
+# ceilings, protected-characteristics prohibition, kill switches,
+# feature flags). After this queue, NOTHING in the system can
+# assert a fact without evidence or act outside policy - these are
+# the rails every agent runs on.
+#
+# AUTHORITY: SCHEMA_REGISTRY.md (approved), AUTONOMY_POLICY.md,
+# PRIVACY_CONTROLS.md, SERVICE_REGISTRY.md. Read before writing.
+# Deviations are registry/doc amendments with dated notes, never
+# silent drift.
+#
+# STORAGE RULE (bucket-policy lesson designed out): any Storage
+# bucket created in this program gets its storage.objects policies
+# IN THE SAME STEP that creates it, and the RLS matrix covers
+# storage paths from then on. A bucket without policies may not
+# exist for even one prompt.
+# ============================================================
+
+prompts:
+
+  - id: pi11-001
+    phase: build
+    description: "Preflight: docs read, DB health, expectations file ready for new tables"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read the SCHEMA_REGISTRY.md sections for claims, sources,
+         snapshots, audit_log, cost_ledger; read AUTONOMY_POLICY.md and
+         PRIVACY_CONTROLS.md in full; read SERVICE_REGISTRY.md entries for
+         policy enforcement, consent/permissibility, evidence ledger,
+         audit ledger, cost ledger, snapshot service. Confirm all exist.
+      2. DB health: migrate.mjs --status clean; rls-matrix from pi-10 all
+         green (re-run scripts/db/rls-harness.mjs matrix mode to confirm
+         current state, not remembered state) - capture to
+         evidence\pi-11\preflight.txt.
+      3. Create scripts\verify\verify-pi11-001.mjs: exits 0 only if the
+         doc reads found every section (grep the specific headings) and
+         the re-run matrix shows zero failures.
+      4. Run: node scripts/verify/verify-pi11-001.mjs
+    expected_outputs:
+      - evidence/pi-11/preflight.txt
+      - scripts/verify/verify-pi11-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi11-002
+    phase: build
+    description: "Migrations: source registry, permissibility classes, consent ledger"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0012_sources_permissibility.sql per the registry:
+         sources (source_type, publisher, url_pattern, tier,
+         permissibility_class, reliability_score, robots_policy_state);
+         permissibility_classes (class id, description, allowed_purposes
+         text[], restrictions jsonb) - the PRIVACY_CONTROLS.md source
+         classes seeded as rows in this migration (seed data in-migration
+         is acceptable for policy primitives - guarded upserts);
+         consent_ledger (org_id, subject ref, consent_type, granted_at,
+         revoked_at, source, evidence ref) append-only with the two-way
+         enforcement pattern.
+         RLS same-file: sources + permissibility_classes shared-read/
+         service-write; consent_ledger org-scoped append-only.
+      2. Update scripts\db\rls-expectations.json with the three new tables
+         and their classes BEFORE applying (the matrix rule from pi-10:
+         undeclared tables fail the run).
+      3. Apply via migrate.mjs; column-diff against the registry (zero
+         mismatches), append-only denial proof on consent_ledger, no-op
+         re-run - evidence\pi-11\p002-verify.txt. Matrix re-run green.
+      4. Create scripts\verify\verify-pi11-002.mjs enforcing all of step 3.
+      5. Run: node scripts/verify/verify-pi11-002.mjs
+    expected_outputs:
+      - supabase/migrations/0012_sources_permissibility.sql
+      - scripts/verify/verify-pi11-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-003
+    phase: build
+    description: "Migration: claims - the 21-field evidence schema with supersession, contradiction, and append-only truth"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's claims section again immediately before writing.
+
+      1. Migration 0013_claims.sql:
+         - verification_status enum: the 8 statuses verbatim (guarded DO);
+           inference_status enum per registry.
+         - claims: all 21 directive fields as columns exactly as the
+           registry types them, plus contradicts_claim_id and
+           superseded_by_claim_id self-FKs, the polymorphic entity ref
+           (archetype + entity_id) with a CHECK that archetype is one of
+           the five, and org_id.
+         - THE APPEND-ONLY TRUTH INVARIANT enforced three ways:
+           (a) REVOKE UPDATE on all content columns from every role - the
+               ONLY updatable columns are superseded_by_claim_id,
+               contradiction_status, verification_status, freshness_status,
+               last_verified_at (status evolution is legal; content
+               mutation is not) - implement via a BEFORE UPDATE trigger
+               rejecting changes to any other column;
+           (b) no DELETE for anyone (RLS + REVOKE);
+           (c) a CHECK that evidence_excerpt and source_url are non-null
+               whenever claim_type is in the consequential set the registry
+               defines.
+         - Indexes per the registry's justified list (entity lookup,
+           freshness sweep, contradiction scan).
+      2. rls-expectations.json updated first; apply; column-diff proves all
+         21 field names; behavioral proofs captured to
+         evidence\pi-11\p003-verify.txt: content-column update rejected
+         verbatim; status-column update allowed; delete rejected; a
+         consequential claim without an excerpt rejected by the CHECK.
+      3. Matrix re-run green including claims.
+      4. Create scripts\verify\verify-pi11-003.mjs enforcing: 21 columns
+         present, 8 enum labels, all four behavioral proofs in evidence,
+         matrix green.
+      5. Run: node scripts/verify/verify-pi11-003.mjs
+    expected_outputs:
+      - supabase/migrations/0013_claims.sql
+      - scripts/verify/verify-pi11-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-004
+    phase: build
+    description: "Migration + bucket: content-addressed source snapshots with same-step storage policies"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0014_source_snapshots.sql: source_snapshots per the
+         registry (sha256 unique, storage_path, content_type, byte_size,
+         retrieved_at, http_status, headers jsonb subset, source_id FK,
+         org_id nullable - shared snapshots are permitted for public
+         sources per the registry; verify and follow its call). RLS
+         same-file per its declared class.
+      2. Create the Storage bucket pi-snapshots via the Supabase admin
+         API, AND in the same prompt apply storage.objects policies for
+         it: service-role write only; authenticated read restricted to
+         paths the snapshot service authorizes (path convention:
+         sha prefix folders - document it). Capture the created policies
+         by querying pg_policies for storage.objects filtered to this
+         bucket to evidence\pi-11\p004-bucket-policies.txt - the gate
+         requires at least 2 policies present. A bucket with zero
+         policies is the exact benavora failure class; it does not ship.
+      3. Apply migration, column-diff, no-op proof, matrix green (add the
+         table to expectations first).
+      4. Create scripts\verify\verify-pi11-004.mjs: exits 0 only if the
+         snapshots table matches the registry, the bucket exists, and the
+         policy capture shows >= 2 storage.objects policies for it.
+      5. Run: node scripts/verify/verify-pi11-004.mjs
+    expected_outputs:
+      - supabase/migrations/0014_source_snapshots.sql
+      - evidence/pi-11/p004-bucket-policies.txt
+      - scripts/verify/verify-pi11-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-005
+    phase: build
+    description: "Evidence ledger service: writeClaim/supersede/contradict with invariants in code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Create packages\services\src\evidence\ (service per
+         SERVICE_REGISTRY): a typed EvidenceLedger with:
+         - writeClaim(input): validates against the zod claim schema in
+           packages/contracts (create it there from the registry - single
+           source shared by DB types assertion); enforces in code, before
+           the DB ever sees it: consequential claim types require
+           excerpt + source + snapshot ref; inference_status must be
+           explicit (no default-to-fact); confidence in [0,1].
+         - supersedeClaim(oldId, newInput): writes the new claim, sets
+           superseded_by on the old, in one transaction; refuses if old is
+           already superseded (supersession chains are linear).
+         - recordContradiction(aId, bId, note): links both, sets
+           contradiction_status, never picks a winner (that is BEN-KNW-04's
+           job later).
+         - getCanonicalClaims(entityRef, claimType): excludes superseded
+           and returns freshness/status - the read path everything else
+           uses.
+      2. Vitest suite (real DB against the pi_test scratch schema pattern
+         from pi-10, or transactional rollback per test): every invariant
+         above has a rejecting test and an accepting test; supersession
+         chain linearity proven; canonical read excludes superseded.
+      3. Suite green; summary to evidence\pi-11\evidence-service-tests.txt.
+         pnpm -r typecheck clean.
+      4. Create scripts\verify\verify-pi11-005.mjs: exits 0 only if the
+         service files exist, the contracts zod claim schema exists, and
+         the test summary shows all passed.
+      5. Run: node scripts/verify/verify-pi11-005.mjs
+    expected_outputs:
+      - packages/services/src/evidence/index.ts
+      - packages/contracts/src/schemas/claim.ts
+      - scripts/verify/verify-pi11-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-006
+    phase: build
+    description: "Snapshot service: content-addressed store/retrieve with dedupe"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\snapshots\: SnapshotService with
+         store(bytes, meta) computing sha256, deduping on existing hash
+         (returns the existing row - one snapshot per unique content
+         globally where the registry permits sharing), uploading to
+         pi-snapshots under the documented path convention, writing the
+         row; retrieve(sha) returning bytes + metadata with hash
+         re-verification on read (a mismatch is a corruption alarm:
+         throw + audit); link(claimId, sha) if the registry models the
+         claim-snapshot relation via a join or column - follow it.
+      2. Vitest: store/retrieve round-trip byte-identical; dedupe proof
+         (same bytes twice -> one storage object, one row); corruption
+         detection (tamper the stored object via service role in the test,
+         retrieve must throw).
+      3. Green; evidence\pi-11\snapshot-service-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi11-006.mjs on the standard pattern.
+      5. Run: node scripts/verify/verify-pi11-006.mjs
+    expected_outputs:
+      - packages/services/src/snapshots/index.ts
+      - scripts/verify/verify-pi11-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-007
+    phase: build
+    description: "Migration + service: audit ledger, wired into the evidence path"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0015_audit_log.sql per the registry: append-only
+         (two-way pattern), actor model (agent_id XOR user_id, CHECK),
+         action taxonomy column referencing EVENT_TAXONOMY naming, object
+         refs jsonb, at; the registry's partitioning note implemented as
+         monthly range partitioning if the registry commits to it, else a
+         documented deferral note. expectations file first; apply;
+         proofs; matrix green.
+      2. packages\services\src\audit\: AuditLog.record(entry) - typed,
+         fire-and-forget-with-guarantee semantics per the registry (if it
+         specifies transactional co-commit with the audited action, honor
+         that: pass a tx handle).
+      3. Wire EvidenceLedger: every writeClaim/supersede/contradict records
+         an audit row in the same transaction. Extend the pi11-005 tests:
+         each operation now asserts its audit row exists with correct
+         actor and refs.
+      4. Green suites; evidence\pi-11\audit-wire-tests.txt. Typecheck
+         clean.
+      5. Create scripts\verify\verify-pi11-007.mjs: standard pattern plus
+         asserts the audit-per-claim test names appear in the output.
+      6. Run: node scripts/verify/verify-pi11-007.mjs
+    expected_outputs:
+      - supabase/migrations/0015_audit_log.sql
+      - packages/services/src/audit/index.ts
+      - scripts/verify/verify-pi11-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-008
+    phase: build
+    description: "Migration + service: cost ledger with budget read paths and rollups"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0016_cost_ledger.sql per the registry: cost_ledger with
+         the class column (haiku/sonnet/frontier enum) and all dimensions
+         (agent, org, goal, task, provider, model, tokens, unit_cost,
+         cost_usd, at); the two materialized rollup views (tenant/day,
+         agent/day) with a refresh function; indexes per registry.
+         expectations first; apply; proofs; matrix green.
+      2. packages\services\src\cost\: CostLedger.record(entry) (validated,
+         positive amounts, called later by the model gateway);
+         getSpend(scope) reading the rollups + live tail (the
+         budget-enforcement read path: goal-scope and tenant-scope spend
+         must be queryable in one call each); refreshRollups().
+      3. Vitest: record + spend math correctness against hand-computed
+         totals (three entries, exact decimal expectations - use numeric
+         handling that does not float-drift: assert string/decimal
+         equality); rollup refresh reflects new rows; scope isolation
+         (org A spend never includes org B - seed both, assert).
+      4. Green; evidence\pi-11\cost-service-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi11-008.mjs standard pattern plus
+         the decimal-exactness test name present.
+      6. Run: node scripts/verify/verify-pi11-008.mjs
+    expected_outputs:
+      - supabase/migrations/0016_cost_ledger.sql
+      - packages/services/src/cost/index.ts
+      - scripts/verify/verify-pi11-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-009
+    phase: build
+    description: "Policy engine core: deny-by-default decisions with reason codes"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read AUTONOMY_POLICY.md and PRIVACY_CONTROLS.md again before writing.
+
+      1. packages\services\src\policy\: PolicyEngine.decide(request) where
+         request = { orgId, agentId, contractRef, operation
+         (tool_invoke/data_read/data_write/external_effect), toolId?,
+         dataClasses[], autonomyLevelRequired, purpose }. Returns
+         { allowed, reasonCodes[], obligations[] } - obligations carry
+         things like requires_human_approval (H1) or audit_extra.
+         Decision order, each short-circuiting to deny with a distinct
+         reason code:
+         (a) kill switches (stub the read until pi11-011 lands the table -
+             wire a KillSwitchReader interface now, injected);
+         (b) permissibility: every dataClass resolves against
+             permissibility_classes + data_class_grants for this org;
+             an UNKNOWN data class is a DENY (deny-by-default is the
+             engine's spine - state it in the module doc comment);
+         (c) purpose check: dataClass allowed_purposes must include the
+             request purpose;
+         (d) autonomy ceiling: requested level vs the contract's default
+             and the tenant's override (may lower, never raise - enforce
+             the direction);
+         (e) H1/H2 boundaries -> allow with obligation, never silent allow.
+         Every DENY records an audit row (wire AuditLog).
+      2. Vitest: a decision-table test file - at least 15 cases covering
+         every reason code, the deny-by-default unknown-class case, the
+         tenant-may-lower-never-raise direction both ways, and H1
+         obligation emission. Plus: every deny asserted to have produced
+         its audit row.
+      3. Green; evidence\pi-11\policy-core-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi11-009.mjs standard pattern plus
+         >= 15 passing decision cases counted from output.
+      5. Run: node scripts/verify/verify-pi11-009.mjs
+    expected_outputs:
+      - packages/services/src/policy/index.ts
+      - scripts/verify/verify-pi11-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-010
+    phase: build
+    description: "Sensitive data classes and the protected-characteristics prohibition, enforced"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0017_data_classes_seed.sql: seed the full data-class
+         catalog PRIVACY_CONTROLS.md defines (guarded upserts), including
+         the sensitive tiers and the PROTECTED_CHARACTERISTICS class with
+         allowed_purposes EMPTY (nothing may use it for targeting -
+         representable and enforced as the empty-purposes case).
+      2. Extend PolicyEngine: a hard rule ABOVE the decision table -
+         any request whose dataClasses include PROTECTED_CHARACTERISTICS
+         with purpose in the solicitation/targeting family is DENY with
+         reason PROTECTED_CHARACTERISTICS_PROHIBITED regardless of any
+         grant row (grants cannot enable it; the prohibition is code, not
+         configuration - this implements the directive verbatim).
+      3. Extend EvidenceLedger.writeClaim: claims carrying a protected-
+         characteristics data class tag for a targeting purpose are
+         refused at write time with the same reason + audit (belt and
+         suspenders at the truth layer).
+      4. Vitest: the prohibition holds even when a maliciously-seeded
+         grant row purports to allow it (seed one in the test, assert
+         DENY); the ledger refusal case; a legitimate non-targeting
+         sensitive-class flow with proper grants passes.
+      5. Green; evidence\pi-11\protected-class-tests.txt. Typecheck clean.
+      6. Create scripts\verify\verify-pi11-010.mjs: standard plus the
+         malicious-grant-still-denied test name present in output.
+      7. Run: node scripts/verify/verify-pi11-010.mjs
+    expected_outputs:
+      - supabase/migrations/0017_data_classes_seed.sql
+      - scripts/verify/verify-pi11-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-011
+    phase: build
+    description: "Kill switches and feature flags with precedence, wired into the engine"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0018_switches_flags.sql: kill_switches (scope enum
+         global/tenant/agent/connector, target ref, engaged bool,
+         engaged_by, reason, at) and feature_flags (key, scope, value,
+         org override rows) per the registry. Owner/admin write via RLS;
+         every engage/disengage writes audit (trigger).
+      2. packages\services\src\switches\: KillSwitchReader (replaces the
+         pi11-009 stub) with a short-TTL in-process cache and an explicit
+         precedence: global > tenant > agent > connector - an engaged
+         broader scope always wins; document and test the TTL staleness
+         bound (engine decisions may lag an engage by at most the TTL -
+         state the chosen TTL and why). FeatureFlags reader similarly.
+      3. Wire into PolicyEngine (a) for real. Vitest: precedence matrix
+         (each scope engaged alone + combinations), cache-expiry behavior
+         (engage, assert allow until TTL, deny after - use fake timers),
+         audit rows on engage/disengage.
+      4. Green; evidence\pi-11\switches-tests.txt. Typecheck clean.
+         expectations file updated; matrix green with the new tables.
+      5. Create scripts\verify\verify-pi11-011.mjs standard pattern plus
+         precedence test names present.
+      6. Run: node scripts/verify/verify-pi11-011.mjs
+    expected_outputs:
+      - supabase/migrations/0018_switches_flags.sql
+      - packages/services/src/switches/index.ts
+      - scripts/verify/verify-pi11-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-012
+    phase: build
+    description: "Autonomy enforcement module: A0-A4/H1-H2 ceilings, never-self-escalate, violation audit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\policy\autonomy.ts: the AUTONOMY_POLICY.md
+         operation-class tables encoded as data (which operation classes
+         each A-level permits); resolveCeiling(contract, tenantOverride)
+         enforcing lower-only; checkOperation(level, operationClass)
+         consumed by PolicyEngine step (d); and the self-escalation
+         guard: any request where the requesting agent seeks an autonomy
+         level above its resolved ceiling is DENY +
+         SELF_ESCALATION_ATTEMPT reason + a mandatory audit row flagged
+         severity=critical (the directive's never-self-escalate rule as
+         observable behavior, not prose).
+      2. Vitest: every A-level against every operation class (full matrix
+         from the policy doc - table-driven); H1 obligation and H2
+         human-execution-required emission; the self-escalation critical
+         audit proof; tenant override lower-yes/raise-no.
+      3. Green; evidence\pi-11\autonomy-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi11-012.mjs: standard plus the
+         full-matrix case count from output matches levels x classes.
+      5. Run: node scripts/verify/verify-pi11-012.mjs
+    expected_outputs:
+      - packages/services/src/policy/autonomy.ts
+      - scripts/verify/verify-pi11-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-013
+    phase: build
+    description: "End-to-end rails proof: allowed and denied flows traversing every ledger"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write scripts\proofs\rails-proof.mjs exercising the full stack as
+         a future agent will: 
+         ALLOWED FLOW: policy decision for a permitted data_read ->
+         snapshot stored (real bytes) -> claim written referencing it ->
+         audit rows present for each step -> a cost row recorded (simulate
+         the future model-gateway call via CostLedger directly) -> canonical
+         read returns the claim. Assert each artifact by direct query.
+         DENIED FLOW: a protected-characteristics targeting request ->
+         PolicyEngine DENY with the right reason -> NO claim, NO snapshot
+         side effects -> the deny audit row present.
+         KILL-SWITCH FLOW: engage the tenant switch -> the previously
+         allowed flow now denies with KILL_SWITCH reason -> disengage ->
+         allowed again. 
+         Results as JSON to evidence\pi-11\rails-proof.json - every
+         assertion listed with pass/fail.
+      2. All assertions pass. Any failure is a real bug in this queue's
+         work: fix and re-run.
+      3. Create scripts\verify\verify-pi11-013.mjs: exits 0 only if the
+         proof JSON exists with zero failures and covers all three flows
+         (grep the flow names).
+      4. Run: node scripts/verify/verify-pi11-013.mjs
+    expected_outputs:
+      - scripts/proofs/rails-proof.mjs
+      - evidence/pi-11/rails-proof.json
+      - scripts/verify/verify-pi11-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi11-014
+    phase: build
+    description: "Close-out: snapshot diff, registry reconciliation, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. schema-snapshot to evidence\pi-11\schema-after.json;
+         evidence\pi-11\SUMMARY.md: tables added (0012-0018), services
+         built with test counts, the three rails-proof flows, storage
+         bucket + policy count, every registry/doc amendment made (zero
+         silent drift), full RLS matrix headline (every table green
+         including storage-adjacent).
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-11 complete
+         with real numbers; next queues per manifest - pi-12 (already
+         unlocked) and pi-13 (unlocked by this queue).
+      3. Scoped add: supabase/migrations/ packages/ scripts/
+         evidence/pi-11/SUMMARY.md docs/architecture/ SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "ledgers + policy: evidence/audit/cost rails, snapshots,
+         data classes, protected-characteristics prohibition, kill
+         switches, autonomy enforcement (pi-11)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi11-014.mjs: standard close-out
+         pattern (SUMMARY sections for all prompts, commit message
+         contains "(pi-11)", clean tree for committed paths).
+      5. Run: node scripts/verify/verify-pi11-014.mjs
+    expected_outputs:
+      - evidence/pi-11/SUMMARY.md
+      - scripts/verify/verify-pi11-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi11-014.mjs"
+    max_retries: 3
+    on_fail: halt

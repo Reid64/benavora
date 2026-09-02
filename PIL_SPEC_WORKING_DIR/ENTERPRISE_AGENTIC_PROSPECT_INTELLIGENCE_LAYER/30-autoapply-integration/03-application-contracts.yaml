@@ -1,0 +1,51 @@
+schema_version: "1.0.0"
+contract_set_id: "PIL-AUTOAPPLY-CONTRACTS"
+compatibility: "backward-compatible additive changes within v1; breaking changes require new major version"
+
+types:
+  ContributionOpportunityHandoff_v1:
+    required: [tenant_id, opportunity_id, opportunity_version, canonical_funder_id, program_id, qualification_decision_ref, readiness_decision_ref, ask_strategy_ref, evidence_refs, policy_snapshot_id, valid_as_of]
+    invariants:
+      - "qualification decision must be qualified and unexpired"
+      - "evidence refs must resolve in tenant scope"
+      - "ask strategy must be compatible with contribution type"
+
+  ApplicationCase_v1:
+    required: [application_case_id, tenant_id, opportunity_id, state, aggregate_version, workflow_version, policy_snapshot_id, idempotency_fingerprint, created_at]
+    states: [INTAKE_PENDING, INTAKE_ACCEPTED, ACCOUNT_RESOLUTION, PORTAL_DISCOVERY, APPLICATION_MODEL_READY, PLANNING, DRAFTING_EXECUTION, VALIDATING, GOVERNANCE_REVIEW, READY_TO_SUBMIT, SUBMITTING, SUBMISSION_RECONCILIATION, SUBMITTED_CONFIRMED, UNDER_REVIEW, APPROVED, PARTIALLY_APPROVED, DECLINED, WITHDRAWN, FULFILLMENT, REPORTING_REQUIRED, CLOSED, REAPPLICATION_ELIGIBLE, WAITING_HUMAN, WAITING_DOCUMENT, WAITING_EXTERNAL, EXCEPTION_DIAGNOSIS, SECURITY_QUARANTINE, POLICY_BLOCKED, DEADLINE_EXPIRED, FAILED_TERMINAL]
+
+  ApplicationModel_v1:
+    required: [model_id, application_case_id, portal_origin, snapshot_ref, model_version, sections, fields, validations, submission_controls, confidence, unknowns, extracted_at]
+    field_required: [semantic_field_id, locator_strategy, label, field_type, required, constraints, conditionality, evidence_ref]
+
+  ApplicationPlan_v1:
+    required: [plan_id, application_case_id, version, objective, steps, field_plans, document_plans, human_gates, stop_conditions, fallback_paths, created_by, created_at]
+    field_plan_required: [semantic_field_id, answer_strategy, authoritative_source_refs, transformation_rule, confidence_requirement, verification_owner, mutation_policy]
+
+  AnswerProvenance_v1:
+    required: [application_case_id, candidate_version, semantic_field_id, final_value_hash, source_refs, transformation_refs, verifier_refs, created_at]
+    prohibitions: [raw_secret, plaintext_password, unscoped_bank_data]
+
+  SubmissionCandidate_v1:
+    required: [candidate_id, application_case_id, candidate_version, application_model_version, answer_manifest_hash, document_manifest_hash, full_content_hash, deterministic_validation_ref, evidence_completeness, created_at]
+    immutable: true
+
+  SubmissionGovernanceDecision_v1:
+    required: [decision_id, application_case_id, candidate_id, reviewer_agent_id, decision, findings, policy_snapshot_id, duplicate_check_ref, authority_check_ref, created_at]
+    decision: [APPROVE, BLOCK, REVISE, HUMAN_REQUIRED]
+    invariant: "reviewer_agent_id must not equal executor agent_id"
+
+  SubmissionEffectReceipt_v1:
+    required: [receipt_id, application_case_id, candidate_id, effect_key, portal_origin, attempted_at, status, evidence_refs]
+    status: [CONFIRMED, REJECTED, EFFECT_UNKNOWN]
+
+  ApplicationOutcomeLearningSignal_v1:
+    required: [signal_id, tenant_id, application_case_id, opportunity_id, outcome_class, evidence_refs, portal_version, workflow_version, observed_at, quarantine_status]
+    quarantine_status: [QUARANTINED, EVALUATED, REJECTED, APPROVED_FOR_LEARNING]
+
+authoritative_references:
+  prospect_truth: PIL-SVC-21
+  evidence_truth: PIL-SVC-22
+  application_truth: PIL-SVC-39
+  credential_truth: PIL-SVC-33
+  audit_truth: PIL-SVC-23

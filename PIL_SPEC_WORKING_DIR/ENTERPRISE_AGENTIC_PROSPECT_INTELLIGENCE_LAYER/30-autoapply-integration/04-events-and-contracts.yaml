@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+event_set_id: "PIL-AUTOAPPLY-EVENTS"
+envelope: "PIL_EventEnvelope.v2"
+events:
+  - {type: AutoApplyOpportunityAccepted, producer: PIL-SVC-39, consumers: [BEN-APP-01]}
+  - {type: AutoApplyOpportunityRejected, producer: PIL-SVC-39, consumers: [BEN-SUP-01, PIL-SVC-44]}
+  - {type: PortalAccountResolutionRequested, producer: BEN-APP-01, consumers: [PIL-SVC-34]}
+  - {type: PortalRegistrationStarted, producer: PIL-SVC-34, consumers: [BEN-APP-01]}
+  - {type: ConfirmationMessageCorrelated, producer: PIL-SVC-35, consumers: [BEN-APP-01]}
+  - {type: HumanVerificationRequired, producer: PIL-SVC-31, consumers: [PIL-SVC-29, BEN-APP-01]}
+  - {type: PortalModelExtracted, producer: PIL-SVC-32, consumers: [BEN-APP-01, PIL-SVC-41]}
+  - {type: PortalSemanticDriftDetected, producer: PIL-SVC-41, consumers: [BEN-APP-02, BEN-KNW-04]}
+  - {type: ApplicationPlanCreated, producer: BEN-APP-01, consumers: [PIL-SVC-39]}
+  - {type: ApplicationFieldMutated, producer: PIL-SVC-38, consumers: [BEN-APP-01, PIL-SVC-39]}
+  - {type: ApplicationDocumentUploaded, producer: PIL-SVC-38, consumers: [BEN-APP-01, PIL-SVC-39]}
+  - {type: ApplicationExecutionExceptionRaised, producer: BEN-APP-01, consumers: [BEN-APP-02]}
+  - {type: ApplicationRecoveryPlanProposed, producer: BEN-APP-02, consumers: [BEN-APP-01, BEN-SUP-06]}
+  - {type: SubmissionCandidateFrozen, producer: BEN-APP-01, consumers: [PIL-SVC-42, BEN-APP-03]}
+  - {type: SubmissionGovernanceDecisionIssued, producer: BEN-APP-03, consumers: [BEN-APP-01, PIL-SVC-39]}
+  - {type: ApplicationHumanAuthorizationRequired, producer: BEN-APP-03, consumers: [PIL-SVC-29]}
+  - {type: ApplicationSubmissionAuthorized, producer: BEN-APP-03, consumers: [PIL-SVC-38]}
+  - {type: ApplicationSubmissionEffectUnknown, producer: PIL-SVC-38, consumers: [PIL-SVC-40, BEN-APP-01]}
+  - {type: ApplicationSubmittedConfirmed, producer: PIL-SVC-38, consumers: [PIL-SVC-39, PIL-SVC-44, PIL-SVC-45, BEN-OPS-01]}
+  - {type: ApplicationCommunicationCorrelated, producer: PIL-SVC-45, consumers: [BEN-APP-01, PIL-SVC-39]}
+  - {type: ApplicationOutcomeObserved, producer: PIL-SVC-46, consumers: [BEN-OPS-01, PIL-SVC-39]}
+  - {type: ApplicationReapplicationEligible, producer: PIL-SVC-46, consumers: [BEN-STR-04, BEN-QLF-05]}
+requirements:
+  - transactional_outbox_for_mutating_producers
+  - tenant_scoped_inbox_deduplication
+  - optimistic_aggregate_version_check
+  - schema_registry_compatibility_gate
+  - no_secrets_in_payloads

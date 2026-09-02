@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { createSubscription } from "@/lib/pil/monitoring";
 import { getPilClient } from "@/lib/pil/db";
 import type { MonitoringTriggerType } from "@/lib/pil/types";
@@ -37,7 +37,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  const gate = await requireRole("writer");
+  const gate = await requirePilRole("writer");
   if ("error" in gate) return gate.error;
   const { organizationId } = gate;
 

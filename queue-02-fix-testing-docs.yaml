@@ -1,0 +1,60 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - STATE_OF_THE_BUILD.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 2
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q2-001
+    phase: docs
+    description: "Rewrite TESTING_v2.md to match the real, actual test stack and file inventory"
+    prompt: |
+      TESTING_v2.md currently describes a Jest-based stack that does not exist. The real stack is Vitest
+      (vitest.config.ts) + Playwright for e2e. Read the real vitest.config.ts, real package.json scripts,
+      and do a full inventory of every actual file under src/__tests__/, tests/, and e2e/ (use find or
+      Glob to get the complete real list, not assumptions).
+      Rewrite TESTING_v2.md from scratch to describe reality: correct tool (Vitest), correct real file
+      list organized by directory, correct real package.json scripts (do not describe test:api,
+      test:migrations, or any other script that isn't actually in package.json — if these are desired,
+      note them as "not yet implemented" rather than presenting them as existing).
+      Correct the CI/CD section: daily-tests.yml's real current content (no push trigger, single
+      test:unit step), and remove the fictional e2e.yml section or mark it clearly as "planned, not
+      yet implemented."
+      Preserve the document's philosophy/rules sections (Section "Testing Philosophy") if still accurate,
+      but every concrete file/tool/script claim must be verified against the real repo before being written.
+      git add TESTING_v2.md; git commit -m 'docs: rewrite TESTING_v2.md to match actual Vitest/Playwright stack, remove fictional Jest references'; git push
+    gates:
+      - type: file_exists
+        files: [TESTING_v2.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q2-002
+    phase: infra
+    description: "Fix daily-tests.yml to actually pass, or fix what it should be testing"
+    prompt: |
+      daily-tests.yml has failed 5 consecutive days per BUILD_FAILURE_ROOT_CAUSE_AUDIT.md context. Read
+      its current real content and run pnpm test:unit locally to see the same failures GitHub Actions sees
+      (this should now pass if queue-01's fixes landed first — confirm that queue ran before this one).
+      If failures persist beyond queue-01's scope, diagnose and report clearly rather than papering over
+      with a workflow change that hides real failures (e.g. do not add continue-on-error unless the
+      failure is confirmed non-blocking and documented as an accepted known issue).
+      git add -A; git commit -m 'fix(ci): resolve daily-tests.yml failures'; git push
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: continue

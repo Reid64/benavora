@@ -1,0 +1,562 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- FEATURE_REGISTRY_v2.md
+- AGENTS_v2.md
+- STANDING_DIRECTIVES.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+prompts:
+
+# ============================================================
+# PILLAR 4 — AUTONOMOUS RELATIONSHIP BUILDER
+# Features 98-101
+# ============================================================
+
+- id: rel-001
+  name: Relationship memory and recommendations migration
+  prompt: |
+    Read SCHEMA_REGISTRY_v2.md sections for tables 57 (relationship_memory) and 58 (relationship_recommendations) in full.
+    Read src/supabase/migrations/ directory listing. Find the highest-numbered migration file.
+
+    Create the next migration file (increment by 1) at src/supabase/migrations/[NEXT]_relationship_builder.sql:
+
+    CREATE TABLE IF NOT EXISTS relationship_memory (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      entity_id uuid NOT NULL,
+      entity_type text NOT NULL DEFAULT 'funder',
+      memory_type text NOT NULL CHECK (memory_type IN ('email','call','press','linkedin','990','meeting','note')),
+      content text NOT NULL,
+      signal_date date,
+      actioned boolean DEFAULT false,
+      created_at timestamptz DEFAULT now()
+    );
+    ALTER TABLE relationship_memory ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "rel_memory_org" ON relationship_memory USING (org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+    CREATE INDEX idx_rel_memory_org ON relationship_memory(org_id, entity_id);
+    CREATE INDEX idx_rel_memory_type ON relationship_memory(org_id, memory_type);
+
+    CREATE TABLE IF NOT EXISTS relationship_recommendations (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      entity_id uuid NOT NULL,
+      entity_type text NOT NULL DEFAULT 'funder',
+      recommendation_text text NOT NULL,
+      urgency text DEFAULT 'normal' CHECK (urgency IN ('urgent','normal','low')),
+      status text DEFAULT 'pending' CHECK (status IN ('pending','actioned','dismissed')),
+      created_at timestamptz DEFAULT now()
+    );
+    ALTER TABLE relationship_recommendations ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "rel_recs_org" ON relationship_recommendations USING (org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+    CREATE INDEX idx_rel_recs_org ON relationship_recommendations(org_id, status);
+
+    Apply this migration via POST to https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query
+    with header Authorization: Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1
+    and body { "query": "<SQL here>" }.
+    Use ASCII characters only in the SQL body — no curly quotes or unicode.
+    Use the JavaScriptSerializer pattern for JSON body construction (not ConvertTo-Json).
+
+    Verify both tables exist by running SELECT table_name FROM information_schema.tables WHERE table_name IN ('relationship_memory','relationship_recommendations').
+
+    Commit: git add -A; git commit -m 'feat: relationship_memory and relationship_recommendations tables (migration)'; git push.
+  gates:
+  - type: compile
+
+- id: rel-002
+  name: Relationship Builder agent (AG-19)
+  prompt: |
+    Read AGENTS_v2.md section for AG-19 (Relationship Builder) in full.
+    Read src/lib/agents/ directory listing.
+    Read src/lib/intelligence/reputation-agent.ts in full for patterns.
+
+    Create src/lib/agents/relationship-builder-agent.ts:
+
+    Export async function runRelationshipBuilder(orgId: string): Promise<RelationshipBuilderResult>
+
+    The agent:
+    1. Fetches all funders for the org from the funders table (id, name, website, last_contact_date).
+    2. For each funder, queries relationship_memory WHERE org_id = orgId AND entity_id = funder.id ORDER BY created_at DESC LIMIT 10.
+    3. Queries funder_relationship_scores WHERE org_id = orgId AND funder_id = funder.id for current score + momentum.
+    4. Calls Claude API (claude-sonnet-4-6, max_tokens 400) with a prompt:
+       - System: "You are a nonprofit relationship strategist. Analyze the relationship history and generate ONE specific, actionable engagement recommendation."
+       - User: Provide funder name, relationship score, momentum, last 10 memory entries (type + content + date), last_contact_date.
+       - Response format: JSON { recommendation: string, urgency: "urgent"|"normal"|"low", reasoning: string }
+    5. Upserts the recommendation into relationship_recommendations (insert new row, do not replace existing pending ones — check if a pending recommendation already exists for this funder first, skip if so).
+    6. Updates funder_relationship_scores: recalculates score based on memory recency (recent contact = higher score), updates momentum (compare to previous score: rising/stable/declining).
+
+    Score calculation:
+    - Base: 50
+    - +10 if last_contact_date within 30 days
+    - +5 per memory entry in last 90 days (max +20)
+    - -10 if no contact in 180+ days
+    - -20 if no contact in 365+ days
+
+    Export interface RelationshipBuilderResult { orgsProcessed: number, recommendationsGenerated: number, scoresUpdated: number, errors: string[] }
+
+    Run pnpm tsc --noEmit, fix all errors.
+    Commit: git add -A; git commit -m 'feat: AG-19 relationship builder agent'; git push.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/relationship-builder-agent.ts
+
+- id: rel-003
+  name: Relationship Builder API routes
+  prompt: |
+    Read src/lib/agents/relationship-builder-agent.ts in full.
+    Read src/app/api/intelligence/ directory listing for route patterns.
+
+    Create src/app/api/intelligence/relationship-builder/route.ts:
+      POST: Accepts { orgId: string }. Runs runRelationshipBuilder(orgId). Returns result JSON.
+      Requires authenticated session. Uses service role for DB writes.
+
+    Create src/app/api/intelligence/relationship-memory/route.ts:
+      GET: Returns all relationship_memory for the authenticated user's org. Accepts ?entityId= filter.
+      POST: Creates a new relationship_memory entry. Body: { entity_id, entity_type, memory_type, content, signal_date }.
+
+    Create src/app/api/intelligence/relationship-recommendations/route.ts:
+      GET: Returns all relationship_recommendations for the org WHERE status='pending'. Sorted by urgency (urgent first) then created_at DESC.
+      PATCH: Accepts { id, status } to mark a recommendation as actioned or dismissed.
+
+    Run pnpm tsc --noEmit, fix all errors.
+    Commit: git add -A; git commit -m 'feat: relationship builder API routes'; git push.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/intelligence/relationship-builder/route.ts
+    - src/app/api/intelligence/relationship-memory/route.ts
+    - src/app/api/intelligence/relationship-recommendations/route.ts
+
+- id: rel-004
+  name: Relationship Builder UI page
+  prompt: |
+    Read src/app/api/intelligence/relationship-recommendations/route.ts in full.
+    Read src/app/api/intelligence/relationship-memory/route.ts in full.
+    Read src/app/(dashboard)/dashboard/page.tsx for layout and inline style patterns.
+
+    CRITICAL: Use inline style={{}} with hardcoded hex values throughout. No Tailwind color classes. No CSS variables.
+
+    Create src/app/(dashboard)/intelligence/relationships/page.tsx as a client component ('use client').
+
+    Layout (canvas background #D6E4F0):
+
+    Section 1 — Header bar:
+    - Title "Relationship Intelligence" bold 28px color #1A2B3C
+    - Subtitle "AI-powered funder engagement tracking and recommendations"
+    - "Run Analysis" button: background #2563EB, white text, border-radius 8px, calls POST /api/intelligence/relationship-builder with current org's id. Shows loading spinner during run.
+
+    Section 2 — Recommendations panel:
+    - White card, border-radius 12px, box-shadow 0 2px 8px rgba(0,0,0,0.08), padding 24px
+    - Header "Active Recommendations" with count badge (navy #1A2B3C background, white text)
+    - List of pending recommendations fetched from GET /api/intelligence/relationship-recommendations
+    - Each recommendation card:
+      - Left accent bar: urgent=#DC2626, normal=#2563EB, low=#6B7280 (4px wide, full height, border-radius 2px)
+      - Funder name bold 15px #1A2B3C
+      - Urgency badge pill: urgent=red bg #FEE2E2 text #DC2626, normal=blue bg #DBEAFE text #2563EB, low=gray
+      - Recommendation text 14px #374151
+      - Two buttons: "Mark Done" (green #16A34A) and "Dismiss" (gray #6B7280) — both call PATCH route
+    - Empty state: "No recommendations yet. Run Analysis to generate AI recommendations for your funders."
+
+    Section 3 — Memory Timeline (below recommendations):
+    - White card, same styling
+    - Header "Relationship Memory" with "Add Entry" button (outline style, #2563EB border and text)
+    - Chronological list of all memory entries from GET /api/intelligence/relationship-memory
+    - Each entry: colored dot by type (email=#2563EB, call=#16A34A, meeting=#7C3AED, press=#F59E0B, linkedin=#0A66C2, 990=#6B7280)
+    - Memory type badge, content text, signal_date formatted as "Jan 15, 2026"
+    - "Add Entry" modal (useState): fields for entity_id (funder select dropdown), memory_type (select), content (textarea), signal_date (date input). Submit calls POST /api/intelligence/relationship-memory.
+    - Fetch funders list from /api/funders for the dropdown.
+
+    Add route to nav: under Intelligence section, label "Relationships", href "/intelligence/relationships".
+    Find the nav config file (search for nav-items or sidebar navigation definitions) and add the entry.
+
+    Run pnpm tsc --noEmit. Run pnpm build fix all errors.
+    Commit: git add -A; git commit -m 'feat: relationship intelligence UI page'; git push.
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/intelligence/relationships/page.tsx
+
+# ============================================================
+# PILLAR 11 — PREDICTIVE FUNDING FORECAST
+# Features 131-133
+# ============================================================
+
+- id: forecast-001
+  name: Funding forecast schema and migration
+  prompt: |
+    Read SCHEMA_REGISTRY_v2.md in full. Read src/supabase/migrations/ directory listing. Find the highest-numbered migration.
+
+    Create the next migration at src/supabase/migrations/[NEXT]_funding_forecast.sql:
+
+    CREATE TABLE IF NOT EXISTS funding_forecasts (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      forecast_period text NOT NULL CHECK (forecast_period IN ('30_day','90_day','12_month')),
+      generated_at timestamptz DEFAULT now(),
+      total_projected_amount numeric DEFAULT 0,
+      projected_grants integer DEFAULT 0,
+      confidence text DEFAULT 'medium' CHECK (confidence IN ('high','medium','low')),
+      methodology text,
+      forecast_breakdown jsonb DEFAULT '[]',
+      market_signals jsonb DEFAULT '{}',
+      assumptions text[],
+      expires_at timestamptz
+    );
+    ALTER TABLE funding_forecasts ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "forecasts_org" ON funding_forecasts USING (org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+    CREATE INDEX idx_forecasts_org ON funding_forecasts(org_id, forecast_period, generated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS forecast_line_items (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      forecast_id uuid NOT NULL REFERENCES funding_forecasts(id) ON DELETE CASCADE,
+      source_type text NOT NULL CHECK (source_type IN ('federal','foundation','corporate','state','individual')),
+      opportunity_title text,
+      opportunity_id uuid,
+      funder_name text,
+      projected_amount numeric DEFAULT 0,
+      probability integer DEFAULT 0 CHECK (probability BETWEEN 0 AND 100),
+      expected_date date,
+      basis text,
+      created_at timestamptz DEFAULT now()
+    );
+    ALTER TABLE forecast_line_items ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "forecast_items_org" ON forecast_line_items USING (
+      forecast_id IN (SELECT id FROM funding_forecasts WHERE org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()))
+    );
+    CREATE INDEX idx_forecast_items_forecast ON forecast_line_items(forecast_id);
+
+    Apply via Supabase Management API (same pattern as rel-001).
+    Verify tables exist.
+    Commit: git add -A; git commit -m 'feat: funding_forecasts + forecast_line_items tables'; git push.
+  gates:
+  - type: compile
+
+- id: forecast-002
+  name: Funding Forecast agent (AG-26)
+  prompt: |
+    Read AGENTS_v2.md section for AG-26 (Funding Forecast) in full.
+    Read src/lib/agents/relationship-builder-agent.ts in full for agent patterns.
+    Read SCHEMA_REGISTRY_v2.md sections for funding_forecasts and forecast_line_items.
+
+    Create src/lib/agents/funding-forecast-agent.ts:
+
+    Export async function runFundingForecast(orgId: string, period: '30_day'|'90_day'|'12_month'): Promise<ForecastResult>
+
+    The agent:
+    1. Fetches org's historical application data: all applications with outcome (awarded/denied), amounts, funder types, submission dates.
+    2. Fetches all open opportunities for the org with their probability scores from opportunity_probability_scores.
+    3. Fetches awarded grants from the last 24 months — calculates: average award size, win rate by funder type (federal/foundation/corporate), average months from application to award.
+    4. Calls Claude API (claude-sonnet-4-6, max_tokens 1000):
+       - System: "You are a nonprofit funding analyst. Generate a structured funding forecast based on historical performance data and open pipeline."
+       - User: Provide historical win rates, average award amounts by source type, open opportunities with probability scores, period requested (30/90/360 days).
+       - Response format JSON:
+         {
+           total_projected_amount: number,
+           projected_grants: number,
+           confidence: "high"|"medium"|"low",
+           methodology: string (2 sentences),
+           assumptions: string[],
+           market_signals: { federal_budget_trend: string, foundation_giving_trend: string, economic_outlook: string },
+           line_items: [{ source_type, opportunity_title, funder_name, projected_amount, probability, expected_date (ISO), basis }]
+         }
+    5. Inserts into funding_forecasts, then inserts all line_items into forecast_line_items.
+    6. Sets expires_at = now() + (30 days for 30_day period, 14 days for 90_day, 30 days for 12_month).
+
+    Export interface ForecastResult { forecastId: string, totalProjected: number, lineItems: number, confidence: string }
+
+    Run pnpm tsc --noEmit, fix all errors.
+    Commit: git add -A; git commit -m 'feat: AG-26 funding forecast agent'; git push.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/funding-forecast-agent.ts
+
+- id: forecast-003
+  name: Funding Forecast API and dashboard page
+  prompt: |
+    Read src/lib/agents/funding-forecast-agent.ts in full.
+    Read src/app/(dashboard)/dashboard/page.tsx for inline style patterns.
+
+    Create src/app/api/reports/forecast/route.ts:
+      POST: Accepts { orgId: string, period: '30_day'|'90_day'|'12_month' }. Runs runFundingForecast. Returns forecast JSON.
+      GET: Returns the most recent forecast for each period for the authenticated org. Joins forecast_line_items.
+
+    CRITICAL: Use inline style={{}} with hardcoded hex values throughout. No Tailwind color classes.
+
+    Create src/app/(dashboard)/reports/forecast/page.tsx as a client component ('use client'):
+
+    Layout (canvas #D6E4F0):
+
+    Header:
+    - Title "Funding Forecast" bold 28px #1A2B3C
+    - Period selector: 3 toggle buttons "30 Days" / "90 Days" / "12 Months" — active state background #1A2B3C white text, inactive white #1A2B3C text. useState for selected period.
+    - "Generate Forecast" button: #2563EB background, white text. Calls POST /api/reports/forecast with selected period.
+
+    Summary cards row (4 cards, white background, border-radius 12px, box-shadow):
+    - Card 1: "Projected Revenue" — total_projected_amount formatted as $X,XXX,XXX. Top band #16A34A (green).
+    - Card 2: "Expected Grants" — projected_grants count. Top band #2563EB.
+    - Card 3: "Confidence" — high/medium/low with color dot (high=#16A34A, medium=#F59E0B, low=#DC2626). Top band #7C3AED.
+    - Card 4: "Forecast Period" — human-readable period label. Top band #0891B2.
+
+    Pipeline table (white card):
+    - Header "Funding Pipeline"
+    - Table columns: Source Type (badge colored by type: federal=#1D4ED8, foundation=#7C3AED, corporate=#0891B2, state=#16A34A), Opportunity, Funder, Projected Amount, Probability (colored percentage bar 0-100), Expected Date, Basis
+    - Sorted by projected_amount DESC
+    - Source type badges: pill shape, background lightened version of color, dark text
+
+    Methodology card (white card, below table):
+    - "How This Was Calculated" header
+    - methodology text 14px #374151
+    - Assumptions as bullet list
+    - Market signals: federal_budget_trend, foundation_giving_trend, economic_outlook as 3 small info cards
+
+    Add nav entry: under Reports section, label "Funding Forecast", href "/reports/forecast".
+
+    Run pnpm tsc --noEmit. Run pnpm build, fix all errors.
+    Commit: git add -A; git commit -m 'feat: funding forecast dashboard page'; git push.
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/reports/forecast/page.tsx
+    - src/app/api/reports/forecast/route.ts
+
+# ============================================================
+# PILLAR 1 — PHILANTHROPIC INTELLIGENCE GRAPH (Phase 1)
+# Features 79-81
+# ============================================================
+
+- id: pig-001
+  name: Philanthropic Intelligence Graph schema
+  prompt: |
+    Read SCHEMA_REGISTRY_v2.md sections for tables 59 (pig_nodes) and 60 (pig_edges) in full.
+    Read src/supabase/migrations/ directory listing. Find the highest-numbered migration.
+
+    Create the next migration at src/supabase/migrations/[NEXT]_philanthropic_intelligence_graph.sql:
+
+    CREATE TABLE IF NOT EXISTS pig_nodes (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      node_type text NOT NULL CHECK (node_type IN ('business','foundation','government','person','nonprofit')),
+      entity_id uuid NOT NULL,
+      entity_table text NOT NULL,
+      label text NOT NULL,
+      metadata jsonb DEFAULT '{}',
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now(),
+      UNIQUE(entity_table, entity_id)
+    );
+    CREATE INDEX idx_pig_nodes_entity ON pig_nodes(entity_table, entity_id);
+    CREATE INDEX idx_pig_nodes_type ON pig_nodes(node_type);
+
+    CREATE TABLE IF NOT EXISTS pig_edges (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      source_node_id uuid NOT NULL REFERENCES pig_nodes(id) ON DELETE CASCADE,
+      target_node_id uuid NOT NULL REFERENCES pig_nodes(id) ON DELETE CASCADE,
+      relationship_type text NOT NULL,
+      weight numeric DEFAULT 1.0,
+      evidence text,
+      verified boolean DEFAULT false,
+      metadata jsonb DEFAULT '{}',
+      discovered_at timestamptz DEFAULT now(),
+      UNIQUE(source_node_id, target_node_id, relationship_type)
+    );
+    CREATE INDEX idx_pig_edges_source ON pig_edges(source_node_id);
+    CREATE INDEX idx_pig_edges_target ON pig_edges(target_node_id);
+    CREATE INDEX idx_pig_edges_type ON pig_edges(relationship_type);
+
+    NOTE: pig_nodes and pig_edges are platform-wide tables (not tenant-scoped) — do NOT add RLS or organization_id. The graph is a shared intelligence asset.
+
+    Apply via Supabase Management API (same pattern as rel-001).
+    Verify both tables exist.
+    Commit: git add -A; git commit -m 'feat: pig_nodes and pig_edges graph tables (migration)'; git push.
+  gates:
+  - type: compile
+
+- id: pig-002
+  name: Graph seeder — populate nodes from existing data
+  prompt: |
+    Read src/supabase/migrations/ to confirm pig_nodes and pig_edges tables exist.
+    Read SCHEMA_REGISTRY_v2.md for funders, foundation_directory, corporate_prospects table schemas.
+
+    Create scripts/seed-graph-nodes.ts:
+
+    A CLI script that populates pig_nodes from existing platform data sources:
+
+    Step 1 — Foundations from foundation_directory:
+    - Query foundation_directory WHERE ein IS NOT NULL (batch 1000 at a time).
+    - For each record, upsert into pig_nodes: node_type='foundation', entity_id=id, entity_table='foundation_directory', label=name, metadata={ ein, city, state, ntee_code, asset_amount }.
+    - Use ON CONFLICT (entity_table, entity_id) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata.
+    - Log every 5000 records.
+
+    Step 2 — Corporate prospects from corporate_prospects:
+    - Query corporate_prospects (batch 500).
+    - Upsert: node_type='business', entity_id=id, entity_table='corporate_prospects', label=name, metadata={ website, city, state, naics_code }.
+
+    Step 3 — Nonprofits from nonprofits table (top 50K by revenue_amount):
+    - Query nonprofits WHERE revenue_amount IS NOT NULL ORDER BY revenue_amount DESC LIMIT 50000.
+    - Upsert: node_type='nonprofit', entity_id=id, entity_table='nonprofits', label=name, metadata={ ein, city, state, ntee_code, revenue_amount }.
+
+    Step 4 — Funders from funders table (tenant funders):
+    - Query funders (all records).
+    - Upsert: node_type='foundation', entity_id=id, entity_table='funders', label=name, metadata={ organization_id, website }.
+
+    Add package.json script: "seed:graph": "tsx scripts/seed-graph-nodes.ts"
+    Run pnpm tsc --noEmit, fix all errors.
+    Commit: git add -A; git commit -m 'feat: PIG graph node seeder script'; git push.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/seed-graph-nodes.ts
+
+- id: pig-003
+  name: Graph relationship discovery agent
+  prompt: |
+    Read scripts/seed-graph-nodes.ts in full.
+    Read src/lib/agents/relationship-builder-agent.ts in full for agent patterns.
+
+    Create src/lib/agents/relationship-mapper-agent.ts:
+
+    Export async function runRelationshipMapper(batchSize: number = 100): Promise<MapperResult>
+
+    The agent discovers relationships between existing pig_nodes and writes pig_edges. Phase 1 focuses on EIN-based and name-based relationships (no web scraping yet).
+
+    Discovery rules (check each, create edge if condition met):
+
+    Rule 1 — Shared EIN (foundation_directory ↔ funders):
+    - For each node in entity_table='funders' that has ein in metadata: find matching node in entity_table='foundation_directory' with same ein.
+    - Create edge: relationship_type='same_entity_different_source', weight=1.0, verified=true, evidence='EIN match'.
+
+    Rule 2 — Geographic clustering (nonprofits near foundations):
+    - For each foundation node with city+state in metadata: find nonprofit nodes in same city+state.
+    - Create edge: relationship_type='geographic_proximity', weight=0.3, verified=false, evidence='Same city and state'.
+    - Limit: max 20 edges per foundation node for this rule.
+
+    Rule 3 — NTEE category alignment (foundations ↔ nonprofits):
+    - For each foundation node with ntee_code in metadata: find nonprofit nodes with same ntee_code.
+    - Create edge: relationship_type='sector_alignment', weight=0.5, verified=false, evidence='Matching NTEE code '.concat(ntee_code).
+    - Limit: max 50 edges per foundation for this rule.
+
+    Rule 4 — Historical grant relationships (from intelligence_funded_proposals):
+    - Query intelligence_funded_proposals for funder_name. Find pig_nodes WHERE label ILIKE funder_name (fuzzy). If found, find nonprofit node in entity_table='nonprofits' or 'funders' with matching name from the proposal applicant_org field.
+    - Create edge: relationship_type='previously_funded', weight=0.9, verified=false, evidence='Historical grant record'.
+
+    Process batchSize nodes per run (start from nodes with fewest edges, ordering by created_at ASC).
+    Log: nodes processed, edges created, edges skipped (already exist).
+
+    Export interface MapperResult { nodesProcessed: number, edgesCreated: number, edgesSkipped: number, errors: string[] }
+
+    Add package.json script: "map:graph": "tsx src/lib/agents/relationship-mapper-agent.ts"
+    Run pnpm tsc --noEmit, fix all errors.
+    Commit: git add -A; git commit -m 'feat: PIG relationship mapper agent (Phase 1)'; git push.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/relationship-mapper-agent.ts
+
+- id: pig-004
+  name: Graph Explorer API and visualization UI
+  prompt: |
+    Read src/lib/agents/relationship-mapper-agent.ts in full.
+    Read src/app/(dashboard)/dashboard/page.tsx for inline style and layout patterns.
+
+    Create src/app/api/intelligence/graph/route.ts:
+      GET: Accepts ?nodeId= and ?depth=1 (default). Returns ego network: the target node + all nodes within N hops via pig_edges. Response: { nodes: PigNode[], edges: PigEdge[], center: PigNode }. Limit to 200 nodes max.
+      Also accepts ?search=text to find nodes by label ILIKE '%text%'. Returns top 20 matches.
+
+    Create src/app/api/intelligence/graph/seed/route.ts:
+      POST: Triggers seed-graph-nodes logic inline (not as a script). Returns { nodesCreated: number }.
+
+    Create src/app/api/intelligence/graph/map/route.ts:
+      POST: Accepts { batchSize?: number }. Runs runRelationshipMapper. Returns MapperResult.
+
+    CRITICAL: Use inline style={{}} with hardcoded hex values throughout. No Tailwind color classes.
+
+    Create src/app/(dashboard)/intelligence/graph/page.tsx as a client component ('use client'):
+
+    Layout (canvas #D6E4F0):
+
+    Header:
+    - Title "Philanthropic Intelligence Graph" bold 28px #1A2B3C
+    - Subtitle "Relationship network across foundations, nonprofits, and corporate donors"
+    - Two action buttons: "Seed Nodes" (#6B7280 background) and "Discover Relationships" (#2563EB background). Each calls respective API route and shows toast/status.
+
+    Stats bar (4 stat cards in a row, white background, colored top bands):
+    - Total Nodes (navy band #1A2B3C)
+    - Total Edges (blue band #2563EB)
+    - Foundations (purple band #7C3AED)
+    - Nonprofits (green band #16A34A)
+    Fetch counts from pig_nodes and pig_edges tables via the graph API.
+
+    Search panel (white card):
+    - Search input "Search entities by name..." calls GET /api/intelligence/graph?search=X
+    - Results list: each result shows node label, node_type badge (colored by type), metadata snippet (city/state/ein)
+    - Click a result → loads the ego network for that node
+
+    Graph visualization (white card, min-height 500px):
+    - Use a force-directed graph rendered with D3 (import * as d3 from 'd3' — already installed).
+    - Nodes colored by type: foundation=#7C3AED, nonprofit=#16A34A, business=#2563EB, person=#F59E0B, government=#0891B2
+    - Node size scaled by edge count (more connected = larger)
+    - Edge thickness scaled by weight
+    - Node label shown on hover (title tooltip)
+    - Click a node → calls GET /api/intelligence/graph?nodeId=X&depth=1 and re-renders the subgraph
+    - Loading state: spinner centered in the card while fetching
+    - Empty state: "Search for an entity above to explore its relationship network."
+
+    Add nav entry: under Intelligence section, label "Graph", href "/intelligence/graph".
+
+    Run pnpm tsc --noEmit. Run pnpm build, fix all errors.
+    Commit: git add -A; git commit -m 'feat: Philanthropic Intelligence Graph explorer UI'; git push.
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/intelligence/graph/page.tsx
+    - src/app/api/intelligence/graph/route.ts
+
+# ============================================================
+# FINAL — GOVERNANCE + DEPLOY
+# ============================================================
+
+- id: final-001
+  name: Governance update and production deploy
+  prompt: |
+    Read STATE_OF_THE_BUILD.md in full. Read SESSION_STATE.md in full.
+
+    Update STATE_OF_THE_BUILD.md — add section:
+    ## Overnight Build Session July 18-19, 2026 — Pillars 4, 11, 1
+
+    ### BUILT THIS SESSION
+    - rel-001: relationship_memory + relationship_recommendations tables (migration applied)
+    - rel-002: AG-19 Relationship Builder agent (src/lib/agents/relationship-builder-agent.ts)
+    - rel-003: Relationship Builder API routes (3 routes)
+    - rel-004: Relationship Intelligence UI (/intelligence/relationships)
+    - forecast-001: funding_forecasts + forecast_line_items tables (migration applied)
+    - forecast-002: AG-26 Funding Forecast agent (src/lib/agents/funding-forecast-agent.ts)
+    - forecast-003: Funding Forecast dashboard (/reports/forecast)
+    - pig-001: pig_nodes + pig_edges graph tables (migration applied)
+    - pig-002: Graph node seeder script (scripts/seed-graph-nodes.ts)
+    - pig-003: Relationship Mapper agent (src/lib/agents/relationship-mapper-agent.ts)
+    - pig-004: Graph Explorer UI (/intelligence/graph) with D3 force-directed visualization
+
+    Update FEATURE_REGISTRY_v2.md: change status to BUILT for features 98, 100, 101, 131, 132, 133, 79, 80, 81.
+
+    Update SESSION_STATE.md: Last session = July 18-19 2026 overnight FORGE run. Features completed = all above. Next priorities = run pnpm seed:graph then pnpm map:graph, UI redesign continuation, pnpm score:eligibility, pnpm acquire:prospects.
+
+    Then: pnpm build (fix any errors).
+    Then: git add -A; git commit -m 'chore: governance docs updated post overnight build July 18-19'; git push.
+    Then: npx vercel deploy --prod.
+    Report the final production URL.
+  gates:
+  - type: compile
+  - type: build

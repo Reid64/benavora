@@ -1,0 +1,32 @@
+audit_id: PIL-AUDIT-BEN-DIS-02-REMEDIATION
+specification_id: PIL-AGENT-BEN-DIS-02
+specification_version: "2.0.0"
+agent_name: Major Donor Discovery Agent
+inherits: Discovery Agent Shared Contract v2.0.0
+verdict: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE
+claims:
+  specification_remediated: true
+  implementation_completed: false
+  tests_executed: false
+  production_ready: false
+  score_assigned: false
+quality_dimensions:
+  unique_major_donor_reasoning_boundary: PASS_SPECIFICATION
+  wealth_liquidity_capacity_propensity_affinity_access_intent_separation: PASS_SPECIFICATION
+  gift_type_payment_status_and_attribution_model: PASS_SPECIFICATION
+  capacity_ranges_assumptions_missingness_and_sensitivity: PASS_SPECIFICATION
+  durable_hypothesis_source_plan_replanning_and_monitoring: PASS_SPECIFICATION
+  identity_family_foundation_and_corporate_safety: PASS_SPECIFICATION
+  evidence_provenance_independence_freshness_and_contradiction: PASS_SPECIFICATION
+  deterministic_gates_ranking_budgets_and_stopping: PASS_SPECIFICATION
+  persistence_recovery_security_tenancy_and_operator_controls: PASS_SPECIFICATION
+  agent_specific_calibration_security_load_chaos_and_dr: PASS_SPECIFICATION
+blocking_evidence_remaining:
+  - G0_repository_and_source_capability_discovery
+  - G1_constitutional_conformance_in_code
+  - G2_runtime_contract_conformance
+  - G3_deterministic_attribution_gate_and_economic_execution
+  - G4_multi_cycle_replanning_handoff_and_monitoring_traces
+  - G5_security_calibration_performance_recovery_and_independent_scorecard
+truthfulness_rule: "No readiness or 95-100 score may be claimed until executed G0-G5 evidence exists."
+next_remediation: BEN-DIS-03

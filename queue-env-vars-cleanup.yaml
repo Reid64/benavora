@@ -1,0 +1,19 @@
+project: benavora
+governance:
+- governance/BLUEPRINT.md
+- governance/BEHAVIORAL_CONTRACTS.md
+- governance/AGENTS.md
+- governance/SCHEMA_REGISTRY.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- STANDING_DIRECTIVES.md
+prompts:
+- id: env-001
+  name: Update env var onboarding reference to match what the app actually reads
+  prompt: "Read .env.local.example in full — it documents roughly 20 vars (Supabase x3, Anthropic x3, OpenAI, site URL, CRON_SECRET, Google OAuth x3, INTEGRATION_ENCRYPTION_KEY, Stripe x7).\n\nTASK: run a fresh, real grep across the codebase to find every environment variable the app actually reads — do not trust any pre-existing list, derive it yourself right now: grep -rhoE \"process\\.env(\\.[A-Z_][A-Z0-9_]*|\\[\"[A-Z_][A-Z0-9_]*\"\\])\" src/ worker/ scripts/ --include=*.ts --include=*.tsx | sed -E 's/process\\.env\\.?//; s/\\[\"//; s/\"\\]//' | sort -u — review the output for anything that's clearly not a real config var (test mocks, etc.) and exclude those.\n\nCompare the real list against .env.local.example's current contents. For every var that's read by real app/worker/script code but NOT documented in .env.local.example, add it with a one-line comment explaining what it's for and which integration/feature it belongs to (group logically — e.g. add a new \"# Resend (transactional email)\" section for RESEND_API_KEY/RESEND_FROM_EMAIL/RESEND_FROM_DOMAIN/RESEND_WEBHOOK_SECRET if your grep confirms those are real; a \"# Data source APIs\" section for things like SAM_GOV_API_KEY/CENSUS_API_KEY/BLS_API_KEY/CDC_APP_TOKEN/HUD_API_KEY if confirmed; etc. — base the actual grouping and var names on your own fresh grep output, not on any assumption). For each var, note whether it appears required (code throws/errors if unset) or optional (code has a fallback or feature-gates around its absence) — check the surrounding code at each var's read site to determine this rather than guessing.\n\nDo not remove any var currently in .env.local.example even if your grep doesn't find it referenced today (it may be read dynamically, or by a script your grep pattern didn't match, e.g. shell scripts or .mjs files outside src/worker/scripts) — flag anything that looks genuinely unused in a separate list in your report instead of deleting it from the example file.\n\nAlso cross-check against .env.test and the CI workflow files (.github/workflows/*.yml) for any var provisioned there but absent from .env.local.example, and add those too.\n\nMANDATORY CLOSE-OUT (do all four, in order):\n1. Run an incremental test checkpoint now: pnpm tsc --noEmit must show 0 errors relative to files this prompt touched. Fix any errors before continuing.\n2. Run: pnpm run build — fix ALL errors before proceeding. Do not treat this prompt as complete if the build fails (STANDING_DIRECTIVES.md DIRECTIVE-019 — this is the only real gate this repo tier has, nothing downstream blocks a bad commit).\n3. Verify what you built actually works: re-read the files you changed and confirm the described behavior is present, not just that it compiles.\n4. Update STATE_OF_THE_BUILD.md from a live audit of what you just did (the corrected .env.local.example var count and categories) — pull the actual current state from the files/commands you just ran, never from memory. Update SESSION_STATE.md with the current phase and next action."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - .env.local.example

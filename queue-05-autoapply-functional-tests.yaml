@@ -1,0 +1,90 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - AUTOAPPLY_ARCHITECTURE_V2.md
+  - DEMO_READINESS_AUDIT.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q5-001
+    phase: build
+    description: "Build real submission queue processing test — state transitions, not UI rendering"
+    prompt: |
+      Read worker/queue-processor.ts and AUTOAPPLY_ARCHITECTURE_V2.md in full. The only existing AutoApply
+      test (e2e/autoapply-dashboard.spec.ts) checks that pages render — nothing tests actual submission
+      logic. Build src/__tests__/integration/autoapply-queue.test.ts:
+      - Enqueue a real submission_queue row (test org, test funder, safe non-live target URL)
+      - Verify it transitions pending -> processing -> a real terminal state within a reasonable timeout
+      - Verify org_not_ready correctly blocks submission when request_profiles/org_documents are missing
+      - Verify it correctly proceeds past org_not_ready when profile+documents are present
+      - Verify automation_level correctly gates behavior (assisted vs full_auto path difference)
+      Clean up all test rows after. Run and report real pass/fail output — this is proving actual business
+      logic, not page rendering, per DEMO_READINESS_AUDIT.md's finding that this was never actually tested.
+      git add -A; git commit -m 'test(autoapply): build real submission queue processing tests'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q5-002
+    phase: build
+    description: "Build compliance rule enforcement tests"
+    prompt: |
+      Read the compliance/registration logic referenced by the AutoApply compliance page (41-state
+      solicitation registration logic per e2e/autoapply-dashboard.spec.ts's existing shallow check).
+      Build src/__tests__/integration/autoapply-compliance.test.ts testing the actual rule logic: does
+      the system correctly block/flag a submission to a state where the org isn't registered, does it
+      correctly allow submission where registration is active and current (not expired).
+      Run and report real pass/fail output.
+      git add -A; git commit -m 'test(autoapply): build compliance rule enforcement tests'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q5-003
+    phase: build
+    description: "Build FormAnalyzerAgent + Playwright form-fill integration test"
+    prompt: |
+      Read src/lib/autoapply/form-analyzer-agent.ts and the form-filler-agent referenced in
+      AUTOAPPLY_ARCHITECTURE_V2.md. Build a real test that exercises form analysis and filling against
+      a safe test target (httpbin.org/forms/post, same safe target used in this session's live tests) —
+      not mocked, this specifically needs to prove Playwright automation actually works end-to-end.
+      Verify: form fields are correctly identified, correct values are filled, submission completes or
+      correctly reports a specific failure reason (not a silent skip).
+      Run and report real pass/fail output with actual field-mapping results shown.
+      git add -A; git commit -m 'test(autoapply): build FormAnalyzerAgent + Playwright form-fill integration test'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q5-004
+    phase: build
+    description: "Build risk assessment scoring test"
+    prompt: |
+      Read the risk assessment logic referenced in DEMO_READINESS_AUDIT.md (submission_queue.risk_score/
+      risk_factors columns from migration 052, confirm these are now applied to production per tonight's
+      fixes). Build a test verifying risk scoring produces real, sensible scores for varied test scenarios
+      (high-risk vs low-risk submission profiles), and that risk_score/risk_factors are actually written
+      to the database, not just computed in memory.
+      Run and report real pass/fail output.
+      git add -A; git commit -m 'test(autoapply): build risk assessment scoring test'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue

@@ -1,0 +1,664 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-20: THE AGENT KERNEL
+#
+# The single runtime that makes all 44 agents genuine agents per
+# the directive's normative definition: receive/maintain a goal,
+# observe state, form a plan, select permitted tools, execute or
+# delegate within authority, collect evidence, evaluate, revise,
+# and continue/escalate/stop - with every transition durable.
+# One kernel, tested once, parameterized by 44 behavioral
+# contracts. This queue builds and proves the kernel against a
+# SYNTHETIC contract; real contracts arrive in Phases 3-4.
+#
+# NON-NEGOTIABLE KERNEL INVARIANTS (each gets a rejecting test):
+#   1. No tool call without a policy decision recorded.
+#   2. No model call outside the gateway (no direct SDK import in
+#      packages/core - lint-enforced).
+#   3. No factual assertion without an EvidenceLedger claim.
+#   4. No loop iteration without a durable checkpoint.
+#   5. A child's authority is the intersection of the parent's
+#      and the delegation - never a union.
+#   6. An agent terminates only through the evaluate stage's
+#      explicit decision - a tool returning data is never
+#      termination by itself (the directive's rule verbatim).
+#   7. Budget exhaustion stops cleanly with state preserved,
+#      never mid-write.
+#
+# AUTHORITY: AGENT_CONTRACT_SPEC.md, SCHEMA_REGISTRY (goals,
+# delegated_tasks, agent_runs), AUTONOMY_POLICY, EVENT_TAXONOMY.
+# ============================================================
+
+prompts:
+
+  - id: pi20-001
+    phase: build
+    description: "Preflight + kernel module design mapped to the loop"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read AGENT_CONTRACT_SPEC.md in full (the kernel-contract
+         interface section is this queue's blueprint), the goals/
+         delegated_tasks/agent_runs registry sections, AUTONOMY_POLICY,
+         and EVENT_TAXONOMY's goal/task events.
+      2. Health: migrate --status clean; rails-proof green; durability
+         and concurrency proofs from pi-12 re-run green (spawn both,
+         capture) - the kernel builds on them and must not start on a
+         regressed substrate.
+      3. Write packages\core\src\DESIGN.md: the loop stages mapped to
+         modules (observe.ts, plan.ts, tools.ts, execute.ts, evidence.ts,
+         evaluate.ts, delegate.ts, escalate.ts, checkpoint.ts,
+         kernel.ts), which contract fields each consumes (from the spec's
+         interface table - verify one-to-one coverage: every contract
+         field consumed somewhere or explicitly marked family-layer),
+         and the seven invariants above each mapped to its enforcement
+         point and its future rejecting test name.
+      4. Add the lint rule enforcing invariant 2: @anthropic-ai/sdk
+         import forbidden in packages/core (eslint no-restricted-imports
+         scoped to the package). Prove it: a scratch file importing it
+         must fail lint; remove the scratch after capture.
+      5. Capture to evidence\pi-20\preflight.txt.
+      6. Create scripts\verify\verify-pi20-001.mjs: exits 0 only if
+         DESIGN.md maps all loop stages and all seven invariants, the
+         substrate proofs re-ran green, and the lint-rule rejection was
+         captured.
+      7. Run: node scripts/verify/verify-pi20-001.mjs
+    expected_outputs:
+      - packages/core/src/DESIGN.md
+      - evidence/pi-20/preflight.txt
+      - scripts/verify/verify-pi20-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi20-002
+    phase: build
+    description: "Contract loading, validation, and the synthetic test contract"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\: the BehavioralContract zod
+         schema implementing every field from AGENT_CONTRACT_SPEC.md
+         (all 24), the registry module (loadContract(id),
+         listContracts()) with a build-time uniqueness assertion (a
+         duplicate id fails typecheck/test, not runtime), and prompt
+         versioning per the spec (prompt text hashed; hash surfaces on
+         agent_runs rows).
+      2. The SYNTHETIC contract: agents/synthetic/BEN-TST-01.ts - a
+         complete, spec-valid contract for a fictional "Test Research
+         Agent" whose mission is researching a fictional entity class
+         using only fake tools (registered test tools, no real
+         connectors). Every one of the 24 fields populated with values
+         that exercise the kernel: a two-tool permitted set, one
+         restricted data class, A2 autonomy with an H1 boundary on one
+         conclusion type, explicit evidence + confidence requirements,
+         budget numbers small enough to exhaust in tests.
+      3. Vitest: schema rejects a contract missing any required field
+         (property-based over the field list); registry uniqueness
+         assertion fails on a deliberate duplicate (in-test construction);
+         BEN-TST-01 loads valid.
+      4. Green; evidence\pi-20\contracts-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi20-002.mjs standard pattern plus
+         the 24-field rejection sweep present in output.
+      6. Run: node scripts/verify/verify-pi20-002.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/index.ts
+      - packages/contracts/src/agents/synthetic/BEN-TST-01.ts
+      - scripts/verify/verify-pi20-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-003
+    phase: build
+    description: "Goal lifecycle machine: the 22-state transition map with guards"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\lifecycle\: the VALID transition map over the
+         22 states - derive it from the directive's state semantics and
+         record it as a reviewable data structure (state -> allowed next
+         states, each edge annotated with its triggering condition:
+         kernel decision, human action, policy block, system failure).
+         Where the directive leaves an edge genuinely ambiguous, log an
+         AOQ and choose the conservative edge (fewer allowed
+         transitions), marked [DERIVED].
+      2. transition(goalId, to, actor, reason): validates against the
+         map (invalid -> typed IllegalTransition error + audit), writes
+         the goals update (the pi-10 trigger auto-writes the transition
+         row), publishes the lifecycle event per EVENT_TAXONOMY through
+         the outbox.
+      3. Vitest: every VALID edge executes (table-driven over the map);
+         a sample of invalid edges rejected (at least one per state);
+         the transition row + event both asserted per executed edge;
+         PAUSED/REOPENED round-trip; terminal states (SATISFIED,
+         FAILED_TERMINAL, DISQUALIFIED) allow no exits except the map's
+         explicit exceptions (REOPENED from where the map permits).
+      4. Green; evidence\pi-20\lifecycle-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi20-003.mjs: standard plus the
+         edge-count executed in tests matches the map's edge count
+         (both printed and compared).
+      6. Run: node scripts/verify/verify-pi20-003.mjs
+    expected_outputs:
+      - packages/core/src/lifecycle/index.ts
+      - scripts/verify/verify-pi20-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-004
+    phase: build
+    description: "Durable loop checkpoints"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. If the registry defines a checkpoint store for loop state, use
+         it; if it modeled checkpoints on agent_runs jsonb, follow that;
+         if it omitted the structure, migration 0022_loop_checkpoints.sql
+         per a design you add to the registry with a dated amendment:
+         loop_checkpoints (run_id, iteration, stage, state jsonb,
+         at, sha of state for tamper-evidence) append-only.
+         expectations file; apply; proofs; matrix green.
+      2. packages\core\src\checkpoint\: save(runId, iteration, stage,
+         state) called at EVERY stage boundary (invariant 4 - the kernel
+         wires it in pi20-010's assembly; the module + its contract land
+         now); load latest for resume; a state serialization contract
+         (what is in kernel state: plan, cursor, budgets consumed,
+         pending evidence refs, delegation refs - typed, versioned).
+      3. Vitest: save/load round-trip fidelity (deep equality);
+         append-only holds; resume-from-latest picks the true latest
+         under interleaved writes.
+      4. Green; evidence\pi-20\checkpoint-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi20-004.mjs standard pattern.
+      6. Run: node scripts/verify/verify-pi20-004.mjs
+    expected_outputs:
+      - packages/core/src/checkpoint/index.ts
+      - scripts/verify/verify-pi20-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-005
+    phase: build
+    description: "Observe stage: typed state assembly"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\observe\: buildObservation(goal, contract) ->
+         ObservationContext: the goal + structured plan, budget state
+         (allocated vs consumed from the ledgers - live query, never
+         cached stale), canonical claims for in-scope entities (via
+         EvidenceLedger.getCanonicalClaims - superseded excluded by
+         construction), open contradictions flagged, prior run summaries
+         for this goal, freshness state of key claims, and the memory
+         scope the contract declares (scope resolution per the spec:
+         goal-scoped / entity-scoped / agent-scoped windows - implement
+         exactly what the spec defines).
+      2. Size discipline: the observation is model-bound context - a
+         token-budgeted assembly (estimate + trim policy: oldest run
+         summaries first, then lowest-relevance claims, never budget
+         state or contradictions - the trim ORDER is a reviewable
+         constant with a comment).
+      3. Vitest: superseded claims never appear; contradiction flags
+         surface; budget numbers match seeded ledger rows exactly; trim
+         order honored under a forced small budget (the protected
+         elements survive).
+      4. Green; evidence\pi-20\observe-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi20-005.mjs standard pattern plus
+         the trim-order test present.
+      6. Run: node scripts/verify/verify-pi20-005.mjs
+    expected_outputs:
+      - packages/core/src/observe/index.ts
+      - scripts/verify/verify-pi20-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-006
+    phase: build
+    description: "Plan stage: structured planning through the gateway, plans as data"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\plan\: the Plan schema (zod, in contracts):
+         ordered steps each with objective, candidate tools (ids only -
+         selection is the next stage), expected evidence, per-step budget
+         slice, success test; plus plan-level stop conditions and an
+         explicit sufficiency hypothesis ("done when..."). 
+         makePlan(observation, contract): completeStructured through the
+         gateway at the contract's model class, system prompt from the
+         contract's versioned prompt architecture; the contract's
+         planning-behavior field governs the instruction.
+         revisePlan(observation, priorPlan, evaluationFindings): same
+         path with revision context; revisions carry a reason and
+         preserve prior-plan lineage (plan versions in checkpoint state).
+      2. Plan validation beyond schema: every candidate tool must be in
+         the contract's permitted set (a plan naming a forbidden tool is
+         rejected BEFORE any execution - invariant-1 adjacent; the model
+         does not get to schedule what policy will deny), step budgets
+         must sum within the remaining goal budget.
+      3. Vitest (FakeProvider): valid plan accepted; forbidden-tool plan
+         rejected with the offending id named; over-budget plan rejected;
+         revision preserves lineage and reason.
+      4. Green; evidence\pi-20\plan-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi20-006.mjs standard pattern plus
+         the forbidden-tool rejection present.
+      6. Run: node scripts/verify/verify-pi20-006.mjs
+    expected_outputs:
+      - packages/core/src/plan/index.ts
+      - packages/contracts/src/schemas/plan.ts
+      - scripts/verify/verify-pi20-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-007
+    phase: build
+    description: "Tool selection + execution: policy-gated, metered, evidence-collecting"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\tools\: the kernel's tool runtime - a
+         ToolRegistry (tool id -> typed executor wrapping services/
+         connectors per TOOL_CONTRACTS) and invokeTool(step, toolId,
+         input, ctx):
+         (a) contract permission check (tool in permitted set);
+         (b) PolicyEngine.decide with the tool's data classes + the
+             contract's restricted classes intersected (the STRICTER of
+             the two always wins - invariant 5's spirit at the tool
+             layer) - the decision id recorded on the invocation;
+         (c) execution through the real service (ConnectorGateway for
+             connector tools);
+         (d) invocation record on agent_runs.tools_invoked with policy
+             decision ref, snapshot refs, duration, outcome.
+      2. packages\core\src\evidence\: collectEvidence(stepResult,
+         contract): maps tool outputs that assert facts into
+         EvidenceLedger.writeClaim calls with the contract's evidence
+         requirements applied (source refs mandatory, inference_status
+         explicit per the spec) - a step result asserting a fact without
+         a writable claim is a typed EvidenceGapError that fails the
+         step (invariant 3).
+      3. Vitest (fake tools): unpermitted tool refused at (a); policy
+         deny at (b) recorded and the tool never executed (call
+         recording); the stricter-intersection case (contract restricts
+         a class policy would allow -> denied); EvidenceGapError on a
+         factual result with no source; the invocation record complete.
+      4. Green; evidence\pi-20\tools-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi20-007.mjs standard pattern plus
+         the stricter-intersection test present.
+      6. Run: node scripts/verify/verify-pi20-007.mjs
+    expected_outputs:
+      - packages/core/src/tools/index.ts
+      - packages/core/src/evidence/index.ts
+      - scripts/verify/verify-pi20-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-008
+    phase: build
+    description: "Evaluate stage: sufficiency judgment and the continue/stop decision"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\evaluate\: evaluate(observation, plan,
+         stepResults, contract) - the stage the directive makes the ONLY
+         legal terminator (invariant 6). Two layers:
+         (a) deterministic checks first: evidence requirements met?
+             (claim counts/types vs the contract's requirements)
+             confidence floor met? budget remaining? contradiction
+             present? loop iteration cap reached?
+         (b) a structured judgment call through the gateway when
+             determinism cannot decide (the directive's list encoded as
+             the decision space: sufficient / more sources needed /
+             contradiction to investigate / delegate specialist /
+             identity uncertain / confidence too low / value declining /
+             qualify / disqualify / human needed) - output is a typed
+             EvaluationDecision with reasons.
+         The mapping from decisions to actions: continue (next step),
+         replan (with findings), delegate (pi20-009), escalate
+         (pi20-011), stop-satisfied, stop-failed - each mapping to its
+         lifecycle transition via the machine.
+      2. Vitest: each deterministic short-circuit fires without a model
+         call (call recording proves no gateway hit); each decision maps
+         to its exact lifecycle transition; the tool-returned-data-alone
+         case: a successful step with requirements unmet yields
+         more-sources, never termination (the invariant's named test).
+      3. Green; evidence\pi-20\evaluate-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi20-008.mjs standard pattern plus
+         the invariant-6 test name present.
+      5. Run: node scripts/verify/verify-pi20-008.mjs
+    expected_outputs:
+      - packages/core/src/evaluate/index.ts
+      - scripts/verify/verify-pi20-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-009
+    phase: build
+    description: "Delegation: authority intersection, bounded recursion, cancellation cascade"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\delegate\: delegate(parentCtx, childAgentId,
+         objective, constraints) building the DelegatedTask with EVERY
+         authority field computed as INTERSECTION of parent authority and
+         the requested delegation (tools: set intersection; data classes:
+         allowed intersect, prohibited union; budgets: min of remaining
+         parent slice and requested; autonomy: min; deadline: min) -
+         invariant 5 as arithmetic, mirrored beneath by the pi-10 DB
+         trigger as defense-in-depth. Depth increments; the bound refusal
+         surfaces the config limit. Enqueue through the workflow engine;
+         await or continue per the plan's step mode (sync-await vs
+         fire-and-observe both supported per the spec).
+         cancel(goalId) cascades: all descendant tasks cancelled
+         (recursive by parent linkage), in-flight leases flagged for
+         cooperative cancellation at the next checkpoint boundary,
+         compensations honored.
+      2. Vitest: every intersection dimension individually (parent
+         narrower wins; child request wider clipped); depth bound; the
+         DB trigger agreement (attempt to bypass the code path with a
+         direct wider insert -> trigger rejects, proving the second
+         layer); cancellation cascade over a three-level tree with an
+         in-flight leaf (cooperative stop at checkpoint asserted).
+      3. Green; evidence\pi-20\delegate-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi20-009.mjs standard pattern plus
+         the bypass-trigger-rejection test present.
+      5. Run: node scripts/verify/verify-pi20-009.mjs
+    expected_outputs:
+      - packages/core/src/delegate/index.ts
+      - scripts/verify/verify-pi20-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-010
+    phase: build
+    description: "The kernel assembly: the full loop with checkpoints at every boundary"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\kernel.ts: runAgentLoop(goalId, contractId) -
+         the assembly of every stage in the directive's order (GOAL ->
+         OBSERVE -> PLAN -> SELECT/DELEGATE -> EXECUTE -> COLLECT
+         EVIDENCE -> EVALUATE -> OBSERVE RESULT -> REVISE -> CONTINUE/
+         ESCALATE/STOP), with: checkpoint.save at EVERY stage boundary
+         (invariant 4 - stage enum in the checkpoint); an agent_runs row
+         opened at loop start and finalized at exit with true totals
+         (iterations, tools, tokens, cost from the ledgers, evidence
+         claim ids, outcome, prompt hashes); budget-exhaustion handling
+         mid-loop: a clean stop AFTER the current stage completes its
+         writes, state preserved, lifecycle to the registry's specified
+         state (invariant 7 - never a mid-write abort); loop iteration
+         cap from the contract.
+      2. The loop is a workflow-engine handler: agent execution IS a
+         durable task (handler type agent_loop) - kernel durability
+         inherits pi-12's engine rather than reimplementing it (state
+         the design in a comment).
+      3. Vitest (fake everything): a scripted 3-iteration happy path
+         asserting the checkpoint sequence covers every stage in order;
+         the finalized run row's totals match the fakes' scripted usage
+         exactly; budget exhaustion at iteration 2 stops cleanly with
+         iteration-2 state checkpointed and no partial claim.
+      4. Green; evidence\pi-20\kernel-assembly-tests.txt. Typecheck
+         clean.
+      5. Create scripts\verify\verify-pi20-010.mjs standard pattern plus
+         the checkpoint-sequence assertion present.
+      6. Run: node scripts/verify/verify-pi20-010.mjs
+    expected_outputs:
+      - packages/core/src/kernel.ts
+      - scripts/verify/verify-pi20-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-011
+    phase: build
+    description: "Escalation and human boundaries: H1/H2 as durable states, not lost messages"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. If the registry defines escalations, implement its table; else
+         migration 0023_escalations.sql with a dated registry amendment:
+         escalations (goal_id, run_id, agent_id, boundary (H1/H2),
+         conclusion_type, payload refs, raised_at, resolved_at,
+         resolution (approved/rejected/modified), resolver user_id,
+         resolution_note) - org-scoped RLS, expectations file, proofs.
+      2. packages\core\src\escalate\: raise(ctx, boundary, payload) -
+         writes the escalation, transitions the goal to BLOCKED_HUMAN,
+         emits the event, notifies via the notification service seam
+         (interface now; a console/log implementation until the real
+         service lands - recorded as such); resolve(escalationId,
+         resolution, ...) - resumes the loop with the human decision
+         injected into the next observation (the kernel treats a
+         resolution as observed state, so the directive's human-in-loop
+         is a real loop input, not a side channel).
+      3. Vitest: an H1 obligation from policy or evaluate raises,
+         blocks, and the loop is genuinely parked (no further stage
+         executes - call recording); resolve(approved) resumes at the
+         right stage with the resolution in the observation;
+         resolve(rejected) maps to the specified lifecycle path; the
+         escalation rows complete.
+      4. Green; evidence\pi-20\escalate-tests.txt. Typecheck clean;
+         matrix green if a migration landed.
+      5. Create scripts\verify\verify-pi20-011.mjs standard pattern.
+      6. Run: node scripts/verify/verify-pi20-011.mjs
+    expected_outputs:
+      - packages/core/src/escalate/index.ts
+      - scripts/verify/verify-pi20-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-012
+    phase: build
+    description: "Memory scopes per the contract spec"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\memory\: the memory-scope model exactly as
+         AGENT_CONTRACT_SPEC defines it (scopes, retention, what is
+         readable across runs vs goals vs agents), backed by the tables
+         the registry assigns (amend + migrate 0024 if omitted, dated).
+         The SUP-05 critic separation requirement lands here as a hard
+         rule: a contract flagged independent-context gets NO shared
+         memory reads from the reviewed agent's scopes - enforced in
+         the scope resolver, tested.
+      2. Vitest: scope visibility matrix (each scope readable exactly
+         where specified); retention window honored; the critic-
+         separation rule (reviewed agent's memory invisible to the
+         independent context even when ids are known).
+      3. Green; evidence\pi-20\memory-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi20-012.mjs standard pattern plus
+         the critic-separation test present.
+      5. Run: node scripts/verify/verify-pi20-012.mjs
+    expected_outputs:
+      - packages/core/src/memory/index.ts
+      - scripts/verify/verify-pi20-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-013
+    phase: build
+    description: "Full-loop live proof: the synthetic agent runs a real goal end to end"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\kernel-proof.mjs: register BEN-TST-01's fake
+         tools as real ToolRegistry entries (deterministic canned
+         research results with source refs), create a real goal for the
+         test org via the lifecycle machine, and run the kernel loop
+         through the REAL stack - real DB, real workflow engine, real
+         policy engine, real evidence ledger, real checkpoints; the
+         model gateway with FakeProvider scripted to produce a valid
+         plan, one revision, and evaluation judgments (still no real
+         API spend for a proof that runs repeatedly).
+         Assert by direct query: goal reached SATISFIED through legal
+         transitions only (read the full transition trail); checkpoints
+         cover every stage of every iteration; claims written with
+         snapshot-style source refs and correct inference labels; the
+         agent_runs row totals true; the H1 case (script the fake
+         evaluation to hit the synthetic contract's H1 conclusion once)
+         parked and resumed via resolve; every policy decision recorded.
+         Full trail JSON to evidence\pi-20\kernel-proof.json.
+      2. All assertions pass.
+      3. Create scripts\verify\verify-pi20-013.mjs: exits 0 only if the
+         proof JSON shows SATISFIED, a complete checkpoint lattice, the
+         H1 park/resume, and zero assertion failures.
+      4. Run: node scripts/verify/verify-pi20-013.mjs
+    expected_outputs:
+      - scripts/proofs/kernel-proof.mjs
+      - evidence/pi-20/kernel-proof.json
+      - scripts/verify/verify-pi20-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-014
+    phase: build
+    description: "Kernel durability: kill mid-loop, resume from checkpoint, no duplicate effects"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\kernel-durability-proof.mjs: the pi-12 kill
+         proof elevated to the kernel - run the synthetic agent as a
+         real worker-hosted agent_loop task, SIGKILL the worker between
+         two mid-loop checkpoints (target: after a tool execution's
+         claim write, before evaluate), restart, and assert: the loop
+         resumes from the exact checkpoint (stage + iteration in the
+         trail); NO duplicate claim (the claim written before the kill
+         exists exactly once - idempotency at the evidence layer
+         proven); the final SATISFIED trail is continuous and honest
+         (the kill visible in lease history); totals on the run row
+         reflect one logical run.
+         Timeline to evidence\pi-20\kernel-durability.json.
+      2. All assertions pass - a duplicate claim is a real evidence-
+         layer bug: fix, never weaken.
+      3. Create scripts\verify\verify-pi20-014.mjs: exits 0 only if the
+         timeline shows the kill, the checkpoint-exact resume, and the
+         single-claim assertion passing.
+      4. Run: node scripts/verify/verify-pi20-014.mjs
+    expected_outputs:
+      - scripts/proofs/kernel-durability-proof.mjs
+      - evidence/pi-20/kernel-durability.json
+      - scripts/verify/verify-pi20-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-014.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-015
+    phase: build
+    description: "Kernel public API: the surface the orchestrator and apps/api consume"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\api.ts: the exported kernel surface -
+         startGoal(orgId, objective|structuredPlan, contractId?),
+         pauseGoal, resumeGoal, cancelGoal (the cascade), getGoalState
+         (lifecycle + latest checkpoint summary + budget state +
+         escalations open), listGoals(filters), resolveEscalation -
+         typed, org-scoped (every call verifies org ownership), each
+         consequential call audited. This is the ONLY entry into the
+         kernel: internal modules are not exported from the package
+         (index.ts exports the api + contracts types only - assert with
+         a test importing the package as a consumer).
+      2. Vitest: consumer-surface assertion; org-mismatch refusal on
+         every call; pause parks at the next checkpoint boundary
+         (cooperative); cancel cascades (reuse the pi20-009 tree
+         fixture); state report accuracy against seeded reality.
+      3. Green; evidence\pi-20\api-tests.txt. Typecheck + full pnpm -r
+         build clean.
+      4. Create scripts\verify\verify-pi20-015.mjs standard pattern plus
+         the consumer-surface test present.
+      5. Run: node scripts/verify/verify-pi20-015.mjs
+    expected_outputs:
+      - packages/core/src/api.ts
+      - scripts/verify/verify-pi20-015.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-015.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi20-016
+    phase: build
+    description: "Close-out: invariant coverage audit, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. evidence\pi-20\SUMMARY.md: the seven kernel invariants each
+         mapped to its now-existing test name and evidence file (the
+         DESIGN.md promise closed - every invariant has its rejecting
+         test, verified by grepping the test files for the names);
+         proof headlines (kernel-proof SATISFIED trail, durability
+         kill-resume, single-claim); module inventory with test counts;
+         registry/doc amendments (zero silent drift); migrations added
+         (0022-0024 as applicable); matrix green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-20
+         complete; next queue pi-21-kernel-hardening.
+      3. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-20/SUMMARY.md SESSION_STATE.md STATE_OF_THE_BUILD.md
+         Commit: "kernel: the closed loop - lifecycle, checkpoints,
+         policy-gated tools, evidence-mandatory execution, delegation
+         intersection, H1/H2 escalation, kill-resume proven (pi-20)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi20-016.mjs: standard close-out
+         plus all seven invariants mapped in SUMMARY (grep the invariant
+         numbers with test names).
+      5. Run: node scripts/verify/verify-pi20-016.mjs
+    expected_outputs:
+      - evidence/pi-20/SUMMARY.md
+      - scripts/verify/verify-pi20-016.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi20-016.mjs"
+    max_retries: 3
+    on_fail: halt

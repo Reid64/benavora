@@ -1,0 +1,16 @@
+release_id: PIL-RELEASE-04
+version: "1.0.0"
+title: "Intelligence Services Batch 2, Production Evaluation, and BEN-SUP-04"
+type: cumulative
+inherits: PIL-RELEASE-03
+canonical_fleet_count: 44
+canonical_deterministic_service_count: 30
+new_files:
+  - 13-service-contracts/13-intelligence-data-service-contracts-batch-02.yaml
+  - 14-evaluation-architecture/14-evaluation-and-production-readiness.md
+  - 15-agents/supervisory/BEN-SUP-04-research-portfolio-allocator.md
+completed_agent_specs: [BEN-SUP-01, BEN-SUP-02, BEN-SUP-03, BEN-SUP-04]
+remaining_agent_specs: 40
+truthful_status: {specification_complete_for_release_scope: true, implementation_claimed: false, production_score_preassigned: false}
+next_release: {id: PIL-RELEASE-05, agent: BEN-SUP-05, title: Prospect Research Critic and Red-Team Agent}
+

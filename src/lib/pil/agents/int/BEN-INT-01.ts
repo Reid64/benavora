@@ -1,16 +1,42 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   extractCityState,
   extractSummaryNear,
   getProspectById,
   hostnameOf,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
   upsertProspectNode,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
+import { getEvidence } from "@/lib/pil/evidence";
+import { getEdges } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+
+// Six domain dimensions this agent's report scores coverage across, per
+// PIL_AGENT_COMPLETE_ROSTER.md's "Core Intelligence" BEN_INT_01Decision.v1
+// contract. Coverage is computed from persisted pil_evidence/pil_graph_edges
+// state (getEvidence/getEdges), not just evidence created this run, matching
+// BEN-INT-08's own established getEvidence(prospect.id, context.orgId)
+// pattern for reading the full existing dossier.
+const INTELLIGENCE_DIMENSIONS = [
+  "Identity Hypotheses And Discriminators",
+  "Biographical And Role Chronology",
+  "Geographic Relevance",
+  "Documented Affiliations",
+  "Public Philanthropic Observations",
+  "Research Gaps And Contradictions",
+] as const;
+
+export interface IndividualIntelligenceReport {
+  prospectId: string;
+  dimensionCoverage: Record<string, boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+}
 
 // BEN-INT-01 -- Individual Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3 -- CORE PROSPECT INTELLIGENCE").
@@ -34,7 +60,7 @@ export class IndividualIntelligenceAgent implements Agent {
     }
 
     const evidenceCreated: EvidenceItem[] = [];
-    await upsertProspectNode(context.orgId, prospect, "person");
+    const personNode = await upsertProspectNode(context.orgId, prospect, "person");
 
     // 1. Public profile page: web_search then crawl the top result for
     // location + a professional-summary excerpt (no readable snippet exists
@@ -151,11 +177,153 @@ export class IndividualIntelligenceAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 400);
 
+    // Everything below is secondary reasoning layered on top of the
+    // evidence-gathering above, which has already durably committed via
+    // individually atomic recordIntelligenceEvidence()/upsertProspectNode()
+    // calls. A bug here must never discard that already-collected evidence
+    // or fail this run -- recovery starts from persisted truth, and captured
+    // evidence stays immutable regardless of what happens next.
+    let report: IndividualIntelligenceReport = {
+      prospectId: prospect.id,
+      dimensionCoverage: Object.fromEntries(INTELLIGENCE_DIMENSIONS.map((d) => [d, false])),
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+    };
+    let delegations: DelegationRequest[] = [];
+
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const personEdges = personNode ? await getEdges(personNode.id) : [];
+
+      const hasEmployment = allEvidence.some((e) => e.claim_type === "employment");
+      const hasEducation = allEvidence.some((e) => e.claim_type === "education");
+      const hasBoard = allEvidence.some((e) => e.claim_type === "nonprofit_board");
+      const hasGiving = allEvidence.some((e) => e.claim_type === "giving_history");
+      const hasWealth = allEvidence.some((e) => e.claim_type === "wealth_capacity");
+      const hasRelationshipEdges = personEdges.length > 0;
+
+      const dimensionCoverage: Record<string, boolean> = {
+        "Identity Hypotheses And Discriminators": allEvidence.some(
+          (e) => e.claim_type === "biographical" && /verified name/i.test(e.claim),
+        ),
+        "Biographical And Role Chronology":
+          hasEmployment ||
+          hasEducation ||
+          allEvidence.some((e) => e.claim_type === "biographical" && /professional summary/i.test(e.claim)),
+        "Geographic Relevance": allEvidence.some((e) => e.claim_type === "biographical" && /^Location:/.test(e.claim)),
+        "Documented Affiliations": hasBoard || hasRelationshipEdges,
+        "Public Philanthropic Observations":
+          hasGiving || allEvidence.some((e) => e.claim_type === "biographical" && /^News mention:/.test(e.claim)),
+        "Research Gaps And Contradictions": allEvidence.some(
+          (e) => e.verification_status === "contradicted" || e.contradiction_status !== "none",
+        ),
+      };
+
+      // Identity-ambiguity trigger: this run found nothing new AND no prior
+      // evidence exists at all for this prospect -- genuinely no identity
+      // signal to build a dossier on.
+      const identityAmbiguous = evidenceCreated.length === 0 && allEvidence.length === 0;
+      // Evidence-verification trigger: new evidence was recorded this run
+      // and needs provenance verification.
+      const needsEvidenceVerification = evidenceCreated.length > 0;
+
+      const candidates: DelegationRequest[] = [];
+      const pushCandidate = (childAgentCode: string, objective: string) => {
+        candidates.push({
+          childAgentCode,
+          objective,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      };
+
+      // Priority order per the roster's BEN-INT-01 delegation list -- stop
+      // once MAX_DELEGATIONS_PER_RUN candidates are collected, even if a
+      // lower-priority condition below also holds.
+      if (identityAmbiguous) {
+        pushCandidate(
+          "BEN-KNW-02",
+          `Prospect ${context.prospectId} has zero new or existing evidence after this BEN-INT-01 run -- resolve identity ambiguity before further intelligence gathering.`,
+        );
+      }
+      if (!hasEmployment) {
+        pushCandidate(
+          "BEN-INT-02",
+          `Prospect ${context.prospectId} has no employment/career evidence on file -- research employment history.`,
+        );
+      }
+      if (!hasEducation) {
+        pushCandidate(
+          "BEN-INT-04",
+          `Prospect ${context.prospectId} has no education/alumni evidence on file -- research education history.`,
+        );
+      }
+      if (!hasBoard) {
+        pushCandidate(
+          "BEN-INT-05",
+          `Prospect ${context.prospectId} has no nonprofit board affiliation evidence on file -- research board involvement.`,
+        );
+      }
+      if (!hasGiving) {
+        pushCandidate(
+          "BEN-INT-07",
+          `Prospect ${context.prospectId} has no giving-history evidence on file -- research philanthropic giving history.`,
+        );
+      }
+      if (!hasWealth) {
+        pushCandidate(
+          "BEN-INT-08",
+          `Prospect ${context.prospectId} has no wealth/capacity evidence on file -- research wealth and giving capacity.`,
+        );
+      }
+      if (!hasRelationshipEdges) {
+        pushCandidate(
+          "BEN-REL-01",
+          `Prospect ${context.prospectId} has no relationship graph edges on file -- discover relationships.`,
+        );
+      }
+      if (needsEvidenceVerification) {
+        pushCandidate(
+          "BEN-KNW-03",
+          `BEN-INT-01 recorded ${evidenceCreated.length} new evidence item(s) for prospect ${context.prospectId} this run -- verify provenance before treating as authoritative.`,
+        );
+      }
+
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "ben-int-01.gap_analysis_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { error: message },
+          policy_decision: null,
+          ip_address: null,
+        });
+      } catch {
+        // Audit logging is best-effort -- never let it mask the
+        // already-collected evidence this run already durably recorded.
+      }
+      delegations = [];
+    }
+
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: { prospectId: prospect.id, evidenceCount: evidenceCreated.length },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

@@ -1,0 +1,132 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-15: PRODUCTION READINESS REVIEW  (evidence-standard)
+# depends_on: all prior PT phases. Go/no-go + the consolidated
+# ranked WIRING_GAP_REGISTER that replaces every prior status
+# doc. HALTS at end - the program's terminal review. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt15-001
+    phase: build
+    description: "Env parity across local / Vercel / Railway"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm all prior PT phases' artifacts exist. Create
+         test-evidence\pt-15\.
+      2. Env parity: reconcile the env vars the code needs (PT-00's
+         env-audit) across local / Vercel prod / Railway prod. Where a
+         prod value can be confirmed present (not its secret value - just
+         presence), record it; where it cannot be checked, mark it. Settle
+         the WGR-002/003 questions (VERCEL_TOKEN, SUPABASE_URL, CRON_SECRET)
+         with whatever can actually be confirmed. Write
+         test-evidence\pt-15\env-parity.json.
+      3. Create scripts\audit\verify-pt15-001.mjs: fails unless
+         env-parity.json records the three-environment reconciliation.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-15: env parity across environments"
+      5. Run: node scripts/audit/verify-pt15-001.mjs
+    expected_outputs:
+      - test-evidence/pt-15/env-parity.json
+      - scripts/audit/verify-pt15-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt15-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt15-002
+    phase: build
+    description: "Backup + restore drill (branch) + rate-limiting posture + deploy-verifier fix"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. RESTORE DRILL: on a branch/local copy, prove the backup+restore
+         path actually works - restore to a copy, confirm the census + a
+         basic integrity check on the restored data. If PITR/branch is
+         unavailable on the current Supabase plan, record the drill as
+         PENDING-SCOPE and flag that production has no proven restore path
+         (a real readiness gap for Reid's plan decision).
+      2. RATE LIMITING: confirm the app's rate-limiting posture on auth and
+         expensive endpoints (ties to the known rate-limiter finding).
+      3. DEPLOY VERIFIER: confirm the false-PASS deploy-verifier fix from
+         earlier this program is in place (it must WARN/UNVERIFIED on
+         INDETERMINATE, never PASS) - and note the standing WGR-002 gap.
+      Write test-evidence\pt-15\readiness-ops.json.
+      3. Create scripts\audit\verify-pt15-002.mjs: fails unless the restore
+         drill (or its PENDING-SCOPE), rate-limit posture, and deploy-verifier
+         status are all recorded.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-15: restore drill + rate limiting + deploy verifier"
+      5. Run: node scripts/audit/verify-pt15-002.mjs
+    expected_outputs:
+      - test-evidence/pt-15/readiness-ops.json
+      - scripts/audit/verify-pt15-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt15-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt15-003
+    phase: build
+    description: "CONSOLIDATE: the final ranked WIRING_GAP_REGISTER + go/no-go"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      The program's terminal deliverable.
+      1. Consolidate EVERY finding from PT-00 through PT-14 into the final
+         test-evidence\_register\WIRING_GAP_REGISTER.md: ensure every WGR
+         row has a severity (P0/P1/P2/P3), an evidence path, a reproduction,
+         and a scope tag; resolve any duplicates; mark the already-fixed
+         ones (WGR-017, WGR-029..032) RESOLVED with their commit. Sort the
+         master list P0 -> P3.
+      2. Write test-evidence\pt-15\GO-NO-GO.md: the honest production-
+         readiness verdict - the count of open findings by severity, the
+         must-fix-before-investor list (open P0/P1), the known-limits list
+         (Places off, unlicensed business registry, embeddings pending,
+         any PENDING-SCOPE items), and a plain go/no-go with reasoning.
+      3. Write test-evidence\pt-15\REMEDIATION-BACKLOG.md: the ranked,
+         actionable fix list derived from the register - what to fix, in
+         what order, with the evidence pointer for each. This is what feeds
+         the remediation build phase after the audit.
+      4. Governance docs (STATE_OF_THE_BUILD + SESSION_STATE): audit program
+         COMPLETE, the register is now the single source of truth,
+         superseding prior status docs.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-15 COMPLETE: AUDIT PROGRAM COMPLETE - consolidated ranked register + go/no-go + remediation backlog"; Push.
+      6. Create scripts\audit\verify-pt15-003.mjs: fails unless the
+         consolidated register, GO-NO-GO.md, and REMEDIATION-BACKLOG.md all
+         exist non-empty, and the register's rows all carry severity +
+         evidence + scope tag.
+      7. Run: node scripts/audit/verify-pt15-003.mjs
+    expected_outputs:
+      - test-evidence/pt-15/GO-NO-GO.md
+      - test-evidence/pt-15/REMEDIATION-BACKLOG.md
+      - scripts/audit/verify-pt15-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt15-003.mjs"
+    max_retries: 2
+    on_fail: halt

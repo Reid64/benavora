@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { callClaude } from "@/lib/ai/claude";
 import { createResearchRun, advanceRunState } from "@/lib/pil/workflow";
 
@@ -55,7 +55,7 @@ function parsePlan(text: string): DiscoveryResearchPlan | null {
 }
 
 export async function POST(request: Request) {
-  const gate = await requireRole("writer");
+  const gate = await requirePilRole("writer");
   if ("error" in gate) return gate.error;
   const { organizationId, userId } = gate;
 

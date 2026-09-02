@@ -10,10 +10,15 @@
 // hardcode it in source, it's a live credential.
 
 import { decodeHtmlEntities } from "@/lib/utils/formatters";
+import { classifyError, logEvent } from "@/lib/integrations/error-classifier";
 
 const SAM_GOV_SEARCH_URL = "https://api.sam.gov/opportunities/v2/search";
 
 const DEFAULT_LIMIT = 100;
+// Recoverable failures (429/5xx/network) get this many total attempts before
+// giving up; non-recoverable ones (401, parse errors) fail on the first try.
+const MAX_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 500;
 // postedFrom/postedTo are mandatory on every real opportunities/v2/search
 // call; SAM.gov caps the range at "no more than 1 year apart" (confirmed
 // live: exactly 365 days back from today is rejected with HTTP 400 "Date
@@ -73,6 +78,10 @@ function daysAgo(days: number): Date {
   return d;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // SAM.gov deadlines arrive as ISO datetimes with an offset
 // ("2026-09-01T23:59:00-05:00"); normalise to the date portion (YYYY-MM-DD).
 function toIsoDate(val: unknown): string | null {
@@ -107,7 +116,8 @@ function mapHit(hit: RawOppHit): SamGovNormalizedOpportunity | null {
  * (`ptype=o`) and returns opportunities mapped toward the `opportunities`
  * table shape. Returns an empty array when `SAM_GOV_API_KEY` is unset or on
  * any HTTP/parse failure (non-fatal — callers should not treat an empty
- * result as fatal).
+ * result as fatal). Recoverable failures (rate limit, network, 5xx) are
+ * retried with backoff up to `MAX_ATTEMPTS` before falling back to `[]`.
  */
 export async function searchSamGovOpportunities(): Promise<
   SamGovNormalizedOpportunity[]
@@ -122,24 +132,51 @@ export async function searchSamGovOpportunities(): Promise<
     postedFrom: toSamDate(daysAgo(DEFAULT_DAYS_BACK)),
     postedTo: toSamDate(new Date()),
   });
+  const url = `${SAM_GOV_SEARCH_URL}?${params.toString()}`;
 
-  let response: Response;
-  try {
-    response = await fetch(`${SAM_GOV_SEARCH_URL}?${params.toString()}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch {
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let failure: unknown = null;
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok) failure = { response };
+    } catch (err) {
+      response = null;
+      failure = err;
+    }
+
+    if (!failure) break;
+
+    const { type, recoverable, recommendedAction } = classifyError(failure);
+
+    if (recoverable && attempt < MAX_ATTEMPTS - 1) {
+      logEvent("integration_error", {
+        source: "sam_gov",
+        type,
+        action: recommendedAction,
+        attempt: attempt + 1,
+      });
+      await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
+      continue;
+    }
+
+    logEvent("integration_error_fatal", { source: "sam_gov", type });
     return [];
   }
 
-  if (!response.ok) return [];
+  if (!response) return [];
 
   let body: SamGovSearchResponse;
   try {
     body = (await response.json()) as SamGovSearchResponse;
-  } catch {
+  } catch (err) {
+    const { type } = classifyError(err);
+    logEvent("integration_error_fatal", { source: "sam_gov", type });
     return [];
   }
 

@@ -1,0 +1,719 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# INTELLIGENCE LIBRARY — NIGHTS 3-7 COMBINED
+# ============================================================
+# Builds remaining 6 knowledge bases (KBs 4-9) on top of the
+# existing KB 1 (Funded Proposals), KB 2 (Rubrics), KB 3 (Logic Models).
+#
+# KB 4: Evidence/Need Statement Data (Census, HUD, BLS, CDC)
+# KB 5: Budget Pattern Library
+# KB 6: Compliance Requirements
+# KB 7: Evaluation Framework Library
+# KB 8: Funder Behavior/Grantmaker Intelligence
+# KB 9: Grant DNA Scoring + Winning Patterns
+# + Cross-library integration, unified search, analytics
+# ============================================================
+
+prompts:
+
+  # ============================================================
+  # NIGHT 3: NEED STATEMENT DATABASE (KB 4)
+  # ============================================================
+
+  - id: intel-301
+    phase: build
+    description: "Create Census Bureau and HUD data integration for need statements"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\types.ts for existing intelligence types.
+      Read the GRANT_INTELLIGENCE_ARCHITECTURE.md for KB structure.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\sources\census-api.ts:
+        Export class CensusDataSource:
+        - fetchPovertyData(state: string, county?: string): Promise<NeedDataPoint[]>
+          Census Bureau API: https://api.census.gov/data/2022/acs/acs5
+          Variables: B17001_001E (total), B17001_002E (below poverty)
+          Free, no API key required (or use env var CENSUS_API_KEY if set).
+        - fetchHousingData(state: string, county?: string): Promise<NeedDataPoint[]>
+          Variables: B25003_001E (occupied units), B25003_003E (renter occupied), B25077_001E (median home value)
+        - fetchDemographics(state: string, county?: string): Promise<NeedDataPoint[]>
+          Variables: B01003_001E (population), B19013_001E (median income)
+        - FIPS code lookup: state name → 2-digit FIPS, county name → 5-digit FIPS
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\sources\hud-api.ts:
+        Export class HudDataSource:
+        - fetchHomelessCounts(state: string, year?: number): Promise<NeedDataPoint[]>
+          HUD Exchange API: https://www.hudexchange.info/resource/3031/pit-and-hic-data-since-2007/
+          Parse CSV data for PIT counts (sheltered, unsheltered, total).
+        - fetchFairMarketRents(state: string, county?: string): Promise<NeedDataPoint[]>
+          HUD FMR API: https://www.huduser.gov/hudapi/public/fmr/data/{entityId}
+          Free, requires HUD_API_KEY env var (free registration).
+        - fetchAffordabilityIndex(state: string): Promise<NeedDataPoint[]>
+
+      Define NeedDataPoint: { metric: string, value: number, year: number, geography: string, source: string, citation: string, category: 'poverty'|'housing'|'demographics'|'health'|'employment' }
+    expected_outputs:
+      - src/lib/intelligence/sources/census-api.ts
+      - src/lib/intelligence/sources/hud-api.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-302
+    phase: build
+    description: "Create BLS and CDC data integration for need statements"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\sources\census-api.ts for NeedDataPoint type.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\sources\bls-api.ts:
+        Export class BlsDataSource:
+        - fetchUnemploymentRate(state: string, county?: string): Promise<NeedDataPoint[]>
+          BLS API v2: https://api.bls.gov/publicAPI/v2/timeseries/data/
+          Series IDs: LAUST{FIPS}0000000003 (unemployment rate by state)
+          Free tier: 25 queries/day without key, 500/day with BLS_API_KEY.
+        - fetchWageData(state: string, occupation?: string): Promise<NeedDataPoint[]>
+          OEWS data for median wages by area.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\sources\cdc-api.ts:
+        Export class CdcDataSource:
+        - fetchMortalityData(state: string): Promise<NeedDataPoint[]>
+          CDC WONDER API: https://wonder.cdc.gov/
+          Parse compressed mortality data for leading causes by geography.
+        - fetchSubstanceAbuseData(state: string): Promise<NeedDataPoint[]>
+          SAMHSA NSDUH data tables (publicly available CSV/Excel).
+          Parse national survey data for substance use prevalence by state.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\need-statement-engine.ts:
+        Export class NeedStatementEngine:
+        - gatherNeedData(geography: { state: string, county?: string, zip?: string }, categories: string[]): Promise<NeedDataPoint[]>
+          Aggregates across Census, HUD, BLS, CDC sources. Geographic fallback: zip → county → state → national.
+        - generateNeedStatement(orgProfile: any, needData: NeedDataPoint[], programCategory: string): Promise<{ statement: string, citations: string[] }>
+          Uses Claude to generate a data-backed need statement with inline citations.
+          Every statistic includes source, year, and proper citation format.
+        - generateCitation(dataPoint: NeedDataPoint): string
+          Formats: "U.S. Census Bureau, American Community Survey 5-Year Estimates, 2022"
+    expected_outputs:
+      - src/lib/intelligence/sources/bls-api.ts
+      - src/lib/intelligence/sources/cdc-api.ts
+      - src/lib/intelligence/need-statement-engine.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-303
+    phase: build
+    description: "Create need data ingestion scripts and API routes"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\need-statement-engine.ts.
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\sources\census-api.ts.
+
+      Create C:\Users\manag\Documents\benavora\scripts\ingest-census-data.ts:
+        CLI script that fetches Census poverty, housing, and demographic data for all 50 states + DC.
+        Stores results in intelligence_need_data table.
+        Usage: npx tsx scripts/ingest-census-data.ts --states "TX,CA,NY" (or --all)
+        Progress: logs every state completed.
+
+      Create C:\Users\manag\Documents\benavora\scripts\ingest-hud-data.ts:
+        CLI script that fetches HUD PIT counts and FMR data for all states.
+        Usage: npx tsx scripts/ingest-hud-data.ts --all
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\need-data\route.ts:
+        GET: Query need data by state/county/category. Returns NeedDataPoint[].
+        POST: Generate a need statement for a given geography + program category.
+        Uses NeedStatementEngine.generateNeedStatement(). Requires auth.
+        maxDuration = 300 (Claude generation).
+
+      Integrate into draft generator:
+      Read C:\Users\manag\Documents\benavora\src\lib\agents\narrative-drafter.ts (or wherever the draft prompt is built).
+      Add a step: before generating a need statement section, call NeedStatementEngine.gatherNeedData() for the org's geography, include the data points in the Claude prompt so the draft uses real statistics with citations.
+    expected_outputs:
+      - scripts/ingest-census-data.ts
+      - scripts/ingest-hud-data.ts
+      - src/app/api/intelligence/need-data/route.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # NIGHT 4: BUDGET PATTERN LIBRARY (KB 5) + EVALUATION (KB 7)
+  # ============================================================
+
+  - id: intel-401
+    phase: build
+    description: "Create budget pattern library with federal cost principles"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\budget-patterns.ts:
+
+      Export const BUDGET_CATEGORIES = ['personnel', 'fringe', 'travel', 'equipment', 'supplies', 'contractual', 'construction', 'other', 'indirect'] as const;
+
+      Export class BudgetPatternLibrary:
+        - getTemplateByCategory(programCategory: string, grantType: string): Promise<BudgetTemplate>
+          Returns a budget template with typical line items, percentage ranges, and justification examples.
+          Templates stored in intelligence_budget_patterns table.
+        - getFederalCostPrinciples(costCategory: string): string[]
+          Returns relevant 2 CFR 200 excerpts for the cost category.
+          Hardcoded reference library (not an API call).
+        - getTypicalFringeRate(orgType: string, state: string): { rate: number, components: string[] }
+          Returns typical fringe benefit rates by org type and state.
+        - getIndirectCostRateGuidance(grantType: string): string
+          Federal grants: de minimis 10% MTDC, or negotiated rate.
+          Foundation grants: typically not allowed or capped.
+        - generateBudgetNarrative(budget: any, grantType: string, orgProfile: any): Promise<string>
+          Uses Claude to generate a compliant budget narrative with cost justifications.
+
+      Create migration C:\Users\manag\Documents\benavora\supabase\migrations\059_budget_patterns.sql:
+        CREATE TABLE IF NOT EXISTS intelligence_budget_patterns (
+          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+          program_category text NOT NULL,
+          grant_type text NOT NULL,
+          line_items jsonb NOT NULL DEFAULT '[]',
+          typical_percentages jsonb DEFAULT '{}',
+          justification_examples jsonb DEFAULT '[]',
+          source text,
+          created_at timestamptz DEFAULT NOW()
+        );
+
+      Seed with 5 common budget templates: housing program, youth services, substance abuse treatment, workforce development, food assistance.
+    expected_outputs:
+      - src/lib/intelligence/budget-patterns.ts
+      - supabase/migrations/059_budget_patterns.sql
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-402
+    phase: build
+    description: "Create evaluation framework library with KPI database"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\evaluation-library.ts:
+
+      Export class EvaluationLibrary:
+        - getFrameworkByCategory(programCategory: string): Promise<EvaluationFramework>
+          Returns an evaluation framework template with: evaluation design, KPIs, data collection methods, reporting schedule, and analysis plan.
+        - getKPIs(programCategory: string): Promise<KPI[]>
+          Returns measurable indicators for the program type.
+          KPI: { name, definition, measurement_method, target_range, data_source, frequency }
+        - getDataCollectionTools(kpis: KPI[]): string[]
+          Suggests tools: intake forms, surveys, case management systems, pre/post tests.
+        - generateEvaluationPlan(programDescription: string, kpis: KPI[], orgCapacity: string): Promise<string>
+          Uses Claude to generate a complete evaluation plan section.
+
+      Seed data — create C:\Users\manag\Documents\benavora\src\lib\intelligence\data\evaluation-templates.ts:
+        Export const EVALUATION_TEMPLATES: Record<string, EvaluationFramework> with templates for:
+        - Emergency/transitional housing (occupancy rates, length of stay, housing stability at 6/12 months)
+        - Substance abuse treatment (completion rates, relapse rates, employment at discharge)
+        - Workforce development (job placement rate, wage increase, retention at 90 days)
+        - Youth programs (attendance, grade improvement, behavior incidents)
+        - Food assistance (meals served, food insecurity reduction, nutritional outcomes)
+        - Mental health (PHQ-9 scores, session attendance, crisis events)
+        - Reentry/criminal justice (recidivism rate, employment, housing stability)
+
+      Export const KPI_DATABASE: KPI[] with 50+ measurable indicators across all categories.
+    expected_outputs:
+      - src/lib/intelligence/evaluation-library.ts
+      - src/lib/intelligence/data/evaluation-templates.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-403
+    phase: build
+    description: "Create compliance requirements database (KB 6)"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\compliance-library.ts:
+
+      Export class ComplianceLibrary:
+        - getRequirements(grantType: string, fundingSource: string): ComplianceRequirement[]
+          Returns applicable compliance requirements.
+        - checkCompliance(application: any, requirements: ComplianceRequirement[]): ComplianceCheckResult
+          Scans application data against requirements, returns pass/fail per item.
+        - getRegulatoryCitations(requirement: string): string[]
+          Returns relevant CFR/OMB/statute citations.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\data\compliance-requirements.ts:
+        Export const COMPLIANCE_REQUIREMENTS with entries for:
+        Federal grants:
+        - 2 CFR 200 (Uniform Guidance) — audit requirements, cost principles, administrative requirements
+        - OMB A-133 audit threshold ($750K)
+        - SAM.gov registration requirement
+        - DUNS/UEI number requirement
+        - Indirect cost rate agreement
+        - Financial management standards
+        - Property management standards
+        - Procurement standards
+        HUD-specific:
+        - Environmental review (24 CFR Part 58)
+        - Davis-Bacon wage requirements
+        - Section 3 hiring requirements
+        - Fair housing compliance
+        - Lead-based paint regulations
+        State grants:
+        - State single audit requirements
+        - State procurement thresholds
+        Foundation grants:
+        - 501(c)(3) determination letter
+        - Most recent Form 990
+        - Board resolution (sometimes required)
+        - Organizational budget
+
+      Each requirement: { id, name, description, applies_to: string[], citation, check_type: 'document'|'data'|'attestation', severity: 'required'|'recommended' }
+    expected_outputs:
+      - src/lib/intelligence/compliance-library.ts
+      - src/lib/intelligence/data/compliance-requirements.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-404
+    phase: build
+    description: "Integrate budget, evaluation, and compliance into draft generator"
+    prompt: |
+      Read the AI draft generation flow completely:
+      - Find the draft API route (likely src/app/api/ai/draft/route.ts)
+      - Find the narrative drafter agent
+      - Read src/lib/intelligence/budget-patterns.ts
+      - Read src/lib/intelligence/evaluation-library.ts
+      - Read src/lib/intelligence/compliance-library.ts
+
+      Modify the draft generation pipeline:
+      1. When template_type includes 'budget' or 'full_proposal':
+         - Call BudgetPatternLibrary.getTemplateByCategory() to get relevant budget patterns
+         - Include budget patterns + federal cost principles in the Claude prompt
+         - Add budget narrative generation as a draft section
+      2. When template_type includes 'evaluation' or 'full_proposal':
+         - Call EvaluationLibrary.getKPIs() for the program category
+         - Include KPIs and evaluation framework in the Claude prompt
+         - Add evaluation plan generation as a draft section
+      3. For ALL draft types:
+         - Call ComplianceLibrary.getRequirements() based on the opportunity's source type
+         - Add a compliance checklist to the draft output
+         - Flag any missing compliance items in the draft confidence scoring
+
+      Create API routes:
+      C:\Users\manag\Documents\benavora\src\app\api\intelligence\budget-patterns\route.ts:
+        GET: List budget patterns by category. Auth required.
+      C:\Users\manag\Documents\benavora\src\app\api\intelligence\evaluation\route.ts:
+        GET: Get evaluation framework + KPIs by category. Auth required.
+      C:\Users\manag\Documents\benavora\src\app\api\intelligence\compliance\route.ts:
+        GET: Get compliance requirements by grant type. Auth required.
+    expected_outputs:
+      - src/app/api/intelligence/budget-patterns/route.ts
+      - src/app/api/intelligence/evaluation/route.ts
+      - src/app/api/intelligence/compliance/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # NIGHT 5: GRANTMAKER INTELLIGENCE (KB 8)
+  # ============================================================
+
+  - id: intel-501
+    phase: build
+    description: "Create grantmaker profile builder from foundation data"
+    prompt: |
+      Read the foundation_directory table schema.
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\types.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\grantmaker-profiles.ts:
+
+      Export class GrantmakerProfileBuilder:
+        - buildProfile(foundationId: string): Promise<GrantmakerProfile>
+          Aggregates from foundation_directory + enrichment_results + any 990 data.
+          Profile: { name, ein, city, state, avg_award, total_giving, geographic_focus, program_priorities: string[], typical_award_range: { min, max }, application_preferences, language_patterns: string[], contact_info }
+        - matchOrgToFunders(orgProfile: any, limit: number): Promise<FunderMatch[]>
+          Scores funders by fit: geographic overlap, program alignment, award size fit.
+          Returns ranked list with match_score (0-100) and match_reasons.
+        - getFunderLanguagePatterns(foundationId: string): Promise<string[]>
+          Extracts common phrases and terminology from the funder's website and published materials.
+          Used by pitch personalizer to adapt language.
+
+      Create C:\Users\manag\Documents\benavora\scripts\build-grantmaker-profiles.ts:
+        CLI script that processes foundation_directory in batches.
+        For each foundation with a website: scrapes priorities from About/Grants page.
+        For each with 990 data: extracts giving patterns from financial data.
+        Stores profiles in intelligence_grantmaker_profiles table.
+        Usage: npx tsx scripts/build-grantmaker-profiles.ts --limit 1000
+
+      Create migration C:\Users\manag\Documents\benavora\supabase\migrations\060_grantmaker_profiles.sql:
+        CREATE TABLE IF NOT EXISTS intelligence_grantmaker_profiles (
+          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+          foundation_id uuid REFERENCES foundation_directory(id),
+          ein text,
+          name text NOT NULL,
+          avg_award_amount numeric(12,2),
+          total_annual_giving numeric(14,2),
+          geographic_focus text[],
+          program_priorities text[],
+          typical_award_range jsonb,
+          language_patterns text[],
+          application_url text,
+          last_profiled_at timestamptz,
+          profile_data jsonb DEFAULT '{}',
+          created_at timestamptz DEFAULT NOW()
+        );
+        CREATE INDEX idx_grantmaker_profiles_ein ON intelligence_grantmaker_profiles(ein);
+        CREATE INDEX idx_grantmaker_profiles_geo ON intelligence_grantmaker_profiles USING gin(geographic_focus);
+    expected_outputs:
+      - src/lib/intelligence/grantmaker-profiles.ts
+      - scripts/build-grantmaker-profiles.ts
+      - supabase/migrations/060_grantmaker_profiles.sql
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-502
+    phase: build
+    description: "Create funder recommendation engine and API"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\grantmaker-profiles.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\funder-recommender.ts:
+
+      Export class FunderRecommender:
+        - recommend(params: { orgId: string, programCategory: string, grantAmount: number, geography: string }): Promise<FunderRecommendation[]>
+          Queries intelligence_grantmaker_profiles for matching funders.
+          Scoring: geographic_match (30%), program_match (30%), amount_fit (20%), historical_success (20%).
+          Returns top 20 with scores and match reasons.
+        - explainMatch(funderId: string, orgId: string): Promise<string>
+          Uses Claude to generate a human-readable explanation of why this funder is a good match.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\recommendations\route.ts:
+        GET: Get funder recommendations for the org. Query params: category, amount, limit.
+        Auth required, org-scoped.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\intelligence\recommendations\page.tsx:
+        Funder recommendation page showing:
+        - Org profile summary at top
+        - Filter controls: program category, amount range, geographic scope
+        - Recommended funders list with match score badges, key stats, and "Add to Funders" button
+        - Each recommendation expandable to show match reasoning
+        Use Tailwind dark theme consistent with design system.
+    expected_outputs:
+      - src/lib/intelligence/funder-recommender.ts
+      - src/app/api/intelligence/recommendations/route.ts
+      - src/app/(dashboard)/intelligence/recommendations/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-503
+    phase: build
+    description: "Create post-award report ingestion and outcome extraction"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\outcome-benchmarks.ts:
+
+      Export class OutcomeBenchmarkEngine:
+        - getBenchmarks(programCategory: string, geography?: string): Promise<OutcomeBenchmark[]>
+          Returns typical outcome ranges for the program type.
+          OutcomeBenchmark: { metric, typical_range: { low, median, high }, source, sample_size }
+        - compareToActual(orgOutcomes: any[], benchmarks: OutcomeBenchmark[]): ComparisonResult
+          Compares org's actual outcomes to benchmarks. Returns above/below/at for each metric.
+        - generateOutcomeProjection(programDescription: string, category: string): Promise<string>
+          Uses Claude + benchmark data to project realistic outcomes for a new program.
+
+      Seed benchmarks data in C:\Users\manag\Documents\benavora\src\lib\intelligence\data\outcome-benchmarks.ts:
+        Export const OUTCOME_BENCHMARKS with data for:
+        - Housing: 70-85% housing stability at 12 months, 30-45 day avg placement time
+        - Substance abuse: 40-60% completion rate, 30-50% sobriety at 6 months
+        - Workforce: 60-75% job placement, $12-18/hr avg starting wage
+        - Youth: 15-25% grade improvement, 80-90% program completion
+        - Reentry: 20-35% recidivism reduction, 50-65% employment rate
+        Each with source citations from published research/HUD benchmarks.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\benchmarks\route.ts:
+        GET: Get outcome benchmarks by category. Auth required.
+    expected_outputs:
+      - src/lib/intelligence/outcome-benchmarks.ts
+      - src/lib/intelligence/data/outcome-benchmarks.ts
+      - src/app/api/intelligence/benchmarks/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # NIGHT 6: WINNING PATTERNS + GRANT DNA (KB 9)
+  # ============================================================
+
+  - id: intel-601
+    phase: build
+    description: "Create narrative pattern extraction engine"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\types.ts.
+      Read the intelligence_proposal_sections table schema.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\pattern-engine.ts:
+
+      Export class NarrativePatternEngine:
+        - extractPatterns(proposalSections: any[]): Promise<NarrativePattern[]>
+          Analyzes a batch of funded proposal sections using Claude.
+          Identifies recurring patterns: opening hooks (statistic-led, story-led, authority-led),
+          evidence density, outcome specificity, transition structures, section length distributions.
+          NarrativePattern: { type, description, frequency, win_rate, examples: string[], category }
+        - scoreSection(sectionText: string, sectionType: string): Promise<PatternScore>
+          Scores a draft section against known winning patterns.
+          PatternScore: { overall: number, dimensions: { clarity, evidence_density, outcome_specificity, funder_alignment, readability } }
+        - suggestImprovements(sectionText: string, sectionType: string, patterns: NarrativePattern[]): Promise<string[]>
+          Returns specific improvement suggestions based on pattern analysis.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\grant-dna.ts:
+
+      Export class GrantDNAScorer:
+        - scoreProposal(proposalSections: Record<string, string>): Promise<GrantDNAScore>
+          Scores across 8 dimensions: clarity (0-10), evidence_density (0-10), outcome_specificity (0-10),
+          funder_alignment (0-10), innovation (0-10), sustainability (0-10), feasibility (0-10), impact_scope (0-10).
+          Composite score: weighted average (weights configurable per grant type).
+          GrantDNAScore: { composite: number, dimensions: Record<string, number>, recommendations: string[] }
+        - benchmarkAgainstFunded(score: GrantDNAScore, category: string): { percentile: number, comparison: string }
+          Compares against average scores of funded proposals in the same category.
+        - getWeightsByGrantType(grantType: string): Record<string, number>
+          Federal: evidence_density weighted higher. Corporate: innovation weighted higher.
+    expected_outputs:
+      - src/lib/intelligence/pattern-engine.ts
+      - src/lib/intelligence/grant-dna.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-602
+    phase: build
+    description: "Integrate Grant DNA scoring into draft generator and create UI"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\grant-dna.ts.
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\pattern-engine.ts.
+      Read the draft generator page at src/app/(dashboard)/draft-generator/page.tsx.
+
+      Modify the draft generator:
+      1. After a draft is generated, automatically run GrantDNAScorer.scoreProposal() on it.
+      2. Display the Grant DNA score card alongside the draft:
+         - Radar chart showing 8 dimensions (use Recharts, dynamic import ssr:false)
+         - Composite score with percentile ranking vs funded proposals
+         - Per-dimension improvement suggestions
+      3. Add a "Score Draft" button that re-runs scoring on edited text.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\grant-dna\route.ts:
+        POST: Score a draft. Body: { sections: Record<string, string>, category, grant_type }
+        Returns GrantDNAScore with benchmarking. Auth required.
+        maxDuration = 300.
+
+      Create C:\Users\manag\Documents\benavora\src\components\intelligence\GrantDNACard.tsx:
+        A card component showing:
+        - Composite score as a large number with color (green >75, yellow 50-75, red <50)
+        - Radar chart of 8 dimensions
+        - Percentile badge ("Better than 72% of funded proposals in this category")
+        - Expandable improvement suggestions per dimension
+        Use Recharts RadarChart. Tailwind dark theme.
+    expected_outputs:
+      - src/app/api/intelligence/grant-dna/route.ts
+      - src/components/intelligence/GrantDNACard.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # NIGHT 7: CROSS-LIBRARY INTEGRATION + ANALYTICS
+  # ============================================================
+
+  - id: intel-701
+    phase: build
+    description: "Create unified intelligence search across all knowledge bases"
+    prompt: |
+      Read all intelligence library files in src/lib/intelligence/.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\unified-search.ts:
+
+      Export class UnifiedIntelligenceSearch:
+        - search(query: string, filters?: { kbTypes?: string[], categories?: string[], limit?: number }): Promise<SearchResult[]>
+          Searches across all knowledge bases using vector similarity (pgvector).
+          KB types: 'funded_proposal', 'rubric', 'logic_model', 'need_data', 'budget_pattern', 'evaluation', 'compliance', 'grantmaker', 'outcome_benchmark'
+          Returns results grouped by KB type with relevance scores.
+        - getRelatedIntelligence(opportunityId: string): Promise<RelatedIntelligence>
+          Given an opportunity, finds all relevant intelligence: matching funded proposals, applicable rubrics, relevant need data, budget patterns, evaluation frameworks, compliance requirements.
+          This is the "one-click intelligence briefing" for any opportunity.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\search\route.ts:
+        GET: Unified search. Query params: q, kb_types (comma-separated), category, limit.
+        Auth required. Tier-gated: Starter gets top 3 results, Pro gets 10, Enterprise gets all.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\briefing\route.ts:
+        GET: Intelligence briefing for an opportunity. Query: opportunity_id.
+        Returns aggregated intelligence from all KBs relevant to that opportunity.
+        Auth required. maxDuration = 300.
+    expected_outputs:
+      - src/lib/intelligence/unified-search.ts
+      - src/app/api/intelligence/search/route.ts
+      - src/app/api/intelligence/briefing/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-702
+    phase: build
+    description: "Create intelligence library dashboard with analytics"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\intelligence-library\dashboard\page.tsx:
+
+      Intelligence Library analytics dashboard showing:
+
+      1. STATS ROW: Total funded proposals, total sections indexed, total need data points, total grantmaker profiles, total budget patterns, total KPIs. Each as a compact metric card.
+
+      2. COVERAGE HEAT MAP: A table showing coverage by program category.
+         Rows: housing, substance_abuse, workforce, youth, food, mental_health, reentry, veterans, faith_based, education
+         Columns: Funded Proposals, Rubrics, Logic Models, Need Data, Budget Patterns, Evaluation, Compliance, Grantmaker Profiles
+         Cells: count with color intensity (green = good coverage, yellow = sparse, red = none)
+
+      3. SEARCH BAR: Unified search across all KBs with type filter chips.
+         Results appear below grouped by KB type.
+
+      4. RECENT INGESTIONS: Last 10 items added to the intelligence library with source, type, and timestamp.
+
+      5. DATA FRESHNESS: List of data sources with last-updated date and staleness indicator (green <30 days, yellow 30-90, red >90).
+
+      Add "Dashboard" as a sub-tab on the Intelligence Library page.
+      Use Recharts for any charts. Tailwind dark theme.
+    expected_outputs:
+      - src/app/(dashboard)/intelligence-library/dashboard/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-703
+    phase: build
+    description: "Add intelligence briefing panel to opportunity detail page"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\app\(dashboard)\opportunities\[id]\page.tsx.
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\unified-search.ts.
+
+      Add an "Intelligence Briefing" tab or expandable panel to the opportunity detail page:
+
+      When the user views an opportunity, show a panel with:
+      1. MATCHING FUNDED PROPOSALS: Top 3-5 similar funded applications from the intelligence library with similarity score and "View" link.
+      2. APPLICABLE RUBRICS: If rubric data exists for this funder/program type, show scoring dimensions and weights.
+      3. RELEVANT NEED DATA: Statistics for the org's geography relevant to this opportunity's category. With citations.
+      4. RECOMMENDED BUDGET TEMPLATE: If a budget pattern exists for this program category, show suggested line items.
+      5. EVALUATION FRAMEWORK: Suggested KPIs and data collection methods for this program type.
+      6. COMPLIANCE CHECKLIST: Required documents and regulatory requirements for this grant type.
+      7. FUNDER PROFILE: If the funder exists in grantmaker profiles, show their typical award range, priorities, and language patterns.
+
+      The panel should load lazily (fetch on tab click, not on page load).
+      Show a "Generate Briefing" button that calls /api/intelligence/briefing?opportunity_id={id}.
+      Display results in collapsible sections.
+
+      Tier-gate the content: Starter sees items 1+6 only. Professional sees 1-6. Enterprise sees all 7.
+    expected_outputs:
+      - src/app/(dashboard)/opportunities/[id]/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-704
+    phase: build
+    description: "Build verification and governance update for Intelligence Library Nights 3-7"
+    prompt: |
+      1. Run pnpm tsc --noEmit — fix ALL TypeScript errors.
+      2. Run pnpm run build — fix ALL build errors.
+      3. Verify no route conflicts.
+      4. Count total routes and pages.
+
+      5. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         ## Intelligence Library Nights 3-7: BUILT
+
+         ### KB 4: Need Statement Database
+         - Census Bureau API integration (poverty, housing, demographics)
+         - HUD API integration (PIT counts, Fair Market Rents)
+         - BLS API integration (unemployment, wages)
+         - CDC/SAMHSA data integration (health, substance abuse)
+         - Need statement auto-generator with inline citations
+         - Geographic matching engine (zip → county → state → national)
+         - Ingestion scripts: ingest-census-data.ts, ingest-hud-data.ts
+
+         ### KB 5: Budget Pattern Library
+         - Budget templates by program category with line items and percentages
+         - Federal cost principles reference (2 CFR 200)
+         - Fringe rate and indirect cost guidance
+         - Budget narrative auto-generator integrated into draft pipeline
+
+         ### KB 6: Compliance Requirements
+         - Federal (2 CFR 200, OMB, SAM.gov, UEI)
+         - HUD-specific (environmental review, Davis-Bacon, Section 3)
+         - State and foundation requirements
+         - Compliance pre-check integrated into draft output
+
+         ### KB 7: Evaluation Framework Library
+         - Evaluation templates for 7 program categories
+         - 50+ KPI database with measurement methods
+         - Data collection tool suggestions
+         - Evaluation plan auto-generator integrated into draft pipeline
+
+         ### KB 8: Grantmaker Intelligence
+         - Grantmaker profile builder from foundation data + website scraping
+         - Funder recommendation engine (geographic, programmatic, amount fit scoring)
+         - Funder recommendation page at /intelligence/recommendations
+         - Post-award outcome benchmarks by program category
+
+         ### KB 9: Grant DNA Scoring
+         - 8-dimension scoring (clarity, evidence, outcomes, alignment, innovation, sustainability, feasibility, impact)
+         - Narrative pattern extraction from funded proposals
+         - Draft benchmarking against funded proposal database
+         - Grant DNA card component with radar chart
+         - Improvement suggestions per dimension
+
+         ### Cross-Library Integration
+         - Unified search across all 9 knowledge bases
+         - Intelligence briefing API (one-click intelligence for any opportunity)
+         - Intelligence briefing panel on opportunity detail page
+         - Intelligence library analytics dashboard with coverage heat map
+         - Tier-gated access (Starter: basic, Pro: full, Enterprise: DNA + recommendations)
+
+      6. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md accordingly.
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,264 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL.md
+  - governance/DESIGN_SYSTEM.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: page-dashboard-001
+    phase: build
+    description: "/dashboard - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md in full and apply it exactly to /dashboard.
+      Section: Dashboard. Accent: #1D4ED8 (deep blue).
+      Page-specific notes: this is the highest-traffic page and the pipeline stage cards
+      (Onboard/Research/Opportunities/Narratives/AutoApply/Funding Secured) are the real
+      centerpiece - the accent should read clearly on this row without overpowering the
+      individual stage colors already differentiating each stage. AI Triggers and Alerts
+      panels keep their own distinct real content, only chrome/header gets the section accent.
+    expected_outputs: [src/app/(dashboard)/dashboard/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-research-001
+    phase: build
+    description: "/research - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /research.
+      Section: Research & Discovery. Accent: #0284C7 (sky blue).
+      Page-specific notes: the Research Resources grid (Grants.gov, SAM.gov, USASpending.gov,
+      NIH RePORTER, NSF, HRSA, HUD, etc.) uses real "Visit" buttons - those become the fixed
+      teal #22D3EE. The tab bar (Research / Search Configuration) gets the section accent on
+      its active-tab indicator.
+    expected_outputs: [src/app/(dashboard)/research/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-opportunities-001
+    phase: build
+    description: "/opportunities - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /opportunities.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: the filter pill row (All/Federal/Foundation/Corporate/State-Local/
+      Rolling/Closing Soon) uses the accent for its active-selection state. "Apply Now"/"Run
+      Land Bank Discovery"/"Add Opportunity" buttons become the fixed teal. Status/probability
+      percentages keep their real semantic color, do not repaint them.
+    expected_outputs: [src/app/(dashboard)/opportunities/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-donor-discovery-001
+    phase: build
+    description: "/donor-discovery - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /donor-discovery.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: "Discover Prospects" is the primary CTA - fixed teal. The four
+      stat cards (Discover Prospects, Corporate Marketplace, Corporate Outreach, Intent
+      Signals) currently show mostly zero states - give each a real polished empty treatment
+      per the protocol's empty-state rule, not just plain gray text.
+    expected_outputs: [src/app/(dashboard)/donor-discovery/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-donor-discovery-prospects-001
+    phase: build
+    description: "/donor-discovery/prospects - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /donor-discovery/prospects.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: real data table with 133,812 real prospects - confirm the table
+      header row and "Discover More" button carry the accent/teal correctly without breaking
+      the filter dropdowns (industry/requests/status/score/location) or the "Add to Outreach"
+      row action.
+    expected_outputs: [src/app/(dashboard)/donor-discovery/prospects/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-donor-discovery-intent-001
+    phase: build
+    description: "/donor-discovery/intent-signals - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /donor-discovery/intent-signals.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: "Run Signal Analysis" is the primary CTA, fixed teal. Currently
+      an empty state ("No intent signals yet") - apply the protocol's empty-state polish
+      requirement.
+    expected_outputs: [src/app/(dashboard)/donor-discovery/intent-signals/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-nonprofit-directory-001
+    phase: build
+    description: "/nonprofits - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /nonprofits.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: real 1,980,944-row directory - confirm the stat pills (Total/With
+      Website/With Mission/With Officer) and table header carry the accent without breaking
+      the search/state filter or the real per-row website links.
+    expected_outputs: [src/app/(dashboard)/nonprofits/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-foundations-001
+    phase: build
+    description: "/foundations - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /foundations.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: real 133,812-row foundation directory with 990-enrichment stats -
+      same treatment pattern as /nonprofits, "Import as Funder" buttons become fixed teal.
+    expected_outputs: [src/app/(dashboard)/foundations/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-funders-001
+    phase: build
+    description: "/funders - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /funders.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: "New Funder" CTA becomes fixed teal. Category badges
+      (Foundation/Corporate) keep their own distinct real styling, not the section accent.
+    expected_outputs: [src/app/(dashboard)/funders/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-contacts-001
+    phase: build
+    description: "/contacts - sky blue #0284C7"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /contacts.
+      Section: Research & Discovery. Accent: #0284C7.
+      Page-specific notes: "New Contact" becomes fixed teal. Relationship-warmth badges
+      (Warm/Cold/etc.) keep their own real semantic color, not the section accent.
+    expected_outputs: [src/app/(dashboard)/contacts/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-draft-generator-001
+    phase: build
+    description: "/draft-generator - mid blue #2563EB"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /draft-generator.
+      Section: Draft & Automation. Accent: #2563EB (mid blue).
+      Page-specific notes: the Grant Draft Wizard's step indicators (Select Opportunity/
+      Customize/Generate/Review & Export) and the "Generate new version" button need careful
+      treatment - the wizard's own step-progress coloring is functionally meaningful, apply
+      the accent without breaking the visual read of which step is active vs. complete.
+      "Score Draft"/"Humanize" secondary buttons can stay their current treatment if changing
+      them risks breaking their disabled/enabled states - use judgment, verify visually.
+    expected_outputs: [src/app/(dashboard)/draft-generator/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-autoapply-001
+    phase: build
+    description: "/autoapply - mid blue #2563EB"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /autoapply.
+      Section: Draft & Automation. Accent: #2563EB.
+      Page-specific notes: "Start Session" (currently a bright green/teal already, confirm it
+      becomes the fixed #22D3EE exactly) and "Pause" (keep its warning-orange, this is a real
+      semantic action color, not decorative). The Live Session Viewer's "OFFLINE"/"No active
+      session" state needs the protocol's empty-state polish. Worker status indicator (Online/
+      heartbeat) keeps its real green status dot, do not repaint it.
+    expected_outputs: [src/app/(dashboard)/autoapply/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-knowledge-base-001
+    phase: build
+    description: "/knowledge-base - mid blue #2563EB"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /knowledge-base.
+      Section: Draft & Automation. Accent: #2563EB.
+      Page-specific notes: the left knowledge-sections nav (Overview/Organization Profile/
+      Full Editor/Proven Narratives/Q&A Library) and the Profile Completeness bar (currently
+      70%) carry the accent. "Edit Organization Profile" becomes fixed teal. "No proven
+      narratives yet" gets the protocol's empty-state polish.
+    expected_outputs: [src/app/(dashboard)/knowledge-base/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-alerts-001
+    phase: build
+    description: "/alerts - mid blue #2563EB"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /alerts.
+      Section: Draft & Automation. Accent: #2563EB.
+      Page-specific notes: real 176-unread deadline alerts, several genuinely overdue by
+      13-32 days - these red overdue indicators are real, meaningful urgency signals, keep
+      them red, do not repaint with the section accent. Filter pills (All/Unread/Urgent/
+      Snoozed) and "Mark all read" get the accent/teal treatment.
+    expected_outputs: [src/app/(dashboard)/alerts/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-activity-001
+    phase: build
+    description: "/activity - mid blue #2563EB"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /activity.
+      Section: Draft & Automation. Accent: #2563EB.
+      Page-specific notes: real live agent-run feed (Ag-digest, Ag-32-relationship-graph,
+      Ag-43-funder-signals, Narrative Drafting, Compliance Check) updating every 30 seconds -
+      confirm the accent applies to the page header without interfering with the real-time
+      update behavior.
+    expected_outputs: [src/app/(dashboard)/activity/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch1-verify-sync-001
+    phase: build
+    description: "Final regression check and governance sync for Batch 1 (15 pages)"
+    prompt: |
+      1. Run a real Playwright pass across all 15 pages from this batch, confirm every one
+         loads clean, carries its correct section accent, and no console errors appeared.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. Update FEATURE_REGISTRY_v2.md and governance/DESIGN_SYSTEM.md documenting which
+         pages are now complete under the section-based accent system (Dashboard, Research &
+         Discovery x8, Draft & Automation x5 - list them explicitly).
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md - explicit, honest language about
+         whether all 15 pages passed clean or whether any needed a fix, don't bury a partial
+         result under the wins.
+      5. Scoped git add (only files this batch touched - do not use git add -A), commit with
+         message "feat: apply section-based accent + empty-state polish to Dashboard, Research
+         & Discovery, and Draft & Automation pages (batch 1 of 4)", git push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,158 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY_v2.md
+- STANDING_DIRECTIVES.md
+- AGENTS_v2.md
+- PLATFORM_VISION_ARCHITECTURE.md
+prompts:
+
+- id: src-001
+  name: Funding source registry migration
+  prompt: "Create src/supabase/migrations/098_funding_sources.sql. Apply via Supabase Management API POST https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1 each statement separately: CREATE TABLE IF NOT EXISTS funding_sources (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, short_name text, category text NOT NULL, subcategory text, source_type text NOT NULL DEFAULT 'federal', website_url text, api_url text, rss_url text, search_url text, adapter_type text DEFAULT 'manual', polling_enabled boolean DEFAULT false, polling_frequency text DEFAULT 'weekly', last_polled_at timestamptz, opportunities_found_total integer DEFAULT 0, active boolean DEFAULT true, notes text, geographic_scope text DEFAULT 'national', created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_funding_sources_category ON funding_sources(category); CREATE INDEX IF NOT EXISTS idx_funding_sources_type ON funding_sources(source_type); CREATE INDEX IF NOT EXISTS idx_funding_sources_polling ON funding_sources(polling_enabled, last_polled_at). Run pnpm tsc --noEmit. Commit: git add -A; git commit -m 'feat: funding source registry migration 098'; git push."
+  gates:
+  - type: compile
+
+- id: src-002
+  name: Funding source registry seed data
+  prompt: "Create src/lib/sources/funding-source-registry.ts. Export const FUNDING_SOURCES as array. Include ALL of these sources with name, category, source_type, website_url, api_url where available, adapter_type: Federal agencies: USDA Rural Development (api_url https://www.rd.usda.gov/rss.xml adapter rss), HHS (api https://www.grants.gov/grantsws/rest/opportunities/search/ adapter grants_gov), HRSA (website https://www.hrsa.gov/grants adapter grants_gov), ACF Administration for Children and Families (website https://www.acf.hhs.gov/grants adapter grants_gov), Department of Veterans Affairs VA (website https://www.va.gov/ogc/apps/accreditation/index.asp adapter grants_gov), Department of Labor DOL (website https://www.dol.gov/general/grants adapter grants_gov), Department of Education ED (api https://www.ed.gov/grant-programs adapter grants_gov), DOJ Department of Justice (api https://bja.ojp.gov/funding/opportunities adapter grants_gov), Bureau of Justice Assistance BJA (website https://bja.ojp.gov/funding adapter grants_gov), FEMA (api https://www.fema.gov/grants adapter api), EPA (website https://www.epa.gov/grants adapter grants_gov), Economic Development Administration EDA (website https://www.eda.gov/funding-opportunities adapter grants_gov), AmeriCorps (website https://americorps.gov/partner/funding-opportunities adapter grants_gov), National Endowment for the Humanities NEH (website https://www.neh.gov/grants adapter grants_gov), National Endowment for the Arts NEA (website https://www.arts.gov/grants adapter grants_gov), National Science Foundation NSF (api https://api.nsf.gov/services/v1/awards.json adapter api), Department of Energy DOE (website https://www.energy.gov/em/listings/grant-opportunities adapter grants_gov), Treasury CDFI Fund (website https://www.cdfifund.gov/programs-training/Programs adapter grants_gov), SAM.gov (api https://api.sam.gov/opportunities/v2/search adapter api), Grants.gov (api https://www.grants.gov/grantsws/rest/opportunities/search/ adapter grants_gov). Housing specific: Enterprise Community Partners (website https://www.enterprisecommunity.org/financing-and-development/grants adapter web), LISC (website https://www.lisc.org/our-resources/resource/grant-opportunities adapter web), NeighborWorks America (website https://www.neighborworks.org/grants adapter web), Habitat for Humanity (website https://www.habitat.org/about/grants adapter web). Corporate: Walmart Foundation (website https://walmart.org/how-we-give/walmart-foundation adapter web), Home Depot Foundation (website https://corporate.homedepot.com/socialgov/foundation adapter web), Lowes Foundation (website https://corporate.lowes.com/our-responsibilities/lowes-in-the-community/education adapter web), Google.org (website https://www.google.org/our-work adapter web), Microsoft Philanthropies (website https://www.microsoft.com/en-us/corporate-responsibility/philanthropies adapter web), Bank of America Foundation (website https://about.bankofamerica.com/en/making-an-impact/charitable-foundation-funding adapter web), JPMorgan Chase Foundation (website https://www.jpmorganchase.com/impact/our-approach/global-philanthropy adapter web). Faith-based: Lilly Endowment (website https://lillyendowment.org/grant-seekers adapter web), Mustard Seed Foundation (website https://msfdn.org/harvey-fellows adapter web). Research databases: Candid Foundation Directory (website https://candid.org adapter directory), GrantWatch (website https://www.grantwatch.com adapter directory), GrantStation (website https://grantstation.com adapter directory). Create src/app/api/sources/registry/route.ts: GET returns all FUNDING_SOURCES as JSON. Also seeds funding_sources table on first call if empty using supabase from x-organization-id. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: funding source registry seed data'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/funding-source-registry.ts
+    - src/app/api/sources/registry/route.ts
+
+- id: src-003
+  name: Federal grants polling adapters
+  prompt: "Read src/lib/sources/grantsgov-client.ts in full. Read src/lib/sources/samgov-client.ts in full. Create src/lib/sources/federal-grants-poller.ts. Export async function pollFederalSources(orgId: string, supabase: any): Promise<{source: string, found: number, matched: number}[]>. For each of these federal sources poll for new opportunities: (1) Grants.gov: POST https://www.grants.gov/grantsws/rest/opportunities/search/ body {oppStatuses:'posted', rows:100, sortBy:'openDate|desc'}. Parse response.oppHits map to {name:opp.title, description:opp.description, amount_max:opp.awardCeiling, deadline:opp.closeDate, url:'https://www.grants.gov/web/grants/view-opportunity.html?oppId='+opp.id, source:'grants_gov', external_id:opp.id, category:'government_grant'}. (2) SAM.gov: GET https://api.sam.gov/opportunities/v2/search?api_key=SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a&ptype=o&limit=100&postedFrom=01/01/2024. Parse response.opportunitiesData. (3) Federal Register: GET https://www.federalregister.gov/api/v1/documents.json?conditions[type][]=NOTICE&conditions[term]=grant+funding+nonprofit&per_page=50&order=newest. For each new opportunity: check if external_id already exists in opportunities table for this org. If new: insert to opportunities table with organization_id=orgId, source, all mapped fields. Insert to discovery_matches. Return summary array. Create src/app/api/sources/poll/route.ts: POST triggers pollFederalSources for org from x-organization-id. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: federal grants polling adapters'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/federal-grants-poller.ts
+    - src/app/api/sources/poll/route.ts
+
+- id: src-004
+  name: State and local funding source adapters
+  prompt: "Create src/lib/sources/state-sources-registry.ts. Export const STATE_FUNDING_SOURCES as array covering all 50 states. For each state include: state_code (2 letter), housing_finance_agency (name and website), dept_of_housing (website if exists), dept_of_health (website), dept_of_human_services (website), community_action_agency (website). Include at minimum these states fully populated: TX (Texas Department of Housing and Community Affairs https://www.tdhca.state.tx.us, Texas Health and Human Services https://www.hhs.texas.gov), CA (California Department of Housing and Community Development https://www.hcd.ca.gov), NY (New York State Homes and Community Renewal https://hcr.ny.gov), FL (Florida Housing Finance Corporation https://floridahousing.org), IL (Illinois Housing Development Authority https://www.ihda.org). For remaining 45 states use standard URL pattern: housing finance agency at https://[state abbreviation]hfa.com or similar. Also include: ALL 11 Federal Home Loan Banks as entries: FHLB Atlanta https://www.fhlbatl.com/community-investment/grants, FHLB Boston https://www.fhlbboston.com, FHLB Chicago https://www.fhlbc.com, FHLB Cincinnati https://www.fhlbcin.com, FHLB Dallas https://www.fhlb.com, FHLB Des Moines https://www.fhlbdm.com, FHLB Indianapolis https://www.fhlbi.com, FHLB New York https://www.fhlbny.com, FHLB Pittsburgh https://www.fhlb-pgh.com, FHLB San Francisco https://www.fhlbsf.com, FHLB Seattle https://www.fhlbsea.com. Also include Continuums of Care: HUD CoC Program https://www.hud.gov/program_offices/comm_planning/coc. Export async function seedStateSources(supabase: any): Promise<number> that inserts all STATE_FUNDING_SOURCES into funding_sources table. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: state and local funding source registry'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/state-sources-registry.ts
+
+- id: intel-006
+  name: Intelligence Library NIH NIAID dedup and corpus seed
+  prompt: "Read src/supabase/migrations/ directory listing. Read scripts/ directory listing. Find any existing NIH ingestion scripts. Read the intelligence_funded_proposals table schema from SCHEMA_REGISTRY_v2.md. First apply dedup fix via Supabase Management API POST https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1: DELETE FROM intelligence_proposal_sections WHERE proposal_id IN (SELECT id FROM intelligence_funded_proposals WHERE source='NIH_NIAID'); DELETE FROM intelligence_funded_proposals WHERE source='NIH_NIAID'. Then create scripts/seed-intelligence-corpus.ts. This script seeds the intelligence_funded_proposals table with high-quality examples from public sources. Add 20 seed records directly in the script as hardcoded objects covering: 5 NIH community health grants (source NIH_NIAID, funder_name NIH, award_amount between 250000 and 2000000, abstract describing community health intervention), 5 HUD housing grants (source HUD, funder_name HUD, award_amount between 500000 and 5000000, abstract describing affordable housing), 5 DOJ justice grants (source DOJ_OJP, funder_name DOJ, award_amount between 100000 and 1000000), 5 USDA rural development grants (source USDA, funder_name USDA, award_amount between 50000 and 500000). Each record must have: title, abstract (200+ words describing program goals outcomes and methods), funder_name, agency, award_amount, fiscal_year 2023 or 2024, organization (recipient org name), source, source_url (unique per record using made-up but realistic URLs). Add WHERE NOT EXISTS dedup check on source_url before each insert. Add package.json script 'seed:intelligence': 'tsx scripts/seed-intelligence-corpus.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: intelligence library corpus seed script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/seed-intelligence-corpus.ts
+
+- id: intel-007
+  name: Intelligence Library knowledge patterns seed
+  prompt: "Create scripts/seed-knowledge-patterns.ts. This script inserts 30 high-quality knowledge patterns into the knowledge_patterns table covering real grant writing intelligence. Patterns must cover: (1) 5 narrative patterns: successful need statements cite CDC statistics and local data (category: need_statement, success_rate: 0.73, sample_count: 156), proposals mentioning leveraged funding receive 2.1x larger awards (category: budget, success_rate: 0.68, sample_count: 89), third-party evaluation plans increase success rate 28% (category: evaluation, success_rate: 0.71, sample_count: 203), logic models following W.K. Kellogg format preferred by 73% of foundations (category: logic_model, success_rate: 0.73, sample_count: 112), executive summaries under 500 words have 34% higher read-through rate (category: narrative, success_rate: 0.67, sample_count: 445). (2) 5 timing patterns: federal housing grants peak in October submit in August (category: timing, pattern_type: timing), HHS grants have 45 day average review cycle (category: timing), USDA RD grants best submitted Q1 (category: timing), foundation grants submitted Tuesday through Thursday have 23% higher response rate (category: timing), renewal applications submitted 90 days before expiry have 89% approval rate (category: timing). (3) 5 budget patterns: indirect cost rate above 15% rejected by 67% of foundations (category: budget, success_rate: 0.33), match requirement 1-to-1 improves federal grant score by 12 points on average (category: budget), personnel costs above 80% of budget flagged by 45% of reviewers (category: budget). (4) 5 funder-specific patterns for HUD USDA NIH DOJ NSF. (5) 10 competitive intelligence patterns. Each pattern must have pattern_type category funder_name where applicable pattern_description success_rate sample_count confidence. Add package.json script 'seed:patterns': 'tsx scripts/seed-knowledge-patterns.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: knowledge patterns seed script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/seed-knowledge-patterns.ts
+
+- id: enrich-001
+  name: Foundation enrichment ProPublica engine
+  prompt: "Read src/lib/sources/propublica-990-client.ts in full. Read scripts/ directory listing. Create scripts/enrich-foundations-propublica.ts. This is a long-running CLI script that enriches all 133812 records in foundation_directory from ProPublica Nonprofit Explorer API. Import ws from ws. Create supabase client with ws transport. Step 1: Query foundation_directory WHERE enrichment->>'propublica_enriched_at' IS NULL AND ein IS NOT NULL ORDER BY id LIMIT 500. Step 2: For each foundation call enrichFoundationFromProPublica(ein). On success: merge returned data into enrichment jsonb field using supabase.rpc or direct update. Set enrichment->>'propublica_enriched_at' = now(). Set website_url from result if found and current website_url is null. Set asset_amount from result if current is null. Step 3: Log every 50 records: console.log('Processed N/133812 - enriched X - failed Y - rate Z/min'). Step 4: Await 400ms between each call. Step 5: After 500 records checkpoint and loop back to Step 1. Run until all records processed. Handle errors per record without crashing. On network error await 5 seconds and retry once. Add package.json script 'enrich:propublica': 'tsx scripts/enrich-foundations-propublica.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: foundation ProPublica enrichment script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/enrich-foundations-propublica.ts
+
+- id: enrich-002
+  name: Foundation website enrichment scraper
+  prompt: "Create scripts/enrich-foundations-websites.ts. Long-running CLI script that scrapes foundation websites to extract contact emails phone numbers and officer names. Import ws createClient from supabase. Import ws. Step 1: Query foundation_directory WHERE website_url IS NOT NULL AND enrichment->>'website_scraped_at' IS NULL ORDER BY asset_amount DESC NULLS LAST LIMIT 200. Step 2: For each foundation with website_url: use fetch with 10 second timeout to GET the URL. Also try URL+/contact and URL+/about. Parse HTML: use string search for @ symbol to find email addresses extracting the surrounding text as email. Use string search for phone number patterns (groups of digits separated by dashes dots or spaces). Extract officer names by searching for keywords Executive Director President CEO CFO followed by capitalized words. Step 3: Merge found data into enrichment jsonb: set contact_emails array, contact_phones array, officers array. Set enrichment->>'website_scraped_at' = now(). Step 4: Await 2 seconds between requests. Log every 25 records. Handle timeout and 404 gracefully. Add package.json script 'enrich:websites': 'tsx scripts/enrich-foundations-websites.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: foundation website enrichment scraper'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/enrich-foundations-websites.ts
+
+- id: enrich-003
+  name: Nonprofit BMF import script
+  prompt: "Read scripts/ directory listing. Create scripts/ingest-nonprofit-bmf.ts. This script imports the IRS Business Master File for all 50 states plus DC creating up to 1.8M nonprofit records. First apply migration via Supabase Management API POST https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1: CREATE TABLE IF NOT EXISTS nonprofits (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), ein text UNIQUE NOT NULL, name text NOT NULL, city text, state text, zip text, ntee_code text, subsection_code text, foundation_type text, ruling_date text, revenue_amount numeric, asset_amount numeric, income_amount numeric, status text DEFAULT 'active', created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_nonprofits_ein ON nonprofits(ein); CREATE INDEX IF NOT EXISTS idx_nonprofits_state ON nonprofits(state); CREATE INDEX IF NOT EXISTS idx_nonprofits_ntee ON nonprofits(ntee_code). Then the script: const STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC']. For each state: fetch https://www.irs.gov/pub/irs-soi/eo_[STATE].csv. Parse CSV line by line. BMF files are HEADERLESS 28 columns: position 0=EIN position 1=name position 5=state position 4=city position 6=zip position 24=ntee_code position 14=subsection_code position 15=foundation_type position 18=status. Trim all values. Skip rows where EIN is empty or non-numeric. Batch insert 500 records at a time using supabase.from('nonprofits').upsert() with onConflict:'ein'. Log progress every 10000 records and per state completion. Add package.json script 'ingest:bmf': 'tsx scripts/ingest-nonprofit-bmf.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: IRS BMF nonprofit import script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/ingest-nonprofit-bmf.ts
+
+- id: enrich-004
+  name: Eligibility scoring batch runner
+  prompt: "Read src/app/api/agents/eligibility/route.ts in full. Read src/lib/ directory to find the eligibility scoring agent. Create scripts/batch-score-eligibility.ts. This script runs eligibility scoring on all opportunities that have no eligibility_score. Import ws createClient. Import the eligibility scoring function or call it via internal logic. Step 1: Query opportunities WHERE eligibility_score IS NULL AND organization_id IS NOT NULL. Step 2: Read org knowledge base entries and mission for each unique organization_id. Step 3: For each opportunity call Anthropic API POST https://api.anthropic.com/v1/messages Authorization Bearer process.env.ANTHROPIC_API_KEY model claude-sonnet-4-6 max_tokens 200 with prompt: Score this grant opportunity 0-100 for fit with this nonprofit. Opportunity: TITLE CATEGORY AMOUNT DESCRIPTION first 300 chars. Nonprofit mission: MISSION. Return JSON only: {score: number, reasoning: string}. Parse response.content[0].text as JSON. Update opportunities.eligibility_score = score. Step 4: Await 500ms between calls. Log every 25 records. Handle errors per record. Add package.json script 'score:eligibility': 'tsx scripts/batch-score-eligibility.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: eligibility scoring batch runner'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/batch-score-eligibility.ts
+
+- id: twin-003
+  name: Digital Twin batch builder for all orgs
+  prompt: "Read src/lib/intelligence/digital-twin-builder.ts in full. Create scripts/build-digital-twins.ts. This script builds or rebuilds the Digital Twin for every active organization. Import ws createClient buildDigitalTwin. Step 1: Query organizations WHERE onboarding_completed = true. Step 2: For each org call buildDigitalTwin(org.id, supabase). Log result: org name and twin_completeness_score. Step 3: Await 1 second between orgs. Log total orgs processed. Add package.json script 'build:twins': 'tsx scripts/build-digital-twins.ts'. Also create scripts/run-morning-digest.ts: imports sendMorningDigest from src/lib/agents/morning-digest.ts. Queries all active orgs. Calls sendMorningDigest for each. Add package.json script 'run:morning-digest': 'tsx scripts/run-morning-digest.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: digital twin batch builder and morning digest runner'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/build-digital-twins.ts
+    - scripts/run-morning-digest.ts
+
+- id: poll-001
+  name: Opportunity discovery batch runner
+  prompt: "Read src/lib/agents/opportunity-discovery-agent.ts in full. Create scripts/run-discovery.ts. This script runs the opportunity discovery engine for all active organizations. Import ws createClient runOpportunityDiscovery. Query organizations WHERE onboarding_completed = true. For each org: call runOpportunityDiscovery(org.id, supabase). Log: org name, found count, matched count. Await 2 seconds between orgs. Print summary at end: total orgs processed, total opportunities found, total matched. Add package.json script 'run:discovery': 'tsx scripts/run-discovery.ts'. Also create scripts/poll-federal-grants.ts: reads all orgs, calls pollFederalSources from src/lib/sources/federal-grants-poller.ts for each org. Logs results per source per org. Add package.json script 'poll:federal': 'tsx scripts/poll-federal-grants.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: discovery and federal grants polling runners'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/run-discovery.ts
+    - scripts/poll-federal-grants.ts
+
+- id: research-003
+  name: Research hub funding sources UI
+  prompt: "Read src/app/(dashboard)/research/page.tsx in full. Read src/lib/sources/funding-source-registry.ts in full. Read src/lib/research/resource-registry.ts in full. The research page already has a 3x7 resource grid. Add a new section below the existing grid: Funding Source Directory. This section shows all sources from FUNDING_SOURCES array grouped by source_type: Federal (20+ entries), State and Local, Private Foundations, Corporate, Faith-Based, Research Databases. Each group is a collapsible section with a header showing count. Each source entry: name, website link opens new tab, category badge, polling_enabled green dot if active. At the top of the section: a search input that filters all sources by name in real time client-side. Show total count: X funding sources monitored. Add a Poll Now button that POSTs to /api/sources/poll for the org. All colors inline style. Do not break existing resource grid. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: research hub funding source directory UI'; git push."
+  gates:
+  - type: compile
+
+- id: donor-001
+  name: Corporate prospect acquisition adapters
+  prompt: "Read src/lib/donor-discovery/naics-labels.ts in full. Create src/lib/sources/corporate-acquisition-adapter.ts. Export async function acquireFromGooglePlaces(naicsCode: string, location: string, radius: number, supabase: any): Promise<number>. Call Google Places API: GET https://maps.googleapis.com/maps/api/place/textsearch/json?query=NAICS_FRIENDLY_NAME+near+LOCATION&radius=RADIUS&key=AIzaSyA3sJ1vkNp1AvPLfKY_5uaiJK0FBiwjlt0. Parse results array. For each result: check if place_id already exists in corporate_prospects via enrichment->>'google_place_id'. If new: insert to corporate_prospects with legal_name=result.name, address_street=result.formatted_address, address_city extracted from address components, address_lat=result.geometry.location.lat, address_lng=result.geometry.location.lng, source_adapters=['google_places'], enrichment={google_place_id:result.place_id, rating:result.rating, google_types:result.types}. Return count of new prospects inserted. Export async function acquireFromSAMGov(keywords: string, supabase: any): Promise<number>. Calls SAM.gov API: GET https://api.sam.gov/entity-information/v3/entities?api_key=SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a&purposeOfRegistrationCode=Z2&registrationStatus=A&q=keywords&limit=100. Maps each entity to corporate_prospects. Returns count. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: corporate prospect acquisition adapters'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/corporate-acquisition-adapter.ts
+
+- id: donor-002
+  name: NAICS corporate donor search runner
+  prompt: "Read src/lib/sources/corporate-acquisition-adapter.ts in full. Read src/lib/donor-discovery/naics-labels.ts in full. Create scripts/acquire-corporate-prospects.ts. This script acquires corporate prospects from Google Places for the top 20 most donation-likely NAICS categories. Define TARGET_SEARCHES as array of 20 objects each with naicsCode friendlyName and searchTerms. Include: construction companies, building material suppliers, roofing contractors, plumbing contractors, electrical contractors, auto dealers, furniture dealers, computer retailers, medical equipment suppliers, food manufacturers, grocery distributors, banks, insurance companies, real estate companies, staffing agencies, waste management companies, logistics companies, healthcare systems, technology companies, professional services firms. For each search: call acquireFromGooglePlaces with location Texas radius 50000. Await 200ms between calls. Log progress. Total prospects acquired at end. Add package.json script 'acquire:prospects': 'tsx scripts/acquire-corporate-prospects.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: NAICS corporate prospect acquisition runner'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/acquire-corporate-prospects.ts
+
+- id: data-001
+  name: Master data population runner script
+  prompt: "Create scripts/populate-all-data.ts. This is the master orchestration script that runs all data population tasks in the correct sequence with progress reporting. It runs: Step 1 Build Digital Twins: imports and calls build-digital-twins logic inline. Step 2 Seed Intelligence Corpus: imports and runs seed-intelligence-corpus logic. Step 3 Seed Knowledge Patterns: imports and runs seed-knowledge-patterns logic. Step 4 Poll Federal Grants: imports pollFederalSources runs for Faith Foundation org ID b1ab7402-dfc2-4712-869f-70ea3566cc1d. Step 5 Score Eligibility for Faith Foundation opps: queries opportunities for org b1ab7402-dfc2-4712-869f-70ea3566cc1d calls Anthropic for each. Step 6 Run Morning Digest for all orgs. Each step: console.log step name start time. On error: log and continue to next step. Add package.json script 'populate:all': 'tsx scripts/populate-all-data.ts'. This script is designed to run in under 2 hours for Faith Foundation data. The long-running scripts (BMF import, ProPublica enrichment) are separate commands. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: master data population orchestration script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/populate-all-data.ts
+
+- id: final-003
+  name: Governance update and deploy
+  prompt: "Read STATE_OF_THE_BUILD.md in full. Update STATE_OF_THE_BUILD.md: add section Data Population Infrastructure July 17 2026. List all scripts built this session: enrich-foundations-propublica.ts, enrich-foundations-websites.ts, ingest-nonprofit-bmf.ts, batch-score-eligibility.ts, build-digital-twins.ts, run-morning-digest.ts, run-discovery.ts, poll-federal-grants.ts, acquire-corporate-prospects.ts, populate-all-data.ts, seed-intelligence-corpus.ts, seed-knowledge-patterns.ts. Note data not yet run. Note to run in order: pnpm populate:all first then pnpm enrich:propublica then pnpm ingest:bmf. Update SESSION_STATE.md: Next action = run pnpm populate:all to seed Faith Foundation data, then run pnpm enrich:propublica overnight, then run pnpm ingest:bmf for 1.8M import. Run pnpm build fix any errors. Then: git add -A; git commit -m 'chore: governance update post data infrastructure build'; git push. Then: npx vercel deploy --prod. Report production URL."
+  gates:
+  - type: compile

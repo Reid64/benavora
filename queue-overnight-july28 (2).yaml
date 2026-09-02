@@ -1,0 +1,248 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STATE_OF_THE_BUILD.md
+  - STANDING_DIRECTIVES.md
+  - CORPORATE_INTELLIGENCE_ARCHITECTURE.md
+  - AGENTS_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: night-001
+    phase: infra
+    description: "Wire nonprofit scraper into Railway weekly scheduler"
+    prompt: |
+      Read src/lib/worker/scheduler.ts and scripts/run-nonprofit-scraper.ts in full.
+      Add a weekly job (Sunday 4AM CST, staggered after the existing foundation-enrichment-weekly job) that calls runNonprofitScraper().
+      Job name: nonprofit-enrichment-weekly. Gate behind ENABLE_SCRAPER env var like the existing foundation job.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(worker): wire nonprofit scraper into weekly Railway scheduler'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-002
+    phase: bugfix
+    description: "Fix Sales Outreach New Campaign blank page stub"
+    prompt: |
+      Read src/app/(dashboard)/admin/sales-outreach/ in full, specifically the New Campaign flow.
+      The New Campaign button leads to a blank page. Investigate whether a form/component was ever built for this route
+      and is just not rendering, or whether it was never implemented at all.
+      If never implemented: build a minimal functional campaign-creation form (name, target segment, template selection,
+      send schedule) that writes to the campaigns table per SCHEMA_REGISTRY_v2.md. Do not build anything beyond a working
+      create flow — no analytics, no A/B testing, keep it minimal and functional.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'fix(sales-outreach): implement functional New Campaign form, was blank stub'; git push
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-003
+    phase: audit
+    description: "Systematic migration-vs-production audit"
+    prompt: |
+      Read every file in supabase/migrations/ in order. For each migration, extract every CREATE TABLE / ALTER TABLE /
+      ADD COLUMN statement. Using the Supabase Management API REST pattern (JavaScriptSerializer, service-role key)
+      confirm whether each table/column actually exists on production.
+      This mirrors the discovery that migration 052 was silently never applied — the goal is to find any other
+      silently-unapplied migrations before they cause a production bug like the AutoApply automation_level failure did.
+      Do NOT apply any missing migrations — diagnostic only. Report findings to MIGRATION_AUDIT.md: list every migration,
+      APPLIED or NOT APPLIED, and for NOT APPLIED entries, list every missing table/column and which live code paths
+      reference them (grep the codebase for each table/column name).
+      git add MIGRATION_AUDIT.md; git commit -m 'docs: full migration-vs-production audit'; git push
+    gates:
+      - type: file_exists
+        files: [MIGRATION_AUDIT.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: night-005
+    phase: bugfix
+    description: "Wire 2Captcha integration into stealth browser flow (Feature #63)"
+    prompt: |
+      Read src/lib/scraper/captcha-solver.ts (or wherever it lives per FEATURE_REGISTRY_v2.md #63) and
+      src/lib/scraper/stealth-engine.ts in full.
+      Feature #63 status: "captcha-solver.ts exists. Not wired into stealth browser flow." Wire it in properly:
+      when StealthEngine detects a CAPTCHA and TWOCAPTCHA_API_KEY is present, actually call the solver and submit
+      the solution, rather than only detecting-and-skipping (current behavior confirmed tonight). If TWOCAPTCHA_API_KEY
+      is absent, preserve current skip/circuit-breaker behavior exactly as-is.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(scraper): wire 2Captcha solver into stealth browser flow (#63)'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-006
+    phase: bugfix
+    description: "Verify and fix process-followups worker job (Feature #74)"
+    prompt: |
+      Read worker/dist/src/worker/jobs/process-followups.js source (find the .ts source file) and
+      FEATURE_REGISTRY_v2.md #74 in full. Registry states "process-followups worker job is stub only" —
+      this contradicts a prior session's claim that Feature #74 was completed. Determine ground truth:
+      does this job currently do real work (query follow-ups due, generate content, send/queue them) or is it
+      a stub that logs and returns. Report findings honestly regardless of what any prior doc claimed.
+      If stub: implement real logic per AUTOAPPLY_ARCHITECTURE_V2.md follow-up spec.
+      If already real: correct FEATURE_REGISTRY_v2.md's #74 status and note the registry was wrong, not the code.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'fix(worker): verify/implement process-followups job, correct #74 status'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-007
+    phase: bugfix
+    description: "Wire Integration Settings UI connector cards (Feature #57)"
+    prompt: |
+      Read the page at /settings/integrations in full. Registry #57 states "connector cards not fully wired."
+      Identify which connector cards are decorative/non-functional and wire each to its actual backend
+      connection flow (enable/disable, credential entry, status display) using existing patterns already
+      working elsewhere in the app. Do not invent new integrations — only wire what already has backend support.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'fix(settings): wire integration connector cards to real backend flows (#57)'; git push
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-008
+    phase: bugfix
+    description: "Implement Automation Queue priority scoring (Feature #61)"
+    prompt: |
+      Read worker/queue-processor.ts and the submission_queue schema in SCHEMA_REGISTRY_v2.md.
+      Registry #61 states "Worker exists. Priority scoring not implemented." Implement priority scoring for
+      queued AutoApply submissions — factors should include deadline proximity, opportunity probability score
+      (if available per Feature #102), and organization tier. Queue should process higher-priority items first.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(autoapply): implement submission queue priority scoring (#61)'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-010
+    phase: agents
+    description: "Build EA-01 through EA-05 (Corporate Enrichment Agents, Phase 2 per CORPORATE_INTELLIGENCE_ARCHITECTURE.docx)"
+    prompt: |
+      Read the full Corporate Intelligence & Donor Acquisition Engine spec (sections 2B, 2C) — Ten Enrichment
+      Agent Architecture — and SCHEMA_REGISTRY_v2.md's corporate_prospects table.
+      Build these 5 agents exactly per spec, each writing to corporate_prospects.enrichment jsonb:
+      - EA-01 Corporate Giving Detector: fetch /giving /csr /community pages, extract has_giving_program,
+        giving_portal_url, known_donation_types. Trigger: post-acquisition. Rate: 1 req/3s.
+      - EA-02 Community Outreach Detector: fetch about page + news search, extract community_involvement,
+        local_causes_supported, habitat_partner, united_way_partner. Trigger: post-acquisition. Rate: 1 req/3s.
+      - EA-03 Sponsorship Detector: search "{company} sponsor" + parse website sponsor pages, extract
+        sponsorship_activity, marketing_budget_estimate. Trigger: POST-EA-01 (must run after EA-01 completes
+        for that company). Rate: 1 req/5s.
+      - EA-04 Foundation Detector: cross-reference IRS BMF by company name + EIN fuzzy match, extract
+        foundation_affiliation, foundation_ein. Trigger: post-acquisition. Rate: 1 req/1s.
+      - EA-05 Career Page Analyzer: fetch /careers /jobs, extract employee_count_estimate, company_culture_signals.
+        Trigger: post-acquisition. Rate: 1 req/3s.
+      Reuse StealthEngine fetch patterns from src/lib/scraper/ for all page fetches — do not build a new fetch layer.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(agents): build EA-01 through EA-05 corporate enrichment agents per canonical spec'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-011
+    phase: agents
+    description: "Build EA-06 through EA-10 (Corporate Enrichment Agents, Phase 3 per spec)"
+    prompt: |
+      Read the same Corporate Intelligence spec sections 2B/2C. Build the remaining 5 agents:
+      - EA-06 Press Release Analyzer: fetch /news /press + search, extract donation_history, recent_gifts,
+        executive_changes. Trigger: POST-EA-02. Rate: 1 req/3s.
+      - EA-07 ESG Analyzer: fetch /sustainability /esg, extract esg_initiatives, environmental_commitments.
+        Trigger: POST-EA-02. Rate: 1 req/3s.
+      - EA-08 Executive Biography Analyzer: fetch /leadership /about/team, extract decision_maker_names,
+        decision_maker_titles, board_members, linkedin_profiles. Trigger: post-acquisition. Rate: 1 req/3s.
+      - EA-09 Contact Extractor: fetch /contact + footer, extract verified_emails, phone, address confirmation.
+        Trigger: post-acquisition. Rate: 1 req/2s.
+      - EA-10 Social Media Analyzer: fetch LinkedIn company page + Facebook public page, extract
+        community_involvement, recent_donations, employee_count_estimate. Trigger: POST-EA-08. Rate: 1 req/5s.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(agents): build EA-06 through EA-10 corporate enrichment agents per canonical spec'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-012
+    phase: agents
+    description: "Wire full Corporate Enrichment pipeline orchestration (all 10 EA agents, dependency-ordered)"
+    prompt: |
+      Read CORPORATE_INTELLIGENCE_ARCHITECTURE section 2C (Enrichment Pipeline) exactly:
+      corporate_prospects (unenriched) → Enrichment Queue (Railway worker) → EA-01 through EA-10 run
+      sequentially per company, respecting dependencies (EA-03 after EA-01, EA-06/EA-07 after EA-02,
+      EA-10 after EA-08) → merge results into enrichment jsonb → set enrichment_completed_at →
+      trigger Score Engine automatically. Rate limit: 1 company per 3 seconds overall. Batch size:
+      500 companies per Railway worker run.
+      Implement this exact orchestration in worker/enrichment-processor.ts, calling all 10 EA agents
+      built in prior prompts in the correct dependency order. This is orchestration only — match the
+      documented spec exactly, do not add logic beyond what's specified.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(worker): wire full 10-agent corporate enrichment pipeline per canonical spec'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-013
+    phase: agents
+    description: "Build Propensity Scoring Engine — PS-01 through PS-10 with exact documented formula"
+    prompt: |
+      Read CORPORATE_INTELLIGENCE_ARCHITECTURE section 3 (Propensity Scoring Engine) exactly.
+      Build AG-22 Propensity Scoring Agent computing all 10 scores into corporate_prospects.scores jsonb:
+      - PS-02 through PS-10: each computed by a single Claude call using the company's enrichment record
+        and the score-specific rubric/key-signals exactly as documented (Cash Donation Probability,
+        In-Kind Donation Probability, Volunteer Probability, Equipment Donation Probability, Housing/
+        Education/Food/Veteran/Disaster Relief Compatibility — full signal list is in the doc, use it verbatim,
+        do not invent different signals). Output per score: {score: 0-100, rationale: string, top_factors: string[]}.
+      - PS-01 (Overall Donation Likelihood): NOT a Claude call — compute via the exact documented formula:
+        PS-01 = PS-02×0.3 + PS-03×0.2 + PS-04×0.1 + PS-05×0.1 + max(PS-06,PS-07,PS-08,PS-09,PS-10)×0.3
+      After scoring, rank companies within each org's prospect list by PS-01 descending; flag top 100 as
+      priority_prospects. Rankings refresh after every enrichment cycle per spec.
+      Trigger: automatically after corporate enrichment completes per prospect (per section 2C).
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(agents): build AG-22 propensity scoring engine, PS-01-10 per canonical formula'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-015
+    phase: governance
+    description: "Correct stale registry entries and update governance docs with tonight's findings"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md, SESSION_STATE.md, FEATURE_REGISTRY_v2.md, DEMO_READINESS_AUDIT.md, and
+      MIGRATION_AUDIT.md (if it exists from night-003).
+      Correct two confirmed-stale entries in FEATURE_REGISTRY_v2.md: D1 (IRS BMF Full Import) says "Never
+      successfully run" but 1,978,526 records were confirmed imported in a prior session — update status to BUILT.
+      D6 (Foundation Website Scraper) says "not yet run at scale" but the stealth scraper has been actively
+      run tonight — update status to reflect actual current state (IRS 990 fetch bug fixed, real run confirmed
+      working at 8/10 parse rate).
+      Update all governance docs to reflect: worker outage resolution, stealth scraper build + IRS 990 fetch fix,
+      AutoApply automation_level fix (confirmed end-to-end), Sales Outreach New Campaign fix, nonprofit scraper
+      scheduler wiring, 2Captcha wiring, process-followups verification, integration settings wiring, priority
+      scoring, migration audit findings, worker heartbeat fix, and the new EA-01/EA-08/EA-09/AG-22 agent pipeline
+      (note clearly that EA-02 through EA-07 and EA-10 remain unspecified reserved slots, not built — do not
+      mark them BUILT or imply they exist). Consolidate into a clean "as of July 28 2026" state snapshot.
+      git add STATE_OF_THE_BUILD.md SESSION_STATE.md FEATURE_REGISTRY_v2.md; git commit -m 'governance: overnight session consolidation + agent pipeline + stale registry corrections July 28 2026'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

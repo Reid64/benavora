@@ -1,0 +1,94 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: ff-live-001
+  name: Governance sync and platform learning patterns seed from Intelligence Library
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/lib/agents/learning-network-aggregator-agent.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for platform_learning_patterns and intelligence_funded_proposals tables in FULL.
+
+    The platform_learning_patterns table now exists in the live database. It is currently empty.
+    The intelligence_funded_proposals table has 113 records.
+
+    CREATE scripts/seed-platform-patterns.ts:
+
+    Seeds platform_learning_patterns from intelligence_funded_proposals — converting awarded grant narratives into reusable patterns.
+
+    For each intelligence_funded_proposals record:
+    1. Extract narrative_language pattern: call Claude (max_tokens:300) to extract top 5 winning phrases from the full_text. System: "Extract the 5 most impactful grant-winning phrases from this narrative. These should be phrases that demonstrate community need, organizational capacity, or measurable impact. Return JSON array of strings only."
+    2. Extract keyword pattern: split full_text into words, count frequency, return top 10 non-stopword keywords
+    3. Extract timing pattern: award_year -> timing insight
+    4. Extract budget structure if budget data present in metadata
+    5. Insert into platform_learning_patterns:
+       - pattern_type: 'narrative_language' with pattern_content = extracted phrases joined
+       - pattern_type: 'keyword' with pattern_content = top keywords joined
+       - funder_category: map funder_name to category (government/foundation/corporate)
+       - ntee_code: from category field
+       - success_rate: 0.85 (these are awarded grants so high baseline)
+       - sample_count: 1
+       - winning_examples: [{ excerpt: first 200 chars of full_text, funder: funder_name, amount: award_amount }]
+
+    Run: npx tsx scripts/seed-platform-patterns.ts
+    Report: total patterns created, breakdown by pattern_type.
+
+    Add package.json script: "seed:patterns": "tsx scripts/seed-platform-patterns.ts"
+
+    Run pnpm tsc --noEmit. Fix errors.
+    git add -A; git commit -m 'feat: seed platform_learning_patterns from Intelligence Library -- narrative and keyword patterns'; git push.
+
+- id: ff-live-002
+  name: Faith Foundation full autonomous pipeline live test
+  prompt: |
+    Read scripts/ff-agent-test.ts in FULL.
+    Read scripts/ff-setup.ts in FULL.
+    Read src/lib/agents/opportunity-discovery-agent.ts in FULL.
+    Read src/lib/agents/strategic-advisor-agent.ts in FULL.
+
+    Faith Foundation org ID: b1ab7402-dfc2-4712-869f-70ea3566cc1d
+
+    STEP 1: Run the setup script to ensure FF is configured:
+    npx tsx scripts/ff-setup.ts
+    Report output.
+
+    STEP 2: Run the full agent pipeline test:
+    npx tsx scripts/ff-agent-test.ts
+    Report the COMPLETE output including every agent result.
+
+    STEP 3: Based on results, fix any agent that returned an error:
+    - If OpportunityDiscovery failed: read the specific error, fix in opportunity-discovery-agent.ts, re-run
+    - If EligibilityScoring failed: fix in eligibility-scoring-agent.ts, re-run
+    - If StrategicAdvisor failed: check that strategic_recommendations table exists (it does), fix query, re-run
+
+    STEP 4: After successful pipeline run, query the results:
+    npx tsx -e "
+    import {createClient} from '@supabase/supabase-js';
+    const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const orgId = 'b1ab7402-dfc2-4712-869f-70ea3566cc1d';
+    Promise.all([
+      s.from('opportunities').select('id,title,eligibility_score').eq('organization_id', orgId).order('eligibility_score', {ascending:false}).limit(5),
+      s.from('strategic_recommendations').select('title,urgency,recommendation').eq('org_id', orgId).order('generated_at', {ascending:false}).limit(3),
+      s.from('agent_runs').select('agent_type,status,items_processed,created_at').eq('org_id', orgId).order('created_at', {ascending:false}).limit(10)
+    ]).then(([opps, recs, runs]) => {
+      console.log('TOP OPPORTUNITIES:', JSON.stringify(opps.data, null, 2));
+      console.log('STRATEGIC RECOMMENDATIONS:', JSON.stringify(recs.data, null, 2));
+      console.log('AGENT RUNS:', JSON.stringify(runs.data, null, 2));
+    })"
+
+    STEP 5: Update STATE_OF_THE_BUILD.md with live pipeline test results:
+    - Which agents ran successfully
+    - How many opportunities were discovered
+    - What strategic recommendations were generated
+    - Any errors encountered and how they were fixed
+
+    git add -A; git commit -m 'feat: Faith Foundation live autonomous pipeline test -- results documented'; git push.
+    npx vercel deploy --prod.
+    Report production URL and pipeline test summary.

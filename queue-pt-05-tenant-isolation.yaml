@@ -1,0 +1,251 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-05: MULTI-TENANT ISOLATION AUDIT  (evidence-standard)
+#
+# Phase 05 of the Benavora Enterprise Audit Program.
+# depends_on: pt-06-db-integrity (needs the real table list +
+# the missing-tenant-FK flags PT-06 produces). The command-gate
+# engine, ledger, evidence-lib.mjs are in place and proven.
+#
+# QUESTION THIS PHASE ANSWERS - the single highest-severity
+# question in the whole program: can any tenant read or write
+# another tenant's data? PT-02 proved role tiers are enforced
+# WITHIN one org. This proves the wall BETWEEN orgs. A single
+# confirmed cross-tenant read or write is a P0 that outranks
+# every other finding in the program.
+#
+# ENVIRONMENT - BRANCH / LOCAL ONLY, NON-NEGOTIABLE:
+# Every check here is an authenticated cross-org access ATTEMPT.
+# These run EXCLUSIVELY against a dedicated Supabase branch (or
+# a local stack) provisioned with two clean test orgs (Org A,
+# Org B). Faith Foundation's live production tenant is NEVER a
+# subject and NEVER a target. If no branch/local isolation
+# environment can be created, this phase HALTS - it does not
+# fall back to production under any circumstance.
+#
+# EVIDENCE STANDARD: every check captures the actual response -
+# the Postgres RLS error code, the HTTP status, the row payload
+# (or its absence) - on disk in test-evidence/pt-05/. A pass is
+# "Org A's request for Org B's row returned zero rows / a 403 /
+# an RLS error, captured verbatim." Prose fails the gate.
+# ASCII only.
+#
+# HALTS at its end for Reid's Phase-05 review.
+# ============================================================
+
+prompts:
+
+  - id: pt05-001
+    phase: build
+    description: "Isolation environment: branch + two clean orgs, or HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Confirm PT-00 and PT-06 artifacts exist (route-manifest.json,
+         PT-06's live-schema.json and integrity.json with the real table
+         list and missing-tenant-FK flags). If PT-06 outputs are absent,
+         HALT - this phase needs the real table set.
+      2. Create test-evidence\pt-05\.
+      3. Provision the isolation environment - a Supabase BRANCH if the
+         Management API token allows, else a local stack. Create TWO
+         clean test organizations (Org A, Org B), each with an owner-role
+         user, and seed each with a small set of rows in the core
+         tenant-scoped tables (applications, opportunities, drafts,
+         contacts, donor_discovery_prospects, deadlines - whatever the
+         real schema has). Record both org IDs and both users.
+         CRITICAL: verify the connection target is the branch/local,
+         NOT the production ref vbjplpquqxxfbpazyalt. Capture the target
+         host to test-evidence\pt-05\environment.txt and assert in the
+         verifier that it is NOT the prod ref. If only prod is reachable,
+         HALT - do not proceed.
+      4. Create scripts\audit\verify-pt05-001.mjs: exits non-zero unless
+         environment.txt shows a non-prod target, both org IDs are
+         recorded, and both orgs have seeded rows. HARD FAIL if the
+         target host contains the production ref.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-05: isolation environment (branch/local, two test orgs)"
+      6. Run: node scripts/audit/verify-pt05-001.mjs
+    expected_outputs:
+      - test-evidence/pt-05/environment.txt
+      - scripts/audit/verify-pt05-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt05-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt05-002
+    phase: build
+    description: "Cross-tenant READ attempt on every tenant-scoped table"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Authenticated as Org A's user, attempt to READ Org B's rows on
+      every tenant-scoped table. Every attempt must return zero rows or
+      an RLS rejection. Branch/local only.
+
+      1. From PT-06's live-schema.json, take every table that has (or
+         SHOULD have per PT-06's missing-tenant-FK flags) an org_id/
+         tenant column. For each, as Org A's authenticated session,
+         attempt to read Org B's known seeded row IDs - both via the
+         API layer AND via a direct PostgREST call with Org A's JWT.
+      2. Expected: zero rows returned, or an RLS policy error. Capture
+         the actual result per table (row count returned, error code,
+         HTTP status) to test-evidence\pt-05\cross-read.json.
+      3. ANY table where Org A receives Org B's row data is a P0 register
+         finding (cross-tenant read leak) - capture the leaked payload as
+         proof. Tables PT-06 flagged as MISSING a tenant FK are the prime
+         suspects - test those with extra scrutiny.
+      4. Create scripts\audit\verify-pt05-002.mjs: exits non-zero unless
+         cross-read.json covers every tenant-scoped table from PT-06 and
+         each row records the actual returned-row-count and verdict.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-05: cross-tenant read attempts, all tenant tables"
+      6. Run: node scripts/audit/verify-pt05-002.mjs
+    expected_outputs:
+      - test-evidence/pt-05/cross-read.json
+      - scripts/audit/verify-pt05-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt05-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt05-003
+    phase: build
+    description: "Cross-tenant WRITE attempt on every tenant-scoped table"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      The more dangerous direction: authenticated as Org A, attempt to
+      WRITE (update/delete) Org B's rows, and to CREATE rows tagged with
+      Org B's org_id. Branch/local only - real mutations against test data.
+
+      1. For every tenant-scoped table, as Org A's session, attempt:
+         (a) UPDATE an Org B row by its known id; (b) DELETE an Org B
+         row by id; (c) INSERT a row with org_id set to Org B. Via the
+         API layer AND direct PostgREST with Org A's JWT.
+      2. Expected: every attempt refused (RLS error / 403 / zero rows
+         affected). Capture the actual result and, critically, VERIFY
+         AFTER each attempt that Org B's data is unchanged (re-read as
+         Org B). Write test-evidence\pt-05\cross-write.json.
+      3. ANY successful cross-tenant write is a P0 register finding (the
+         worst class in the program - one tenant corrupting another's
+         data) - capture the before/after proof.
+      4. Create scripts\audit\verify-pt05-003.mjs: exits non-zero unless
+         cross-write.json covers every tenant-scoped table with all three
+         attempt types and a post-attempt Org-B-unchanged confirmation.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-05: cross-tenant write attempts, all tenant tables"
+      6. Run: node scripts/audit/verify-pt05-003.mjs
+    expected_outputs:
+      - test-evidence/pt-05/cross-write.json
+      - scripts/audit/verify-pt05-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt05-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt05-004
+    phase: build
+    description: "Demo-account write-protection + admin impersonation scoping"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Two special isolation surfaces. Branch/local where mutating.
+
+      1. DEMO PROTECTION: the platform has a demo-account write-protection
+         mechanism (the migration STATE_OF_THE_BUILD references - confirm
+         the real one). Re-verify it holds: as a demo-scoped user, attempt
+         writes that should be blocked; capture the rejections. If the
+         protection migration is among PT-06's UNAPPLIED set, that is a
+         P1 finding (protection not live in prod).
+      2. ADMIN IMPERSONATION: platform admins can impersonate/act into
+         orgs. Verify impersonation is (a) bounded to the intended org,
+         (b) audit-logged. As an admin impersonating Org A, confirm you
+         cannot thereby reach Org B, and confirm each impersonation writes
+         an audit row. Capture to test-evidence\pt-05\privileged-access.json.
+      3. Any unbounded impersonation (admin reaches beyond the target
+         org) or unlogged impersonation is a register finding (P0 for
+         unbounded, P1 for unlogged).
+      4. Create scripts\audit\verify-pt05-004.mjs: exits non-zero unless
+         privileged-access.json records both the demo-protection result
+         and the impersonation scoping+logging result with evidence.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-05: demo write-protection + admin impersonation scoping"
+      6. Run: node scripts/audit/verify-pt05-004.mjs
+    expected_outputs:
+      - test-evidence/pt-05/privileged-access.json
+      - scripts/audit/verify-pt05-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt05-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt05-005
+    phase: build
+    description: "PHASE 05 summary + register update + HALT for review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate PT-05 and prepare the human review point.
+
+      1. Write test-evidence\pt-05\PHASE-05-SUMMARY.md: tenant-scoped
+         tables tested, cross-read results (any leak = the headline),
+         cross-write results (any successful write = the program's
+         top-severity headline), demo-protection disposition, admin
+         impersonation scoping+logging. Every number cites its evidence
+         file and the actual error code / row count captured.
+      2. Confirm every PT-05 finding is in WIRING_GAP_REGISTER.md with
+         evidence path and reproduction, continuing WGR-### numbering.
+         Cross-link any leak to PT-06's missing-tenant-FK flags.
+      3. Write test-evidence\pt-05\REVIEW-PACK.md: the short read for
+         Reid - the direct answer to "can one tenant reach another's
+         data" (yes/no per table with evidence), any P0 leak with its
+         fix direction (add RLS policy / add tenant FK), and the
+         recommendation for PT-14 security (which now has PT-05's
+         isolation results to build on).
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-05
+         complete, isolation truth established, awaiting Reid's review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-05 COMPLETE: tenant isolation audit, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt05-005.mjs: exits non-zero unless
+         PHASE-05-SUMMARY.md and REVIEW-PACK.md exist non-empty and the
+         register has grown beyond PT-06's last row.
+      7. Run: node scripts/audit/verify-pt05-005.mjs
+    expected_outputs:
+      - test-evidence/pt-05/PHASE-05-SUMMARY.md
+      - test-evidence/pt-05/REVIEW-PACK.md
+      - scripts/audit/verify-pt05-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt05-005.mjs"
+    max_retries: 2
+    on_fail: halt

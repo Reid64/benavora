@@ -1,0 +1,82 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - AGENTS_v2.md
+  - FEATURE_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q9-001
+    phase: verify
+    description: "Live-verify AG-27 (Board Meeting Packet) and AG-28 (Impact Simulation)"
+    prompt: |
+      Read AGENTS_v2.md's AG-27 and AG-28 specs. Check real code state for each. If AG-27 exists, run it
+      against a real test org and verify actual packet content is generated (not empty/placeholder).
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-27" and "AG-28" sections.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-27 Board Meeting Packet and AG-28 Impact Simulation'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q9-002
+    phase: verify
+    description: "Live-verify AG-29 (Knowledge Engine Indexer / embedding indexer)"
+    prompt: |
+      Read AGENTS_v2.md's AG-29 spec. Check real code state. If it exists, verify it actually populates
+      pgvector embeddings for real content (query the relevant table before/after running it, confirm
+      real embedding vectors are written, not null/placeholder values).
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-29".
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-29 Knowledge Engine Indexer'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q9-003
+    phase: verify
+    description: "Live-verify AG-30 (Change Monitor) — was CM-01, confirmed real per earlier session audit"
+    prompt: |
+      Read AGENTS_v2.md's AG-30 spec. Earlier this session (AG-38 status check, which was actually AG-30/
+      CM-01 under an old label) confirmed this job is wired into worker/scheduler.ts and fires nightly.
+      Re-verify against the current, fixed worker (post tonight's Railway/build fixes) that it actually
+      runs and writes real rows to improvement_proposals/agent_performance_metrics — the earlier session
+      found it had never successfully run due to the worker outage, which is now resolved.
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-30", confirming whether it has run since
+      the worker came back online, with real timestamp evidence.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): re-verify AG-30 Change Monitor now that worker outage is resolved'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q9-004
+    phase: governance
+    description: "Consolidate AGENT_VERIFICATION_LOG.md findings into FEATURE_REGISTRY_v2.md"
+    prompt: |
+      Read the complete AGENT_VERIFICATION_LOG.md built across q6/q7/q8/q9. Update FEATURE_REGISTRY_v2.md's
+      status for every AG-15 through AG-30 entry to reflect real, verified state — not aspirational status.
+      Clearly distinguish BUILT-AND-VERIFIED from BUILT-BUT-UNVERIFIED from NOT-BUILT. This is the honest
+      inventory this session has been working toward all night.
+      git add FEATURE_REGISTRY_v2.md; git commit -m 'governance: consolidate agent verification findings into feature registry'; git push
+    gates:
+      - type: file_exists
+        files: [FEATURE_REGISTRY_v2.md]
+    max_retries: 2
+    on_fail: continue

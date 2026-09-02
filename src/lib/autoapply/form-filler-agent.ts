@@ -21,12 +21,48 @@ export interface RequestProfile {
   form_field_overrides?: Record<string, string>;
 }
 
+export interface DossierRiskFactor {
+  factor: string;
+  mitigation?: string | null;
+}
+
+export interface DossierContext {
+  /** pil_prospect_dossiers.id — used to fetch that row's `dossier` jsonb for fieldMappings resolution. */
+  dossierId?: string;
+  /** benavoraField (e.g. "request.narrative") -> dot path into the dossier's jsonb `dossier` column. */
+  fieldMappings?: Record<string, string>;
+  /** Funder-tailored pitch text (e.g. from pitch-personalizer); takes priority over requestProfile.pitch_template. */
+  personalizedPitch?: string;
+  riskFactors?: DossierRiskFactor[];
+  successProbability?: number;
+}
+
+/**
+ * Thrown when dossier risk factors mean this submission should be postponed
+ * rather than attempted. Mirrors the SkipError/CaptchaPauseError pattern the
+ * worker (worker/queue-processor.ts) already special-cases in its catch
+ * block — the worker needs an equivalent `instanceof DeferredSubmissionError`
+ * branch there to persist a non-failure status; without it this still
+ * surfaces as a generic failed attempt via the existing catch-all.
+ */
+export class DeferredSubmissionError extends Error {
+  constructor(
+    public readonly reason: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DeferredSubmissionError';
+  }
+}
+
 export interface FillOptions {
   page: Page;
   template: Record<string, unknown>;
   organizationId: string;
   funderId: string;
   requestProfile?: RequestProfile;
+  /** Prospect-dossier intelligence (field mappings, tailored pitch, risk factors) layered on top of KB/org data. */
+  dossierContext?: DossierContext;
   /**
    * Id of the automation_sessions row gating this submission
    * (BEHAVIORAL_CONTRACTS §18: automation pauses at `awaiting_approval` and only
@@ -48,6 +84,8 @@ export interface FillResult {
   sessionTimedOut?: boolean;
   captchaEncountered: boolean;
   captchaSolved: boolean;
+  /** Passed through from dossierContext.successProbability, if supplied, for the caller to persist. */
+  successProbability?: number | null;
 }
 
 type FieldType =
@@ -96,7 +134,25 @@ export class FormFillerAgent {
   }
 
   async fillAndSubmit(options: FillOptions): Promise<FillResult> {
-    const { page, template, organizationId, funderId, requestProfile, sessionId } = options;
+    const { page, template, organizationId, funderId, requestProfile, dossierContext, sessionId } =
+      options;
+
+    // Postpone rather than fill/submit when the dossier flags a known blocker
+    // (e.g. the org is mid CEO-transition) — checked up front, before any
+    // page interaction or session approval, so a stale intelligence signal
+    // never wastes an approved automation session or leaves a half-filled
+    // form on the funder's own portal.
+    const ceoTransition = dossierContext?.riskFactors?.find(
+      (rf) => rf.factor === 'ceo_transition_pending',
+    );
+    if (ceoTransition) {
+      throw new DeferredSubmissionError(
+        'pending_org_transition',
+        `CEO transition detected for this prospect — postponing submission.${
+          ceoTransition.mitigation ? ` ${ceoTransition.mitigation}` : ''
+        }`,
+      );
+    }
 
     const advancedHandler = new AdvancedFieldHandler();
     const multiPageHandler = new MultiPageFormHandler();
@@ -106,7 +162,7 @@ export class FormFillerAgent {
     const screenshotManager = new ScreenshotManager();
     const webhookNotifier = new WebhookNotifier();
 
-    const fillData = await this.buildFillData(organizationId, requestProfile);
+    const fillData = await this.buildFillData(organizationId, requestProfile, dossierContext);
     const requestDescription = fillData['request.description'] ?? null;
 
     const orgDocuments = await vault.getAllDocuments(organizationId).catch((): OrgDocument[] => []);
@@ -326,6 +382,7 @@ export class FormFillerAgent {
       sessionTimedOut,
       captchaEncountered,
       captchaSolved,
+      successProbability: dossierContext?.successProbability ?? null,
     };
   }
 
@@ -362,6 +419,7 @@ export class FormFillerAgent {
   private async buildFillData(
     organizationId: string,
     requestProfile?: RequestProfile,
+    dossierContext?: DossierContext,
   ): Promise<Record<string, string>> {
     const fillData: Record<string, string> = {};
 
@@ -456,7 +514,68 @@ export class FormFillerAgent {
       fillData['request.narrative'] = fillData['request.description'] ?? '';
     }
 
+    // Dossier-personalized pitch outranks the request profile's generic pitch template.
+    if (dossierContext?.personalizedPitch) {
+      fillData['request.narrative'] = dossierContext.personalizedPitch;
+    }
+
+    // Dossier-mapped values (e.g. a tailored program/EIN framing pulled from the
+    // prospect's own dossier) outrank everything above — resolved last so they win.
+    if (dossierContext?.dossierId && dossierContext.fieldMappings) {
+      const dossierValues = await this.resolveDossierFieldMappings(
+        dossierContext.dossierId,
+        dossierContext.fieldMappings,
+      );
+      Object.assign(fillData, dossierValues);
+    }
+
     return fillData;
+  }
+
+  /**
+   * Resolves each benavoraField -> dossierPath mapping against the real
+   * pil_prospect_dossiers.dossier jsonb column (migration 163) for the given
+   * dossier id. pil_prospect_dossiers has no separate field_mappings/
+   * success_probability columns — that structured intelligence lives inside
+   * this opaque jsonb blob, so dossierPath is a dot-path into it (e.g.
+   * "recommendation.pitch.program_name").
+   */
+  private async resolveDossierFieldMappings(
+    dossierId: string,
+    fieldMappings: Record<string, string>,
+  ): Promise<Record<string, string>> {
+    const resolved: Record<string, string> = {};
+
+    try {
+      const { data } = await this.supabase
+        .from('pil_prospect_dossiers')
+        .select('dossier')
+        .eq('id', dossierId)
+        .maybeSingle();
+
+      const dossier = (data as { dossier: Record<string, unknown> } | null)?.dossier;
+      if (!dossier) return resolved;
+
+      for (const [benavoraField, dossierPath] of Object.entries(fieldMappings)) {
+        const value = this.getNestedValue(dossier, dossierPath);
+        if (value !== undefined && value !== null && value !== '') {
+          resolved[benavoraField] = String(value);
+        }
+      }
+    } catch {
+      // Dossier lookup failed — fill proceeds with KB/org data only
+    }
+
+    return resolved;
+  }
+
+  private getNestedValue(source: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<unknown>((acc, key) => {
+      if (acc && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
+        return (acc as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, source);
   }
 
   private extractFieldMapping(

@@ -1,0 +1,40 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - FEATURE_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: master-remaining-build-plan-001
+    phase: build
+    description: "Complete, current, prioritized punch-list of every non-fully-built item in the entire registry"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\FEATURE_REGISTRY_v2.md in FULL, live, on disk - not from memory of any prior session's summary. Extract every single row across every section (Phase 1-4, Tier 6, Platform Vision Pillars 1-18, Autonomous Agent Infrastructure, Autonomous Agents, Autonomous UI, Post-Launch Vision, Data Pipeline, Scraper, Universal Scraper, Testing, UI Redesign) whose status is not a clean BUILT/BUILT-VERIFIED with no asterisk - include PLANNED, NOT-BUILT, DEFERRED, PARTIAL, BLOCKED, UNVERIFIED, and any "BUILT (code) - NOT DEPLOYED" style row.
+
+      Reid has explicitly instructed: build everything remaining that can safely be built, do not stop to ask him about ambiguous scope - pick the most reasonable default yourself, state the assumption in writing, and proceed. Apply that instruction here: for every genuinely ambiguous item (e.g. what "phone"/"physical mail" channels should actually do, or which of several competing implementations should become canonical), write down the specific default you'd build and why, so downstream queues can execute against a concrete decision instead of stalling.
+
+      Produce REMAINING_BUILD_PLAN_2026-08-15.md: a single ordered list, each entry with feature name, current real status, a one-paragraph concrete build approach (not vague - specific files/tables/APIs involved where knowable), and a rough size estimate (small/medium/large). Order by: (1) items with a known concrete fix already identified somewhere in this repo's history, (2) small well-scoped PLANNED items, (3) larger builds, (4) anything genuinely too vague to build without a live product decision from Reid - flag these explicitly and rarely, only when no reasonable default exists at all (not as a default excuse).
+
+      This document is the master reference the rest of tonight's queues are built against - completeness matters more than brevity.
+    expected_outputs:
+      - REMAINING_BUILD_PLAN_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [REMAINING_BUILD_PLAN_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt

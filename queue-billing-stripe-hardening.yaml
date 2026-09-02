@@ -1,0 +1,93 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: billing-001
+  name: Governance sync and Stripe webhook hardening
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/api/stripe/webhook/route.ts in FULL. Every line.
+    Read src/app/api/stripe/ directory listing.
+    Read SCHEMA_REGISTRY_v2.md for organizations and subscriptions tables in FULL.
+
+    STRIPE WEBHOOK HARDENING — the webhook handler must handle ALL of these events properly:
+
+    checkout.session.completed:
+    - Extract customer_id, subscription_id, client_reference_id (org_id)
+    - Update organizations SET stripe_customer_id=?, stripe_subscription_id=?, stripe_subscription_status='active', plan=? WHERE id=client_reference_id
+    - Insert into subscriptions table with full details
+    - Create welcome notification for the org
+
+    customer.subscription.updated:
+    - Update organizations.stripe_subscription_status to subscription.status
+    - Update organizations.plan to new plan if changed
+    - If downgrade: disable features above new plan tier immediately
+
+    customer.subscription.deleted:
+    - Update organizations.stripe_subscription_status='canceled'
+    - Disable all autonomous agent toggles in org_autonomous_config
+    - Create notification: "Your subscription has ended. Reactivate to restore autonomous features."
+
+    invoice.payment_failed:
+    - Update organizations.stripe_subscription_status='past_due'
+    - Create CRITICAL notification with payment retry link
+
+    invoice.payment_succeeded:
+    - Update organizations.stripe_subscription_status='active' if was past_due
+
+    SIGNATURE VERIFICATION: Every webhook must verify Stripe-Signature header using stripe.webhooks.constructEvent(). Return 400 if verification fails. Never process unverified webhooks.
+
+    IDEMPOTENCY: Check if event ID already processed before handling. Store processed event IDs in a stripe_webhook_events table (create if not exists).
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: Stripe webhook hardening -- all subscription events, signature verification, idempotency'; git push.
+
+- id: billing-002
+  name: Subscription management UI and upgrade flow
+  prompt: |
+    Read src/app/(dashboard)/settings/page.tsx in FULL.
+    Read src/app/api/stripe/ directory listing, read all route files found.
+    Read SCHEMA_REGISTRY_v2.md for organizations and subscriptions tables in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    CREATE or UPGRADE src/app/(dashboard)/settings/billing/page.tsx:
+
+    CURRENT PLAN card (white, border-radius 14px, padding 28px):
+    - Plan name large: Starter / Professional / Enterprise badge in plan color
+    - Starter=#0EA5E9, Professional=#8B5CF6, Enterprise=#10B981
+    - Price: $X/month
+    - Renewal date: next billing date from Stripe
+    - Status badge: Active (green pulse) / Past Due (red pulse) / Canceled (gray)
+    - Features list: what this plan includes
+
+    USAGE METRICS card:
+    - Applications this month vs plan limit
+    - Agent runs this month
+    - AutoApply submissions this month
+    - Storage used
+
+    PLAN COMPARISON section:
+    Three plan cards side by side (Starter/Professional/Enterprise):
+    Each: price, feature list, upgrade/downgrade button
+    Current plan highlighted with border in plan color
+    Upgrade button calls POST /api/stripe/create-portal-session → redirect to Stripe portal
+
+    BILLING HISTORY table:
+    Query Stripe invoices via API. Columns: Date, Amount, Status (Paid/Failed), Download PDF link
+
+    CREATE src/app/api/stripe/create-portal-session/route.ts:
+    POST: creates Stripe billing portal session for authenticated org's customer_id
+    Returns { url: string } redirect URL
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: subscription management UI -- plan display, usage metrics, plan comparison, billing history, portal link'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

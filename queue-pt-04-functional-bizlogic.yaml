@@ -1,0 +1,145 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-04: FUNCTIONAL & BUSINESS LOGIC  (evidence-standard)
+# depends_on: pt-00. Hand-checkable correctness vs known inputs.
+# Read-only / computation - no destructive writes. Evidence: for
+# each, the input, hand-computed expected value, system's actual
+# value, pass/fail delta - captured, not asserted.
+# HALTS at end. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt04-001
+    phase: build
+    description: "Preflight + computeGrantProbability hand-verification"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00 artifacts. Create test-evidence\pt-04\.
+      2. computeGrantProbability: read the real implementation. Pick a
+         known opportunity+org pair (real data, read-only). Hand-compute
+         the expected probability from the documented factor weights.
+         Compare against the system's actual stored/returned value
+         field-by-field. Capture input, expected, actual, delta to
+         test-evidence\pt-04\grant-probability.json. A mismatch between the
+         documented formula and the actual output is a finding.
+      3. Create scripts\audit\verify-pt04-001.mjs: fails unless
+         grant-probability.json records input + hand-computed expected +
+         system actual + delta.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-04: grant-probability hand-verification"
+      5. Run: node scripts/audit/verify-pt04-001.mjs
+    expected_outputs:
+      - test-evidence/pt-04/grant-probability.json
+      - scripts/audit/verify-pt04-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt04-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt04-002
+    phase: build
+    description: "Budget reconciliation + deadline/reminder timing math"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. BUDGET: grant_budgets / expenses / reconciliation_reports - take
+         a real budget with real expenses, hand-sum the reconciliation,
+         compare to the system's computed reconciliation. Capture.
+      2. DEADLINE TIMING: the reminder-offset math (when a reminder fires
+         relative to a deadline) - verify the computed reminder timestamps
+         against hand-computed expected for several deadline types.
+      3. Write test-evidence\pt-04\budget-deadline.json with input/
+         expected/actual/delta for each. Any arithmetic mismatch is a
+         finding (P1 if it produces a wrong number a user sees).
+      4. Create scripts\audit\verify-pt04-002.mjs: fails unless both the
+         budget and deadline checks record expected-vs-actual.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-04: budget reconciliation + deadline timing"
+      6. Run: node scripts/audit/verify-pt04-002.mjs
+    expected_outputs:
+      - test-evidence/pt-04/budget-deadline.json
+      - scripts/audit/verify-pt04-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt04-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt04-003
+    phase: build
+    description: "Draft confidence + AutoApply eligibility + match/fit scoring"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. For each of: draft confidence scoring, AutoApply eligibility
+         logic, and match/fit scoring - read the real implementation,
+         choose known inputs, hand-compute the expected classification/
+         score, compare to the system's actual output. These are the
+         model-adjacent scores that drive user-visible recommendations, so
+         a wrong threshold or inverted comparison is high-value to catch.
+      2. Write test-evidence\pt-04\scoring.json with input/expected/actual/
+         delta per function. Any logic error (wrong threshold, inverted
+         boolean, mis-weighted factor) is a finding.
+      3. Create scripts\audit\verify-pt04-003.mjs: fails unless all three
+         scoring functions record expected-vs-actual.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-04: draft/autoapply/match scoring verification"
+      5. Run: node scripts/audit/verify-pt04-003.mjs
+    expected_outputs:
+      - test-evidence/pt-04/scoring.json
+      - scripts/audit/verify-pt04-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt04-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt04-004
+    phase: build
+    description: "PHASE 04 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-04\PHASE-04-SUMMARY.md: each business-logic
+         function checked, expected-vs-actual, any wrong-number findings.
+         Every number cites evidence.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-04\REVIEW-PACK.md: which computed numbers
+         users see are correct vs wrong; highest-severity; next-phase note.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-04 COMPLETE: business logic, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt04-004.mjs: fails unless summary +
+         review pack exist non-empty and register grew.
+      6. Run: node scripts/audit/verify-pt04-004.mjs
+    expected_outputs:
+      - test-evidence/pt-04/PHASE-04-SUMMARY.md
+      - test-evidence/pt-04/REVIEW-PACK.md
+      - scripts/audit/verify-pt04-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt04-004.mjs"
+    max_retries: 2
+    on_fail: halt

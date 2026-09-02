@@ -1,0 +1,19 @@
+audit_id: PIL-AUDIT-BEN-DIS-06-SPECIFICATION
+specification_id: PIL-AGENT-BEN-DIS-06
+specification_version: "1.0.0"
+agent_name: Geographic Funding Discovery Agent
+classification: NEW_AGENT_AUTHORED_AFTER_REMEDIATION
+verdict: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+quality_dimensions:
+  geography_role_and_formal_observed_separation: PASS_SPECIFICATION
+  place_identity_boundary_crs_topology_and_precision: PASS_SPECIFICATION
+  temporal_boundaries_geocodes_and_award_attribution: PASS_SPECIFICATION
+  applicant_project_beneficiary_service_and_decision_geography: PASS_SPECIFICATION
+  privacy_licensing_bias_and_location_protection: PASS_SPECIFICATION
+  durable_hypothesis_source_plan_replanning_and_monitoring: PASS_SPECIFICATION
+  evidence_provenance_unknown_contradiction_and_critic: PASS_SPECIFICATION
+  deterministic_gates_ranking_economics_and_stopping: PASS_SPECIFICATION
+  delegation_depth_three_persistence_recovery_and_tenancy: PASS_SPECIFICATION
+  agent_specific_calibration_load_soak_chaos_and_dr: PASS_SPECIFICATION
+implementation_evidence: {completed: false, tests_executed: false, production_ready: false, score_assigned: false}
+next_agent: BEN-DIS-07

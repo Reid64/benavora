@@ -1,4 +1,4 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   findOrCreateProspect,
@@ -9,6 +9,7 @@ import {
   recordProspectClassification,
   tryModelTokens,
 } from "@/lib/pil/agents/dis/shared";
+import { logAction } from "@/lib/pil/audit";
 import type { EvidenceItem, EvidenceVerificationStatus, ProspectEntityType } from "@/lib/pil/types";
 
 // BEN-DIS-07 -- Cause-Aligned Prospect Discovery Agent
@@ -50,6 +51,21 @@ const STALE_SIGNAL_YEARS = 5;
 const STALE_SIGNAL_CONFIDENCE = 0.3;
 const FRESH_SIGNAL_CONFIDENCE = 0.5;
 
+// Targeted heuristic over discovery-stage source text (news/web result
+// titles) -- NOT an exhaustive classifier. Its sole purpose is to catch a
+// search result asserting a protected trait ABOUT A DISCOVERED PERSON
+// (belief/ideology/religion/medical/disability/addiction-recovery/criminal
+// history/veteran status/race/ethnicity/sex/gender/orientation), per this
+// agent's spec-mandated "explicit prohibition on inferring
+// beliefs/ideology/religion/medical/disability/..." rule. This is
+// deliberately distinct from shared.ts's CAUSE_KEYWORDS "recovery" entry,
+// which labels a legitimate philanthropic cause AREA (substance-use-disorder
+// recovery nonprofits) rather than asserting a trait about a person -- a
+// title like "Local Donor Supports Addiction Recovery Program" does not
+// match this pattern, while "Local Donor Recovering Addict Gives Back" does.
+const SENSITIVE_TRAIT_INFERENCE_PATTERN =
+  /\b(is a devout|identifies as|recovering (?:addict|alcoholic)|has a disability|is disabled|is a veteran of|is gay|is lesbian|is transgender|is bisexual|of (?:african|asian|hispanic|latino|middle eastern|native american) descent)\b/i;
+
 function isStaleSignal(publishedAt: string | null): boolean {
   if (!publishedAt) return false;
   const published = new Date(publishedAt);
@@ -76,6 +92,18 @@ interface CauseDiscovery {
 
 export class CauseAlignedProspectDiscoveryAgent implements Agent {
   async execute(context: AgentContext, runner: AgentRunner): Promise<AgentResult> {
+    if (context.goal.trim().length === 0) {
+      return {
+        status: "completed",
+        evidence: [],
+        conclusions: { skipped: true, reason: "BEN-DIS-07 requires a non-empty goal" },
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: null,
+      };
+    }
+
     const criteria = parseGoalCriteria(context.goal);
     const planCause = (context.plan as { cause?: string } | null)?.cause;
     const cause = criteria.cause ?? (typeof planCause === "string" ? planCause : null);
@@ -83,85 +111,185 @@ export class CauseAlignedProspectDiscoveryAgent implements Agent {
     const evidenceCreated: EvidenceItem[] = [];
     const discoveries: CauseDiscovery[] = [];
     const staleSignalOnly: string[] = [];
+    const sensitiveInferenceExcluded: string[] = [];
 
     // 1. News-sourced cause-aligned giving announcements.
-    const newsResult = await callTool(context, runner, "news_search", {
-      query: `${cause ?? ""} donation OR gift OR grant announcement`.trim(),
-      limit: 10,
-    });
-    if (newsResult.success) {
-      const results = ((newsResult.data as { results?: Array<{ title: string; url: string; publishedAt: string | null; source: string }> } | null)?.results ?? []);
-      for (const item of results) {
-        await this.recordCauseSignal(context, {
-          displayName: item.title,
-          claim: `Cause-aligned giving announcement${cause ? ` (${cause})` : ""}: ${item.title}`,
-          claimType: "cause_aligned_giving_announcement",
-          sourceUrl: item.url,
-          sourceTitle: item.title,
-          sourceType: "news",
-          publisher: item.source || hostnameOf(item.url),
-          publishedAt: item.publishedAt,
-          cause,
-          evidenceCreated,
-          discoveries,
-          staleSignalOnly,
-        });
+    try {
+      const newsResult = await callTool(context, runner, "news_search", {
+        query: `${cause ?? ""} donation OR gift OR grant announcement`.trim(),
+        limit: 10,
+      });
+      if (newsResult.success) {
+        const results = ((newsResult.data as { results?: Array<{ title: string; url: string; publishedAt: string | null; source: string }> } | null)?.results ?? []);
+        for (const item of results) {
+          if (SENSITIVE_TRAIT_INFERENCE_PATTERN.test(item.title)) {
+            sensitiveInferenceExcluded.push(item.title);
+            await logAction({
+              organization_id: context.orgId,
+              actor_type: "agent",
+              actor_id: context.agentCode,
+              action: "discovery.sensitive_inference_excluded",
+              resource_type: "pil_agent_runs",
+              resource_id: context.runId,
+              before_state: null,
+              after_state: { title: item.title, pattern: "protected_trait_inference" },
+              policy_decision: null,
+              ip_address: null,
+            });
+            continue;
+          }
+          await this.recordCauseSignal(context, {
+            displayName: item.title,
+            claim: `Cause-aligned giving announcement${cause ? ` (${cause})` : ""}: ${item.title}`,
+            claimType: "cause_aligned_giving_announcement",
+            sourceUrl: item.url,
+            sourceTitle: item.title,
+            sourceType: "news",
+            publisher: item.source || hostnameOf(item.url),
+            publishedAt: item.publishedAt,
+            cause,
+            evidenceCreated,
+            discoveries,
+            staleSignalOnly,
+          });
+        }
       }
+    } catch (err) {
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "discovery.source_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { source: "news_search", message: err instanceof Error ? err.message : String(err) },
+        policy_decision: null,
+        ip_address: null,
+      });
     }
 
     // 2. Open-web cause statements / board involvement mentions.
-    const webResult = await callTool(context, runner, "web_search", {
-      query: `"${cause ?? ""}" board member OR trustee OR statement philanthropy`.trim(),
-      limit: 10,
-    });
-    if (webResult.success) {
-      const results = ((webResult.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
-      for (const item of results) {
-        await this.recordCauseSignal(context, {
-          displayName: item.title,
-          claim: `Cause-aligned statement or board involvement${cause ? ` (${cause})` : ""}: ${item.title}`,
-          claimType: "cause_statement_or_board_signal",
-          sourceUrl: item.url,
-          sourceTitle: item.title,
-          sourceType: "open_web",
-          publisher: hostnameOf(item.url),
-          publishedAt: null,
-          cause,
-          evidenceCreated,
-          discoveries,
-          staleSignalOnly,
-        });
+    try {
+      const webResult = await callTool(context, runner, "web_search", {
+        query: `"${cause ?? ""}" board member OR trustee OR statement philanthropy`.trim(),
+        limit: 10,
+      });
+      if (webResult.success) {
+        const results = ((webResult.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
+        for (const item of results) {
+          if (SENSITIVE_TRAIT_INFERENCE_PATTERN.test(item.title)) {
+            sensitiveInferenceExcluded.push(item.title);
+            await logAction({
+              organization_id: context.orgId,
+              actor_type: "agent",
+              actor_id: context.agentCode,
+              action: "discovery.sensitive_inference_excluded",
+              resource_type: "pil_agent_runs",
+              resource_id: context.runId,
+              before_state: null,
+              after_state: { title: item.title, pattern: "protected_trait_inference" },
+              policy_decision: null,
+              ip_address: null,
+            });
+            continue;
+          }
+          await this.recordCauseSignal(context, {
+            displayName: item.title,
+            claim: `Cause-aligned statement or board involvement${cause ? ` (${cause})` : ""}: ${item.title}`,
+            claimType: "cause_statement_or_board_signal",
+            sourceUrl: item.url,
+            sourceTitle: item.title,
+            sourceType: "open_web",
+            publisher: hostnameOf(item.url),
+            publishedAt: null,
+            cause,
+            evidenceCreated,
+            discoveries,
+            staleSignalOnly,
+          });
+        }
       }
+    } catch (err) {
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "discovery.source_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { source: "web_search", message: err instanceof Error ? err.message : String(err) },
+        policy_decision: null,
+        ip_address: null,
+      });
     }
 
     // 3. 990 mission-alignment confirmation, only when a caller supplied
     // known EINs (see file header -- no name-to-EIN path is available
     // under this agent's own granted tool set).
-    const planEins = (context.plan as { foundationEins?: string[] } | null)?.foundationEins;
-    if (Array.isArray(planEins) && cause) {
-      for (const ein of planEins) {
-        const nineNinety = await callTool(context, runner, "irs_990_lookup", { ein });
-        if (!nineNinety.success) continue;
-        const data = nineNinety.data as { org_name: string | null; mission: string | null };
-        if (!data.mission || !data.mission.toLowerCase().includes(cause.toLowerCase())) continue;
-        await this.recordCauseSignal(context, {
-          displayName: data.org_name ?? ein,
-          claim: `990 mission statement confirms cause alignment (${cause}): ${data.mission}`,
-          claimType: "990_mission_cause_alignment",
-          sourceUrl: null,
-          sourceTitle: data.org_name,
-          sourceType: "irs_form_990",
-          publisher: "IRS Form 990",
-          publishedAt: null,
-          cause,
-          evidenceCreated,
-          discoveries,
-          staleSignalOnly,
-        });
+    try {
+      const planEins = (context.plan as { foundationEins?: string[] } | null)?.foundationEins;
+      if (Array.isArray(planEins) && cause) {
+        for (const ein of planEins) {
+          const nineNinety = await callTool(context, runner, "irs_990_lookup", { ein });
+          if (!nineNinety.success) continue;
+          const data = nineNinety.data as { org_name: string | null; mission: string | null };
+          if (!data.mission || !data.mission.toLowerCase().includes(cause.toLowerCase())) continue;
+          await this.recordCauseSignal(context, {
+            displayName: data.org_name ?? ein,
+            claim: `990 mission statement confirms cause alignment (${cause}): ${data.mission}`,
+            claimType: "990_mission_cause_alignment",
+            sourceUrl: null,
+            sourceTitle: data.org_name,
+            sourceType: "irs_form_990",
+            publisher: "IRS Form 990",
+            publishedAt: null,
+            cause,
+            evidenceCreated,
+            discoveries,
+            staleSignalOnly,
+          });
+        }
       }
+    } catch (err) {
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "discovery.source_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { source: "irs_990_lookup", message: err instanceof Error ? err.message : String(err) },
+        policy_decision: null,
+        ip_address: null,
+      });
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
+
+    // "Roster feeds this agent to BEN-SUP-05" (critic review) -- especially
+    // warranted here given this agent's explicit sensitive-inference
+    // exposure. "Roster feeds this agent to BEN-KNW-03" (evidence/provenance
+    // re-verification) for any signal that is stale-only, its own remit.
+    const delegations: DelegationRequest[] = [];
+    if (discoveries.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Critic review for BEN-DIS-07 cause-aligned discoveries (cause: ${cause ?? "unresolved"}): ${discoveries.map((d) => d.prospectId).join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { prospectIds: discoveries.map((d) => d.prospectId), cause },
+      });
+    }
+    if (staleSignalOnly.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `Re-verify evidence provenance/freshness for stale-only cause-alignment signals: ${staleSignalOnly.join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { staleProspectIds: staleSignalOnly },
+      });
+    }
 
     return {
       status: "completed",
@@ -172,8 +300,9 @@ export class CauseAlignedProspectDiscoveryAgent implements Agent {
         discoveredProspectIds: discoveries.map((d) => d.prospectId),
         discoveries,
         staleSignalOnly,
+        sensitiveInferenceExcluded,
       },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

@@ -1,0 +1,75 @@
+schema_version: "1.0.0"
+document_id: PIL-CRITIC-016
+principles:
+  - consequential_conclusions_require_independent_review
+  - originator_cannot_certify_own_work
+  - critic_context_is_separately_constructed_and_minimized
+  - critic_reviews_claim_support_not_rhetorical_quality
+  - blocking_findings_cannot_be_overridden_by_originating_agent
+  - uncertainty_and_caveats_are_first_class_outputs
+contracts:
+  CriticReviewRequest:
+    required: [review_id, tenant_id, subject_ref, conclusion_refs, evidence_refs, decision_context, required_checks, policy_snapshot_id, deadline, independence_proof]
+    properties:
+      review_id: {type: string, format: uuid}
+      tenant_id: {type: string, format: uuid}
+      subject_ref: {type: string}
+      conclusion_refs: {type: array, minItems: 1, items: {type: string}}
+      evidence_refs: {type: array, items: {type: string}}
+      decision_context: {type: string}
+      required_checks: {type: array, items: {enum: [ENTITY_IDENTITY, DIRECT_SUPPORT, SOURCE_QUALITY, SOURCE_INDEPENDENCE, FRESHNESS, CONTRADICTION, INFERENCE_LABEL, CAPACITY_PROPENSITY_SEPARATION, RELATIONSHIP_VALIDITY, ELIGIBILITY, POLICY_PRIVACY, COMPLETENESS, CALIBRATION]}}
+      policy_snapshot_id: {type: string, format: uuid}
+      deadline: {type: string, format: date-time}
+      independence_proof: {$ref: '#/contracts/IndependenceProof'}
+  IndependenceProof:
+    required: [originating_agent_ids, critic_agent_id, context_builder_id, shared_model_session, shared_unreviewed_summary, conflict_check]
+    properties:
+      originating_agent_ids: {type: array, items: {type: string}}
+      critic_agent_id: {type: string}
+      context_builder_id: {type: string}
+      shared_model_session: {const: false}
+      shared_unreviewed_summary: {const: false}
+      conflict_check: {enum: [PASS, FAIL]}
+  CriticFinding:
+    required: [finding_id, review_id, severity, category, target_ref, assertion, evidence_refs, rationale, remediation, status]
+    properties:
+      finding_id: {type: string, format: uuid}
+      review_id: {type: string, format: uuid}
+      severity: {enum: [INFO, CAVEAT, MATERIAL, BLOCKING, POLICY_BLOCK]}
+      category: {enum: [INSUFFICIENT_EVIDENCE, ENTITY_CONFUSION, UNSUPPORTED_WEALTH, UNSUPPORTED_GIVING, CIRCULAR_SOURCING, STALE_EVIDENCE, WEAK_SOURCE, INVALID_INFERENCE, RELATIONSHIP_ERROR, ELIGIBILITY_ERROR, DUPLICATE_IDENTITY, IMPROPER_DATA_USE, MISSING_CONTRADICTION, CALIBRATION_ERROR, OTHER]}
+      target_ref: {type: string}
+      assertion: {type: string}
+      evidence_refs: {type: array, items: {type: string}}
+      rationale: {type: string}
+      remediation: {type: array, items: {type: string}}
+      status: {enum: [OPEN, REMEDIATED, ACCEPTED_CAVEAT, REJECTED_WITH_REASON]}
+  CriticReviewDecision:
+    required: [review_id, tenant_id, verdict, findings, reviewed_claim_refs, evidence_coverage, confidence, limitations, created_at]
+    properties:
+      review_id: {type: string, format: uuid}
+      tenant_id: {type: string, format: uuid}
+      verdict: {enum: [PASS, PASS_WITH_CAVEATS, RESEARCH_MORE, BLOCK_INSUFFICIENT_EVIDENCE, BLOCK_ENTITY_AMBIGUITY, BLOCK_POLICY]}
+      findings: {type: array, items: {type: string}}
+      reviewed_claim_refs: {type: array, items: {type: string}}
+      evidence_coverage: {type: number, minimum: 0, maximum: 1}
+      confidence: {type: number, minimum: 0, maximum: 1}
+      limitations: {type: array, items: {type: string}}
+      created_at: {type: string, format: date-time}
+verdict_rules:
+  PASS: no_open_material_blocking_or_policy_findings
+  PASS_WITH_CAVEATS: only_nonblocking_caveats_and_policy_allows_downstream_use
+  RESEARCH_MORE: remediable_material_gap_with_feasible_permitted_research
+  BLOCK_INSUFFICIENT_EVIDENCE: critical_conclusion_not_supported
+  BLOCK_ENTITY_AMBIGUITY: identity_uncertainty_can_misattach_consequential_evidence
+  BLOCK_POLICY: source_data_purpose_or_action_not_permitted
+required_tests:
+  - originator_or_shared_session_fails_independence
+  - circular_sources_do_not_count_as_corroboration
+  - search_snippet_does_not_satisfy_high_impact_claim
+  - wealth_does_not_imply_propensity
+  - stale_current_role_is_blocked_or_temporally_qualified
+  - contradictory_claims_are_not_silently_selected
+  - prohibited_data_produces_policy_block
+  - blocking_verdict_cannot_be_overridden_by_originator
+  - remediation_re_review_has_complete_lineage
+

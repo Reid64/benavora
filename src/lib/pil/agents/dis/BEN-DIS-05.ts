@@ -1,4 +1,4 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   findOrCreateProspect,
@@ -8,9 +8,17 @@ import {
   recordDiscoveryEvidence,
   tryModelTokens,
 } from "@/lib/pil/agents/dis/shared";
+import { logAction } from "@/lib/pil/audit";
 import { getPilClient } from "@/lib/pil/db";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+
+// Shared Discovery-family delegation cap (PIL_AGENT_COMPLETE_ROSTER.md's
+// max_delegation_depth/budget-bounded language, A2 default autonomy):
+// canonicalization/relationship-strength follow-on delegations below are
+// bounded to the top-N discoveries by this run's own ranking rather than
+// one delegation per discovery, which could be unbounded.
+const MAX_DELEGATION_CANDIDATES = 5;
 
 // BEN-DIS-05 -- Executive Prospect Discovery Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). Identifies
@@ -47,6 +55,18 @@ interface ExecutiveDiscovery {
 
 export class ExecutiveProspectDiscoveryAgent implements Agent {
   async execute(context: AgentContext, runner: AgentRunner): Promise<AgentResult> {
+    if (context.goal.trim().length === 0) {
+      return {
+        status: "completed",
+        evidence: [],
+        conclusions: { skipped: true, reason: "BEN-DIS-05 requires a non-empty goal" },
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: null,
+      };
+    }
+
     const criteria = parseGoalCriteria(context.goal);
     const evidenceCreated: EvidenceItem[] = [];
     const discoveries: ExecutiveDiscovery[] = [];
@@ -54,118 +74,172 @@ export class ExecutiveProspectDiscoveryAgent implements Agent {
     const targetCompanies = await this.resolveTargetCompanies(context, runner);
 
     for (const company of targetCompanies) {
-      // Prioritize executives with a documented external nonprofit-board
-      // seat -- search for that signal alongside the base leadership search
-      // rather than as an afterthought (spec's own planning behavior).
-      const execSearch = await callTool(context, runner, "web_search", {
-        query: `"${company.name}" CEO OR founder OR president OR chairman`,
-        limit: 5,
-      });
-      if (!execSearch.success) continue;
-
-      const execResults = ((execSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
-
-      const companyNode = await upsertNode({
-        organization_id: context.orgId,
-        node_type: "company",
-        prospect_id: company.prospectId,
-        label: company.name,
-        properties: {},
-      });
-
-      for (const item of execResults) {
-        const { prospect: execProspect, created } = await findOrCreateProspect({
-          orgId: context.orgId,
-          displayName: item.title,
-          entityType: "executive",
-          agentCode: context.agentCode,
+      try {
+        // Prioritize executives with a documented external nonprofit-board
+        // seat -- search for that signal alongside the base leadership search
+        // rather than as an afterthought (spec's own planning behavior).
+        const execSearch = await callTool(context, runner, "web_search", {
+          query: `"${company.name}" CEO OR founder OR president OR chairman`,
+          limit: 5,
         });
+        if (!execSearch.success) continue;
 
-        evidenceCreated.push(
-          await recordDiscoveryEvidence({
-            orgId: context.orgId,
-            prospectId: execProspect.id,
-            claim: `Current leadership role at ${company.name}: ${item.title}`,
-            value: { title: item.title, url: item.url, company: company.name },
-            claimType: "executive_role_mention",
-            sourceUrl: item.url,
-            sourceTitle: item.title,
-            sourceType: "corporate_information",
-            publisher: hostnameOf(item.url),
-            evidenceExcerpt: null,
-            agentCode: context.agentCode,
-            researchRunId: context.runId,
-            confidence: 0.45,
-            verificationStatus: "single_source_fact",
-          }),
-        );
+        const execResults = ((execSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
 
-        const execNode = await upsertNode({
+        const companyNode = await upsertNode({
           organization_id: context.orgId,
-          node_type: "person",
-          prospect_id: execProspect.id,
-          label: execProspect.display_name,
+          node_type: "company",
+          prospect_id: company.prospectId,
+          label: company.name,
           properties: {},
         });
-        await upsertEdge({
-          organization_id: context.orgId,
-          source_node_id: execNode.id,
-          target_node_id: companyNode.id,
-          edge_type: "employed_by",
-          relationship_strength: "strong",
-          confidence: 0.45,
-          temporal_validity_start: null,
-          temporal_validity_end: null,
-          is_current: true,
-          superseded_by_edge_id: null,
-          properties: { company: company.name },
-        });
 
-        // Nonprofit-board involvement flag -- the strongest early
-        // philanthropic-relevance signal available at discovery stage.
-        const boardSearch = await callTool(context, runner, "web_search", {
-          query: `"${item.title}" nonprofit board OR trustee`,
-          limit: 3,
-        });
-        let boardInvolvementFlagged = false;
-        if (boardSearch.success) {
-          const boardResults = ((boardSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
-          if (boardResults.length > 0) {
-            boardInvolvementFlagged = true;
-            evidenceCreated.push(
-              await recordDiscoveryEvidence({
-                orgId: context.orgId,
-                prospectId: execProspect.id,
-                claim: `Nonprofit board/trustee involvement flagged: ${boardResults[0]?.title}`,
-                value: { results: boardResults },
-                claimType: "nonprofit_board_involvement_flag",
-                sourceUrl: boardResults[0]?.url ?? null,
-                sourceTitle: boardResults[0]?.title ?? null,
-                sourceType: "open_web",
-                publisher: boardResults[0] ? hostnameOf(boardResults[0].url) : null,
-                evidenceExcerpt: null,
-                agentCode: context.agentCode,
-                researchRunId: context.runId,
-                confidence: 0.35,
-                verificationStatus: "unverified",
-              }),
-            );
+        for (const item of execResults) {
+          const { prospect: execProspect, created } = await findOrCreateProspect({
+            orgId: context.orgId,
+            displayName: item.title,
+            entityType: "executive",
+            agentCode: context.agentCode,
+          });
+
+          evidenceCreated.push(
+            await recordDiscoveryEvidence({
+              orgId: context.orgId,
+              prospectId: execProspect.id,
+              claim: `Current leadership role at ${company.name}: ${item.title}`,
+              value: { title: item.title, url: item.url, company: company.name },
+              claimType: "executive_role_mention",
+              sourceUrl: item.url,
+              sourceTitle: item.title,
+              sourceType: "corporate_information",
+              publisher: hostnameOf(item.url),
+              evidenceExcerpt: null,
+              agentCode: context.agentCode,
+              researchRunId: context.runId,
+              confidence: 0.45,
+              verificationStatus: "single_source_fact",
+            }),
+          );
+
+          const execNode = await upsertNode({
+            organization_id: context.orgId,
+            node_type: "person",
+            prospect_id: execProspect.id,
+            label: execProspect.display_name,
+            properties: {},
+          });
+          await upsertEdge({
+            organization_id: context.orgId,
+            source_node_id: execNode.id,
+            target_node_id: companyNode.id,
+            edge_type: "employed_by",
+            relationship_strength: "strong",
+            confidence: 0.45,
+            temporal_validity_start: null,
+            temporal_validity_end: null,
+            is_current: true,
+            superseded_by_edge_id: null,
+            properties: { company: company.name },
+          });
+
+          // Nonprofit-board involvement flag -- the strongest early
+          // philanthropic-relevance signal available at discovery stage.
+          const boardSearch = await callTool(context, runner, "web_search", {
+            query: `"${item.title}" nonprofit board OR trustee`,
+            limit: 3,
+          });
+          let boardInvolvementFlagged = false;
+          if (boardSearch.success) {
+            const boardResults = ((boardSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
+            if (boardResults.length > 0) {
+              boardInvolvementFlagged = true;
+              evidenceCreated.push(
+                await recordDiscoveryEvidence({
+                  orgId: context.orgId,
+                  prospectId: execProspect.id,
+                  claim: `Nonprofit board/trustee involvement flagged: ${boardResults[0]?.title}`,
+                  value: { results: boardResults },
+                  claimType: "nonprofit_board_involvement_flag",
+                  sourceUrl: boardResults[0]?.url ?? null,
+                  sourceTitle: boardResults[0]?.title ?? null,
+                  sourceType: "open_web",
+                  publisher: boardResults[0] ? hostnameOf(boardResults[0].url) : null,
+                  evidenceExcerpt: null,
+                  agentCode: context.agentCode,
+                  researchRunId: context.runId,
+                  confidence: 0.35,
+                  verificationStatus: "unverified",
+                }),
+              );
+            }
           }
-        }
 
-        discoveries.push({
-          prospectId: execProspect.id,
-          displayName: execProspect.display_name,
-          confidence: boardInvolvementFlagged ? 0.6 : 0.45,
-          created,
-          boardInvolvementFlagged,
+          discoveries.push({
+            prospectId: execProspect.id,
+            displayName: execProspect.display_name,
+            confidence: boardInvolvementFlagged ? 0.6 : 0.45,
+            created,
+            boardInvolvementFlagged,
+          });
+        }
+      } catch (err) {
+        // Recovery protocol: one company's search/write failure must not
+        // discard every executive already discovered from other companies
+        // in this same run.
+        const message = err instanceof Error ? err.message : String(err);
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.company_processing_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { company: company.name, message },
+          policy_decision: null,
+          ip_address: null,
         });
+        continue;
       }
     }
 
-    // Rank by board-involvement priority, then confidence, matching the
-    // spec's stated planning-behavior preference.
+    // Rank by board-involvement priority, then confidence only -- this
+    // ranking deliberately excludes company/title/any other prohibited
+    // feature (title prestige, employer size, inferred protected traits,
+    // name origin, age/neighborhood proxy, presumed gender) per the spec's
+    // fairness/privacy gate. Do not "improve" this comparator with a
+    // company-size or title-prestige weight.
     discoveries.sort((a, b) => (Number(b.boardInvolvementFlagged) - Number(a.boardInvolvementFlagged)) || b.confidence - a.confidence);
+
+    // Delegation chaining, budget-bounded to the top N discoveries by this
+    // run's own ranking (see MAX_DELEGATION_CANDIDATES) rather than one
+    // delegation per discovery, which could be unbounded:
+    //  - BEN-INT-01 canonicalization, only for genuinely new prospects this
+    //    run (created === true) -- an already-known person is not
+    //    re-triggered every run.
+    //  - BEN-REL-01 relationship-strength resolution, for entries whose
+    //    nonprofit board/trustee involvement was flagged -- relationship
+    //    strength remains UNKNOWN until BEN-REL-01 resolves it.
+    const delegations: DelegationRequest[] = [];
+    const delegationCandidates = discoveries.slice(0, MAX_DELEGATION_CANDIDATES);
+    for (const d of delegationCandidates) {
+      if (d.created) {
+        delegations.push({
+          childAgentCode: "BEN-INT-01",
+          objective: `Approve canonicalization and build a verified individual dossier for executive prospect ${d.prospectId} (${d.displayName})`,
+          maxAutonomy: "A2" as const,
+          constraints: { prospectId: d.prospectId },
+        });
+      }
+      if (d.boardInvolvementFlagged) {
+        delegations.push({
+          childAgentCode: "BEN-REL-01",
+          objective: `Resolve relationship strength for the nonprofit board/trustee involvement flagged on prospect ${d.prospectId}`,
+          maxAutonomy: "A2" as const,
+          constraints: { prospectId: d.prospectId },
+        });
+      }
+    }
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
@@ -177,7 +251,7 @@ export class ExecutiveProspectDiscoveryAgent implements Agent {
         discoveredProspectIds: discoveries.map((d) => d.prospectId),
         discoveries,
       },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

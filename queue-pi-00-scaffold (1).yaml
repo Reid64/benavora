@@ -1,0 +1,566 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+domain: none-yet
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-00: SCAFFOLD
+#
+# Creates the prospect-intel repository, workspace, dependency
+# baseline, GitHub repo, Supabase project, CI, and governance
+# framework. Bound by the 8 approved decisions in the library
+# manifest header. ASCII ONLY in every file written.
+#
+# HARD RULES FOR THIS ENTIRE PROGRAM (encoded into
+# STANDING_DIRECTIVES.md by prompt pi00-009):
+#   - ONE migrations directory: supabase/migrations at repo root.
+#     Never create a second migrations path anywhere (this exact
+#     dual-directory collision is a live production bug in the
+#     sibling benavora repo; it does not get repeated here).
+#   - Dependency installs happen in THIS queue only; the lockfile
+#     is committed; every later queue runs against frozen deps.
+#   - No secrets in any committed file, ever. .env.local is
+#     gitignored from the first commit.
+#   - Node 20 is the baseline runtime (matches the machine).
+#   - Scoped git adds only; never git add -A.
+# ============================================================
+
+prompts:
+
+  - id: pi00-001
+    phase: build
+    description: "Orchestrator command-gate verification (idempotent), repo directory, git init"
+    prompt: |
+      1. Read C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1 and check
+         whether its gate-evaluation logic supports gate type "command"
+         (execute the gate's run string in the project workDir; exit 0 = pass;
+         non-zero = fail into the standard retry path). The benavora PT-00
+         queue may have already added this. If present: do not touch the file.
+         If absent: back up to forge-orchestrator.ps1.bak-pi00, then add it
+         minimally and additively, exactly as described, without restructuring
+         existing gate handling and without touching the workDir resolution
+         line (documented permanent fix).
+
+      2. Create C:\Users\manag\Documents\prospect-intel and run git init with
+         default branch main. Set local git identity if unset (reuse the
+         global identity; do not invent one).
+
+      3. Write .gitignore FIRST, before anything else exists, containing at
+         minimum: node_modules/, .env, .env.local, .env.*.local, dist/,
+         build/, .next/, coverage/, *.tsbuildinfo, evidence/ (with a negation
+         keeping evidence/**/SUMMARY.md trackable), .DS_Store, tmp/.
+
+      4. Write README.md: project name prospect-intel, one-paragraph purpose
+         (enterprise agentic prospect intelligence platform - 44-agent fleet
+         on a single kernel, universal target-profile model), a pointer to
+         docs/ for the governing directive and dissection memo, and a note
+         that DECISION_LOG.md is binding.
+
+      5. Create scripts\verify\verify-pi00-001.mjs (Node stdlib only): exits 0
+         only if the repo dir exists with a .git folder, .gitignore contains
+         node_modules and .env.local, README.md exists, and
+         forge-orchestrator.ps1 contains the command gate handling. Exit 1
+         with the specific missing item on stderr otherwise.
+
+      6. Run: node scripts/verify/verify-pi00-001.mjs
+    expected_outputs:
+      - .gitignore
+      - README.md
+      - scripts/verify/verify-pi00-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-002
+    phase: build
+    description: "pnpm workspace root: package.json, workspace config, strict TypeScript base, lint/format config"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write package.json (root): name prospect-intel, private true,
+         packageManager pinned to the pnpm version actually installed on this
+         machine (run pnpm --version and use that exact value), engines.node
+         ">=20", scripts: build (pnpm -r build), typecheck (pnpm -r typecheck),
+         test (pnpm -r test), lint (pnpm -r lint).
+
+      2. Write pnpm-workspace.yaml covering: packages/*, apps/*, adapters/*.
+
+      3. Write tsconfig.base.json at root: strict true, noUncheckedIndexedAccess
+         true, exactOptionalPropertyTypes true, module NodeNext,
+         moduleResolution NodeNext, target ES2022, declaration true,
+         composite true, isolatedModules true. Every package extends this.
+
+      4. Write eslint.config.mjs (flat config) with @typescript-eslint strict
+         rules and a prettier config (.prettierrc: singleQuote true,
+         printWidth 100, no semicolons preference is NOT used - semicolons on).
+
+      5. Write .editorconfig: utf-8, lf, 2-space indent, final newline.
+
+      6. Create scripts\verify\verify-pi00-002.mjs: exits 0 only if all five
+         files exist, package.json parses with a real pinned packageManager
+         value (contains an @ and a version, not a placeholder), and
+         tsconfig.base.json parses with strict true.
+
+      7. Run: node scripts/verify/verify-pi00-002.mjs
+    expected_outputs:
+      - package.json
+      - pnpm-workspace.yaml
+      - tsconfig.base.json
+      - scripts/verify/verify-pi00-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-003
+    phase: build
+    description: "Package and app skeletons with workspace wiring"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Create these workspace members, each with: package.json (name
+         @prospect-intel/<name> for packages, prospect-intel-<name> for apps,
+         type module, main/types pointing at dist, scripts build/typecheck/
+         test/lint), tsconfig.json extending ../../tsconfig.base.json with
+         composite references, and src/index.ts exporting a named placeholder
+         constant PACKAGE_ID so typecheck has real content:
+
+         packages/core        - agent kernel, delegation, goal lifecycle
+         packages/contracts   - behavioral contracts + shared zod schemas
+         packages/services    - deterministic services
+         packages/graph       - knowledge graph model + query layer
+         packages/connectors  - source adapters + gateway
+         apps/api             - tenant-scoped API surface
+         apps/worker          - durable execution workers
+         apps/console         - operator console UI
+         adapters/benavora    - the only Benavora-aware package
+
+      2. Wire workspace dependencies with workspace:* protocol exactly as the
+         architecture requires: core depends on contracts; services depends on
+         contracts; graph depends on contracts; connectors depends on
+         contracts and services; api depends on core, contracts, graph;
+         worker depends on core, connectors, graph, services; console depends
+         on contracts; adapters/benavora depends on contracts ONLY (it talks
+         to the api over HTTP in production - record this constraint as a
+         comment in its package.json).
+
+      3. Add tsconfig project references matching the dependency graph so
+         pnpm -r typecheck builds in correct order.
+
+      4. Create scripts\verify\verify-pi00-003.mjs: exits 0 only if all nine
+         members exist with parseable package.json + src/index.ts, and
+         adapters/benavora's package.json dependencies contain ONLY
+         @prospect-intel/contracts from the workspace (fail loudly if it
+         references core, graph, services, or connectors - that boundary is
+         the extractability guarantee).
+
+      5. Run: node scripts/verify/verify-pi00-003.mjs
+    expected_outputs:
+      - packages/core/package.json
+      - packages/contracts/package.json
+      - packages/services/package.json
+      - packages/graph/package.json
+      - packages/connectors/package.json
+      - apps/api/package.json
+      - apps/worker/package.json
+      - apps/console/package.json
+      - adapters/benavora/package.json
+      - scripts/verify/verify-pi00-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-004
+    phase: build
+    description: "Dependency bootstrap - THE ONLY INSTALL IN THE PROGRAM - and first full typecheck/build"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Install the program-wide dependency baseline with pnpm (exact
+         packages; add nothing speculative - later phases justify additions
+         through a DECISION_LOG entry, not ad hoc installs):
+         Root dev: typescript, tsx, vitest, eslint, @typescript-eslint/parser,
+           @typescript-eslint/eslint-plugin, prettier, @types/node
+         packages/contracts: zod
+         packages/core: (workspace deps only at this stage)
+         packages/services: postgres (the porsager postgres client), ws,
+           @types/ws
+         packages/connectors: undici
+         apps/api: (framework selection is a pi-01 architecture output -
+           leave bare; do NOT install a framework now)
+         apps/worker: (workspace deps only)
+         Model SDK: @anthropic-ai/sdk into packages/services (the model
+           gateway will live there per the service registry).
+
+      2. Run pnpm -r typecheck. Fix any wiring errors until zero.
+      3. Run pnpm -r build. Must succeed.
+      4. Confirm pnpm-lock.yaml exists and will be committed (it is the
+         frozen baseline every later queue depends on).
+
+      5. Create scripts\verify\verify-pi00-004.mjs: exits 0 only if
+         pnpm-lock.yaml exists, node_modules exists, and a spawned
+         "pnpm -r typecheck" exits 0.
+
+      6. Run: node scripts/verify/verify-pi00-004.mjs
+    expected_outputs:
+      - pnpm-lock.yaml
+      - scripts/verify/verify-pi00-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-005
+    phase: build
+    description: "GitHub repository creation and first push"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Run: gh auth status
+         If NOT authenticated: write evidence\pi-00\GITHUB-AUTH-NEEDED.md
+         stating exactly what to run (gh auth login) and make the verify
+         script exit 1 - halting here for Reid is correct behavior.
+
+      2. If authenticated: create the private repo Reid64/prospect-intel via
+         gh repo create Reid64/prospect-intel --private --source .
+         --remote origin (adjust flags to the installed gh version - check
+         gh --version and its help first rather than assuming).
+
+      3. Stage SCOPED paths only: .gitignore README.md package.json
+         pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json
+         eslint.config.mjs .prettierrc .editorconfig packages/ apps/
+         adapters/ scripts/
+         Commit: "scaffold: workspace, packages, dependency baseline (pi-00)"
+         Push to origin main.
+
+      4. Create scripts\verify\verify-pi00-005.mjs: exits 0 only if
+         git remote -v shows origin pointing at Reid64/prospect-intel and
+         git status shows a clean tree for the staged paths and
+         git log -1 contains "pi-00".
+
+      5. Run: node scripts/verify/verify-pi00-005.mjs
+    expected_outputs:
+      - scripts/verify/verify-pi00-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-005.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi00-006
+    phase: build
+    description: "Supabase project creation via Management API - halt for billing consent if required"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      SECRET RULE: no key, PAT, password, or connection string is ever written
+      to any committed file or any evidence file. .env.local only.
+
+      1. Using the Supabase Management API with the PAT available in the local
+         environment (the same PAT benavora uses), list organizations and
+         identify the org that owns project vbjplpquqxxfbpazyalt. Capture the
+         org slug/id to evidence\pi-00\supabase-org.json (ids only).
+
+      2. Attempt to create a new project in that org: name prospect-intel,
+         region matching the existing benavora project's region (read it from
+         the API, do not guess), strong generated DB password (write it to
+         .env.local ONLY as PI_DATABASE_PASSWORD).
+
+      3. IF the API requires plan/billing confirmation or returns a
+         cost-bearing warning: STOP. Write evidence\pi-00\SUPABASE-COST-DECISION.md
+         with the raw response and the exact monthly figure if stated, and
+         make the verify script exit 1. Reid confirms cost before any retry.
+
+      4. IF created: capture the new project ref. Write .env.local with:
+         PI_SUPABASE_PROJECT_REF, PI_SUPABASE_URL, PI_SUPABASE_ANON_KEY,
+         PI_SUPABASE_SERVICE_ROLE_KEY, PI_DATABASE_URL (direct psql form).
+         Write .env.example with the same NAMES and empty values - this file
+         IS committed. Wait for the project to reach ACTIVE_HEALTHY status
+         (poll the API), then verify connectivity with one psql query over
+         PI_DATABASE_URL: SELECT version(); capture the returned string
+         (version string only) to evidence\pi-00\supabase-ready.txt.
+
+      5. Create scripts\verify\verify-pi00-006.mjs: exits 0 only if
+         .env.example exists listing the five PI_ names with no values,
+         evidence\pi-00\supabase-ready.txt exists containing "PostgreSQL",
+         and .env.local is NOT tracked by git (spawn git check-ignore).
+
+      6. Run: node scripts/verify/verify-pi00-006.mjs
+    expected_outputs:
+      - .env.example
+      - scripts/verify/verify-pi00-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-006.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi00-007
+    phase: build
+    description: "Migration framework: single directory, runner, migration 0001, applied-state tracking"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Create supabase\migrations\ at the repo root. This is the ONLY
+         migrations directory this repo will ever have - add a top-of-file
+         comment in the runner stating this and referencing the benavora
+         dual-directory bug as the reason.
+
+      2. Write supabase\migrations\0001_migration_infrastructure.sql:
+         CREATE SCHEMA IF NOT EXISTS pi;
+         CREATE TABLE IF NOT EXISTS pi.schema_migrations (
+           version text PRIMARY KEY,
+           applied_at timestamptz NOT NULL DEFAULT now(),
+           checksum text NOT NULL
+         );
+         Idempotent by construction.
+
+      3. Write scripts\db\migrate.mjs (Node + the postgres client from
+         packages/services deps): reads supabase/migrations in filename
+         order, computes a sha256 checksum per file, applies any migration
+         not present in pi.schema_migrations inside a transaction, records
+         version+checksum, REFUSES to run (exit 1, clear error) if an
+         already-applied migration's checksum differs from its file (drift
+         detection), and supports --status to print applied vs pending.
+         Connection from PI_DATABASE_URL. Node 20 + ws shim rule applies if
+         the supabase-js client is ever used here - this script uses direct
+         postgres, so no shim needed; note that in a comment.
+
+      4. Run: node scripts/db/migrate.mjs   (applies 0001)
+         Then: node scripts/db/migrate.mjs --status
+         Capture --status output to evidence\pi-00\migrate-status.txt.
+         Run migrate again with no changes - it must be a clean no-op
+         (idempotency proof); append that output to the same evidence file.
+
+      5. Create scripts\verify\verify-pi00-007.mjs: exits 0 only if exactly
+         one migrations directory exists in the repo (search the whole tree
+         for directories named migrations; count must be 1), 0001 exists,
+         and migrate-status.txt shows 0001 as applied and contains the
+         second-run no-op output.
+
+      6. Run: node scripts/verify/verify-pi00-007.mjs
+    expected_outputs:
+      - supabase/migrations/0001_migration_infrastructure.sql
+      - scripts/db/migrate.mjs
+      - scripts/verify/verify-pi00-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-008
+    phase: build
+    description: "CI workflow: typecheck + build + test on every push, frozen lockfile"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write .github\workflows\ci.yml: on push to main and on pull_request;
+         ubuntu-latest; actions/checkout@v4; setup-node@v4 with node 20;
+         corepack enable + pin pnpm to the version in package.json's
+         packageManager field; pnpm install --frozen-lockfile;
+         pnpm -r typecheck; pnpm -r build; pnpm -r test (vitest passWithNoTests
+         at this stage so the empty suite does not fail the scaffold).
+         Include a concurrency group cancelling stale runs on the same ref.
+
+      2. Commit (scoped: .github/) with message
+         "ci: typecheck/build/test workflow (pi-00)" and push.
+
+      3. Poll the run result: gh run list --limit 1 then gh run watch or
+         gh run view on the newest run until it completes. Capture the
+         conclusion line to evidence\pi-00\ci-first-run.txt. If the run
+         fails, read its log, fix the real cause, push, and re-verify -
+         the gate requires a green run, not a submitted one.
+
+      4. Create scripts\verify\verify-pi00-008.mjs: exits 0 only if ci.yml
+         exists containing frozen-lockfile and a concurrency block, and
+         ci-first-run.txt contains "success".
+
+      5. Run: node scripts/verify/verify-pi00-008.mjs
+    expected_outputs:
+      - .github/workflows/ci.yml
+      - scripts/verify/verify-pi00-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-009
+    phase: build
+    description: "Governance documents: DECISION_LOG with the 8 binding decisions, STANDING_DIRECTIVES, state docs, source directive into docs/"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write DECISION_LOG.md: dated 2026-08-18, entries D-001 through D-008
+         recording verbatim the eight approved decisions from the library
+         manifest header (name, separate Supabase project, Postgres-native
+         graph, Postgres-durable workflows, model routing tiers, licensed
+         providers as interfaces only, multi-tenant day one with Faith
+         Foundation as tenant 1, universal entity-class + target-profile
+         model). Each entry: decision, rationale summary, date, status BINDING.
+         Add D-009: market/brand name deferred to productization; Mapolize
+         deliberately held in reserve. Add a standing rule: no future session
+         may contradict a BINDING entry without a new dated entry superseding
+         it with Reid's explicit approval.
+
+      2. Write STANDING_DIRECTIVES.md porting the applicable hard-won rules
+         as numbered directives: ASCII-only files; PS5 no-ampersand-chaining
+         and [IO.File]::WriteAllText for sensitive writes; single migrations
+         directory forever; DDL via PI_DATABASE_URL psql; no package installs
+         outside pi-00 without a DECISION_LOG entry; scoped git adds only;
+         no secrets in committed or evidence files; evidence-gated prompts
+         (a claim without an evidence file does not exist); Node 20 baseline
+         with the stealth-stack fallback note (camoufox requires Node 22 -
+         use the fallback stack as benavora does until a deliberate runtime
+         upgrade decision); adapters/benavora depends on contracts only;
+         governance sync before every FORGE launch.
+
+      3. Write SESSION_STATE.md and STATE_OF_THE_BUILD.md: initial entries
+         describing pi-00 scope, the verification standard (session
+         self-verification is evidence for Reid, not completion - ported
+         verbatim in spirit from the benavora standard), and next queue
+         pi-01-architecture-docs.
+
+      4. Create docs\ and copy in: the EAPIL source directive (convert the
+         docx at its known location in the Benavora project files or accept
+         it as EAPIL_DIRECTIVE.md if a markdown copy is provided in the FORGE
+         projects folder) and EAPIL_DISSECTION_MEMO.md (from the FORGE
+         projects folder if synced there; otherwise create a placeholder
+         noting Reid must drop it in, and flag it in SESSION_STATE.md).
+
+      5. Create scripts\verify\verify-pi00-009.mjs: exits 0 only if
+         DECISION_LOG.md contains D-001 through D-009 with BINDING markers,
+         STANDING_DIRECTIVES.md contains at least 10 numbered directives
+         including the single-migrations-directory rule, and both state docs
+         exist with dated entries.
+
+      6. Run: node scripts/verify/verify-pi00-009.mjs
+    expected_outputs:
+      - DECISION_LOG.md
+      - STANDING_DIRECTIVES.md
+      - SESSION_STATE.md
+      - STATE_OF_THE_BUILD.md
+      - scripts/verify/verify-pi00-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-010
+    phase: build
+    description: "Evidence framework and FORGE project folder sync"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Create evidence\pi-00\SUMMARY.md: dated, one section per prompt
+         001-009, headline facts with the evidence filename beside every
+         claim (repo created, N workspace members, lockfile committed,
+         GitHub repo url, Supabase ref, migration 0001 applied + no-op
+         proof, CI first run green, governance docs in place).
+
+      2. Sync governance to the FORGE project folder:
+         $repo = "C:\Users\manag\Documents\prospect-intel"; $forge = "C:\Users\manag\Documents\FORGE\projects\prospect-intel"; Get-ChildItem "$repo\*.md" | ForEach-Object { Copy-Item $_.FullName "$forge\$($_.Name)" -Force }
+
+      3. Create scripts\verify\verify-pi00-010.mjs: exits 0 only if
+         SUMMARY.md has sections for all nine prior prompts and the FORGE
+         projects folder contains DECISION_LOG.md and STANDING_DIRECTIVES.md
+         with content identical to the repo copies (byte compare).
+
+      4. Run: node scripts/verify/verify-pi00-010.mjs
+    expected_outputs:
+      - evidence/pi-00/SUMMARY.md
+      - scripts/verify/verify-pi00-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-011
+    phase: build
+    description: "Full-tree quality pass: lint, typecheck, build, dead-config check"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Run pnpm -r lint and fix every reported issue for real (no rule
+         disabling to pass; a rule change requires a comment justifying it).
+      2. Run pnpm -r typecheck and pnpm -r build - both must be clean.
+      3. Sanity checks, each captured to evidence\pi-00\quality-pass.txt:
+         - exactly one directory named migrations in the tree
+         - no file in the repo contains a non-ASCII byte (scan; list any hits
+           and fix them)
+         - git check-ignore confirms .env.local ignored
+         - no committed file contains the strings sbp_ or service_role ey
+           (secret-shape scan; a hit is a hard failure to fix, not note)
+      4. Create scripts\verify\verify-pi00-011.mjs: exits 0 only if
+         quality-pass.txt exists showing all four checks passed and a spawned
+         pnpm -r typecheck exits 0.
+      5. Run: node scripts/verify/verify-pi00-011.mjs
+    expected_outputs:
+      - evidence/pi-00/quality-pass.txt
+      - scripts/verify/verify-pi00-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi00-012
+    phase: build
+    description: "Final scoped commit, push, governance close-out"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: pi-00 COMPLETE
+         with the real headline numbers read from evidence files (not
+         recalled), explicit list of anything halted or flagged (GitHub auth,
+         Supabase cost consent) and its resolution, next queue
+         pi-01-architecture-docs.
+
+      2. Scoped add of exactly: supabase/ scripts/ .github/ docs/
+         DECISION_LOG.md STANDING_DIRECTIVES.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md evidence/pi-00/SUMMARY.md .env.example
+         Commit: "scaffold: governance, migrations framework, CI, evidence
+         baseline complete (pi-00)"
+         Push to origin main.
+
+      3. Re-run the governance sync to the FORGE projects folder (same
+         command as pi00-010 step 2).
+
+      4. Create scripts\verify\verify-pi00-012.mjs: exits 0 only if
+         git log -1 contains "(pi-00)" and git status --porcelain is empty
+         for the committed paths.
+
+      5. Run: node scripts/verify/verify-pi00-012.mjs
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+      - scripts/verify/verify-pi00-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi00-012.mjs"
+    max_retries: 3
+    on_fail: halt

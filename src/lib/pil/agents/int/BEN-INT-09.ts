@@ -1,13 +1,16 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
   hostnameOf,
   looksLikeRoundEstimate,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
+import { getEvidence } from "@/lib/pil/evidence";
 import { getNodesByProspect, traverseGraph } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNode } from "@/lib/pil/types";
 
@@ -50,6 +53,29 @@ interface ChainLink {
   sourceTitle: string | null;
 }
 
+// The six domain dimensions this agent's report scores coverage across, per
+// PIL_AGENT_COMPLETE_ROSTER.md "Core Intelligence" BEN_INT_09Decision.v1
+// contract. Coverage is computed from persisted pil_evidence state
+// (getEvidence()), not just evidence created this run, matching BEN-INT-08's
+// own established getEvidence(prospect.id, context.orgId) pattern.
+const WEALTH_ORIGIN_DIMENSIONS = [
+  "Company Sale/M&A/IPO Events",
+  "Equity Transactions",
+  "Founder Ownership Evidence",
+  "Distribution/Proceeds Limitations",
+  "Event Timing",
+  "Post-Event Uncertainty",
+] as const;
+
+export interface WealthOriginLiquidityEventReport {
+  prospectId: string;
+  dimensionCoverage: Record<(typeof WEALTH_ORIGIN_DIMENSIONS)[number], boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+  chainsBuilt: number;
+  ownedCompaniesFound: number;
+}
+
 function classifyEventStep(text: string): string {
   const lower = text.toLowerCase();
   if (lower.includes("ipo") || lower.includes("initial public offering")) return "ipo";
@@ -86,6 +112,12 @@ export class WealthOriginLiquidityEventAgent implements Agent {
     }
 
     const chainTargets = ownedCompanies.length > 0 ? ownedCompanies : [null];
+
+    // Capacity-refresh trigger for BEN-INT-08: true as soon as any chain
+    // target's search actually turns up a real event (not the UNKNOWN
+    // fallback) -- a newly-documented liquidity event should prompt
+    // BEN-INT-08 to re-score capacity with fresh wealth evidence.
+    let liquidityEventFound = false;
 
     for (const company of chainTargets) {
       const chain: ChainLink[] = [];
@@ -128,6 +160,7 @@ export class WealthOriginLiquidityEventAgent implements Agent {
 
       const found = newsResults[0] ?? edgarResults[0] ?? null;
       if (found) {
+        liquidityEventFound = true;
         const isRoundEstimate = looksLikeRoundEstimate(found.title);
         chain.push({
           step: classifyEventStep(found.title),
@@ -179,11 +212,130 @@ export class WealthOriginLiquidityEventAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
+    // Everything above this point (evidence writes) is this run's own
+    // defensible determination and has already durably landed via
+    // individually atomic recordIntelligenceEvidence() calls. Gap-analysis/
+    // delegation-construction/report-construction below is secondary
+    // reasoning over that already-persisted work -- a bug here must never
+    // discard evidence this run already recorded (roster: "captured evidence
+    // stays immutable").
+    let report: WealthOriginLiquidityEventReport = {
+      prospectId: prospect.id,
+      dimensionCoverage: Object.fromEntries(WEALTH_ORIGIN_DIMENSIONS.map((d) => [d, false])) as WealthOriginLiquidityEventReport["dimensionCoverage"],
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+      chainsBuilt: evidenceCreated.length,
+      ownedCompaniesFound: ownedCompanies.length,
+    };
+    let delegations: DelegationRequest[] = [];
+
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const liquidityEvidence = allEvidence.filter((e) => e.claim_type === "liquidity_event");
+      const chains = liquidityEvidence.map((e) => (e.value as { chain?: ChainLink[] } | null)?.chain ?? []);
+
+      const hasSpecificEventClassification = chains.some((chain) =>
+        chain.some((link) => link.step === "ipo" || link.step === "acquisition" || link.step === "company_sale"),
+      );
+      // The EDGAR-substitute web_search (Schedule 13D/Form 4/S-1 language,
+      // see file header) only ever wins as `found` -- and is only ever
+      // recorded with source_type "open_web" -- when the news_search leg came
+      // up empty, so an "open_web" liquidity_event row is this agent's own
+      // proxy for a documented equity-transaction filing mention.
+      const hasEdgarSubstituteHit = liquidityEvidence.some((e) => e.source_type === "open_web");
+      const hasFoundOwnershipStake =
+        ownedCompanies.length > 0 || chains.some((chain) => chain.some((link) => link.step === "ownership_stake" && link.label === "INFERRED"));
+      const hasFoundEventStep = chains.some((chain) => chain.some((link) => link.label !== "UNKNOWN" && link.step !== "ownership_stake"));
+      const hasDatedSource = liquidityEvidence.some((e) => e.source_url !== null);
+      const hasUnknownLabeledLink = chains.some((chain) => chain.some((link) => link.label === "UNKNOWN"));
+
+      const dimensionSignals: Record<(typeof WEALTH_ORIGIN_DIMENSIONS)[number], boolean> = {
+        "Company Sale/M&A/IPO Events": hasSpecificEventClassification,
+        "Equity Transactions": hasEdgarSubstituteHit,
+        "Founder Ownership Evidence": hasFoundOwnershipStake,
+        // No agent in this codebase tracks distribution restrictions, lockups,
+        // or proceeds limitations on a documented liquidity event -- an
+        // explicit false, not an omitted field (same pattern as BEN-INT-08's
+        // "Liability/Encumbrance Limitations").
+        "Distribution/Proceeds Limitations": false,
+        "Event Timing": hasFoundEventStep && hasDatedSource,
+        "Post-Event Uncertainty": hasUnknownLabeledLink,
+      };
+      const dimensionCoverage = Object.fromEntries(
+        WEALTH_ORIGIN_DIMENSIONS.map((dimension) => [dimension, dimensionSignals[dimension]]),
+      ) as WealthOriginLiquidityEventReport["dimensionCoverage"];
+
+      // Completes the BEN-INT-03/08/09 mutual triangle plus the KNW-02/KNW-03
+      // consumers -- pushed in priority order, capped at
+      // MAX_DELEGATIONS_PER_RUN since AgentRunner executes delegations
+      // synchronously/inline.
+      const candidates: DelegationRequest[] = [];
+      const pushCandidate = (childAgentCode: string, objective: string) => {
+        candidates.push({
+          childAgentCode,
+          objective,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      };
+
+      if (!personNode) {
+        pushCandidate(
+          "BEN-KNW-02",
+          `Prospect ${context.prospectId} has no resolved person graph node -- resolve identity ambiguity before further wealth-origin research.`,
+        );
+      }
+      if (ownedCompanies.length === 0) {
+        pushCandidate(
+          "BEN-INT-03",
+          `Prospect ${context.prospectId} has no documented ownership stake on file -- BEN-INT-09 has no ownership stake to build a wealth-origin chain from.`,
+        );
+      }
+      if (liquidityEventFound) {
+        pushCandidate(
+          "BEN-INT-08",
+          `Prospect ${context.prospectId} has a newly-documented liquidity event this run -- re-score wealth/giving capacity against the fresh wealth evidence.`,
+        );
+      }
+      if (evidenceCreated.length > 0) {
+        pushCandidate(
+          "BEN-KNW-03",
+          `BEN-INT-09 recorded ${evidenceCreated.length} new liquidity_event evidence item(s) for prospect ${context.prospectId} this run -- verify provenance before treating as authoritative.`,
+        );
+      }
+
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+        chainsBuilt: evidenceCreated.length,
+        ownedCompaniesFound: ownedCompanies.length,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "ben-int-09.gap_analysis_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { error: message },
+        policy_decision: null,
+        ip_address: null,
+      });
+      delegations = [];
+    }
+
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: { prospectId: prospect.id, chainsBuilt: evidenceCreated.length, ownedCompaniesFound: ownedCompanies.length },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

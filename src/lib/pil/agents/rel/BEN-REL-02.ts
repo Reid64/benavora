@@ -33,10 +33,31 @@ import type { EvidenceItem, GraphEdge } from "@/lib/pil/types";
 // evidence context only and writes a summary evidence row on the prospect
 // (matching every other REL agent's evidence-write convention) rather than
 // leaving the traversal unrecorded.
+//
+// Upgrade (PIL_AGENT_COMPLETE_ROSTER.md/PIL_AGENT_DEPENDENCIES.yaml, paper
+// specs with no implementation evidence -- design input only): adds three
+// conditional delegations alongside the existing per-ranked-path BEN-REL-06
+// delegation, per depends_on's BEN-INT-05/BEN-KNW-03/BEN-REL-05 entries,
+// each gated on a concrete signal -- BEN-INT-05 (governance-depth
+// intelligence) once per run when the top-ranked path's edges include a
+// board/trustee edge type, BEN-KNW-03 (provenance verification) whenever
+// any path was found, and BEN-REL-05 (broader warm-introduction search)
+// when no board/trustee path was found even after the widen-to-5-hops
+// fallback. conclusions.decision also now carries the roster's six named
+// output dimensions (sharedOrganization/boardType/overlapInterval/
+// roleCompatibility/pathLength/relationshipLimitations), populated from
+// data this method already computes -- there is no dedicated
+// pil_rel_02_decisions table, the same "no such table, use conclusions"
+// resolution BEN-REL-05's header already documents.
 
 const DEFAULT_MAX_HOPS = 4;
 const WIDENED_MAX_HOPS = 5;
 const TOP_PATHS_LIMIT = 5;
+
+// Edge types this agent's own traversal confirms exist but does not itself
+// characterize in governance detail (committee/officer-role/interval) --
+// the BEN-INT-05 delegation trigger below.
+const BOARD_GOVERNANCE_EDGE_TYPES = new Set(["serves_on_board_of", "trustee_of"]);
 
 interface RankedPath {
   targetNodeId: string;
@@ -170,6 +191,65 @@ export class BoardRelationshipMappingAgent implements Agent {
       }
     }
 
+    const topPath: RankedPath | null = ranked.length > 0 ? (ranked[0] as RankedPath) : null;
+
+    // BEN-INT-05: the top-ranked path's edges include a board/trustee edge
+    // type -- this agent's own traversal only confirms the edge exists, not
+    // its committee/officer-role/interval detail. Fires once per run for the
+    // top path only, never once per ranked path.
+    let governanceDelegated = false;
+    if (topPath && topPath.edgeTypes.some((t) => BOARD_GOVERNANCE_EDGE_TYPES.has(t))) {
+      delegations.push({
+        childAgentCode: "BEN-INT-05",
+        objective: `Deepen board-governance intelligence (committee/officer-role/interval detail) for the organization anchoring the board-network path to ${topPath.targetLabel} for prospect ${prospect.id} -- BEN-REL-02's traversal only confirmed the edge exists, not its governance detail.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id, edgeIds: topPath.edgeIds, targetNodeId: topPath.targetNodeId },
+      });
+      governanceDelegated = true;
+    }
+
+    // BEN-KNW-03: every edge across the ranked paths needs provenance/
+    // freshness verification before it informs introduction planning --
+    // dedupe edge ids since the same edge can appear in multiple candidate
+    // paths.
+    if (ranked.length > 0) {
+      const allPathEdgeIds = [...new Set(ranked.flatMap((p) => p.edgeIds))];
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `Board-network path edges for prospect ${prospect.id} need provenance/freshness verification before they inform introduction planning.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id, edgeIds: allPathEdgeIds },
+      });
+    }
+
+    // BEN-REL-05: no board/trustee-network path was found even after the
+    // widen-to-5-hops fallback -- ask for a broader warm-introduction search
+    // across all relationship types, not just board/trustee edges. This
+    // agent already has a valid context.prospectId at this point (guarded by
+    // the early return at the top of this method), so no additional
+    // prospectId guard is needed.
+    if (ranked.length === 0) {
+      delegations.push({
+        childAgentCode: "BEN-REL-05",
+        objective: `No board/trustee-network path was found from prospect ${prospect.id} to any tenant contact within ${WIDENED_MAX_HOPS} hops -- attempt a broader warm-introduction search across all relationship types, not just board/trustee edges.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id },
+      });
+    }
+
+    // BEN_REL_02Decision.v1's 6 named output dimensions (roster), mapped
+    // onto data this method already computes -- no dedicated
+    // pil_rel_02_decisions table exists, so this rides in conclusions
+    // instead (same resolution BEN-REL-05's header documents).
+    const decision = {
+      sharedOrganization: topPath ? topPath.targetLabel : null,
+      boardType: topPath && topPath.edgeTypes.length > 0 ? topPath.edgeTypes[0] : null,
+      overlapInterval: governanceDelegated ? "not_yet_temporally_bounded_pending_BEN-INT-05" : "no_path_found",
+      roleCompatibility: "unassessed_pending_BEN-INT-05_role_detail",
+      pathLength: topPath ? topPath.hopCount : null,
+      relationshipLimitations: ["co-service at a shared organization does not by itself imply personal closeness"],
+    };
+
     const tokensUsed = await tryModelTokens(context, runner, 400);
 
     return {
@@ -181,6 +261,7 @@ export class BoardRelationshipMappingAgent implements Agent {
         widened,
         pathsFound: ranked.length,
         rankedPaths: ranked,
+        decision,
       },
       delegations,
       tokensUsed,

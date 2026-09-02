@@ -1,0 +1,85 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: onboard-001
+  name: Governance sync and onboarding flow audit
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/onboarding/ directory listing in full.
+    Read every file found in that directory in full.
+    Read SCHEMA_REGISTRY_v2.md for organizations, profiles, knowledge_base_profiles tables in full.
+    Read src/components/layout/nav-items.ts in full.
+
+    ONBOARDING AUDIT: The onboarding flow is the first thing every new customer experiences. It must be flawless.
+
+    Check each onboarding step for:
+    1. Does it save data correctly to the database on completion?
+    2. Does it advance to the next step correctly?
+    3. Does it handle the back button without losing data?
+    4. Does it validate required fields before advancing?
+    5. Is it styled with inline styles (no Tailwind color classes)?
+    6. Is the progress indicator accurate?
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    Rewrite the onboarding flow completely if it has Tailwind color classes or styling issues.
+
+    The onboarding must collect ALL of this data:
+    Step 1 — Organization Profile: legal_name, ein, website, phone, address, city, state, zip, founding_year
+    Step 2 — Mission & Programs: mission_statement (min 100 words enforced), programs list (min 2), target_population, geographic_service_area
+    Step 3 — Financial Profile: annual_revenue, primary_funding_sources (checkboxes: federal_grants, foundation_grants, corporate_donations, individual_donations, earned_revenue), budget_year
+    Step 4 — Leadership: executive_director_name, executive_director_email, board_size, board_member_names (at least 3)
+    Step 5 — Digital Twin Setup: auto-populate KB from entered data, show twin completeness score, prompt to fill gaps
+    Step 6 — Platform Tour: animated walkthrough of key features with skip option
+
+    Each step saves immediately to Supabase on Next click. Final step sets onboarding_completed=true.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: onboarding flow complete rebuild -- 6 steps, all data collected, inline styles, twin auto-populate'; git push.
+
+- id: onboard-002
+  name: Onboarding completion trigger and post-onboarding automation
+  prompt: |
+    Read src/app/(dashboard)/onboarding/page.tsx in full.
+    Read src/lib/agents/opportunity-discovery-agent.ts in full.
+    Read src/lib/intelligence/twin-auto-populate.ts in full.
+
+    When onboarding completes (onboarding_completed set to true), automatically trigger:
+
+    1. TWIN AUTO-POPULATE: Call autoPopulateTwin(orgId, supabase) immediately after onboarding saves. This fills in any KB gaps from IRS BMF data and web search. Show a "Setting up your AI..." loading screen during this.
+
+    2. INITIAL DISCOVERY RUN: Queue an OpportunityDiscoveryAgent run for the new org. Insert into agent_queue with trigger_source='onboarding', priority=1. This ensures the org has opportunities waiting when they first visit the dashboard.
+
+    3. WELCOME EMAIL: After onboarding, send a welcome email via the notifications system with:
+       - Summary of what was set up
+       - Link to their first opportunity matches
+       - Link to Intelligence Library
+       - Link to schedule a demo (https://calendly.com placeholder)
+
+    4. PLATFORM TOUR REDIRECT: After onboarding_completed=true, redirect to /dashboard with a ?tour=true query param that triggers the guided tour overlay.
+
+    Create src/components/onboarding/PlatformTour.tsx:
+    An overlay tour component triggered by ?tour=true query param.
+    Shows 6 tooltip-style callouts highlighting key UI elements:
+    - FlightPath HUD (stages of the grant pipeline)
+    - Opportunities section
+    - Intelligence Library
+    - Draft Generator
+    - AutoApply
+    - Settings > Agents (autonomous controls)
+    Each callout: white card with colored border, arrow pointing to element, title, 2-sentence description, Next/Skip buttons.
+    Stores tour_completed=true in localStorage after completion.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: post-onboarding automation -- twin populate, discovery run, welcome flow, platform tour'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

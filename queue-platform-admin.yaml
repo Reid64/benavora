@@ -10,7 +10,6 @@ governance:
   - BEHAVIORAL_CONTRACTS.md
   - AGENTS.md
   - PRD.md
-  - AUTONOMOUS_PLATFORM_VISION.md
 
 settings:
   max_retries_per_prompt: 3

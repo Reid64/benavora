@@ -1,0 +1,45 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_INVOICE_PORTAL.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: invoice-001
+    phase: investigate
+    description: "Audit real state of invoice auto-generation on order dispatch"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read lib/utils/invoice-pdf.ts, lib/utils/invoice-email.ts,
+      app/api/orders/[id]/dispatch/route.ts, app/api/invoices/[id]/pdf/route.ts,
+      app/api/invoices/[id]/send/route.ts, and lib/data/invoices.ts in
+      full. An invoice should auto-generate when an order is dispatched,
+      include AFS header/line items/material/gauge/qty/length/subtotal/
+      payment terms, and email to the customer via Resend with a real
+      invoices DB record. Determine what actually happens today vs. what's
+      still manual/missing.
+
+      Do not change code. Write INVOICE_AUDIT.md at the project root with
+      exact findings cited to file/line and exactly what the next prompt
+      should build.
+    gates:
+      - type: file_exists
+        files:
+          - INVOICE_AUDIT.md
+
+  - id: invoice-002
+    phase: implement
+    description: "Close the invoice auto-generation gaps per INVOICE_AUDIT.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read INVOICE_AUDIT.md in full. Implement exactly what it specifies.
+      No customer-facing pricing displayed anywhere it doesn't already
+      exist -- invoices themselves are the correct first place prices
+      appear, per this project's existing convention.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: complete invoice auto-generation on dispatch"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

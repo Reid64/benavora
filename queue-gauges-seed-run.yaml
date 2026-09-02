@@ -1,0 +1,28 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, STATE_OF_THE_BUILD.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: gauges-seed-run
+    phase: run
+    description: "Run the existing fix-gauges-seed.ts against live Supabase and verify"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      scripts/fix-gauges-seed.ts already exists (see STATE_OF_THE_BUILD.md's
+      afs-gs-001 entry) and has never been run against the live database.
+      Read it in full first. Run: pnpm run fix:gauges-seed
+
+      Report its exact printed summary verbatim. Then query the live
+      gauges table directly (via the same admin client pattern the script
+      itself uses) and confirm the row count is now 27, not 0.
+
+      If the script errors, do not guess a fix blind -- read the exact
+      error, trace it against the live materials table's real columns,
+      and fix the root cause in the script itself, then re-run.
+
+      git add -A && git commit -m "afs-gs-run: seed gauges table (27 rows)"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with the real,
+      confirmed row count.
+    gates:
+      - type: compile

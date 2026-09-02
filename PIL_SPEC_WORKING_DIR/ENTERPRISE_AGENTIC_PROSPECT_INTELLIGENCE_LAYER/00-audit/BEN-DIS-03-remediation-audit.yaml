@@ -1,0 +1,21 @@
+audit_id: PIL-AUDIT-BEN-DIS-03-REMEDIATION
+specification_id: PIL-AGENT-BEN-DIS-03
+specification_version: "2.0.0"
+agent_name: Foundation Discovery Agent
+inherits: Discovery Agent Shared Contract v2.0.0
+verdict: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE
+claims: {specification_remediated: true, implementation_completed: false, tests_executed: false, production_ready: false, score_assigned: false}
+quality_dimensions:
+  foundation_identity_lifecycle_and_classification: PASS_SPECIFICATION
+  temporal_filing_and_financial_semantics: PASS_SPECIFICATION
+  grant_status_attribution_and_pattern_model: PASS_SPECIFICATION
+  formal_observed_eligibility_and_application_access_separation: PASS_SPECIFICATION
+  tenant_match_unknown_and_contradiction_handling: PASS_SPECIFICATION
+  durable_hypothesis_source_plan_replanning_monitoring: PASS_SPECIFICATION
+  deterministic_gates_ranking_budgets_and_stopping: PASS_SPECIFICATION
+  authority_delegation_persistence_recovery_and_tenancy: PASS_SPECIFICATION
+  security_observability_operator_and_runbooks: PASS_SPECIFICATION
+  agent_specific_calibration_load_chaos_and_dr: PASS_SPECIFICATION
+blocking_evidence_remaining: [G0_repository_discovery, G1_code_conformance, G2_runtime_contracts, G3_deterministic_foundations, G4_agentic_traces, G5_production_evidence]
+truthfulness_rule: "No readiness or 95-100 score may be claimed until executed G0-G5 evidence exists."
+next_remediation: BEN-SUP-03

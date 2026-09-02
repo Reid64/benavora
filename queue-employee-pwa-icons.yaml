@@ -1,0 +1,27 @@
+project: afs-website
+governance: [CLAUDE.md, SPEC_DELIVERY_TRACKING_AND_EMPLOYEE_PWA.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: employee-pwa-icons
+    phase: run
+    description: "Generate the missing employee PWA icon assets"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      public/employee-icon-192.png and -512.png do not exist yet, per
+      STATE_OF_THE_BUILD.md. scripts/generate-employee-icons.js already
+      exists. Read it first. Run: pnpm run generate:employee-icons
+
+      Confirm both files now exist at the correct sizes (192x192, 512x512)
+      via a real file read, not assumption. If the script fails or the
+      package.json script name differs from what's documented, fix the
+      actual root cause, do not skip the step.
+
+      git add -A && git commit -m "feat: generate employee PWA icons"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: file_exists
+        files:
+          - public/employee-icon-192.png
+          - public/employee-icon-512.png

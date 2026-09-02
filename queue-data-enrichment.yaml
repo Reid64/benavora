@@ -1,0 +1,133 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: enrich-001
+    phase: data
+    description: "Google Places API enrichment script for foundations"
+    prompt: |
+      Read SCHEMA_REGISTRY_v2.md for foundation_directory schema exact column names.
+      Create scripts/enrich-places-api.ts:
+      Uses Google Places API text search to enrich foundation_directory with website, phone, formatted_address.
+      Reads GOOGLE_MAPS_API_KEY from process.env (key: AIzaSyD-vLOdvdNAcPgExWD5MvaCQkK4jGjmBZY stored in .env.local).
+      Process foundations WHERE website IS NULL in batches of 50.
+      For each foundation: call textsearch with name+city+state query, get place_id, call details with fields=website,formatted_phone_number,formatted_address.
+      If website or phone found: UPDATE foundation_directory SET website=..., phone=..., formatted_address=... WHERE ein=...
+      Also UPDATE donor_discovery_prospects SET website=..., phone=... WHERE ein=... (sync both tables).
+      200ms delay between API calls. Log every 50 records processed.
+      Use ws transport for Supabase admin client.
+      Handle errors gracefully — skip failed foundations, continue processing.
+      Register as pnpm enrich:places in package.json.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(data): Google Places API enrichment script for foundation websites and phones'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [scripts/enrich-places-api.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: enrich-002
+    phase: data
+    description: "NIH Reporter and NSF Awards ingestion at scale"
+    prompt: |
+      Read scripts/ingest-nih-reporter.ts in full. Read scripts/ingest-nsf-awards.ts in full. Read package.json scripts section.
+      Check if pnpm ingest:nih and pnpm ingest:nsf commands exist.
+      If scripts exist but commands are not registered: add them to package.json.
+      If scripts have bugs that prevented scale runs: fix the bugs. Common issues: EIN column mismatch, batch size too large, missing error handling.
+      Ensure both scripts:
+      1. Process in batches of 100
+      2. Log every 100 records
+      3. Use ON CONFLICT DO NOTHING for idempotency
+      4. Handle network errors with retry logic (3 retries, exponential backoff)
+      5. Write results to intelligence_library table
+      6. Track total inserted vs skipped
+      After fixing, verify pnpm tsc --noEmit passes.
+      git add -A; git commit -m 'fix(data): NIH Reporter and NSF Awards ingestion scripts fixed for scale runs'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [scripts/ingest-nih-reporter.ts, scripts/ingest-nsf-awards.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: enrich-003
+    phase: data
+    description: "DATAOCEAN prospect CSV import script"
+    prompt: |
+      Read SCHEMA_REGISTRY_v2.md for donor_discovery_prospects exact column names.
+      Create scripts/import-dataocean-prospects.ts:
+      Imports the 298K prospect CSV from D:\dataocean\ into donor_discovery_prospects.
+      First check D:\dataocean\ for any CSV files and read the first one to understand column structure.
+      Map CSV columns to donor_discovery_prospects columns based on best match.
+      Required mappings: name/company_name -> prospect_name, any email -> email, any phone -> phone, any website/url -> website, any city -> city, any state -> state, any industry/naics -> naics_code.
+      Set organization_id = 'b1ab7402-dfc2-4712-869f-70ea3566cc1d' for all records.
+      Set status='new', source='dataocean', prospect_type='corporate'.
+      Process in batches of 500. Use upsert with ignoreDuplicates:true.
+      Log every 500 records. Show final inserted count.
+      Register as pnpm import:dataocean in package.json.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(data): DATAOCEAN 298K prospect CSV import script'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [scripts/import-dataocean-prospects.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: enrich-004
+    phase: data
+    description: "Nonprofit website contact scraper"
+    prompt: |
+      Read SCHEMA_REGISTRY_v2.md for nonprofits table schema.
+      Create scripts/enrich-nonprofit-contacts.ts:
+      For each nonprofit in the nonprofits table WHERE website IS NOT NULL AND email IS NULL:
+      1. Fetch the website URL using node-fetch with 10 second timeout
+      2. Extract email addresses using regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+      3. Filter out generic emails (noreply, info, webmaster)
+      4. Take first valid email found
+      5. UPDATE nonprofits SET email=... WHERE id=...
+      Process in batches of 100 with 500ms delay between requests.
+      Skip non-200 responses. Skip SSL errors. Continue on any error.
+      Log every 100 records. Show enrichment rate.
+      Register as pnpm enrich:nonprofit-contacts in package.json.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(data): nonprofit website contact email extractor'; git push
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [scripts/enrich-nonprofit-contacts.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: enrich-005
+    phase: data
+    description: "Update governance docs after data enrichment queue"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md and FEATURE_REGISTRY_v2.md.
+      Update FEATURE_REGISTRY_v2.md: set D3 ProPublica Batch Enrichment to BUILT, D4 DATAOCEAN Import to BUILT, D6 Foundation Website Scraper to BUILT.
+      Add new data pipeline entry: Places API Enrichment — BUILT, script: scripts/enrich-places-api.ts.
+      Update STATE_OF_THE_BUILD.md data pipeline section.
+      Update SESSION_STATE.md.
+      git add -A; git commit -m 'governance: data enrichment queue docs update'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

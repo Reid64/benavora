@@ -1,0 +1,78 @@
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+project: Tarritrix
+prompts:
+- id: hard-001
+  name: Fix STATE_OF_THE_BUILD.md Encoding Corruption
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\STATE_OF_THE_BUILD.md and identify all lines containing replacement characters (Unicode replacement character U+FFFD, displayed as question marks or boxes). These are the 212 corrupted lines CC reported.\n\nSTEP 1 - Run this to count corrupted lines:\npowershell -Command \"(Get-Content 'STATE_OF_THE_BUILD.md' -Encoding UTF8 | Where-Object { $_ -match [char]0xFFFD }).Count\"\n\nSTEP 2 - Rewrite STATE_OF_THE_BUILD.md with correct UTF-8 content. Read the file in full, reconstruct corrupted lines from context (they are typically status indicators, checkboxes, or table borders using Unicode box-drawing characters). Replace all replacement characters with correct ASCII or UTF-8 equivalents: checkboxes become [ ] or [x], box-drawing characters become plain ASCII dashes and pipes.\n\nSTEP 3 - Verify 0 replacement characters remain:\npowershell -Command \"(Get-Content 'STATE_OF_THE_BUILD.md' -Encoding UTF8 | Where-Object { $_ -match [char]0xFFFD }).Count\"\nMust return 0.\n\nSTEP 4 - pnpm tsc --noEmit. 0 errors.\n\nSTEP 5 - git add -A; git commit --no-verify -m 'fix: STATE_OF_THE_BUILD.md encoding corruption repaired 212 lines'; git push origin main. Report commit hash.\n\nACCEPTANCE: 0 replacement characters. pnpm tsc 0 errors. Commit hash reported."
+  gates:
+  - type: compile
+
+- id: hard-002
+  name: Fix tailwindcss-animate Missing Package
+  prompt: "The build shows a persistent warning: Module not found: Can't resolve 'tailwindcss-animate'. This is a missing dev dependency that pollutes every build log.\n\nSTEP 1 - Check if tailwindcss-animate is in package.json:\nGet-Content package.json | Select-String 'tailwindcss-animate'\n\nSTEP 2 - Install it:\npnpm add -D tailwindcss-animate\n\nSTEP 3 - pnpm run build. Verify the warning no longer appears in build output.\n\nSTEP 4 - pnpm tsc --noEmit. 0 errors.\n\nSTEP 5 - git add -A; git commit --no-verify -m 'fix: install tailwindcss-animate to resolve build warning'; git push origin main. Report commit hash.\n\nACCEPTANCE: pnpm run build succeeds with no tailwindcss-animate warning. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+
+- id: hard-003
+  name: AgentShield Critical Findings Remediation
+  prompt: "Read the AgentShield findings reported in FORGE 1.0 Phase 0 output: 2 critical findings (possible hardcoded Stripe publishable key on line 7, possible hardcoded Anthropic API key on line 47).\n\nSTEP 1 - Find the files with these findings:\nSelect-String -Path 'C:\\Users\\manag\\Documents\\Tarritrix\\src\\**\\*' -Pattern 'sk_live|sk_test|pk_live|pk_test|sk-ant' -Recurse -Include '*.ts','*.tsx','*.js' | Select-Object Path, LineNumber, Line\n\nSTEP 2 - For each hardcoded key found: move it to environment variables. The key value must be replaced with process.env.VARIABLE_NAME. Add the variable name to .env.local.example (never the actual value). Add to src/lib/env.ts Zod schema if it exists.\n\nSTEP 3 - Verify no hardcoded keys remain:\nSelect-String -Path 'C:\\Users\\manag\\Documents\\Tarritrix\\src\\**\\*' -Pattern 'sk_live|sk_test|pk_live|pk_test|sk-ant' -Recurse -Include '*.ts','*.tsx' | Where-Object { $_.Line -notmatch 'process.env' }\nMust return empty.\n\nSTEP 4 - pnpm tsc --noEmit. 0 errors. pnpm run build. Succeeds.\n\nSTEP 5 - git add -A; git commit --no-verify -m 'security: remove hardcoded API keys move to env vars'; git push origin main. Report commit hash and which files were changed.\n\nACCEPTANCE: No hardcoded keys in src/. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+
+- id: hard-004
+  name: API Health Endpoint
+  prompt: "Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\health\\route.ts\nGET endpoint - NO auth required (used by uptime monitors). Returns:\n{\n  status: 'ok' | 'degraded' | 'down',\n  timestamp: string (ISO),\n  database: { status: 'ok' | 'error', latency_ms: number },\n  version: string (from package.json),\n  uptime_seconds: number (process.uptime())\n}\nDatabase check: run SELECT 1 against Supabase with 2s timeout. If it succeeds status='ok'. If it times out or errors status='error'. Overall status: 'ok' if all checks pass, 'degraded' if any non-critical check fails, 'down' if database is down. TypeScript strict, no any.\n\npnpm tsc --noEmit. 0 errors. pnpm run build. Succeeds. Verify /api/health is in the route list.\n\ngit add -A; git commit --no-verify -m 'feat: GET /api/health endpoint for uptime monitoring'; git push origin main. Report commit hash.\n\nACCEPTANCE: src/app/api/health/route.ts exists. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/api/health/route.ts
+
+- id: hard-005
+  name: Environment Variable Validation at Startup
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\env.ts if it exists. If not, create it.\n\nWrite or update C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\env.ts\nUse Zod to define and validate all required environment variables. Schema must include:\n- NEXT_PUBLIC_SUPABASE_URL: z.string().url()\n- NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1)\n- SUPABASE_SERVICE_ROLE_KEY: z.string().min(1)\n- NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().startsWith('pk_')\n- STRIPE_SECRET_KEY: z.string().startsWith('sk_')\n- STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_')\n- CRON_SECRET: z.string().min(32)\n- ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-')\nOptional (don't fail if missing):\n- SENTRY_DSN: z.string().url().optional()\n- VERCEL_URL: z.string().optional()\n\nParse at module load time. If validation fails throw a clear error listing which variables are missing. Export validated env object as default export.\n\nImport env.ts in src/app/layout.tsx or src/instrumentation.ts to trigger validation at startup.\n\npnpm tsc --noEmit. 0 errors. pnpm run build. Succeeds.\n\ngit add -A; git commit --no-verify -m 'feat: env var validation via Zod at startup'; git push origin main. Report commit hash.\n\nACCEPTANCE: src/lib/env.ts exists with Zod schema. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/lib/env.ts
+
+- id: hard-006
+  name: Multi-Tenant Isolation Fuzz Test
+  prompt: "Write C:\\Users\\manag\\Documents\\Tarritrix\\tests\\security\\tenant-isolation.spec.ts\nPlaywright security test verifying multi-tenant data isolation. Use existing auth helpers.\n\nTests:\n1. Operator A cannot read Operator B clients via GET /api/operator/clients — response must not contain any client_ids belonging to Operator B\n2. Operator A cannot read Operator B client detail via GET /api/operator/clients/[operatorBClientId] — must return 403 or 404\n3. Operator A cannot read Operator B pages via GET /api/dashboard/pages with operatorBClientId — must return 403 or empty\n4. Operator A cannot approve Operator B flagged pages via POST /api/operator/clients/[operatorBClientId]/flagged/[pageId]/approve — must return 403\n5. Cross-tenant domain access: GET /api/domains with Operator A auth must not return Operator B domains\n6. Portal user cannot access operator routes — GET /api/operator/clients with portal JWT must return 401 or 403\n\nUse the E4 Construction demo seed (tenant UUID e4ee4ee4-0000-0000-0000-000000000001) as Operator B data. Create a second test operator context for Operator A.\n\npnpm tsc --noEmit. 0 errors.\n\ngit add -A; git commit --no-verify -m 'test: multi-tenant isolation security fuzz tests'; git push origin main. Report commit hash.\n\nACCEPTANCE: Test file exists. pnpm tsc 0 errors. Commit hash reported."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - tests/security/tenant-isolation.spec.ts
+
+- id: hard-007
+  name: RLS Policy Audit and Gap Fix
+  prompt: "STEP 1 - Run RLS audit query via Supabase MCP or supabase CLI:\nsupabase db execute --sql \"SELECT tablename, policyname, cmd, qual FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename, cmd\" > /tmp/rls-audit.txt\nGet-Content /tmp/rls-audit.txt\n\nSTEP 2 - Cross-reference against SCHEMA_REGISTRY.md. Identify any tables that have client_id or operator_id columns but are missing RLS SELECT policies.\n\nSTEP 3 - For each gap found: write a migration adding the missing RLS policy. Use the pattern:\nCREATE POLICY tablename_operator_select ON tablename FOR SELECT TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\n\nSTEP 4 - Apply migrations: supabase db push.\n\nSTEP 5 - Re-run audit to verify 0 gaps remain.\n\nSTEP 6 - pnpm tsc --noEmit. 0 errors. pnpm run build. Succeeds.\n\nSTEP 7 - git add -A; git commit --no-verify -m 'security: RLS policy audit - all tables have operator-scoped SELECT policies'; git push origin main. Report commit hash and list of tables that had gaps fixed.\n\nACCEPTANCE: All tables with client_id have RLS SELECT policy. pnpm tsc 0 errors. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+
+- id: hard-008
+  name: Disaster Recovery Runbook
+  prompt: "Write C:\\Users\\manag\\Documents\\Tarritrix\\docs\\DISASTER_RECOVERY.md\n\nRunbook covering:\n1. Database backup and restore - Supabase point-in-time recovery procedure, how to trigger, how to verify\n2. Vercel rollback - vercel rollback command, how to identify last good deployment, verification steps\n3. API key rotation procedure - which keys need rotation (SUPABASE_SERVICE_ROLE_KEY, STRIPE_SECRET_KEY, ANTHROPIC_API_KEY, CRON_SECRET), rotation steps, how to update in Vercel env vars, restart/redeploy steps\n4. SSL certificate issues - Vercel handles SSL automatically, how to force re-provision, custom domain SSL troubleshooting\n5. Data loss recovery - page_generation_queue recovery, how to re-trigger failed agent runs from agent_events\n6. CRON failure recovery - how to manually trigger each CRON endpoint, how to verify via agent_events\n7. Multi-tenant domain resolution failure - how to clear tenant cache, verify DNS records\n8. Incident response checklist - immediate steps (check /api/health, check Vercel logs, check Supabase dashboard, check Sentry), escalation contacts, post-incident documentation\n\nWrite in clear operational prose. Include exact commands. No fluff.\n\ngit add -A; git commit --no-verify -m 'docs: disaster recovery runbook'; git push origin main. Report commit hash.\n\nACCEPTANCE: docs/DISASTER_RECOVERY.md exists with all 8 sections. Commit hash reported."
+  gates:
+  - type: file_exists
+    files:
+    - docs/DISASTER_RECOVERY.md
+
+- id: hard-009
+  name: Production Deploy and Final Verification
+  prompt: "STEP 1 - Run full verification suite:\npnpm tsc --noEmit\npnpm run build\npnpm vitest run\nReport results of each. Fix any failures before continuing.\n\nSTEP 2 - Deploy to production:\nvercel --prod\nWait for deployment to complete. Report the deployment URL.\n\nSTEP 3 - Verify production health:\nInvoke-WebRequest -Uri https://tarritrix.vercel.app/api/health -Method GET | Select-Object StatusCode, Content\nMust return 200 with status 'ok' or 'degraded'.\n\nSTEP 4 - Update STATE_OF_THE_BUILD.md marking hardening block complete. List what passed and what has known gaps. Update SESSION_STATE.md with next phase.\n\nSTEP 5 - git add -A; git commit --no-verify -m 'chore: production deployment hardening complete'; git push origin main\nTag the release: git tag v1.0.0-hardened; git push origin v1.0.0-hardened\nReport commit hash and tag.\n\nACCEPTANCE: pnpm tsc 0 errors. pnpm run build succeeds. Production /api/health returns 200. Commit hash and tag reported."
+  gates:
+  - type: compile
+  - type: build

@@ -1,0 +1,123 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- TESTING_v2.md
+- BEHAVIORAL_CONTRACTS.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: test-platform-001
+  name: Governance sync and complete platform smoke test
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/ directory listing in FULL.
+    Read src/components/layout/nav-items.ts in FULL.
+
+    CREATE scripts/platform-smoke-test.ts:
+
+    A comprehensive smoke test that verifies every major platform feature is functional.
+
+    Tests to run (using direct Supabase queries and HTTP fetches against localhost):
+
+    1. DATABASE CONNECTIVITY: Query each critical table, verify row counts:
+       - organizations: count
+       - opportunities: count
+       - applications: count
+       - intelligence_funded_proposals: count (should be >= 100)
+       - platform_learning_patterns: count (should be > 0 after seeding)
+       - agent_runs: count
+       - strategic_recommendations: count
+       - fundability_scores: count
+
+    2. AGENT IMPORT VERIFICATION: Import every agent class and verify it instantiates:
+       ```typescript
+       const agents = [
+         () => new OpportunityDiscoveryAgent(supabase),
+         () => new ProbabilityScoringAgent(supabase),
+         () => new DraftGenerationAgent(supabase),
+         () => new FundabilityScorerAgent(supabase),
+         () => new DonorIntentMonitorAgent(supabase),
+         () => new CommunityNeedPredictorAgent(supabase),
+         () => new StrategicAdvisorAgent(supabase),
+         () => new SelfImprovementAgent(supabase),
+         () => new ROIOptimizerAgent(supabase),
+       ]
+       agents.forEach((factory, i) => {
+         try { factory(); console.log('PASS agent', i) }
+         catch(e) { console.log('FAIL agent', i, e.message) }
+       })
+       ```
+
+    3. FAITH FOUNDATION DATA CHECK:
+       - Verify FF org exists: SELECT id, name FROM organizations WHERE id='b1ab7402-dfc2-4712-869f-70ea3566cc1d'
+       - Verify KB profile exists: SELECT completeness_score FROM knowledge_base_profiles WHERE organization_id=FF_ID
+       - Verify autonomous config exists: SELECT * FROM org_autonomous_config WHERE org_id=FF_ID
+       - Verify opportunities exist: SELECT COUNT(*) FROM opportunities WHERE organization_id=FF_ID
+       - Verify agent_runs exist: SELECT COUNT(*) FROM agent_runs WHERE org_id=FF_ID
+
+    4. INTELLIGENCE LIBRARY CHECK:
+       - Count records by category
+       - Verify full_text length >= 200 words for at least 80% of records
+       - Verify success_factors present
+
+    5. PLATFORM LEARNING PATTERNS:
+       - Count records
+       - Verify success_rate populated
+       - Verify pattern_content not empty
+
+    Run: npx tsx scripts/platform-smoke-test.ts
+    Report: PASS/FAIL for each test with counts.
+
+    Add package.json script: "test:smoke": "tsx scripts/platform-smoke-test.ts"
+
+    Fix any FAIL results found.
+
+    git add -A; git commit -m 'feat: platform smoke test script -- database, agents, FF data, intelligence library verified'; git push.
+
+- id: test-platform-002
+  name: End-to-end user journey test and final production deploy
+  prompt: |
+    Read scripts/platform-smoke-test.ts in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx in FULL.
+
+    Run the smoke test: npx tsx scripts/platform-smoke-test.ts
+    Fix any failures found.
+
+    Then run the Playwright E2E tests if they exist:
+    npx playwright test --reporter=list 2>&1 | head -50
+    Fix any critical failures (auth, dashboard load, opportunities page).
+
+    CREATE scripts/verify-production.ts:
+    A production verification script that fetches key pages from the live site and verifies they return 200:
+
+    const pages = [
+      'https://benavora.com',
+      'https://benavora.com/login',
+      'https://www.benavora.com',
+    ]
+
+    For each page: fetch and log status code, page title, response time.
+    If benavora.com returns anything other than 200 or redirect: flag as DNS not propagated yet.
+
+    Run: npx tsx scripts/verify-production.ts
+
+    FINAL STATE OF BUILD UPDATE:
+    Update STATE_OF_THE_BUILD.md with comprehensive current state:
+    - Date: July 20 2026
+    - Total queues run: 33
+    - Total build hours: ~50 hours autonomous
+    - Agents operational: 30 (18 original + 12 Phase 2-5)
+    - Fully agentic: 6 (perception-decision-execution loop)
+    - Tables in live DB: full count
+    - Intelligence Library: record count
+    - Platform Learning Patterns: record count
+    - Pages live: full list
+    - What remains: DNS, real testimonials, first paying customer
+    - Faith Foundation status: autonomous pipeline configured and tested
+
+    Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'chore: platform verification complete -- smoke test passing, E2E passing, STATE_OF_THE_BUILD final July 20 2026'; git push.
+    npx vercel deploy --prod.
+    Report the production URL. Report smoke test results summary.

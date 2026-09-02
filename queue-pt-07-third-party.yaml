@@ -1,0 +1,181 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-07: THIRD-PARTY INTEGRATIONS  (evidence-standard)
+# depends_on: pt-00. Real calls, real evidence - never an
+# assumed 200. Read/probe against real services; any test that
+# would create real billable/outbound side effects runs in a
+# safe/sandbox mode or is PENDING-SCOPE. HALTS at end. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt07-001
+    phase: build
+    description: "Preflight + Supabase (DB/Auth/Storage/Realtime) real-state probe"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00 artifacts. Create test-evidence\pt-07\.
+      2. Supabase, real probes (read-only): DB connectivity (a real
+         select), Auth (a real session issue/verify), Storage (list the
+         real buckets + confirm the ones the app expects exist), and the
+         Realtime publication's ACTUAL member-table list (query it, do not
+         assume). Capture each real response to
+         test-evidence\pt-07\supabase-state.json. A bucket the app expects
+         that is missing, or a realtime publication mismatch, is a finding.
+      3. Create scripts\audit\verify-pt07-001.mjs: fails unless
+         supabase-state.json records real responses for DB, Auth, Storage
+         buckets, and the realtime member list.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-07: Supabase real-state probe"
+      5. Run: node scripts/audit/verify-pt07-001.mjs
+    expected_outputs:
+      - test-evidence/pt-07/supabase-state.json
+      - scripts/audit/verify-pt07-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt07-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt07-002
+    phase: build
+    description: "Railway worker: heartbeat + real job pickup + completion write-back"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm the Railway worker is live (heartbeat/health). Then prove
+         it actually WORKS end to end: enqueue a real (safe, test) job,
+         observe the worker pick it up, and confirm the completion is
+         written back - capturing the before/after job-row state, not just
+         a 200. This is the real "does the background worker function"
+         proof, complementing PT-08's boot inventory.
+      2. Write test-evidence\pt-07\worker-roundtrip.json with the observed
+         job lifecycle. Worker not picking up jobs, or not writing
+         completion, is a P1 finding.
+      3. Create scripts\audit\verify-pt07-002.mjs: fails unless
+         worker-roundtrip.json records heartbeat + a real job's
+         pickup + completion write-back.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-07: Railway worker real job round-trip"
+      5. Run: node scripts/audit/verify-pt07-002.mjs
+    expected_outputs:
+      - test-evidence/pt-07/worker-roundtrip.json
+      - scripts/audit/verify-pt07-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt07-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt07-003
+    phase: build
+    description: "Data-source APIs: Grants.gov, SAM.gov, USASpending, ProPublica, IRS, ScraperAPI"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. For each external data source the app depends on - Grants.gov,
+         SAM.gov, USASpending, ProPublica, IRS endpoints, ScraperAPI
+         rotation - make a REAL call and capture the real response
+         (status + a shape assertion on the body). Confirm the app's
+         integration code parses the current real response shape (APIs
+         drift). ScraperAPI: confirm rotation actually rotates (the
+         PROXY_LIST-empty risk from history - note if it runs direct).
+      2. Write test-evidence\pt-07\data-sources.json: per source, the real
+         request, real status, shape verdict. A source returning an error
+         or a shape the parser no longer handles is a finding.
+      3. Create scripts\audit\verify-pt07-003.mjs: fails unless every named
+         source has a real request+response captured with a shape verdict.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-07: external data-source API probes"
+      5. Run: node scripts/audit/verify-pt07-003.mjs
+    expected_outputs:
+      - test-evidence/pt-07/data-sources.json
+      - scripts/audit/verify-pt07-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt07-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt07-004
+    phase: build
+    description: "Resend + Stripe + Google Calendar (real where safe, PENDING-SCOPE where billable)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. RESEND: confirm a REAL delivery path works (a test send to a
+         controlled address, not an assumed API-200) if safe; else capture
+         the API-key validity + a dry-run and mark the live-send
+         PENDING-SCOPE. Note: Resend uses a DEDICATED sending identity, not
+         a benavora production domain, for any test send.
+      2. STRIPE: if billing is kept - verify checkout + webhook signature
+         handling against Stripe's test mode (never live charges). If
+         billing scope is undecided, record PENDING-SCOPE and confirm the
+         webhook signature-verification code path exists and is correct by
+         reading it.
+      3. GOOGLE CALENDAR: OAuth token validity + a real read/sync probe if
+         a connected account exists; else PENDING-SCOPE.
+      4. Write test-evidence\pt-07\comms-billing.json. Any broken delivery
+         path or invalid signature handling is a finding.
+      5. Create scripts\audit\verify-pt07-004.mjs: fails unless each of
+         Resend/Stripe/Calendar records a real result or an explicit
+         PENDING-SCOPE with reason.
+      6. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-07: Resend/Stripe/Calendar integration probes"
+      7. Run: node scripts/audit/verify-pt07-004.mjs
+    expected_outputs:
+      - test-evidence/pt-07/comms-billing.json
+      - scripts/audit/verify-pt07-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt07-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt07-005
+    phase: build
+    description: "PHASE 07 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-07\PHASE-07-SUMMARY.md: per-integration
+         real result (live / degraded / broken / PENDING-SCOPE), with the
+         captured evidence cited for each.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-07\REVIEW-PACK.md: which integrations are
+         genuinely live vs assumed; highest-severity; next-phase note.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-07 COMPLETE: third-party integrations, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt07-005.mjs: fails unless summary +
+         review pack exist non-empty and register grew.
+      6. Run: node scripts/audit/verify-pt07-005.mjs
+    expected_outputs:
+      - test-evidence/pt-07/PHASE-07-SUMMARY.md
+      - test-evidence/pt-07/REVIEW-PACK.md
+      - scripts/audit/verify-pt07-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt07-005.mjs"
+    max_retries: 2
+    on_fail: halt

@@ -1,0 +1,55 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - SCHEMA_REGISTRY_v2.md
+  - MIGRATION_AUDIT.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 2
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q11-001
+    phase: audit
+    description: "Full re-verification of MIGRATION_AUDIT.md findings post-051/052 fixes"
+    prompt: |
+      Read MIGRATION_AUDIT.md (built earlier this session). Migrations 051 and 052 were manually applied
+      during this session via SQL Editor. Re-run the full migration-vs-production check for every
+      migration in supabase/migrations/ to confirm current real state, since the original audit predates
+      those fixes and may now be stale itself.
+      Update MIGRATION_AUDIT.md with current, re-verified status for every migration. Flag any migration
+      beyond 051/052 that is also unapplied — do not assume 051/052 were the only gaps.
+      git add MIGRATION_AUDIT.md; git commit -m 'docs: re-verify migration audit post-051/052 fixes, check for additional gaps'; git push
+    gates:
+      - type: file_exists
+        files: [MIGRATION_AUDIT.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q11-002
+    phase: audit
+    description: "Cross-reference every table/column referenced in code against live schema, systematically"
+    prompt: |
+      This generalizes the pattern found 3+ times this session (automation_level, contact_name,
+      request_profiles/org_documents all missing from production despite being referenced in code).
+      Systematically grep the entire src/ and worker/ codebase for every .from("table_name") and
+      .select("column_name") call, cross-reference each against the live production schema via the
+      Storage/PostgREST REST API. Report every table/column referenced in code that does NOT exist in
+      production — this is the comprehensive version of what's been found incident-by-incident tonight.
+      Write findings to SCHEMA_DRIFT_AUDIT.md. Do not fix anything — this is a discovery pass to build
+      the complete list before deciding what to prioritize fixing.
+      git add SCHEMA_DRIFT_AUDIT.md; git commit -m 'docs: comprehensive schema drift audit — every code reference vs live production schema'; git push
+    gates:
+      - type: file_exists
+        files: [SCHEMA_DRIFT_AUDIT.md]
+    max_retries: 2
+    on_fail: continue

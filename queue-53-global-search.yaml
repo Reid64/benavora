@@ -1,0 +1,95 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STANDING_DIRECTIVES.md
+  - FEATURE_REGISTRY_v2.md
+  - DESIGN_SYSTEM.md
+  - BEHAVIORAL_CONTRACTS.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: build-feature-index-001
+    phase: build
+    description: "Build a real, structured index of every reachable page/feature in the app for search to draw from"
+    prompt: |
+      Reid wants a global search bar in the top header that can find and jump to any feature or process in the app - a command-palette style search (like Cmd+K in Linear/Notion/GitHub), not a search across data records (funders/contacts/etc).
+
+      1. Read src/components/layout/nav-items.ts (or wherever the real nav tree lives) in full - this is the authoritative source of real, currently-reachable pages and their role requirements.
+      2. Cross-reference against FEATURE_REGISTRY_v2.md for feature-level granularity beyond just top-level nav pages - e.g. "Compliance Pre-Check," "Budget Narrative Generator," "Application Cloning" are real capabilities that may live inside a broader page rather than having their own nav entry. Include these as searchable entries pointing at the page/section that contains them, with a description of the specific capability, not just the parent page's generic label.
+      3. Do NOT include anything not actually reachable in production today - no PLANNED/NOT-BUILT features, no orphaned pages unless they were deliberately made nav-reachable (check today's earlier consolidation work for what's currently live).
+      4. Build src/lib/search/feature-index.ts: an array of entries, each with {label, route, description, keywords[], requiredRole} - requiredRole must match the exact role gating the real page/route enforces (read the actual page's role check, don't guess from the nav item alone - some pages gate more strictly than their nav visibility suggests).
+      5. This file should be data only, no component logic - the next prompt builds the UI that consumes it.
+    expected_outputs:
+      - src/lib/search/feature-index.ts
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [src/lib/search/feature-index.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: build-search-component-001
+    phase: build
+    description: "Build the actual global search UI - header input + Cmd/Ctrl+K modal, fuzzy matched, role-aware"
+    prompt: |
+      Read src/lib/search/feature-index.ts (built in the prior prompt) and DESIGN_SYSTEM.md's "One UI Rule" in full before writing any UI - all colors/backgrounds/shadows/borders must be inline style={{}} with hardcoded hex values, never Tailwind color classes or CSS variables, matching every other component in this codebase.
+
+      1. Check package.json for an existing fuzzy-search library before adding one. If none suitable exists, add Fuse.js (pnpm add fuse.js) - lightweight, well-established, appropriate for client-side command-palette search over a few hundred entries.
+      2. Build a GlobalSearch component: a search input visible in the top header (persistent, not just modal-only) that also opens a full command-palette modal on Cmd+K / Ctrl+K (listen for both, most users expect Ctrl on Windows - confirm this machine's OS convention matches what you build for). Modal shows fuzzy-matched results from feature-index.ts as the user types, ranked by match quality, each showing label + description. Keyboard nav: up/down arrows to move selection, Enter to navigate, Escape to close.
+      3. Filter results by the current user's real role (read from whatever session/profile context this app already uses elsewhere - do not build a new auth mechanism) - an entry whose requiredRole the current user doesn't meet must never appear, not even in a disabled/greyed-out state.
+      4. Match the existing header's real layout/styling exactly - read the current header component in full first, don't introduce a visually inconsistent element.
+    expected_outputs:
+      - src/components/layout/GlobalSearch.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: wire-and-test-global-search-001
+    phase: build
+    description: "Wire GlobalSearch into the real header and live-test it"
+    prompt: |
+      1. Find the real top-level header/layout component (read the full dashboard layout tree to identify it precisely) and add GlobalSearch to it, positioned appropriately in the existing header UI.
+      2. Real live test: with a real authenticated session, type a few real queries (e.g. "compliance," "budget," "board report") and confirm the actual real matching pages appear and are correctly ranked/relevant - not just that the component renders without crashing. Confirm clicking a result navigates to the real correct page.
+      3. If a role check is testable in this session (e.g. a non-owner test account), confirm an owner-only entry does not appear for that role. If no non-owner test session is readily available, state that clearly rather than skipping the check silently - note it as unverified, not as passed.
+      4. Run pnpm run build and confirm clean.
+    expected_outputs:
+      - src/components/layout/GlobalSearch.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: global-search-verify-sync-001
+    phase: build
+    description: "Final verification and governance sync"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Add a new row to FEATURE_REGISTRY_v2.md for this feature (Global Feature Search or similar), with today's date, real evidence from the live test in the prior prompt, and an honest note on what was/wasn't verified (e.g. if role-gating couldn't be tested against a real second account).
+      3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a summary.
+      4. Scoped git add (only files actually touched across this queue's four prompts - do not use git add -A), commit with message "feat: global command-palette search in header, indexes every reachable feature with role-aware filtering", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

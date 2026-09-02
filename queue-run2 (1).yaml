@@ -1,0 +1,2421 @@
+project: forge-2
+
+governance:
+  - BLUEPRINT.md
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+
+settings:
+  build_model: claude-sonnet-4-6
+  max_retries: 3
+
+prompts:
+  - id: r2-001
+    name: "Scaffold ForgeRetrofit Module and Pre-Flight Checks"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      Run 1 added src/learning/ with 10 TypeScript files. Now you are building the RETROFIT pipeline.
+      Do NOT modify any existing files unless explicitly told to. Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/index.ts — the ForgeRetrofit entry point and pre-flight system.
+
+      STEP 1 — CREATE DIRECTORY:
+      Create src/retrofit/ if it does not exist.
+
+      STEP 2 — CREATE src/retrofit/types.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT Pipeline Type Definitions
+
+      export type ScanScope = 'A' | 'B' | 'C';
+
+      export interface RetrofitOptions {
+        projectPath: string;
+        scope: ScanScope;
+        skipDynamic: boolean;
+        resume: boolean;
+      }
+
+      export interface PreFlightResult {
+        check: string;
+        status: 'PASS' | 'WARN' | 'FAIL';
+        message: string;
+        autoFixed?: boolean;
+      }
+
+      export interface FileEntry {
+        fullPath: string;
+        extension: string;
+        sizeBytes: number;
+        lastModified: Date;
+      }
+
+      export interface FileTreeResult {
+        totalFiles: number;
+        byExtension: Record<string, { count: number; totalSizeKB: number }>;
+        files: FileEntry[];
+        projectSizeKB: number;
+      }
+
+      export interface ImportEdge {
+        source: string;
+        target: string;
+        importedNames: string[];
+        isRelative: boolean;
+        resolvedTarget: string | null;
+      }
+
+      export interface DependencyGraph {
+        nodes: Map<string, { exports: string[]; importCount: number; dependencyCount: number }>;
+        edges: ImportEdge[];
+      }
+
+      export interface BrokenImport {
+        sourceFile: string;
+        importPath: string;
+        resolvedPath: string | null;
+        missingExport?: string;
+        severity: 'CRITICAL';
+      }
+
+      export interface RouteEntry {
+        type: 'PAGE' | 'API' | 'LAYOUT' | 'MIDDLEWARE';
+        route: string;
+        file: string;
+        methods?: string[];
+      }
+
+      export interface EnvAuditEntry {
+        name: string;
+        classification: 'MISSING_LOCAL' | 'MISSING_PRODUCTION' | 'UNUSED' | 'VALUE_MISMATCH' | 'OK';
+        severity: 'CRITICAL' | 'WARN' | 'INFO';
+      }
+
+      export interface SchemaAuditEntry {
+        tableName: string;
+        issue: 'TABLE_MISSING_IN_DB' | 'TABLE_MISSING_IN_TYPES' | 'COLUMN_DRIFT' | 'MISSING_RLS' | 'STALE_MIGRATION' | 'OK';
+        severity: 'CRITICAL' | 'WARN' | 'INFO';
+        detail: string;
+      }
+
+      export interface PackageAuditEntry {
+        name: string;
+        issue: 'SECURITY_ADVISORY' | 'OUTDATED' | 'UNUSED' | 'OK';
+        severity: 'CRITICAL' | 'WARN' | 'INFO';
+        currentVersion?: string;
+        latestVersion?: string;
+      }
+
+      export interface GovernanceDocEntry {
+        filename: string;
+        exists: boolean;
+        lastModifiedDays: number | null;
+        staleness: 'CURRENT' | 'AGING' | 'STALE' | 'MISSING';
+      }
+
+      export interface CompilationError {
+        file: string;
+        line: number;
+        column: number;
+        code: string;
+        message: string;
+      }
+
+      export interface DynamicRouteResult {
+        route: string;
+        url: string;
+        statusCode: number | null;
+        responseTimeMs: number | null;
+        classification: 'OK' | 'CRITICAL' | 'WARN' | 'INFO';
+        error?: string;
+      }
+
+      export interface VercelDeployInfo {
+        url: string | null;
+        lastDeployedAt: string | null;
+        daysSinceDeploy: number | null;
+        status: 'OK' | 'WARN' | 'UNKNOWN';
+      }
+
+      export interface ScanReport {
+        projectName: string;
+        projectPath: string;
+        scanTimestamp: string;
+        scanScope: ScanScope;
+        supabaseAvailable: boolean;
+        vercelAvailable: boolean;
+        fileTree: FileTreeResult;
+        brokenImports: BrokenImport[];
+        deadFiles: string[];
+        routeInventory: RouteEntry[];
+        envAudit: EnvAuditEntry[];
+        schemaAudit: SchemaAuditEntry[];
+        gitAudit: {
+          lastCommitHash: string | null;
+          lastCommitDate: string | null;
+          daysSinceCommit: number | null;
+          uncommittedChanges: number;
+          branches: string[];
+        };
+        packageAudit: PackageAuditEntry[];
+        governanceInventory: GovernanceDocEntry[];
+        compilationErrors: CompilationError[];
+        testAudit: { testFilesFound: number; passed: number | null; failed: number | null };
+        dynamicAudit: DynamicRouteResult[];
+        vercelAudit: VercelDeployInfo;
+      }
+
+      export type FindingSeverity = 'CRITICAL' | 'WARN' | 'INFO';
+
+      export interface DiagnoseFinding {
+        severity: FindingSeverity;
+        category: string;
+        message: string;
+        file?: string;
+      }
+
+      export interface ReconcileDecision {
+        itemId: string;
+        itemType: 'CRITICAL_FIX' | 'WARN_FIX' | 'UNBUILT_FEATURE' | 'ENTERPRISE_PATTERN';
+        decision: 'BUILD' | 'DEFER' | 'ABANDON' | 'APPROVE' | 'SKIP' | 'IGNORE';
+        reason?: string;
+        timestamp: string;
+      }
+      ```
+
+      STEP 3 — CREATE src/retrofit/preflight.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT Pre-Flight Checks
+      import { existsSync, readdirSync } from 'node:fs';
+      import { join } from 'node:path';
+      import { execSync } from 'node:child_process';
+      import type { PreFlightResult } from './types.js';
+
+      export async function runPreFlightChecks(
+        projectPath: string,
+        scope: 'A' | 'B' | 'C'
+      ): Promise<{ results: PreFlightResult[]; halted: boolean; supabaseAvailable: boolean; vercelAvailable: boolean; packageManager: string; envVars: Record<string, string> }> {
+        const results: PreFlightResult[] = [];
+        let halted = false;
+        let supabaseAvailable = false;
+        let vercelAvailable = false;
+        let packageManager = 'npm';
+        const envVars: Record<string, string> = {};
+
+        // CHECK 1: Project path exists
+        if (existsSync(projectPath)) {
+          results.push({ check: 'Project path exists', status: 'PASS', message: projectPath });
+        } else {
+          results.push({ check: 'Project path exists', status: 'FAIL', message: `Not found: ${projectPath}` });
+          halted = true;
+          return { results, halted, supabaseAvailable, vercelAvailable, packageManager, envVars };
+        }
+
+        // CHECK 2: Git repository
+        const gitDir = join(projectPath, '.git');
+        if (existsSync(gitDir)) {
+          results.push({ check: 'Git repository', status: 'PASS', message: '.git directory found' });
+        } else {
+          try {
+            execSync('git init', { cwd: projectPath, stdio: 'pipe' });
+            execSync('git add -A && git commit -m "FORGE RETROFIT: initial snapshot" --allow-empty', { cwd: projectPath, stdio: 'pipe', shell: true });
+            results.push({ check: 'Git repository', status: 'PASS', message: 'Initialized and committed', autoFixed: true });
+          } catch {
+            results.push({ check: 'Git repository', status: 'FAIL', message: 'Git init failed' });
+            halted = true;
+            return { results, halted, supabaseAvailable, vercelAvailable, packageManager, envVars };
+          }
+        }
+
+        // CHECK 3: Node.js available
+        try {
+          const nodeVersion = execSync('node --version', { stdio: 'pipe' }).toString().trim();
+          results.push({ check: 'Node.js available', status: 'PASS', message: nodeVersion });
+        } catch {
+          results.push({ check: 'Node.js available', status: 'WARN', message: 'node not in PATH — add C:\\Program Files\\nodejs to PATH manually' });
+        }
+
+        // CHECK 4: Package manager
+        const files = readdirSync(projectPath);
+        if (files.includes('pnpm-lock.yaml')) {
+          packageManager = 'pnpm';
+        } else if (files.includes('yarn.lock')) {
+          packageManager = 'yarn';
+        } else {
+          packageManager = 'npm';
+        }
+        results.push({ check: 'Package manager', status: 'PASS', message: packageManager });
+
+        // CHECK 5: Environment file
+        const envPath = join(projectPath, '.env.local');
+        if (existsSync(envPath)) {
+          const { readFileSync } = await import('node:fs');
+          const lines = readFileSync(envPath, 'utf8').split('\n');
+          for (const line of lines) {
+            const m = line.match(/^([^#=\s][^=]*)=(.*)$/);
+            if (m) envVars[m[1].trim()] = m[2].trim();
+          }
+          results.push({ check: 'Environment file', status: 'PASS', message: `${Object.keys(envVars).length} vars found` });
+        } else {
+          results.push({ check: 'Environment file', status: 'WARN', message: '.env.local not found — env audit will be limited' });
+        }
+
+        // CHECK 6: Supabase credentials (Scope B/C)
+        if (scope === 'B' || scope === 'C') {
+          const hasUrl = 'NEXT_PUBLIC_SUPABASE_URL' in envVars || 'SUPABASE_URL' in envVars;
+          const hasKey = 'SUPABASE_SERVICE_ROLE_KEY' in envVars;
+          if (hasUrl && hasKey) {
+            supabaseAvailable = true;
+            results.push({ check: 'Supabase credentials', status: 'PASS', message: 'URL and SERVICE_ROLE_KEY found' });
+          } else {
+            results.push({ check: 'Supabase credentials', status: 'WARN', message: 'Missing SUPABASE URL or SERVICE_ROLE_KEY — schema audit will use migration files only' });
+          }
+        } else {
+          results.push({ check: 'Supabase credentials', status: 'INFO' as any, message: 'Scope A — skipped' });
+        }
+
+        // CHECK 7: Vercel CLI (Scope C)
+        if (scope === 'C') {
+          try {
+            execSync('vercel whoami', { stdio: 'pipe' });
+            vercelAvailable = true;
+            results.push({ check: 'Vercel CLI', status: 'PASS', message: 'vercel authenticated' });
+          } catch {
+            results.push({ check: 'Vercel CLI', status: 'WARN', message: 'Vercel CLI not available — deploy audit skipped' });
+          }
+        } else {
+          results.push({ check: 'Vercel CLI', status: 'INFO' as any, message: 'Scope A/B — skipped' });
+        }
+
+        // CHECK 8: Learning database
+        const { homedir } = await import('node:os');
+        const dbPath = join(homedir(), '.forge', 'forge_memory.db');
+        if (existsSync(dbPath)) {
+          results.push({ check: 'Learning database', status: 'PASS', message: dbPath });
+        } else {
+          results.push({ check: 'Learning database', status: 'WARN', message: 'forge_memory.db not found — reconcile history unavailable' });
+        }
+
+        return { results, halted, supabaseAvailable, vercelAvailable, packageManager, envVars };
+      }
+      ```
+
+      STEP 4 — CREATE src/retrofit/index.ts stub:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT Pipeline Entry Point
+      export { runPreFlightChecks } from './preflight.js';
+      export * from './types.js';
+      export const RETROFIT_VERSION = '2.0.0';
+      ```
+
+      STEP 5 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors. Resolve any errors before finishing.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/ directory exists with types.ts, preflight.ts, index.ts
+      - pnpm tsc --noEmit passes 0 errors
+      - All ScanReport, PreFlightResult, and related types exported from types.ts
+      - No existing files modified
+      - No npm packages installed
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-002
+    name: "SCAN Operations 1-4: Directory Tree, Dependency Graph, Broken Imports, Dead Files"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ exists with types.ts, preflight.ts, index.ts from r2-001.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Implement src/retrofit/scan-ops-1-4.ts — the first four SCAN operations.
+
+      CREATE src/retrofit/scan-ops-1-4.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — SCAN Operations 1-4: Directory Tree, Dependency Graph, Broken Imports, Dead Files
+      import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
+      import { join, extname, dirname, resolve, relative } from 'node:path';
+      import type { FileTreeResult, DependencyGraph, BrokenImport, ImportEdge } from './types.js';
+
+      const EXCLUDE_DIRS = /node_modules|\.next|\.git|dist|build|\.cache/;
+
+      // ─── OPERATION 1: Directory Tree Enumeration ─────────────────────────────────
+      export function scanDirectoryTree(projectPath: string): FileTreeResult {
+        const files: { fullPath: string; extension: string; sizeBytes: number; lastModified: Date }[] = [];
+
+        function walk(dir: string): void {
+          let entries: string[];
+          try { entries = readdirSync(dir); } catch { return; }
+          for (const entry of entries) {
+            const fullPath = join(dir, entry);
+            if (EXCLUDE_DIRS.test(fullPath)) continue;
+            let stat;
+            try { stat = statSync(fullPath); } catch { continue; }
+            if (stat.isDirectory()) {
+              walk(fullPath);
+            } else {
+              files.push({
+                fullPath,
+                extension: extname(entry) || '(none)',
+                sizeBytes: stat.size,
+                lastModified: stat.mtime,
+              });
+            }
+          }
+        }
+
+        walk(projectPath);
+
+        const byExtension: Record<string, { count: number; totalSizeKB: number }> = {};
+        let totalBytes = 0;
+        for (const f of files) {
+          if (!byExtension[f.extension]) byExtension[f.extension] = { count: 0, totalSizeKB: 0 };
+          byExtension[f.extension].count++;
+          byExtension[f.extension].totalSizeKB += f.sizeBytes / 1024;
+          totalBytes += f.sizeBytes;
+        }
+
+        return {
+          totalFiles: files.length,
+          byExtension,
+          files,
+          projectSizeKB: totalBytes / 1024,
+        };
+      }
+
+      // ─── OPERATION 2: Dependency Tree Mapping ────────────────────────────────────
+      const IMPORT_REGEX = /(?:import\s+(?:.*?\s+from\s+)?['"]([^'"]+)['"]|require\s*\(\s*['"]([^'"]+)['"]\s*\))/g;
+      const NAMED_IMPORT_REGEX = /import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/g;
+      const DEFAULT_EXPORT_REGEX = /export\s+default\s+/g;
+      const NAMED_EXPORT_REGEX = /export\s+(?:const|function|class|type|interface|enum|let|var)\s+(\w+)/g;
+
+      function getFileExports(filePath: string): string[] {
+        let content: string;
+        try { content = readFileSync(filePath, 'utf8'); } catch { return []; }
+        const exports: string[] = [];
+        if (DEFAULT_EXPORT_REGEX.test(content)) exports.push('default');
+        NAMED_EXPORT_REGEX.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = NAMED_EXPORT_REGEX.exec(content)) !== null) exports.push(m[1]);
+        return exports;
+      }
+
+      function resolveImportPath(fromFile: string, importPath: string, projectPath: string): string | null {
+        if (!importPath.startsWith('.') && !importPath.startsWith('/')) return null; // external
+        const fromDir = dirname(fromFile);
+        const resolved = resolve(fromDir, importPath);
+        const candidates = [
+          resolved,
+          resolved + '.ts',
+          resolved + '.tsx',
+          resolved + '.js',
+          resolved + '/index.ts',
+          resolved + '/index.tsx',
+          resolved + '/index.js',
+          resolved.replace(/\.js$/, '.ts'),
+          resolved.replace(/\.js$/, '.tsx'),
+        ];
+        for (const c of candidates) {
+          if (existsSync(c)) return c;
+        }
+        return null;
+      }
+
+      export function buildDependencyGraph(projectPath: string): DependencyGraph {
+        const graph: DependencyGraph = { nodes: new Map(), edges: [] };
+
+        function walk(dir: string): void {
+          let entries: string[];
+          try { entries = readdirSync(dir); } catch { return; }
+          for (const entry of entries) {
+            const fullPath = join(dir, entry);
+            if (EXCLUDE_DIRS.test(fullPath)) continue;
+            let stat;
+            try { stat = statSync(fullPath); } catch { continue; }
+            if (stat.isDirectory()) { walk(fullPath); continue; }
+            if (!/\.(ts|tsx|js|jsx)$/.test(entry)) continue;
+
+            let content: string;
+            try { content = readFileSync(fullPath, 'utf8'); } catch { continue; }
+
+            const exports = getFileExports(fullPath);
+            if (!graph.nodes.has(fullPath)) {
+              graph.nodes.set(fullPath, { exports, importCount: 0, dependencyCount: 0 });
+            }
+
+            IMPORT_REGEX.lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = IMPORT_REGEX.exec(content)) !== null) {
+              const importPath = m[1] || m[2];
+              if (!importPath) continue;
+              const resolvedTarget = resolveImportPath(fullPath, importPath, projectPath);
+              const importedNames: string[] = [];
+              NAMED_IMPORT_REGEX.lastIndex = 0;
+              let nm: RegExpExecArray | null;
+              while ((nm = NAMED_IMPORT_REGEX.exec(content)) !== null) {
+                const names = nm[1].split(',').map(s => s.trim().split(' as ')[0].trim()).filter(Boolean);
+                importedNames.push(...names);
+              }
+              const edge: ImportEdge = { source: fullPath, target: importPath, importedNames, isRelative: importPath.startsWith('.'), resolvedTarget };
+              graph.edges.push(edge);
+              const node = graph.nodes.get(fullPath);
+              if (node) node.dependencyCount++;
+              if (resolvedTarget && graph.nodes.has(resolvedTarget)) {
+                const targetNode = graph.nodes.get(resolvedTarget)!;
+                targetNode.importCount++;
+              }
+            }
+          }
+        }
+
+        walk(projectPath);
+        return graph;
+      }
+
+      // ─── OPERATION 3: Broken Import Detection ────────────────────────────────────
+      export function detectBrokenImports(graph: DependencyGraph, projectPath: string): BrokenImport[] {
+        const broken: BrokenImport[] = [];
+        for (const edge of graph.edges) {
+          if (!edge.isRelative) continue; // skip external
+          if (edge.resolvedTarget === null) {
+            broken.push({
+              sourceFile: relative(projectPath, edge.source),
+              importPath: edge.target,
+              resolvedPath: null,
+              severity: 'CRITICAL',
+            });
+          } else if (edge.importedNames.length > 0) {
+            const targetNode = graph.nodes.get(edge.resolvedTarget);
+            const exports = targetNode?.exports ?? getFileExports(edge.resolvedTarget);
+            for (const name of edge.importedNames) {
+              if (name !== 'default' && !exports.includes(name) && !exports.includes('*')) {
+                broken.push({
+                  sourceFile: relative(projectPath, edge.source),
+                  importPath: edge.target,
+                  resolvedPath: relative(projectPath, edge.resolvedTarget),
+                  missingExport: name,
+                  severity: 'CRITICAL',
+                });
+              }
+            }
+          }
+        }
+        return broken;
+      }
+
+      // ─── OPERATION 4: Dead File Detection ────────────────────────────────────────
+      const ENTRY_POINT_PATTERN = /page\.(tsx|ts|js|jsx)$|route\.(ts|js)$|layout\.(tsx|ts)$|middleware\.(ts|js)$|tailwind\.config|next\.config|tsconfig|jest\.config|vitest\.config|playwright\.config/;
+
+      export function detectDeadFiles(graph: DependencyGraph, projectPath: string): string[] {
+        const importedTargets = new Set<string>();
+        for (const edge of graph.edges) {
+          if (edge.resolvedTarget) importedTargets.add(edge.resolvedTarget);
+        }
+        const dead: string[] = [];
+        for (const [filePath] of graph.nodes) {
+          if (importedTargets.has(filePath)) continue;
+          if (ENTRY_POINT_PATTERN.test(filePath)) continue;
+          dead.push(relative(projectPath, filePath));
+        }
+        return dead;
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts to export new ops:
+      Add these exports to the existing file:
+      ```typescript
+      export { scanDirectoryTree, buildDependencyGraph, detectBrokenImports, detectDeadFiles } from './scan-ops-1-4.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/scan-ops-1-4.ts exists and exports 4 functions
+      - pnpm tsc --noEmit passes 0 errors
+      - No npm packages installed
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-003
+    name: "SCAN Operations 5-8: Routes, Env Audit, Schema Extraction, Git History"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has types.ts, preflight.ts, scan-ops-1-4.ts, index.ts.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/scan-ops-5-8.ts — route inventory, env audit, schema extraction, git history.
+
+      CREATE src/retrofit/scan-ops-5-8.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — SCAN Operations 5-8: Routes, Env Audit, Schema, Git
+      import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+      import { join, relative, dirname } from 'node:path';
+      import { execSync } from 'node:child_process';
+      import type { RouteEntry, EnvAuditEntry, SchemaAuditEntry } from './types.js';
+
+      const EXCLUDE_DIRS = /node_modules|\.next|\.git|dist|build/;
+
+      // ─── OPERATION 5: Route Inventory ────────────────────────────────────────────
+      export function buildRouteInventory(projectPath: string): RouteEntry[] {
+        const routes: RouteEntry[] = [];
+        const appDir = join(projectPath, 'app');
+        const srcAppDir = join(projectPath, 'src', 'app');
+        const root = existsSync(appDir) ? appDir : existsSync(srcAppDir) ? srcAppDir : null;
+        if (!root) return routes;
+
+        function walk(dir: string): void {
+          let entries: string[];
+          try { entries = readdirSync(dir); } catch { return; }
+          for (const entry of entries) {
+            const fullPath = join(dir, entry);
+            if (EXCLUDE_DIRS.test(fullPath)) continue;
+            let stat;
+            try { stat = statSync(fullPath); } catch { continue; }
+            if (stat.isDirectory()) { walk(fullPath); continue; }
+
+            const routeSegment = relative(root!, dirname(fullPath)).replace(/\\/g, '/');
+            const displayRoute = '/' + routeSegment;
+
+            if (entry === 'page.tsx' || entry === 'page.ts') {
+              routes.push({ type: 'PAGE', route: displayRoute, file: relative(projectPath, fullPath) });
+            } else if (entry === 'layout.tsx' || entry === 'layout.ts') {
+              routes.push({ type: 'LAYOUT', route: displayRoute, file: relative(projectPath, fullPath) });
+            } else if (entry === 'route.ts' || entry === 'route.js') {
+              let content = '';
+              try { content = readFileSync(fullPath, 'utf8'); } catch { }
+              const methods: string[] = [];
+              for (const method of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']) {
+                if (new RegExp(`export\\s+(async\\s+)?function\\s+${method}`).test(content)) methods.push(method);
+              }
+              routes.push({ type: 'API', route: displayRoute, file: relative(projectPath, fullPath), methods });
+            } else if (entry === 'middleware.ts' || entry === 'middleware.js') {
+              routes.push({ type: 'MIDDLEWARE', route: '/', file: relative(projectPath, fullPath) });
+            }
+          }
+        }
+
+        walk(root);
+        return routes;
+      }
+
+      // ─── OPERATION 6: Environment Variable Audit ─────────────────────────────────
+      export function auditEnvVars(
+        projectPath: string,
+        localEnvVars: Record<string, string>,
+        vercelAvailable: boolean
+      ): EnvAuditEntry[] {
+        const codeVars = new Set<string>();
+        const entries: EnvAuditEntry[] = [];
+
+        function walk(dir: string): void {
+          let files: string[];
+          try { files = readdirSync(dir); } catch { return; }
+          for (const f of files) {
+            const fullPath = join(dir, f);
+            if (EXCLUDE_DIRS.test(fullPath)) continue;
+            let stat;
+            try { stat = statSync(fullPath); } catch { continue; }
+            if (stat.isDirectory()) { walk(fullPath); continue; }
+            if (!/\.(ts|tsx|js|jsx)$/.test(f)) continue;
+            let content = '';
+            try { content = readFileSync(fullPath, 'utf8'); } catch { continue; }
+            const matches = content.matchAll(/process\.env\.([A-Z_][A-Z0-9_]*)/g);
+            for (const m of matches) codeVars.add(m[1]);
+          }
+        }
+
+        walk(projectPath);
+
+        let vercelVarNames = new Set<string>();
+        if (vercelAvailable) {
+          try {
+            const raw = execSync('vercel env ls --json', { stdio: 'pipe' }).toString();
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              for (const v of parsed) if (v.key) vercelVarNames.add(v.key);
+            }
+          } catch { }
+        }
+
+        for (const v of codeVars) {
+          const inLocal = v in localEnvVars;
+          const inVercel = vercelAvailable ? vercelVarNames.has(v) : true; // skip check if no vercel
+          if (!inLocal) {
+            entries.push({ name: v, classification: 'MISSING_LOCAL', severity: 'CRITICAL' });
+          } else if (!inVercel) {
+            entries.push({ name: v, classification: 'MISSING_PRODUCTION', severity: 'CRITICAL' });
+          } else {
+            entries.push({ name: v, classification: 'OK', severity: 'INFO' });
+          }
+        }
+
+        for (const v of Object.keys(localEnvVars)) {
+          if (!codeVars.has(v)) {
+            entries.push({ name: v, classification: 'UNUSED', severity: 'INFO' });
+          }
+        }
+
+        return entries;
+      }
+
+      // ─── OPERATION 7: Database Schema Extraction ─────────────────────────────────
+      export function extractDatabaseSchema(projectPath: string): SchemaAuditEntry[] {
+        const entries: SchemaAuditEntry[] = [];
+        const migrationsDir = join(projectPath, 'supabase', 'migrations');
+
+        if (!existsSync(migrationsDir)) {
+          entries.push({ tableName: '(none)', issue: 'OK', severity: 'INFO', detail: 'No supabase/migrations directory found' });
+          return entries;
+        }
+
+        let files: string[];
+        try { files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort(); } catch { return entries; }
+
+        const tablesInMigrations = new Set<string>();
+        for (const file of files) {
+          let content = '';
+          try { content = readFileSync(join(migrationsDir, file), 'utf8'); } catch { continue; }
+          const createMatches = content.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?public"?\s*\.\s*)?"?(\w+)"?/gi);
+          for (const m of createMatches) tablesInMigrations.add(m[1]);
+        }
+
+        const typesFile = join(projectPath, 'src', 'types', 'database.types.ts');
+        const altTypesFile = join(projectPath, 'database.types.ts');
+        const typesSrc = existsSync(typesFile) ? typesFile : existsSync(altTypesFile) ? altTypesFile : null;
+        const tablesInTypes = new Set<string>();
+
+        if (typesSrc) {
+          let content = '';
+          try { content = readFileSync(typesSrc, 'utf8'); } catch { }
+          const tableMatches = content.matchAll(/(\w+):\s*\{[\s\S]*?Row:/g);
+          for (const m of tableMatches) tablesInTypes.add(m[1]);
+        }
+
+        for (const table of tablesInMigrations) {
+          if (!tablesInTypes.has(table) && typesSrc) {
+            entries.push({ tableName: table, issue: 'TABLE_MISSING_IN_TYPES', severity: 'WARN', detail: 'In migrations but not in TypeScript types — regenerate with supabase gen types' });
+          } else {
+            entries.push({ tableName: table, issue: 'OK', severity: 'INFO', detail: 'Migration defined' });
+          }
+        }
+
+        return entries;
+      }
+
+      // ─── OPERATION 8: Git History Analysis ───────────────────────────────────────
+      export function analyzeGitHistory(projectPath: string): {
+        lastCommitHash: string | null;
+        lastCommitDate: string | null;
+        daysSinceCommit: number | null;
+        uncommittedChanges: number;
+        branches: string[];
+      } {
+        let lastCommitHash: string | null = null;
+        let lastCommitDate: string | null = null;
+        let daysSinceCommit: number | null = null;
+        let uncommittedChanges = 0;
+        let branches: string[] = [];
+
+        try {
+          const logLine = execSync('git log -1 --format="%H|%ai|%s"', { cwd: projectPath, stdio: 'pipe' }).toString().trim();
+          const parts = logLine.split('|');
+          lastCommitHash = parts[0] || null;
+          lastCommitDate = parts[1] || null;
+          if (lastCommitDate) {
+            const diffMs = Date.now() - new Date(lastCommitDate).getTime();
+            daysSinceCommit = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          }
+        } catch { }
+
+        try {
+          const status = execSync('git status --porcelain', { cwd: projectPath, stdio: 'pipe' }).toString().trim();
+          uncommittedChanges = status ? status.split('\n').length : 0;
+        } catch { }
+
+        try {
+          const branchLines = execSync('git branch -a --format="%(refname:short)"', { cwd: projectPath, stdio: 'pipe' }).toString().trim();
+          branches = branchLines.split('\n').filter(Boolean);
+        } catch { }
+
+        return { lastCommitHash, lastCommitDate, daysSinceCommit, uncommittedChanges, branches };
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { buildRouteInventory, auditEnvVars, extractDatabaseSchema, analyzeGitHistory } from './scan-ops-5-8.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/scan-ops-5-8.ts exists and exports 4 functions
+      - pnpm tsc --noEmit passes 0 errors
+      - No packages installed
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-004
+    name: "SCAN Operations 9-14: Package Audit, Governance, TypeScript Check, Tests, Dynamic Routes, Vercel"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has types.ts, preflight.ts, scan-ops-1-4.ts, scan-ops-5-8.ts, index.ts.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/scan-ops-9-14.ts — the final six SCAN operations.
+
+      CREATE src/retrofit/scan-ops-9-14.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — SCAN Operations 9-14: Package, Governance, TSC, Tests, Dynamic, Vercel
+      import { existsSync, readFileSync, statSync } from 'node:fs';
+      import { join } from 'node:path';
+      import { execSync, spawn } from 'node:child_process';
+      import type { PackageAuditEntry, GovernanceDocEntry, CompilationError, DynamicRouteResult, VercelDeployInfo } from './types.js';
+
+      // ─── OPERATION 9: Package Audit ──────────────────────────────────────────────
+      export function auditPackages(projectPath: string, packageManager: string): PackageAuditEntry[] {
+        const entries: PackageAuditEntry[] = [];
+        const pkgPath = join(projectPath, 'package.json');
+        if (!existsSync(pkgPath)) return entries;
+
+        let pkg: Record<string, unknown>;
+        try { pkg = JSON.parse(readFileSync(pkgPath, 'utf8')); } catch { return entries; }
+
+        const allDeps = {
+          ...((pkg.dependencies as Record<string, string>) ?? {}),
+          ...((pkg.devDependencies as Record<string, string>) ?? {}),
+        };
+
+        // Security audit
+        try {
+          const auditCmd = packageManager === 'pnpm' ? 'pnpm audit --json' : packageManager === 'yarn' ? 'yarn audit --json' : 'npm audit --json';
+          const auditRaw = execSync(auditCmd, { cwd: projectPath, stdio: 'pipe' }).toString();
+          const auditData = JSON.parse(auditRaw);
+          const vulns = auditData?.vulnerabilities ?? auditData?.advisories ?? {};
+          for (const [name, v] of Object.entries(vulns)) {
+            const vuln = v as Record<string, unknown>;
+            const severity = String(vuln.severity ?? 'moderate');
+            entries.push({
+              name,
+              issue: 'SECURITY_ADVISORY',
+              severity: severity === 'critical' || severity === 'high' ? 'CRITICAL' : 'WARN',
+              currentVersion: String(allDeps[name] ?? '?'),
+            });
+          }
+        } catch { /* audit may fail on clean projects */ }
+
+        // Outdated check
+        try {
+          const outdatedCmd = packageManager === 'pnpm' ? 'pnpm outdated --json' : packageManager === 'yarn' ? 'yarn outdated --json' : 'npm outdated --json';
+          const outdatedRaw = execSync(outdatedCmd, { cwd: projectPath, stdio: 'pipe' }).toString();
+          const outdatedData = JSON.parse(outdatedRaw);
+          for (const [name, info] of Object.entries(outdatedData)) {
+            const i = info as Record<string, string>;
+            const already = entries.find(e => e.name === name);
+            if (!already) {
+              entries.push({ name, issue: 'OUTDATED', severity: 'INFO', currentVersion: i.current, latestVersion: i.latest });
+            }
+          }
+        } catch { }
+
+        return entries;
+      }
+
+      // ─── OPERATION 10: Governance Document Inventory ─────────────────────────────
+      export function inventoryGovernanceDocs(projectPath: string): GovernanceDocEntry[] {
+        const DOCS = ['STATE_OF_THE_BUILD.md', 'SESSION_STATE.md', 'BLUEPRINT.md', 'AGENTS.md', 'SCHEMA_REGISTRY.md', 'BEHAVIORAL_CONTRACTS.md', 'queue.yaml', 'PRD.md'];
+        const now = Date.now();
+        return DOCS.map(filename => {
+          const fullPath = join(projectPath, filename);
+          if (!existsSync(fullPath)) {
+            return { filename, exists: false, lastModifiedDays: null, staleness: 'MISSING' as const };
+          }
+          const stat = statSync(fullPath);
+          const days = Math.floor((now - stat.mtimeMs) / (1000 * 60 * 60 * 24));
+          const staleness = days < 7 ? 'CURRENT' : days < 30 ? 'AGING' : 'STALE';
+          return { filename, exists: true, lastModifiedDays: days, staleness: staleness as GovernanceDocEntry['staleness'] };
+        });
+      }
+
+      // ─── OPERATION 11: TypeScript Compilation Check ───────────────────────────────
+      export function checkTypeScriptCompilation(projectPath: string): CompilationError[] {
+        const errors: CompilationError[] = [];
+        let output = '';
+        try {
+          execSync('npx tsc --noEmit --pretty false 2>&1', { cwd: projectPath, stdio: 'pipe' });
+          return []; // clean
+        } catch (e: unknown) {
+          output = (e as { stdout?: Buffer; stderr?: Buffer }).stdout?.toString() ?? '';
+          if (!output) output = (e as { stderr?: Buffer }).stderr?.toString() ?? '';
+        }
+        const errorRegex = /^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/gm;
+        let m: RegExpExecArray | null;
+        while ((m = errorRegex.exec(output)) !== null) {
+          errors.push({ file: m[1], line: parseInt(m[2], 10), column: parseInt(m[3], 10), code: m[4], message: m[5].trim() });
+        }
+        return errors;
+      }
+
+      // ─── OPERATION 12: Existing Test Execution ────────────────────────────────────
+      export function runExistingTests(projectPath: string): { testFilesFound: number; passed: number | null; failed: number | null } {
+        const vitestConfig = join(projectPath, 'vitest.config.ts');
+        const jestConfig = join(projectPath, 'jest.config.ts');
+        const hasVitest = existsSync(vitestConfig);
+        const hasJest = existsSync(jestConfig);
+        let testFilesFound = 0;
+
+        // Count test files
+        try {
+          const find = execSync(`npx find . -name "*.test.ts" -o -name "*.spec.ts" -o -name "*.test.tsx" | grep -v node_modules | wc -l`, { cwd: projectPath, stdio: 'pipe' }).toString().trim();
+          testFilesFound = parseInt(find, 10) || 0;
+        } catch {
+          try {
+            const find2 = execSync('dir /s /b *.test.ts *.spec.ts 2>nul | find /c /v ""', { cwd: projectPath, shell: 'cmd.exe', stdio: 'pipe' }).toString().trim();
+            testFilesFound = parseInt(find2, 10) || 0;
+          } catch { }
+        }
+
+        if (!hasVitest && !hasJest) return { testFilesFound, passed: null, failed: null };
+
+        try {
+          const runner = hasVitest ? 'npx vitest run --reporter=json' : 'npx jest --json';
+          const raw = execSync(runner, { cwd: projectPath, stdio: 'pipe', timeout: 120_000 }).toString();
+          const data = JSON.parse(raw);
+          const passed = data.numPassedTests ?? data.passed ?? 0;
+          const failed = data.numFailedTests ?? data.failed ?? 0;
+          return { testFilesFound, passed, failed };
+        } catch {
+          return { testFilesFound, passed: null, failed: null };
+        }
+      }
+
+      // ─── OPERATION 13: Dynamic Route Testing (GET Only) ──────────────────────────
+      export async function testDynamicRoutes(
+        projectPath: string,
+        routes: Array<{ type: string; route: string; methods?: string[] }>,
+        skipDynamic: boolean
+      ): Promise<DynamicRouteResult[]> {
+        if (skipDynamic) return [];
+
+        const PORT = 3099;
+        const BASE_URL = `http://localhost:${PORT}`;
+        const results: DynamicRouteResult[] = [];
+
+        // Start dev server
+        const devServer = spawn('npx', ['next', 'dev', '--port', String(PORT)], {
+          cwd: projectPath,
+          stdio: 'pipe',
+          detached: false,
+        });
+
+        // Poll until ready (max 60s)
+        const ready = await new Promise<boolean>(resolve => {
+          const timeout = setTimeout(() => resolve(false), 60_000);
+          const interval = setInterval(async () => {
+            try {
+              const { default: http } = await import('node:http');
+              const req = http.get(`${BASE_URL}/`, res => {
+                clearInterval(interval);
+                clearTimeout(timeout);
+                resolve(true);
+              });
+              req.on('error', () => { /* not ready yet */ });
+            } catch { }
+          }, 2000);
+        });
+
+        if (!ready) {
+          devServer.kill();
+          return [{ route: '/', url: BASE_URL, statusCode: null, responseTimeMs: null, classification: 'WARN', error: 'Dev server failed to start in 60s' }];
+        }
+
+        // Test GET routes
+        const testableRoutes = routes.filter(r =>
+          r.type === 'PAGE' || (r.type === 'API' && r.methods?.includes('GET'))
+        );
+
+        for (const route of testableRoutes) {
+          const url = BASE_URL + route.route;
+          const start = Date.now();
+          try {
+            const { default: http } = await import('node:http');
+            const statusCode = await new Promise<number>((resolve, reject) => {
+              const req = http.get(url, res => resolve(res.statusCode ?? 0));
+              req.on('error', reject);
+              req.setTimeout(10_000, () => { req.destroy(); reject(new Error('timeout')); });
+            });
+            const responseTimeMs = Date.now() - start;
+            const classification =
+              statusCode >= 500 ? 'CRITICAL' :
+              statusCode === 404 ? 'WARN' :
+              (statusCode === 401 || statusCode === 403) ? 'INFO' : 'OK';
+            results.push({ route: route.route, url, statusCode, responseTimeMs, classification });
+          } catch (e: unknown) {
+            results.push({ route: route.route, url, statusCode: null, responseTimeMs: Date.now() - start, classification: 'WARN', error: String(e) });
+          }
+        }
+
+        devServer.kill();
+        return results;
+      }
+
+      // ─── OPERATION 14: Vercel Deployment Analysis ────────────────────────────────
+      export function analyzeVercelDeployment(projectPath: string, vercelAvailable: boolean): VercelDeployInfo {
+        if (!vercelAvailable) return { url: null, lastDeployedAt: null, daysSinceDeploy: null, status: 'UNKNOWN' };
+        try {
+          const info = execSync('vercel ls --json 2>/dev/null | head -1', { cwd: projectPath, stdio: 'pipe', shell: true }).toString();
+          const data = JSON.parse(info);
+          const deployments = Array.isArray(data) ? data : [data];
+          if (!deployments.length) return { url: null, lastDeployedAt: null, daysSinceDeploy: null, status: 'UNKNOWN' };
+          const latest = deployments[0];
+          const createdAt = latest.created ? new Date(latest.created).toISOString() : null;
+          const daysSinceDeploy = createdAt ? Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)) : null;
+          const status = daysSinceDeploy !== null && daysSinceDeploy > 14 ? 'WARN' : 'OK';
+          return { url: latest.url ?? null, lastDeployedAt: createdAt, daysSinceDeploy, status };
+        } catch {
+          return { url: null, lastDeployedAt: null, daysSinceDeploy: null, status: 'UNKNOWN' };
+        }
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { auditPackages, inventoryGovernanceDocs, checkTypeScriptCompilation, runExistingTests, testDynamicRoutes, analyzeVercelDeployment } from './scan-ops-9-14.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/scan-ops-9-14.ts exists and exports 6 functions
+      - pnpm tsc --noEmit passes 0 errors
+      - No packages installed
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-005
+    name: "SCAN Orchestrator: Wire All 14 Operations into ScanReport"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has types.ts, preflight.ts, scan-ops-1-4.ts, scan-ops-5-8.ts, scan-ops-9-14.ts, index.ts.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/scan.ts — orchestrates all 14 SCAN operations and produces the ScanReport JSON.
+
+      CREATE src/retrofit/scan.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT SCAN Orchestrator
+      import { mkdirSync, writeFileSync } from 'node:fs';
+      import { join } from 'node:path';
+      import type { ScanReport, ScanScope } from './types.js';
+      import { runPreFlightChecks } from './preflight.js';
+      import { scanDirectoryTree, buildDependencyGraph, detectBrokenImports, detectDeadFiles } from './scan-ops-1-4.js';
+      import { buildRouteInventory, auditEnvVars, extractDatabaseSchema, analyzeGitHistory } from './scan-ops-5-8.js';
+      import { auditPackages, inventoryGovernanceDocs, checkTypeScriptCompilation, runExistingTests, testDynamicRoutes, analyzeVercelDeployment } from './scan-ops-9-14.js';
+
+      export interface ScanOptions {
+        projectPath: string;
+        scope: ScanScope;
+        skipDynamic?: boolean;
+        resume?: boolean;
+        onProgress?: (step: string, index: number, total: number) => void;
+      }
+
+      export async function runScan(options: ScanOptions): Promise<{ report: ScanReport; preFlightHalted: boolean }> {
+        const { projectPath, scope, skipDynamic = false, onProgress } = options;
+        const log = (msg: string, i: number) => onProgress?.(msg, i, 14);
+
+        // Pre-flight
+        const { results: preFlightResults, halted, supabaseAvailable, vercelAvailable, packageManager, envVars } = await runPreFlightChecks(projectPath, scope);
+        if (halted) {
+          const emptyReport: ScanReport = {
+            projectName: projectPath.split(/[/\\]/).pop() ?? 'unknown',
+            projectPath,
+            scanTimestamp: new Date().toISOString(),
+            scanScope: scope,
+            supabaseAvailable: false,
+            vercelAvailable: false,
+            fileTree: { totalFiles: 0, byExtension: {}, files: [], projectSizeKB: 0 },
+            brokenImports: [],
+            deadFiles: [],
+            routeInventory: [],
+            envAudit: [],
+            schemaAudit: [],
+            gitAudit: { lastCommitHash: null, lastCommitDate: null, daysSinceCommit: null, uncommittedChanges: 0, branches: [] },
+            packageAudit: [],
+            governanceInventory: [],
+            compilationErrors: [],
+            testAudit: { testFilesFound: 0, passed: null, failed: null },
+            dynamicAudit: [],
+            vercelAudit: { url: null, lastDeployedAt: null, daysSinceDeploy: null, status: 'UNKNOWN' },
+          };
+          return { report: emptyReport, preFlightHalted: true };
+        }
+
+        log('Directory tree enumeration', 1);
+        const fileTree = scanDirectoryTree(projectPath);
+
+        log('Dependency graph construction', 2);
+        const depGraph = buildDependencyGraph(projectPath);
+
+        log('Broken import detection', 3);
+        const brokenImports = detectBrokenImports(depGraph, projectPath);
+
+        log('Dead file detection', 4);
+        const deadFiles = detectDeadFiles(depGraph, projectPath);
+
+        log('Route inventory', 5);
+        const routeInventory = buildRouteInventory(projectPath);
+
+        log('Environment variable audit', 6);
+        const envAudit = auditEnvVars(projectPath, envVars, vercelAvailable);
+
+        log('Database schema extraction', 7);
+        const schemaAudit = extractDatabaseSchema(projectPath);
+
+        log('Git history analysis', 8);
+        const gitAudit = analyzeGitHistory(projectPath);
+
+        log('Package audit', 9);
+        const packageAudit = auditPackages(projectPath, packageManager);
+
+        log('Governance document inventory', 10);
+        const governanceInventory = inventoryGovernanceDocs(projectPath);
+
+        log('TypeScript compilation check', 11);
+        const compilationErrors = checkTypeScriptCompilation(projectPath);
+
+        log('Existing test execution', 12);
+        const testAudit = runExistingTests(projectPath);
+
+        log('Dynamic route testing', 13);
+        const dynamicAudit = await testDynamicRoutes(projectPath, routeInventory, skipDynamic);
+
+        log('Vercel deployment analysis', 14);
+        const vercelAudit = analyzeVercelDeployment(projectPath, vercelAvailable);
+
+        const report: ScanReport = {
+          projectName: projectPath.split(/[/\\]/).pop() ?? 'unknown',
+          projectPath,
+          scanTimestamp: new Date().toISOString(),
+          scanScope: scope,
+          supabaseAvailable,
+          vercelAvailable,
+          fileTree,
+          brokenImports,
+          deadFiles,
+          routeInventory,
+          envAudit,
+          schemaAudit,
+          gitAudit,
+          packageAudit,
+          governanceInventory,
+          compilationErrors,
+          testAudit,
+          dynamicAudit,
+          vercelAudit,
+        };
+
+        // Persist to .forge/
+        const forgeDir = join(projectPath, '.forge');
+        mkdirSync(forgeDir, { recursive: true });
+        writeFileSync(join(forgeDir, 'scan_report.json'), JSON.stringify(report, null, 2), 'utf8');
+
+        return { report, preFlightHalted: false };
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { runScan } from './scan.js';
+      export type { ScanOptions } from './scan.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/scan.ts exists and exports runScan
+      - .forge/ directory creation is part of runScan
+      - scan_report.json is written to projectPath/.forge/
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-006
+    name: "DIAGNOSE: Architecture Health Report and Adversarial Review"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has types.ts, preflight.ts, scan-ops-*.ts, scan.ts, index.ts.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/diagnose-health.ts — Architecture Health Report with adversarial review via Claude API.
+
+      CREATE src/retrofit/diagnose-health.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — DIAGNOSE: Architecture Health Report + Adversarial Review
+      import type { ScanReport, DiagnoseFinding, FindingSeverity } from './types.js';
+
+      export interface ArchitectureHealthReport {
+        critical: DiagnoseFinding[];
+        warn: DiagnoseFinding[];
+        info: DiagnoseFinding[];
+        adversaryFindings: DiagnoseFinding[];
+        generatedAt: string;
+      }
+
+      function addFinding(
+        findings: DiagnoseFinding[],
+        severity: FindingSeverity,
+        category: string,
+        message: string,
+        file?: string
+      ): void {
+        findings.push({ severity, category, message, ...(file ? { file } : {}) });
+      }
+
+      export function deriveFindingsFromScanReport(report: ScanReport): DiagnoseFinding[] {
+        const findings: DiagnoseFinding[] = [];
+
+        // Broken imports → CRITICAL
+        for (const b of report.brokenImports) {
+          const msg = b.missingExport
+            ? `Missing export '${b.missingExport}' in ${b.resolvedPath}`
+            : `Cannot resolve import '${b.importPath}'`;
+          addFinding(findings, 'CRITICAL', 'BROKEN_IMPORT', msg, b.sourceFile);
+        }
+
+        // TypeScript errors → CRITICAL
+        for (const e of report.compilationErrors) {
+          addFinding(findings, 'CRITICAL', 'TYPESCRIPT', `${e.code}: ${e.message}`, `${e.file}:${e.line}`);
+        }
+
+        // Missing env vars → CRITICAL
+        for (const e of report.envAudit) {
+          if (e.classification === 'MISSING_LOCAL' || e.classification === 'MISSING_PRODUCTION') {
+            addFinding(findings, 'CRITICAL', 'ENV_VAR', `${e.classification}: ${e.name}`);
+          }
+        }
+
+        // Schema issues → CRITICAL/WARN
+        for (const s of report.schemaAudit) {
+          if (s.issue === 'TABLE_MISSING_IN_DB' || s.issue === 'COLUMN_DRIFT' || s.issue === 'MISSING_RLS' || s.issue === 'STALE_MIGRATION') {
+            addFinding(findings, 'CRITICAL', 'SCHEMA', `${s.issue}: ${s.tableName} — ${s.detail}`);
+          } else if (s.issue === 'TABLE_MISSING_IN_TYPES') {
+            addFinding(findings, 'WARN', 'SCHEMA', `${s.issue}: ${s.tableName} — ${s.detail}`);
+          }
+        }
+
+        // Dynamic route failures
+        for (const d of report.dynamicAudit) {
+          if (d.classification === 'CRITICAL') {
+            addFinding(findings, 'CRITICAL', 'DYNAMIC_ROUTE', `HTTP ${d.statusCode} on ${d.route}`, d.url);
+          } else if (d.classification === 'WARN') {
+            addFinding(findings, 'WARN', 'DYNAMIC_ROUTE', `HTTP ${d.statusCode ?? 'ERR'} on ${d.route}: ${d.error ?? ''}`, d.url);
+          }
+        }
+
+        // Security vulnerabilities
+        for (const p of report.packageAudit) {
+          if (p.issue === 'SECURITY_ADVISORY') {
+            addFinding(findings, p.severity as FindingSeverity, 'SECURITY', `${p.name}@${p.currentVersion ?? '?'} has security advisory`);
+          } else if (p.issue === 'OUTDATED') {
+            addFinding(findings, 'INFO', 'PACKAGE', `${p.name} outdated: ${p.currentVersion} → ${p.latestVersion}`);
+          }
+        }
+
+        // Stale governance
+        for (const g of report.governanceInventory) {
+          if (g.staleness === 'MISSING') {
+            addFinding(findings, 'WARN', 'GOVERNANCE', `${g.filename} is MISSING`);
+          } else if (g.staleness === 'STALE') {
+            addFinding(findings, 'INFO', 'GOVERNANCE', `${g.filename} is STALE (${g.lastModifiedDays}d old)`);
+          }
+        }
+
+        // Vercel deploy lag
+        if (report.vercelAudit.status === 'WARN') {
+          addFinding(findings, 'WARN', 'DEPLOY', `Last Vercel deployment was ${report.vercelAudit.daysSinceDeploy} days ago`);
+        }
+
+        // Dead files
+        if (report.deadFiles.length > 0) {
+          addFinding(findings, 'INFO', 'DEAD_CODE', `${report.deadFiles.length} dead files detected (never imported)`);
+        }
+
+        return findings;
+      }
+
+      export async function generateArchitectureHealthReport(
+        report: ScanReport,
+        apiKey?: string
+      ): Promise<ArchitectureHealthReport> {
+        const primaryFindings = deriveFindingsFromScanReport(report);
+        let adversaryFindings: DiagnoseFinding[] = [];
+
+        // Adversarial review via Claude API
+        const key = apiKey ?? process.env['ANTHROPIC_API_KEY'];
+        if (key) {
+          try {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': key,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 2048,
+                messages: [{
+                  role: 'user',
+                  content: `You are an adversarial code reviewer. A primary analysis of a Next.js codebase has produced these findings:
+
+${JSON.stringify(primaryFindings, null, 2)}
+
+Scan summary:
+- Files: ${report.fileTree.totalFiles}
+- Broken imports: ${report.brokenImports.length}
+- TypeScript errors: ${report.compilationErrors.length}
+- Dead files: ${report.deadFiles.length}
+- Routes: ${report.routeInventory.length}
+- Governance docs missing: ${report.governanceInventory.filter(g => g.staleness === 'MISSING').length}
+
+Your job: identify what was MISSED or MISCLASSIFIED. Ask: what cross-cutting issues span multiple findings? What will break in 6 months that looks fine today? What CRITICAL issue could be hiding as INFO?
+
+Respond ONLY with a JSON array of finding objects. Each object must have: severity ("CRITICAL"|"WARN"|"INFO"), category (string), message (string). No preamble, no markdown.`,
+                }],
+              }),
+            });
+
+            if (response.ok) {
+              const data = await response.json() as { content: Array<{ type: string; text?: string }> };
+              const text = data.content.filter(c => c.type === 'text').map(c => c.text ?? '').join('');
+              const clean = text.replace(/```json|```/g, '').trim();
+              const parsed = JSON.parse(clean) as DiagnoseFinding[];
+              if (Array.isArray(parsed)) adversaryFindings = parsed;
+            }
+          } catch { /* adversary is best-effort */ }
+        }
+
+        // Merge: higher severity wins on duplicates
+        const allFindings = [...primaryFindings, ...adversaryFindings];
+
+        return {
+          critical: allFindings.filter(f => f.severity === 'CRITICAL'),
+          warn: allFindings.filter(f => f.severity === 'WARN'),
+          info: allFindings.filter(f => f.severity === 'INFO'),
+          adversaryFindings,
+          generatedAt: new Date().toISOString(),
+        };
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { generateArchitectureHealthReport, deriveFindingsFromScanReport } from './diagnose-health.js';
+      export type { ArchitectureHealthReport } from './diagnose-health.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/diagnose-health.ts exports generateArchitectureHealthReport
+      - Claude API call is wrapped in try/catch — failure is non-fatal
+      - Adversarial findings are appended to primary findings, never replacing them
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-007
+    name: "DIAGNOSE: Governance Reconciliation and Enterprise Patterns Gap Reports"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has diagnose-health.ts and prior files.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/diagnose-reports.ts — Reports 2 and 3 of DIAGNOSE stage.
+
+      CREATE src/retrofit/diagnose-reports.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — DIAGNOSE: Governance Reconciliation + Enterprise Patterns Gap
+      import { readFileSync, existsSync } from 'node:fs';
+      import { join } from 'node:path';
+      import type { ScanReport, DiagnoseFinding } from './types.js';
+
+      export type MaturityStage = 'FOUNDATION' | 'GROWTH' | 'ENTERPRISE';
+
+      export interface GovernanceReconciliationReport {
+        unbuilt: Array<{ feature: string; source: string; recommendation: 'BUILD' | 'DEFER' | 'ABANDON' }>;
+        undocumented: Array<{ feature: string; file: string }>;
+        generatedAt: string;
+      }
+
+      export interface EnterprisePatternsGapReport {
+        maturityStage: MaturityStage;
+        gaps: Array<{ pattern: string; required: boolean; present: boolean; severity: 'CRITICAL' | 'WARN' | 'INFO' }>;
+        generatedAt: string;
+      }
+
+      // ─── DETECT MATURITY STAGE ────────────────────────────────────────────────────
+      export function detectMaturityStage(report: ScanReport): MaturityStage {
+        const totalFiles = report.fileTree.totalFiles;
+        const routeCount = report.routeInventory.length;
+        const hasTests = report.testAudit.testFilesFound > 0;
+
+        if (totalFiles > 200 && routeCount > 20 && hasTests) return 'ENTERPRISE';
+        if (totalFiles > 50 || routeCount > 5) return 'GROWTH';
+        return 'FOUNDATION';
+      }
+
+      // ─── REPORT 2: GOVERNANCE RECONCILIATION ─────────────────────────────────────
+      export function buildGovernanceReconciliationReport(
+        report: ScanReport,
+        projectPath: string
+      ): GovernanceReconciliationReport {
+        const unbuilt: GovernanceReconciliationReport['unbuilt'] = [];
+        const undocumented: GovernanceReconciliationReport['undocumented'] = [];
+
+        // Parse STATE_OF_THE_BUILD.md for planned features
+        const stateFile = join(projectPath, 'STATE_OF_THE_BUILD.md');
+        if (existsSync(stateFile)) {
+          let content = '';
+          try { content = readFileSync(stateFile, 'utf8'); } catch { }
+
+          // Extract NOT_STARTED or PLANNED items
+          const notStartedRegex = /\|\s*([^|]+)\s*\|\s*NOT_STARTED\s*\|/g;
+          let m: RegExpExecArray | null;
+          while ((m = notStartedRegex.exec(content)) !== null) {
+            const feature = m[1].trim();
+            unbuilt.push({ feature, source: 'STATE_OF_THE_BUILD.md', recommendation: 'BUILD' });
+          }
+
+          // Extract DEFERRED items
+          const deferredRegex = /\|\s*([^|]+)\s*\|\s*DEFERRED\s*\|/g;
+          while ((m = deferredRegex.exec(content)) !== null) {
+            const feature = m[1].trim();
+            unbuilt.push({ feature, source: 'STATE_OF_THE_BUILD.md', recommendation: 'DEFER' });
+          }
+        }
+
+        // Detect undocumented features from codebase
+        // Files with routes that aren't documented in AGENTS.md
+        const agentsFile = join(projectPath, 'AGENTS.md');
+        let agentsContent = '';
+        if (existsSync(agentsFile)) {
+          try { agentsContent = readFileSync(agentsFile, 'utf8'); } catch { }
+        }
+
+        for (const route of report.routeInventory) {
+          if (route.type === 'API') {
+            const routeKey = route.route.replace(/^\//, '');
+            if (!agentsContent.includes(routeKey) && !agentsContent.includes(route.file)) {
+              undocumented.push({ feature: `API route: ${route.route}`, file: route.file });
+            }
+          }
+        }
+
+        return { unbuilt, undocumented, generatedAt: new Date().toISOString() };
+      }
+
+      // ─── REPORT 3: ENTERPRISE PATTERNS GAP ───────────────────────────────────────
+      const PATTERNS: Record<string, { foundation: 'skip' | 'check' | 'require'; growth: 'skip' | 'check' | 'require'; enterprise: 'skip' | 'check' | 'require' }> = {
+        'Error boundaries':         { foundation: 'skip',    growth: 'check',   enterprise: 'require' },
+        'Loading states':           { foundation: 'skip',    growth: 'check',   enterprise: 'require' },
+        'RLS policies':             { foundation: 'check',   growth: 'require', enterprise: 'require' },
+        'company_id scoping':       { foundation: 'check',   growth: 'require', enterprise: 'require' },
+        'Rate limiting':            { foundation: 'skip',    growth: 'skip',    enterprise: 'check' },
+        'Audit logging':            { foundation: 'skip',    growth: 'skip',    enterprise: 'check' },
+        'OpenTelemetry':            { foundation: 'skip',    growth: 'skip',    enterprise: 'check' },
+        'Feature flags':            { foundation: 'skip',    growth: 'skip',    enterprise: 'check' },
+        'Error tracking (Sentry)':  { foundation: 'skip',    growth: 'check',   enterprise: 'require' },
+        'Env var validation (zod)': { foundation: 'skip',    growth: 'check',   enterprise: 'require' },
+      };
+
+      function detectPatternPresence(pattern: string, report: ScanReport, projectPath: string): boolean {
+        try {
+          const { execSync } = require('node:child_process') as typeof import('node:child_process');
+          const searchTerms: Record<string, string> = {
+            'Error boundaries': 'ErrorBoundary',
+            'Loading states': 'loading.tsx',
+            'RLS policies': 'MISSING_RLS', // absence in schemaAudit
+            'company_id scoping': 'company_id',
+            'Rate limiting': 'rate.limit',
+            'Audit logging': 'audit_log',
+            'OpenTelemetry': 'opentelemetry',
+            'Feature flags': 'feature.flag',
+            'Error tracking (Sentry)': '@sentry',
+            'Env var validation (zod)': 'z.env',
+          };
+
+          if (pattern === 'RLS policies') {
+            return !report.schemaAudit.some(s => s.issue === 'MISSING_RLS');
+          }
+
+          const term = searchTerms[pattern] ?? pattern;
+          try {
+            execSync(`grep -r "${term}" ${projectPath}/src --include="*.ts" --include="*.tsx" -l 2>/dev/null | head -1`, { stdio: 'pipe' });
+            return true;
+          } catch {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
+
+      export function buildEnterprisePatternsGapReport(
+        report: ScanReport,
+        projectPath: string
+      ): EnterprisePatternsGapReport {
+        const maturityStage = detectMaturityStage(report);
+        const stageKey = maturityStage.toLowerCase() as 'foundation' | 'growth' | 'enterprise';
+        const gaps: EnterprisePatternsGapReport['gaps'] = [];
+
+        for (const [pattern, levels] of Object.entries(PATTERNS)) {
+          const level = levels[stageKey];
+          if (level === 'skip') continue;
+
+          const present = detectPatternPresence(pattern, report, projectPath);
+          const required = level === 'require';
+          const severity: 'CRITICAL' | 'WARN' | 'INFO' = required && !present ? 'WARN' : present ? 'INFO' : 'INFO';
+
+          gaps.push({ pattern, required, present, severity });
+        }
+
+        return { maturityStage, gaps, generatedAt: new Date().toISOString() };
+      }
+
+      export function buildDiagnoseSummary(findings: DiagnoseFinding[]): {
+        criticalCount: number;
+        warnCount: number;
+        infoCount: number;
+        blocksForwardProgress: boolean;
+      } {
+        const criticalCount = findings.filter(f => f.severity === 'CRITICAL').length;
+        const warnCount = findings.filter(f => f.severity === 'WARN').length;
+        const infoCount = findings.filter(f => f.severity === 'INFO').length;
+        return { criticalCount, warnCount, infoCount, blocksForwardProgress: criticalCount > 0 };
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { buildGovernanceReconciliationReport, buildEnterprisePatternsGapReport, detectMaturityStage, buildDiagnoseSummary } from './diagnose-reports.js';
+      export type { GovernanceReconciliationReport, EnterprisePatternsGapReport, MaturityStage } from './diagnose-reports.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/diagnose-reports.ts exports all 4 functions + types
+      - Maturity stage detection based on file count, route count, test presence
+      - Pattern detection is grep-based and gracefully fails if pattern is not found
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-008
+    name: "RECONCILE: Hybrid Decision Engine (Model C)"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has diagnose-health.ts, diagnose-reports.ts, and prior files.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/reconcile.ts — the RECONCILE stage (Model C: hybrid interactive decision engine).
+
+      CREATE src/retrofit/reconcile.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT RECONCILE: Hybrid Decision Engine (Model C)
+      import { createInterface } from 'node:readline';
+      import { existsSync } from 'node:fs';
+      import { join } from 'node:path';
+      import type { ReconcileDecision, DiagnoseFinding } from './types.js';
+      import type { GovernanceReconciliationReport, EnterprisePatternsGapReport } from './diagnose-reports.js';
+
+      export interface ReconcileInput {
+        criticalFindings: DiagnoseFinding[];
+        warnFindings: DiagnoseFinding[];
+        governanceReport: GovernanceReconciliationReport;
+        enterpriseReport: EnterprisePatternsGapReport;
+        dbPath?: string;
+      }
+
+      export interface ReconcileOutput {
+        decisions: ReconcileDecision[];
+        approved: DiagnoseFinding[];
+        deferred: string[];
+        abandoned: string[];
+        confirmedAt: string;
+      }
+
+      async function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
+        return new Promise(resolve => rl.question(question, resolve));
+      }
+
+      async function loadPriorDecisions(projectName: string, dbPath?: string): Promise<ReconcileDecision[]> {
+        const path = dbPath ?? join(process.env['HOME'] ?? process.env['USERPROFILE'] ?? '', '.forge', 'forge_memory.db');
+        if (!existsSync(path)) return [];
+        try {
+          const { execSync } = await import('node:child_process');
+          const raw = execSync(
+            `sqlite3 "${path}" "SELECT item_id, item_type, decision, reason FROM reconcile_decisions WHERE project_name = '${projectName}' ORDER BY timestamp DESC"`,
+            { stdio: 'pipe' }
+          ).toString().trim();
+          if (!raw) return [];
+          return raw.split('\n').map(line => {
+            const [itemId, itemType, decision, reason] = line.split('|');
+            return { itemId, itemType, decision, reason, timestamp: '' } as ReconcileDecision;
+          });
+        } catch { return []; }
+      }
+
+      async function persistDecision(decision: ReconcileDecision, projectName: string, dbPath?: string): Promise<void> {
+        const path = dbPath ?? join(process.env['HOME'] ?? process.env['USERPROFILE'] ?? '', '.forge', 'forge_memory.db');
+        if (!existsSync(path)) return;
+        try {
+          const { execSync } = await import('node:child_process');
+          const safe = (s: string) => s.replace(/'/g, "''");
+          execSync(
+            `sqlite3 "${path}" "INSERT OR REPLACE INTO reconcile_decisions (id, project_name, item_id, item_type, decision, reason, timestamp) VALUES (hex(randomblob(16)), '${safe(projectName)}', '${safe(decision.itemId)}', '${safe(decision.itemType)}', '${safe(decision.decision)}', '${safe(decision.reason ?? '')}', '${safe(decision.timestamp)}')"`,
+            { stdio: 'pipe' }
+          );
+        } catch { }
+      }
+
+      export async function runReconcile(
+        projectName: string,
+        input: ReconcileInput,
+        nonInteractive = false
+      ): Promise<ReconcileOutput> {
+        const decisions: ReconcileDecision[] = [];
+        const approved: DiagnoseFinding[] = [];
+        const deferred: string[] = [];
+        const abandoned: string[] = [];
+
+        const priorDecisions = await loadPriorDecisions(projectName, input.dbPath);
+
+        if (nonInteractive) {
+          // Auto-approve all CRITICAL, auto-build all unbuilt, auto-approve all warns
+          for (const f of input.criticalFindings) {
+            const d: ReconcileDecision = { itemId: f.message, itemType: 'CRITICAL_FIX', decision: 'APPROVE', timestamp: new Date().toISOString() };
+            decisions.push(d);
+            approved.push(f);
+          }
+          for (const u of input.governanceReport.unbuilt) {
+            const d: ReconcileDecision = { itemId: u.feature, itemType: 'UNBUILT_FEATURE', decision: u.recommendation === 'ABANDON' ? 'ABANDON' : 'BUILD', timestamp: new Date().toISOString() };
+            decisions.push(d);
+            if (d.decision === 'ABANDON') abandoned.push(u.feature);
+            else deferred.push(u.feature);
+          }
+          return { decisions, approved, deferred, abandoned, confirmedAt: new Date().toISOString() };
+        }
+
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+        console.log('\n════════════════════════════════════════════════════════════');
+        console.log('  FORGE 2.0 — RETROFIT RECONCILE');
+        console.log('════════════════════════════════════════════════════════════\n');
+
+        // STEP 6.1: Show prior decisions if any
+        if (priorDecisions.length > 0) {
+          console.log(`Found ${priorDecisions.length} prior decisions for project '${projectName}'.`);
+          console.log('Prior decisions will be shown as defaults.\n');
+        }
+
+        // STEP 6.2: CRITICAL fixes — auto-approved, can skip
+        if (input.criticalFindings.length > 0) {
+          console.log(`\n── CRITICAL FIXES (${input.criticalFindings.length} items) ──`);
+          console.log('Auto-approved. Press ENTER to approve each. Type SKIP + reason to override.\n');
+          for (const f of input.criticalFindings) {
+            const prior = priorDecisions.find(p => p.itemId === f.message);
+            const hint = prior ? ` [Prior: ${prior.decision}]` : '';
+            const answer = await prompt(rl, `  [CRITICAL] ${f.category}: ${f.message}${hint}\n  > `);
+            if (answer.toUpperCase().startsWith('SKIP')) {
+              const reason = answer.substring(4).trim();
+              decisions.push({ itemId: f.message, itemType: 'CRITICAL_FIX', decision: 'SKIP', reason, timestamp: new Date().toISOString() });
+            } else {
+              decisions.push({ itemId: f.message, itemType: 'CRITICAL_FIX', decision: 'APPROVE', timestamp: new Date().toISOString() });
+              approved.push(f);
+            }
+          }
+        }
+
+        // STEP 6.3: UNBUILT feature triage
+        if (input.governanceReport.unbuilt.length > 0) {
+          console.log(`\n── UNBUILT FEATURES (${input.governanceReport.unbuilt.length} items) ──`);
+          console.log('[B]uild / [D]efer / [A]bandon for each:\n');
+          for (const u of input.governanceReport.unbuilt) {
+            const prior = priorDecisions.find(p => p.itemId === u.feature);
+            const hint = prior ? ` [Prior: ${prior.decision}]` : '';
+            const answer = (await prompt(rl, `  ${u.feature}${hint} (B/D/A): `)).toUpperCase().trim();
+            let decision: ReconcileDecision['decision'] = 'DEFER';
+            if (answer === 'B') decision = 'BUILD';
+            else if (answer === 'A') decision = 'ABANDON';
+            else decision = 'DEFER';
+            const d: ReconcileDecision = { itemId: u.feature, itemType: 'UNBUILT_FEATURE', decision, timestamp: new Date().toISOString() };
+            decisions.push(d);
+            await persistDecision(d, projectName, input.dbPath);
+            if (decision === 'ABANDON') abandoned.push(u.feature);
+            else if (decision === 'DEFER') deferred.push(u.feature);
+          }
+        }
+
+        // STEP 6.4: WARN fixes
+        if (input.warnFindings.length > 0) {
+          console.log(`\n── WARN FIXES (${input.warnFindings.length} items) ──`);
+          const answer = (await prompt(rl, '[A]pprove all / [S]elect individually / [I]gnore all: ')).toUpperCase().trim();
+          if (answer === 'A') {
+            for (const f of input.warnFindings) {
+              decisions.push({ itemId: f.message, itemType: 'WARN_FIX', decision: 'APPROVE', timestamp: new Date().toISOString() });
+              approved.push(f);
+            }
+          } else if (answer === 'S') {
+            for (const f of input.warnFindings) {
+              const ans = (await prompt(rl, `  [WARN] ${f.category}: ${f.message} (Y/n): `)).toUpperCase().trim();
+              if (ans !== 'N') { decisions.push({ itemId: f.message, itemType: 'WARN_FIX', decision: 'APPROVE', timestamp: new Date().toISOString() }); approved.push(f); }
+              else decisions.push({ itemId: f.message, itemType: 'WARN_FIX', decision: 'IGNORE', timestamp: new Date().toISOString() });
+            }
+          } else {
+            for (const f of input.warnFindings) decisions.push({ itemId: f.message, itemType: 'WARN_FIX', decision: 'IGNORE', timestamp: new Date().toISOString() });
+          }
+        }
+
+        // STEP 6.5: Enterprise patterns
+        const gaps = input.enterpriseReport.gaps.filter(g => !g.present);
+        if (gaps.length > 0) {
+          console.log(`\n── ENTERPRISE PATTERNS (${gaps.length} gaps) ──`);
+          for (const g of gaps) {
+            const ans = (await prompt(rl, `  Inject '${g.pattern}' pattern? (y/N): `)).toUpperCase().trim();
+            decisions.push({ itemId: g.pattern, itemType: 'ENTERPRISE_PATTERN', decision: ans === 'Y' ? 'BUILD' : 'DEFER', timestamp: new Date().toISOString() });
+          }
+        }
+
+        // STEP 6.6: Summary + confirmation
+        console.log('\n── RECONCILE SUMMARY ──');
+        console.log(`  CRITICAL approved: ${approved.filter(f => decisions.find(d => d.itemId === f.message && d.decision === 'APPROVE')).length}`);
+        console.log(`  Features to BUILD: ${decisions.filter(d => d.decision === 'BUILD').length}`);
+        console.log(`  Features DEFERRED: ${deferred.length}`);
+        console.log(`  Features ABANDONED: ${abandoned.length}`);
+        console.log(`  WARNs approved: ${decisions.filter(d => d.itemType === 'WARN_FIX' && d.decision === 'APPROVE').length}`);
+
+        const confirm = (await prompt(rl, '\nConfirm and proceed to QUEUE generation? (Y/n): ')).toUpperCase().trim();
+        rl.close();
+
+        if (confirm === 'N') {
+          console.log('Reconcile aborted. No queue will be generated.');
+          process.exit(0);
+        }
+
+        // Persist all decisions
+        for (const d of decisions) {
+          await persistDecision(d, projectName, input.dbPath);
+        }
+
+        return { decisions, approved, deferred, abandoned, confirmedAt: new Date().toISOString() };
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { runReconcile } from './reconcile.js';
+      export type { ReconcileInput, ReconcileOutput } from './reconcile.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/reconcile.ts exports runReconcile
+      - nonInteractive mode auto-approves everything (for CI/headless use)
+      - Prior decisions loaded from SQLite and shown as hints
+      - All decisions persisted to reconcile_decisions table
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-009
+    name: "QUEUE Generator: Compose Tier-Ordered Prompt Queue from Reconcile Decisions"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has reconcile.ts and prior files.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/queue-generator.ts — generates the YAML prompt queue from reconcile output.
+
+      CREATE src/retrofit/queue-generator.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT QUEUE Generator
+      import { writeFileSync, mkdirSync } from 'node:fs';
+      import { join } from 'node:path';
+      import type { ScanReport, ReconcileDecision, DiagnoseFinding } from './types.js';
+      import type { ReconcileOutput } from './reconcile.js';
+
+      export interface QueuePrompt {
+        id: string;
+        tier: 'CRITICAL' | 'WARN_FEATURE' | 'ENTERPRISE';
+        name: string;
+        dependsOn: string[];
+        acceptanceCriteria: string;
+        filesHint: string[];
+        governanceUpdates: string[];
+        prompt: string;
+      }
+
+      export interface GeneratedQueue {
+        buildId: string;
+        projectName: string;
+        totalPrompts: number;
+        tiers: { critical_fixes: number; warn_fixes_and_features: number; enterprise_patterns: number };
+        prompts: QueuePrompt[];
+        generatedAt: string;
+      }
+
+      function sanitizeId(text: string, prefix: string, index: number): string {
+        return `${prefix}-${String(index + 1).padStart(3, '0')}`;
+      }
+
+      function buildCriticalFixPrompt(finding: DiagnoseFinding, index: number, projectPath: string): QueuePrompt {
+        const id = sanitizeId(finding.message, 'RC', index);
+        const fileHint = finding.file ? [finding.file] : [];
+
+        let prompt = `You are fixing a CRITICAL issue in the codebase at ${projectPath}.\n\n`;
+        prompt += `ISSUE (${finding.category}): ${finding.message}\n`;
+        if (finding.file) prompt += `FILE: ${finding.file}\n`;
+        prompt += `\nThis is a blocking issue. Fix it completely before doing anything else.\n`;
+        prompt += `\nAfter fixing:\n`;
+        prompt += `1. Run: pnpm tsc --noEmit — must pass 0 errors\n`;
+        prompt += `2. If this was a broken import: verify the import resolves correctly\n`;
+        prompt += `3. If this was a schema issue: run the migration or regenerate types\n`;
+        prompt += `4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md\n`;
+
+        return {
+          id,
+          tier: 'CRITICAL',
+          name: `Fix CRITICAL: ${finding.category} — ${finding.message.substring(0, 60)}`,
+          dependsOn: index > 0 ? [sanitizeId('', 'RC', index - 1)] : [],
+          acceptanceCriteria: `pnpm tsc --noEmit passes 0 errors; ${finding.category} issue resolved`,
+          filesHint: fileHint,
+          governanceUpdates: ['STATE_OF_THE_BUILD.md', 'SESSION_STATE.md'],
+          prompt,
+        };
+      }
+
+      function buildWarnFeaturePrompt(finding: DiagnoseFinding, index: number, projectPath: string, criticalCount: number): QueuePrompt {
+        const id = sanitizeId(finding.message, 'RW', index);
+        const fileHint = finding.file ? [finding.file] : [];
+        const priorId = index > 0 ? [sanitizeId('', 'RW', index - 1)] : criticalCount > 0 ? [sanitizeId('', 'RC', criticalCount - 1)] : [];
+
+        let prompt = `You are addressing a WARN-level issue in the codebase at ${projectPath}.\n\n`;
+        prompt += `ISSUE (${finding.category}): ${finding.message}\n`;
+        if (finding.file) prompt += `FILE: ${finding.file}\n`;
+        prompt += `\nThis is suboptimal but does not block compilation. Fix it cleanly.\n`;
+        prompt += `\nAfter fixing:\n`;
+        prompt += `1. Run: pnpm tsc --noEmit — must still pass\n`;
+        prompt += `2. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md\n`;
+
+        return {
+          id,
+          tier: 'WARN_FEATURE',
+          name: `Fix WARN: ${finding.category} — ${finding.message.substring(0, 60)}`,
+          dependsOn: priorId,
+          acceptanceCriteria: `${finding.category} issue resolved; pnpm tsc --noEmit passes`,
+          filesHint: fileHint,
+          governanceUpdates: ['STATE_OF_THE_BUILD.md', 'SESSION_STATE.md'],
+          prompt,
+        };
+      }
+
+      function buildEnterprisePatternPrompt(patternName: string, index: number, projectPath: string, priorId?: string): QueuePrompt {
+        const id = sanitizeId(patternName, 'RE', index);
+
+        let prompt = `You are injecting the '${patternName}' enterprise pattern into the codebase at ${projectPath}.\n\n`;
+        prompt += `This pattern was identified as missing during FORGE RETROFIT analysis.\n`;
+        prompt += `Implement it correctly for the existing tech stack (Next.js, TypeScript, Supabase).\n`;
+        prompt += `\nAfter implementing:\n`;
+        prompt += `1. Run: pnpm tsc --noEmit — must pass\n`;
+        prompt += `2. Run: pnpm build — must succeed\n`;
+        prompt += `3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md\n`;
+
+        return {
+          id,
+          tier: 'ENTERPRISE',
+          name: `Inject Pattern: ${patternName}`,
+          dependsOn: priorId ? [priorId] : [],
+          acceptanceCriteria: `'${patternName}' pattern implemented; tsc passes; build passes`,
+          filesHint: [],
+          governanceUpdates: ['STATE_OF_THE_BUILD.md', 'SESSION_STATE.md', 'AGENTS.md'],
+          prompt,
+        };
+      }
+
+      export function generateRetrofitQueue(
+        scan: ScanReport,
+        reconcile: ReconcileOutput,
+        outputPath: string
+      ): GeneratedQueue {
+        const prompts: QueuePrompt[] = [];
+
+        // Tier 1: CRITICAL fixes (approved only)
+        const approvedCriticals = reconcile.decisions
+          .filter(d => d.itemType === 'CRITICAL_FIX' && d.decision === 'APPROVE')
+          .map(d => reconcile.approved.find(f => f.message === d.itemId))
+          .filter((f): f is DiagnoseFinding => f !== undefined);
+
+        approvedCriticals.forEach((f, i) => {
+          prompts.push(buildCriticalFixPrompt(f, i, scan.projectPath));
+        });
+
+        // Tier 2: WARN fixes (approved)
+        const approvedWarns = reconcile.decisions
+          .filter(d => d.itemType === 'WARN_FIX' && d.decision === 'APPROVE')
+          .map(d => reconcile.approved.find(f => f.message === d.itemId))
+          .filter((f): f is DiagnoseFinding => f !== undefined);
+
+        approvedWarns.forEach((f, i) => {
+          prompts.push(buildWarnFeaturePrompt(f, i, scan.projectPath, approvedCriticals.length));
+        });
+
+        // Tier 3: Enterprise patterns to build
+        const patternsToBuild = reconcile.decisions
+          .filter(d => d.itemType === 'ENTERPRISE_PATTERN' && d.decision === 'BUILD')
+          .map(d => d.itemId);
+
+        const lastWarnId = approvedWarns.length > 0 ? sanitizeId('', 'RW', approvedWarns.length - 1) :
+          approvedCriticals.length > 0 ? sanitizeId('', 'RC', approvedCriticals.length - 1) : undefined;
+
+        patternsToBuild.forEach((pattern, i) => {
+          const priorId = i > 0 ? sanitizeId('', 'RE', i - 1) : lastWarnId;
+          prompts.push(buildEnterprisePatternPrompt(pattern, i, scan.projectPath, priorId));
+        });
+
+        const queue: GeneratedQueue = {
+          buildId: `forge-retrofit-${scan.projectName}-${Date.now()}`,
+          projectName: scan.projectName,
+          totalPrompts: prompts.length,
+          tiers: {
+            critical_fixes: approvedCriticals.length,
+            warn_fixes_and_features: approvedWarns.length,
+            enterprise_patterns: patternsToBuild.length,
+          },
+          prompts,
+          generatedAt: new Date().toISOString(),
+        };
+
+        // Write YAML
+        mkdirSync(outputPath, { recursive: true });
+        const yamlPath = join(outputPath, 'queue.yaml');
+        const yaml = buildYaml(queue, scan.projectName);
+        writeFileSync(yamlPath, yaml, 'utf8');
+        console.log(`\nQueue written to: ${yamlPath}`);
+        console.log(`Total prompts: ${queue.totalPrompts}`);
+
+        return queue;
+      }
+
+      function buildYaml(queue: GeneratedQueue, projectName: string): string {
+        const lines: string[] = [
+          `project: ${projectName}`,
+          '',
+          'governance:',
+          '  - BLUEPRINT.md',
+          '  - STATE_OF_THE_BUILD.md',
+          '  - SESSION_STATE.md',
+          '  - SCHEMA_REGISTRY.md',
+          '  - BEHAVIORAL_CONTRACTS.md',
+          '  - AGENTS.md',
+          '',
+          'settings:',
+          '  build_model: claude-sonnet-4-6',
+          '  max_retries: 3',
+          '',
+          'prompts:',
+        ];
+
+        for (const p of queue.prompts) {
+          lines.push(`  - id: ${p.id}`);
+          lines.push(`    name: "${p.name.replace(/"/g, '\\"')}"`);
+          if (p.dependsOn.length > 0) {
+            lines.push(`    depends_on:`);
+            for (const dep of p.dependsOn) lines.push(`      - ${dep}`);
+          }
+          lines.push(`    prompt: |`);
+          const promptLines = p.prompt.split('\n');
+          for (const pl of promptLines) lines.push(`      ${pl}`);
+          lines.push('');
+        }
+
+        return lines.join('\n');
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { generateRetrofitQueue } from './queue-generator.js';
+      export type { GeneratedQueue, QueuePrompt } from './queue-generator.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/queue-generator.ts exports generateRetrofitQueue
+      - Queue YAML matches the FORGE 1.0 queue format (project, governance, settings, prompts with id/name/prompt)
+      - Three tiers emitted in correct dependency order
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-010
+    name: "RETROFIT Console Output: Color-Coded Progress Renderer"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has all prior files through r2-009.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/renderer.ts — console output (Format C: live feed).
+
+      CREATE src/retrofit/renderer.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT Console Renderer (Format C: live feed)
+      import type { PreFlightResult, ScanReport, DiagnoseFinding } from './types.js';
+      import type { ArchitectureHealthReport } from './diagnose-health.js';
+      import type { GovernanceReconciliationReport, EnterprisePatternsGapReport } from './diagnose-reports.js';
+      import type { GeneratedQueue } from './queue-generator.js';
+
+      // ANSI color helpers (no external deps)
+      const C = {
+        reset: '\x1b[0m',
+        red: '\x1b[31m',
+        yellow: '\x1b[33m',
+        green: '\x1b[32m',
+        cyan: '\x1b[36m',
+        gray: '\x1b[90m',
+        bold: '\x1b[1m',
+        white: '\x1b[37m',
+      };
+
+      function colorSeverity(s: string): string {
+        if (s === 'CRITICAL') return `${C.red}[CRITICAL]${C.reset}`;
+        if (s === 'WARN')     return `${C.yellow}[WARN]${C.reset}`;
+        return `${C.gray}[INFO]${C.reset}`;
+      }
+
+      export function renderBanner(projectName: string, scope: string): void {
+        console.log(`\n${C.bold}${C.cyan}════════════════════════════════════════════════════════════${C.reset}`);
+        console.log(`${C.bold}  FORGE 2.0 — RETROFIT SCAN${C.reset}`);
+        console.log(`${C.bold}  Project: ${projectName}  |  Scope: ${scope}${C.reset}`);
+        console.log(`${C.bold}${C.cyan}════════════════════════════════════════════════════════════${C.reset}\n`);
+      }
+
+      export function renderPreFlightResults(results: PreFlightResult[]): void {
+        console.log(`${C.bold}── PRE-FLIGHT CHECKS ──${C.reset}`);
+        for (const r of results) {
+          const icon = r.status === 'PASS' ? `${C.green}✓${C.reset}` : r.status === 'WARN' ? `${C.yellow}⚠${C.reset}` : `${C.red}✗${C.reset}`;
+          const fixed = r.autoFixed ? ` ${C.cyan}[auto-fixed]${C.reset}` : '';
+          console.log(`  ${icon} ${r.check}: ${r.message}${fixed}`);
+        }
+        console.log('');
+      }
+
+      export function renderScanProgress(step: string, index: number, total: number): void {
+        const pct = Math.round((index / total) * 100);
+        const bar = '█'.repeat(Math.floor(pct / 5)) + '░'.repeat(20 - Math.floor(pct / 5));
+        process.stdout.write(`\r  ${C.cyan}[${bar}]${C.reset} ${pct}% — ${step}                    `);
+        if (index === total) process.stdout.write('\n');
+      }
+
+      export function renderScanSummary(report: ScanReport): void {
+        console.log(`\n${C.bold}── SCAN COMPLETE ──${C.reset}`);
+        console.log(`  Files scanned:        ${report.fileTree.totalFiles}`);
+        console.log(`  Project size:         ${report.fileTree.projectSizeKB.toFixed(1)} KB`);
+        console.log(`  Routes found:         ${report.routeInventory.length}`);
+        console.log(`  Broken imports:       ${C.red}${report.brokenImports.length}${C.reset}`);
+        console.log(`  TypeScript errors:    ${C.red}${report.compilationErrors.length}${C.reset}`);
+        console.log(`  Dead files:           ${C.yellow}${report.deadFiles.length}${C.reset}`);
+        console.log(`  Env var issues:       ${report.envAudit.filter(e => e.severity === 'CRITICAL').length} CRITICAL`);
+        console.log(`  Schema issues:        ${report.schemaAudit.filter(s => s.severity === 'CRITICAL').length} CRITICAL`);
+        console.log(`  Uncommitted changes:  ${report.gitAudit.uncommittedChanges}`);
+        console.log('');
+      }
+
+      export function renderFinding(f: DiagnoseFinding): void {
+        const cat = `${C.cyan}[${f.category}]${C.reset}`;
+        const file = f.file ? ` ${C.gray}(${f.file})${C.reset}` : '';
+        console.log(`  ${colorSeverity(f.severity)} ${cat} ${f.message}${file}`);
+      }
+
+      export function renderHealthReport(report: ArchitectureHealthReport): void {
+        console.log(`\n${C.bold}── ARCHITECTURE HEALTH REPORT ──${C.reset}`);
+        if (report.critical.length > 0) {
+          console.log(`\n  ${C.red}CRITICAL (${report.critical.length})${C.reset}`);
+          report.critical.forEach(renderFinding);
+        }
+        if (report.warn.length > 0) {
+          console.log(`\n  ${C.yellow}WARN (${report.warn.length})${C.reset}`);
+          report.warn.forEach(renderFinding);
+        }
+        if (report.info.length > 0) {
+          console.log(`\n  ${C.gray}INFO (${report.info.length})${C.reset}`);
+          report.info.forEach(renderFinding);
+        }
+        if (report.adversaryFindings.length > 0) {
+          console.log(`\n  ${C.cyan}ADVERSARY ADDITIONS (${report.adversaryFindings.length})${C.reset}`);
+          report.adversaryFindings.forEach(renderFinding);
+        }
+        console.log('');
+      }
+
+      export function renderGovernanceReport(report: GovernanceReconciliationReport): void {
+        console.log(`${C.bold}── GOVERNANCE RECONCILIATION ──${C.reset}`);
+        if (report.unbuilt.length > 0) {
+          console.log(`\n  Unbuilt planned features (${report.unbuilt.length}):`);
+          for (const u of report.unbuilt) {
+            console.log(`  ${C.yellow}  ${u.feature}${C.reset} [${u.recommendation}] — ${u.source}`);
+          }
+        }
+        if (report.undocumented.length > 0) {
+          console.log(`\n  Undocumented built features (${report.undocumented.length}):`);
+          for (const u of report.undocumented) {
+            console.log(`  ${C.cyan}  ${u.feature}${C.reset} (${u.file})`);
+          }
+        }
+        console.log('');
+      }
+
+      export function renderEnterprisePatternsReport(report: EnterprisePatternsGapReport): void {
+        console.log(`${C.bold}── ENTERPRISE PATTERNS GAP (${report.maturityStage}) ──${C.reset}`);
+        for (const g of report.gaps) {
+          const status = g.present ? `${C.green}✓ present${C.reset}` : `${C.yellow}✗ missing${C.reset}`;
+          const req = g.required ? ` ${C.red}[required]${C.reset}` : '';
+          console.log(`  ${g.pattern}: ${status}${req}`);
+        }
+        console.log('');
+      }
+
+      export function renderQueueSummary(queue: GeneratedQueue): void {
+        console.log(`\n${C.bold}${C.green}── QUEUE GENERATED ──${C.reset}`);
+        console.log(`  Build ID:              ${queue.buildId}`);
+        console.log(`  Total prompts:         ${queue.totalPrompts}`);
+        console.log(`  Tier 1 (CRITICAL):     ${queue.tiers.critical_fixes}`);
+        console.log(`  Tier 2 (WARN+FEAT):    ${queue.tiers.warn_fixes_and_features}`);
+        console.log(`  Tier 3 (ENTERPRISE):   ${queue.tiers.enterprise_patterns}`);
+        console.log(`\n  ${C.green}Ready to run with FORGE 1.0.${C.reset}\n`);
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { renderBanner, renderPreFlightResults, renderScanProgress, renderScanSummary, renderHealthReport, renderGovernanceReport, renderEnterprisePatternsReport, renderQueueSummary } from './renderer.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/renderer.ts exports all render functions
+      - No external dependencies — ANSI codes only
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-011
+    name: "RETROFIT Pipeline Orchestrator: Wires SCAN + DIAGNOSE + RECONCILE + QUEUE"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ has all prior files through r2-010.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Create src/retrofit/pipeline.ts — the top-level RETROFIT command that runs the full pipeline.
+
+      CREATE src/retrofit/pipeline.ts with EXACTLY this content:
+
+      ```typescript
+      // FORGE 2.0 — RETROFIT Full Pipeline Orchestrator
+      import { join } from 'node:path';
+      import type { ScanScope } from './types.js';
+      import { runScan } from './scan.js';
+      import { generateArchitectureHealthReport } from './diagnose-health.js';
+      import { buildGovernanceReconciliationReport, buildEnterprisePatternsGapReport } from './diagnose-reports.js';
+      import { runReconcile } from './reconcile.js';
+      import { generateRetrofitQueue } from './queue-generator.js';
+      import {
+        renderBanner, renderPreFlightResults, renderScanProgress, renderScanSummary,
+        renderHealthReport, renderGovernanceReport, renderEnterprisePatternsReport, renderQueueSummary,
+      } from './renderer.js';
+
+      export interface RetrofitPipelineOptions {
+        projectPath: string;
+        scope?: ScanScope;
+        skipDynamic?: boolean;
+        resume?: boolean;
+        nonInteractive?: boolean;
+        queueOutputPath?: string;
+        apiKey?: string;
+      }
+
+      export async function runRetrofitPipeline(options: RetrofitPipelineOptions): Promise<void> {
+        const {
+          projectPath,
+          scope = 'C',
+          skipDynamic = false,
+          resume = false,
+          nonInteractive = false,
+          queueOutputPath,
+          apiKey,
+        } = options;
+
+        const projectName = projectPath.split(/[/\\]/).pop() ?? 'unknown';
+        renderBanner(projectName, scope);
+
+        // ── STAGE 1: SCAN ──────────────────────────────────────────────────────────
+        console.log('Running SCAN (14 operations)...\n');
+        const { report: scanReport, preFlightHalted } = await runScan({
+          projectPath,
+          scope,
+          skipDynamic,
+          resume,
+          onProgress: (step, i, total) => {
+            renderScanProgress(step, i, total);
+          },
+        });
+
+        if (preFlightHalted) {
+          console.error('\nPre-flight checks FAILED. RETROFIT aborted.');
+          process.exit(1);
+        }
+
+        renderScanSummary(scanReport);
+
+        // ── STAGE 2: DIAGNOSE ─────────────────────────────────────────────────────
+        console.log('Running DIAGNOSE...\n');
+
+        const healthReport = await generateArchitectureHealthReport(scanReport, apiKey);
+        renderHealthReport(healthReport);
+
+        const governanceReport = buildGovernanceReconciliationReport(scanReport, projectPath);
+        renderGovernanceReport(governanceReport);
+
+        const enterpriseReport = buildEnterprisePatternsGapReport(scanReport, projectPath);
+        renderEnterprisePatternsReport(enterpriseReport);
+
+        // ── STAGE 3: RECONCILE ────────────────────────────────────────────────────
+        console.log('Running RECONCILE...\n');
+
+        const reconcileOutput = await runReconcile(projectName, {
+          criticalFindings: healthReport.critical,
+          warnFindings: healthReport.warn,
+          governanceReport,
+          enterpriseReport,
+        }, nonInteractive);
+
+        // ── STAGE 4: QUEUE GENERATION ─────────────────────────────────────────────
+        const forgeProjectsDir = queueOutputPath ?? join(
+          process.env['USERPROFILE'] ?? process.env['HOME'] ?? '',
+          'Documents', 'FORGE', 'projects', projectName
+        );
+
+        const queue = generateRetrofitQueue(scanReport, reconcileOutput, forgeProjectsDir);
+        renderQueueSummary(queue);
+
+        console.log(`To run the generated queue:\n`);
+        console.log(`  cd C:\\Users\\manag\\Documents\\FORGE`);
+        console.log(`  $env:NODE_OPTIONS="--max-old-space-size=8192"`);
+        console.log(`  $env:ANTHROPIC_API_KEY=$null`);
+        console.log(`  $env:DANGEROUSLY_SKIP_PERMISSIONS=1`);
+        console.log(`  powershell -ExecutionPolicy Bypass -File .\\forge.ps1 -project ${projectName} -startFrom 0`);
+      }
+      ```
+
+      STEP 2 — UPDATE src/retrofit/index.ts — add:
+      ```typescript
+      export { runRetrofitPipeline } from './pipeline.js';
+      export type { RetrofitPipelineOptions } from './pipeline.js';
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Must pass 0 errors.
+
+      ACCEPTANCE CRITERIA:
+      - src/retrofit/pipeline.ts exports runRetrofitPipeline
+      - All 4 stages invoked in sequence: SCAN → DIAGNOSE → RECONCILE → QUEUE
+      - Queue output path defaults to FORGE 1.0 projects directory
+      - Pre-flight halt exits with code 1
+      - pnpm tsc --noEmit passes 0 errors
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-012
+    name: "Wire RETROFIT Command into FORGE CLI"
+    prompt: |
+      You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+      src/retrofit/ is fully built. Now wire it into the existing FORGE CLI entry point.
+      Do NOT install npm packages in this prompt.
+
+      TASK: Add the 'retrofit' command to the existing Commander CLI in src/index.ts (or wherever the main CLI entry point is).
+
+      STEP 1 — READ the existing CLI entry point:
+      Read src/index.ts (or src/cli.ts or the file referenced by package.json "bin"). Identify where Commander commands are registered.
+
+      STEP 2 — ADD the retrofit command to the existing CLI file.
+      Find the section with existing commands (e.g., .command('run') or similar).
+      Add after the last existing command:
+
+      ```typescript
+      program
+        .command('retrofit')
+        .description('FORGE RETROFIT: scan, diagnose, reconcile, and queue an existing codebase')
+        .argument('<project-path>', 'Absolute path to the project to retrofit')
+        .option('--scope <scope>', 'Analysis scope: A (codebase only), B (+ database), C (+ Vercel)', 'C')
+        .option('--skip-dynamic', 'Skip dynamic route testing (dev server not started)', false)
+        .option('--resume', 'Resume from prior SCAN checkpoint', false)
+        .option('--non-interactive', 'Auto-approve all RECONCILE decisions (CI mode)', false)
+        .option('--queue-output <path>', 'Override QUEUE output directory')
+        .option('--api-key <key>', 'Anthropic API key for adversarial review (overrides env)')
+        .action(async (projectPath: string, opts: Record<string, unknown>) => {
+          const { runRetrofitPipeline } = await import('./retrofit/pipeline.js');
+          await runRetrofitPipeline({
+            projectPath,
+            scope: (opts['scope'] as 'A' | 'B' | 'C') ?? 'C',
+            skipDynamic: Boolean(opts['skipDynamic']),
+            resume: Boolean(opts['resume']),
+            nonInteractive: Boolean(opts['nonInteractive']),
+            queueOutputPath: opts['queueOutput'] as string | undefined,
+            apiKey: opts['apiKey'] as string | undefined,
+          });
+        });
+      ```
+
+      STEP 3 — VERIFY:
+      Run: pnpm tsc --noEmit
+      Run: node dist/index.js retrofit --help (or pnpm build && node dist/index.js retrofit --help)
+      The --help output must show the retrofit command with all options.
+
+      ACCEPTANCE CRITERIA:
+      - 'retrofit' command registered in CLI
+      - pnpm tsc --noEmit passes 0 errors
+      - 'forge retrofit --help' shows usage with all 6 options
+      - No existing CLI commands modified
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+  - id: r2-013
+    name: "Run 2 Handoff: Audit RETROFIT Pipeline, Update All Governance Docs"
+    prompt: |
+      You are completing Run 2 of the FORGE 2.0 build at C:\Users\manag\Documents\forge-2.
+      Run 2 built the full RETROFIT pipeline across 12 prior prompts.
+      This final prompt audits everything built and updates all governance docs.
+
+      STEP 1 — VERIFY THE FULL PIPELINE:
+
+      Run these commands and capture output:
+      ```
+      pnpm tsc --noEmit
+      ```
+      Must pass 0 errors.
+
+      List all files in src/retrofit/:
+      ```
+      ls src/retrofit/
+      ```
+      Must include: types.ts, preflight.ts, scan-ops-1-4.ts, scan-ops-5-8.ts, scan-ops-9-14.ts, scan.ts, diagnose-health.ts, diagnose-reports.ts, reconcile.ts, queue-generator.ts, renderer.ts, pipeline.ts, index.ts
+
+      Count total lines added:
+      ```
+      wc -l src/retrofit/*.ts
+      ```
+
+      Verify CLI command is registered:
+      ```
+      grep -n "retrofit" src/index.ts
+      ```
+
+      STEP 2 — UPDATE STATE_OF_THE_BUILD.md:
+
+      Set:
+      - Last Updated: today's date
+      - Build Status: IN_PROGRESS
+      - Current Run: Post-Run 2
+      - Total Prompts Executed: 13 (Run 1) + 13 (Run 2) = 26
+
+      Update the module table:
+      - Module 5 (RETROFIT SCAN): COMPLETE — 14 operations, scan.ts orchestrator, ScanReport JSON
+      - Module 6 (RETROFIT DIAGNOSE): COMPLETE — health report, adversarial review (Claude API), governance reconciliation, enterprise patterns gap
+      - Module 7 (RETROFIT RECONCILE): COMPLETE — hybrid interactive model, prior decision lookup, SQLite persistence
+      - QUEUE Generator: COMPLETE — tier-ordered YAML output, FORGE 1.0 compatible format
+      - CLI Integration: COMPLETE — 'forge retrofit' command registered
+
+      Update Future Runs section:
+      - Run 3 target: Sentinel Pipeline (18 tools)
+
+      STEP 3 — UPDATE SESSION_STATE.md:
+      - Current Session: Post-Run 2
+      - Run Number: 2
+      - Phase: RETROFIT COMPLETE
+      - Prompts Executed: 13
+      - Prompts Passed: (actual from run)
+      - Next Action: "Review Run 2 output. Begin Run 3: Sentinel Pipeline."
+
+      STEP 4 — CREATE CHANGELOG-RUN2.md in the project root:
+      Document:
+      - All new files created (full list with src/retrofit/ paths)
+      - Line counts per file (from actual wc -l output)
+      - New CLI command added: 'forge retrofit'
+      - Architecture decisions made:
+        * Dynamic testing uses GET-only on port 3099
+        * Adversarial review is best-effort (non-fatal API failure)
+        * nonInteractive mode for CI/headless operation
+        * Queue output defaults to FORGE 1.0 projects directory
+      - Total new lines of code added in Run 2
+
+      STEP 5 — CREATE .forge/RETROFIT_AUDIT.md:
+      Complete inventory of the RETROFIT pipeline:
+      - Function registry: every exported function with file and signature
+      - Pipeline stages: SCAN → DIAGNOSE → RECONCILE → QUEUE
+      - SCAN operations: all 14 listed with operation number and function name
+      - DIAGNOSE reports: all 3 listed
+      - Integration point: CLI command 'forge retrofit <project-path>'
+      - Limitations documented:
+        * Schema audit requires supabase/migrations dir (graceful fallback if missing)
+        * Supabase live query not implemented yet (Scope B/C requires future prompt)
+        * Dynamic testing assumes Next.js dev server on port 3099
+
+      ALL CONTENT must be from ACTUAL FILE READS and COMMAND OUTPUT.
+
+      VERIFICATION:
+      ```
+      pnpm tsc --noEmit
+      test -f CHANGELOG-RUN2.md && echo "Changelog: EXISTS" || echo "FAIL"
+      test -f .forge/RETROFIT_AUDIT.md && echo "Audit: EXISTS" || echo "FAIL"
+      ls src/retrofit/ | wc -l
+      ```
+
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.

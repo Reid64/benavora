@@ -1,0 +1,18 @@
+release_id: PIL-RELEASE-25
+version: 1.0.0
+title: Corporate Relationship Mapping Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-24-v1.0.0
+new_agent:
+  id: BEN-REL-03
+  path: 22-agents/relationship/BEN-REL-03-corporate-relationship-mapping.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-REL-03-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 27
+remaining_agent_specifications: 17
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_claimed: false
+  tests_claimed: false
+  production_score_preassigned: false

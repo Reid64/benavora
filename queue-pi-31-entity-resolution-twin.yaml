@@ -1,0 +1,506 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-31: ENTITY RESOLUTION + DIGITAL TWIN
+#
+# The two-John-Smiths problem, and the living prospect state.
+# This queue ships the deterministic entity-resolution support
+# engine AND the program's FIRST TWO REAL AGENTS on the kernel:
+# BEN-KNW-02 (Entity Resolution) and BEN-KNW-01 (Prospect
+# Digital Twin) - implemented exactly from their FAMILY-7
+# behavioral contracts. Everything the kernel promised gets its
+# first production consumer here.
+#
+# DIVISION OF LABOR (per the contracts): the deterministic
+# engine blocks and scores candidate pairs; clear cases resolve
+# deterministically; ONLY the gray zone reaches the agent's
+# reasoning; sensitive/high-impact linkage hits the H1 human
+# boundary. Wrong merges poison every downstream conclusion -
+# this layer is conservative by design.
+#
+# MODEL SPEND RULE: CI tests are FakeProvider only. Exactly one
+# bounded live-model evaluation (pi31-011) proves real reasoning
+# on golden cases - small, counted, metered.
+# ============================================================
+
+prompts:
+
+  - id: pi31-001
+    phase: build
+    description: "Preflight: FAMILY-7 contracts read, substrate green"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read docs/architecture/contracts/FAMILY-7-KNOWLEDGE-OPS.md in
+         full - BEN-KNW-01 and BEN-KNW-02 are this queue's
+         specifications; read the registry's entity-resolution tables
+         section and AGENT_CONTRACT_SPEC's prompt-architecture section.
+      2. Health: pnpm -r test green; kernel-proof + graph proofs re-run
+         green; migrate --status clean. Capture.
+      3. Capture to evidence\pi-31\preflight.txt.
+      4. Create scripts\verify\verify-pi31-001.mjs: exits 0 only if the
+         contract file contains both agents' 24-field contracts (grep
+         the field headings under each) and the re-runs were green.
+      5. Run: node scripts/verify/verify-pi31-001.mjs
+    expected_outputs:
+      - evidence/pi-31/preflight.txt
+      - scripts/verify/verify-pi31-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi31-002
+    phase: build
+    description: "Migrations: resolution candidates, decisions, merge history"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's ER tables section immediately before writing.
+
+      1. Migration 0027_entity_resolution.sql per the registry:
+         resolution_candidates (pair of entity refs, blocking_keys that
+         surfaced the pair, feature_scores jsonb, engine_score,
+         engine_verdict enum auto_match/auto_non_match/gray_zone,
+         status), resolution_decisions (candidate ref, verdict enum
+         MATCH/PROBABLE_MATCH/UNRESOLVED/NOT_MATCH verbatim, decided_by
+         (engine/agent/human), evidence claim ids, confidence,
+         rationale, at) append-only, merge_history (survivor ref,
+         merged ref, decision ref, repointed_counts jsonb,
+         reversal_of nullable - merges are reversible ON RECORD even
+         though reversal is an explicit operation, at) append-only.
+         RLS same-file; expectations first; apply; column-diff;
+         append-only proofs; no-op; matrix green - all to
+         evidence\pi-31\p002-verify.txt.
+      2. Create scripts\verify\verify-pi31-002.mjs standard migration
+         pattern plus the four verdict labels present in the enum.
+      3. Run: node scripts/verify/verify-pi31-002.mjs
+    expected_outputs:
+      - supabase/migrations/0027_entity_resolution.sql
+      - scripts/verify/verify-pi31-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-003
+    phase: build
+    description: "The deterministic ER support engine: blocking and scoring"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\entity-resolution\:
+         - Normalization: name canonicalization (case, punctuation,
+           suffixes Jr/Sr/III, nickname mapping via a committed
+           nickname table - Bill/William class), org-name
+           normalization (Inc/LLC/Foundation suffix handling),
+           address normalization.
+         - Blocking: candidate-pair generation keyed on (a) phonetic
+           name keys (double-metaphone), (b) shared hard identifiers
+           (EIN, CIK, exact email/phone where present in
+           entity_external_ids), (c) geo proximity buckets, (d) shared
+           graph affiliations (same org/board neighborhood via the
+           overlap primitives) - each generated pair records WHICH
+           keys fired (the agent's later reasoning context).
+         - Scoring: a deterministic feature vector per pair (name
+           similarity via a stated string metric, identifier matches
+           weighted heaviest, geo distance, affiliation overlap count,
+           archetype compatibility hard-gate: a person never blocks
+           against a foundation except via the linkage relations the
+           registry defines) -> engine_score with DOCUMENTED weights
+           (a constants module with reasoning comments); thresholds ->
+           auto_match (only on hard-identifier agreement + name
+           compatibility - state the conservative rule),
+           auto_non_match, gray_zone (everything else - the agent's
+           inbox).
+      2. Vitest golden fixtures covering the directive's example
+         problems as DETERMINISTIC-LAYER cases: identical-EIN pair ->
+         auto_match; same-name different-state different-affiliations
+         -> gray_zone (never auto); person-vs-foundation archetype
+         gate; nickname pair with shared board -> gray_zone with the
+         right keys recorded; scoring monotonicity (adding a matching
+         identifier never lowers the score - property test).
+      3. Green; evidence\pi-31\er-engine-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi31-003.mjs standard pattern
+         plus the conservative-auto-match rule test present.
+      5. Run: node scripts/verify/verify-pi31-003.mjs
+    expected_outputs:
+      - packages/services/src/entity-resolution/index.ts
+      - scripts/verify/verify-pi31-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-004
+    phase: build
+    description: "Merge machinery: reversible-on-record canonical merges across entities and graph"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\entity-resolution\merge.ts:
+         executeMerge(decisionId): only for MATCH decisions; one
+         transaction: choose the survivor per the registry's rule
+         (older canonical / more evidence - follow it), merge
+         entity_external_ids, re-point claims' entity refs, re-point
+         graph_nodes (and thereby edges), fold twin state (marker for
+         KNW-01 rebuild), write merge_history with exact repointed
+         counts, mark the merged entity per the registry's
+         merged-tombstone pattern (never deleted - resolution_status
+         merged_into). reverseMerge(mergeId, reason): the explicit
+         reversal - re-point back using the recorded counts/refs,
+         append the reversal history row; document what CANNOT be
+         perfectly reversed if anything (claims written against the
+         survivor AFTER the merge stay with the survivor - state this
+         honestly in the module doc and the history row).
+      2. Vitest: a full merge on a seeded pair - every repoint count
+         exact (claims, external ids, nodes, edges via nodes);
+         tombstone state; canonical reads post-merge see the unified
+         entity; reversal restores the pre-merge read state for
+         pre-merge data and the post-merge-claims caveat is asserted
+         (a claim added between merge and reversal stays put, flagged).
+      3. Green; evidence\pi-31\merge-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi31-004.mjs standard pattern
+         plus the reversal-caveat test present.
+      5. Run: node scripts/verify/verify-pi31-004.mjs
+    expected_outputs:
+      - packages/services/src/entity-resolution/merge.ts
+      - scripts/verify/verify-pi31-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-005
+    phase: build
+    description: "BEN-KNW-02 as code: the first real behavioral contract on the kernel"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\knowledge\BEN-KNW-02.ts: the
+         Entity Resolution Agent contract translated field-for-field
+         from FAMILY-7-KNOWLEDGE-OPS.md into the BehavioralContract
+         type - all 24 fields; permitted tools: the ER engine query
+         tools (register them in ToolRegistry per TOOL_CONTRACTS:
+         er.getCandidate, er.getPairContext - the pair's feature
+         scores, both entities' canonical claims, their graph
+         neighborhoods via overlap), claim reads, graph overlap, and
+         the webcrawl/propublica/edgar read tools for disambiguating
+         evidence gathering; delegation: none (leaf specialist per its
+         contract); autonomy A3 with the H1 boundary EXACTLY as the
+         contract states it (sensitive/high-impact identity linkage -
+         encode the trigger condition the contract defines);
+         model class frontier per D-005.
+      2. The agent's prompts authored per the spec's prompt
+         architecture: system prompt establishing the four verdicts,
+         the evidence discipline (every verdict cites claim ids), the
+         conservative bias (UNRESOLVED over guessing - state it as an
+         instruction), untrusted-content delimiting per the pi-21
+         hardened templates. Versioned, hashed.
+      3. Its structured output schema: verdict, confidence, rationale,
+         cited claim ids, sensitivity flag (drives H1), requested
+         additional evidence (when UNRESOLVED wants specific research).
+      4. Vitest (FakeProvider): contract loads valid; a scripted
+         gray-zone run through the REAL kernel produces a
+         resolution_decisions row with verdict + citations; the
+         sensitivity-flagged case raises H1 and parks; UNRESOLVED with
+         an evidence request surfaces the request in the run output;
+         the agent never receives auto_match/auto_non_match pairs (the
+         routing test: engine verdicts bypass the agent).
+      5. Green; evidence\pi-31\knw02-tests.txt. Typecheck clean.
+      6. Create scripts\verify\verify-pi31-005.mjs: standard plus the
+         H1-park and engine-bypass tests present.
+      7. Run: node scripts/verify/verify-pi31-005.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/BEN-KNW-02.ts
+      - scripts/verify/verify-pi31-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-006
+    phase: build
+    description: "KNW-02 golden evaluation suite: the directive's hard cases as fixtures"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\knowledge\__evals__\BEN-KNW-02\:
+         the contract's evaluation-suite sketch expanded into real
+         golden fixtures - each a seeded pair with claims and graph
+         context plus the EXPECTED verdict and required citation
+         behavior: (a) two executives, same name, different companies,
+         no shared affiliations -> NOT_MATCH; (b) same person across a
+         changed surname with continuous employer + board evidence ->
+         MATCH or PROBABLE_MATCH (state which the contract's
+         confidence rules demand); (c) foundation and personal address
+         overlap (the directive's case) -> the linkage the contract
+         specifies, sensitivity-flagged; (d) duplicate CRM records
+         with partial data -> PROBABLE_MATCH with an evidence request;
+         (e) an adversarial near-miss: matching names + city but
+         contradicting hard identifiers -> NOT_MATCH (identifiers
+         out-vote fuzz).
+         The eval harness (per EVALUATION_FRAMEWORK.md's structure):
+         runs each fixture through the real kernel with FakeProvider
+         scripted per-case to a REASONABLE model behavior, and asserts
+         the pipeline verdicts + citations + flags. This validates the
+         pipeline and fixtures; pi31-011 validates real-model
+         reasoning on the same fixtures.
+      2. Green; evidence\pi-31\knw02-evals.txt.
+      3. Create scripts\verify\verify-pi31-006.mjs: exits 0 only if all
+         five golden cases pass with their expected verdicts.
+      4. Run: node scripts/verify/verify-pi31-006.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/__evals__/BEN-KNW-02/index.ts
+      - scripts/verify/verify-pi31-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-007
+    phase: build
+    description: "Digital twin model + deterministic assembly"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Implement the twin exactly where the registry put it
+         (twin_state on entities or its own table - follow it; migrate
+         0028 only if the registry defined a table).
+         packages\services\src\twin\: the TwinState typed structure
+         per BEN-KNW-01's contract integration list (identity,
+         biography, organizations, companies, foundations, giving,
+         wealth indicators, relationships, evidence summary, timeline,
+         affinity, capacity, opportunities, research gaps,
+         contradictions, current strategy, monitoring events - typed
+         sections, each carrying its source claim ids and freshness);
+         assembleTwin(entityRef): DETERMINISTIC assembly from canonical
+         claims + graph queries (no model call - assembly is
+         compilation, not reasoning; the agent reasons ABOUT the twin);
+         section-level staleness computed from underlying claim
+         freshness.
+      2. Vitest: assembly correctness on a seeded entity (every section
+         traced to its claims); superseded claims absent; a
+         contradiction surfaces in its section AND the contradictions
+         rollup; timeline ordering; staleness math.
+      3. Green; evidence\pi-31\twin-assembly-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi31-007.mjs standard pattern.
+      5. Run: node scripts/verify/verify-pi31-007.mjs
+    expected_outputs:
+      - packages/services/src/twin/index.ts
+      - scripts/verify/verify-pi31-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-008
+    phase: build
+    description: "BEN-KNW-01 as code: the twin's keeper"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\knowledge\BEN-KNW-01.ts:
+         field-for-field from FAMILY-7 - A3; tools: twin assembly,
+         claim reads, graph reads, twin-state write (the ONLY writer
+         of twin state - register the tool with that restriction);
+         its responsibilities as loop behavior: triggered by
+         events (claim written/superseded, edge changed, merge
+         executed, contradiction recorded - subscribe per
+         EVENT_TAXONOMY through a workflow-engine consumer that
+         enqueues KNW-01 goals), it re-assembles affected sections,
+         maintains superseded-fact tracking, and emits RESEARCH GAPS
+         as structured outputs (the contract's gap taxonomy - typed;
+         these are BEN-SUP-01's future inputs).
+      2. Prompts per the spec (its reasoning is gap detection +
+         significance judgment, not fact creation - it NEVER writes
+         claims, only twin state; enforce via its tool set).
+      3. Vitest (FakeProvider): a claim-superseded event triggers a
+         KNW-01 run that updates exactly the affected section (others
+         byte-stable); a merge event triggers full rebuild; gap
+         outputs typed and stored; the no-claim-writes restriction
+         (its tool set physically lacks writeClaim - assert).
+      4. Green; evidence\pi-31\knw01-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi31-008.mjs: standard plus the
+         affected-section-only and no-claim-write tests present.
+      6. Run: node scripts/verify/verify-pi31-008.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/BEN-KNW-01.ts
+      - scripts/verify/verify-pi31-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-009
+    phase: build
+    description: "Resolution pipeline wiring: engine -> agent -> human, end to end through the workflow engine"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\entity-resolution\pipeline.ts: the
+         standing resolution flow as durable workflow - new/changed
+         entities enqueue blocking; pairs scored; auto verdicts write
+         decisions directly (decided_by engine); gray-zone pairs
+         enqueue BEN-KNW-02 goals through the kernel; MATCH decisions
+         (agent, above the contract's execution-confidence floor, not
+         sensitivity-flagged) execute merges; sensitivity-flagged or
+         floor-failing MATCHes raise H1 with the full pair context in
+         the escalation payload; human resolution executes or declines
+         the merge; every path audited; KNW-01 twin rebuilds ride the
+         merge events from pi31-008.
+      2. Vitest (integration, FakeProvider): the full ladder on seeded
+         entities - auto_match merges without agent involvement;
+         gray-zone reaches the agent; flagged MATCH parks at H1, human
+         approve merges, human reject records NOT_MATCH-by-human;
+         twin rebuilt post-merge (section trace).
+      3. Green; evidence\pi-31\pipeline-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi31-009.mjs: standard plus the
+         H1-approve-merge and reject paths present.
+      5. Run: node scripts/verify/verify-pi31-009.mjs
+    expected_outputs:
+      - packages/services/src/entity-resolution/pipeline.ts
+      - scripts/verify/verify-pi31-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-010
+    phase: build
+    description: "Integration proof: the two-John-Smiths scenario live through the whole stack"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\resolution-proof.mjs: seed the full ambiguity
+         scenario as real data - John Smith A (owns ABC Development,
+         Texas, board of XYZ Community Foundation, evidence-backed via
+         real claims with snapshot-style refs) and John Smith B
+         (different city, different employer, one shared surface
+         feature) plus a third record that IS Smith A under a
+         nickname (Jack Smith, same EIN-linked company). Run the real
+         pipeline on the real stack (FakeProvider scripted to
+         reasonable verdicts): assert Jack/John A resolves toward
+         match through the ladder; A/B lands NOT_MATCH or UNRESOLVED
+         (never MATCH); the merge repoints exactly; the twin for the
+         unified Smith A shows the integrated picture (company +
+         board + geography sections all present with citations);
+         graph traversal from ABC Development reaches XYZ Foundation
+         through the unified node. Full trail JSON to
+         evidence\pi-31\resolution-proof.json.
+      2. All assertions pass.
+      3. Create scripts\verify\verify-pi31-010.mjs: exits 0 only if
+         the proof shows the correct three-record outcome and the
+         post-merge traversal.
+      4. Run: node scripts/verify/verify-pi31-010.mjs
+    expected_outputs:
+      - scripts/proofs/resolution-proof.mjs
+      - evidence/pi-31/resolution-proof.json
+      - scripts/verify/verify-pi31-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-011
+    phase: build
+    description: "Bounded live-model evaluation: real reasoning on the golden cases"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\knw02-live-eval.mjs: run golden cases (a),
+         (c), and (e) from pi31-006 through the REAL model gateway at
+         the contract's class - three real completions, bounded
+         maxTokens, metered. Assert: verdicts match expectations;
+         citations reference real seeded claim ids (a fabricated id
+         is a hard fail worth knowing about); case (c) emerges
+         sensitivity-flagged; total spend captured from the cost
+         ledger and printed. Results + spend to
+         evidence\pi-31\knw02-live-eval.json.
+      2. If ANTHROPIC key absent: BLOCKED note + verify exit 1 (halt
+         for Reid), never faked.
+      3. A verdict mismatch is a FINDING, not automatically a bug:
+         analyze whether the prompt, the fixture, or the expectation
+         is wrong; fix the right one; document the reasoning in the
+         evidence; re-run. (Prompt iteration against goldens is the
+         designed loop - version bumps recorded.)
+      4. Create scripts\verify\verify-pi31-011.mjs: exits 0 only if
+         the eval JSON shows 3 real completions, all passing, real
+         claim-id citations, and a spend figure.
+      5. Run: node scripts/verify/verify-pi31-011.mjs
+    expected_outputs:
+      - scripts/proofs/knw02-live-eval.mjs
+      - evidence/pi-31/knw02-live-eval.json
+      - scripts/verify/verify-pi31-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi31-012
+    phase: build
+    description: "Close-out: snapshot, agent registry status, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. schema-snapshot; evidence\pi-31\SUMMARY.md: migrations
+         (0027, 0028 if used), the ER engine's conservative rules
+         restated with their tests, THE FLEET BOARD's first entries -
+         start docs\architecture\FLEET_STATUS.md: a 44-row table
+         (id, family, status: CONTRACTED (doc only) / IMPLEMENTED /
+         LIVE-EVALED, evidence ref) with BEN-KNW-01 IMPLEMENTED and
+         BEN-KNW-02 LIVE-EVALED, all others CONTRACTED - this board
+         is the program's honest fleet tracker from now on; the
+         resolution-proof headline; the live-eval spend figure;
+         amendments (zero silent drift); matrix green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-31
+         complete; 2 of 44 agents implemented; next queue
+         pi-32-evidence-integrity.
+      3. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-31/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "entity resolution engine + BEN-KNW-02 (first live
+         agent) + digital twin + BEN-KNW-01 - two-John-Smiths proven
+         (pi-31)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi31-012.mjs: standard close-out
+         plus FLEET_STATUS.md exists with exactly 44 rows and the two
+         status upgrades.
+      5. Run: node scripts/verify/verify-pi31-012.mjs
+    expected_outputs:
+      - docs/architecture/FLEET_STATUS.md
+      - evidence/pi-31/SUMMARY.md
+      - scripts/verify/verify-pi31-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi31-012.mjs"
+    max_retries: 3
+    on_fail: halt

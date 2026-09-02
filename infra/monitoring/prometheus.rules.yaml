@@ -1,0 +1,42 @@
+groups:
+  - name: benavora_alerts
+    rules:
+      - alert: AgentFamilyFailureRate
+        expr: |
+          sum(rate(benavora_agent_events_total{severity="error"}[5m])) by (family) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.family }} family agents failing > 5%"
+          description: "Agent family {{ $labels.family }} has an error rate of {{ $value | humanizePercentage }} over the last 5m."
+
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(benavora_api_latency_ms_bucket[5m])) by (le)) > 5000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API p95 latency > 5s"
+          description: "p95 API latency has been above 5000ms for 10m ({{ $value | humanize }}ms)."
+
+      - alert: AuthFailureSpike
+        expr: |
+          sum(rate(benavora_auth_failures_total[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Auth failure rate spike"
+          description: "Auth failures are occurring at {{ $value | humanize }}/s over the last 5m, above the 0.1/s threshold."
+
+      - alert: SupabaseSlowQueries
+        expr: |
+          histogram_quantile(0.95, sum(rate(benavora_supabase_query_ms_bucket{operation="select"}[5m])) by (le)) > 1000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database query latency > 1s"
+          description: "p95 Supabase select query latency has been above 1000ms for 5m ({{ $value | humanize }}ms)."

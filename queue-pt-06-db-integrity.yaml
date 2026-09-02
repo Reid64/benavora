@@ -1,0 +1,314 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-06: DATABASE INTEGRITY AUDIT  (evidence-standard)
+#
+# Phase 06 of the Benavora Enterprise Audit Program.
+# Depends on PT-00 (route/env baseline). The command-gate
+# engine, ledger, and evidence-lib.mjs are in place and proven.
+#
+# QUESTION THIS PHASE ANSWERS: is the database schema what the
+# code thinks it is? PT-02 proved 4 of 5 known 500s are missing
+# tables (migrations authored but never applied to production),
+# confirming MIGRATION_AUDIT.md's platform-wide drift finding
+# (28 of 108 root-tree migrations unapplied). This phase
+# settles the COMPLETE picture: exactly which migrations are
+# live, which aren't, the two-parallel-migration-directories
+# collision, plus constraint/FK/orphan integrity and dup/null
+# rates on the large tables.
+#
+# ENVIRONMENT SPLIT (safety):
+# - Reading applied-migration state, schema, constraints, row
+#   counts, dup/null rates: READ-ONLY against production - safe,
+#   and production truth is the entire point.
+# - Migration IDEMPOTENCY re-runs (applying a migration twice
+#   to confirm no error / no data change): BRANCH or LOCAL ONLY.
+#   NEVER apply a migration to production in this audit. If no
+#   branch is available, idempotency checks are recorded
+#   PENDING-SCOPE, not run against prod.
+#
+# EVIDENCE STANDARD: every finding carries a real query and its
+# actual returned rows/counts on disk in test-evidence/pt-06/.
+# Prose "verified" fails the gate. ASCII only.
+#
+# HALTS at its end for Reid's Phase-06 review.
+# ============================================================
+
+prompts:
+
+  - id: pt06-001
+    phase: build
+    description: "Preflight + connection proof + migration-file inventory"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Confirm PT-00 artifacts exist (route-manifest.json, register,
+         evidence-lib.mjs). If missing, HALT.
+      2. Create test-evidence\pt-06\.
+      3. Establish a READ-ONLY connection to production Postgres using
+         the DATABASE_URL / direct DDL connection string pattern
+         (DIRECTIVE-017: postgresql://postgres@db.<ref>.supabase.co).
+         Prove the connection with a trivial "select 1" captured to
+         test-evidence\pt-06\connection-proof.txt. If the connection
+         cannot be made read-only-safe, HALT rather than risk a write.
+      4. Inventory EVERY migration file on disk across BOTH known
+         directories - the two-parallel-directories collision PT-02
+         flagged: enumerate src/supabase/migrations AND supabase/
+         migrations (and any other migrations dir found). For each:
+         filename, migration number/prefix, which directory, and a
+         hash. Write test-evidence\pt-06\migration-files.json. Record
+         any number COLLISION (same prefix in both dirs) and any gap in
+         the numeric sequence - both are findings.
+      5. Create scripts\audit\verify-pt06-001.mjs: exits non-zero unless
+         connection-proof.txt shows a successful select and
+         migration-files.json is non-empty with per-file directory +
+         hash.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-06: preflight, read-only conn proof, migration-file inventory"
+      7. Run: node scripts/audit/verify-pt06-001.mjs
+    expected_outputs:
+      - test-evidence/pt-06/connection-proof.txt
+      - test-evidence/pt-06/migration-files.json
+      - scripts/audit/verify-pt06-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt06-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt06-002
+    phase: build
+    description: "Applied-vs-on-disk migration reconciliation (the drift map)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Settle definitively which migrations are live in production versus
+      only on disk. This is the phase's centerpiece.
+
+      1. Query the production migration-tracking table (Supabase's
+         supabase_migrations.schema_migrations, or whatever this project
+         uses - confirm the real table first). Capture the full list of
+         APPLIED migration versions with their timestamps to
+         test-evidence\pt-06\applied-migrations.json.
+      2. Reconcile against migration-files.json from pt06-001: produce
+         three lists - APPLIED-AND-ON-DISK (healthy), ON-DISK-NOT-APPLIED
+         (drift - the dangerous set), APPLIED-NOT-ON-DISK (orphan/rogue,
+         if any). Write test-evidence\pt-06\migration-drift.json with the
+         real counts (settle the "28 of 108 unapplied" number with the
+         ACTUAL current figure).
+      3. Cross-reference the ON-DISK-NOT-APPLIED set against the known
+         missing-table 500s from PT-02 (WGR-006 consultant_client_access/
+         086, WGR-007 followup_sequences/083, WGR-008 schoolfunder/103,
+         WGR-009 notification_preferences/087) - confirm each maps to an
+         unapplied migration, tying the drift map to real user-facing
+         breakage.
+      4. Every unapplied migration that backs a real route or feature is
+         a register finding (P1 - real breakage, contained). The full
+         drift count is a single summary finding.
+      5. Create scripts\audit\verify-pt06-002.mjs: exits non-zero unless
+         applied-migrations.json and migration-drift.json both parse,
+         the drift lists partition the file set with no overlap, and the
+         four known missing tables each appear in the unapplied list.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-06: applied-vs-on-disk migration drift map"
+      7. Run: node scripts/audit/verify-pt06-002.mjs
+    expected_outputs:
+      - test-evidence/pt-06/applied-migrations.json
+      - test-evidence/pt-06/migration-drift.json
+      - scripts/audit/verify-pt06-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt06-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt06-003
+    phase: build
+    description: "Live schema census: tables the code expects vs tables that exist"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Beyond migrations: does every table/column the CODE reads actually
+      exist in production? PT-02 found /api/agents/discovery querying
+      organization_id where the live column is org_id - a code-vs-schema
+      mismatch on a table that DOES exist. Find that whole class.
+
+      1. Enumerate the live production schema (read-only): every table in
+         public, and every column with type. Capture to
+         test-evidence\pt-06\live-schema.json.
+      2. Extract from the codebase the set of tables/columns the app
+         references (from .from('table') and .select('col') patterns,
+         and typed table interfaces). Cross-reference against
+         live-schema.json.
+      3. Record: tables the code references that DON'T exist (missing -
+         ties to drift), and column-name mismatches on tables that DO
+         exist (like the org_id/organization_id bug - re-confirm that
+         one and find siblings, including the morning-digest.ts call
+         site PT-02 spotted). Write test-evidence\pt-06\schema-mismatch.json.
+      4. Each code-vs-schema mismatch on an existing table is a register
+         finding (P1 - causes a 500 when hit).
+      5. Create scripts\audit\verify-pt06-003.mjs: exits non-zero unless
+         live-schema.json is non-empty and schema-mismatch.json records
+         both the missing-table set and the column-mismatch set (and the
+         org_id/organization_id case specifically appears).
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-06: live schema census + code-vs-schema mismatch audit"
+      7. Run: node scripts/audit/verify-pt06-003.mjs
+    expected_outputs:
+      - test-evidence/pt-06/live-schema.json
+      - test-evidence/pt-06/schema-mismatch.json
+      - scripts/audit/verify-pt06-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt06-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt06-004
+    phase: build
+    description: "Constraint / FK / orphaned-row integrity"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Data-integrity structural audit (read-only against prod).
+
+      1. Enumerate every foreign key in the live schema. For each, query
+         for ORPHANED rows (child rows whose parent no longer exists -
+         which indicates a missing FK constraint or a bad delete path).
+         Capture counts per relationship.
+      2. Enumerate declared constraints (NOT NULL, UNIQUE, CHECK, FK) and
+         identify tables that SHOULD have an org_id/tenant FK for RLS but
+         don't declare one (feeds PT-05 isolation and PT-14 security).
+      3. Identify tables with no primary key, and any UNIQUE constraint
+         that real data currently violates would-be (duplicate keys that
+         exist because the constraint was never added).
+      4. Write test-evidence\pt-06\integrity.json: per-check results with
+         the actual queries and counts. Orphan rows and missing-tenant-FK
+         tables are findings (severity by blast radius; a missing tenant
+         FK is P1 and flagged for PT-05/PT-14).
+      5. Create scripts\audit\verify-pt06-004.mjs: exits non-zero unless
+         integrity.json records an FK/orphan result set and a
+         constraint-gap set, each with the query that produced it.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-06: constraint/FK/orphan integrity audit"
+      7. Run: node scripts/audit/verify-pt06-004.mjs
+    expected_outputs:
+      - test-evidence/pt-06/integrity.json
+      - scripts/audit/verify-pt06-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt06-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt06-005
+    phase: build
+    description: "Duplicate + null-rate audit on large tables; migration idempotency (branch/local)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Two jobs: data-quality on the big tables (read-only prod), and
+      migration idempotency (branch/local ONLY).
+
+      1. DUP/NULL (read-only prod): on the large tables (foundation_
+         directory ~133k, donor_discovery_directory, nonprofit tables),
+         measure duplicate rates on natural keys (EIN, name+address) and
+         null rates on columns the app treats as required. The 133,812
+         foundation rows from PT-01 are the anchor. Capture actual counts
+         and percentages with the queries. High dup/null rates on a
+         column the app assumes populated is a finding (severity by how
+         the app uses it).
+      2. IDEMPOTENCY (branch/local ONLY - NEVER prod): if a branch/local
+         DB is available, take a sample of migrations (especially any
+         that use CREATE TABLE without IF NOT EXISTS, or data backfills)
+         and re-run each to confirm no error and no unintended data
+         change. If no branch is available, record PENDING-SCOPE with
+         the reason - do NOT run against prod.
+      3. Write test-evidence\pt-06\data-quality.json (dup/null) and
+         test-evidence\pt-06\idempotency.json (or its PENDING-SCOPE
+         note).
+      4. Create scripts\audit\verify-pt06-005.mjs: exits non-zero unless
+         data-quality.json records dup+null results for the named large
+         tables with their queries, and idempotency.json exists (results
+         or an explicit PENDING-SCOPE with reason).
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-06: dup/null data-quality + migration idempotency"
+      6. Run: node scripts/audit/verify-pt06-005.mjs
+    expected_outputs:
+      - test-evidence/pt-06/data-quality.json
+      - test-evidence/pt-06/idempotency.json
+      - scripts/audit/verify-pt06-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt06-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt06-006
+    phase: build
+    description: "PHASE 06 summary + register update + HALT for review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate PT-06 and prepare the human review point.
+
+      1. Write test-evidence\pt-06\PHASE-06-SUMMARY.md: the real
+         migration-drift count (applied vs on-disk, settling the
+         28/108 question with the current figure), the two-directory
+         collision disposition, code-vs-schema mismatches, FK/orphan
+         findings, dup/null rates on the big tables, idempotency
+         results-or-PENDING. Every number cites its evidence file and
+         the query that produced it.
+      2. Confirm every PT-06 finding is in WIRING_GAP_REGISTER.md with
+         evidence path and reproduction, continuing WGR-### numbering.
+         Cross-link the unapplied migrations to the PT-02 500s they
+         cause.
+      3. Write test-evidence\pt-06\REVIEW-PACK.md: the short read for
+         Reid - the true state of the schema, the drift that needs a
+         migration-apply decision (which migrations to apply to prod and
+         in what order - the actionable remediation list), and the
+         still-owed WGR-007 product decision. Recommend next phase
+         (PT-05 tenant isolation - now that the real table set is known,
+         or PT-08 jobs).
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-06
+         complete, schema truth established, awaiting Reid's review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-06 COMPLETE: DB integrity + migration drift map, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt06-006.mjs: exits non-zero unless
+         PHASE-06-SUMMARY.md and REVIEW-PACK.md exist non-empty and the
+         register has grown beyond PT-02's last row.
+      7. Run: node scripts/audit/verify-pt06-006.mjs
+    expected_outputs:
+      - test-evidence/pt-06/PHASE-06-SUMMARY.md
+      - test-evidence/pt-06/REVIEW-PACK.md
+      - scripts/audit/verify-pt06-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt06-006.mjs"
+    max_retries: 2
+    on_fail: halt

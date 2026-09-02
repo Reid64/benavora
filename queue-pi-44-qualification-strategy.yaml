@@ -1,0 +1,493 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-44: QUALIFICATION + STRATEGY FAMILIES
+# BEN-QLF-01..05 and BEN-STR-01..04
+#
+# Where research becomes judgment, and judgment becomes
+# recommendations. Two families, one spine of rules:
+#
+#   1. NO QUALIFICATION WITHOUT SUFFICIENT EVIDENCE: the
+#      deterministic sufficiency gate blocks scoring on thin
+#      dossiers - an under-researched prospect is UNSCORED with
+#      named gaps, never guessed at. Confidence floors are the
+#      contracts' numbers, enforced.
+#   2. DISQUALIFICATION IS A CONCLUSION, NOT A DELETION: first-
+#      class, reasoned, claim-cited, and reopenable when evidence
+#      changes - the directive's 22-state lifecycle honored.
+#   3. STRATEGY RECOMMENDS, HUMANS EXECUTE: every STR output
+#      schema terminates at recommendation - no outreach, no
+#      solicitation actions expressible (the DIS-08/REL-05
+#      structural pattern, family-wide).
+#   4. ASK AMOUNTS ARE RANGES WITH BASES: STR-02 inherits
+#      INT-08's honesty - a range, the evidence components, and
+#      the capacity basis label carried through.
+#
+# Established patterns throughout.
+# ============================================================
+
+prompts:
+
+  - id: pi44-001
+    phase: build
+    description: "Preflight: FAMILY-5 + FAMILY-6 read, ratchet green"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read FAMILY-5-QUALIFICATION.md and FAMILY-6-STRATEGY.md in
+         full (nine contracts); the registry's qualification-state
+         and tier sections on portfolio_members.
+      2. Health: pi-43 ratchet re-run green; migrate --status clean.
+         Capture to evidence\pi-44\preflight.txt.
+      3. Create scripts\verify\verify-pi44-001.mjs: nine contracts x
+         24 fields; ratchet green.
+      4. Run: node scripts/verify/verify-pi44-001.mjs
+    expected_outputs:
+      - evidence/pi-44/preflight.txt
+      - scripts/verify/verify-pi44-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi44-002
+    phase: build
+    description: "Qualification infrastructure: composite model, tiers, sufficiency gates"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\qualification\:
+         - The QualificationAssessment schema (contracts/zod):
+           dimension scores (capacity/affinity/access per the
+           contracts), each dimension carrying its evidence claim
+           ids + confidence + basis labels (capacity inherits
+           INT-08's basis); composite per the registry's formula
+           (implement its exact combination; hand-computed test);
+           tier assignment from the registry's tier definitions;
+           qualification_state transitions on portfolio_members
+           (the member-level state set per the registry - verify
+           against the goal-level 22 states; members carry their
+           own research/qualification state per pi-40's schema).
+         - THE SUFFICIENCY GATE (deterministic, pre-reasoning):
+           per-dimension minimum evidence requirements from the
+           contracts (e.g. capacity requires >= N independent
+           capacity claims at tier >= T; the contracts' numbers,
+           encoded as data) - a dimension failing its gate is
+           UNSCORABLE with named gaps emitted as research_requests;
+           a member with any unscorable required dimension cannot
+           receive a composite (schema-level: composite requires
+           all required dimensions scored).
+      2. Vitest: composite arithmetic exact; tier boundaries; the
+         gate blocks a thin fixture dossier with the right gap
+         requests; the schema-level composite refusal; a gate-
+         passing dossier proceeds.
+      3. Green; evidence\pi-44\qual-infra-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi44-002.mjs: standard plus
+         the gate-block and composite-refusal tests present.
+      5. Run: node scripts/verify/verify-pi44-002.mjs
+    expected_outputs:
+      - packages/core/src/qualification/index.ts
+      - scripts/verify/verify-pi44-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-003
+    phase: build
+    description: "BEN-QLF-02 (Capacity Verification) + BEN-QLF-03 (Affinity/Fit) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-QLF-02.ts: capacity verification - reviews INT-08's
+         assessments + underlying claims against the tenant's gift
+         range context; its reasoning: is the capacity evidence
+         COHERENT (components agree), CURRENT (freshness), and
+         SUFFICIENT for the range being considered; verdict:
+         verified-at-range / needs-deepening (typed asks) /
+         evidence-incoherent (a contradiction referral to KNW-04 -
+         the cross-family handoff).
+         BEN-QLF-03.ts: affinity/fit against the TENANT's mission
+         (profile + tenant settings) - alignment reasoning over
+         INT-06's findings + giving history; inference labels
+         preserved through to the dimension score (an affinity
+         built on inferences scores with visibly lower confidence
+         than one built on documented giving - assert the
+         propagation).
+      2. Vitest: QLF-02's incoherent-capacity fixture routes the
+         KNW-04 referral; needs-deepening emits typed asks; QLF-03
+         inference-confidence propagation (documented-giving
+         fixture outscores inference-only fixture at equal surface
+         alignment).
+      3. Green; evidence\pi-44\qlf-02-03-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi44-003.mjs: standard plus
+         the referral and propagation tests present.
+      5. Run: node scripts/verify/verify-pi44-003.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/qualification/BEN-QLF-02.ts
+      - packages/contracts/src/agents/qualification/BEN-QLF-03.ts
+      - scripts/verify/verify-pi44-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-004
+    phase: build
+    description: "BEN-QLF-04 (Access) + BEN-QLF-01 (Composite Scoring) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-QLF-04.ts: access assessment - consumes REL-05's
+         ranked strategies + REL-06 strengths; scores realistic
+         reachability (a strong ranked path scores high; honest-
+         no-path scores low WITH the path-building recommendations
+         surfaced - low access is actionable, not terminal).
+         BEN-QLF-01.ts: the composite synthesizer - runs the
+         sufficiency gate, collects the three dimension
+         assessments (delegating to 02/03/04 per its contract's
+         orchestration-vs-direct mode - follow it), computes the
+         composite, assigns tier, transitions member state, writes
+         the QualificationAssessment as claims (a qualification IS
+         a conclusion - claim-typed per the registry, superseding
+         its predecessor on re-qualification: qualification
+         history preserved like everything else).
+      2. Vitest: QLF-04's no-path-low-access-with-recommendations;
+         QLF-01 full composite on a complete fixture (arithmetic +
+         tier + state + the claim written + a re-qualification
+         supersedes the first assessment, history intact).
+      3. Green; evidence\pi-44\qlf-04-01-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi44-004.mjs: standard plus
+         the requalification-supersession test present.
+      5. Run: node scripts/verify/verify-pi44-004.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/qualification/BEN-QLF-04.ts
+      - packages/contracts/src/agents/qualification/BEN-QLF-01.ts
+      - scripts/verify/verify-pi44-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-005
+    phase: build
+    description: "BEN-QLF-05 (Disqualification) as code: the first-class no"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-QLF-05.ts field-for-field: disqualification as
+         reasoned conclusion - triggers per its contract
+         (capacity floor unmet with sufficient evidence, mission
+         conflict, ethical-screen findings, tenant exclusion
+         rules); output: the disqualification claim (typed,
+         reasons, citing claims), member state DISQUALIFIED,
+         monitoring posture per contract (a disqualified prospect
+         may carry a re-evaluation trigger condition - e.g.
+         capacity-based disqualification watches for liquidity
+         events; encode the trigger registration); REOPENING: a
+         qualifying evidence change (the trigger or a KNW event)
+         reopens to re-qualification - the cycle is the
+         contract's core (SUP-01's reopen machinery from pi-40
+         consumed, not rebuilt). Ethical-screen H1 per contract
+         (a reputational-risk disqualification recommendation
+         escalates rather than auto-applies - follow its exact
+         boundary).
+      2. Vitest: each trigger class disqualifies with cited
+         reasons; the DISQUALIFY -> liquidity-event -> REOPEN ->
+         RE-QUALIFY cycle end to end (the assessment supersession
+         chain shows the full history); the ethical-screen H1
+         park.
+      3. Green; evidence\pi-44\qlf-05-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi44-005.mjs: standard plus
+         the full reopen-cycle test present.
+      5. Run: node scripts/verify/verify-pi44-005.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/qualification/BEN-QLF-05.ts
+      - scripts/verify/verify-pi44-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-006
+    phase: build
+    description: "BEN-STR-01 (Cultivation) + BEN-STR-02 (Ask Calibration) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-STR-01.ts: cultivation strategy per qualified
+         prospect - synthesizes the twin (affinity, relationships,
+         history, triggers) into a recommended cultivation
+         approach (engagement sequence recommendations, warm-path
+         usage, stewardship framing per the tenant's context);
+         output schema: recommendations with rationale + claims,
+         NO executable outreach actions (the family rule).
+         BEN-STR-02.ts: ask calibration - a recommended ask RANGE
+         derived from verified capacity (QLF-02's verdict + the
+         basis label CARRIED THROUGH: a public-evidence capacity
+         yields an ask range explicitly labeled as such with the
+         widening rationale), affinity depth, giving history
+         patterns (their gift-size norms), and campaign context;
+         never a point ask; the components itemized.
+      2. Vitest: STR-01 recommendations cite twin claims,
+         no-outreach schema; STR-02 range with carried basis
+         (public_evidence in -> labeled range out), component
+         itemization, a point-ask schema attempt rejected.
+      3. Green; evidence\pi44\str-01-02-tests.txt (path:
+         evidence\pi-44\str-01-02-tests.txt). Typecheck clean.
+      4. Create scripts\verify\verify-pi44-006.mjs: standard plus
+         the basis-carry and point-ask-rejection tests present.
+      5. Run: node scripts/verify/verify-pi44-006.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/strategy/BEN-STR-01.ts
+      - packages/contracts/src/agents/strategy/BEN-STR-02.ts
+      - scripts/verify/verify-pi44-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-007
+    phase: build
+    description: "BEN-STR-03 (Timing/Readiness) + BEN-STR-04 (Portfolio Synthesis) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-STR-03.ts: timing and readiness - consumes INT-07/09
+         trigger events + cultivation state; readiness reasoning
+         (a liquidity event opens a window; a leadership
+         transition suggests patience - the contract's timing
+         principles); output: timing recommendations with window
+         rationale, trigger-linked.
+         BEN-STR-04.ts: portfolio-level synthesis (frontier per
+         its contract) - across the qualified portfolio:
+         prioritization, effort allocation recommendations,
+         pipeline balance observations (tier distribution vs the
+         tenant's goals), the strategic narrative for the
+         IntelligencePackage; consumes SUP-01's economics features
+         (pi-40's module - shared, not duplicated).
+      2. Vitest: STR-03's liquidity-window fixture yields the
+         timing recommendation linked to the trigger claim;
+         STR-04's fixture portfolio yields prioritization
+         consistent with tiers + access (scripted-reasonable,
+         directional assertions), narrative references real
+         package refs.
+      3. Green; evidence\pi-44\str-03-04-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi44-007.mjs standard
+         pattern.
+      5. Run: node scripts/verify/verify-pi44-007.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/strategy/BEN-STR-03.ts
+      - packages/contracts/src/agents/strategy/BEN-STR-04.ts
+      - scripts/verify/verify-pi44-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-008
+    phase: build
+    description: "Both families' golden evaluation suites"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. __evals__: per-agent signatures - QLF-01 composite +
+         requalification chain; QLF-02 incoherence referral;
+         QLF-03 inference propagation; QLF-04 no-path-actionable;
+         QLF-05 the full disqualify-reopen cycle; STR-01
+         no-outreach; STR-02 basis-carried range; STR-03 trigger
+         window; STR-04 portfolio prioritization. PLUS the two
+         family-spine goldens: (a) THE THIN-DOSSIER GOLDEN: an
+         under-researched prospect hits qualification - UNSCORED,
+         gaps become research_requests, SUP-01 consumes them (the
+         full loop back to research asserted); (b) THE JOHN SMITH
+         COMPLETION: the running fixture reaches qualified-with-
+         strategy - tiered, warm path in the access score, ask
+         range from his business-evidence capacity, cultivation
+         recommendation citing the XYZ board path.
+      2. Green; evidence\pi-44\qual-strategy-evals.txt.
+      3. Create scripts\verify\verify-pi44-008.mjs: all nine
+         signatures + both spine goldens passed.
+      4. Run: node scripts/verify/verify-pi44-008.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/qualification/__evals__/index.ts
+      - scripts/verify/verify-pi44-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-009
+    phase: build
+    description: "Orchestrator integration: the standard plan completes; the critic seam declared"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. SUP-03's fleet data gains both families; the standard plan
+         shape now runs its full arc (discovery -> intelligence ->
+         reconciliation -> relationship -> qualification ->
+         strategy) with the validator's ordering rules extended
+         (qualification requires reconciled + researched; strategy
+         requires qualified); THE CRITIC SEAM: consequential
+         conclusions (qualifications, disqualifications, ask
+         ranges) are typed as critic-reviewable per the directive's
+         independent-critic requirement - the review hook exists
+         and no-ops with a logged CRITIC_PENDING marker until
+         BEN-SUP-05 arrives in pi-45 (the seam declared, the gap
+         visible, never silent).
+      2. Vitest: plan ordering rules; the arc validates; critic
+         markers on consequential conclusions.
+      3. Green; evidence\pi-44\arc-integration-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi44-009.mjs: standard plus
+         the CRITIC_PENDING marker test present.
+      5. Run: node scripts/verify/verify-pi44-009.mjs
+    expected_outputs:
+      - packages/core/src/orchestration/qualification-integration.ts
+      - scripts/verify/verify-pi44-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-010
+    phase: build
+    description: "THE FULL-STACK PROOF: one objective, every family, end to end"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\full-stack-proof.mjs: ONE objective on the
+         standing stack traversing the entire organization
+         (fixture data + FakeProvider reasonable): a discovery
+         profile seeds candidates -> ER-gated intake -> intelligence
+         dossiers -> KNW verification/adjudication riding along ->
+         relationship mapping + warm paths -> qualification (one
+         qualifies tiered, one lands UNSCORED-with-gaps, one
+         DISQUALIFIES reasoned) -> strategy on the qualified
+         (cultivation + labeled ask range + timing) -> STR-04
+         portfolio synthesis -> the IntelligencePackage carries all
+         of it. Assertions: every stage's artifacts by direct
+         query; the three-outcome spread exact; every conclusion
+         claim-cited (walk a sample of citations to snapshots);
+         critic markers present on the conclusions; the package
+         complete; the full transition trails legal; idle-tick
+         economy held.
+         Trail to evidence\pi-44\full-stack-proof.json.
+      2. All assertions pass. This proof becomes the program's
+         permanent ratchet headline from here forward.
+      3. Create scripts\verify\verify-pi44-010.mjs: the trail shows
+         all stages, the three outcomes, and citation-walk passes.
+      4. Run: node scripts/verify/verify-pi44-010.mjs
+    expected_outputs:
+      - scripts/proofs/full-stack-proof.mjs
+      - evidence/pi-44/full-stack-proof.json
+      - scripts/verify/verify-pi44-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-011
+    phase: build
+    description: "Hardening + live eval + ratchet"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Hardening: (a) a scripted model output qualifying a
+         gate-failing prospect - the deterministic gate wins (the
+         model cannot overrule sufficiency; refused pre-write);
+         (b) a scripted point-ask and a basis-forged ask - both
+         schema-rejected; (c) a disqualification without cited
+         reasons - rejected; (d) injection targeting STR-01 via a
+         twin section carrying hostile content - inert.
+      2. Live eval (bounded): QLF-01 composite on the John Smith
+         fixture; QLF-05 on the reopen-trigger golden; STR-02 on
+         the basis-carry golden; STR-04 on the portfolio fixture
+         (frontier - spend called out). Standard assertions +
+         mismatch protocol. Key-absent = BLOCKED halt.
+      3. The ratchet: full ladder (now headlined by full-stack-
+         proof) + pnpm -r test green together.
+      4. Evidence: evidence\pi-44\hardening.txt,
+         evidence\pi-44\qual-strategy-live-eval.json,
+         evidence\pi-44\family-ratchet.txt.
+      5. Create scripts\verify\verify-pi44-011.mjs: all hardening
+         cases, live evals passing with spend, ratchet green.
+      6. Run: node scripts/verify/verify-pi44-011.mjs
+    expected_outputs:
+      - packages/core/src/__tests__/hardening/qualification.test.ts
+      - evidence/pi-44/qual-strategy-live-eval.json
+      - evidence/pi-44/family-ratchet.txt
+      - scripts/verify/verify-pi44-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi44-012
+    phase: build
+    description: "Close-out: fleet 39/44, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. FLEET_STATUS.md: QLF-01..05 + STR-01..04 honestly tiered
+         (LIVE-EVALED: QLF-01/05, STR-02/04; IMPLEMENTED: rest);
+         footer totals (39 of 44 beyond CONTRACTED). schema-
+         snapshot; evidence\pi-44\SUMMARY.md: the spine rules with
+         their proofs (gate-beats-model, reopen cycle, basis
+         carry, no-outreach schemas), the full-stack proof
+         headline, spend, amendments, matrix green, ratchet.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-44
+         complete; the product's core loop is whole; remaining
+         agents: SUP-02/04/05/06 + OPS-01 (pi-45); next queue
+         pi-45-supervisory-ops.
+      3. Scoped add: packages/ scripts/ docs/
+         evidence/pi-44/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "qualification + strategy: 9 agents - evidence-
+         gated scoring, first-class reasoned disqualification with
+         reopening, basis-honest ask ranges, full-stack proof
+         (pi-44)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi44-012.mjs: standard
+         close-out plus fleet footer consistency.
+      5. Run: node scripts/verify/verify-pi44-012.mjs
+    expected_outputs:
+      - evidence/pi-44/SUMMARY.md
+      - scripts/verify/verify-pi44-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi44-012.mjs"
+    max_retries: 3
+    on_fail: halt

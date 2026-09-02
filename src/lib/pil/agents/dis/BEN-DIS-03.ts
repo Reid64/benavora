@@ -1,4 +1,5 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
+import { logAction } from "@/lib/pil/audit";
 import {
   callTool,
   findOrCreateProspect,
@@ -10,6 +11,13 @@ import {
 } from "@/lib/pil/agents/dis/shared";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNode, ProspectEntityType } from "@/lib/pil/types";
+
+// Foundation identity/lifecycle keyword signal (FoundationIdentityHypothesis.v2,
+// PIL_AGENT_COMPLETE_ROSTER.md "Discovery" section): a 990 mission statement
+// itself asserting a rename/merger/dissolution/conversion event is a stronger
+// and more direct identity signal than the filing-year recency heuristic
+// alone can detect, so it always overrides that heuristic's verdict.
+const LIFECYCLE_CONFLICT_PATTERN = /\b(formerly known as|merged with|successor to|dissolved|terminated|converted to)\b/i;
 
 // BEN-DIS-03 -- Foundation Discovery Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). Discovers
@@ -49,13 +57,27 @@ interface FoundationDiscovery {
   displayName: string;
   confidence: number;
   created: boolean;
+  lifecycleStatus: string;
 }
 
 export class FoundationDiscoveryAgent implements Agent {
   async execute(context: AgentContext, runner: AgentRunner): Promise<AgentResult> {
+    if (context.goal.trim().length === 0) {
+      return {
+        status: "completed",
+        evidence: [],
+        conclusions: { skipped: true, reason: "BEN-DIS-03 requires a non-empty goal" },
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: null,
+      };
+    }
+
     const criteria = parseGoalCriteria(context.goal);
     const evidenceCreated: EvidenceItem[] = [];
     const discoveries: FoundationDiscovery[] = [];
+    const ambiguousProspectIds: string[] = [];
 
     // 1. Query foundation_directory via entity_lookup for foundations
     // matching the goal criteria (state, cause-as-program-area proxy).
@@ -82,6 +104,7 @@ export class FoundationDiscoveryAgent implements Agent {
     );
 
     for (const match of matches) {
+      try {
       // 2. Create or update a pil_prospect for the foundation.
       const entityType = inferFoundationEntityType(match.name);
       const { prospect, created } = await findOrCreateProspect({
@@ -99,7 +122,11 @@ export class FoundationDiscoveryAgent implements Agent {
         properties: { ein: match.ein, ntee_code: match.ntee_code, location: match.location },
       });
 
-      // 3. Fetch 990 data to get grants paid, officers, mission/priorities.
+      // 3. Fetch 990 data to get grants paid, officers, mission/priorities,
+      // and (FoundationIdentityHypothesis.v2) a lifecycleStatus verdict.
+      // Defaults to UNKNOWN whenever no 990 data is reachable at all (no
+      // EIN on the match, or the irs_990_lookup call itself reports failure).
+      let lifecycleStatus = "UNKNOWN";
       if (match.ein) {
         const nineNinety = await callTool(context, runner, "irs_990_lookup", { ein: match.ein });
         if (nineNinety.success) {
@@ -111,12 +138,21 @@ export class FoundationDiscoveryAgent implements Agent {
           };
           const sourceType = "irs_form_990";
 
+          const currentYear = new Date().getFullYear();
+          lifecycleStatus =
+            data.filing_year != null && currentYear - data.filing_year <= 3
+              ? "ACTIVE_VERIFIED"
+              : "ACTIVE_UNCONFIRMED";
+          if (data.mission && LIFECYCLE_CONFLICT_PATTERN.test(data.mission)) {
+            lifecycleStatus = "CONFLICTING";
+          }
+
           evidenceCreated.push(
             await recordDiscoveryEvidence({
               orgId: context.orgId,
               prospectId: prospect.id,
               claim: `Total grants paid per most recent 990 filing (${data.filing_year ?? "unknown year"}): ${data.total_grants_paid ?? "unknown"}`,
-              value: { totalGrantsPaid: data.total_grants_paid, filingYear: data.filing_year },
+              value: { totalGrantsPaid: data.total_grants_paid, filingYear: data.filing_year, lifecycleStatus },
               claimType: "foundation_grants_paid",
               sourceUrl: null,
               sourceTitle: match.name,
@@ -220,6 +256,10 @@ export class FoundationDiscoveryAgent implements Agent {
         });
       }
 
+      if (lifecycleStatus === "CONFLICTING" || lifecycleStatus === "UNKNOWN") {
+        ambiguousProspectIds.push(prospect.id);
+      }
+
       // Family foundation nuance (see file header): search for family-name
       // associations and link identified family members as individual
       // prospects.
@@ -227,10 +267,38 @@ export class FoundationDiscoveryAgent implements Agent {
         await this.discoverFamilyMembers(context, runner, match.name, foundationNode, evidenceCreated, discoveries);
       }
 
-      discoveries.push({ prospectId: prospect.id, displayName: prospect.display_name, confidence: match.confidence, created });
+      discoveries.push({ prospectId: prospect.id, displayName: prospect.display_name, confidence: match.confidence, created, lifecycleStatus });
+      } catch (err) {
+        // Recovery protocol: a thrown error while processing one match (e.g.
+        // a Supabase write failure inside upsertNode/recordDiscoveryEvidence)
+        // must not discard every already-discovered foundation in this run.
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.foundation_match_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { foundationName: match.name, ein: match.ein, message: err instanceof Error ? err.message : String(err) },
+          policy_decision: null,
+          ip_address: null,
+        });
+        continue;
+      }
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 600);
+
+    const delegations: DelegationRequest[] = [];
+    if (ambiguousProspectIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Critic review for BEN-DIS-03 foundation identity ambiguity: ${ambiguousProspectIds.join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { ambiguousProspectIds, reason: "lifecycle_status_conflicting_or_unknown" },
+      });
+    }
 
     return {
       status: "completed",
@@ -240,7 +308,7 @@ export class FoundationDiscoveryAgent implements Agent {
         discoveredProspectIds: discoveries.map((d) => d.prospectId),
         discoveries,
       },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,
@@ -310,7 +378,7 @@ export class FoundationDiscoveryAgent implements Agent {
         properties: { relationship: "family_member_of_foundation" },
       });
 
-      discoveries.push({ prospectId: memberProspect.id, displayName: memberProspect.display_name, confidence: 0.3, created });
+      discoveries.push({ prospectId: memberProspect.id, displayName: memberProspect.display_name, confidence: 0.3, created, lifecycleStatus: "UNKNOWN" });
     }
   }
 }

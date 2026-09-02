@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { getPilClient } from "@/lib/pil/db";
 import { createResearchRun } from "@/lib/pil/workflow";
 
@@ -23,7 +23,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function GET() {
-  const gate = await requireRole("viewer");
+  const gate = await requirePilRole("viewer");
   if ("error" in gate) return gate.error;
   const { organizationId } = gate;
 
@@ -41,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const gate = await requireRole("writer");
+  const gate = await requirePilRole("writer");
   if ("error" in gate) return gate.error;
   const { organizationId, userId } = gate;
 

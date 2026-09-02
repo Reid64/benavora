@@ -1,0 +1,15 @@
+release_id: PIL-RELEASE-11
+version: "1.0.0"
+title: Cause-Aligned Prospect Discovery Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-10-v1.0.0
+new_agent:
+  id: BEN-DIS-07
+  path: 20-agents/discovery/BEN-DIS-07-cause-aligned-prospect-discovery.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-DIS-07-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 13
+remaining_agent_specifications: 31
+truthful_status: {implementation_claimed: false, tests_claimed: false, production_score_preassigned: false}
+next_agent: BEN-DIS-08

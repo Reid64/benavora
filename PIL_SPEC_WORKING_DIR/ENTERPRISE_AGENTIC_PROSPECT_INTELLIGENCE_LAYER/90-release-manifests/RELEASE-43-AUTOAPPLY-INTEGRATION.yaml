@@ -1,0 +1,18 @@
+release_id: RELEASE-43-AUTOAPPLY-INTEGRATION
+version: 3.0.0
+status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+authoritative_agent_count: 47
+pre_extension_pil_agent_count: 44
+new_agent_count: 3
+authoritative_service_count: 46
+new_service_count: 16
+new_agents: [BEN-APP-01, BEN-APP-02, BEN-APP-03]
+claims:
+  architecture_reconciled: true
+  gap_analysis_complete: true
+  integrated_specification_complete: true
+  runtime_implemented: false
+  tests_executed: false
+  production_ready: false
+blocking_production_gates: [G0, G1, G2, G3, G4, G5, independent_score_gte_95]
+entrypoint: 30-autoapply-integration/00-complete-gap-analysis-and-agent-count.md

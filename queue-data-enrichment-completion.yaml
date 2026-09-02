@@ -1,0 +1,123 @@
+project: benavora
+governance:
+- SCHEMA_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: enrich-data-001
+  name: Governance sync and 990 XML enrichment pipeline final verification
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read scripts/enrich-990-xml.ts in FULL. Every line.
+    Read scripts/check-enrichment-detailed.ts in FULL if it exists.
+    Read SCHEMA_REGISTRY_v2.md for nonprofits table columns in FULL.
+
+    VERIFY AND FIX the 990 XML enrichment script:
+
+    1. READ NONPROFITS TABLE SCHEMA: Run a query to get the actual column list:
+       SELECT column_name, data_type FROM information_schema.columns WHERE table_name='nonprofits' ORDER BY ordinal_position;
+       Paste result as comment at top of script. Ensure every column the script writes to actually exists.
+
+    2. UPSERT LOGIC AUDIT: The script must use INSERT ... ON CONFLICT (ein) DO UPDATE SET where UPDATE SET only updates NULL columns:
+       mission = COALESCE(nonprofits.mission, EXCLUDED.mission),
+       website = COALESCE(nonprofits.website, EXCLUDED.website),
+       officer_name = COALESCE(nonprofits.officer_name, EXCLUDED.officer_name),
+       etc.
+       Never overwrite existing non-null values.
+
+    3. CHECKPOINT RESUME: Verify the script saves progress to a checkpoint file after each ZIP. If script is killed and restarted, it must skip already-processed ZIPs. Checkpoint format: { lastProcessedZip: string, totalProcessed: number, lastRun: string }
+
+    4. WEBSITE URL VALIDATION: Before upserting website field, validate it is a real URL:
+       - Starts with http:// or https://
+       - Does not contain spaces
+       - Is not a government domain (ends in .gov -- those are often form fields, not real sites)
+       - Strip trailing slashes
+
+    5. EIN FORMAT NORMALIZATION: EINs in 990 XML may be formatted as "XX-XXXXXXX" or "XXXXXXXXX". Normalize to 9-digit string without dash before matching: ein.replace(/-/g, '').padStart(9, '0').
+
+    6. ENRICHMENT STATS: After each ZIP, log:
+       ZIP name | Files extracted | XMLs parsed | EINs matched | Records updated | Records skipped (already enriched)
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'fix: enrich-990-xml -- COALESCE upsert, checkpoint resume, URL validation, EIN normalization'; git push.
+
+- id: enrich-data-002
+  name: Nonprofit website contact enrichment script
+  prompt: |
+    Read scripts/enrich-990-xml.ts in FULL for patterns and Supabase client setup.
+    Read SCHEMA_REGISTRY_v2.md for nonprofits table in FULL.
+
+    CREATE scripts/enrich-website-contacts.ts:
+
+    This script enriches nonprofit records that have a website but no officer_email by extracting contact information from the website.
+
+    PIPELINE:
+    1. Query: SELECT id, ein, name, website FROM nonprofits WHERE website IS NOT NULL AND officer_email IS NULL AND last_enriched_at < NOW() - INTERVAL '30 days' LIMIT 500 (process in batches)
+
+    2. For each nonprofit: attempt to fetch the /about, /contact, /staff, /leadership, /team pages.
+       Use fetch() with 5-second timeout. Skip if fetch fails.
+
+    3. Pass fetched HTML to Claude (claude-sonnet-4-6, max_tokens: 200):
+       System: "Extract contact information from this nonprofit website HTML. Return JSON only: { executive_director_name: string|null, executive_director_email: string|null, general_email: string|null, phone: string|null }. If not found, return null for that field."
+       User: first 3000 chars of fetched HTML (to stay within context)
+
+    4. Validate extracted data:
+       - Emails must match /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+       - Phone must match /(\d{3}[-.]?\d{3}[-.]?\d{4})/
+       - Names must be 2+ words, no numbers
+
+    5. Upsert valid fields only into nonprofits table using COALESCE pattern.
+
+    6. Rate limiting: 2-second delay between requests. Process max 500 per run.
+
+    7. Add package.json script: "enrich:contacts": "tsx scripts/enrich-website-contacts.ts"
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: enrich-website-contacts script -- Claude-powered contact extraction from nonprofit websites'; git push.
+
+- id: enrich-data-003
+  name: Foundation matching engine for opportunity discovery
+  prompt: |
+    Read src/lib/agents/opportunity-discovery-agent.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for nonprofits, foundation_directory tables in FULL.
+
+    CREATE src/lib/intelligence/foundation-matcher.ts:
+
+    Export async function findMatchingFoundations(orgProfile: OrgProfile, supabase: SupabaseClient): Promise<FoundationMatch[]>
+
+    FoundationMatch: { foundation_id: string, foundation_name: string, ein: string, match_score: number, match_reasons: string[], estimated_grant_range: { min: number, max: number }, contact_info: { name?: string, email?: string } }
+
+    MATCHING ALGORITHM (multi-factor):
+
+    Factor 1 — NTEE Alignment (weight 35%):
+    Map org NTEE code to compatible funder NTEE codes using a hardcoded compatibility matrix.
+    Health orgs (E, F) → health foundations + community foundations + human services funders
+    Housing orgs (L) → housing foundations + community foundations + HUD-adjacent funders
+    Education orgs (B) → education foundations + scholarship funders + tech company foundations
+
+    Factor 2 — Geographic Match (weight 30%):
+    Compare org city/state against foundation address in nonprofits table.
+    Same city: 1.0, Same state: 0.7, National funder: 0.5, Out of state local: 0.1
+
+    Factor 3 — Asset Size Compatibility (weight 20%):
+    Estimate org's typical grant size = org.annual_revenue * 0.15
+    Find foundations where asset_amount BETWEEN typical_grant * 5 AND typical_grant * 500
+    (Too small = can't fund; too large = won't notice you)
+
+    Factor 4 — Prior Giving Signals (weight 15%):
+    Check if foundation has funded orgs with similar NTEE in last 3 years.
+    Query foundation_directory or pig_nodes for giving history.
+    If prior similar giving found: bonus 0.15
+
+    SCORING: match_score = (ntee_score * 0.35) + (geo_score * 0.30) + (asset_score * 0.20) + (prior_score * 0.15)
+    Only return foundations with match_score >= 0.50.
+    Sort by match_score DESC, return top 25.
+
+    Also update opportunity-discovery-agent.ts to call findMatchingFoundations() and query each matched foundation's recent grants as discovery opportunities.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: foundation-matcher intelligence -- multi-factor NTEE/geo/asset/prior giving matching engine'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

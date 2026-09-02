@@ -1,11 +1,13 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges, getNodesByProspect } from "@/lib/pil/graph";
 import { createReviewItem } from "@/lib/pil/human-review";
@@ -43,6 +45,32 @@ import type { EvidenceItem } from "@/lib/pil/types";
 interface CapacityRange {
   low: number;
   high: number;
+}
+
+// The six domain dimensions BEN-INT-08's output contract (BEN_INT_08Decision.v1,
+// PIL_AGENT_COMPLETE_ROSTER.md "Core Intelligence") is scored across. Coverage
+// is computed from persisted signal (getEvidence()/graph edges), not merely
+// "an evidence row happens to exist" -- see dimensionCoverage below.
+const WEALTH_CAPACITY_DIMENSIONS = [
+  "Asset And Ownership Indicators",
+  "Liquidity Indicators",
+  "Liability/Encumbrance Limitations",
+  "Valuation Basis/Date",
+  "Capacity Range",
+  "Confidence And Uncertainty",
+] as const;
+
+export interface WealthCapacityIntelligenceReport {
+  prospectId: string;
+  dimensionCoverage: Record<(typeof WEALTH_CAPACITY_DIMENSIONS)[number], boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+  wealth: CapacityRange;
+  liquidity: string;
+  philanthropicCapacity: CapacityRange;
+  propensity: string;
+  uncertainties: string[];
+  escalatedForReview: boolean;
 }
 
 export class WealthCapacityIntelligenceAgent implements Agent {
@@ -86,7 +114,10 @@ export class WealthCapacityIntelligenceAgent implements Agent {
       ? { low: Math.round(wealth.low * 0.02), high: Math.round(wealth.high * 0.05) }
       : { low: 0, high: Math.round(wealth.high * 0.02) };
     const propensity = hasGivingCorroborant ? "demonstrated" : "unknown";
-    const liquidity = "unknown"; // BEN-INT-09 (Wealth Origin & Liquidity Event) not yet implemented.
+    // BEN-INT-09 (Wealth Origin & Liquidity Event) is implemented -- check its
+    // recorded output rather than assuming "unknown" unconditionally.
+    const hasLiquidityEventEvidence = allEvidence.some((e) => e.claim_type === "liquidity_event");
+    const liquidity = hasLiquidityEventEvidence ? "event_documented" : "unknown";
 
     const corroboratedByGiving = hasGivingCorroborant;
     const confidence = !hasWealthSignal ? 0.15 : corroboratedByGiving ? 0.55 : 0.3;
@@ -138,23 +169,121 @@ export class WealthCapacityIntelligenceAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
-    return {
-      status: "completed",
-      evidence: evidenceCreated,
-      conclusions: {
+    // Everything above this point (evidence + human-review writes) is this
+    // run's own defensible determination and has already durably landed.
+    // Gap-analysis/delegation-construction/report-construction below is
+    // secondary reasoning over that already-persisted work -- a bug here must
+    // never discard evidence this run already recorded (roster: "captured
+    // evidence stays immutable").
+    try {
+      const dimensionSignals: Record<(typeof WEALTH_CAPACITY_DIMENSIONS)[number], boolean> = {
+        "Asset And Ownership Indicators": hasOwnershipCorroborant || hasWealthSignal,
+        "Liquidity Indicators": hasLiquidityEventEvidence,
+        // No agent in this codebase writes a claim_type for liabilities or
+        // encumbrances yet -- an explicit false, not an omitted field.
+        "Liability/Encumbrance Limitations": false,
+        // True only when this run's estimate is backed by a real sourced
+        // mention (a "basis" and its retrieval date), not a bare internal
+        // inference recorded when no wealth signal was found.
+        "Valuation Basis/Date": hasWealthSignal,
+        // A capacity range is computed and persisted unconditionally below.
+        "Capacity Range": evidenceCreated.length > 0,
+        // Confidence and the uncertainties list are computed and persisted
+        // alongside that same evidence row.
+        "Confidence And Uncertainty": evidenceCreated.length > 0,
+      };
+      // Iterate the canonical dimension list rather than trusting the object
+      // literal's keys alone, so dimensionCoverage always covers exactly the
+      // six roster-defined dimensions.
+      const dimensionCoverage = Object.fromEntries(
+        WEALTH_CAPACITY_DIMENSIONS.map((dimension) => [dimension, dimensionSignals[dimension]]),
+      ) as WealthCapacityIntelligenceReport["dimensionCoverage"];
+
+      // Completes the BEN-INT-03/08/09 mutual triangle plus the QLF-03/KNW-03
+      // consumers -- pushed in priority order, capped at
+      // MAX_DELEGATIONS_PER_RUN since AgentRunner executes delegations
+      // synchronously/inline. Never BEN-KNW-02 for this agent (documented
+      // roster anomaly shared only with BEN-INT-10).
+      const delegations: DelegationRequest[] = [];
+      if (!hasOwnershipCorroborant && delegations.length < MAX_DELEGATIONS_PER_RUN) {
+        delegations.push({
+          childAgentCode: "BEN-INT-03",
+          objective: `Deepen business-ownership research for prospect ${context.prospectId}: no corroborating 'owns' graph edge exists to substantiate this wealth-capacity estimate's asset basis.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      if (!hasLiquidityEventEvidence && delegations.length < MAX_DELEGATIONS_PER_RUN) {
+        delegations.push({
+          childAgentCode: "BEN-INT-09",
+          objective: `Build the wealth-origin/liquidity-event chain for prospect ${context.prospectId}: no liquidity_event evidence is on file to explain how this estimated wealth was realized.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      if (hasWealthSignal && delegations.length < MAX_DELEGATIONS_PER_RUN) {
+        delegations.push({
+          childAgentCode: "BEN-QLF-03",
+          objective: `Consume the capacity_determination evidence just recorded for prospect ${context.prospectId} as input to capacity & propensity qualification.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+      if (evidenceCreated.length > 0 && delegations.length < MAX_DELEGATIONS_PER_RUN) {
+        delegations.push({
+          childAgentCode: "BEN-KNW-03",
+          objective: `Verify the wealth_capacity evidence just recorded for prospect ${context.prospectId} (reasoned_inference, confidence ${confidence}).`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      }
+
+      const report: WealthCapacityIntelligenceReport = {
         prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
         wealth,
         liquidity,
         philanthropicCapacity,
         propensity,
         uncertainties,
         escalatedForReview: escalated,
-      },
-      delegations: [],
-      tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
-      error: null,
-    };
+      };
+
+      return {
+        status: "completed",
+        evidence: evidenceCreated,
+        conclusions: { report },
+        delegations,
+        tokensUsed,
+        costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+        error: null,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "ben-int-08.gap_analysis_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { error: message },
+        policy_decision: null,
+        ip_address: null,
+      });
+      return {
+        status: "completed",
+        evidence: evidenceCreated,
+        conclusions: { skipped: true, reason: "gap_analysis_failed", error: message },
+        delegations: [],
+        tokensUsed,
+        costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+        error: null,
+      };
+    }
   }
 
   private completedEmpty(reason: string): AgentResult {

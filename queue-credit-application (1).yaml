@@ -1,0 +1,106 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_ONLINE_CREDIT_APPLICATION.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: credit-app-001
+    phase: investigate
+    description: "Compare the existing credit application implementation against the real AFS paper form"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_ONLINE_CREDIT_APPLICATION.md,
+      app/account/credit-application/page.tsx,
+      components/account/CreditApplicationForm.tsx,
+      app/api/credit/apply/route.ts, lib/data/credit.ts, and SCHEMA.md's
+      credit_applications table definition, all in full.
+
+      The real AFS paper credit application (a fillable PDF, provided
+      directly by the business owner) has these exact sections and
+      fields -- compare the existing implementation against this real
+      structure field-by-field, do not assume the existing form already
+      covers it:
+
+      Section 1, Business Contact Information: Purchase Order required
+      (Yes/No), Company name, Phone, Fax, Email, Registered company
+      address, City/State/ZIP, Date business commenced, Business type
+      (Sole proprietorship / Partnership / Corporation / Other).
+
+      Section 2, Business and Credit Information: Primary business
+      address, City/State/ZIP, How long at current address, Telephone,
+      Fax, Email, Bank name, Bank address, Bank phone, Bank City/State/
+      ZIP, then a 3-row table (Savings / Checking / Other) each with an
+      account number field.
+
+      Section 3, Business/Trade References: three full reference blocks,
+      each with Company name, Address, City/State/ZIP, Phone, Fax,
+      Email, Type of account.
+
+      Section 4, Agreement: the exact terms text (net-30 payment terms,
+      1.5% monthly late charge, customer responsible for lien filing/
+      collection/attorney fees, claims must be made within 7 working
+      days, submission authorizes AFS to inquire with the supplied
+      banking/trade references).
+
+      Section 5, Signatures: two signature blocks, each with Title and
+      Date.
+
+      For each section, report whether the existing implementation
+      already collects that exact data (cite file/line), collects
+      something different/incomplete, or is missing entirely. Also
+      check: does credit_applications' schema have columns for all of
+      this (the three trade references and the bank account fields in
+      particular are likely to be the gap, since they're structurally
+      more complex than a flat form) -- if not, what's needed.
+
+      Note also: Section 1's "Purchase Order required?" field on this
+      real form is very likely the actual source of truth AFS uses to
+      decide a customer's companies.require_po value (found missing
+      entirely during tonight's PO integration audit -- see
+      PO_INTEGRATION_SCOPE.md and PO_GAPS_VERIFIED.md if present).
+      Determine whether this credit application submission should be
+      the mechanism that sets companies.require_po when an admin
+      approves it, rather than requiring a second, separate admin action
+      to set the same flag.
+
+      Write CREDIT_APP_GAPS.md at the project root with the field-by-
+      field comparison, the schema gap (if any), and exactly what
+      credit-app-002 should build -- including whether wiring
+      companies.require_po into the approval flow is in scope for this
+      pass or should be flagged as a separate follow-up.
+    gates:
+      - type: file_exists
+        files:
+          - CREDIT_APP_GAPS.md
+
+  - id: credit-app-002
+    phase: implement
+    description: "Close the credit application gaps CREDIT_APP_GAPS.md identifies"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read CREDIT_APP_GAPS.md in full. Implement exactly what it
+      specifies -- likely a schema migration for the trade-reference and
+      bank-account fields if they're missing, form field updates in
+      CreditApplicationForm.tsx to match the real form's sections
+      exactly, and API route updates to persist all of it.
+
+      If CREDIT_APP_GAPS.md determined that approving a credit
+      application should set companies.require_po, wire that in as part
+      of this pass; if it flagged that as out of scope, do not build it
+      -- follow the document's own scoping decision, do not re-decide it
+      here.
+
+      Use the exact AFS agreement terms text from the real form (Â§4 in
+      the investigation prompt) verbatim in the UI, not paraphrased.
+
+      Follow this codebase's existing conventions exactly: pnpm only,
+      afs-* Tailwind tokens only, TypeScript strict mode, no customer-
+      facing pricing anywhere it doesn't already exist.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: align credit application form to real AFS paper form fields"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

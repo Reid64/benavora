@@ -1,0 +1,16 @@
+release_id: PIL-RELEASE-12
+version: "1.0.0"
+title: Hidden Prospect and CRM Rediscovery Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-11-v1.0.0
+new_agent:
+  id: BEN-DIS-08
+  path: 20-agents/discovery/BEN-DIS-08-hidden-prospect-crm-rediscovery.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-DIS-08-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 14
+remaining_agent_specifications: 30
+family_milestone: DISCOVERY_FAMILY_SPECIFICATIONS_COMPLETE_PENDING_IMPLEMENTATION_EVIDENCE
+truthful_status: {implementation_claimed: false, tests_claimed: false, production_score_preassigned: false}
+next_agent: BEN-INT-01

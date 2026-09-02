@@ -1,0 +1,92 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - FEATURE_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: reconcile-state-portal-implementations-001
+    phase: build
+    description: "Reconcile the 4 legacy state-portal implementations now that CA (a 5th, clean one) is live"
+    prompt: |
+      STATE_PORTAL_SCOPING_2026-08-13.md's item 3 recommended reconciling the four pre-existing, uncoordinated state-portal implementations (portal-scraper.ts/portal-config.ts, state-portal.ts, state-scrapers.ts, tdhca-scraper.ts) once a real build target existed. The CA Grants Portal RSS parser now exists and is live (200 real rows confirmed).
+
+      Per the scoping doc's own recommendation, make state-portal.ts's design (real per-state registry pattern, Claude extraction) the canonical base for future non-RSS states. Fix the dead TDHCA URL found live-tested 2026-08-13 (https://www.tdhca.state.tx.us/fund-info/index.htm returns 404) - search for the correct current TDHCA funding-opportunities URL and update it. Retire portal-scraper.ts/portal-config.ts (the regex-based, read-only, non-persisting stub - confirmed to never write to opportunities) by removing it from any UI/API path, but do not delete the files outright - mark deprecated. Leave state-scrapers.ts's housing-specific agents as a distinct, intentionally separate housing_grant category, not folded into general state_portal.
+
+      Real live test: confirm the fixed TDHCA URL returns 200 with real content.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: investigate-d4-prospect-import-001
+    phase: build
+    description: "D4 - investigate whether the 298K prospect CSV source is reachable at all before building the import script"
+    prompt: |
+      Row D4: a 298K-row prospect CSV import script that does not exist anywhere in the repo (confirmed 3 separate times across sessions). Prior sessions could not confirm whether D:\dataocean is reachable from this sandbox. Reid has since clarified that the DATAOCEAN backup concern (row D7) is moot because that specific enrichment data is old and already ingested - this is a SEPARATE concern (importing a NEW 298K prospect list), do not conflate the two.
+
+      1. Check whether D:\ is reachable from this environment right now (Test-Path or equivalent).
+      2. If reachable, search it for any file matching a 298K-row prospect CSV shape (check file sizes/row counts, don't assume from filename alone).
+      3. If D:\ is unreachable or no matching file is found, check whether this data might instead already be expected to come from an existing source already wired elsewhere in this codebase (e.g. is this the same conceptual dataset as any of the existing ingestion scripts, or genuinely a distinct one-off import Reid would need to supply a file for).
+      4. Write findings to D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md. If a real source file is found, build scripts/import-prospects.ts against it for real and run it. If no real source is reachable, document that plainly - this row cannot be completed without Reid supplying the actual file, and that is a real, stated blocker, not a build failure.
+    expected_outputs:
+      - D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: d6-fullscale-foundation-scraper-001
+    phase: build
+    description: "D6 - run the foundation website scraper at full 133,812-record scale now that the pagination bug is fixed"
+    prompt: |
+      Row D6 (Foundation Website Scraper) has never been run at the full 133,812-record foundation_directory scale. The S2 pagination bug that was silently capping the real candidate pool to 1000 rows was fixed earlier tonight (see FEATURE_REGISTRY_v2.md row S2) - this is now a legitimate, newly-unblocked opportunity to run this at real scale for the first time.
+
+      1. Confirm the pagination fix is genuinely live (re-read the fixed loadEinsMissingWebsite() function).
+      2. Run the real foundation scraper (pnpm scrape:foundations or the real live command per S2's row) against the FULL real candidate pool this time, not a small sample - respecting BEHAVIORAL_CONTRACTS.md's §21 rate limits throughout (this will take real, possibly many hours of wall-clock time given the 5-second same-domain delay at this scale - let it run, this is expected and acceptable given tonight's explicit go-ahead for long unattended runs).
+      3. Monitor for the auto-pause-on-3-consecutive-zero-results safety behavior - if it fires, that's a real signal to investigate, not force past.
+      4. Update D6's row with real final counts (candidates attempted, successfully enriched, real success rate) once the run completes or is meaningfully progressed.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: file_exists
+        files: [FEATURE_REGISTRY_v2.md]
+    max_retries: 2
+    on_fail: halt
+
+  - id: batch2-verify-sync-001
+    phase: build
+    description: "Governance sync"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Confirm rows #56, D4, D6 all have real dated updates.
+      3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+      4. Scoped git add, commit with message "feat: reconcile state portal implementations, investigate D4 prospect import source, run D6 full-scale foundation scrape", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

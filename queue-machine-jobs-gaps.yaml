@@ -1,0 +1,38 @@
+project: afs-website
+governance: [CLAUDE.md, ARCHITECTURE.md, SCHEMA.md, STATE_OF_THE_BUILD.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: mj-gaps-001
+    phase: implement
+    description: "Fix multi-item mapping gap and silent fallback in approve-quote-request"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read app/api/admin/command-center/approve-quote-request/route.ts in
+      full, and STATE_OF_THE_BUILD.md's afs-mj-001/afs-mj-002 entries --
+      they flagged two real, unfixed limitations: (1) only line item 0 of a
+      multi-item quote request gets mapped into a bend program, remaining
+      items are dropped into a text note only; (2) missing width/legA/legB
+      silently falls back to a hardcoded 12"/2"/2" guess with zero warning
+      visible on the Pending Approval card itself.
+
+      Fix (2) first, it's lower risk: when the fallback triggers, write a
+      clear boolean flag onto the created machine_jobs row (add a column if
+      SCHEMA.md has none that fits -- check first) and surface a visible
+      warning badge on PendingQuoteRequestCard / CommandCenterJobCard so an
+      admin never approves a fabricated-geometry job without seeing it.
+
+      For (1), do not attempt a full multi-job-per-request redesign in this
+      prompt -- that's a bigger, separately-scoped change. Instead: when a
+      quote_request has more than one line item, block the single-click
+      approve action and show a clear message directing the admin to
+      Design Studio / FlashDraft to handle each item individually, rather
+      than silently approving with only item 0 mapped.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "fix: visible fallback-geometry warning + block multi-item silent approval"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

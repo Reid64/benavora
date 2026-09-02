@@ -1,0 +1,220 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-08: BACKGROUND JOBS & QUEUES AUDIT  (evidence-standard)
+#
+# Phase 08 of the Benavora Enterprise Audit Program.
+# Independent of the other batch phases (no depends_on beyond
+# pt-00). Command-gate engine, ledger, evidence-lib.mjs proven.
+#
+# QUESTION THIS PHASE ANSWERS: what actually boots and runs in
+# the background, versus what the docs claim? This is the
+# backend half of "is it operational." The Railway worker, the
+# cron routes, and the agent_queue are the machinery that makes
+# the platform do work when no user is watching - and history
+# has a documented dead-code class (a pipeline with a call site
+# but never started from boot, zero rows ever written).
+#
+# ENVIRONMENT SPLIT:
+# - Reading the worker boot inventory, cron registration, and
+#   queue schema: READ-ONLY / static + prod-log reading - safe.
+# - Exercising agent_queue claim/retry/completion semantics:
+#   BRANCH / LOCAL ONLY (it enqueues and mutates job rows).
+#   Never against production job tables.
+#
+# Ties to prior findings: PT-02's WGR-023 (middleware may 307
+# cron routes before their CRON_SECRET check) and WGR-003
+# (worker needs its own SUPABASE_URL; CRON_SECRET presence) both
+# live here - this phase settles whether the background tier can
+# actually run in production.
+#
+# EVIDENCE STANDARD: boot logs captured, cron cross-reference as
+# a real table, queue semantics exercised with before/after row
+# state. Prose fails the gate. ASCII only.
+#
+# HALTS at its end for Reid's Phase-08 review.
+# ============================================================
+
+prompts:
+
+  - id: pt08-001
+    phase: build
+    description: "Worker boot inventory: what processors actually start"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Confirm PT-00 artifacts exist. Create test-evidence\pt-08\.
+      2. Read worker/index.ts (and its imported registration modules) and
+         determine, from the actual boot code, which processors/consumers
+         are REGISTERED AND STARTED at boot - not merely defined or
+         imported. Distinguish three states per processor: STARTED (boot
+         actually launches it), DEFINED-NOT-STARTED (code exists, no boot
+         call - the dead-code class), and REFERENCED-ONLY (imported/
+         mentioned but no processor).
+      3. If a real worker boot log is reachable (Railway prod logs, or a
+         local worker boot), capture the actual startup output showing
+         which processors announced themselves. Reconcile the live boot
+         log against the static read. Write test-evidence\pt-08\
+         boot-inventory.json: { processor, state, evidence }.
+      4. Every DEFINED-NOT-STARTED processor that backs a documented
+         feature is a register finding (P1 - built but never runs; the
+         documented dead-code class). Cross-check against any enrichment/
+         pipeline processor history references.
+      5. Also confirm the WGR-003 concern: does the worker boot require
+         its own SUPABASE_URL (distinct from NEXT_PUBLIC_SUPABASE_URL)?
+         Read validateEnv() and record whether a missing SUPABASE_URL
+         hard-exits the worker. (Reid confirmed it is present in Railway
+         prod - record that, note it is env-presence not value-verified.)
+      6. Create scripts\audit\verify-pt08-001.mjs: exits non-zero unless
+         boot-inventory.json is non-empty and every processor has a state
+         and evidence.
+      7. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-08: worker boot inventory (started vs dead-code)"
+      8. Run: node scripts/audit/verify-pt08-001.mjs
+    expected_outputs:
+      - test-evidence/pt-08/boot-inventory.json
+      - scripts/audit/verify-pt08-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt08-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt08-002
+    phase: build
+    description: "Cron registration reality: documented vs vercel.json vs scheduler"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Every cron the docs claim must actually be registered where a
+      scheduler will fire it. Prod-safe (static + read).
+
+      1. Enumerate three sets: (a) crons DOCUMENTED anywhere (governance
+         docs, code comments, feature registry); (b) crons actually
+         registered in vercel.json's crons array; (c) crons in
+         worker/scheduler.ts (or the worker's own schedule mechanism).
+      2. Reconcile the three. Record: documented-but-unregistered (won't
+         fire), registered-but-undocumented (surprise jobs), and the
+         /api/cron/* routes that exist as handlers but have no schedule
+         entry pointing at them. Write test-evidence\pt-08\
+         cron-reconciliation.json.
+      3. Cross-check PT-02's WGR-023: if middleware 307-redirects
+         /api/cron/* before the CRON_SECRET check, a registered cron
+         still fails in prod. Note which cron routes are affected. (If a
+         live prod curl result for a cron route is available - 401 vs 307
+         - record it; this is the unresolved WGR-023/WGR-003 question.)
+      4. Every documented-but-unregistered cron backing a real feature is
+         a register finding (P1 - the feature's automation never runs).
+      5. Create scripts\audit\verify-pt08-002.mjs: exits non-zero unless
+         cron-reconciliation.json records all three sets and their
+         reconciliation.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-08: cron registration reconciliation"
+      7. Run: node scripts/audit/verify-pt08-002.mjs
+    expected_outputs:
+      - test-evidence/pt-08/cron-reconciliation.json
+      - scripts/audit/verify-pt08-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt08-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt08-003
+    phase: build
+    description: "agent_queue semantics: claim / retry / max-retries / completion (branch-local)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Exercise the job queue's real behavior. BRANCH/LOCAL ONLY - this
+      enqueues and mutates job rows.
+
+      1. Against a branch/local DB, exercise the agent_queue (or the
+         real job-queue table) lifecycle: enqueue a job, confirm a worker
+         CLAIMS it (status transition captured), simulate a failure and
+         confirm RETRY behavior, exhaust retries and confirm the
+         max-retries terminal state, and confirm a successful job reaches
+         COMPLETION with its result written. Capture the row state at
+         each transition.
+      2. Test the failure isolation: a poison job that always fails must
+         not block the queue for other jobs. Enqueue a good job behind a
+         failing one; confirm the good one still completes.
+      3. Write test-evidence\pt-08\queue-semantics.json with the captured
+         state transitions. Any broken semantic (jobs never claimed,
+         infinite retry, a poison job blocking the queue, completion not
+         written) is a register finding.
+      4. Create scripts\audit\verify-pt08-003.mjs: exits non-zero unless
+         queue-semantics.json records the claim/retry/max-retries/
+         completion transitions with before/after row state.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-08: agent_queue lifecycle semantics (branch/local)"
+      6. Run: node scripts/audit/verify-pt08-003.mjs
+    expected_outputs:
+      - test-evidence/pt-08/queue-semantics.json
+      - scripts/audit/verify-pt08-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt08-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt08-004
+    phase: build
+    description: "PHASE 08 summary + register update + HALT for review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate PT-08 and prepare the human review point.
+
+      1. Write test-evidence\pt-08\PHASE-08-SUMMARY.md: processors
+         started vs dead-code, cron documented/registered/firing
+         reconciliation, queue lifecycle results, and the WGR-023/WGR-003
+         disposition (can the background tier actually run in prod).
+         Every number cites its evidence file.
+      2. Confirm every PT-08 finding is in WIRING_GAP_REGISTER.md with
+         evidence path and reproduction, continuing WGR-### numbering.
+      3. Write test-evidence\pt-08\REVIEW-PACK.md: the short read for
+         Reid - is the background tier operational; what is built but
+         never runs; which automations are silently dead; the cron/
+         middleware question's status. This feeds PT-09 (agents), which
+         depends on knowing the job machinery works.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-08
+         complete, background-tier truth established, awaiting review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-08 COMPLETE: jobs/queues audit, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt08-004.mjs: exits non-zero unless
+         PHASE-08-SUMMARY.md and REVIEW-PACK.md exist non-empty and the
+         register has grown.
+      7. Run: node scripts/audit/verify-pt08-004.mjs
+    expected_outputs:
+      - test-evidence/pt-08/PHASE-08-SUMMARY.md
+      - test-evidence/pt-08/REVIEW-PACK.md
+      - scripts/audit/verify-pt08-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt08-004.mjs"
+    max_retries: 2
+    on_fail: halt

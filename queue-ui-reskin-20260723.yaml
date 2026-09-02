@@ -1,0 +1,435 @@
+governance:
+- BLUEPRINT_v2.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- DESIGN_SYSTEM.md
+- STANDING_DIRECTIVES.md
+project: benavora
+prompts:
+- id: ui-001
+  name: Remove SchoolFunder and Reskin Dashboard as Operational Command Center
+  prompt: "MANDATORY PRE-READ — before writing a single line, read these files in full:\n\
+    src/app/(dashboard)/dashboard/page.tsx\n\
+    src/components/layout/DashboardShell.tsx\n\
+    src/components/layout/Sidebar.tsx\n\
+    src/components/layout/Header.tsx\n\
+    src/components/layout/nav-items.ts\n\
+    src/app/globals.css (first 120 lines only)\n\n\
+    STEP 1 — REMOVE SCHOOLFUNDER:\n\
+    Remove-Item -Recurse -Force src/app/(dashboard)/schoolfunder\n\
+    Remove-Item -Recurse -Force src/app/api/schoolfunder (if exists)\n\
+    Open src/components/layout/nav-items.ts. Remove every reference to schoolfunder. Save.\n\n\
+    STEP 2 — DASHBOARD COMPLETE REWRITE:\n\
+    Rewrite src/app/(dashboard)/dashboard/page.tsx from scratch as a premium operational command center.\n\n\
+    DESIGN RULES — non-negotiable:\n\
+    - ALL colors via hardcoded style={{}} hex values. NEVER Tailwind color classes. NEVER CSS variables.\n\
+    - Canvas background: style={{backgroundColor:'#E4E9F0'}}\n\
+    - Card surfaces: style={{backgroundColor:'#FFFFFF', borderRadius:'12px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', border:'1px solid #E2E8F0'}}\n\
+    - Elevated cards: style={{backgroundColor:'#FFFFFF', borderRadius:'12px', boxShadow:'0 4px 16px rgba(0,0,0,0.12)'}}\n\
+    - Primary text: style={{color:'#0F172A'}}\n\
+    - Muted text: style={{color:'#64748B'}}\n\
+    - Primary blue: #0077B6\n\
+    - Accent cyan: #00B4D8\n\
+    - Success green: #16A34A\n\
+    - Warning amber: #D97706\n\
+    - Error red: #DC2626\n\
+    - Font: style={{fontFamily:'Plus Jakarta Sans, sans-serif'}}\n\n\
+    LAYOUT — operational command center with 3 zones:\n\
+    ZONE 1 — Top stat bar (full width, 5 metric cards side by side):\n\
+    Card 1: Active Applications — large number, blue accent, trend arrow up/down\n\
+    Card 2: Total Funding Pursued — dollar amount, green accent\n\
+    Card 3: Win Rate — percentage, purple accent (#7C3AED)\n\
+    Card 4: Deadlines This Week — count, amber accent if >0\n\
+    Card 5: AutoApply Queue — count, cyan accent\n\
+    Each card: style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px 24px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', border:'1px solid #E2E8F0', flex:'1', minWidth:'0'}}\n\
+    Metric number: style={{fontSize:'32px', fontWeight:'800', lineHeight:'1', color:'[accent color]'}}\n\
+    Label: style={{fontSize:'12px', fontWeight:'600', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em', marginTop:'4px'}}\n\n\
+    ZONE 2 — Main content 2-column (left 60%, right 40%):\n\
+    LEFT — FlightPath Mission Control:\n\
+    Dark panel style={{backgroundColor:'#0F172A', borderRadius:'16px', padding:'24px', color:'#F8FAFC'}}\n\
+    Title: MISSION CONTROL in style={{fontSize:'11px', fontWeight:'700', letterSpacing:'0.15em', color:'#00B4D8', textTransform:'uppercase'}}\n\
+    6 stage cards in a 3x2 grid, each with:\n\
+    - Colored left border (3px solid [stage color])\n\
+    - Stage name, count badge, status indicator\n\
+    - Stage colors: Onboard=#6366F1, Research=#0077B6, Opportunities=#0EA5E9, Narratives=#8B5CF6, AutoApply=#10B981, Donors=#F59E0B\n\
+    - Active stage has glowing border: boxShadow:'0 0 0 2px [stage color]'\n\
+    - Each card: style={{backgroundColor:'rgba(255,255,255,0.05)', borderRadius:'8px', padding:'12px 16px', borderLeft:'3px solid [color]'}}\n\n\
+    RIGHT — 3 stacked panels:\n\
+    Panel A: Today's Priority Actions\n\
+    style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', marginBottom:'16px'}}\n\
+    List of up to 5 action items each with: colored dot, action text, due badge, arrow button\n\
+    Action button: style={{backgroundColor:'#0077B6', color:'#FFFFFF', border:'none', borderRadius:'8px', padding:'8px 16px', fontSize:'13px', fontWeight:'600', cursor:'pointer'}}\n\n\
+    Panel B: Upcoming Deadlines\n\
+    style={{backgroundColor:'#1A2B3C', borderRadius:'12px', padding:'20px', color:'#F8FAFC', marginBottom:'16px'}}\n\
+    Up to 4 deadlines with countdown chips: style={{backgroundColor:'rgba(220,38,38,0.2)', color:'#FCA5A5', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', fontWeight:'700'}}\n\n\
+    Panel C: Quick Actions grid 2x3\n\
+    style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}\n\
+    6 buttons: New Opportunity, Start Draft, Run AutoApply, Find Donors, View Research, Intelligence Library\n\
+    Each: style={{backgroundColor:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:'10px', padding:'14px', textAlign:'center', cursor:'pointer', transition:'all 0.15s'}}\n\n\
+    ZONE 3 — Bottom 3-column row:\n\
+    Col 1: Recent Activity feed — icon + action + timestamp, alternating subtle background\n\
+    Col 2: AI Insights panel — style={{background:'linear-gradient(135deg,#0077B6,#00B4D8)', borderRadius:'12px', padding:'20px', color:'white'}}\n\
+    3 insight cards with white semi-transparent backgrounds\n\
+    Col 3: Performance Radar — style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}\n\
+    Win rate, avg award size, application velocity — 3 metric rows with progress bars\n\
+    Progress bar fill: style={{backgroundColor:'#0077B6', height:'6px', borderRadius:'3px', width:'[pct]%'}}\n\n\
+    DATA: Pull real data from Supabase using the existing createClient pattern from other dashboard pages.\n\
+    Queries needed: applications count by status, opportunities count, deadlines in next 7 days, recent activity.\n\
+    Use existing API routes where available. Add 'use client' directive.\n\n\
+    INCREMENTAL TEST CHECKPOINT:\n\
+    Run: pnpm tsc --noEmit\n\
+    Must show 0 errors. Fix all errors before continuing.\n\n\
+    STEP 3 — SIDEBAR RESKIN:\n\
+    Read src/components/layout/Sidebar.tsx in full.\n\
+    Rewrite the sidebar with these exact styles:\n\
+    Container: style={{backgroundColor:'#1A2B3C', width:'240px', minHeight:'100vh', display:'flex', flexDirection:'column', borderRight:'1px solid rgba(255,255,255,0.06)'}}\n\
+    Logo area: style={{padding:'24px 20px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)'}}\n\
+    Nav item default: style={{display:'flex', alignItems:'center', gap:'10px', padding:'10px 16px', borderRadius:'8px', margin:'2px 8px', color:'rgba(248,250,252,0.7)', fontSize:'13px', fontWeight:'500', textDecoration:'none', transition:'all 0.15s'}}\n\
+    Nav item active: style={{backgroundColor:'rgba(0,180,216,0.15)', color:'#00B4D8', fontWeight:'600'}}\n\
+    Nav item hover: add onMouseEnter/onMouseLeave to toggle style={{backgroundColor:'rgba(255,255,255,0.06)'}}\n\
+    Section labels: style={{fontSize:'10px', fontWeight:'700', letterSpacing:'0.12em', color:'rgba(248,250,252,0.3)', textTransform:'uppercase', padding:'16px 20px 6px'}}\n\
+    Icons: use lucide-react, size 16px, style={{flexShrink:0}}\n\n\
+    STEP 4 — COMMIT:\n\
+    Run: pnpm tsc --noEmit — must be 0 errors\n\
+    git add -A\n\
+    git commit -m 'feat(ui): operational command center dashboard, sidebar reskin, SchoolFunder removed'\n\
+    git push\n\n\
+    STEP 5 — GOVERNANCE:\n\
+    Update C:\\Users\\manag\\Documents\\benavora\\STATE_OF_THE_BUILD.md:\n\
+    Run: git log --oneline -5 to get real commit hashes\n\
+    Run: Get-ChildItem src/app/(dashboard) -Directory | Measure-Object | Select-Object Count\n\
+    Write actual command output into STATE_OF_THE_BUILD.md — never from memory.\n\
+    Update SESSION_STATE.md with prompt ui-001 completed, ui-002 next."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/dashboard/page.tsx
+    - src/components/layout/Sidebar.tsx
+
+- id: ui-002
+  name: Reskin Opportunities Page and Research Page
+  prompt: "MANDATORY PRE-READ — read these files in full before writing anything:\n\
+    src/app/(dashboard)/opportunities/page.tsx\n\
+    src/app/(dashboard)/research/page.tsx\n\
+    src/app/(dashboard)/research/match/page.tsx\n\
+    src/app/(dashboard)/opportunities/new/page.tsx\n\n\
+    DESIGN RULES — same as ui-001, repeat for clarity:\n\
+    - ALL colors via hardcoded style={{}} hex values ONLY. Never Tailwind color classes. Never CSS variables.\n\
+    - Canvas: #E4E9F0, Cards: #FFFFFF with boxShadow:'0 2px 8px rgba(0,0,0,0.08)', border:'1px solid #E2E8F0'\n\
+    - Primary: #0077B6, Accent: #00B4D8, Text: #0F172A, Muted: #64748B\n\
+    - Radius: 12px cards, 8px buttons/badges\n\
+    - Font: Plus Jakarta Sans\n\n\
+    OPPORTUNITIES PAGE REWRITE:\n\
+    Rewrite src/app/(dashboard)/opportunities/page.tsx completely.\n\n\
+    LAYOUT:\n\
+    Page header: style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'24px'}}\n\
+    Title: style={{fontSize:'24px', fontWeight:'800', color:'#0F172A'}}\n\
+    Subtitle: style={{fontSize:'14px', color:'#64748B', marginTop:'2px'}}\n\
+    Add Opportunity button: style={{backgroundColor:'#0077B6', color:'white', border:'none', borderRadius:'10px', padding:'10px 20px', fontSize:'14px', fontWeight:'600', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px'}}\n\n\
+    FILTER BAR — horizontal pill filters:\n\
+    Container: style={{display:'flex', gap:'8px', marginBottom:'24px', flexWrap:'wrap'}}\n\
+    Filter chip: style={{backgroundColor:'#FFFFFF', border:'1px solid #E2E8F0', borderRadius:'20px', padding:'6px 16px', fontSize:'13px', fontWeight:'500', color:'#64748B', cursor:'pointer'}}\n\
+    Active chip: style={{backgroundColor:'#0077B6', color:'white', border:'1px solid #0077B6'}}\n\
+    Filters: All, Federal, Foundation, Corporate, State/Local, Rolling, Closing Soon\n\n\
+    STATS ROW — 4 cards before the list:\n\
+    Open Opportunities (blue), High Probability >70% (green #16A34A), Closing This Week (amber #D97706), Total Potential (dollar, purple #7C3AED)\n\
+    Each: style={{backgroundColor:'#FFFFFF', borderRadius:'10px', padding:'16px 20px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', border:'1px solid #E2E8F0', flex:'1'}}\n\n\
+    OPPORTUNITY CARDS — replace any table with cards:\n\
+    Each card: style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px 24px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', border:'1px solid #E2E8F0', marginBottom:'12px', display:'flex', alignItems:'flex-start', gap:'16px'}}\n\
+    Left accent bar by category color (4px wide, full height, borderRadius:'2px'):\n\
+    Federal=#0077B6, Foundation=#7C3AED, Corporate=#0EA5E9, State=#10B981\n\
+    Probability badge: style={{backgroundColor:[color]+'15', color:[color], borderRadius:'6px', padding:'3px 10px', fontSize:'12px', fontWeight:'700'}}\n\
+    >70%=green, 40-70%=amber, <40%=red\n\
+    Amount chip: style={{backgroundColor:'#F0F9FF', color:'#0077B6', borderRadius:'6px', padding:'3px 10px', fontSize:'12px', fontWeight:'600'}}\n\
+    Deadline chip: style={{backgroundColor:'#FEF3C7', color:'#B45309', borderRadius:'6px', padding:'3px 10px', fontSize:'12px', fontWeight:'600'}} if <14 days\n\
+    Action buttons row: View, Apply Now (primary), Skip\n\n\
+    RESEARCH PAGE REWRITE:\n\
+    Rewrite src/app/(dashboard)/research/page.tsx completely.\n\n\
+    LAYOUT — two panels side by side:\n\
+    LEFT (45%): Funder Search\n\
+    Search box: style={{width:'100%', padding:'12px 16px', borderRadius:'10px', border:'1.5px solid #E2E8F0', fontSize:'14px', outline:'none', backgroundColor:'#FFFFFF'}}\n\
+    Filter chips below: NTEE category, state, asset range, giving range\n\
+    Results list: foundation cards with name, city/state, asset amount, giving total, match score badge\n\
+    Match score: style={{backgroundColor:'#0077B6', color:'white', borderRadius:'20px', padding:'4px 12px', fontSize:'12px', fontWeight:'700'}}\n\n\
+    RIGHT (55%): Semantic Match Engine panel\n\
+    style={{backgroundColor:'#0F172A', borderRadius:'16px', padding:'28px', color:'white', height:'fit-content'}}\n\
+    Title: AI FUNDER MATCH in style={{fontSize:'11px', fontWeight:'700', letterSpacing:'0.15em', color:'#00B4D8'}}\n\
+    Mission input: style={{width:'100%', padding:'12px 16px', backgroundColor:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'10px', color:'white', fontSize:'14px', outline:'none', resize:'none', marginBottom:'12px'}}\n\
+    Run Match button: style={{background:'linear-gradient(135deg,#0077B6,#00B4D8)', color:'white', border:'none', borderRadius:'10px', padding:'12px 24px', fontSize:'14px', fontWeight:'700', cursor:'pointer', width:'100%'}}\n\
+    Match results: cards with match percentage bar, rationale text\n\
+    Match bar fill: style={{background:'linear-gradient(90deg,#00B4D8,#0077B6)', height:'6px', borderRadius:'3px', width:'[pct]%'}}\n\n\
+    INCREMENTAL TEST CHECKPOINT:\n\
+    Run: pnpm tsc --noEmit\n\
+    Must show 0 errors. Fix all errors.\n\n\
+    COMMIT:\n\
+    git add -A\n\
+    git commit -m 'feat(ui): opportunities page cards + filter bar, research page dual-panel semantic match'\n\
+    git push\n\n\
+    GOVERNANCE UPDATE:\n\
+    Run: git log --oneline -3\n\
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual command output."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/opportunities/page.tsx
+    - src/app/(dashboard)/research/page.tsx
+
+- id: ui-003
+  name: Reskin AutoApply with Cognizant AI Brain Live Session View
+  prompt: "MANDATORY PRE-READ — read these files in full before writing anything:\n\
+    src/app/(dashboard)/autoapply/page.tsx\n\
+    src/app/(dashboard)/autoapply/[sessionId]/page.tsx (if exists — check first with Test-Path)\n\
+    src/app/(dashboard)/autoapply/controls/page.tsx (if exists)\n\
+    src/app/(dashboard)/autoapply/analytics/page.tsx (if exists)\n\n\
+    DESIGN RULES — same hex values as ui-001/ui-002. No Tailwind color classes. Hardcoded style={{}} only.\n\n\
+    AUTOAPPLY MAIN PAGE REWRITE:\n\
+    Rewrite src/app/(dashboard)/autoapply/page.tsx completely.\n\n\
+    THEME FOR THIS PAGE: Dark command center. The AutoApply page uses a darker, more dramatic treatment than other pages.\n\n\
+    PAGE BACKGROUND: style={{backgroundColor:'#0A0F1A', minHeight:'100vh', padding:'24px'}}\n\n\
+    HEADER SECTION:\n\
+    style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'32px'}}\n\
+    Left: Title AUTOAPPLY ENGINE in style={{fontSize:'28px', fontWeight:'800', color:'#F8FAFC', letterSpacing:'-0.02em'}}\n\
+    Subtitle: style={{fontSize:'14px', color:'#64748B', marginTop:'4px'}}\n\
+    Right: Status indicator pill:\n\
+    ACTIVE: style={{backgroundColor:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:'20px', padding:'8px 20px', color:'#10B981', fontSize:'13px', fontWeight:'700', display:'flex', alignItems:'center', gap:'8px'}}\n\
+    Pulsing dot: style={{width:'8px', height:'8px', backgroundColor:'#10B981', borderRadius:'50%', animation:'pulse 2s infinite'}}\n\n\
+    TOP STATS ROW — 4 cards on dark:\n\
+    Each: style={{backgroundColor:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'20px', border:'1px solid rgba(255,255,255,0.08)', flex:'1'}}\n\
+    Metric: style={{fontSize:'36px', fontWeight:'800', color:'#F8FAFC'}}\n\
+    Label: style={{fontSize:'11px', fontWeight:'600', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.08em'}}\n\
+    Stats: Sessions Today, Success Rate, Avg Fill Time, Forms Queued\n\
+    Accent colors: #10B981, #0077B6, #00B4D8, #F59E0B\n\n\
+    MAIN CONTENT — 2 columns (65% left, 35% right):\n\n\
+    LEFT — LIVE SESSION VIEWER (the cognizant AI brain display):\n\
+    Outer: style={{backgroundColor:'#0D1B2A', borderRadius:'16px', border:'1px solid rgba(0,180,216,0.2)', overflow:'hidden'}}\n\n\
+    BROWSER CHROME BAR:\n\
+    style={{backgroundColor:'#1A2B3C', padding:'10px 16px', display:'flex', alignItems:'center', gap:'12px', borderBottom:'1px solid rgba(255,255,255,0.06)'}}\n\
+    3 traffic lights: red #FF5F57, yellow #FEBC2E, green #28C840 — each style={{width:'12px', height:'12px', borderRadius:'50%', backgroundColor:'[color]'}}\n\
+    URL bar: style={{backgroundColor:'rgba(255,255,255,0.06)', borderRadius:'6px', padding:'5px 12px', color:'#64748B', fontSize:'12px', flex:'1', fontFamily:'monospace'}}\n\
+    Show current page URL or placeholder\n\n\
+    SCREEN AREA — the live form view:\n\
+    style={{backgroundColor:'#F8FAFC', minHeight:'320px', position:'relative', overflow:'hidden'}}\n\
+    When session active: render a simulated form view with field highlighting\n\
+    When idle: show placeholder with AI brain graphic:\n\
+    Center a large icon grid pattern: 6x6 grid of small cyan dots\n\
+    style={{display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:'12px', padding:'40px', opacity:'0.3'}}\n\
+    Each dot: style={{width:'6px', height:'6px', backgroundColor:'#00B4D8', borderRadius:'50%'}}\n\
+    Overlay text: style={{position:'absolute', inset:'0', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#00B4D8'}}\n\
+    Large icon (Bot from lucide-react, size 48)\n\
+    Text: AI ENGINE STANDING BY in style={{fontSize:'12px', fontWeight:'700', letterSpacing:'0.15em', marginTop:'12px'}}\n\n\
+    AI THINKING TICKER — below the screen:\n\
+    style={{backgroundColor:'#0A0F1A', padding:'12px 16px', borderTop:'1px solid rgba(0,180,216,0.15)', fontFamily:'monospace', fontSize:'12px', color:'#00B4D8'}}\n\
+    Show last 3 AI actions with timestamps:\n\
+    Format: [HH:MM:SS] > ACTION_DESCRIPTION\n\
+    Each line fades in with opacity animation\n\
+    Example lines: [09:14:33] > Scanning form fields..., [09:14:35] > Matched 8 of 9 required fields, [09:14:37] > Populating Organization Name...\n\
+    These can be static placeholder text when no session is active\n\n\
+    FIELD FILL PROGRESS BAR below ticker:\n\
+    style={{padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,0.04)'}}\n\
+    Label: style={{fontSize:'11px', color:'#64748B', marginBottom:'6px'}}\n\
+    Track: style={{backgroundColor:'rgba(255,255,255,0.06)', borderRadius:'3px', height:'6px'}}\n\
+    Fill: style={{background:'linear-gradient(90deg,#0077B6,#00B4D8)', height:'6px', borderRadius:'3px', width:'[pct]%', transition:'width 0.5s ease'}}\n\n\
+    RIGHT PANEL — Queue + Controls:\n\n\
+    QUEUE PANEL:\n\
+    style={{backgroundColor:'rgba(255,255,255,0.04)', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.08)', marginBottom:'16px', overflow:'hidden'}}\n\
+    Header: style={{padding:'16px 20px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center'}}\n\
+    Title: QUEUE in style={{fontSize:'11px', fontWeight:'700', letterSpacing:'0.12em', color:'#64748B'}}\n\
+    Count badge: style={{backgroundColor:'rgba(0,119,182,0.2)', color:'#00B4D8', borderRadius:'10px', padding:'2px 10px', fontSize:'12px', fontWeight:'700'}}\n\
+    Queue items (up to 5): each style={{padding:'12px 20px', borderBottom:'1px solid rgba(255,255,255,0.04)', display:'flex', alignItems:'center', gap:'12px'}}\n\
+    Status dot: green=active, amber=pending, gray=queued\n\
+    Funder name: style={{color:'#F8FAFC', fontSize:'13px', fontWeight:'600'}}\n\
+    Amount: style={{color:'#64748B', fontSize:'12px', marginLeft:'auto'}}\n\n\
+    CONTROLS PANEL:\n\
+    style={{backgroundColor:'rgba(255,255,255,0.04)', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.08)', padding:'20px'}}\n\
+    Title: CONTROLS in style={{fontSize:'11px', fontWeight:'700', letterSpacing:'0.12em', color:'#64748B', marginBottom:'16px'}}\n\
+    3 buttons stacked:\n\
+    Start Session: style={{width:'100%', background:'linear-gradient(135deg,#10B981,#059669)', color:'white', border:'none', borderRadius:'10px', padding:'12px', fontSize:'14px', fontWeight:'700', cursor:'pointer', marginBottom:'8px'}}\n\
+    Pause: style={{width:'100%', backgroundColor:'rgba(245,158,11,0.15)', color:'#F59E0B', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'10px', padding:'12px', fontSize:'14px', fontWeight:'600', cursor:'pointer', marginBottom:'8px'}}\n\
+    View All Sessions: style={{width:'100%', backgroundColor:'transparent', color:'#00B4D8', border:'1px solid rgba(0,180,216,0.3)', borderRadius:'10px', padding:'12px', fontSize:'14px', fontWeight:'600', cursor:'pointer'}}\n\n\
+    Add CSS keyframe for pulse animation in a <style> tag inside the component:\n\
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }\n\n\
+    INCREMENTAL TEST CHECKPOINT:\n\
+    Run: pnpm tsc --noEmit — must be 0 errors. Fix all errors.\n\n\
+    COMMIT:\n\
+    git add -A\n\
+    git commit -m 'feat(ui): AutoApply dark command center with AI brain live session viewer, cognizant ticker, queue panel'\n\
+    git push\n\n\
+    GOVERNANCE:\n\
+    Run: git log --oneline -3\n\
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual output."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/autoapply/page.tsx
+
+- id: ui-004
+  name: Reskin Draft Generator and Donor Discovery
+  prompt: "MANDATORY PRE-READ — read these files in full:\n\
+    src/app/(dashboard)/draft-generator/page.tsx\n\
+    src/app/(dashboard)/donor-discovery/page.tsx\n\
+    src/app/(dashboard)/donor-discovery/discover/page.tsx (if exists)\n\
+    src/app/(dashboard)/donor-discovery/prospects/page.tsx (if exists)\n\n\
+    DESIGN RULES — hardcoded style={{}} hex values only. No Tailwind color classes.\n\
+    Canvas: #E4E9F0, Cards: #FFFFFF boxShadow:'0 2px 8px rgba(0,0,0,0.08)' border:'1px solid #E2E8F0'\n\
+    Primary: #0077B6, Accent: #00B4D8, Text: #0F172A, Muted: #64748B\n\n\
+    DRAFT GENERATOR REWRITE:\n\
+    Rewrite src/app/(dashboard)/draft-generator/page.tsx completely.\n\n\
+    LAYOUT — 3-column wizard:\n\
+    Left rail (30%): Steps sidebar\n\
+    style={{backgroundColor:'#1A2B3C', borderRadius:'16px', padding:'24px', color:'white', minHeight:'600px'}}\n\
+    Title: GRANT DRAFT WIZARD in style={{fontSize:'11px', fontWeight:'700', letterSpacing:'0.15em', color:'#00B4D8', marginBottom:'24px'}}\n\
+    4 steps (select opportunity, customize, review, export):\n\
+    Step completed: style={{display:'flex', alignItems:'center', gap:'12px', padding:'12px', borderRadius:'8px', backgroundColor:'rgba(16,185,129,0.15)', marginBottom:'8px'}}\n\
+    Step active: style={{display:'flex', alignItems:'center', gap:'12px', padding:'12px', borderRadius:'8px', backgroundColor:'rgba(0,180,216,0.15)', border:'1px solid rgba(0,180,216,0.3)', marginBottom:'8px'}}\n\
+    Step pending: style={{display:'flex', alignItems:'center', gap:'12px', padding:'12px', borderRadius:'8px', opacity:'0.4', marginBottom:'8px'}}\n\
+    Step number circle: style={{width:'28px', height:'28px', borderRadius:'50%', backgroundColor:'[color]', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'13px', fontWeight:'700', flexShrink:0}}\n\n\
+    Main area (70%): Active step content\n\
+    STEP 1 — Select Opportunity:\n\
+    style={{backgroundColor:'#FFFFFF', borderRadius:'16px', padding:'28px', boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}\n\
+    Search box with magnifier icon\n\
+    Opportunity cards in a scrollable list — same card style as opportunities page\n\
+    Each selectable with radio-style selection ring: style={{border:'2px solid #0077B6', backgroundColor:'#F0F9FF'}}\n\n\
+    STEP 2 — Customize:\n\
+    Tone selector: 3 cards — Formal, Balanced, Compelling\n\
+    Each: style={{border:'2px solid #E2E8F0', borderRadius:'10px', padding:'16px', cursor:'pointer', textAlign:'center'}}\n\
+    Selected: style={{border:'2px solid #0077B6', backgroundColor:'#F0F9FF'}}\n\
+    Length selector, special instructions textarea\n\
+    style={{width:'100%', padding:'12px', border:'1.5px solid #E2E8F0', borderRadius:'10px', fontSize:'14px', minHeight:'80px', resize:'vertical'}}\n\n\
+    STEP 3 — AI Generation in progress:\n\
+    Animated generation view:\n\
+    Center: spinning gradient ring around AI icon\n\
+    style={{width:'80px', height:'80px', borderRadius:'50%', background:'conic-gradient(#0077B6,#00B4D8,#0077B6)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 24px'}}\n\
+    Inner white circle: style={{width:'64px', height:'64px', borderRadius:'50%', backgroundColor:'white', display:'flex', alignItems:'center', justifyContent:'center'}}\n\
+    Progress text showing section being generated\n\
+    Confidence meter: 0-100 with color gradient bar\n\n\
+    STEP 4 — Review and Export:\n\
+    Split view: left shows draft sections in cards, right shows confidence scores and winning phrases panel\n\
+    Winning phrase chip: style={{backgroundColor:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:'6px', padding:'4px 10px', fontSize:'12px', color:'#16A34A', fontWeight:'500'}}\n\
+    Export button: style={{background:'linear-gradient(135deg,#0077B6,#00B4D8)', color:'white', border:'none', borderRadius:'10px', padding:'14px 28px', fontSize:'15px', fontWeight:'700', cursor:'pointer'}}\n\n\
+    DONOR DISCOVERY REWRITE:\n\
+    Rewrite src/app/(dashboard)/donor-discovery/page.tsx completely.\n\n\
+    LAYOUT:\n\
+    Page header with title DONOR DISCOVERY ENGINE and subtitle\n\
+    style={{marginBottom:'32px'}}\n\n\
+    TOP ROW — 4 stat cards:\n\
+    Prospects Identified, High Intent Signals, Outreach Sent, Conversions\n\
+    Same card style as dashboard stat bar\n\
+    Accent colors: #7C3AED, #F59E0B, #0077B6, #10B981\n\n\
+    MAIN CONTENT — 2 columns:\n\
+    LEFT (55%): Prospect search and results\n\
+    Industry selector grid — 12 cards in 4x3 grid:\n\
+    Each: style={{backgroundColor:'#FFFFFF', borderRadius:'10px', padding:'16px', border:'2px solid #E2E8F0', cursor:'pointer', textAlign:'center', transition:'all 0.15s'}}\n\
+    Selected: style={{border:'2px solid #7C3AED', backgroundColor:'#F5F3FF'}}\n\
+    Icon (large emoji or lucide icon) + industry name + count badge\n\
+    Industries: Construction, Technology, Healthcare, Finance, Retail, Manufacturing, Energy, Food Service, Education, Professional Services, Real Estate, Transportation\n\
+    Find Prospects button: style={{width:'100%', background:'linear-gradient(135deg,#7C3AED,#6D28D9)', color:'white', border:'none', borderRadius:'10px', padding:'14px', fontSize:'15px', fontWeight:'700', cursor:'pointer', marginTop:'16px'}}\n\n\
+    RIGHT (45%): Intent Signals + Featured Prospect\n\
+    Intent signals panel:\n\
+    style={{backgroundColor:'#1A2B3C', borderRadius:'12px', padding:'20px', color:'white', marginBottom:'16px'}}\n\
+    Title: LIVE INTENT SIGNALS in style={{fontSize:'11px', fontWeight:'700', letterSpacing:'0.12em', color:'#F59E0B'}}\n\
+    Signal items — each with urgency level badge:\n\
+    HIGH: style={{backgroundColor:'rgba(220,38,38,0.2)', color:'#FCA5A5', borderRadius:'4px', padding:'2px 8px', fontSize:'11px', fontWeight:'700'}}\n\
+    MEDIUM: style={{backgroundColor:'rgba(245,158,11,0.2)', color:'#FCD34D', borderRadius:'4px', padding:'2px 8px', fontSize:'11px', fontWeight:'700'}}\n\n\
+    Featured prospect card:\n\
+    style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px', boxShadow:'0 4px 16px rgba(0,0,0,0.1)', border:'2px solid #E2E8F0'}}\n\
+    Company name in style={{fontSize:'18px', fontWeight:'700', color:'#0F172A'}}\n\
+    CSR programs list, giving range, portal type badge, contact button\n\
+    Contact button: style={{backgroundColor:'#7C3AED', color:'white', border:'none', borderRadius:'8px', padding:'10px 20px', fontSize:'13px', fontWeight:'600', cursor:'pointer'}}\n\n\
+    INCREMENTAL TEST CHECKPOINT:\n\
+    Run: pnpm tsc --noEmit — 0 errors required.\n\n\
+    COMMIT:\n\
+    git add -A\n\
+    git commit -m 'feat(ui): draft generator 4-step wizard dark rail, donor discovery engine with intent signals and industry grid'\n\
+    git push\n\n\
+    GOVERNANCE:\n\
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from git log --oneline -3 output."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/draft-generator/page.tsx
+    - src/app/(dashboard)/donor-discovery/page.tsx
+
+- id: ui-005
+  name: Reskin Intelligence Library and Knowledge Base
+  prompt: "MANDATORY PRE-READ — read these files in full:\n\
+    src/app/(dashboard)/intelligence-library/page.tsx\n\
+    src/app/(dashboard)/intelligence-library/dashboard/page.tsx (if exists)\n\
+    src/app/(dashboard)/knowledge-base/page.tsx\n\n\
+    DESIGN RULES — hardcoded style={{}} hex values only. No Tailwind color classes.\n\
+    Canvas: #E4E9F0, Cards: #FFFFFF boxShadow:'0 2px 8px rgba(0,0,0,0.08)'\n\
+    Primary: #0077B6, Accent: #00B4D8, Text: #0F172A, Muted: #64748B\n\n\
+    INTELLIGENCE LIBRARY REWRITE:\n\
+    Rewrite src/app/(dashboard)/intelligence-library/page.tsx completely.\n\n\
+    LAYOUT:\n\
+    HERO HEADER:\n\
+    style={{background:'linear-gradient(135deg,#0F172A 0%,#1A2B3C 50%,#0F172A 100%)', borderRadius:'16px', padding:'32px', marginBottom:'24px', position:'relative', overflow:'hidden'}}\n\
+    Background pattern: absolute positioned grid of tiny dots (same dot grid as AutoApply idle state)\n\
+    Title: GRANT INTELLIGENCE LIBRARY in style={{fontSize:'28px', fontWeight:'800', color:'#F8FAFC', position:'relative'}}\n\
+    Subtitle: style={{color:'rgba(248,250,252,0.6)', fontSize:'14px', marginTop:'6px', position:'relative'}}\n\
+    Right side: 3 stat chips inline:\n\
+    style={{backgroundColor:'rgba(255,255,255,0.08)', borderRadius:'8px', padding:'8px 16px', fontSize:'13px', color:'rgba(248,250,252,0.8)', fontWeight:'600'}}\n\
+    Stats: [N] Funded Proposals, [N] Federal Sources, [N] Winning Phrases\n\n\
+    FILTER ROW:\n\
+    style={{display:'flex', gap:'12px', marginBottom:'24px', alignItems:'center', flexWrap:'wrap'}}\n\
+    Search box: style={{flex:'1', minWidth:'280px', padding:'10px 16px 10px 40px', borderRadius:'10px', border:'1.5px solid #E2E8F0', backgroundColor:'#FFFFFF', fontSize:'14px', outline:'none'}}\n\
+    Category filter dropdown: style={{padding:'10px 16px', borderRadius:'10px', border:'1.5px solid #E2E8F0', backgroundColor:'#FFFFFF', fontSize:'14px', color:'#0F172A', minWidth:'160px'}}\n\
+    Quick filter chips: ALL, Federal, NIH, NSF, Foundation, Corporate\n\
+    Active chip: style={{backgroundColor:'#0077B6', color:'white', border:'1px solid #0077B6', borderRadius:'20px', padding:'6px 16px', fontSize:'13px', fontWeight:'600'}}\n\
+    Inactive chip: style={{backgroundColor:'#FFFFFF', border:'1px solid #E2E8F0', borderRadius:'20px', padding:'6px 16px', fontSize:'13px', color:'#64748B', cursor:'pointer'}}\n\
+    Amount range inputs: Min/Max dollar fields side by side\n\
+    Each: style={{width:'120px', padding:'10px 12px', borderRadius:'10px', border:'1.5px solid #E2E8F0', backgroundColor:'#FFFFFF', fontSize:'13px'}}\n\n\
+    RESULTS GRID — 2 columns of cards:\n\
+    Each proposal card: style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', border:'1px solid #E2E8F0', cursor:'pointer', transition:'all 0.15s'}}\n\
+    Hover: boxShadow:'0 4px 16px rgba(0,0,0,0.12)', transform:'translateY(-1px)'\n\
+    Top row: funder type badge + award amount chip\n\
+    Funder badge colors: Federal=#0077B6, NIH=#7C3AED, NSF=#0EA5E9, Foundation=#10B981, Corporate=#F59E0B\n\
+    Grant title: style={{fontSize:'15px', fontWeight:'700', color:'#0F172A', margin:'10px 0 6px'}}\n\
+    Organization: style={{fontSize:'13px', color:'#64748B', marginBottom:'10px'}}\n\
+    Winning phrases row (up to 3 chips per card):\n\
+    Each: style={{backgroundColor:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:'4px', padding:'2px 8px', fontSize:'11px', color:'#16A34A', fontWeight:'500', marginRight:'4px'}}\n\
+    Bottom: View Narrative button + NTEE category label\n\n\
+    NARRATIVE OVERLAY (when card clicked):\n\
+    Slide-in panel from right (fixed position):\n\
+    style={{position:'fixed', right:'0', top:'0', bottom:'0', width:'480px', backgroundColor:'#FFFFFF', boxShadow:'-8px 0 32px rgba(0,0,0,0.15)', zIndex:50, overflow:'auto', padding:'32px'}}\n\
+    Close button top-right, full narrative text, all winning phrases, persuasive elements list\n\n\
+    KNOWLEDGE BASE REWRITE:\n\
+    Rewrite src/app/(dashboard)/knowledge-base/page.tsx completely.\n\n\
+    LAYOUT — 2 columns (35% left nav, 65% content):\n\
+    LEFT NAV:\n\
+    style={{backgroundColor:'#FFFFFF', borderRadius:'12px', padding:'16px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', height:'fit-content'}}\n\
+    Section title: KNOWLEDGE SECTIONS in style={{fontSize:'10px', fontWeight:'700', letterSpacing:'0.12em', color:'#64748B', marginBottom:'12px'}}\n\
+    Nav items: Organization Profile, Mission Statement, Programs, Proven Narratives, Q&A Library, Documents\n\
+    Active item: style={{backgroundColor:'#F0F9FF', color:'#0077B6', borderRadius:'8px', padding:'10px 14px', fontWeight:'600', fontSize:'13px', cursor:'pointer', marginBottom:'4px', display:'block'}}\n\
+    Inactive: style={{color:'#64748B', borderRadius:'8px', padding:'10px 14px', fontSize:'13px', cursor:'pointer', marginBottom:'4px', display:'block'}}\n\n\
+    RIGHT CONTENT area: standard card style\n\
+    Organization Profile section:\n\
+    Hero card: style={{background:'linear-gradient(135deg,#0077B6,#00B4D8)', borderRadius:'12px', padding:'24px', color:'white', marginBottom:'20px'}}\n\
+    Org name large, mission preview, completeness bar\n\
+    Completeness bar: style={{backgroundColor:'rgba(255,255,255,0.2)', borderRadius:'3px', height:'6px', marginTop:'8px'}}\n\
+    Fill: style={{backgroundColor:'white', height:'6px', borderRadius:'3px', width:'[pct]%'}}\n\
+    Editable fields below in clean form cards\n\
+    Proven Narratives section:\n\
+    Narrative cards with effectiveness score badge:\n\
+    style={{backgroundColor:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:'10px', padding:'16px', marginBottom:'12px'}}\n\
+    Score badge: style={{backgroundColor:'#16A34A', color:'white', borderRadius:'6px', padding:'3px 10px', fontSize:'12px', fontWeight:'700'}}\n\n\
+    INCREMENTAL TEST CHECKPOINT:\n\
+    Run: pnpm tsc --noEmit — 0 errors required. Fix all errors.\n\n\
+    COMMIT:\n\
+    git add -A\n\
+    git commit -m 'feat(ui): intelligence library dark hero + filter bar + narrative overlay, knowledge base dual-panel nav'\n\
+    git push\n\n\
+    GOVERNANCE:\n\
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from git log --oneline -5 output.\n\
+    Mark ui-001 through ui-005 as COMPLETE in the UI Redesign Status section.\n\
+    Deploy: npx vercel deploy --prod\n\
+    Record the deployment URL in SESSION_STATE.md."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/intelligence-library/page.tsx
+    - src/app/(dashboard)/knowledge-base/page.tsx

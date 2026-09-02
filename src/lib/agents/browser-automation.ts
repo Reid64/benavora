@@ -42,6 +42,7 @@ import {
   AutomationSessionManager,
   AutomationSessionError,
 } from "@/lib/automation/session-manager";
+import { applicationSubmitted } from "@/lib/observability/metrics";
 import type { AgentType } from "@/types/agents";
 import type {
   AutofillContext,
@@ -892,13 +893,21 @@ export class BrowserAutomationAgent extends BaseAgent<
   ): Promise<boolean> {
     if (!applicationId) return false;
 
-    const { data: application } = await this.client
+    const { data: rawApplication } = await this.client
       .from("applications")
-      .select("id, stage, notes")
+      .select("id, stage, notes, draft_template_type, opportunity:opportunities(category)")
       .eq("id", applicationId)
       .eq("organization_id", this.organizationId)
       .maybeSingle();
-    if (!application) return false;
+    if (!rawApplication) return false;
+
+    const application = rawApplication as unknown as {
+      id: string;
+      stage: string | null;
+      notes: string | null;
+      draft_template_type: string | null;
+      opportunity: { category: string | null } | null;
+    };
 
     const fromStage = (application.stage as string | null) ?? null;
     const submittedAt = new Date().toISOString();
@@ -929,6 +938,14 @@ export class BrowserAutomationAgent extends BaseAgent<
       changed_by: changedBy,
       notes: confirmationLine,
     });
+
+    applicationSubmitted
+      .labels(
+        application.opportunity?.category ?? "unknown",
+        application.draft_template_type ?? "unknown",
+        "true",
+      )
+      .inc();
 
     return true;
   }

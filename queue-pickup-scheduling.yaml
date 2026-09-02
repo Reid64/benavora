@@ -1,0 +1,47 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_PICKUP_SCHEDULING.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: pickup-001
+    phase: investigate
+    description: "Confirm zero prior implementation and scope real pickup scheduling flow"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_PICKUP_SCHEDULING.md in full. Grep the repo for any
+      existing pickup-related code. Note this is distinct from delivery
+      dispatch (app/api/orders/[id]/dispatch) -- pickup scheduling is for
+      customers picking up their own order from the AFS shop, not AFS
+      delivering it.
+
+      Check SCHEMA.md's orders table for any pickup-related columns.
+      Determine whether this needs new columns (pickup_scheduled_at,
+      pickup_confirmed_by, etc.) and where in the customer account portal
+      and admin Command Center this should surface.
+
+      Write PICKUP_SCHEDULING_SCOPE.md with the real findings and exactly
+      what pickup-002 should build.
+    gates:
+      - type: file_exists
+        files:
+          - PICKUP_SCHEDULING_SCOPE.md
+
+  - id: pickup-002
+    phase: implement
+    description: "Build pickup scheduling per PICKUP_SCHEDULING_SCOPE.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read PICKUP_SCHEDULING_SCOPE.md in full. Implement exactly what it
+      specifies -- a customer-facing way to select pickup vs delivery and
+      schedule a pickup window, and admin visibility into scheduled pickups
+      in Command Center. Reuse the existing order-status pipeline pattern
+      rather than inventing a parallel one.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: pickup scheduling per spec"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

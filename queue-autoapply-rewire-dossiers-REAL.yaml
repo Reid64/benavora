@@ -1,0 +1,321 @@
+prompts:
+  - id: autoapply-queue-populator-from-dossiers
+    prompt: |
+      Rewrite src/lib/autoapply/queue-populator.ts to consume from pil_prospect_dossiers instead of raw prospects.
+      
+      Context:
+      - Old behavior: pulled from pil_prospects, had no intelligence
+      - New behavior: pulls from pil_prospect_dossiers (fully enriched, scored, ranked)
+      - Request profiles architecture is live (AUTOAPPLY_ARCHITECTURE_V2.md section 2C)
+      - Amount optimizer and pitch personalizer must be called BEFORE filling forms
+      - AutoApply workflow: create submission_queue items with full dossier context
+      
+      **Rewrite this function:**
+      
+      ```typescript
+      export async function populateSubmissionQueue(
+        tenantId: string,
+        supabase: any,
+        options?: { priorityThreshold?: number; batchSize?: number }
+      ) {
+        const threshold = options?.priorityThreshold || 0.5; // Only submit if priority > 50th percentile
+        const batchSize = options?.batchSize || 20;
+        
+        // 1. Fetch eligible dossiers (recommend submit_now or submit_next_quarter, not monitor/research)
+        const { data: dossiers, error } = await supabase
+          .from('pil_prospect_dossiers')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('dossier_complete', true)
+          .in('app_priority_recommendation', ['submit_now', 'submit_next_quarter'])
+          .gte('app_priority_score', threshold * 100)
+          .eq('queued_for_submission', false) // Don't re-queue
+          .order('app_priority_score', { ascending: false })
+          .limit(batchSize);
+        
+        if (error) throw error;
+        
+        const queue_items = [];
+        
+        for (const dossier of dossiers) {
+          // 2. For each dossier with app_recommendations, create submission queue item(s)
+          const recommendations = dossier.app_recommendations || [];
+          
+          for (const rec of recommendations) {
+            // rec = { request_type, request_profile_id, success_probability, field_mappings, ... }
+            
+            // 3. Call amount-optimizer to get intelligent ask amount
+            const amount = await getOptimalAskAmount(dossier.prospect_id, rec, supabase);
+            
+            // 4. Call pitch-personalizer to tailor message to funder
+            const pitch = await personalizePitch({
+              orgMission: dossier.org_mission, // from org profile
+              orgPrograms: dossier.org_programs,
+              funderName: dossier.funder_name,
+              funderPriorities: dossier.dis_findings?.priorities || [],
+              funderCategory: dossier.funder_category,
+              maxLength: 500
+            });
+            
+            // 5. Load form template if portal exists
+            let formTemplateId = null;
+            if (dossier.funder_has_portal) {
+              const { data: template } = await supabase
+                .from('form_templates')
+                .select('id')
+                .eq('funder_id', dossier.funder_id)
+                .single();
+              formTemplateId = template?.id;
+            }
+            
+            // 6. Create submission queue item
+            const { error: queueError } = await supabase
+              .from('autoapply_submission_queue')
+              .insert({
+                tenant_id: tenantId,
+                funder_id: dossier.funder_id,
+                prospect_dossier_id: dossier.id,
+                request_profile_id: rec.request_profile_id,
+                request_type: rec.request_type,
+                form_template_id: formTemplateId,
+                suggested_ask_amount: amount.recommended,
+                personalized_pitch: pitch,
+                priority: rec.success_probability,
+                submission_method: formTemplateId ? 'portal_autoapply' : 'email_draft',
+                scheduled_submission_date: rec.strategy?.timing || new Date(),
+                assigned_to: null, // Auto-assign logic or leave for manual
+                dossier_context: {
+                  field_mappings: rec.field_mappings,
+                  risk_factors: rec.risk_factors,
+                  relationship_strategy: rec.strategy,
+                  success_probability: rec.success_probability
+                },
+                status: 'queued'
+              });
+            
+            if (queueError) {
+              console.error(`Failed to queue ${dossier.prospect_id}:`, queueError);
+              continue;
+            }
+            
+            queue_items.push({ prospect_id: dossier.prospect_id, funder_id: dossier.funder_id });
+          }
+        }
+        
+        // 7. Mark dossiers as queued
+        await supabase
+          .from('pil_prospect_dossiers')
+          .update({ queued_for_submission: true })
+          .in('id', dossiers.map(d => d.id));
+        
+        return { queued: queue_items.length, dossiers_processed: dossiers.length };
+      }
+      ```
+      
+      **Key changes:**
+      1. Source changed from pil_prospects → pil_prospect_dossiers
+      2. Filter by app_priority_recommendation (submit_now/next_quarter), not just capacity
+      3. Call amount-optimizer and pitch-personalizer BEFORE queuing
+      4. Use dossier_context in queue item to pass full strategy/mappings to FormFillerAgent
+      5. Only queue if success_probability > threshold (user-configurable)
+      6. Prevent re-queueing (queued_for_submission flag)
+      7. Handle multi-profile queueing (one prospect → multiple request types)
+
+  - id: form-filler-agent-use-dossier-context
+    prompt: |
+      Update src/lib/autoapply/form-filler.ts to consume dossier context from submission queue.
+      
+      Current behavior: reads from knowledge_base + org_profile only
+      New behavior: reads from dossier_context (field_mappings, personalized_pitch, strategy)
+      
+      **Key changes:**
+      
+      1. When FormFillerAgent retrieves queue item, extract dossier_context:
+      ```typescript
+      const queueItem = await supabase.from('autoapply_submission_queue').select('*').eq('id', queueId).single();
+      const { dossier_context } = queueItem;
+      const { field_mappings, personalized_pitch, risk_factors, success_probability } = dossier_context;
+      ```
+      
+      2. Use personalized_pitch instead of generic KB mission:
+      ```typescript
+      // OLD: use org knowledge_base.mission_statement
+      // NEW: use personalized_pitch (from pitch-personalizer)
+      form.missionDescriptionField.value = dossier_context.personalized_pitch;
+      ```
+      
+      3. Use field_mappings to fill forms intelligently:
+      ```typescript
+      for (const [formField, dossierField] of Object.entries(field_mappings)) {
+        const value = getNestedValue(dossier, dossierField);
+        if (value) {
+          form[formField].value = value;
+        }
+      }
+      ```
+      
+      4. On error, check risk_factors before retry:
+      ```typescript
+      if (submissionFailed && risk_factors?.some(rf => rf.factor === 'ceo_transition_pending')) {
+        logEvent('CEO transition detected, postponing submission');
+        return { status: 'deferred', reason: 'pending_org_transition' };
+      }
+      ```
+      
+      5. After successful submission, update queue item + dossier:
+      ```typescript
+      await supabase.from('autoapply_submission_queue').update({
+        status: 'submitted',
+        submitted_at: new Date(),
+        submission_result: { success: true, portal: portalName }
+      }).eq('id', queueId);
+      
+      await supabase.from('pil_prospect_dossiers').update({
+        submitted_at: new Date(),
+        submission_status: 'submitted'
+      }).eq('id', dossierContext.dossier_id);
+      ```
+
+  - id: autoapply-api-route-dossier-trigger
+    prompt: |
+      Create /api/autoapply/queue-populate route to trigger queue population on-demand.
+      
+      File: src/app/api/autoapply/queue-populate/route.ts
+      
+      ```typescript
+      import { populateSubmissionQueue } from '@/lib/autoapply/queue-populator';
+      import { createClient } from '@supabase/supabase-js';
+      import { NextRequest, NextResponse } from 'next/server';
+      
+      export const maxDuration = 300;
+      
+      export async function POST(req: NextRequest) {
+        const { tenantId, priorityThreshold, batchSize } = await req.json();
+        
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        
+        try {
+          const result = await populateSubmissionQueue(tenantId, supabase, {
+            priorityThreshold,
+            batchSize
+          });
+          
+          return NextResponse.json({
+            status: 'success',
+            queued: result.queued,
+            processed: result.dossiers_processed
+          });
+        } catch (error: any) {
+          return NextResponse.json(
+            { error: error.message },
+            { status: 500 }
+          );
+        }
+      }
+      ```
+      
+      Trigger manually or via dashboard button: "Populate AutoApply Queue from Intelligence".
+
+  - id: autoapply-submission-ui-context-display
+    prompt: |
+      Update /autoapply dashboard to show dossier intelligence context before submission.
+      
+      File: src/app/(dashboard)/autoapply/queue/page.tsx
+      
+      For each queue item, display:
+      - Prospect name + dossier link
+      - Success probability + priority score
+      - Personalized pitch (what we'll say to the funder)
+      - Field mappings preview (what form fields will be filled with what data)
+      - Risk factors (CEO transition, pending denial, etc)
+      - Relationship strategy (who should contact, when, escalation path)
+      - Ask amount (from amount-optimizer)
+      - Estimated effort (from ops_estimated_effort_hours)
+      - Action buttons: Submit Now, Schedule for Later, Edit Pitch, Review Risk Factors, Skip
+      
+      Component structure:
+      ```typescript
+      <div className="space-y-4">
+        {queueItems.map(item => (
+          <Card key={item.id}>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <h3>{item.prospect_name}</h3>
+                <p className="text-sm text-gray-600">{item.funder_name}</p>
+              </div>
+              <div>
+                <div className="text-sm">Success Probability</div>
+                <div className="text-lg font-bold">{item.dossier_context.success_probability * 100}%</div>
+              </div>
+              <div>
+                <div className="text-sm">Priority</div>
+                <div className="text-lg font-bold">{item.priority_percentile}</div>
+              </div>
+            </div>
+            
+            <div className="mt-4 border-t pt-4">
+              <details>
+                <summary className="font-semibold">Personalized Pitch</summary>
+                <p className="mt-2 text-sm">{item.personalized_pitch}</p>
+              </details>
+            </div>
+            
+            <div className="mt-4">
+              <details>
+                <summary className="font-semibold">Risk Factors</summary>
+                {item.dossier_context.risk_factors.map(rf => (
+                  <div key={rf.factor} className="mt-2 text-sm">
+                    <span className="font-medium">{rf.factor}</span>: {rf.mitigation}
+                  </div>
+                ))}
+              </details>
+            </div>
+            
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => submitNow(item.id)}>Submit Now</button>
+              <button onClick={() => editPitch(item.id)}>Edit Pitch</button>
+              <button onClick={() => skip(item.id)}>Skip</button>
+            </div>
+          </Card>
+        ))}
+      </div>
+      ```
+
+  - id: autoapply-submission-queue-table-add-columns
+    prompt: |
+      Alter autoapply_submission_queue table to add dossier_context and tracking columns.
+      
+      ```sql
+      ALTER TABLE autoapply_submission_queue ADD COLUMN IF NOT EXISTS
+        prospect_dossier_id uuid REFERENCES pil_prospect_dossiers(id) ON DELETE SET NULL;
+      
+      ALTER TABLE autoapply_submission_queue ADD COLUMN IF NOT EXISTS
+        dossier_context jsonb;
+      
+      ALTER TABLE autoapply_submission_queue ADD COLUMN IF NOT EXISTS
+        submitted_at timestamptz;
+      
+      ALTER TABLE autoapply_submission_queue ADD COLUMN IF NOT EXISTS
+        submission_result jsonb;
+      
+      ALTER TABLE autoapply_submission_queue ADD COLUMN IF NOT EXISTS
+        queued_for_submission boolean DEFAULT false;
+      
+      CREATE INDEX idx_submission_queue_dossier ON autoapply_submission_queue(prospect_dossier_id);
+      ```
+      
+      Via Supabase Management API.
+
+gates:
+  - gate: code-compile
+    description: "Queue populator + form filler + API routes compile"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; pnpm build 2>&1 | Select-String 'error' -NotMatch | Select-Object -Last 10"
+    success: "no errors|built"
+    
+  - gate: queue-table-ready
+    description: "autoapply_submission_queue has all required columns"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; $token='sbp_7f7e9e00a8995735b2803a5f2dc1bf82097895d2'; $body=@{query='SELECT column_name FROM information_schema.columns WHERE table_name=''autoapply_submission_queue'' ORDER BY column_name'} | ConvertTo-Json; Invoke-WebRequest -Uri 'https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query' -Method POST -Headers @{Authorization=\"Bearer $token\"; 'Content-Type'='application/json'} -Body $body | Select-Object -ExpandProperty Content"
+    success: "dossier_context|prospect_dossier_id"

@@ -1,0 +1,266 @@
+project: benavora
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- Feature_Registry.md
+settings:
+  max_retries_per_prompt: 3
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+prompts:
+
+- id: t6-001
+  name: Grants.gov daily polling client and auto-opportunity creation
+  prompt: "Read SCHEMA_REGISTRY.md, src/app/api/ directory listing, and src/lib/ directory listing in full. Build a Grants.gov opportunity polling client. Create src/lib/sources/grantsgov-client.ts that: POSTs to https://api.grants.gov/grantsws/rest/opportunities/search/v2 with body {keyword: searchTerm, oppStatuses: 'posted', rows: 100, startRecordNum: 0}. No auth required. Parses the oppHits array from the response. Maps each hit to the opportunities table schema: name from oppTitle, description from synopsis, amount from awardCeiling, deadline from closeDate (ISO string), category 'Government Federal', source 'grants_gov', external_id from id field. Creates src/app/api/sources/grantsgov/route.ts as a GET endpoint that accepts ?orgId= and ?keywords= params, calls the client with each active search profile keyword for the org, deduplicates by external_id, upserts to opportunities table using supabase service role, returns count of new vs updated records. Creates src/worker/jobs/poll-grantsgov.ts as a worker job that runs the route logic on a schedule. Registers the job in src/worker/queue-processor.ts. Adds pnpm script: 'poll:grantsgov': 'tsx scripts/poll-grantsgov.ts'. After all files created run pnpm tsc --noEmit. Fix all errors. Then run git add -A; git commit -m 'feat: Grants.gov daily polling client with auto-opportunity creation'; git push. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/grantsgov-client.ts
+    - src/app/api/sources/grantsgov/route.ts
+
+- id: t6-002
+  name: SAM.gov federal grants and contracts polling client
+  prompt: "Read src/lib/sources/grantsgov-client.ts and SCHEMA_REGISTRY.md in full. Build a SAM.gov polling client. The SAM.gov API key is SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a. Create src/lib/sources/samgov-client.ts that: GETs https://api.sam.gov/opportunities/v2/search with params api_key, ptype (o for opportunities), limit 100, offset, postedFrom/postedTo (last 30 days). Parses the opportunitiesData array. Maps each record to opportunities table: title->name, description->description, responseDeadLine->deadline, awardAmount->amount, category 'Government Federal', source 'sam_gov', noticeId->external_id, naicsCode stored in enrichment jsonb. Creates src/app/api/sources/samgov/route.ts as a GET endpoint accepting ?orgId= params. Deduplicates by external_id before upsert. Creates src/worker/jobs/poll-samgov.ts worker job. Registers in queue-processor.ts with weekly schedule. Adds pnpm script: 'poll:samgov': 'tsx scripts/poll-samgov.ts'. After files created run pnpm tsc --noEmit. Fix all errors. Then run git add -A; git commit -m 'feat: SAM.gov weekly polling client'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/samgov-client.ts
+    - src/app/api/sources/samgov/route.ts
+
+- id: t6-003
+  name: ProPublica 990 mining client for funder database building
+  prompt: "Read SCHEMA_REGISTRY.md and src/lib/enrichment/ directory in full. Build a ProPublica Nonprofit Explorer client. Create src/lib/sources/propublica-990-client.ts that: GETs https://projects.propublica.org/nonprofits/api/v2/search.json?q={keyword}&state[id]={state}&ntee[id]={ntee} to search nonprofits. GETs https://projects.propublica.org/nonprofits/api/v2/organizations/{ein}.json for org detail including recent filings. Extracts from filings: totrevenue, totfuncexpns, totassetsend, totliabend, pct_compnsatncurrofcr. Create src/app/api/sources/propublica/route.ts accepting ?ein= or ?keyword= params. When EIN provided: fetch org detail, upsert to foundation_directory table with asset_amount, giving_total, revenue fields populated. When keyword provided: search and return list for manual review. Create src/lib/sources/propublica-batch.ts script that reads all foundation_directory rows with null asset_amount, queries ProPublica by EIN in batches of 10 with 500ms delay between batches, upserts results. Adds pnpm script: 'enrich:propublica-batch': 'tsx src/lib/sources/propublica-batch.ts'. After files created run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: ProPublica 990 mining client for funder enrichment'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/propublica-990-client.ts
+    - src/app/api/sources/propublica/route.ts
+
+- id: t6-004
+  name: Integration settings UI with connector cards for all external services
+  prompt: "Read src/app/(dashboard)/settings/page.tsx and SCHEMA_REGISTRY.md in full. Create a new dedicated integrations settings page at src/app/(dashboard)/settings/integrations/page.tsx. This page shows cards for every connectable external service. Each card shows: service name, logo/icon, connection status badge (Connected green / Not Connected gray / Error red), last sync timestamp, a Configure button that opens a modal, and a Test Connection button. Services to include with their details: 1. Grants.gov - status always Connected (no auth needed), shows last poll date and opportunity count synced. 2. SAM.gov - shows API key field (masked), last poll date, record count. Key stored in org_settings jsonb. 3. ProPublica - status always Connected (no auth), shows last enrichment run date. 4. Resend Email - API key field, from-email field, test send button. 5. Apollo.io - API key field, monthly credit usage display. 6. Hunter.io - API key field, monthly lookup count. 7. 2Captcha - API key field, balance display via https://2captcha.com/res.php?action=getbalance. 8. Google Places - shows current status, usage this month. 9. Railway Worker - shows online/offline status by pinging /health endpoint. All API keys stored encrypted in org_settings.integration_keys jsonb column. Add the Integrations tab to the settings sidebar navigation. Style with Elevated Slate: cards use bg-white rounded-xl shadow-sm border border-slate-200 p-6. Connected badge: bg-green-100 text-green-700. Error badge: bg-red-100 text-red-700. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: integration settings UI with connector cards'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/integrations/page.tsx
+
+- id: t6-005
+  name: CSV import wizard for bulk funder and prospect import
+  prompt: "Read SCHEMA_REGISTRY.md and src/app/(dashboard)/funders/page.tsx in full. Build a CSV import wizard at src/app/(dashboard)/import/page.tsx. The wizard has 4 steps. Step 1 - Upload: drag-and-drop CSV upload area, file size limit 10MB, preview first 5 rows in a table. Step 2 - Map Columns: show detected CSV headers on left, dropdown on right to map each to a database field. For Funders import: mappable fields are name (required), website, category, phone, email, city, state, giving_portal_url, notes. For Contacts import: name (required), email, phone, title, funder_name, relationship_status. Auto-detect common column name variations (e.g. 'Organization' maps to name, 'URL' maps to website). Step 3 - Preview and Deduplicate: show first 20 rows with mapped values. Flag potential duplicates by name similarity >85 percent. Allow user to skip flagged rows. Show import summary: X rows to import, Y duplicates skipped. Step 4 - Import: progress bar, real-time count of imported/failed rows, downloadable error report for failed rows. Create src/app/api/import/csv/route.ts that accepts multipart form data, parses CSV using the csv-parse package (install it), validates required fields, upserts records with duplicate detection. Add import link to sidebar under Platform section. Style with Elevated Slate. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: CSV import wizard for bulk funder and contact import'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/import/page.tsx
+    - src/app/api/import/csv/route.ts
+
+- id: t6-006
+  name: Autonomous and semi-autonomous AutoApply submission modes
+  prompt: "Read src/lib/autoapply/stealth-browser.ts, src/app/api/autoapply/ directory, AUTOAPPLY_ARCHITECTURE.md, and SCHEMA_REGISTRY.md in full. Add two new submission mode options to the AutoApply system. Currently it always pauses for human approval (manual mode). Add: Semi-Autonomous mode: submits automatically only when ALL form fields have confidence score above 90 percent AND no CAPTCHA was detected AND no MFA prompt was detected. Still creates an approval record but auto-approves it with approver set to 'system-auto'. Logs auto-approval reason. Autonomous mode: submits without any pause regardless of confidence scores. Only available to org owner role. Requires explicit opt-in in settings with a confirmation modal warning. Logs all auto-submissions to audit_log with extra detail. Add mode field to autoapply_sessions table: manual / semi_auto / autonomous. Create src/app/api/autoapply/mode/route.ts to get/set org-level default mode. Add mode selector to AutoApply Ops page: three toggle buttons Manual / Semi-Auto / Autonomous with appropriate warning badges. Semi-Auto shows amber warning badge. Autonomous shows red warning badge with modal confirmation on first enable. Enforce role check: autonomous only for owner role. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: semi-autonomous and autonomous AutoApply submission modes'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/autoapply/mode/route.ts
+
+- id: t6-007
+  name: 2Captcha integration for automated CAPTCHA solving
+  prompt: "Read src/lib/autoapply/stealth-browser.ts in full. Integrate 2Captcha for automated CAPTCHA solving. Install the 2captcha npm package. Create src/lib/autoapply/captcha-solver.ts that: exports class CaptchaSolver, constructor accepts apiKey string, method solveCaptcha(type: 'recaptcha_v2'|'hcaptcha'|'image', params: object): Promise<string> that calls the appropriate 2Captcha endpoint, implements 3 retries with 5 second polling intervals, throws CaptchaError with type 'balance_low' | 'timeout' | 'unsolvable' on failure. For recaptcha_v2: POSTs to http://2captcha.com/in.php with method=userrecaptcha, googlekey, pageurl. Polls http://2captcha.com/res.php?action=get&id={id} every 5 seconds until ready. For hcaptcha: same pattern with method=hcaptcha. For image: base64 encode image, POST to in.php with method=base64. In stealth-browser.ts: after CAPTCHA detection, check if org has 2Captcha API key in org_settings.integration_keys.captcha_key. If yes, call CaptchaSolver. If solved, inject the solution token into the form. If no key or solver fails, fall back to manual pause. Update autoapply_sessions to log captcha_attempts, captcha_solved counts. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: 2Captcha integration for automated CAPTCHA solving'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/autoapply/captcha-solver.ts
+
+- id: t6-008
+  name: Foundation profile builder from 990 data aggregation
+  prompt: "Read SCHEMA_REGISTRY.md, src/lib/enrichment/sources/irs990.ts, and src/app/(dashboard)/foundations/page.tsx in full. Build a foundation profile builder that aggregates 990 data into rich funder profiles. Create src/lib/intelligence/foundation-profiler.ts that: accepts a foundation_directory record, queries all available 990 data for that EIN from enrichment jsonb, computes: average_grant_size (from grant schedule data), total_annual_giving (giving_total field), geographic_focus (most common state in grant recipients from Schedule I), funding_categories (most common purposes from Schedule I descriptions), funding_cycle (derived from fiscal_year and typical deadline patterns), years_of_data (count of distinct fiscal years). Creates or updates a foundation_profiles table (migration 075) with columns: foundation_id uuid FK to foundation_directory, avg_grant_size numeric, total_giving numeric, geographic_focus text[], funding_categories text[], funding_cycle text, confidence_score numeric, last_computed timestamptz. Create src/app/api/foundations/[id]/profile/route.ts that triggers profile computation for a single foundation. Create src/app/(dashboard)/foundations/[id]/page.tsx detail page showing the rich profile: giving history chart (recharts bar chart by year), geographic heatmap description, category breakdown, estimated next deadline, similar foundations list. Add View Profile button to foundation cards. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: foundation profile builder from 990 data'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/foundation-profiler.ts
+    - src/app/api/foundations/[id]/profile/route.ts
+
+- id: t6-009
+  name: Success probability scoring engine combining all signals
+  prompt: "Read SCHEMA_REGISTRY.md, src/lib/donor-discovery/scoring-engine.ts, src/lib/enrichment/ directory, and INTELLIGENCE_BUILD_ROADMAP.md in full. Build a success probability engine. Create src/lib/intelligence/success-probability.ts that computes a single 0-100 probability score for a given org+opportunity pair. The score combines weighted signals: eligibility_score (30 percent weight) - existing eligibility score from opportunities table. mission_alignment (20 percent) - cosine similarity between org mission statement and opportunity description using simple keyword overlap if embeddings unavailable. giving_history_match (15 percent) - if foundation_profiles exists for the funder: does avg_grant_size overlap with opportunity amount? Do funding_categories match org program areas? track_record (15 percent) - org success rate for this category from outcomes table. deadline_proximity (10 percent) - full score if 30+ days out, decaying to 0 at deadline. application_completeness (10 percent) - does org have required documents? Is KB populated? Returns: score number, confidence 'high'|'medium'|'low', factors array of {name, weight, score, explanation} for transparency. Create src/app/api/opportunities/[id]/probability/route.ts. Display probability badge on opportunity detail pages: green 70+, amber 40-70, red below 40. Add probability column to opportunities table view (sortable). After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: success probability scoring engine'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/success-probability.ts
+    - src/app/api/opportunities/[id]/probability/route.ts
+
+- id: t6-010
+  name: Competitor intelligence from 990 reverse lookup
+  prompt: "Read SCHEMA_REGISTRY.md, src/lib/enrichment/sources/irs990.ts, and src/app/(dashboard)/foundations/[id]/page.tsx in full. Build competitor intelligence using 990 data in reverse. Create src/lib/intelligence/competitor-intel.ts that: given a funder EIN, downloads their 990-PF Schedule I data (grant recipients list), extracts recipient organization names and EINs, groups by recipient EIN to show total grants received, identifies which recipient orgs are in similar NTEE categories as the current user's org, computes overlap score: how similar is each competitor to the current org by mission keywords. Create src/app/api/foundations/[id]/competitors/route.ts that accepts the foundation id, runs competitor extraction, returns ranked list of competitor orgs with: name, ein, total_received_from_this_funder, years_funded, mission_similarity_score, differentiation_opportunities (what topics has this funder funded that competitors DON'T cover). Display competitor intelligence on foundation detail page in a new Competitor Intelligence tab. Show a table: Org Name, Total Received, Years Funded, Your Advantage column. Your Advantage uses Claude to generate a 1-sentence differentiation opportunity. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: competitor intelligence from 990 reverse lookup'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/competitor-intel.ts
+    - src/app/api/foundations/[id]/competitors/route.ts
+
+- id: t6-011
+  name: Semantic funder matching using mission description analysis
+  prompt: "Read SCHEMA_REGISTRY.md, src/app/(dashboard)/research/page.tsx, and src/lib/enrichment/ in full. Build semantic funder matching. Create src/lib/intelligence/semantic-matcher.ts that: accepts orgMission string and optional filters (state, minGrant, maxGrant, category). Queries foundation_directory for all foundations with giving data. For each foundation computes a relevance score using: keyword overlap between orgMission and foundation name + any known funding categories (from foundation_profiles if available). NTEE code alignment. Grant size alignment with org's typical request size (from outcomes table average). Geographic match (foundation state vs org service area). Returns top 50 foundations sorted by relevance score with explanation of why each matches. Create src/app/api/match/foundations/route.ts as POST endpoint accepting orgId. Create src/app/(dashboard)/research/match/page.tsx as a dedicated Funder Match page. Show: org mission statement at top (editable for this session), slider filters for grant size range, state multiselect, result cards showing foundation name, match score as colored percentage, match reasons as pill tags (Mission Aligned, Geography Match, Grant Size Fit, etc), Save to Funders button. Add Funder Match to Research section in sidebar. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: semantic funder matching engine'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/semantic-matcher.ts
+    - src/app/(dashboard)/research/match/page.tsx
+
+- id: t6-012
+  name: Multi-channel outreach templates - email LinkedIn phone physical mail
+  prompt: "Read src/app/(dashboard)/contacts/page.tsx, SCHEMA_REGISTRY.md, and src/lib/ directory listing in full. Build a multi-channel outreach template system. Create migration 076_outreach_templates.sql: table outreach_templates with columns id uuid, org_id uuid, name text, channel enum('email'|'linkedin'|'phone_script'|'physical_mail'), category text, subject text (for email), body text, variables text[] (list of {variable} placeholders used), tags text[], created_at, updated_at. Create src/app/(dashboard)/outreach/page.tsx as the multi-channel outreach hub. Left sidebar: channel tabs (Email, LinkedIn, Phone Scripts, Physical Mail). Main area: template grid with cards showing template name, channel badge, variable count, last used date. Top right: New Template button. Template editor (modal or inline): rich text editor for body, subject line for email, variables detected automatically as user types {variable_name}, preview mode that shows rendered template with sample data filled in. Create src/app/api/outreach/templates/route.ts for CRUD. Create src/app/api/outreach/send/route.ts that accepts templateId + contactId + customValues, renders the template with variable substitution, for email channel: calls Resend API with org's Resend key from integration settings, logs to outreach_log table. Add Outreach to sidebar nav. Style with Elevated Slate. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: multi-channel outreach template system'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/outreach/page.tsx
+    - src/app/api/outreach/templates/route.ts
+
+- id: t6-013
+  name: Follow-up sequences with automated multi-step post-submission actions
+  prompt: "Read src/app/(dashboard)/applications/page.tsx, SCHEMA_REGISTRY.md, and src/app/api/outreach/ in full. Build automated follow-up sequences triggered by application stage transitions. Create migration 077_followup_sequences.sql: table followup_sequences with id uuid, org_id uuid, trigger_stage text, name text, steps jsonb array of {day_offset: number, channel: string, template_id: uuid, subject: string, body: string}. Table followup_enrollments with id uuid, application_id uuid, sequence_id uuid, enrolled_at timestamptz, current_step int, status enum('active'|'paused'|'completed'|'cancelled'). Table followup_log with id uuid, enrollment_id uuid, step int, sent_at timestamptz, channel text, recipient_email text, status text. Create src/app/(dashboard)/outreach/sequences/page.tsx for sequence builder UI. Sequence builder: trigger dropdown (On Application Submitted, On Application Awarded, On Application Rejected, On No Response 30 days), step list with Add Step button, each step: day offset input, channel selector, template picker or inline compose. Auto-enroll: when application transitions to a stage that matches a sequence trigger, create followup_enrollment record. Create src/worker/jobs/process-followups.ts worker job that runs daily: finds enrollments where next step is due (enrolled_at + day_offset <= now), executes the step (sends email via Resend or creates task), advances current_step, marks completed when all steps done. Register in queue-processor.ts. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: automated follow-up sequences'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/outreach/sequences/page.tsx
+    - src/worker/jobs/process-followups.ts
+
+- id: t6-014
+  name: Financial reconciliation - grant expense tracking and budget burn rate
+  prompt: "Read src/app/(dashboard)/financials/page.tsx and SCHEMA_REGISTRY.md in full. Build grant financial reconciliation. Create migration 078_grant_financials.sql: table grant_budgets with id uuid, org_id uuid, application_id uuid FK, total_budget numeric, personnel_budget numeric, supplies_budget numeric, equipment_budget numeric, travel_budget numeric, indirect_budget numeric, other_budget numeric, period_start date, period_end date. Table grant_expenses with id uuid, org_id uuid, budget_id uuid FK, category text, description text, amount numeric, expense_date date, receipt_url text, approved boolean. Rebuild src/app/(dashboard)/financials/page.tsx with full reconciliation UI. Top section: grant selector dropdown showing all awarded applications with budget set. Budget breakdown cards: each category showing budgeted vs spent vs remaining with colored progress bar (green under 80%, amber 80-95%, red over 95%). Burn rate indicator: projected spend vs award amount at current rate. Transaction table: date, category, description, amount, status columns. Add Expense button: modal with category, description, amount, date, receipt upload. Export button: generates CSV of all expenses for a grant. Budget vs Actual chart using recharts BarChart showing all categories side by side. Create src/app/api/financials/budgets/route.ts and src/app/api/financials/expenses/route.ts. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: grant financial reconciliation and expense tracking'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/financials/budgets/route.ts
+    - src/app/api/financials/expenses/route.ts
+
+- id: t6-015
+  name: Compliance calendar with reporting requirements and spending restrictions
+  prompt: "Read src/app/(dashboard)/deadlines/page.tsx and SCHEMA_REGISTRY.md in full. Build a compliance calendar for grant reporting requirements. Create migration 079_compliance.sql: table compliance_requirements with id uuid, org_id uuid, application_id uuid FK, requirement_type enum('progress_report'|'financial_report'|'final_report'|'matching_funds'|'site_visit'|'regulatory_filing'), title text, description text, due_date date, submitted_at timestamptz, status enum('upcoming'|'due_soon'|'overdue'|'submitted'|'waived'), notes text. Create src/app/(dashboard)/compliance/page.tsx. Top: summary cards showing Total Requirements, Due This Month, Overdue (red), Completed. Filter tabs: All, Progress Reports, Financial Reports, Final Reports, Matching Funds, Regulatory. Main view: calendar grid view (reuse grant calendar component) plus list view toggle. Each requirement card shows: requirement type badge (colored by type), linked grant name, due date with urgency coloring, status badge, Submit button (marks as submitted with timestamp), Add Note button. Overdue items highlighted with red left border. Due within 7 days: amber left border. Create src/app/api/compliance/route.ts for CRUD. Add auto-creation: when an application moves to Awarded stage, prompt user to add compliance requirements for that grant with suggested types based on funder category. Add Compliance to sidebar under Applications. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: compliance calendar with reporting requirements'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/compliance/page.tsx
+    - src/app/api/compliance/route.ts
+
+- id: t6-016
+  name: Deadline prediction engine with historical pattern detection
+  prompt: "Read SCHEMA_REGISTRY.md, src/app/(dashboard)/deadlines/page.tsx, and src/lib/intelligence/ directory in full. Build a deadline prediction engine. Create src/lib/intelligence/deadline-predictor.ts that: for a given funder or opportunity type, queries historical opportunities from the opportunities table, extracts all past deadlines, detects patterns: same-month annual cycles (e.g. always closes in March), quarterly cycles, rolling 30-day windows. Computes prediction: if 3+ historical datapoints exist with similar timing pattern, predicts next likely posting date and deadline date with confidence score. Returns: predicted_post_date date, predicted_deadline_date date, confidence 'high'|'medium'|'low', basis string (e.g. 'Annual March deadline for 3 consecutive years'), days_until_predicted number. Create migration 080_deadline_predictions.sql: table deadline_predictions with funder_id uuid, opportunity_pattern text, predicted_post_date date, predicted_deadline_date date, confidence text, basis text, created_at, is_active boolean. Create src/app/api/intelligence/deadline-predictions/route.ts that runs prediction for all active funders and returns results. On deadlines page: add Predicted Deadlines tab showing AI-predicted future deadlines not yet officially announced with confidence badges. Amber badge for medium confidence, green for high. Each predicted deadline shows funder name, predicted date range, basis for prediction, Add to Calendar button. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: deadline prediction engine with historical pattern detection'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/deadline-predictor.ts
+    - src/app/api/intelligence/deadline-predictions/route.ts
+
+- id: t6-017
+  name: Application cloning with AI narrative adaptation for similar funders
+  prompt: "Read src/app/(dashboard)/applications/page.tsx, src/app/api/drafts/ directory, and SCHEMA_REGISTRY.md in full. Build application cloning with AI narrative adaptation. Create src/app/api/applications/[id]/clone/route.ts as a POST endpoint accepting targetOpportunityId. The clone operation: copies the source application record to a new application linked to targetOpportunityId, copies all draft_versions from the source, then calls Claude claude-sonnet-4-6 with a prompt that reads the source draft and the target opportunity description and adapts the narrative: updates funder name references, adjusts grant amount language, modifies program alignment language to match target funder priorities, preserves all org-specific facts and statistics. Creates a new draft_version on the cloned application with the adapted narrative and version label 'Adapted from [source application name]'. Add Clone Application button on application detail pages. Opens a modal: search/select target opportunity, shows source application summary, shows target opportunity summary, Adapt and Clone button with loading state. After cloning, redirect to the new application page with a banner: This application was adapted from [source]. Review all highlighted changes before submitting. Highlight adapted sections in the draft editor with a yellow background. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: application cloning with AI narrative adaptation'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/applications/[id]/clone/route.ts
+
+- id: t6-018
+  name: Funder relationship score with momentum tracking
+  prompt: "Read SCHEMA_REGISTRY.md, src/app/(dashboard)/funders/page.tsx, and src/app/(dashboard)/contacts/page.tsx in full. Build a dynamic funder relationship score system. Create migration 081_relationship_scores.sql: table funder_relationship_events with id uuid, org_id uuid, funder_id uuid FK, event_type enum('outreach_sent'|'response_received'|'meeting_scheduled'|'application_submitted'|'award_received'|'rejection_received'|'follow_up_sent'|'contact_added'), event_date timestamptz, notes text, weight numeric. Table funder_relationship_scores with funder_id uuid, org_id uuid, score numeric 0-100, momentum enum('rising'|'stable'|'declining'), last_event_date timestamptz, event_count int, computed_at timestamptz. Create src/lib/intelligence/relationship-scorer.ts that: loads all events for a funder sorted by date, applies time-decay weighting (recent events worth more), computes directional momentum from last 90 days vs prior 90 days, returns score 0-100 and momentum direction. Add relationship score display to funder cards: colored circular score badge (green 70+, amber 40-70, red below 40) with momentum arrow (up/stable/down). Add relationship timeline on funder detail page: chronological list of all events with type icons, notes, dates. Add Log Interaction button: dropdown of event types, date picker, notes field. Auto-log events from existing actions (application submitted, award recorded, outreach sent). After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: funder relationship score with momentum tracking'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/relationship-scorer.ts
+    - src/app/api/funders/[id]/relationship/route.ts
+
+- id: t6-019
+  name: White-label portal for consultant tier with client switching
+  prompt: "Read SCHEMA_REGISTRY.md, src/app/(dashboard)/settings/page.tsx, and src/app/api/ directory listing in full. Build the white-label portal system for consultant tier users. Create migration 082_white_label.sql: table white_label_configs with id uuid, owner_org_id uuid FK, custom_domain text, brand_name text, logo_url text, primary_color text, accent_color text, support_email text, hide_benavora_branding boolean, active boolean. Table consultant_client_access with id uuid, consultant_org_id uuid FK, client_org_id uuid FK, access_level enum('read'|'write'|'admin'), granted_at timestamptz, active boolean. Create src/app/(dashboard)/settings/white-label/page.tsx with: brand configuration form (name, logo upload, colors), custom domain setup instructions, client management table showing all client orgs with access level and last activity, Invite Client button (sends email with signup link pre-linked to consultant), client activity summary. Create src/app/api/consultant/clients/route.ts for client management. Add client switcher to the header: when user has consultant access to multiple orgs, show a dropdown in the header allowing switching between orgs without re-login. Switching stores selected orgId in session and all subsequent queries use that orgId. Show banner when viewing as a client org: Viewing as [Client Org Name] - Return to My Dashboard. Enforce: consultant tier plan required (check Stripe subscription). After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: white-label portal for consultant tier with client switching'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/white-label/page.tsx
+    - src/app/api/consultant/clients/route.ts
+
+- id: t6-020
+  name: Real-time automation monitor with failure categorization and retry controls
+  prompt: "Read src/app/(dashboard)/admin/autoapply-ops/page.tsx, SCHEMA_REGISTRY.md, and src/worker/ directory listing in full. Build a real-time automation monitor. Create src/app/(dashboard)/admin/monitor/page.tsx as the live operations dashboard. Top row: 4 stat cards showing Active Jobs (live count with pulse indicator), Completed Today, Failed Today (red), Queue Depth. Below: two columns. Left column - Live Queue: real-time list of currently running jobs with job type badge, start time, elapsed time, animated progress indicator, Cancel button. Auto-refreshes every 5 seconds via SWR or polling. Right column - Recent Failures: last 20 failed jobs with failure category badge. Failure categories: CAPTCHA_UNSOLVED, AUTH_FAILED, FORM_NOT_FOUND, TIMEOUT, NETWORK_ERROR, VALIDATION_FAILED. Each failure shows: job type, funder name, failure category, error message truncated, timestamp, Retry button, View Screenshot button (if screenshot captured). Full history section below: searchable paginated table of all job history. Filters: job type, status, date range, funder. Bulk actions: Retry Selected, Cancel Selected. Create src/app/api/admin/monitor/route.ts returning live queue stats. Create src/app/api/admin/jobs/[id]/retry/route.ts to re-queue a failed job. Add Monitor link to sidebar under Platform section for admin/owner roles only. Style with Elevated Slate. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: real-time automation monitor with failure categorization'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/admin/monitor/page.tsx
+    - src/app/api/admin/monitor/route.ts
+
+- id: t6-021
+  name: Multi-channel notification system with email digest options
+  prompt: "Read src/app/(dashboard)/alerts/page.tsx, SCHEMA_REGISTRY.md, and src/app/api/alerts/ directory in full. Build a multi-channel notification system. Create migration 083_notifications.sql: table notification_preferences with id uuid, user_id uuid FK, org_id uuid FK, event_type text, in_app boolean default true, email boolean default false, digest_frequency enum('immediate'|'hourly'|'daily'|'weekly') default 'immediate'. Table notification_queue with id uuid, org_id uuid, user_id uuid, event_type text, title text, body text, data jsonb, channel text, scheduled_for timestamptz, sent_at timestamptz, status enum('pending'|'sent'|'failed'). Event types to support: deadline_approaching_7d, deadline_approaching_24h, application_stage_changed, agent_run_completed, agent_run_failed, award_received, new_opportunity_discovered, outreach_sequence_step_due, followup_due, compliance_due. Create src/app/(dashboard)/settings/notifications/page.tsx: matrix UI showing event types as rows, channels as columns (In-App, Email), digest frequency per event. Toggle checkboxes for each cell. Save preferences button. Create src/worker/jobs/send-notifications.ts that processes notification_queue: for email notifications calls Resend API, groups digest items by frequency window, sends digest emails with summary of all pending items. Create src/lib/notifications/notify.ts as the central function called throughout the app when events occur: notify(eventType, orgId, userId, data). After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: multi-channel notification system with email digest'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/notifications/page.tsx
+    - src/lib/notifications/notify.ts
+    - src/worker/jobs/send-notifications.ts
+
+- id: t6-022
+  name: State portal scraping framework with per-state strategy configs
+  prompt: "Read src/lib/autoapply/stealth-browser.ts, SCHEMA_REGISTRY.md, and src/lib/sources/ directory in full. Build a configurable state grant portal scraping framework. Create src/lib/sources/state-portals/ directory. Create src/lib/sources/state-portals/portal-config.ts defining the PortalConfig interface: state string, portalName string, baseUrl string, searchUrl string, searchMethod 'GET'|'POST'|'FORM', searchParams object, paginationType 'page_number'|'load_more'|'cursor', listSelector string (CSS), titleSelector string, deadlineSelector string, amountSelector string, descriptionSelector string, detailLinkSelector string, requiresAuth boolean, notes string. Create portal configs for 5 states: TX (txgrants.state.tx.us), CA (grants.ca.gov), IL (illinois.gov/grants), NY (grants.ny.gov), FL (floridajobs.org). Create src/lib/sources/state-portals/portal-scraper.ts that: accepts a PortalConfig, uses puppeteer (already installed via playwright) to navigate to searchUrl, fills search form if searchMethod is FORM, extracts opportunity listings using selectors, paginates through all results, returns standardized array of {title, deadline, amount, description, sourceUrl, state}. Create src/app/api/sources/state-portals/route.ts accepting ?state= param, runs the scraper for that state, upserts to opportunities table with source set to state portal name. Create src/app/(dashboard)/settings/integrations/state-portals/page.tsx showing all configured states with Enable/Disable toggle and Last Scraped date. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: state grant portal scraping framework'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/state-portals/portal-config.ts
+    - src/lib/sources/state-portals/portal-scraper.ts
+
+- id: t6-023
+  name: Board report generator with PDF export and organization branding
+  prompt: "Read src/app/(dashboard)/reports/page.tsx, SCHEMA_REGISTRY.md, and src/app/api/reports/ directory in full. Build a professional board report generator with PDF export. Install @react-pdf/renderer package. Create src/lib/reports/board-report-generator.ts that accepts orgId, dateFrom, dateTo and queries: total opportunities discovered in period, applications submitted count and list, applications awarded with amounts, applications rejected, pipeline stage distribution, top funders by application count, success rate vs prior period, total requested vs total awarded, upcoming deadlines in next 90 days, knowledge base completeness score. Create src/components/reports/BoardReportPDF.tsx using @react-pdf/renderer components. Report sections: Cover page with org logo (from settings), report title, date range, prepared by. Executive Summary: 4 key metrics in colored boxes. Pipeline Activity: table of all applications in period with stage and status. Financial Summary: bar chart of requested vs awarded by category. Funder Relationships: top 10 funders by engagement. Upcoming Deadlines: next 90 days list. Appendix: full opportunity list. Create src/app/api/reports/board-report/route.ts that generates the PDF and returns it as application/pdf response. On reports page: Add Generate Board Report button with date range picker. Preview renders in iframe, Download PDF button. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: board report generator with PDF export'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/reports/board-report-generator.ts
+    - src/app/api/reports/board-report/route.ts
+
+- id: t6-024
+  name: IRS BMF full ingest of 1.8M nonprofit records into foundation_directory
+  prompt: "Read scripts/ingest-irs-bmf-full.ts and SCHEMA_REGISTRY.md in full. The IRS Business Master File contains 1.8M nonprofit records. The script already exists. Run it now to populate foundation_directory. Execute: pnpm ingest:bmf and monitor the output. The BMF CSV files are at https://www.irs.gov/pub/irs-soi/eo1.csv through eo4.csv (4 files covering all regions). Each row has: EIN, NAME, ICO, STREET, CITY, STATE, ZIP, GROUP, SUBSECTION, AFFILIATION, CLASSIFICATION, RULING, DEDUCTIBILITY, FOUNDATION, ACTIVITY, ORGANIZATION, STATUS, TAX_PERIOD, ASSET_CD, INCOME_CD, FILING_REQ_CD, PF_FILING_REQ_CD, ACCT_PD, ASSET_AMT, INCOME_AMT, REVENUE_AMT, NTEE_CD, SORT_NAME. If the ingest script has any bugs (wrong column count, wrong EIN format, upsert failures) fix them before running. After ingest completes query the count: SELECT COUNT(*) FROM foundation_directory. Report the final count. If count is above 1 million the ingest succeeded. Then git add -A; git commit -m 'data: IRS BMF full ingest complete' and push. Update STATE_OF_THE_BUILD.md with the final foundation_directory count. Update SESSION_STATE.md."
+  gates:
+  - type: compile
+
+- id: t6-025
+  name: Funder relationship score API and momentum display on all funder surfaces
+  prompt: "Read src/app/(dashboard)/funders/page.tsx, src/components/ directory listing, and src/lib/intelligence/relationship-scorer.ts in full. Wire the relationship score system built in t6-018 into all funder-facing surfaces. On the Funders list page: add a Score column to the funder table showing the colored circular score badge. Add a Momentum column with up/stable/down arrow icon colored green/gray/red. Make the Score column sortable. On funder cards in card view: add score badge bottom-right of card. On foundation cards in foundations page: same treatment. On the dashboard: add a Relationship Health widget showing top 5 funders by score and bottom 5 by score (or declining momentum). On the Research page: add relationship score to search results so user can see existing relationship strength alongside new discovery results. Create src/app/api/funders/relationship-scores/route.ts as a bulk endpoint returning scores for all org funders in one query (avoid N+1). Ensure the relationship scorer runs on first load for any funder with events but no score record yet. After building run pnpm tsc --noEmit. Fix all errors. Then git add -A; git commit -m 'feat: relationship scores wired into all funder surfaces'; git push. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/funders/relationship-scores/route.ts
+
+- id: t6-026
+  name: Final Tier 6 verification deploy and complete governance update
+  prompt: "Run a complete build verification across everything built in the Tier 6 queue. Run pnpm tsc --noEmit. If any TypeScript errors exist, fix them all before proceeding. Then run pnpm run build. If build fails, diagnose and fix all errors. After clean build: verify the following files all exist using find commands: src/lib/sources/grantsgov-client.ts, src/lib/sources/samgov-client.ts, src/lib/sources/propublica-990-client.ts, src/lib/intelligence/foundation-profiler.ts, src/lib/intelligence/success-probability.ts, src/lib/intelligence/competitor-intel.ts, src/lib/intelligence/semantic-matcher.ts, src/lib/intelligence/deadline-predictor.ts, src/lib/intelligence/relationship-scorer.ts, src/lib/autoapply/captcha-solver.ts, src/lib/notifications/notify.ts, src/lib/reports/board-report-generator.ts, src/lib/sources/state-portals/portal-scraper.ts. Count total routes in src/app/api/ and report. Count total pages in src/app/(dashboard)/ and report. Run git add -A then git commit -m 'feat: Tier 6 complete - full autonomous operation layer'. Then git push. Then vercel --prod --yes. Wait for deployment confirmation. Update STATE_OF_THE_BUILD.md with complete current state: list every built feature, every migration number applied, total route count, total page count, foundation_directory row count, alias count, current deployment URL. Update SESSION_STATE.md with next session priorities: verify all Tier 6 features live in production, run enrich:propublica-batch, run poll:grantsgov and poll:samgov, test white-label portal, set up first consultant client account."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - STATE_OF_THE_BUILD.md
+    - SESSION_STATE.md

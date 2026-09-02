@@ -1,0 +1,49 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_AUTO_MATERIAL_CALCULATOR.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: matcalc-001
+    phase: investigate
+    description: "Confirm zero prior implementation and distinguish from existing AI takeoff"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_AUTO_MATERIAL_CALCULATOR.md in full. This is distinct from
+      the existing AI takeoff feature (app/api/takeoff/route.ts, which
+      extracts dimensions from an uploaded drawing) -- confirm this by
+      reading app/api/takeoff/route.ts directly. The material calculator
+      spec is about computing exact material quantity/waste/blank-width
+      needs from a given profile + dimensions, likely for the
+      Configurator/FlashDraft flow, not drawing extraction.
+
+      Check lib/utils/profile-svg.ts and app/studio/draft/page.tsx's
+      existing blank-width calculation logic -- there may already be a
+      partial calculator embedded there that just isn't exposed as a
+      standalone tool.
+
+      Write MATERIAL_CALC_SCOPE.md: what exists already vs. what's
+      genuinely missing, and exactly what matcalc-002 should build.
+    gates:
+      - type: file_exists
+        files:
+          - MATERIAL_CALC_SCOPE.md
+
+  - id: matcalc-002
+    phase: implement
+    description: "Build the material calculator per MATERIAL_CALC_SCOPE.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read MATERIAL_CALC_SCOPE.md in full. Implement exactly what it
+      specifies. If existing blank-width/bend-allowance logic in
+      lib/flashdraft/ or lib/utils/profile-svg.ts can be reused/exposed
+      rather than duplicated, reuse it -- do not write a second, separate
+      calculation formula that could drift out of sync with FlashDraft's.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: auto material calculator per spec"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

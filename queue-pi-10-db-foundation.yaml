@@ -1,0 +1,575 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-10: DATABASE FOUNDATION
+#
+# Translates the APPROVED SCHEMA_REGISTRY.md (D-010 gate passed in
+# pi-02) into real, applied migrations on the prospect-intel
+# Supabase project. The registry is the AUTHORITY: every prompt
+# reads its section before writing DDL, and any divergence found
+# necessary during implementation is a registry amendment + a
+# dated note, never a silent drift.
+#
+# STANDING RULES ENFORCED THROUGHOUT:
+#   - One migrations directory: supabase/migrations. Sequential
+#     zero-padded numbering continuing from 0001.
+#   - Every migration idempotent (IF NOT EXISTS / OR REPLACE /
+#     guarded DO blocks for enums and policies).
+#   - Apply ONLY via node scripts/db/migrate.mjs (checksum-tracked).
+#     Never psql a migration file directly.
+#   - org_id + RLS on every tenant-scoped table IN THE SAME
+#     MIGRATION that creates the table - a table may not exist for
+#     even one migration-step without its policies (the benavora
+#     42501 anon-readable class of bug is designed out, not
+#     patched later).
+#   - Verification = information_schema / pg_catalog queries with
+#     captured output. "The migration ran" is not evidence a table
+#     exists as specified.
+# ============================================================
+
+prompts:
+
+  - id: pi10-001
+    phase: build
+    description: "Preflight: approval gate re-verified, registry present, DB healthy, baseline schema snapshot"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Run node scripts/verify/verify-architecture-approved.mjs - must
+         exit 0 (D-010 present, pack hash intact). If it fails, HALT: this
+         queue must not run against unapproved architecture.
+      2. Confirm docs/architecture/SCHEMA_REGISTRY.md exists and contains
+         its part-4 consolidated cross-check with a stated total table
+         count. Record that count.
+      3. DB health: via PI_DATABASE_URL run SELECT version(); and
+         node scripts/db/migrate.mjs --status (0001 applied, no drift).
+      4. Capture the BASELINE schema snapshot to
+         evidence\pi-10\schema-before.json: every table in schema pi with
+         its columns/types, every enum, every policy, every index - a
+         script scripts\db\schema-snapshot.mjs (write it now; it is reused
+         at the end and by later queues) querying information_schema +
+         pg_catalog and emitting deterministic sorted JSON.
+      5. Create scripts\verify\verify-pi10-001.mjs: exits 0 only if the
+         approval gate passes when spawned, schema-before.json exists and
+         parses with a tables array, and the registry total-count line was
+         found (write the count into evidence\pi-10\registry-count.txt).
+      6. Run: node scripts/verify/verify-pi10-001.mjs
+    expected_outputs:
+      - scripts/db/schema-snapshot.mjs
+      - evidence/pi-10/schema-before.json
+      - scripts/verify/verify-pi10-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi10-002
+    phase: build
+    description: "Migrations: tenancy, identity, RBAC + the RLS helper layer"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read SCHEMA_REGISTRY.md sections for tenancy/identity/RBAC first.
+      Implement them exactly; where implementation forces a change, amend
+      the registry with a dated note in the same commit.
+
+      1. Migration 0002_rls_foundation.sql: the helper layer every later
+         policy uses - pi.current_org_id() (reads the org claim from the
+         JWT/app context; document both the supabase-auth path and the
+         service-context path), pi.has_role(required text) checking
+         memberships, and pi.is_service() for worker/service-role paths.
+         SECURITY DEFINER with locked search_path; comment each function
+         with its threat reasoning.
+      2. Migration 0003_tenancy_identity.sql: organizations, users,
+         memberships (role enum owner/admin/analyst/viewer via guarded DO
+         block), api_keys (store hash + prefix only - add a CHECK that the
+         key column length matches a hash, so a raw key physically cannot
+         fit), tenant_settings. RLS enabled + policies in this same file
+         for every table: org members read their org; owner/admin write;
+         service path explicit. updated_at trigger function + triggers.
+      3. Migration 0004_rbac_data_classes.sql: role_permissions,
+         data_class_grants exactly as the registry defines them (these are
+         the policy engine's read model in pi-11 - column fidelity
+         matters). RLS same-file.
+      4. Apply: node scripts/db/migrate.mjs. Then verify with real queries
+         captured to evidence\pi-10\p002-verify.txt:
+         - relrowsecurity = true for every table created here
+           (pg_class join), zero exceptions;
+         - policy count per table >= 2;
+         - the three helper functions exist (pg_proc).
+      5. Idempotency: run migrate again - clean no-op appended to the same
+         evidence file.
+      6. Create scripts\verify\verify-pi10-002.mjs: exits 0 only if the
+         evidence file shows every created table with rowsecurity true and
+         the no-op re-run.
+      7. Run: node scripts/verify/verify-pi10-002.mjs
+    expected_outputs:
+      - supabase/migrations/0002_rls_foundation.sql
+      - supabase/migrations/0003_tenancy_identity.sql
+      - supabase/migrations/0004_rbac_data_classes.sql
+      - scripts/verify/verify-pi10-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-003
+    phase: build
+    description: "RLS proof harness: real cross-tenant denial before any business table exists"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      The isolation model gets PROVEN on the simple tables now, so every
+      later table inherits a tested pattern rather than an assumed one.
+
+      1. Write scripts\db\rls-harness.mjs: creates (idempotently) two test
+         orgs (pi-test-org-a, pi-test-org-b) with one user each via the
+         Supabase admin API + membership rows; then, using ANON-key clients
+         authenticated as each user (never service role for the assertion
+         paths):
+         - A reads own org row: EXPECT success.
+         - A reads B's org row by id: EXPECT zero rows.
+         - A updates B's tenant_settings: EXPECT error or zero rows
+           affected - assert which one the policy produces and record it.
+         - Unauthenticated anon reads organizations: EXPECT zero rows.
+         Emits JSON results (test, expectation, actual, pass) - the script
+         is generic enough to extend with per-table cases in later prompts
+         (accept a cases file argument).
+         Node 20 + supabase-js requires the ws transport shim - apply the
+         standing rule.
+      2. Run it; write results to evidence\pi-10\rls-proof-core.json. Every
+         case must pass; a failure is a policy bug to fix in a new
+         migration, not a test to adjust.
+      3. Create scripts\verify\verify-pi10-003.mjs: exits 0 only if the
+         results file exists with >= 4 cases, all pass true.
+      4. Run: node scripts/verify/verify-pi10-003.mjs
+    expected_outputs:
+      - scripts/db/rls-harness.mjs
+      - evidence/pi-10/rls-proof-core.json
+      - scripts/verify/verify-pi10-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-004
+    phase: build
+    description: "Migrations: the five structural entity archetypes + external id anchoring"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's entity-archetype section first (D-008).
+
+      1. Migration 0005_entities.sql: entities_person,
+         entities_organization, entities_foundation, entities_government,
+         entities_program_opportunity - each with the shared core columns
+         and archetype-specific columns exactly per the registry;
+         entity_external_ids with its uniqueness constraint (source system
+         + external id + org) and confidence. RLS same-file for all six.
+         Indexes exactly as the registry justifies them (each index in the
+         registry names its query; create those, add none speculatively).
+      2. Apply via migrate.mjs. Verify to evidence\pi-10\p004-verify.txt:
+         column-by-column diff of each table against the registry's
+         definition (write a small checker in the snapshot script's module
+         that compares live information_schema columns to a parsed
+         registry table block - report any name/type/nullability mismatch;
+         zero mismatches required), rowsecurity true on all six, no-op
+         re-run proof.
+      3. Extend rls-harness cases: org A creates a person entity; org B
+         cannot read it; anon cannot read it. Append results to
+         evidence\pi-10\rls-proof-entities.json - all pass.
+      4. Create scripts\verify\verify-pi10-004.mjs: exits 0 only if the
+         column diff reports zero mismatches and the entity RLS cases all
+         pass.
+      5. Run: node scripts/verify/verify-pi10-004.mjs
+    expected_outputs:
+      - supabase/migrations/0005_entities.sql
+      - scripts/verify/verify-pi10-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-005
+    phase: build
+    description: "Migrations: target profiles (the universal model) + shared taxonomies"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's target-profile and taxonomy sections first.
+
+      1. Migration 0006_target_profiles.sql: target_profiles with every
+         registry column including schedule jsonb and version;
+         target_profile_runs. RLS same-file (org-scoped).
+      2. Migration 0007_taxonomies.sql: taxonomy_nodes (kind naics/cause/
+         civic, code, label, parent_id) - SHARED table, deliberately not
+         org-scoped per the registry: RLS enabled with a read-for-all-
+         authenticated policy and write-for-service-only (record the
+         reasoning in the migration comment).
+      3. Apply, column-diff both tables against the registry (zero
+         mismatches), rowsecurity true, no-op proof - all to
+         evidence\pi-10\p005-verify.txt.
+      4. RLS cases appended: org A creates a target profile, B cannot read
+         it; both A and B CAN read taxonomy_nodes; neither can write
+         taxonomy_nodes. All pass.
+      5. Create scripts\verify\verify-pi10-005.mjs mirroring the pi10-004
+         pattern for these tables plus the taxonomy read/write asymmetry.
+      6. Run: node scripts/verify/verify-pi10-005.mjs
+    expected_outputs:
+      - supabase/migrations/0006_target_profiles.sql
+      - supabase/migrations/0007_taxonomies.sql
+      - scripts/verify/verify-pi10-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-006
+    phase: build
+    description: "Taxonomy seed data: real NAICS, cause, and civic trees"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write scripts\db\seed-taxonomies.mjs (service-role path,
+         idempotent - upsert on kind+code, never duplicate on re-run):
+         a. NAICS: download the official 2022 NAICS structure from the
+            Census Bureau's published file (fetch it live; if the exact
+            URL has moved, locate the current official source - do not
+            hand-type codes). Seed the full 2-through-6-digit hierarchy
+            with parent linkage. Septic installers (NAICS 238910 territory
+            - verify the real code from the downloaded data, do not trust
+            this prompt's memory) must resolve as a leaf under its real
+            parents - this is the concrete universal-model acceptance
+            case.
+         b. Cause taxonomy: seed the NTEE major groups + the directive's
+            explicitly named causes (affordable housing, homelessness,
+            recovery, reentry, workforce development, education, veterans,
+            community development, poverty reduction) mapped under
+            appropriate NTEE parents.
+         c. Civic: the starter set from the registry (chambers, community
+            foundations, land banks, trade associations).
+      2. Run it. Verify with live counts captured to
+         evidence\pi-10\taxonomy-seed.txt: total NAICS rows (expect four
+         digits of count - four-figure minimum, i.e. > 1000), the resolved
+         septic-installer code with its parent chain queried recursively,
+         cause and civic counts. Run the seeder AGAIN - counts unchanged
+         (idempotency proof appended).
+      3. Create scripts\verify\verify-pi10-006.mjs: exits 0 only if the
+         evidence shows NAICS count > 1000, a septic parent chain of
+         depth >= 3, and identical counts across both runs.
+      4. Run: node scripts/verify/verify-pi10-006.mjs
+    expected_outputs:
+      - scripts/db/seed-taxonomies.mjs
+      - evidence/pi-10/taxonomy-seed.txt
+      - scripts/verify/verify-pi10-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-007
+    phase: build
+    description: "Migrations: goals + the 22-state lifecycle with transition audit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's goals section first.
+
+      1. Migration 0008_goals.sql: the goal_state enum with all 22 states
+         verbatim (guarded DO block); goals with every registry column
+         (budgets + consumed counterparts as separate numeric columns);
+         goal_transitions append-only. Enforcement in-database:
+         - a trigger on goals that INSERTs a goal_transitions row on every
+           state change (from, to, actor from a set_config context value,
+           reason) - transitions cannot be skipped by any writer;
+         - REVOKE UPDATE/DELETE on goal_transitions from all non-service
+           roles + an RLS policy making it insert/select only even for
+           service (append-only enforced two ways);
+         - a CHECK that consumed budgets are never negative.
+         The VALID transition map itself is kernel logic (pi-20), not a DB
+         constraint - record that boundary decision in the migration
+         comment and in the registry if not already stated.
+      2. Apply, column-diff, rowsecurity, no-op proof to
+         evidence\pi-10\p007-verify.txt. Then a live behavioral proof:
+         insert a test goal as org A (harness), update its state
+         PROPOSED -> VALIDATED, and query goal_transitions for the
+         auto-written row; attempt an UPDATE on that transition row and
+         capture the denial. Both captured.
+      3. RLS cases: B cannot read A's goals or transitions. Pass required.
+      4. Create scripts\verify\verify-pi10-007.mjs: exits 0 only if the
+         enum has exactly 22 labels (pg_enum count), the transition
+         auto-write proof and the update denial are in evidence, and RLS
+         cases pass.
+      5. Run: node scripts/verify/verify-pi10-007.mjs
+    expected_outputs:
+      - supabase/migrations/0008_goals.sql
+      - scripts/verify/verify-pi10-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-008
+    phase: build
+    description: "Migrations: delegated_tasks - the 16-field DelegatedTask plus execution columns"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's delegated_tasks section first.
+
+      1. Migration 0009_delegated_tasks.sql: all sixteen directive fields
+         as columns exactly as the registry types them, plus the execution
+         columns (state, claimed_by, lease_expires_at, heartbeat_at,
+         attempt, max_attempts, result, error). In-database enforcement of
+         the delegation rules where expressible:
+         - depth column with CHECK (depth <= configured max from a
+           pi.config table - create it in this migration with the bounded
+           default);
+         - a trigger validating on INSERT that the child's max_autonomy
+           does not exceed the parent task's max_autonomy and that
+           allowed_tools/allowed_data_classes are subsets of the parent's
+           (arrays: child <@ parent) - the authority-inheritance rule
+           enforced at the data layer as defense-in-depth beneath the
+           kernel's own check;
+         - partial index for the claim query (state = queued) matching the
+           registry's justified index.
+      2. Apply, column-diff (all 16 names present, exact), no-op proof to
+         evidence\pi-10\p008-verify.txt. Behavioral proof: insert a parent
+         task, then attempt a child with max_autonomy above the parent's -
+         capture the trigger rejection verbatim; insert a compliant child -
+         success captured.
+      3. RLS cases: cross-org denial on delegated_tasks. Pass.
+      4. Create scripts\verify\verify-pi10-008.mjs: exits 0 only if all 16
+         field names exist as columns, the authority-violation rejection is
+         in evidence, and RLS passes.
+      5. Run: node scripts/verify/verify-pi10-008.mjs
+    expected_outputs:
+      - supabase/migrations/0009_delegated_tasks.sql
+      - scripts/verify/verify-pi10-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-009
+    phase: build
+    description: "Migrations: agent_runs + the pi.config operational table"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's agent_runs section first.
+
+      1. Migration 0010_agent_runs.sql: agent_runs per the registry
+         (loop_iterations, tools_invoked, tokens, cost_usd,
+         evidence_claim_ids, outcome enum, timing). evidence_claim_ids is
+         uuid[] with no FK yet (claims arrive in pi-11) - record the
+         deferred-FK note in the migration and registry. Indexes per the
+         registry's justified list (agent_type + org + started_at is the
+         log-viewer query).
+      2. Extend pi.config in the same migration with the operational keys
+         the registry names for runs (retention windows etc.) if defined;
+         otherwise leave and note.
+      3. Apply, column-diff, rowsecurity, no-op proof, cross-org RLS case -
+         all to evidence\pi-10\p009-verify.txt.
+      4. Create scripts\verify\verify-pi10-009.mjs mirroring the pattern.
+      5. Run: node scripts/verify/verify-pi10-009.mjs
+    expected_outputs:
+      - supabase/migrations/0010_agent_runs.sql
+      - scripts/verify/verify-pi10-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-010
+    phase: build
+    description: "Migrations: durable workflow infrastructure - outbox, events, offsets, DLQ, idempotency, compensations"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's workflow-infrastructure section (D-004) first.
+
+      1. Migration 0011_workflow_infra.sql: outbox, events (append-only -
+         same two-way enforcement pattern as goal_transitions),
+         event_consumer_offsets, dead_letters, idempotency_keys (with the
+         unique key+scope constraint), compensations - all exactly per the
+         registry. The claim-protocol index set: the FOR UPDATE SKIP LOCKED
+         claim query's supporting partial index; the lease-expiry reclaim
+         index.
+      2. Apply, column-diff, append-only proof on events (update attempt
+         denied, captured), no-op proof - evidence\pi-10\p010-verify.txt.
+      3. Live protocol smoke (this is infrastructure the pi-12 engine
+         builds on; prove the primitives now): a script
+         scripts\db\claim-smoke.mjs that inserts 3 outbox rows, runs two
+         concurrent claimers using the registry's exact claim query, and
+         asserts no row was claimed twice (SKIP LOCKED proof) - results
+         captured to evidence\pi-10\claim-smoke.json.
+      4. Create scripts\verify\verify-pi10-010.mjs: exits 0 only if all six
+         tables exist per diff, the append-only denial and the
+         no-double-claim proof are in evidence.
+      5. Run: node scripts/verify/verify-pi10-010.mjs
+    expected_outputs:
+      - supabase/migrations/0011_workflow_infra.sql
+      - scripts/db/claim-smoke.mjs
+      - scripts/verify/verify-pi10-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-011
+    phase: build
+    description: "Generated TypeScript DB types + the contracts-package schema bindings"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Generate TypeScript types for the live pi schema into
+         packages\contracts\src\db\types.ts - use the supabase type
+         generator if it works headlessly with the PAT/ref; if it does
+         not, write scripts\db\gen-types.mjs producing equivalent types
+         from information_schema (deterministic output, committed). Either
+         way the file is generated, marked as such, and regenerated by a
+         single documented command.
+      2. Add zod schemas in packages\contracts\src\db\enums.ts for every
+         DB enum (goal_state's 22 values, roles, outcomes) asserted at
+         build time against the generated types (a mismatch fails
+         typecheck - write the assertion).
+      3. pnpm -r typecheck and pnpm -r build - clean.
+      4. Create scripts\verify\verify-pi10-011.mjs: exits 0 only if
+         types.ts exists containing goals and delegated_tasks types, the
+         enum zod file lists 22 goal states, and a spawned typecheck exits
+         0.
+      5. Run: node scripts/verify/verify-pi10-011.mjs
+    expected_outputs:
+      - packages/contracts/src/db/types.ts
+      - packages/contracts/src/db/enums.ts
+      - scripts/verify/verify-pi10-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-012
+    phase: build
+    description: "Migration idempotency + drift test suite (vitest, CI-wired)"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write packages\services\src\__tests__\migrations.test.ts (vitest):
+         - every migration file applies twice without error against a
+           SCRATCH schema clone (create pi_test schema, run the runner
+           against it with a schema override argument - add that argument
+           to migrate.mjs if absent, defaulting to pi);
+         - checksum drift: copy a migration to temp, alter one byte,
+           assert the runner refuses;
+         - numbering: filenames strictly sequential, zero-padded, no gaps,
+           no duplicates.
+      2. Wire pnpm test to include this suite; remove passWithNoTests from
+         CI now that real tests exist (edit ci.yml).
+      3. Run the suite locally - green. Capture the vitest summary to
+         evidence\pi-10\migration-tests.txt.
+      4. Create scripts\verify\verify-pi10-012.mjs: exits 0 only if the
+         evidence shows all tests passed and ci.yml no longer contains
+         passWithNoTests.
+      5. Run: node scripts/verify/verify-pi10-012.mjs
+    expected_outputs:
+      - packages/services/src/__tests__/migrations.test.ts
+      - scripts/verify/verify-pi10-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-013
+    phase: build
+    description: "Full-surface RLS attack pass: every table, every access class"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Extend rls-harness.mjs to a full matrix run: enumerate EVERY table
+         in schema pi from information_schema at runtime (so tables added
+         by any future queue are automatically covered), and for each,
+         execute: anon read, anon write, org-A-user read own, org-A-user
+         read org-B row (seed one per table where absent), org-A-user
+         write org-B row. Expected outcomes derive from a small
+         declarative table-class map (org-scoped / shared-read /
+         append-only / service-only) checked into
+         scripts\db\rls-expectations.json - a table missing from the map
+         FAILS the run (forces every future table to declare its class).
+      2. Run the matrix. evidence\pi-10\rls-matrix.json: one row per
+         table per case with pass/fail. 100 percent pass required; any
+         failure is a policy migration fix, then re-run.
+      3. Create scripts\verify\verify-pi10-013.mjs: exits 0 only if the
+         matrix covers every pi-schema table (count matches a live
+         information_schema count the script performs), zero failures, and
+         rls-expectations.json includes every table.
+      4. Run: node scripts/verify/verify-pi10-013.mjs
+    expected_outputs:
+      - scripts/db/rls-expectations.json
+      - evidence/pi-10/rls-matrix.json
+      - scripts/verify/verify-pi10-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi10-014
+    phase: build
+    description: "Close-out: after-snapshot, registry reconciliation, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Run scripts/db/schema-snapshot.mjs to
+         evidence\pi-10\schema-after.json. Write evidence\pi-10\SUMMARY.md:
+         tables created this queue (before/after diff), the live table
+         count vs the registry's stated Phase-1 count (they will differ by
+         design - later phases add claims/graph/etc; state the expected
+         remainder by phase), every registry amendment made during
+         implementation (list with reasons; zero silent drift), migration
+         count, test results, RLS matrix headline.
+      2. Update SESSION_STATE.md and STATE_OF_THE_BUILD.md: pi-10 complete
+         with real numbers from evidence, next queue pi-11-ledgers-policy
+         (and note pi-12 also unlocks per the manifest dependency graph).
+      3. Scoped add: supabase/migrations/ scripts/ packages/contracts/src/db/
+         packages/services/src/__tests__/ .github/ evidence/pi-10/SUMMARY.md
+         docs/architecture/SCHEMA_REGISTRY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "db: tenancy, RBAC, entities, target profiles, taxonomies,
+         goals, delegation, runs, workflow infra - RLS proven full-surface
+         (pi-10)"
+         Push. Governance sync to the FORGE projects folder.
+      4. Create scripts\verify\verify-pi10-014.mjs: exits 0 only if
+         SUMMARY.md exists with a before/after table diff and zero-silent-
+         drift section, and git log -1 contains "(pi-10)".
+      5. Run: node scripts/verify/verify-pi10-014.mjs
+    expected_outputs:
+      - evidence/pi-10/SUMMARY.md
+      - scripts/verify/verify-pi10-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi10-014.mjs"
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,78 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, ARCHITECTURE.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: po-gaps-001
+    phase: verify
+    description: "Confirm exactly which PO_INTEGRATION_SCOPE.md items are still missing before rebuilding"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read PO_INTEGRATION_SCOPE.md in full -- it lists 6 build items for
+      the PO integration feature (po-002's original scope). A manual
+      verification pass already confirmed item 1 (the delivery-method
+      bug fix, PO field showing for pickup orders) was built correctly,
+      and items 2 and 3 (the company require_po admin toggle, and both
+      client-side and server-side enforcement of it at checkout) were
+      NOT built at all -- confirmed via direct grep, zero matches for
+      require_po/requirePo in app/checkout/page.tsx,
+      app/api/checkout/create-intent/route.ts, or
+      app/admin/customers/[id]/page.tsx.
+
+      Items 4 (PO number on the customer's own order detail page,
+      app/account/orders/[id]/page.tsx) and 5 (PO number on the invoice
+      PDF, app/api/invoices/[id]/pdf/route.ts and
+      lib/utils/invoice-pdf.ts) were not re-verified after that session --
+      check both directly now, the same way (grep for po_number in each
+      file, confirm whether it's actually selected from the DB and
+      actually rendered/printed, not just present in a type definition).
+
+      Write PO_GAPS_VERIFIED.md at the project root listing, for each of
+      items 2 through 5, the exact current state (built/not built,
+      cited to file) so po-gaps-002 has a precise, confirmed list to
+      build against rather than re-deriving it.
+    gates:
+      - type: file_exists
+        files:
+          - PO_GAPS_VERIFIED.md
+
+  - id: po-gaps-002
+    phase: implement
+    description: "Build every item PO_GAPS_VERIFIED.md confirms is still missing"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read PO_GAPS_VERIFIED.md and PO_INTEGRATION_SCOPE.md in full.
+      Build every item PO_GAPS_VERIFIED.md confirms is still missing,
+      following PO_INTEGRATION_SCOPE.md's original numbered build
+      instructions exactly (section 6 of that document) for each gap
+      found -- do not redesign, just complete what was originally
+      specified and skipped.
+
+      Pay particular attention to the server-side enforcement in
+      app/api/checkout/create-intent/route.ts if item 3 is confirmed
+      missing -- PO_INTEGRATION_SCOPE.md explicitly called this "the real
+      guard; the client check is UX only," so if only the client-side
+      half gets built again and the server-side check is skipped a
+      second time, the feature is still not actually enforced. Verify
+      after building that a request to create-intent with
+      companies.require_po = true and no poNumber in the body actually
+      returns 400 with the exact message "Purchase Order Number is
+      required for your account" -- trace the code path by hand to
+      confirm this, do not assume it works because the code was written.
+
+      Follow this codebase's existing conventions exactly: pnpm only,
+      afs-* Tailwind tokens only, TypeScript strict mode, admin_audit_log
+      entries for the new admin toggle matching the existing pattern used
+      by CustomerAccountSettingsForm's save action.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "fix: complete PO integration gaps (company require_po toggle, checkout enforcement, order/invoice display)"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md, explicitly
+      noting which items were built this session vs. previously, and
+      flag clearly if anything from the original 6-item list still
+      remains undone after this pass.
+    gates:
+      - type: compile
+      - type: build

@@ -1,0 +1,49 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_RUSH_ORDER.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: rush-001
+    phase: investigate
+    description: "Audit real state of rush order flag through quote request, pricing note, Command Center"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_RUSH_ORDER.md, app/quote/page.tsx,
+      app/api/quote-requests/route.ts, SCHEMA.md's quote_requests.is_rush
+      column, and every place is_rush is read or displayed across
+      app/admin/command-center/**, components/admin/**, and any customer-
+      facing order/quote view. Determine: does the quote wizard actually
+      let a customer flag a request as rush; does that flag reach the
+      quote_requests row correctly; does it reach machine_jobs.is_rush on
+      approval (per STATE_OF_THE_BUILD.md's machine_jobs column list); and
+      is it visibly surfaced anywhere in the Command Center UI so an admin
+      can actually prioritize a rush job, or does it silently exist in the
+      database with no UI signal at all.
+
+      Do not change code. Write RUSH_ORDER_AUDIT.md at the project root
+      with findings cited to file/line and exactly what the next prompt
+      should build.
+    gates:
+      - type: file_exists
+        files:
+          - RUSH_ORDER_AUDIT.md
+
+  - id: rush-002
+    phase: implement
+    description: "Close rush order visibility/wiring gaps per audit"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read RUSH_ORDER_AUDIT.md in full. Implement exactly what it
+      specifies -- likely a visible rush badge/sort-priority in the Command
+      Center's Pending Approval and Machine Queue views, and confirming the
+      is_rush flag actually flows through every stage the audit checked.
+      No customer-facing pricing anywhere it doesn't already exist.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: surface and wire rush order flag end to end"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

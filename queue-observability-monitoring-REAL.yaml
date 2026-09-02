@@ -1,0 +1,273 @@
+prompts:
+  - id: prometheus-metrics-export
+    prompt: |
+      Add Prometheus metrics to key user-facing and agent operations.
+      
+      File: src/lib/observability/metrics.ts
+      
+      ```typescript
+      import { Counter, Histogram, Gauge } from 'prom-client';
+      
+      // User actions
+      export const applicationSubmitted = new Counter({
+        name: 'benavora_application_submitted_total',
+        help: 'Total applications submitted to funders',
+        labelNames: ['funder_category', 'request_type', 'success']
+      });
+      
+      export const draftCreated = new Counter({
+        name: 'benavora_draft_created_total',
+        help: 'Total drafts created',
+        labelNames: ['draft_type']
+      });
+      
+      export const opportunityDiscovered = new Counter({
+        name: 'benavora_opportunity_discovered_total',
+        help: 'Total opportunities discovered',
+        labelNames: ['source_system', 'category']
+      });
+      
+      // Agent operations
+      export const agentRunDuration = new Histogram({
+        name: 'benavora_agent_run_duration_seconds',
+        help: 'PIL agent execution duration',
+        labelNames: ['agent_id', 'family', 'status'],
+        buckets: [1, 5, 10, 30, 60, 120, 300]
+      });
+      
+      export const agentEventsLogged = new Counter({
+        name: 'benavora_agent_events_total',
+        help: 'Total PIL agent events',
+        labelNames: ['agent_id', 'event_type', 'severity']
+      });
+      
+      export const prospectIntelligenceComplete = new Counter({
+        name: 'benavora_prospect_intelligence_complete_total',
+        help: 'Total prospects with complete dossiers',
+        labelNames: ['fit_level'] // high, medium, low, investigate
+      });
+      
+      // System health
+      export const apiLatency = new Histogram({
+        name: 'benavora_api_latency_ms',
+        help: 'API endpoint latency',
+        labelNames: ['endpoint', 'method', 'status'],
+        buckets: [10, 50, 100, 500, 1000, 5000]
+      });
+      
+      export const supabaseQueryTime = new Histogram({
+        name: 'benavora_supabase_query_ms',
+        help: 'Supabase query duration',
+        labelNames: ['table', 'operation'],
+        buckets: [5, 25, 50, 250, 1000]
+      });
+      
+      export const authFailures = new Counter({
+        name: 'benavora_auth_failures_total',
+        help: 'Authentication failures',
+        labelNames: ['reason'] // invalid_token, expired, user_disabled
+      });
+      
+      export const activeOrganizations = new Gauge({
+        name: 'benavora_active_organizations',
+        help: 'Count of active organizations'
+      });
+      
+      export const subscriptionRevenue = new Gauge({
+        name: 'benavora_subscription_revenue_usd',
+        help: 'Monthly recurring revenue'
+      });
+      ```
+      
+      Use in routes/agents:
+      ```typescript
+      const startTime = Date.now();
+      try {
+        const result = await executeAgent(agentId);
+        agentRunDuration.labels(agentId, family, 'completed').observe((Date.now() - startTime) / 1000);
+      } catch (error) {
+        agentRunDuration.labels(agentId, family, 'failed').observe((Date.now() - startTime) / 1000);
+      }
+      ```
+
+  - id: prometheus-metrics-endpoint
+    prompt: |
+      Export Prometheus metrics from /api/metrics endpoint.
+      
+      File: src/app/api/metrics/route.ts
+      
+      ```typescript
+      import { register } from 'prom-client';
+      import { NextResponse } from 'next/server';
+      
+      export const dynamic = 'force-dynamic';
+      
+      export async function GET() {
+        const metrics = await register.metrics();
+        return new NextResponse(metrics, {
+          headers: {
+            'Content-Type': register.contentType
+          }
+        });
+      }
+      ```
+      
+      Verify: curl http://localhost:3000/api/metrics | head -20
+
+  - id: grafana-dashboard-pil-agents
+    prompt: |
+      Create Grafana dashboard for PIL agent observability.
+      
+      Upload to Grafana with queries:
+      
+      1. **Agent Success Rate** (by family):
+      ```
+      sum(rate(benavora_agent_events_total{event_type="completed"}[5m])) by (family) /
+      sum(rate(benavora_agent_events_total[5m])) by (family)
+      ```
+      
+      2. **Agent Duration by Family** (p99):
+      ```
+      histogram_quantile(0.99, rate(benavora_agent_run_duration_seconds_bucket[5m])) by (family)
+      ```
+      
+      3. **Dossier Completion Rate**:
+      ```
+      rate(benavora_prospect_intelligence_complete_total[1h])
+      ```
+      
+      4. **Failed Agents Alert**:
+      ```
+      sum(rate(benavora_agent_events_total{severity="error"}[5m])) by (agent_id) > 0.1
+      ```
+      
+      Dashboard panels:
+      - Top row: Success rates by family (SUP, DIS, INT, REL, QLF, STR, KNW, OPS, APP)
+      - Middle row: Duration histograms (p50, p95, p99)
+      - Bottom row: Error log (recent failures)
+
+  - id: alerting-rules-prometheus
+    prompt: |
+      Create Prometheus alert rules for critical failures.
+      
+      File: prometheus.rules.yaml (deploy to Vercel as env config or use provider-managed Prometheus):
+      
+      ```yaml
+      groups:
+        - name: benavora_alerts
+          rules:
+            - alert: AgentFamilyFailureRate
+              expr: |
+                sum(rate(benavora_agent_events_total{severity="error"}[5m])) by (family) > 0.05
+              for: 5m
+              annotations:
+                summary: "{{ $labels.family }} family agents failing > 5%"
+                
+            - alert: HighAPILatency
+              expr: |
+                histogram_quantile(0.95, rate(benavora_api_latency_ms_bucket[5m])) > 5000
+              for: 10m
+              annotations:
+                summary: "API p95 latency > 5s"
+                
+            - alert: AuthFailureSpike
+              expr: |
+                rate(benavora_auth_failures_total[5m]) > 0.1
+              for: 2m
+              annotations:
+                summary: "Auth failure rate spike"
+                
+            - alert: SupabaseSlowQueries
+              expr: |
+                histogram_quantile(0.95, rate(benavora_supabase_query_ms_bucket{operation="select"}[5m])) > 1000
+              for: 5m
+              annotations:
+                summary: "Database query latency > 1s"
+      ```
+      
+      Trigger notifications to Slack: #benavora-alerts
+
+  - id: structured-logging-json
+    prompt: |
+      Implement structured JSON logging for observability.
+      
+      File: src/lib/observability/logger.ts
+      
+      ```typescript
+      import { createLogger, format, transports } from 'winston';
+      
+      export const logger = createLogger({
+        defaultMeta: { service: 'benavora' },
+        format: format.combine(
+          format.timestamp(),
+          format.errors({ stack: true }),
+          format.json()
+        ),
+        transports: [
+          new transports.Console(),
+          new transports.File({ filename: 'logs/error.log', level: 'error' }),
+          new transports.File({ filename: 'logs/combined.log' })
+        ]
+      });
+      
+      export function logEvent(
+        type: string,
+        data: any,
+        level: 'info' | 'warn' | 'error' = 'info'
+      ) {
+        logger[level]({
+          type,
+          timestamp: new Date().toISOString(),
+          ...data
+        });
+      }
+      ```
+      
+      Usage:
+      ```typescript
+      logEvent('agent_started', { agentId: 'BEN-SUP-01', prospectId: '...' });
+      logEvent('form_submission_failed', { funder: '...', error: err.message }, 'error');
+      ```
+
+  - id: distributed-tracing-setup
+    prompt: |
+      Add OpenTelemetry tracing to track requests across services.
+      
+      Dependencies: npm install --save @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/auto
+      
+      File: src/instrumentation.ts (root):
+      
+      ```typescript
+      import { NodeSDK } from '@opentelemetry/sdk-node';
+      import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+      import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+      
+      const sdk = new NodeSDK({
+        traceExporter: new JaegerExporter({
+          endpoint: process.env.JAEGER_ENDPOINT || 'http://localhost:6831',
+        }),
+        instrumentations: [getNodeAutoInstrumentations()]
+      });
+      
+      sdk.start();
+      
+      process.on('SIGTERM', () => {
+        sdk.shutdown()
+          .then(() => console.log('Tracing terminated'))
+          .catch(log => console.log('Error terminating tracing', log))
+          .finally(() => process.exit(0));
+      });
+      ```
+      
+      This captures latency, errors, and request flow automatically.
+
+gates:
+  - gate: metrics-export
+    description: "Prometheus metrics exported from /api/metrics"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; curl -s http://localhost:3000/api/metrics 2>&1 | Select-String 'benavora_' | Select-Object -First 5"
+    success: "benavora_"
+    
+  - gate: code-compile
+    description: "Observability code compiles"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; pnpm build 2>&1 | Select-String 'error' -NotMatch | Select-Object -Last 5"
+    success: "no errors|built"

@@ -1,0 +1,468 @@
+prompts:
+  - id: create-pil-dossier-schema
+    prompt: |
+      You are creating the database schema for the PIL (Prospect Intelligence Layer) enterprise system.
+      
+      Context:
+      - Supabase project: vbjplpquqxxfbpazyalt
+      - Management API: https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query
+      - PAT: sbp_7f7e9e00a8995735b2803a5f2dc1bf82097895d2
+      - Current migration count: 097 applied
+      - All existing tables: organizations, profiles, funders, contacts, opportunities, applications, etc (full list in SCHEMA_REGISTRY_v2)
+      
+      **Create these 4 NEW tables via Supabase Management API:**
+      
+      **Table 1: pil_prospects**
+      This is the raw entity feed. Discovery/imports populate this. Agents read and enrich into dossiers.
+      
+      ```sql
+      CREATE TABLE IF NOT EXISTS pil_prospects (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        tenant_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        
+        -- Entity classification
+        entity_type text NOT NULL, -- PERSON, COMPANY, FOUNDATION, NONPROFIT, GOVERNMENT, EDUCATIONAL_INSTITUTION, PROFESSIONAL_ASSOCIATION, COMMUNITY_ORGANIZATION
+        entity_id text NOT NULL, -- Internal identifier within source system
+        source_system text NOT NULL, -- "discovery", "google_places", "crunchbase", "sec", "irs", "linkedin", "manual"
+        
+        -- Core identity
+        name text NOT NULL,
+        alternate_names text[],
+        description text,
+        
+        -- Contact
+        email text,
+        phone text,
+        website text,
+        
+        -- Geographic
+        headquarters_city text,
+        headquarters_state text,
+        headquarters_country text,
+        service_areas text[],
+        
+        -- Classification
+        categories text[], -- "foundation", "corporate", "individual", "government", etc
+        naics_codes text[], -- For companies
+        ntee_codes text[], -- For nonprofits
+        
+        -- Enrichment status
+        research_run_id uuid, -- Latest pil_research_run
+        dossier_id uuid REFERENCES pil_prospect_dossiers(id) ON DELETE SET NULL,
+        last_enriched_at timestamptz,
+        enrichment_complete boolean DEFAULT false,
+        
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      );
+      
+      CREATE INDEX idx_pil_prospects_tenant ON pil_prospects(tenant_id);
+      CREATE INDEX idx_pil_prospects_entity ON pil_prospects(entity_type, tenant_id);
+      CREATE INDEX idx_pil_prospects_source ON pil_prospects(source_system, tenant_id);
+      CREATE INDEX idx_pil_prospects_research ON pil_prospects(research_run_id);
+      ```
+      
+      **Table 2: pil_research_runs**
+      Tracks agent execution lifecycle. One run = one complete pass through all families for one prospect.
+      
+      ```sql
+      CREATE TABLE IF NOT EXISTS pil_research_runs (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        tenant_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        prospect_id uuid NOT NULL REFERENCES pil_prospects(id) ON DELETE CASCADE,
+        
+        -- Run metadata
+        status text DEFAULT 'pending', -- pending, running, completed, failed, paused
+        triggered_by text, -- "discovery_import", "manual_request", "daily_refresh", "event_webhook"
+        
+        -- Family execution tracking
+        sup_status text DEFAULT 'pending', -- pending, running, completed, failed, skipped
+        sup_completed_at timestamptz,
+        sup_evidence_count integer DEFAULT 0,
+        
+        dis_status text DEFAULT 'pending',
+        dis_completed_at timestamptz,
+        dis_evidence_count integer DEFAULT 0,
+        
+        int_status text DEFAULT 'pending',
+        int_completed_at timestamptz,
+        int_evidence_count integer DEFAULT 0,
+        
+        rel_status text DEFAULT 'pending',
+        rel_completed_at timestamptz,
+        rel_evidence_count integer DEFAULT 0,
+        
+        qlf_status text DEFAULT 'pending',
+        qlf_completed_at timestamptz,
+        qlf_evidence_count integer DEFAULT 0,
+        
+        str_status text DEFAULT 'pending',
+        str_completed_at timestamptz,
+        str_evidence_count integer DEFAULT 0,
+        
+        know_status text DEFAULT 'pending',
+        know_completed_at timestamptz,
+        know_evidence_count integer DEFAULT 0,
+        
+        ops_status text DEFAULT 'pending',
+        ops_completed_at timestamptz,
+        ops_evidence_count integer DEFAULT 0,
+        
+        app_status text DEFAULT 'pending',
+        app_completed_at timestamptz,
+        
+        -- Overall tracking
+        started_at timestamptz DEFAULT now(),
+        completed_at timestamptz,
+        total_duration_seconds integer,
+        error_message text,
+        
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      );
+      
+      CREATE INDEX idx_pil_research_runs_tenant ON pil_research_runs(tenant_id);
+      CREATE INDEX idx_pil_research_runs_prospect ON pil_research_runs(prospect_id);
+      CREATE INDEX idx_pil_research_runs_status ON pil_research_runs(status, tenant_id);
+      ```
+      
+      **Table 3: pil_prospect_dossiers**
+      COMPLETE enriched intelligence from all 9 families. One dossier per prospect after full research pipeline.
+      
+      ```sql
+      CREATE TABLE IF NOT EXISTS pil_prospect_dossiers (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        tenant_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        prospect_id uuid NOT NULL REFERENCES pil_prospects(id) ON DELETE CASCADE,
+        research_run_id uuid NOT NULL REFERENCES pil_research_runs(id) ON DELETE CASCADE,
+        
+        -- SUP Family: Support/Foundation
+        sup_entity_verified boolean,
+        sup_legal_name text,
+        sup_alternate_names text[],
+        sup_incorporation_date date,
+        sup_jurisdiction text,
+        sup_ein text,
+        sup_tax_status text,
+        sup_501c3_verified boolean,
+        sup_foundation_type text, -- private, community, corporate, family, etc
+        sup_grant_size_range jsonb, -- {min: 5000, max: 250000}
+        sup_annual_giving_budget numeric(12,2),
+        sup_geographic_focus text[],
+        sup_cause_priorities text[],
+        sup_submission_preferences jsonb,
+        sup_application_cycle text,
+        sup_findings jsonb, -- Full evidence chain from SUP family
+        sup_confidence numeric(3,2),
+        sup_last_verified_at timestamptz,
+        
+        -- DIS Family: Discovery/Sources
+        dis_source_systems text[],
+        dis_public_references integer,
+        dis_recent_news text[],
+        dis_announcements jsonb,
+        dis_board_changes jsonb,
+        dis_executive_changes jsonb,
+        dis_recent_grants text[], -- Recent known awards
+        dis_application_closed_recently boolean,
+        dis_findings jsonb,
+        dis_confidence numeric(3,2),
+        
+        -- INT Family: Intelligence/Alignment
+        int_cause_affinity numeric(3,2),
+        int_geography_match numeric(3,2),
+        int_mission_alignment numeric(3,2),
+        int_program_fit numeric(3,2),
+        int_strategy_alignment numeric(3,2),
+        int_composite_score numeric(3,2),
+        int_relevant_keywords text[],
+        int_mismatch_factors text[],
+        int_findings jsonb,
+        int_confidence numeric(3,2),
+        
+        -- REL Family: Relationships
+        rel_relationship_score numeric(3,2),
+        rel_relationship_status text, -- cold, warm, active, champion
+        rel_known_contacts text[], -- names
+        rel_board_overlaps jsonb,
+        rel_staff_connections jsonb,
+        rel_introduction_paths jsonb, -- [{path: "board_member", contact: "name", strength: 0.8}]
+        rel_prior_interactions jsonb,
+        rel_findings jsonb,
+        rel_confidence numeric(3,2),
+        
+        -- QLF Family: Qualification
+        qlf_capacity_score numeric(3,2),
+        qlf_capacity_estimate_low numeric(12,2),
+        qlf_capacity_estimate_high numeric(12,2),
+        qlf_capacity_evidence jsonb,
+        qlf_liquidity_indicators jsonb,
+        qlf_wealth_indicators jsonb,
+        qlf_foundation_assets numeric(14,2),
+        qlf_recent_giving_total numeric(12,2),
+        qlf_giving_trend text, -- rising, stable, declining
+        qlf_qualification_status text, -- qualified, likely, investigate, not_qualified
+        qlf_findings jsonb,
+        qlf_confidence numeric(3,2),
+        
+        -- STR Family: Strategy/Timing
+        str_readiness_score numeric(3,2),
+        str_optimal_contact_time text, -- "now", "Q1_2027", "after_ceo_transition", etc
+        str_recommended_ask_amount numeric(12,2),
+        str_timing_factors jsonb,
+        str_seasonal_giving_patterns jsonb,
+        str_multi_year_opportunity boolean,
+        str_follow_up_strategy text,
+        str_findings jsonb,
+        str_confidence numeric(3,2),
+        
+        -- KNW Family: Knowledge/Context
+        know_peer_comparisons jsonb,
+        know_benchmarks jsonb,
+        know_industry_context jsonb,
+        know_regulatory_context jsonb,
+        know_market_trends jsonb,
+        know_risk_factors text[],
+        know_findings jsonb,
+        know_confidence numeric(3,2),
+        
+        -- OPS Family: Operations
+        ops_proposal_possible boolean,
+        ops_submission_difficulty text, -- simple, moderate, complex, very_complex
+        ops_estimated_effort_hours numeric(5,1),
+        ops_required_documents text[],
+        ops_pre_submission_checklist jsonb,
+        ops_findings jsonb,
+        
+        -- APP Family: Application Profiles & Recommendations
+        app_recommendations jsonb, -- [{request_type, profile_id, success_prob, field_mappings, pitch_params, risks, strategy}]
+        app_priority_score numeric(5,1),
+        app_priority_percentile text,
+        app_priority_recommendation text, -- submit_now, submit_next_quarter, monitor, research_more
+        
+        -- Composite Intelligence
+        overall_fit_score numeric(3,2), -- 0.0-1.0 composite
+        next_recommended_action text,
+        action_by_date date,
+        
+        -- Metadata
+        dossier_complete boolean DEFAULT false,
+        last_updated_at timestamptz DEFAULT now(),
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      );
+      
+      CREATE INDEX idx_pil_dossiers_tenant ON pil_prospect_dossiers(tenant_id);
+      CREATE INDEX idx_pil_dossiers_prospect ON pil_prospect_dossiers(prospect_id);
+      CREATE INDEX idx_pil_dossiers_fit_score ON pil_prospect_dossiers(overall_fit_score DESC);
+      CREATE INDEX idx_pil_dossiers_priority ON pil_prospect_dossiers(app_priority_score DESC);
+      ```
+      
+      **Table 4: pil_agent_run_events**
+      Real-time event log for observability, debugging, re-runs, and audit trail.
+      
+      ```sql
+      CREATE TABLE IF NOT EXISTS pil_agent_run_events (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        tenant_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        research_run_id uuid NOT NULL REFERENCES pil_research_runs(id) ON DELETE CASCADE,
+        
+        agent_id text NOT NULL, -- "BEN-SUP-01", "BEN-DIS-01", etc
+        agent_family text NOT NULL, -- SUP, DIS, INT, REL, QLF, STR, KNW, OPS, APP
+        
+        -- Event metadata
+        event_type text NOT NULL, -- started, found_evidence, reasoning_step, completed, failed, escalated
+        severity text DEFAULT 'info', -- info, warning, error
+        
+        -- Event data
+        message text,
+        evidence_found text[], -- Evidence IDs or descriptions
+        tools_used text[], -- ["web_search", "sec_filing_parser", etc]
+        reasoning_step jsonb,
+        
+        -- Troubleshooting
+        error_code text,
+        error_message text,
+        recovery_attempted boolean DEFAULT false,
+        recovery_successful boolean,
+        
+        timestamp timestamptz DEFAULT now(),
+        created_at timestamptz DEFAULT now()
+      );
+      
+      CREATE INDEX idx_pil_events_run ON pil_agent_run_events(research_run_id);
+      CREATE INDEX idx_pil_events_agent ON pil_agent_run_events(agent_id, agent_family);
+      CREATE INDEX idx_pil_events_type ON pil_agent_run_events(event_type);
+      ```
+      
+      **Implementation:**
+      1. Execute all 4 CREATE TABLE statements via Supabase Management API (POST /database/query)
+      2. Verify all indexes created (SELECT name FROM pg_indexes WHERE tablename IN (...))
+      3. Verify RLS NOT enabled (these are internal tables, no RLS needed)
+      4. Run `SELECT COUNT(*) FROM pil_prospects` to confirm table accessible
+      
+      Use ASCII-only SQL. Split statements if > 4KB. Never include non-ASCII in SQL body.
+
+  - id: create-pil-rls-policies
+    prompt: |
+      Create Row Level Security (RLS) policies for PIL tables.
+      
+      Context:
+      - 4 tables created: pil_prospects, pil_research_runs, pil_prospect_dossiers, pil_agent_run_events
+      - All have tenant_id column for multi-tenant isolation
+      - Policy pattern: tenant_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
+      
+      **Implementation:**
+      For each table, enable RLS then create isolation policy:
+      
+      ```sql
+      ALTER TABLE pil_prospects ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY pil_prospects_tenant_isolation ON pil_prospects
+        USING (tenant_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      
+      ALTER TABLE pil_research_runs ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY pil_research_runs_tenant_isolation ON pil_research_runs
+        USING (tenant_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      
+      ALTER TABLE pil_prospect_dossiers ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY pil_prospect_dossiers_tenant_isolation ON pil_prospect_dossiers
+        USING (tenant_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      
+      ALTER TABLE pil_agent_run_events ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY pil_agent_run_events_tenant_isolation ON pil_agent_run_events
+        USING (tenant_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      ```
+      
+      Execute via Management API. Verify with: `SELECT tablename, rowsecurity FROM pg_tables WHERE tablename LIKE 'pil_%'`
+
+  - id: create-pil-trigger-research-run
+    prompt: |
+      Create database trigger to auto-create pil_research_runs when prospect inserted.
+      
+      When a new pil_prospect is discovered/imported, automatically create a pil_research_run to orchestrate the 9-family pipeline.
+      
+      ```sql
+      CREATE OR REPLACE FUNCTION trigger_create_research_run()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        INSERT INTO pil_research_runs (tenant_id, prospect_id, status, triggered_by)
+        VALUES (NEW.tenant_id, NEW.id, 'pending', 'discovery_import');
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+      
+      CREATE TRIGGER pil_prospects_auto_research
+      AFTER INSERT ON pil_prospects
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_create_research_run();
+      ```
+      
+      Test: Insert test prospect, verify pil_research_runs row created automatically.
+
+  - id: discovery-pil-webhook
+    prompt: |
+      Create webhook route to trigger PIL pipeline from Discovery import.
+      
+      File: src/app/api/discovery/pil-trigger/route.ts
+      
+      When Discovery (existing donor prospect system) imports prospects, send webhook to this route to create pil_prospect + pil_research_run.
+      
+      ```typescript
+      import { createClient } from '@supabase/supabase-js';
+      import { NextRequest, NextResponse } from 'next/server';
+      
+      export async function POST(req: NextRequest) {
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        
+        const { discovery_prospect_id, organization_id, prospect_data } = await req.json();
+        
+        // Create pil_prospect from discovery data
+        const { data: prospect, error: prospectError } = await supabase
+          .from('pil_prospects')
+          .insert({
+            tenant_id: organization_id,
+            entity_type: prospect_data.entity_type || 'PERSON',
+            entity_id: discovery_prospect_id,
+            source_system: 'discovery',
+            name: prospect_data.name,
+            email: prospect_data.email,
+            website: prospect_data.website,
+            categories: prospect_data.categories || [],
+          })
+          .select()
+          .single();
+        
+        if (prospectError) {
+          return NextResponse.json({ error: prospectError.message }, { status: 400 });
+        }
+        
+        // Trigger automatically creates pil_research_run via trigger
+        return NextResponse.json({
+          prospect_id: prospect.id,
+          status: 'queued_for_enrichment'
+        });
+      }
+      ```
+
+  - id: research-run-orchestrator
+    prompt: |
+      Create worker script to orchestrate PIL research runs.
+      
+      File: src/lib/pil/research-orchestrator.ts
+      
+      This script:
+      1. Polls pil_research_runs for status='pending' or partially-complete runs
+      2. Executes agent families in sequence: SUP → DIS → INT → REL → QLF → STR → KNW → OPS → APP
+      3. Waits for each family to complete before starting next
+      4. Logs all events to pil_agent_run_events
+      5. Updates pil_research_runs status after each family completes
+      6. On completion: creates pil_prospect_dossiers entry with all enriched data
+      7. Triggers webhook to autoapply-queue-populator (queue candidates for submission)
+      8. Handles failures: logs error, marks as failed, creates escalation task
+      
+      Pseudocode:
+      ```typescript
+      export async function orchestrateResearchRun(runId: string, supabase: any) {
+        const run = await supabase.from('pil_research_runs').select('*').eq('id', runId).single();
+        
+        const families = [
+          { family: 'SUP', agents: [BEN_SUP_01, ...BEN_SUP_06] },
+          { family: 'DIS', agents: [BEN_DIS_01, ...BEN_DIS_08] },
+          // ... all 9 families
+        ];
+        
+        for (const { family, agents } of families) {
+          for (const agent of agents) {
+            await executeAgent(agent, run.prospect_id);
+            await logEvent(run.id, agent.id, family, 'completed');
+          }
+          await supabase.from('pil_research_runs').update({
+            [`${family.toLowerCase()}_status`]: 'completed',
+            [`${family.toLowerCase()}_completed_at`]: new Date()
+          }).eq('id', runId);
+        }
+        
+        // Build dossier from all enriched data
+        await createDossier(runId);
+        await triggerAutoapplyQueuePopulator(run.tenant_id, run.prospect_id);
+      }
+      ```
+
+gates:
+  - gate: migration-applied
+    description: "All 4 PIL tables created and accessible"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; $token='sbp_7f7e9e00a8995735b2803a5f2dc1bf82097895d2'; $body=@{query='SELECT COUNT(*) as cnt FROM pil_prospects'} | ConvertTo-Json; Invoke-WebRequest -Uri 'https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query' -Method POST -Headers @{Authorization=\"Bearer $token\"; 'Content-Type'='application/json'} -Body $body | Select-Object -ExpandProperty Content"
+    success: "tables created|cnt"
+    
+  - gate: rls-enabled
+    description: "RLS policies protecting tenant data"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; $token='sbp_7f7e9e00a8995735b2803a5f2dc1bf82097895d2'; $body=@{query='SELECT tablename, rowsecurity FROM pg_tables WHERE tablename LIKE ''pil_%'' ORDER BY tablename'} | ConvertTo-Json; Invoke-WebRequest -Uri 'https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query' -Method POST -Headers @{Authorization=\"Bearer $token\"; 'Content-Type'='application/json'} -Body $body | Select-Object -ExpandProperty Content"
+    success: "rowsecurity=true"
+    
+  - gate: code-compile
+    description: "Discovery webhook + orchestrator compile without errors"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; pnpm build 2>&1 | Select-String -Pattern 'error' -NotMatch | Select-Object -Last 5"
+    success: "no errors|built successfully"

@@ -1,0 +1,197 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STANDING_DIRECTIVES.md
+  - FEATURE_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: t4-t5-doc-correction-001
+    phase: build
+    description: "Correct FEATURE_REGISTRY_v2.md T4/T5 rows - both are actually built, doc never updated"
+    prompt: |
+      T4 (E2E Tests) and T5 (Visual Regression Tests) are both listed PLANNED in FEATURE_REGISTRY_v2.md's Testing Features table, but real files exist and were committed: e2e/critical-paths.spec.ts and e2e/visual-regression.spec.ts (both passed real compile/build/test gates in a FORGE queue earlier today, referenced by T8's own row which correctly credits them as already existing).
+
+      Confirm both files exist and are committed via git log. Update both rows to BUILT - VERIFIED (or BUILT, matching this doc's own convention for rows without a dated live-test citation - use judgment consistent with how nearby rows are worded) with today's date, citing the real files and the fact T8's row already references them as pre-existing. Update the Summary table counts at the bottom of the file to reflect these two corrections (Testing category Built/Planned counts, and the grand TOTAL row).
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: file_exists
+        files: [FEATURE_REGISTRY_v2.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: dataocean-backup-001
+    phase: build
+    description: "D7 - CRITICAL: enrichment-output/ is never backed up, reruns silently overwrite. Build the backup mechanism."
+    prompt: |
+      FEATURE_REGISTRY_v2.md row D7 flags this CRITICAL: enrichment-output/ is never backed up to D:\ (DATAOCEAN drive), and reruns of any enrichment script silently overwrite prior output with no recovery path.
+
+      1. Confirm D:\ (DATAOCEAN) is reachable from this environment and check its current free space.
+      2. Write scripts/backup-enrichment-output.ts: copies the full contents of enrichment-output/ to a dated subfolder on D:\ (e.g. D:\dataocean\enrichment-backups\2026-08-13\), preserving structure, logging exactly what was copied and its total size. Must be safe to run repeatedly (dated folders, never overwrites a prior day's backup).
+      3. Wire this as an automatic first step in every enrichment script that writes to enrichment-output/ (grep the repo for scripts writing there - scrapers, ingestion scripts) so a backup happens BEFORE that script's own writes begin, not after - protecting whatever was already in the folder from the run about to overwrite it.
+      4. Add a pnpm script "backup:enrichment" for manual on-demand runs too.
+      5. Real test: run the backup script now against whatever currently exists in enrichment-output/, confirm the files actually landed on D:\ with correct content (spot-check a real file's contents match).
+
+      If D:\ is not reachable from this environment, document that clearly rather than guessing at a path - this is a real environment-access question, not a code bug.
+    expected_outputs:
+      - scripts/backup-enrichment-output.ts
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [scripts/backup-enrichment-output.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: irs990-ein-bugfix-001
+    phase: build
+    description: "D2 - Fix the known EIN column bug in the IRS 990 stream parser"
+    prompt: |
+      FEATURE_REGISTRY_v2.md row D2 (IRS 990 Stream Parser) flags a confirmed EIN column bug, described as already partially addressed in "the last FORGE queue" - find and read that prior fix first (git log/git blame on the relevant parser file) to understand what was already done versus what's still broken, rather than assuming the bug is entirely unaddressed.
+
+      Find the real parser file (likely under src/lib or scripts, grep for IRS 990 stream parsing logic), read it in full, reproduce the EIN column issue against real data if possible, fix it, and add a regression test or a real re-run against a sample of real filings confirming EINs now parse correctly. Update D2's row in FEATURE_REGISTRY_v2.md with today's date and real evidence once confirmed fixed.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: rag-integration-unblock-001
+    phase: build
+    description: "Unblock RAG Integration in Draft Generator (row #171) - apply the missing migration and wire a real trigger path"
+    prompt: |
+      Row #171 (RAG Integration in Draft Generator) is BUILT - BLOCKED: DraftGenerationAgent genuinely calls queryKnowledgeEngine() and retrieves real patterns, but every run fails at the final applications insert because migration 123_knowledge_engine_draft_integration.sql was never applied (knowledge_patterns_applied column missing live). Separately, the integration has zero real production trigger path - no queue case, no nightly wiring, no API route - the live draft-generation path (generateDraft() in src/lib/drafts/generator.ts) has zero Knowledge Engine integration today.
+
+      1. Read migration 123 in full. Confirm live via psql (DIRECTIVE-017) that knowledge_patterns_applied is genuinely missing from applications. Apply the migration, confirm the column now exists live.
+      2. Read src/lib/drafts/generator.ts's generateDraft() (the actual live path) in full, and compare against DraftGenerationAgent's Knowledge Engine integration (the currently-unwired one). Wire generateDraft() to call queryKnowledgeEngine() the same way DraftGenerationAgent does, writing knowledge_patterns_applied on the resulting application row.
+      3. Real live test: generate a real draft through the actual live path (not the unwired agent class) against the real Faith Foundation org, confirm it retrieves real patterns and the resulting application row has knowledge_patterns_applied populated correctly.
+      4. Run pnpm run build and confirm clean.
+    expected_outputs:
+      - src/lib/drafts/generator.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: giving-history-verification-001
+    phase: build
+    description: "990-PF Giving History (row #66) - find a real foundation with populated Schedule I and confirm the positive extraction case"
+    prompt: |
+      Row #66's extraction code runs clean against 36 real 990PF filings but correctly returned zero grants for each - the positive case (a foundation that actually has populated Schedule I grant history) has never been reached and remains unconfirmed.
+
+      Search the real foundation_directory / enrichment data for a foundation more likely to have real Schedule I data (larger foundations with meaningful annual giving are more likely to have populated grant schedules than the small foundations sampled previously - use whatever real signal is available, e.g. asset size or prior filing volume, to pick better candidates rather than sampling randomly again).
+
+      Run the real, unmodified extraction code (extractGrantSchedule() in irs990.ts) against 5-10 better-targeted candidates. If a real populated Schedule I is found, confirm the extraction produces correct, real per-recipient grant line items (cross-check a few against the raw filing). If genuinely no populated Schedule I is found even among better candidates, document that clearly as a real finding (this may mean the small/mid-size foundations in this dataset genuinely don't file detailed Schedule I data) rather than treating it as still-unconfirmed.
+
+      Update row #66 in FEATURE_REGISTRY_v2.md with today's date and the real outcome either way.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: file_exists
+        files: [FEATURE_REGISTRY_v2.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: universal-scraper-schema-001
+    phase: build
+    description: "US1 - apply the Universal Scraper's scrape_jobs/scrape_results migration to production"
+    prompt: |
+      Migration 110_scrape_jobs_universal_scraper.sql is fully written and committed but was never confirmed applied to production (blocked at the time by a dead Management API PAT - DIRECTIVE-017's psql path should not have this problem, confirm that's genuinely available now).
+
+      1. Read the migration in full.
+      2. Confirm live via psql whether scrape_jobs/scrape_results already exist (do not assume the "never applied" note is still accurate - re-check).
+      3. If genuinely absent, apply the migration via psql, confirm both tables now exist live with correct schema/RLS.
+      4. Real test: run pnpm scrape:universal with a small real keyword+schema (per US5's row, e.g. a narrow local-business search with a 2-3 field schema) and confirm it now writes real rows to scrape_jobs/scrape_results in the database instead of the mock JSON fallback under scrape-output/ that US5's row describes as the pre-migration behavior.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: universal-scraper-templates-001
+    phase: build
+    description: "US6/US7 - run the two fully-coded-but-never-executed scraper templates against small real batches"
+    prompt: |
+      US6 (foundation-990-template.ts) and US7 (nonprofit-contact-template.ts) are both fully coded, type-check clean, uncommitted, and have never been run once against real data.
+
+      Read both template files and their runner scripts in full. For each, run a small real batch (5-10 records, not the full 133K/6K-record scale - this is a first real-data verification, not a production run) via their pnpm scripts (pnpm scrape:foundations-v2, pnpm scrape:nonprofits-v2). Confirm real output: for US6, real EIN->filing matches written correctly; for US7, real schema-flexible contact extraction (compare a few results against the raw fetched page content, same discipline US4's original verification used).
+
+      If either produces real, correct output, commit the previously-uncommitted template files. If either has a real bug, fix it if small/unambiguous, otherwise document the finding clearly and leave uncommitted with a note explaining why. Update US6/US7's rows in FEATURE_REGISTRY_v2.md with today's date and real evidence.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: state-portal-scope-001
+    phase: build
+    description: "State Portal Framework - investigation/scoping only, this is too open-ended to build blind"
+    prompt: |
+      Row #56 (State Portal Framework) is PARTIAL: "scraper exists, stub only, no real HTML parsing implemented." This description has no specifics on which state portals, how many, or what data model - too open-ended to build without scoping first.
+
+      1. Read the existing stub code in full to understand what was originally intended (which states, if any were named; what data it was meant to extract).
+      2. Identify, via grants.gov/SAM.gov data or org research, which 2-3 state grant portals would be highest-value to target first for a nonprofit-grant-discovery platform (real states with active, structured grant portals - not a guess, cite real evidence for why these states were picked, e.g. portal exists, is scrapeable, has meaningful real grant volume).
+      3. Do NOT build a full scraper in this prompt. Instead, write STATE_PORTAL_SCOPING_2026-08-13.md documenting: the real current stub's actual state, the 2-3 recommended target states with reasoning, a rough real assessment of each target portal's scrapeability (structured HTML? requires JS rendering? has an API?), and a recommended build order. This becomes the actual scoping document for a future, properly-sized build task.
+    expected_outputs:
+      - STATE_PORTAL_SCOPING_2026-08-13.md
+    gates:
+      - type: file_exists
+        files: [STATE_PORTAL_SCOPING_2026-08-13.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: intelligence-library-nights-scope-001
+    phase: build
+    description: "Intelligence Library Corpus - scope real time/cost of nights 2-7 before deciding whether to run them"
+    prompt: |
+      Row D5 (Intelligence Library Corpus) has only completed 1 of 7 planned data-loading "nights." Before running any of the remaining 6, this prompt only scopes the real cost/time - do NOT execute nights 2-7 in this prompt.
+
+      Read whatever script/process "night 1" used (find it via git log/git blame on Intelligence Library-related ingestion scripts). Determine: real API rate limits for each source involved (NIH RePORTER, NSF, Federal Register, SAMHSA/HRSA - per rows #166-169), how long night 1 actually took wall-clock, and a realistic estimate for nights 2-7's total time and API call volume.
+
+      Write findings to INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md. State plainly whether nights 2-7 are safe to run unattended in a single long FORGE prompt (e.g. if total estimated time is a few hours and rate limits are generous) or whether they need to be split across multiple sessions/days (e.g. if rate limits or realistic runtime make a single unattended pass risky). Do not launch anything - this is scoping only, matching the discipline that already caught a similar problem with this morning's soak test queue design.
+    expected_outputs:
+      - INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md
+    gates:
+      - type: file_exists
+        files: [INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: unblock-run-final-verify-001
+    phase: build
+    description: "Final verification and governance sync for this entire unblocking run"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Confirm every row touched by this queue (T4, T5, D2, D7, #66, #171, US1, US6, US7) has a real, dated, evidence-cited update in FEATURE_REGISTRY_v2.md - not a blanket status flip.
+      3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a summary of everything unblocked/built/verified in this run, explicit about the two scoping-only outputs (State Portal, Intelligence Library nights) that produced recommendations rather than finished features - these are follow-up decisions for Reid, not completed work.
+      4. Explicitly list anything this queue could NOT complete or found blocked by something new, at the top of the STATE_OF_THE_BUILD.md entry, so it's not buried.
+      5. Scoped git add (only files actually touched across this queue's prompts - do not use git add -A), commit with message "feat: unblock RAG integration, fix D2/D7, verify 990-PF giving history, apply Universal Scraper schema, run US6/US7 templates, correct T4/T5 registry rows, scope State Portal + Intelligence Library nights", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

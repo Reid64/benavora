@@ -1,0 +1,80 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: ui-missing-001
+  name: Governance sync and full nav audit -- find and fix all dead links
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/components/layout/nav-items.ts in FULL.
+    Read src/components/layout/Sidebar.tsx in FULL.
+    List src/app/(dashboard)/ directory in FULL -- all subdirectories.
+
+    AUDIT: For every href in nav-items.ts, verify the corresponding page file exists in src/app/(dashboard)/.
+    Map each nav href to its expected file path. List:
+    - EXISTS: page file found
+    - MISSING: page file not found (this causes 404)
+
+    For every MISSING page: create a minimal but styled placeholder page that:
+    - Shows the page title H1 in white
+    - Shows "Coming Soon" or the actual feature content if you can determine what it should be
+    - Uses inline style={{}} only, canvas #D6E4F0
+    - Has a back link to /dashboard
+
+    Pages most likely missing based on recent builds:
+    - /intelligence/fundability (fundability score list)
+    - /intelligence/relationship-graph
+    - /intelligence/learning-network
+    - /intelligence/community-need (may exist -- verify)
+    - /intelligence/donor-intent (may exist -- verify)
+    - /intelligence/strategic-advisor (may exist -- verify)
+    - /reports/roi
+    - /reports/simulate
+    - /admin/improvements
+    - /admin/sales-outreach
+    - /autoapply/test-results
+
+    For each page that SHOULD have real content but is a stub, read the corresponding agent or API route and build the real page.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'fix: nav audit -- all dead links resolved, missing pages created'; git push.
+    npx vercel deploy --prod.
+    Report: list of pages that were missing and are now created. Production URL.
+
+- id: ui-missing-002
+  name: Sidebar nav enhancement and badge counts
+  prompt: |
+    Read src/components/layout/Sidebar.tsx in FULL.
+    Read src/app/api/nav-counts/route.ts in FULL if it exists.
+    Read src/app/(dashboard)/dashboard/page.tsx first 50 lines.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex.
+
+    Upgrade the sidebar to show live badge counts on key nav items:
+    - Opportunities: count of open opportunities with eligibility_score >= 60
+    - Applications: count of applications with pending_review=true (AI drafts awaiting review)
+    - Alerts: count of unread notifications
+    - Intelligence > Strategic Advisor: count of pending recommendations with urgency IN (immediate, urgent)
+    - Intelligence > Donor Intent: count of signals with intent_score >= 75 from last 7 days
+    - Intelligence > Community Need: count of critical/high signals from last 30 days
+    - Admin > Improvements: count of improvement_proposals with status=proposed
+    - AutoApply: count of sessions with status=queued
+
+    Create or upgrade src/app/api/nav-counts/route.ts:
+    GET: returns all counts in one query using Promise.all for parallel execution.
+    Returns: { opportunities: number, pendingReview: number, alerts: number, strategicRecs: number, donorIntent: number, communityNeed: number, improvements: number, autoapplyQueued: number }
+
+    In Sidebar.tsx: fetch /api/nav-counts on mount and every 60 seconds.
+    Show count badges as small circles: background=accent color, white text, 16px diameter, positioned top-right of nav item icon.
+    If count is 0: hide the badge entirely.
+    If count >= 10: show "9+" instead of the number.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: sidebar live badge counts -- opportunities, pending review, alerts, strategic recs, improvements'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

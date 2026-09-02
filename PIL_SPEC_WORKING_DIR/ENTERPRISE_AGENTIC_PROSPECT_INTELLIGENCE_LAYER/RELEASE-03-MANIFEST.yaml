@@ -1,0 +1,24 @@
+release_id: PIL-RELEASE-03
+version: "1.0.0"
+title: "Execution Planning, Control-Plane Services Batch 1, and BEN-SUP-03"
+type: cumulative
+inherits: PIL-RELEASE-02
+platform_boundary: "Independent domain-configurable Prospect Intelligence core; Benavora fundraising is a Domain Pack and adapter."
+canonical_fleet_count: 44
+canonical_deterministic_service_count: 30
+new_files:
+  - 10-planning-architecture/10-dependency-graph-and-execution-plan-contracts.yaml
+  - 11-service-contracts/11-control-plane-service-contracts-batch-01.yaml
+  - 12-agents/supervisory/BEN-SUP-03-cross-agent-research-planner.md
+completed_agent_specs: [BEN-SUP-01, BEN-SUP-02, BEN-SUP-03]
+remaining_agent_specs: 41
+truthful_status:
+  specification_complete_for_release_scope: true
+  target_repository_implementation_claimed: false
+  production_score_preassigned: false
+next_release:
+  id: PIL-RELEASE-04
+  agent: BEN-SUP-04
+  title: Research Portfolio Allocator
+  infrastructure_scope: [deterministic_service_contracts_batch_2, evaluation_and_production_readiness_architecture]
+

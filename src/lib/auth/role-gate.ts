@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
+import { authFailures } from "@/lib/observability/metrics";
 import { ROLE_HIERARCHY, hasRequiredRole } from "@/lib/utils/constants";
 import type { Enums } from "@/types/database";
 
@@ -93,6 +94,7 @@ export async function requireRole(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
+    authFailures.labels("unauthenticated").inc();
     return { error: jsonError("Authentication required.", "unauthenticated", 401) };
   }
 
@@ -102,11 +104,13 @@ export async function requireRole(
     .eq("id", user.id)
     .single();
   if (error || !profile) {
+    authFailures.labels("no_profile").inc();
     return { error: jsonError("Could not resolve your profile.", "no_profile", 403) };
   }
 
   const userRole = profile.role as UserRole;
   if (!hasRequiredRole(userRole, requiredRole)) {
+    authFailures.labels("forbidden").inc();
     return {
       error: jsonError(
         "You do not have permission to perform this action.",

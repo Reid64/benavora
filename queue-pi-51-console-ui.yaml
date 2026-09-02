@@ -1,0 +1,488 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-51: THE CONSOLE
+#
+# The tenant-facing application: commissioning, portfolios,
+# dossiers, warm paths, escalations, monitoring, admin. The
+# product's face - and its credibility engine: EVERY fact shown
+# anywhere click-throughs to its claim and the claim's snapshot
+# excerpt. A fundraiser who asks "how do you know that?" gets
+# the answer in two clicks, always. That is the UI expression
+# of the entire evidence architecture.
+#
+# UI DISCIPLINE (lessons from the sibling project, applied as
+# prevention not cure): this is a FRESH repo - keep it clean:
+#   - ONE design-token source (tailwind.config + a tokens file);
+#     no parallel CSS layers, no !important compatibility
+#     shims, EVER. A PR adding !important to global styles is a
+#     defect by policy (state it in the design doc).
+#   - Zero emoji anywhere in the product UI.
+#   - Distinct, professional aesthetic per DESIGN doc authored
+#     in pi51-001 - not a template default.
+# Established patterns throughout. E2E via Playwright against
+# the real standing stack.
+# ============================================================
+
+prompts:
+
+  - id: pi51-001
+    phase: build
+    description: "Design foundations + app scaffold + auth"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\CONSOLE_DESIGN.md: the design
+         language - a restrained professional palette chosen for
+         THIS product (deep neutrals + one confident accent +
+         semantic colors for evidence states: verified/
+         corroborated/single-source/stale/contradicted get a
+         consistent visual vocabulary used everywhere - the
+         evidence-state colors ARE the brand); typography scale;
+         spacing; the token rules above (one source, no
+         !important, zero emoji) stated as policy.
+      2. apps\console\: Next.js (current stable per its live docs;
+         App Router), Tailwind with the tokens in
+         tailwind.config, Supabase auth (login/logout/session,
+         org context), a typed API client generated against
+         API_CONTRACTS (hand-authored typed client is
+         acceptable - one module, every endpoint), the layout
+         shell (nav: Commission, Portfolios, Prospects,
+         Escalations, Objectives, Admin), auth-guarded routes.
+      3. Boot proof: dev server renders login; an authed session
+         reaches the shell; captured (screenshot via Playwright
+         headless) to evidence\pi-51\shell.png.
+      4. Create scripts\verify\verify-pi51-001.mjs: DESIGN doc
+         sections present including the policy lines; the app
+         builds (next build clean); the screenshot exists.
+      5. Run: node scripts/verify/verify-pi51-001.mjs
+    expected_outputs:
+      - docs/architecture/CONSOLE_DESIGN.md
+      - apps/console/tailwind.config.ts
+      - scripts/verify/verify-pi51-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-002
+    phase: build
+    description: "Commissioning flow: compose, clarify, preview, approve"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The commissioning UI over the pi-50 endpoints: a compose
+         surface (plain-language input + tenant context shown),
+         clarification Q&A rendering the typed questions,
+         side-by-side preview (the human summary + the structured
+         profile, both from renderPreview), inline edits on the
+         structured side (re-validated via the API), approve/
+         reject with the confirmation making the commitment
+         explicit (what will run, at what budget), refusal states
+         rendered with their policy explanations (the
+         protected-characteristics refusal shows its reason
+         clearly and offers nothing further).
+      2. Playwright (against the standing stack + FakeProvider):
+         the full compose->clarify->preview->edit->approve journey
+         creates the profile; the refusal renders its explanation;
+         approve-less sessions create nothing (navigate away,
+         assert no profile).
+      3. Green; evidence\pi-51\commissioning-e2e.txt + journey
+         screenshots.
+      4. Create scripts\verify\verify-pi51-002.mjs: the journey
+         and refusal tests present and passing.
+      5. Run: node scripts/verify/verify-pi51-002.mjs
+    expected_outputs:
+      - apps/console/src/app/commission/page.tsx
+      - scripts/verify/verify-pi51-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-003
+    phase: build
+    description: "Portfolio dashboard"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Portfolio views: portfolio list with objective linkage +
+         budget state; member table (research state, tier where
+         qualified, evidence-sufficiency summary, suspended
+         reasons, last-researched) with filtering (state/tier/
+         freshness) and the evidence-state visual vocabulary from
+         the design doc; member row -> dossier navigation;
+         UNSCORED members show their named gaps (the honest
+         states rendered honestly - an unsophisticated dashboard
+         would hide them).
+      2. Playwright: renders the fixture portfolio; filters work;
+         the UNSCORED gap display; navigation.
+      3. Green; evidence\pi-51\portfolio-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-003.mjs standard
+         e2e-presence pattern.
+      5. Run: node scripts/verify/verify-pi51-003.mjs
+    expected_outputs:
+      - apps/console/src/app/portfolios/page.tsx
+      - scripts/verify/verify-pi51-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-004
+    phase: build
+    description: "The dossier: the twin rendered, every fact sourced"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The prospect dossier view - the product's heart: twin
+         sections rendered (identity, biography, organizations,
+         giving, wealth/capacity with basis labels visible,
+         affinity with inference labels visible, timeline,
+         contradictions, research gaps), and THE CITATION
+         MECHANIC: every rendered fact carries its evidence
+         affordance - click -> a claim panel (excerpt, source,
+         tier, verification status with the state vocabulary,
+         freshness, snapshot link rendering the stored excerpt in
+         context); superseded history reachable (the "as of"
+         affordance on temporal facts - the chairman case
+         browsable); section staleness surfaced.
+      2. Playwright: a fixture dossier renders all sections; the
+         citation click-through reaches a real excerpt; a
+         superseded fact's history opens; basis and inference
+         labels visible in the DOM (assert text presence).
+      3. Green; evidence\pi-51\dossier-e2e.txt + screenshots
+         (the citation panel captured).
+      4. Create scripts\verify\verify-pi51-004.mjs: the
+         click-through and history tests present and passing.
+      5. Run: node scripts/verify/verify-pi51-004.mjs
+    expected_outputs:
+      - apps/console/src/app/prospects/[id]/page.tsx
+      - scripts/verify/verify-pi51-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-005
+    phase: build
+    description: "Warm paths and relationships rendered"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The relationship view within the dossier: ranked
+         introduction strategies rendered as path cards (each hop:
+         who -> relationship type -> strength + recency + the
+         hop's evidence affordance; composite confidence;
+         friction notes; the what-would-strengthen
+         recommendations); current vs historical overlaps
+         visually distinct (the temporal vocabulary); the honest
+         no-path state rendered as guidance (path-building
+         recommendations), not emptiness; a compact network
+         visual (SVG/canvas graph of the prospect's immediate
+         evidenced neighborhood - render from the traverse API,
+         keep it functional not decorative).
+      2. Playwright: the John Smith fixture strategy renders with
+         its hops and evidence; historical overlap visually
+         distinct (class assertion); the no-path prospect shows
+         recommendations.
+      3. Green; evidence\pi-51\relationship-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-005.mjs standard
+         pattern.
+      5. Run: node scripts/verify/verify-pi51-005.mjs
+    expected_outputs:
+      - apps/console/src/components/warm-paths.tsx
+      - scripts/verify/verify-pi51-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-006
+    phase: build
+    description: "Qualification, strategy, and critic transparency"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Qualification + strategy surfaces: the composite with
+         dimension breakdown (each dimension's score, confidence,
+         evidence count, its claims reachable), the tier with its
+         definition, ask ranges rendered as ranges with basis
+         labels and component itemization (a point number never
+         renders - the range is the truth), cultivation/timing
+         recommendations with their citations, disqualifications
+         rendered with reasons + the reopening trigger shown
+         ("watching for: liquidity events"), and CRITIC
+         TRANSPARENCY: the verdict badge on consequential
+         conclusions (approved/challenged-revised with the
+         revision count) - trust is shown, not asserted.
+      2. Playwright: fixture qualified prospect renders the
+         breakdown; the ask range with basis; the disqualified
+         prospect's reasons + trigger; the critic badge present.
+      3. Green; evidence\pi-51\qualification-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-006.mjs standard
+         pattern plus the basis-label and critic-badge assertions.
+      5. Run: node scripts/verify/verify-pi51-006.mjs
+    expected_outputs:
+      - apps/console/src/components/qualification.tsx
+      - scripts/verify/verify-pi51-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-007
+    phase: build
+    description: "Escalation inbox: SUP-06's briefs, decision-ready"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The escalation inbox: SUP-06's prioritized queue
+         rendered (priority visual, age, type badges - identity
+         linkage / ethical screen / budget stop / strategic /
+         critic reject), each opening the packaged brief (what is
+         asked, the evidence either way with citations, what each
+         resolution does), resolve actions wired to the API
+         (approve/reject/modify with a note - the modify path per
+         the escalation contract), resolved history view; the H1
+         identity-linkage brief renders both candidate entities
+         side by side with their distinguishing evidence (the
+         two-John-Smiths decision made humane).
+      2. Playwright: the fixture inbox ordering matches SUP-06's
+         prioritization; the linkage brief's side-by-side; a
+         resolution round-trips (resolve -> the goal resumes -
+         assert via API state); the resolution note persisted.
+      3. Green; evidence\pi-51\escalations-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-007.mjs: the
+         side-by-side and resume assertions present.
+      5. Run: node scripts/verify/verify-pi51-007.mjs
+    expected_outputs:
+      - apps/console/src/app/escalations/page.tsx
+      - scripts/verify/verify-pi51-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-008
+    phase: build
+    description: "Objectives monitoring: goals, plans, burn"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The objectives view: objective list with lifecycle state
+         + progress (members sufficient / total), the plan DAG
+         rendered (nodes with agent, state, per-branch outcome;
+         the replan lineage visible when revisions happened),
+         budget burn (spent vs allocated per objective + the
+         SUP-04 lock state if engaged, rendered prominently),
+         pause/resume/cancel controls (wired, with cancel's
+         cascade consequence stated in the confirm), the
+         IntelligencePackage rendered when complete (the package
+         view: summary + per-prospect links).
+      2. Playwright: the fixture objective's DAG renders with a
+         revision visible; burn numbers match ledger fixtures;
+         pause round-trips; the package view links resolve.
+      3. Green; evidence\pi-51\objectives-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-008.mjs standard
+         pattern.
+      5. Run: node scripts/verify/verify-pi51-008.mjs
+    expected_outputs:
+      - apps/console/src/app/objectives/page.tsx
+      - scripts/verify/verify-pi51-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-009
+    phase: build
+    description: "Admin: profiles, settings, switches, users"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Admin surfaces (owner/admin role-gated): target-profile
+         management (list/edit/archive with the same re-validated
+         editing; the profile detail shows its objectives + last
+         results), tenant settings (budget defaults, autonomy
+         overrides - LOWER-only enforced by the API and reflected
+         in the UI copy, gift ranges, the tenant address the
+         compiler's "us" resolves to), kill switches (tenant/
+         agent/connector scopes rendered with engage/disengage +
+         reason capture + the audit trail of past engagements),
+         user management (invite, role assignment per the RBAC
+         registry), inner-circle designation on the tenant
+         network view.
+      2. Playwright: role gating (a member-role session sees no
+         Admin nav and direct URL access refuses); a switch
+         engage/disengage round-trip with reason + audit visible;
+         an autonomy-raise attempt refused with the explanation.
+      3. Green; evidence\pi-51\admin-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-009.mjs: the role-gate
+         and autonomy-refusal assertions present.
+      5. Run: node scripts/verify/verify-pi51-009.mjs
+    expected_outputs:
+      - apps/console/src/app/admin/page.tsx
+      - scripts/verify/verify-pi51-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-010
+    phase: build
+    description: "Knowledge-integrity surfaces: contradictions, freshness, verification"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The integrity views: an org-level contradiction queue
+         (open contradictions with both sides + KNW-04
+         adjudication state), freshness overview (stale claims by
+         type with re-research request state), verification
+         status distribution (the 8-status breakdown org-wide -
+         the evidence-quality health view SUP-02's metrics feed),
+         and within dossiers these already surface per pi51-004 -
+         this prompt adds the org rollups + navigation between
+         them.
+      2. Playwright: the fixture contradiction renders both sides
+         with citations; the stale-claim row links its
+         re-research state; the status distribution matches
+         fixture counts.
+      3. Green; evidence\pi-51\integrity-e2e.txt + screenshot.
+      4. Create scripts\verify\verify-pi51-010.mjs standard
+         pattern.
+      5. Run: node scripts/verify/verify-pi51-010.mjs
+    expected_outputs:
+      - apps/console/src/app/integrity/page.tsx
+      - scripts/verify/verify-pi51-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-011
+    phase: build
+    description: "Cross-org isolation at the UI layer + accessibility pass"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The UI-layer isolation suite: an org-B session attempts
+         every org-A deep link (dossier, portfolio, escalation,
+         objective, session URLs harvested from the org-A
+         fixtures) - every one refuses cleanly (no data leakage
+         in error states either - the error page renders no
+         org-A identifiers); the API layer already refuses
+         (pi-50), this proves the UI handles it without leaking
+         through client caches or partial renders.
+      2. Accessibility pass: keyboard navigation through the
+         commissioning and escalation-resolution journeys;
+         focus management on panels/modals; contrast check
+         against the token palette (automated axe scan on the
+         main views - zero critical violations; document any
+         moderate findings with disposition).
+      3. Green; evidence\pi-51\isolation-a11y.txt.
+      4. Create scripts\verify\verify-pi51-011.mjs: every org-A
+         deep link refused; axe zero-critical.
+      5. Run: node scripts/verify/verify-pi51-011.mjs
+    expected_outputs:
+      - apps/console/e2e/isolation.spec.ts
+      - scripts/verify/verify-pi51-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-012
+    phase: build
+    description: "THE FULL JOURNEY PROOF: sentence to resolved decision, entirely through the browser"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. apps\console\e2e\full-journey.spec.ts: one Playwright
+         journey on the standing stack (FakeProvider reasonable):
+         login -> commission the septic sentence -> clarify ->
+         preview -> edit -> approve -> watch the objective run
+         (poll the objectives view to completion) -> open the
+         portfolio -> open a dossier -> click a citation through
+         to its excerpt -> open the warm-path card -> open the
+         escalation inbox -> resolve the run's H1 -> see the
+         objective complete -> open the package. Screenshots at
+         every stage; the whole journey one spec.
+      2. Green - this is the product working, witnessed through
+         its own front door. Journey record to
+         evidence\pi-51\full-journey\ (screens + the spec
+         output).
+      3. Create scripts\verify\verify-pi51-012.mjs: the spec
+         passed and the screenshot sequence exists (count the
+         stages).
+      4. Run: node scripts/verify/verify-pi51-012.mjs
+    expected_outputs:
+      - apps/console/e2e/full-journey.spec.ts
+      - scripts/verify/verify-pi51-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi51-013
+    phase: build
+    description: "Close-out: governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. evidence\pi-51\SUMMARY.md: view inventory with their e2e
+         evidence, the citation-mechanic guarantee, the full-
+         journey headline, isolation + a11y results, the design-
+         policy statement (one token source, no !important, zero
+         emoji - verified by grep across the app: capture the
+         greps), ratchet re-run green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-51
+         complete - PHASE 5 COMPLETE; the product has a face;
+         next queue pi-60-evaluation-hardening.
+      3. Scoped add: apps/ packages/ scripts/ docs/
+         evidence/pi-51/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "console: commissioning, evidence-cited dossiers,
+         warm paths, escalation inbox, monitoring, admin -
+         full browser journey proven - Phase 5 complete (pi-51)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi51-013.mjs: standard
+         close-out plus the design-policy greps clean.
+      5. Run: node scripts/verify/verify-pi51-013.mjs
+    expected_outputs:
+      - evidence/pi-51/SUMMARY.md
+      - scripts/verify/verify-pi51-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi51-013.mjs"
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,3036 @@
+# FORGE Enhancement Queue — Run 1: Learning Engine + Session Orchestration
+# Executed by run-queue.cjs via Claude Code CLI
+# Working directory: C:\Users\manag\Documents\forge-2
+# This queue ENHANCES the existing codebase. Does NOT replace or rebuild.
+# Each prompt is a full engineering specification with exact code.
+# Build ID: forge2-enhance-run1
+
+- id: r1-001
+  name: "Install SQLite, Create Types, and Scaffold Learning Module Structure"
+  description: |
+    You are enhancing an existing Node.js/TypeScript CLI tool called FORGE at C:\Users\manag\Documents\forge-2.
+    This project uses ESM modules ("type": "module" in package.json), TypeScript with .js extensions in imports, Commander CLI, Pino logger, and Chalk for colors.
+    Do NOT delete, replace, or modify any existing files unless explicitly told to. You are ADDING new files.
+
+    STEP 1 — INSTALL DEPENDENCIES:
+    Run these commands from the project root:
+    ```
+    npm install better-sqlite3
+    npm install -D @types/better-sqlite3
+    ```
+
+    STEP 2 — CREATE TYPE DEFINITIONS:
+    Create the file src/learning/types.ts with the following EXACT content:
+
+    ```typescript
+    import type Database from 'better-sqlite3';
+
+    // ─── Database Table Interfaces ───────────────────────────────────────
+
+    export interface ForgeMeta {
+      key: string;
+      value: string;
+    }
+
+    export interface PromptScore {
+      id: string;
+      prompt_template_hash: string;
+      task_type: 'SCAFFOLD' | 'CRUD' | 'INTEGRATION' | 'AI_PIPELINE' | 'CONFIG' | 'TEST' | 'FIX';
+      tech_stack_tags: string; // JSON array stored as string
+      first_pass_success: 0 | 1;
+      retry_count: number;
+      tokens_consumed: number;
+      gate_pass_rate: number;
+      drift_score: number;
+      project_name: string;
+      build_id: string;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface FixPattern {
+      id: string;
+      error_fingerprint: string;
+      error_message: string;
+      error_category: 'COMPILE' | 'RUNTIME' | 'TEST' | 'LINT' | 'SECURITY' | 'SCHEMA' | 'DEPLOY';
+      file_path_pattern: string;
+      fix_diff: string | null;
+      fix_description: string | null;
+      fix_files_modified: string; // JSON array
+      tech_stack_tags: string; // JSON array
+      occurrence_count: number;
+      success_rate: number;
+      times_fix_applied: number;
+      times_fix_succeeded: number;
+      auto_governance_rule: string | null;
+      governance_rule_id: string | null;
+      last_seen: string;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface DecisionWeight {
+      id: string;
+      decision_type: string;
+      option_chosen: string;
+      downstream_error_rate: number;
+      downstream_retry_rate: number;
+      downstream_prompts: number;
+      downstream_errors: number;
+      downstream_retries: number;
+      sample_size: number;
+      project_name: string;
+      build_id: string;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface GovernanceRule {
+      id: string;
+      rule_text: string;
+      rule_short_name: string;
+      source: 'MANUAL' | 'AUTO_ELEVATED' | 'INSTINCT' | 'RETROFIT';
+      source_error_fingerprint: string | null;
+      tech_stack_tags: string; // JSON array
+      scope: 'GLOBAL' | 'PROJECT_SPECIFIC';
+      project_name: string | null;
+      active: 0 | 1;
+      enforcement_count: number;
+      last_enforced: string | null;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface PendingEvolution {
+      id: string;
+      evolution_type: 'HOOK' | 'TEMPLATE' | 'RULE' | 'THRESHOLD' | 'CONFIG' | 'GATE';
+      proposed_change: string;
+      change_detail: string; // JSON
+      evidence: string; // JSON
+      estimated_impact: string;
+      confidence: number;
+      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED';
+      reviewed_at: string | null;
+      review_note: string | null;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface BuildOutcome {
+      id: string;
+      project_name: string;
+      mode: 'GREENFIELD' | 'RETROFIT';
+      start_time: string;
+      end_time: string | null;
+      end_reason: 'COMPLETED' | 'PAUSED' | 'FAILED' | 'INTERRUPTED' | null;
+      total_prompts_planned: number;
+      total_prompts_executed: number;
+      prompts_passed: number;
+      prompts_retried: number;
+      prompts_failed: number;
+      total_tokens: number;
+      architecture_decisions: string; // JSON array
+      maturity_stage: 'FOUNDATION' | 'GROWTH' | 'ENTERPRISE' | null;
+      first_pass_rate: number | null;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface SkillEntry {
+      id: string;
+      skill_name: string;
+      content: string;
+      tech_stack_tags: string; // JSON array
+      source_error_fingerprint: string | null;
+      source_build_id: string | null;
+      trigger_context: string | null;
+      usage_count: number;
+      effectiveness_rate: number;
+      times_injected: number;
+      times_prevented_error: number;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface ReconcileDecision {
+      id: string;
+      project_name: string;
+      feature_id: string;
+      feature_name: string;
+      decision: 'BUILD' | 'DEFER' | 'ABANDON' | 'APPROVED' | 'SKIPPED' | 'FIX' | 'IGNORE' | 'INJECT' | 'SKIP';
+      category: string;
+      severity: string | null;
+      rationale: string | null;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface ScanReportRecord {
+      id: string;
+      project_name: string;
+      scan_scope: 'A' | 'B' | 'C';
+      critical_count: number;
+      warn_count: number;
+      info_count: number;
+      broken_imports: number;
+      dead_files: number;
+      schema_drift: number;
+      tsc_errors: number;
+      test_pass_rate: number | null;
+      report_json: string;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface HookExecutionLog {
+      id: string;
+      hook_name: string;
+      event: string;
+      status: 'PASS' | 'FAIL' | 'TIMEOUT' | 'SKIP';
+      duration_ms: number;
+      output: string | null;
+      build_id: string;
+      prompt_number: number | null;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface CompactSnapshot {
+      id: string;
+      build_id: string;
+      prompt_index: number;
+      state_json: string;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface BuildFingerprintRecord {
+      id: string;
+      build_id: string;
+      prompt_number: number;
+      fingerprint: string;
+      file_count: number;
+      total_size_kb: number;
+      machine_id: string;
+      created_at: string;
+    }
+
+    export interface AdversaryFinding {
+      id: string;
+      build_id: string;
+      phase: string;
+      severity: 'BLOCKER' | 'SIGNIFICANT' | 'MINOR' | 'DISMISSED';
+      vector: string | null;
+      issue: string;
+      fix: string | null;
+      resolution: 'PENDING' | 'FIXED' | 'DISMISSED' | 'DEFERRED';
+      resolved_at: string | null;
+      machine_id: string;
+      created_at: string;
+    }
+
+    // ─── Configuration Interfaces ────────────────────────────────────────
+
+    export interface SyncConfig {
+      master_path: string;
+      lock_file: string;
+      max_wait_seconds: number;
+      retry_interval_seconds: number;
+    }
+
+    export interface HookDefinition {
+      name: string;
+      event: 'PreToolUse' | 'PostToolUse' | 'SessionStart' | 'SessionEnd' | 'PreCompact' | 'PreCommit' | 'PreDeploy' | 'PostDeploy';
+      action: string;
+      script: string | null;
+      blocking: boolean;
+      timeout_seconds: number;
+      enabled: boolean;
+      on_failure?: 'BLOCK' | 'REVERT' | 'WARN';
+      priority: number;
+      description?: string;
+      conditions?: HookConditions | null;
+    }
+
+    export interface HookConditions {
+      file_pattern?: string;
+      exclude_pattern?: string;
+      task_types?: string[];
+      min_prompt_number?: number;
+      phases?: string[];
+    }
+
+    export interface HookContext {
+      project_path: string;
+      build_id: string;
+      prompt_number: number;
+      file?: string;
+      files?: string;
+      task_type?: string;
+      phase?: string;
+      last_commit?: string;
+    }
+
+    export interface HookResult {
+      status: 'PASS' | 'FAIL' | 'TIMEOUT' | 'SKIP';
+      output: string;
+      hook_name: string;
+      duration_ms: number;
+    }
+
+    // ─── Constants ───────────────────────────────────────────────────────
+
+    export const VALID_TABLES = [
+      'forge_meta', 'prompt_scores', 'fix_patterns', 'decision_weights',
+      'governance_rules', 'pending_evolutions', 'build_outcomes', 'skill_library',
+      'reconcile_decisions', 'scan_reports', 'hook_execution_log', 'compact_snapshots',
+      'build_fingerprints', 'adversary_findings'
+    ] as const;
+
+    export const TASK_TYPES = ['SCAFFOLD', 'CRUD', 'INTEGRATION', 'AI_PIPELINE', 'CONFIG', 'TEST', 'FIX'] as const;
+    export const ERROR_CATEGORIES = ['COMPILE', 'RUNTIME', 'TEST', 'LINT', 'SECURITY', 'SCHEMA', 'DEPLOY'] as const;
+    export const HOOK_EVENTS = ['PreToolUse', 'PostToolUse', 'SessionStart', 'SessionEnd', 'PreCompact', 'PreCommit', 'PreDeploy', 'PostDeploy'] as const;
+    ```
+
+    STEP 3 — CREATE STUB FILES:
+    Create these empty module files that will be implemented in subsequent prompts. Each should have a comment header and at least one placeholder export so TypeScript doesn't complain:
+
+    src/learning/database.ts — `export const DB_VERSION = '1.0.0';`
+    src/learning/queries.ts — `export const QUERY_VERSION = '1.0.0';`
+    src/learning/fingerprint.ts — `export const FP_VERSION = '1.0.0';`
+    src/learning/loops.ts — `export const LOOPS_VERSION = '1.0.0';`
+    src/learning/sync.ts — `export const SYNC_VERSION = '1.0.0';`
+    src/learning/hooks-enhanced.ts — `export const HOOKS_VERSION = '1.0.0';`
+    src/learning/precompact.ts — `export const PRECOMPACT_VERSION = '1.0.0';`
+    src/learning/session.ts — `export const SESSION_VERSION = '1.0.0';`
+    src/learning/integration.ts — `export const INTEGRATION_VERSION = '1.0.0';`
+
+    Each file should start with: `// FORGE 2.0 Learning Engine — [module name]` and import types from ./types.js as needed.
+
+    STEP 4 — VERIFY:
+    Run: npx tsc --noEmit
+    This MUST pass with 0 errors. If it fails, fix the errors before finishing.
+    Run: node -e "require('better-sqlite3')" to verify the native module loads.
+
+    ACCEPTANCE CRITERIA:
+    - better-sqlite3 and @types/better-sqlite3 are in package.json
+    - src/learning/types.ts exists with ALL interfaces shown above (count: 16 interfaces + 4 const arrays)
+    - All 9 stub files exist in src/learning/
+    - npx tsc --noEmit passes with 0 errors
+    - better-sqlite3 native module loads without error
+    - No existing files outside src/learning/ were modified or deleted
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-002
+  name: "Learning Engine — Complete Database Initialization with All 14 Tables"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+    Types are defined in src/learning/types.ts. This module uses ESM with .js import extensions.
+
+    REPLACE the stub content of src/learning/database.ts with the COMPLETE implementation below.
+
+    ```typescript
+    // FORGE 2.0 Learning Engine — Database Initialization
+    import Database from 'better-sqlite3';
+    import { createHash } from 'node:crypto';
+    import { mkdirSync, existsSync } from 'node:fs';
+    import { hostname, networkInterfaces } from 'node:os';
+    import { join, dirname } from 'node:path';
+    import { homedir } from 'node:os';
+
+    const DEFAULT_DB_DIR = join(homedir(), '.forge');
+    const DEFAULT_DB_PATH = join(DEFAULT_DB_DIR, 'forge_memory.db');
+
+    let cachedMachineId: string | null = null;
+    const connectionCache = new Map<string, Database.Database>();
+
+    export function getForgeDbPath(): string {
+      if (!existsSync(DEFAULT_DB_DIR)) {
+        mkdirSync(DEFAULT_DB_DIR, { recursive: true });
+      }
+      return DEFAULT_DB_PATH;
+    }
+
+    export function getConnection(dbPath?: string): Database.Database {
+      const resolvedPath = dbPath || getForgeDbPath();
+      if (connectionCache.has(resolvedPath)) {
+        return connectionCache.get(resolvedPath)!;
+      }
+      const dir = dirname(resolvedPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      const db = new Database(resolvedPath);
+      db.pragma('journal_mode = WAL');
+      db.pragma('busy_timeout = 5000');
+      db.pragma('foreign_keys = ON');
+      connectionCache.set(resolvedPath, db);
+      return db;
+    }
+
+    export function closeConnection(dbPath?: string): void {
+      const resolvedPath = dbPath || getForgeDbPath();
+      const db = connectionCache.get(resolvedPath);
+      if (db) {
+        db.close();
+        connectionCache.delete(resolvedPath);
+      }
+    }
+
+    export function getMachineId(dbPath?: string): string {
+      if (cachedMachineId) return cachedMachineId;
+
+      const db = getConnection(dbPath);
+
+      // Try reading from forge_meta first
+      try {
+        const row = db.prepare("SELECT value FROM forge_meta WHERE key = 'machine_id'").get() as { value: string } | undefined;
+        if (row && row.value && row.value.length === 16) {
+          cachedMachineId = row.value;
+          return cachedMachineId;
+        }
+      } catch { /* table might not exist yet */ }
+
+      // Generate from hostname + MAC
+      const host = hostname();
+      const nets = networkInterfaces();
+      let mac = '00:00:00:00:00:00';
+      for (const ifaces of Object.values(nets)) {
+        if (!ifaces) continue;
+        for (const iface of ifaces) {
+          if (!iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00') {
+            mac = iface.mac;
+            break;
+          }
+        }
+        if (mac !== '00:00:00:00:00:00') break;
+      }
+
+      const raw = `${host}|${mac}`;
+      const hash = createHash('sha256').update(raw).digest('hex');
+      cachedMachineId = hash.substring(0, 16);
+
+      // Store in forge_meta
+      try {
+        db.prepare("INSERT OR REPLACE INTO forge_meta (key, value) VALUES ('machine_id', ?)").run(cachedMachineId);
+      } catch { /* table might not exist yet — will be stored after init */ }
+
+      return cachedMachineId;
+    }
+
+    export function initializeForgeMemory(dbPath?: string): void {
+      const db = getConnection(dbPath);
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS forge_meta (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+
+        INSERT OR IGNORE INTO forge_meta (key, value) VALUES ('schema_version', '1.0.0');
+        INSERT OR IGNORE INTO forge_meta (key, value) VALUES ('created_at', datetime('now'));
+
+        CREATE TABLE IF NOT EXISTS prompt_scores (
+          id                   TEXT PRIMARY KEY,
+          prompt_template_hash TEXT NOT NULL,
+          task_type            TEXT NOT NULL CHECK(task_type IN ('SCAFFOLD','CRUD','INTEGRATION','AI_PIPELINE','CONFIG','TEST','FIX')),
+          tech_stack_tags      TEXT NOT NULL DEFAULT '[]',
+          first_pass_success   INTEGER NOT NULL CHECK(first_pass_success IN (0, 1)),
+          retry_count          INTEGER NOT NULL DEFAULT 0,
+          tokens_consumed      INTEGER NOT NULL DEFAULT 0,
+          gate_pass_rate       REAL NOT NULL DEFAULT 0.0 CHECK(gate_pass_rate >= 0.0 AND gate_pass_rate <= 1.0),
+          drift_score          REAL NOT NULL DEFAULT 0.0 CHECK(drift_score >= 0.0 AND drift_score <= 1.0),
+          project_name         TEXT NOT NULL,
+          build_id             TEXT NOT NULL,
+          machine_id           TEXT NOT NULL,
+          created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_prompt_scores_task_type ON prompt_scores(task_type);
+        CREATE INDEX IF NOT EXISTS idx_prompt_scores_template_hash ON prompt_scores(prompt_template_hash);
+        CREATE INDEX IF NOT EXISTS idx_prompt_scores_project ON prompt_scores(project_name);
+        CREATE INDEX IF NOT EXISTS idx_prompt_scores_created ON prompt_scores(created_at);
+
+        CREATE TABLE IF NOT EXISTS fix_patterns (
+          id                    TEXT PRIMARY KEY,
+          error_fingerprint     TEXT NOT NULL,
+          error_message         TEXT NOT NULL,
+          error_category        TEXT NOT NULL CHECK(error_category IN ('COMPILE','RUNTIME','TEST','LINT','SECURITY','SCHEMA','DEPLOY')),
+          file_path_pattern     TEXT NOT NULL,
+          fix_diff              TEXT,
+          fix_description       TEXT,
+          fix_files_modified    TEXT DEFAULT '[]',
+          tech_stack_tags       TEXT NOT NULL DEFAULT '[]',
+          occurrence_count      INTEGER NOT NULL DEFAULT 1,
+          success_rate          REAL NOT NULL DEFAULT 0.0,
+          times_fix_applied     INTEGER NOT NULL DEFAULT 0,
+          times_fix_succeeded   INTEGER NOT NULL DEFAULT 0,
+          auto_governance_rule  TEXT,
+          governance_rule_id    TEXT,
+          last_seen             TEXT NOT NULL DEFAULT (datetime('now')),
+          machine_id            TEXT NOT NULL,
+          created_at            TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_fix_patterns_fingerprint ON fix_patterns(error_fingerprint);
+        CREATE INDEX IF NOT EXISTS idx_fix_patterns_category ON fix_patterns(error_category);
+        CREATE INDEX IF NOT EXISTS idx_fix_patterns_stack ON fix_patterns(tech_stack_tags);
+        CREATE INDEX IF NOT EXISTS idx_fix_patterns_count ON fix_patterns(occurrence_count DESC);
+
+        CREATE TABLE IF NOT EXISTS decision_weights (
+          id                    TEXT PRIMARY KEY,
+          decision_type         TEXT NOT NULL,
+          option_chosen         TEXT NOT NULL,
+          downstream_error_rate REAL NOT NULL DEFAULT 0.0,
+          downstream_retry_rate REAL NOT NULL DEFAULT 0.0,
+          downstream_prompts    INTEGER NOT NULL DEFAULT 0,
+          downstream_errors     INTEGER NOT NULL DEFAULT 0,
+          downstream_retries    INTEGER NOT NULL DEFAULT 0,
+          sample_size           INTEGER NOT NULL DEFAULT 1,
+          project_name          TEXT NOT NULL,
+          build_id              TEXT NOT NULL,
+          machine_id            TEXT NOT NULL,
+          created_at            TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_decision_weights_type ON decision_weights(decision_type, option_chosen);
+        CREATE INDEX IF NOT EXISTS idx_decision_weights_error_rate ON decision_weights(downstream_error_rate ASC);
+
+        CREATE TABLE IF NOT EXISTS governance_rules (
+          id                       TEXT PRIMARY KEY,
+          rule_text                TEXT NOT NULL,
+          rule_short_name          TEXT NOT NULL,
+          source                   TEXT NOT NULL CHECK(source IN ('MANUAL','AUTO_ELEVATED','INSTINCT','RETROFIT')),
+          source_error_fingerprint TEXT,
+          tech_stack_tags          TEXT NOT NULL DEFAULT '[]',
+          scope                    TEXT NOT NULL CHECK(scope IN ('GLOBAL','PROJECT_SPECIFIC')),
+          project_name             TEXT,
+          active                   INTEGER NOT NULL DEFAULT 1,
+          enforcement_count        INTEGER NOT NULL DEFAULT 0,
+          last_enforced            TEXT,
+          machine_id               TEXT NOT NULL,
+          created_at               TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_governance_rules_active ON governance_rules(active, scope);
+        CREATE INDEX IF NOT EXISTS idx_governance_rules_stack ON governance_rules(tech_stack_tags);
+
+        CREATE TABLE IF NOT EXISTS pending_evolutions (
+          id                TEXT PRIMARY KEY,
+          evolution_type    TEXT NOT NULL CHECK(evolution_type IN ('HOOK','TEMPLATE','RULE','THRESHOLD','CONFIG','GATE')),
+          proposed_change   TEXT NOT NULL,
+          change_detail     TEXT NOT NULL,
+          evidence          TEXT NOT NULL,
+          estimated_impact  TEXT NOT NULL,
+          confidence        REAL NOT NULL CHECK(confidence >= 0.0 AND confidence <= 1.0),
+          status            TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','APPROVED','REJECTED','SUPERSEDED')),
+          reviewed_at       TEXT,
+          review_note       TEXT,
+          machine_id        TEXT NOT NULL,
+          created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_pending_evolutions_status ON pending_evolutions(status);
+
+        CREATE TABLE IF NOT EXISTS build_outcomes (
+          id                     TEXT PRIMARY KEY,
+          project_name           TEXT NOT NULL,
+          mode                   TEXT NOT NULL CHECK(mode IN ('GREENFIELD','RETROFIT')),
+          start_time             TEXT NOT NULL,
+          end_time               TEXT,
+          end_reason             TEXT CHECK(end_reason IN ('COMPLETED','PAUSED','FAILED','INTERRUPTED') OR end_reason IS NULL),
+          total_prompts_planned  INTEGER NOT NULL DEFAULT 0,
+          total_prompts_executed INTEGER NOT NULL DEFAULT 0,
+          prompts_passed         INTEGER NOT NULL DEFAULT 0,
+          prompts_retried        INTEGER NOT NULL DEFAULT 0,
+          prompts_failed         INTEGER NOT NULL DEFAULT 0,
+          total_tokens           INTEGER NOT NULL DEFAULT 0,
+          architecture_decisions TEXT DEFAULT '[]',
+          maturity_stage         TEXT CHECK(maturity_stage IN ('FOUNDATION','GROWTH','ENTERPRISE') OR maturity_stage IS NULL),
+          first_pass_rate        REAL,
+          machine_id             TEXT NOT NULL,
+          created_at             TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_build_outcomes_project ON build_outcomes(project_name);
+        CREATE INDEX IF NOT EXISTS idx_build_outcomes_created ON build_outcomes(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS skill_library (
+          id                       TEXT PRIMARY KEY,
+          skill_name               TEXT NOT NULL,
+          content                  TEXT NOT NULL,
+          tech_stack_tags          TEXT NOT NULL DEFAULT '[]',
+          source_error_fingerprint TEXT,
+          source_build_id          TEXT,
+          trigger_context          TEXT,
+          usage_count              INTEGER NOT NULL DEFAULT 0,
+          effectiveness_rate       REAL NOT NULL DEFAULT 0.0,
+          times_injected           INTEGER NOT NULL DEFAULT 0,
+          times_prevented_error    INTEGER NOT NULL DEFAULT 0,
+          machine_id               TEXT NOT NULL,
+          created_at               TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_library_stack ON skill_library(tech_stack_tags);
+        CREATE INDEX IF NOT EXISTS idx_skill_library_fingerprint ON skill_library(source_error_fingerprint);
+
+        CREATE TABLE IF NOT EXISTS reconcile_decisions (
+          id            TEXT PRIMARY KEY,
+          project_name  TEXT NOT NULL,
+          feature_id    TEXT NOT NULL,
+          feature_name  TEXT NOT NULL,
+          decision      TEXT NOT NULL CHECK(decision IN ('BUILD','DEFER','ABANDON','APPROVED','SKIPPED','FIX','IGNORE','INJECT','SKIP')),
+          category      TEXT NOT NULL,
+          severity      TEXT,
+          rationale     TEXT,
+          machine_id    TEXT NOT NULL,
+          created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_reconcile_project ON reconcile_decisions(project_name, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS scan_reports (
+          id              TEXT PRIMARY KEY,
+          project_name    TEXT NOT NULL,
+          scan_scope      TEXT NOT NULL CHECK(scan_scope IN ('A','B','C')),
+          critical_count  INTEGER NOT NULL DEFAULT 0,
+          warn_count      INTEGER NOT NULL DEFAULT 0,
+          info_count      INTEGER NOT NULL DEFAULT 0,
+          broken_imports  INTEGER NOT NULL DEFAULT 0,
+          dead_files      INTEGER NOT NULL DEFAULT 0,
+          schema_drift    INTEGER NOT NULL DEFAULT 0,
+          tsc_errors      INTEGER NOT NULL DEFAULT 0,
+          test_pass_rate  REAL,
+          report_json     TEXT NOT NULL,
+          machine_id      TEXT NOT NULL,
+          created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_scan_reports_project ON scan_reports(project_name, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS hook_execution_log (
+          id              TEXT PRIMARY KEY,
+          hook_name       TEXT NOT NULL,
+          event           TEXT NOT NULL,
+          status          TEXT NOT NULL CHECK(status IN ('PASS','FAIL','TIMEOUT','SKIP')),
+          duration_ms     INTEGER NOT NULL,
+          output          TEXT,
+          build_id        TEXT NOT NULL,
+          prompt_number   INTEGER,
+          machine_id      TEXT NOT NULL,
+          created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_hook_log_build ON hook_execution_log(build_id);
+        CREATE INDEX IF NOT EXISTS idx_hook_log_name ON hook_execution_log(hook_name, status);
+        CREATE INDEX IF NOT EXISTS idx_hook_log_duration ON hook_execution_log(duration_ms DESC);
+
+        CREATE TABLE IF NOT EXISTS compact_snapshots (
+          id              TEXT PRIMARY KEY,
+          build_id        TEXT NOT NULL,
+          prompt_index    INTEGER NOT NULL,
+          state_json      TEXT NOT NULL,
+          machine_id      TEXT NOT NULL,
+          created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_compact_build ON compact_snapshots(build_id, prompt_index DESC);
+
+        CREATE TABLE IF NOT EXISTS build_fingerprints (
+          id              TEXT PRIMARY KEY,
+          build_id        TEXT NOT NULL,
+          prompt_number   INTEGER NOT NULL,
+          fingerprint     TEXT NOT NULL,
+          file_count      INTEGER NOT NULL,
+          total_size_kb   INTEGER NOT NULL,
+          machine_id      TEXT NOT NULL,
+          created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_fingerprints_build ON build_fingerprints(build_id, prompt_number);
+
+        CREATE TABLE IF NOT EXISTS adversary_findings (
+          id          TEXT PRIMARY KEY,
+          build_id    TEXT NOT NULL,
+          phase       TEXT NOT NULL,
+          severity    TEXT NOT NULL CHECK(severity IN ('BLOCKER','SIGNIFICANT','MINOR','DISMISSED')),
+          vector      TEXT,
+          issue       TEXT NOT NULL,
+          fix         TEXT,
+          resolution  TEXT DEFAULT 'PENDING' CHECK(resolution IN ('PENDING','FIXED','DISMISSED','DEFERRED')),
+          resolved_at TEXT,
+          machine_id  TEXT NOT NULL,
+          created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_adversary_build ON adversary_findings(build_id);
+        CREATE INDEX IF NOT EXISTS idx_adversary_severity ON adversary_findings(severity);
+      `);
+
+      // Store machine ID now that table exists
+      const machineId = getMachineId(dbPath);
+      db.prepare("INSERT OR REPLACE INTO forge_meta (key, value) VALUES ('machine_id', ?)").run(machineId);
+    }
+    ```
+
+    Write EXACTLY this code to src/learning/database.ts. Do not summarize, do not abbreviate, do not skip any table or index.
+
+    VERIFICATION — run ALL of these and every one must pass:
+    ```
+    npx tsc --noEmit
+    ```
+    Then run this Node.js verification:
+    ```
+    node --import tsx -e "
+      import { initializeForgeMemory, getConnection, getMachineId, closeConnection } from './src/learning/database.js';
+      import { join } from 'path';
+      import { tmpdir } from 'os';
+      import { unlinkSync } from 'fs';
+
+      const testDb = join(tmpdir(), 'forge_test_' + Date.now() + '.db');
+
+      // Test 1: Initialize creates all tables
+      initializeForgeMemory(testDb);
+      const db = getConnection(testDb);
+      const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name\").all();
+      const tableNames = tables.map((t: any) => t.name);
+      console.log('Tables created:', tableNames.length);
+      if (tableNames.length < 14) { console.error('FAIL: Expected 14+ tables, got ' + tableNames.length); process.exit(1); }
+
+      // Test 2: Verify specific critical tables exist
+      const required = ['forge_meta','prompt_scores','fix_patterns','governance_rules','pending_evolutions','build_outcomes','skill_library','hook_execution_log','compact_snapshots','build_fingerprints','adversary_findings'];
+      for (const t of required) {
+        if (!tableNames.includes(t)) { console.error('FAIL: Missing table ' + t); process.exit(1); }
+      }
+      console.log('All required tables present');
+
+      // Test 3: Idempotency
+      initializeForgeMemory(testDb);
+      const tablesAfter = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all();
+      if (tablesAfter.length !== tables.length) { console.error('FAIL: Idempotency broke table count'); process.exit(1); }
+      console.log('Idempotency: PASS');
+
+      // Test 4: Machine ID
+      const id = getMachineId(testDb);
+      if (id.length !== 16) { console.error('FAIL: Machine ID should be 16 chars, got ' + id.length); process.exit(1); }
+      if (!/^[0-9a-f]{16}$/.test(id)) { console.error('FAIL: Machine ID should be hex'); process.exit(1); }
+      const id2 = getMachineId(testDb);
+      if (id !== id2) { console.error('FAIL: Machine ID not consistent'); process.exit(1); }
+      console.log('Machine ID:', id, '— consistent: PASS');
+
+      // Test 5: Indexes exist
+      const indexes = db.prepare(\"SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'\").all();
+      console.log('Indexes created:', indexes.length);
+      if (indexes.length < 20) { console.error('FAIL: Expected 20+ indexes, got ' + indexes.length); process.exit(1); }
+
+      // Test 6: schema_version is set
+      const ver = db.prepare(\"SELECT value FROM forge_meta WHERE key = 'schema_version'\").get() as any;
+      if (!ver || ver.value !== '1.0.0') { console.error('FAIL: schema_version not set'); process.exit(1); }
+      console.log('Schema version:', ver.value);
+
+      closeConnection(testDb);
+      unlinkSync(testDb);
+      console.log('\\nR1-002 ALL TESTS PASS');
+    "
+    ```
+
+    If the tsx import doesn't work, try: node -e "..." with require() syntax instead, using the compiled dist/ output after running npx tsc.
+
+    ACCEPTANCE CRITERIA:
+    - src/learning/database.ts contains the FULL implementation above (not a summary)
+    - All 14 tables are created with correct column types, CHECK constraints, and DEFAULT values
+    - All 20+ indexes are created
+    - npx tsc --noEmit passes with 0 errors
+    - All 6 verification tests pass
+    - No existing files outside src/learning/ were modified
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-003
+  name: "Learning Engine — Complete Query Layer with 15 Functions"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+    Database module is at src/learning/database.ts. Types at src/learning/types.ts.
+    Use ESM imports with .js extensions. Use parameterized queries ONLY — never string interpolation in SQL.
+
+    REPLACE the stub content of src/learning/queries.ts with a COMPLETE implementation containing these 15 functions:
+
+    1. generateId(): string — Returns crypto.randomUUID().
+
+    2. saveToForgeMemory(table: string, data: Record<string, any>, dbPath?: string): string
+       - Validates table against VALID_TABLES from types.ts. Throws if invalid.
+       - Auto-generates id via generateId() if not provided in data.
+       - Auto-adds machine_id via getMachineId() if not in data.
+       - Auto-adds created_at as new Date().toISOString() if not in data.
+       - Builds INSERT statement dynamically from data keys.
+       - Uses parameterized query with ? placeholders.
+       - Returns the id.
+
+    3. getForgeMemory(table: string, opts?: { where?: string, params?: any[], orderBy?: string, limit?: number }, dbPath?: string): any[]
+       - Validates table. Builds SELECT * FROM table.
+       - Appends WHERE clause if opts.where provided (caller provides the condition string with ? placeholders, params in opts.params).
+       - Appends ORDER BY if opts.orderBy provided.
+       - Appends LIMIT if opts.limit provided.
+       - Returns array. ALWAYS returns [], never null or undefined.
+
+    4. updateForgeMemory(table: string, id: string, data: Record<string, any>, dbPath?: string): boolean
+       - Validates table. Builds UPDATE table SET key1=?, key2=? WHERE id=?.
+       - Returns true if changes > 0.
+
+    5. savePromptScore(score: { prompt_template_hash: string, task_type: string, tech_stack_tags: string[], first_pass_success: boolean, retry_count: number, tokens_consumed: number, gate_pass_rate: number, drift_score: number, project_name: string, build_id: string }, dbPath?: string): string
+       - Converts tech_stack_tags array to JSON string.
+       - Converts first_pass_success boolean to 0/1 integer.
+       - Calls saveToForgeMemory('prompt_scores', ...).
+
+    6. getBestPromptTemplates(taskType: string, techStackTags: string[], minSamples: number = 3, dbPath?: string): Array<{ template_hash: string, avg_pass_rate: number, avg_tokens: number, sample_count: number }>
+       - SQL: SELECT prompt_template_hash, AVG(first_pass_success) as avg_pass_rate, AVG(tokens_consumed) as avg_tokens, COUNT(*) as sample_count FROM prompt_scores WHERE task_type = ? GROUP BY prompt_template_hash HAVING COUNT(*) >= ? ORDER BY avg_pass_rate DESC LIMIT 5
+
+    7. getFixPattern(fingerprint: string, dbPath?: string): FixPattern | null
+       - SELECT * FROM fix_patterns WHERE error_fingerprint = ?
+       - Returns null if not found.
+
+    8. registerError(error: { errorCode: string, filePath: string, errorMessage: string, errorCategory: string, techStack: string[] }, dbPath?: string): { id: string, fingerprint: string, isKnown: boolean, existingFix?: FixPattern }
+       - Import getErrorFingerprint from ./fingerprint.js
+       - Compute fingerprint from error fields.
+       - Check if fingerprint exists in fix_patterns.
+       - If EXISTS: UPDATE occurrence_count = occurrence_count + 1, last_seen = datetime('now'). Return { isKnown: true, existingFix }.
+       - If NEW: INSERT into fix_patterns with occurrence_count=1. Return { isKnown: false }.
+
+    9. registerFix(fingerprint: string, fix: { fixDiff?: string, fixDescription: string, filesModified: string[] }, dbPath?: string): void
+       - UPDATE fix_patterns SET fix_diff=?, fix_description=?, fix_files_modified=?, times_fix_applied = times_fix_applied + 1 WHERE error_fingerprint=?
+       - Recalculate success_rate: UPDATE fix_patterns SET success_rate = CAST(times_fix_succeeded AS REAL) / CAST(times_fix_applied AS REAL) WHERE error_fingerprint=?
+
+    10. getGovernanceRules(techStackTags: string[], projectName?: string, dbPath?: string): GovernanceRule[]
+        - SELECT * FROM governance_rules WHERE active = 1 AND (scope = 'GLOBAL' OR (scope = 'PROJECT_SPECIFIC' AND project_name = ?)) ORDER BY enforcement_count DESC
+        - If projectName not provided, only return GLOBAL rules.
+
+    11. incrementGovernanceEnforcement(ruleId: string, dbPath?: string): void
+        - UPDATE governance_rules SET enforcement_count = enforcement_count + 1, last_enforced = datetime('now') WHERE id = ?
+
+    12. getDecisionWeights(decisionType: string, minBuilds: number = 2, dbPath?: string): Array<{ option: string, avg_error_rate: number, avg_retry_rate: number, total_samples: number }>
+        - SELECT option_chosen, AVG(downstream_error_rate) as avg_error_rate, AVG(downstream_retry_rate) as avg_retry_rate, SUM(sample_size) as total_samples FROM decision_weights WHERE decision_type = ? GROUP BY option_chosen HAVING SUM(sample_size) >= ? ORDER BY avg_error_rate ASC
+
+    13. getRelevantSkills(techStackTags: string[], dbPath?: string): SkillEntry[]
+        - SELECT * FROM skill_library ORDER BY effectiveness_rate DESC LIMIT 20
+        - Filter in JS: parse tech_stack_tags JSON, check for overlap with input tags.
+
+    14. getPendingEvolutions(dbPath?: string): PendingEvolution[]
+        - SELECT * FROM pending_evolutions WHERE status = 'PENDING' ORDER BY confidence DESC
+
+    15. updateEvolutionStatus(id: string, status: 'APPROVED' | 'REJECTED', reviewNote?: string, dbPath?: string): void
+        - UPDATE pending_evolutions SET status = ?, reviewed_at = datetime('now'), review_note = ? WHERE id = ?
+
+    EVERY function must:
+    - Use parameterized queries with ? placeholders (NEVER template literals in SQL)
+    - Validate table names against VALID_TABLES whitelist
+    - Import from ./database.js and ./types.js
+    - Be properly typed with TypeScript
+    - Handle errors gracefully (try/catch, log, re-throw or return safe default)
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Then test with:
+    ```
+    node --import tsx -e "
+      import { initializeForgeMemory } from './src/learning/database.js';
+      import { saveToForgeMemory, getForgeMemory, generateId, savePromptScore, getGovernanceRules, getPendingEvolutions } from './src/learning/queries.js';
+      import { join } from 'path';
+      import { tmpdir } from 'os';
+      import { unlinkSync } from 'fs';
+
+      const testDb = join(tmpdir(), 'forge_query_test_' + Date.now() + '.db');
+      initializeForgeMemory(testDb);
+
+      // Test saveToForgeMemory
+      const ruleId = saveToForgeMemory('governance_rules', {
+        rule_text: 'Never use any in TypeScript',
+        rule_short_name: 'no-any',
+        source: 'MANUAL',
+        tech_stack_tags: JSON.stringify(['typescript']),
+        scope: 'GLOBAL',
+        active: 1,
+        enforcement_count: 0
+      }, testDb);
+      console.log('Saved rule:', ruleId);
+      if (!ruleId || ruleId.length < 10) { console.error('FAIL: saveToForgeMemory'); process.exit(1); }
+
+      // Test getForgeMemory
+      const rules = getForgeMemory('governance_rules', { where: 'id = ?', params: [ruleId] }, testDb);
+      if (rules.length !== 1) { console.error('FAIL: getForgeMemory returned ' + rules.length); process.exit(1); }
+      console.log('Retrieved rule:', rules[0].rule_short_name);
+
+      // Test empty result
+      const empty = getForgeMemory('prompt_scores', {}, testDb);
+      if (!Array.isArray(empty) || empty.length !== 0) { console.error('FAIL: empty result'); process.exit(1); }
+
+      // Test getGovernanceRules
+      const activeRules = getGovernanceRules(['typescript'], undefined, testDb);
+      if (activeRules.length !== 1) { console.error('FAIL: getGovernanceRules'); process.exit(1); }
+
+      // Test getPendingEvolutions returns empty
+      const evos = getPendingEvolutions(testDb);
+      if (!Array.isArray(evos)) { console.error('FAIL: getPendingEvolutions'); process.exit(1); }
+
+      // Test table validation
+      try { saveToForgeMemory('nonexistent_table', {}, testDb); console.error('FAIL: should throw for invalid table'); process.exit(1); } catch(e) { console.log('Table validation: PASS'); }
+
+      unlinkSync(testDb);
+      console.log('\\nR1-003 ALL TESTS PASS');
+    "
+    ```
+
+    ACCEPTANCE CRITERIA:
+    - All 15 functions exist and are exported
+    - All SQL uses parameterized queries (zero string interpolation)
+    - Table validation rejects unknown tables
+    - All verification tests pass
+    - npx tsc --noEmit passes with 0 errors
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-004
+  name: "Learning Engine — Error Fingerprinting Algorithm"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    REPLACE src/learning/fingerprint.ts with a COMPLETE implementation of the error fingerprinting algorithm.
+
+    The algorithm creates deterministic identifiers for error patterns. Two identical errors in different files produce the SAME fingerprint. Two different errors in the same file produce DIFFERENT fingerprints. This is how FORGE learns from errors across projects and machines.
+
+    IMPLEMENTATION:
+
+    ```typescript
+    // FORGE 2.0 Learning Engine — Error Fingerprinting
+    import { createHash } from 'node:crypto';
+
+    /**
+     * Known framework directory names that should NOT be wildcarded.
+     * These are structural, not entity-specific.
+     */
+    const FRAMEWORK_DIRS = new Set([
+      'app', 'api', 'components', 'src', 'lib', 'utils', 'types',
+      'hooks', 'middleware', 'pages', 'layouts', 'styles', 'public',
+      'supabase', 'migrations', 'config', 'scripts', 'tests',
+      'node_modules', '.next', 'dist', 'build'
+    ]);
+
+    /**
+     * Generalize a file path by replacing entity-specific directory segments with *.
+     * Keeps framework directories and filenames intact.
+     *
+     * Examples:
+     *   app/api/storms/route.ts → app/api/* /route.ts
+     *   components/dashboard/StormMap.tsx → components/* /StormMap.tsx
+     *   src/utils/helpers.ts → src/utils/helpers.ts (no dynamic segment)
+     *   app/api/storms/[id]/route.ts → app/api/* /[id]/route.ts
+     */
+    export function generalizeFilePath(filePath: string): string {
+      // Normalize separators
+      const normalized = filePath.replace(/\\/g, '/');
+      const parts = normalized.split('/');
+
+      if (parts.length <= 1) return normalized;
+
+      // Last part is the filename — keep it
+      const filename = parts[parts.length - 1];
+      const dirs = parts.slice(0, -1);
+
+      const generalizedDirs = dirs.map(dir => {
+        // Keep framework directories
+        if (FRAMEWORK_DIRS.has(dir.toLowerCase())) return dir;
+        // Keep dynamic route segments like [id], [slug], etc.
+        if (dir.startsWith('[') && dir.endsWith(']')) return dir;
+        // Keep single-char dirs
+        if (dir.length <= 2) return dir;
+        // Everything else is potentially an entity name — wildcard it
+        return '*';
+      });
+
+      return [...generalizedDirs, filename].join('/');
+    }
+
+    /**
+     * Generalize an error message by replacing app-specific identifiers with *.
+     * Keeps structural/grammatical words intact.
+     *
+     * Examples:
+     *   "Module './StormMap' not found" → "Module '*' not found"
+     *   "Property 'name' does not exist on type 'Storm'" → "Property '*' does not exist on type '*'"
+     *   "Cannot find name 'fetchStorms'" → "Cannot find name '*'"
+     *   "Argument of type 'string' is not assignable to parameter of type 'number'" → preserves type names
+     */
+    export function generalizeErrorMessage(message: string): string {
+      let result = message;
+
+      // Replace single-quoted strings: 'anything' → '*'
+      result = result.replace(/'[^']+'/g, "'*'");
+
+      // Replace double-quoted strings: "anything" → "*"
+      result = result.replace(/"[^"]+"/g, '"*"');
+
+      // Replace backtick strings: `anything` → `*`
+      result = result.replace(/`[^`]+`/g, '`*`');
+
+      // Replace PascalCase identifiers (likely component/class names)
+      // but NOT common TypeScript structural words
+      const structuralWords = new Set([
+        'Module', 'Property', 'Type', 'Cannot', 'Error', 'Warning',
+        'Object', 'Array', 'String', 'Number', 'Boolean', 'Function',
+        'Promise', 'Argument', 'Parameter', 'Return', 'Import', 'Export',
+        'Default', 'Undefined', 'Null', 'Void', 'Never', 'Unknown', 'Any'
+      ]);
+
+      result = result.replace(/\b([A-Z][a-zA-Z0-9]{2,})\b/g, (match) => {
+        return structuralWords.has(match) ? match : '*';
+      });
+
+      // Replace file paths in messages
+      result = result.replace(/(?:\.\/|\.\.\/)[^\s'"`,)]+/g, '*');
+
+      // Collapse multiple consecutive * into single *
+      result = result.replace(/\*(\s*\*)+/g, '*');
+
+      return result;
+    }
+
+    /**
+     * Generate a deterministic fingerprint for an error pattern.
+     *
+     * SHA-256 hash of four pipe-separated components:
+     * 1. Error code (lowercase, trimmed)
+     * 2. Generalized file path
+     * 3. Generalized error message
+     * 4. Sorted tech stack tags
+     *
+     * Returns first 32 hex characters.
+     */
+    export function getErrorFingerprint(error: {
+      errorCode: string;
+      filePath: string;
+      errorMessage: string;
+      techStack: string[];
+    }): string {
+      const component1 = error.errorCode.toLowerCase().trim();
+      const component2 = generalizeFilePath(error.filePath);
+      const component3 = generalizeErrorMessage(error.errorMessage);
+      const component4 = [...error.techStack].sort().join(',');
+
+      const input = [component1, component2, component3, component4].join('|');
+      const hash = createHash('sha256').update(input).digest('hex');
+
+      return hash.substring(0, 32);
+    }
+    ```
+
+    Write EXACTLY this code to src/learning/fingerprint.ts.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Then run:
+    ```
+    node --import tsx -e "
+      import { getErrorFingerprint, generalizeFilePath, generalizeErrorMessage } from './src/learning/fingerprint.js';
+
+      // Test 1: Same error pattern in different files → SAME fingerprint
+      const f1 = getErrorFingerprint({
+        errorCode: 'TS2307',
+        filePath: 'app/api/storms/route.ts',
+        errorMessage: \"Module './StormMap' not found\",
+        techStack: ['typescript', 'nextjs']
+      });
+      const f2 = getErrorFingerprint({
+        errorCode: 'TS2307',
+        filePath: 'app/api/alerts/route.ts',
+        errorMessage: \"Module './AlertMap' not found\",
+        techStack: ['typescript', 'nextjs']
+      });
+      console.log('F1:', f1);
+      console.log('F2:', f2);
+      if (f1 !== f2) { console.error('FAIL: Same pattern should produce same fingerprint'); process.exit(1); }
+      console.log('Same pattern → same fingerprint: PASS');
+
+      // Test 2: Different error → DIFFERENT fingerprint
+      const f3 = getErrorFingerprint({
+        errorCode: 'TS2339',
+        filePath: 'app/api/storms/route.ts',
+        errorMessage: \"Property 'name' does not exist on type 'Storm'\",
+        techStack: ['typescript', 'nextjs']
+      });
+      if (f1 === f3) { console.error('FAIL: Different errors should differ'); process.exit(1); }
+      console.log('Different errors → different fingerprints: PASS');
+
+      // Test 3: Fingerprint length
+      if (f1.length !== 32) { console.error('FAIL: Fingerprint should be 32 chars, got ' + f1.length); process.exit(1); }
+      if (!/^[0-9a-f]{32}$/.test(f1)) { console.error('FAIL: Fingerprint should be hex'); process.exit(1); }
+      console.log('Fingerprint format: PASS');
+
+      // Test 4: Path generalization
+      const gp1 = generalizeFilePath('app/api/storms/route.ts');
+      console.log('Generalized path:', gp1);
+      if (!gp1.includes('*')) { console.error('FAIL: Should wildcard entity dirs'); process.exit(1); }
+      if (!gp1.includes('route.ts')) { console.error('FAIL: Should keep filename'); process.exit(1); }
+      console.log('Path generalization: PASS');
+
+      // Test 5: Message generalization
+      const gm1 = generalizeErrorMessage(\"Module './StormMap' not found\");
+      console.log('Generalized message:', gm1);
+      if (gm1.includes('StormMap')) { console.error('FAIL: Should remove specific names'); process.exit(1); }
+      if (!gm1.includes('Module')) { console.error('FAIL: Should keep structural words'); process.exit(1); }
+      console.log('Message generalization: PASS');
+
+      console.log('\\nR1-004 ALL TESTS PASS');
+    "
+    ```
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-005
+  name: "Learning Engine — Five Learning Loops Implementation"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+    Dependencies: src/learning/database.ts, src/learning/queries.ts, src/learning/fingerprint.ts, src/learning/types.ts.
+
+    REPLACE src/learning/loops.ts with the COMPLETE implementation below. Write EXACTLY this code:
+
+    ```typescript
+    // FORGE 2.0 Learning Engine — Five Learning Loops
+    // CRITICAL: FORGE evolves configuration and knowledge, NEVER its own source code.
+    import { getConnection, getMachineId } from './database.js';
+    import {
+      savePromptScore, getForgeMemory, saveToForgeMemory, updateForgeMemory,
+      getFixPattern, registerError as registerErrorQuery, getGovernanceRules,
+      getRelevantSkills, getPendingEvolutions, updateEvolutionStatus
+    } from './queries.js';
+    import { getErrorFingerprint } from './fingerprint.js';
+    import type { FixPattern, GovernanceRule, PendingEvolution, SkillEntry, BuildOutcome } from './types.js';
+
+    // ─── LOOP 1: Prompt Effectiveness Scoring ──────────────────────────
+    // Fires: PostToolUse (after every prompt execution)
+    // Purpose: Record how well each prompt performed across 4 dimensions
+
+    export function scorePromptExecution(execution: {
+      templateHash: string;
+      taskType: string;
+      techStackTags: string[];
+      firstPassSuccess: boolean;
+      retryCount: number;
+      tokensConsumed: number;
+      gatePassRate: number;
+      driftScore: number;
+      projectName: string;
+      buildId: string;
+    }, dbPath?: string): string {
+      try {
+        return savePromptScore({
+          prompt_template_hash: execution.templateHash,
+          task_type: execution.taskType,
+          tech_stack_tags: execution.techStackTags,
+          first_pass_success: execution.firstPassSuccess,
+          retry_count: execution.retryCount,
+          tokens_consumed: execution.tokensConsumed,
+          gate_pass_rate: execution.gatePassRate,
+          drift_score: execution.driftScore,
+          project_name: execution.projectName,
+          build_id: execution.buildId,
+        }, dbPath);
+      } catch (err) {
+        console.error('[FORGE Learning] Loop 1 scoring failed:', err);
+        return '';
+      }
+    }
+
+    // ─── LOOP 2: Fix Pattern Indexing ───────────────────────────────────
+    // Fires: PostToolUse when errors occur
+    // Purpose: Build a knowledge base of errors and their fixes
+
+    export function captureError(error: {
+      errorCode: string;
+      filePath: string;
+      errorMessage: string;
+      errorCategory: string;
+      techStack: string[];
+    }, dbPath?: string): { fingerprint: string; isKnown: boolean; knownFix?: FixPattern } {
+      try {
+        const result = registerErrorQuery(error, dbPath);
+        return {
+          fingerprint: result.fingerprint,
+          isKnown: result.isKnown,
+          knownFix: result.existingFix || undefined,
+        };
+      } catch (err) {
+        console.error('[FORGE Learning] Loop 2 capture failed:', err);
+        const fingerprint = getErrorFingerprint({
+          errorCode: error.errorCode,
+          filePath: error.filePath,
+          errorMessage: error.errorMessage,
+          techStack: error.techStack,
+        });
+        return { fingerprint, isKnown: false };
+      }
+    }
+
+    export function checkAutoElevation(fingerprint: string, dbPath?: string): GovernanceRule | null {
+      try {
+        const pattern = getFixPattern(fingerprint, dbPath);
+        if (!pattern) return null;
+        if (pattern.occurrence_count < 3) return null;
+        if (!pattern.fix_description) return null;
+        if (pattern.success_rate <= 0.5) return null;
+        if (pattern.governance_rule_id) return null; // already has a rule
+
+        // Create a governance rule from this recurring pattern
+        const ruleId = saveToForgeMemory('governance_rules', {
+          rule_text: `Auto-elevated from error pattern (${pattern.occurrence_count}x): ${pattern.error_message}. Known fix: ${pattern.fix_description}`,
+          rule_short_name: `auto-${fingerprint.substring(0, 8)}`,
+          source: 'AUTO_ELEVATED',
+          source_error_fingerprint: fingerprint,
+          tech_stack_tags: pattern.tech_stack_tags,
+          scope: 'GLOBAL',
+          active: 1,
+          enforcement_count: 0,
+        }, dbPath);
+
+        // Link rule back to the fix pattern
+        updateForgeMemory('fix_patterns', pattern.id, {
+          governance_rule_id: ruleId,
+          auto_governance_rule: `Auto-elevated to governance rule ${ruleId}`,
+        }, dbPath);
+
+        // Return the created rule
+        const rules = getForgeMemory('governance_rules', {
+          where: 'id = ?',
+          params: [ruleId],
+        }, dbPath);
+        return rules[0] as GovernanceRule || null;
+      } catch (err) {
+        console.error('[FORGE Learning] Loop 2 auto-elevation failed:', err);
+        return null;
+      }
+    }
+
+    // ─── LOOP 3: Architecture Decision Weighting ────────────────────────
+    // Fires: SessionEnd
+    // Purpose: Track which architectural decisions lead to better outcomes
+
+    export function updateDecisionWeights(buildId: string, dbPath?: string): void {
+      try {
+        const db = getConnection(dbPath);
+        const decisions = db.prepare(
+          'SELECT * FROM decision_weights WHERE build_id = ?'
+        ).all(buildId) as any[];
+
+        for (const decision of decisions) {
+          // Get all prompt scores created after this decision
+          const downstreamScores = db.prepare(
+            'SELECT first_pass_success, retry_count FROM prompt_scores WHERE build_id = ? AND created_at > ?'
+          ).all(buildId, decision.created_at) as any[];
+
+          if (downstreamScores.length === 0) continue;
+
+          const totalPrompts = downstreamScores.length;
+          const failedPrompts = downstreamScores.filter((s: any) => s.first_pass_success === 0).length;
+          const totalRetries = downstreamScores.reduce((sum: number, s: any) => sum + s.retry_count, 0);
+
+          const errorRate = failedPrompts / totalPrompts;
+          const retryRate = totalRetries / totalPrompts;
+
+          db.prepare(
+            'UPDATE decision_weights SET downstream_error_rate = ?, downstream_retry_rate = ?, downstream_prompts = ?, downstream_errors = ?, downstream_retries = ? WHERE id = ?'
+          ).run(errorRate, retryRate, totalPrompts, failedPrompts, totalRetries, decision.id);
+        }
+      } catch (err) {
+        console.error('[FORGE Learning] Loop 3 decision weights failed:', err);
+      }
+    }
+
+    // ─── LOOP 4: Cross-Project Knowledge Transfer ───────────────────────
+    // Fires: SessionStart
+    // Purpose: Load everything FORGE has learned that's relevant to this build
+
+    export function loadCrossProjectKnowledge(
+      techStackTags: string[],
+      projectName: string,
+      dbPath?: string
+    ): {
+      rules: GovernanceRule[];
+      skills: SkillEntry[];
+      fixPatterns: FixPattern[];
+      outcomes: BuildOutcome[];
+      evolutions: PendingEvolution[];
+    } {
+      try {
+        const rules = getGovernanceRules(techStackTags, projectName, dbPath) as GovernanceRule[];
+        const skills = getRelevantSkills(techStackTags, dbPath) as SkillEntry[];
+        const evolutions = getPendingEvolutions(dbPath) as PendingEvolution[];
+
+        // Get high-frequency fix patterns (2+ occurrences)
+        const fixPatterns = getForgeMemory('fix_patterns', {
+          where: 'occurrence_count >= ?',
+          params: [2],
+          orderBy: 'occurrence_count DESC',
+          limit: 50,
+        }, dbPath) as FixPattern[];
+
+        // Get recent build outcomes
+        const outcomes = getForgeMemory('build_outcomes', {
+          orderBy: 'created_at DESC',
+          limit: 10,
+        }, dbPath) as BuildOutcome[];
+
+        console.log(`[FORGE Learning] Loaded: ${rules.length} rules, ${skills.length} skills, ${fixPatterns.length} fix patterns, ${outcomes.length} outcomes, ${evolutions.length} evolutions`);
+
+        return { rules, skills, fixPatterns, outcomes, evolutions };
+      } catch (err) {
+        console.error('[FORGE Learning] Loop 4 knowledge loading failed:', err);
+        return { rules: [], skills: [], fixPatterns: [], outcomes: [], evolutions: [] };
+      }
+    }
+
+    // ─── LOOP 5: Self-Modification with Guardrails ──────────────────────
+    // Fires: SessionEnd
+    // Purpose: Analyze the run and propose improvements (configuration only, NEVER source code)
+
+    export function analyzeForEvolutions(buildId: string, dbPath?: string): PendingEvolution[] {
+      const proposals: PendingEvolution[] = [];
+      try {
+        const db = getConnection(dbPath);
+        const machineId = getMachineId(dbPath);
+
+        // Analysis A: Templates with low pass rate over 3+ samples
+        const weakTemplates = db.prepare(`
+          SELECT prompt_template_hash,
+                 AVG(first_pass_success) as avg_pass,
+                 COUNT(*) as sample_count,
+                 AVG(retry_count) as avg_retries
+          FROM prompt_scores
+          WHERE build_id = ?
+          GROUP BY prompt_template_hash
+          HAVING COUNT(*) >= 3 AND AVG(first_pass_success) < 0.5
+        `).all(buildId) as any[];
+
+        for (const tmpl of weakTemplates) {
+          const id = saveToForgeMemory('pending_evolutions', {
+            evolution_type: 'TEMPLATE',
+            proposed_change: `Rewrite prompt template ${tmpl.prompt_template_hash.substring(0, 8)}`,
+            change_detail: JSON.stringify({
+              template_hash: tmpl.prompt_template_hash,
+              current_pass_rate: tmpl.avg_pass,
+              current_avg_retries: tmpl.avg_retries,
+              sample_count: tmpl.sample_count,
+            }),
+            evidence: JSON.stringify({ source: 'prompt_scores', build_id: buildId, metric: 'first_pass_success < 0.5' }),
+            estimated_impact: `Improving pass rate from ${(tmpl.avg_pass * 100).toFixed(0)}% could save ${Math.round(tmpl.avg_retries * tmpl.sample_count)} retries`,
+            confidence: 0.7,
+            status: 'PENDING',
+          }, dbPath);
+          const created = getForgeMemory('pending_evolutions', { where: 'id = ?', params: [id] }, dbPath);
+          if (created[0]) proposals.push(created[0] as PendingEvolution);
+        }
+
+        // Analysis B: Error patterns at 3+ occurrences without a governance rule
+        const ungoverned = db.prepare(`
+          SELECT * FROM fix_patterns
+          WHERE occurrence_count >= 3
+            AND (governance_rule_id IS NULL OR governance_rule_id = '')
+        `).all() as any[];
+
+        for (const pattern of ungoverned) {
+          const id = saveToForgeMemory('pending_evolutions', {
+            evolution_type: 'RULE',
+            proposed_change: `Create governance rule for recurring error: ${pattern.error_message.substring(0, 80)}`,
+            change_detail: JSON.stringify({
+              error_fingerprint: pattern.error_fingerprint,
+              error_category: pattern.error_category,
+              occurrence_count: pattern.occurrence_count,
+              fix_available: !!pattern.fix_description,
+            }),
+            evidence: JSON.stringify({ source: 'fix_patterns', occurrences: pattern.occurrence_count }),
+            estimated_impact: `Preventing ${pattern.occurrence_count} known error occurrences per build`,
+            confidence: 0.8,
+            status: 'PENDING',
+          }, dbPath);
+          const created = getForgeMemory('pending_evolutions', { where: 'id = ?', params: [id] }, dbPath);
+          if (created[0]) proposals.push(created[0] as PendingEvolution);
+        }
+
+        // Analysis C: Task types averaging > 2 retries
+        const retryHeavy = db.prepare(`
+          SELECT task_type,
+                 AVG(retry_count) as avg_retries,
+                 COUNT(*) as sample_count
+          FROM prompt_scores
+          WHERE build_id = ?
+          GROUP BY task_type
+          HAVING AVG(retry_count) > 2 AND COUNT(*) >= 2
+        `).all(buildId) as any[];
+
+        for (const taskInfo of retryHeavy) {
+          const id = saveToForgeMemory('pending_evolutions', {
+            evolution_type: 'GATE',
+            proposed_change: `Adjust gate thresholds for ${taskInfo.task_type} tasks (avg ${taskInfo.avg_retries.toFixed(1)} retries)`,
+            change_detail: JSON.stringify({
+              task_type: taskInfo.task_type,
+              avg_retries: taskInfo.avg_retries,
+              sample_count: taskInfo.sample_count,
+            }),
+            evidence: JSON.stringify({ source: 'prompt_scores', build_id: buildId, metric: 'retry_count > 2' }),
+            estimated_impact: `Reducing retry overhead for ${taskInfo.task_type} prompts`,
+            confidence: 0.6,
+            status: 'PENDING',
+          }, dbPath);
+          const created = getForgeMemory('pending_evolutions', { where: 'id = ?', params: [id] }, dbPath);
+          if (created[0]) proposals.push(created[0] as PendingEvolution);
+        }
+
+        if (proposals.length > 0) {
+          console.log(`[FORGE Learning] Loop 5 generated ${proposals.length} evolution proposals`);
+        }
+
+        return proposals;
+      } catch (err) {
+        console.error('[FORGE Learning] Loop 5 analysis failed:', err);
+        return proposals;
+      }
+    }
+
+    export function presentEvolutions(dbPath?: string): PendingEvolution[] {
+      try {
+        return getPendingEvolutions(dbPath) as PendingEvolution[];
+      } catch (err) {
+        console.error('[FORGE Learning] presentEvolutions failed:', err);
+        return [];
+      }
+    }
+
+    export function applyEvolution(
+      evolutionId: string,
+      approved: boolean,
+      reviewNote?: string,
+      dbPath?: string
+    ): void {
+      try {
+        updateEvolutionStatus(
+          evolutionId,
+          approved ? 'APPROVED' : 'REJECTED',
+          reviewNote,
+          dbPath
+        );
+      } catch (err) {
+        console.error('[FORGE Learning] applyEvolution failed:', err);
+      }
+    }
+    ```
+
+    Write EXACTLY this code to src/learning/loops.ts. Do not summarize, abbreviate, or skip any function.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Then test:
+    ```
+    node --import tsx -e "
+      import { initializeForgeMemory } from './src/learning/database.js';
+      import { scorePromptExecution, captureError, checkAutoElevation, loadCrossProjectKnowledge, analyzeForEvolutions, presentEvolutions, applyEvolution } from './src/learning/loops.js';
+      import { join } from 'path';
+      import { tmpdir } from 'os';
+      import { unlinkSync } from 'fs';
+
+      const testDb = join(tmpdir(), 'forge_loops_test_' + Date.now() + '.db');
+      initializeForgeMemory(testDb);
+
+      // Test Loop 1
+      const scoreId = scorePromptExecution({
+        templateHash: 'abc123', taskType: 'CRUD', techStackTags: ['typescript'],
+        firstPassSuccess: true, retryCount: 0, tokensConsumed: 15000,
+        gatePassRate: 1.0, driftScore: 0.1, projectName: 'test', buildId: 'b1'
+      }, testDb);
+      if (!scoreId) { console.error('FAIL: Loop 1 score not saved'); process.exit(1); }
+      console.log('Loop 1 (scoring): PASS');
+
+      // Test Loop 2
+      const err1 = captureError({ errorCode: 'TS2307', filePath: 'test.ts', errorMessage: 'Module not found', errorCategory: 'COMPILE', techStack: ['typescript'] }, testDb);
+      if (!err1.fingerprint) { console.error('FAIL: Loop 2 no fingerprint'); process.exit(1); }
+      if (err1.isKnown) { console.error('FAIL: should be new'); process.exit(1); }
+      const err2 = captureError({ errorCode: 'TS2307', filePath: 'test.ts', errorMessage: 'Module not found', errorCategory: 'COMPILE', techStack: ['typescript'] }, testDb);
+      if (!err2.isKnown) { console.error('FAIL: should be known on second capture'); process.exit(1); }
+      console.log('Loop 2 (fix patterns): PASS');
+
+      // Test Loop 4
+      const knowledge = loadCrossProjectKnowledge(['typescript'], 'test', testDb);
+      if (!Array.isArray(knowledge.rules)) { console.error('FAIL: Loop 4 rules not array'); process.exit(1); }
+      if (!Array.isArray(knowledge.skills)) { console.error('FAIL: Loop 4 skills not array'); process.exit(1); }
+      console.log('Loop 4 (knowledge transfer): PASS');
+
+      // Test Loop 5
+      const evos = presentEvolutions(testDb);
+      if (!Array.isArray(evos)) { console.error('FAIL: presentEvolutions not array'); process.exit(1); }
+      console.log('Loop 5 (evolutions): PASS');
+
+      unlinkSync(testDb);
+      console.log('\\nR1-005 ALL TESTS PASS');
+    "
+    ```
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-006
+  name: "Cross-Machine Sync — Complete Protocol with Lock Management"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    REPLACE src/learning/sync.ts with the COMPLETE implementation below. Write EXACTLY this code:
+
+    ```typescript
+    // FORGE 2.0 Learning Engine — Cross-Machine Sync Protocol
+    // Append-only sync between local SQLite and master copy on external drive.
+    // CRITICAL: Lock MUST be released in finally blocks. Never leave orphaned locks.
+    import Database from 'better-sqlite3';
+    import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
+    import { join, dirname } from 'node:path';
+    import { homedir } from 'node:os';
+    import { getConnection, getMachineId } from './database.js';
+    import { VALID_TABLES, type SyncConfig } from './types.js';
+
+    const DEFAULT_SYNC_CONFIG_PATH = join(homedir(), '.forge', 'sync_config.json');
+    // Exclude forge_meta from sync — it's machine-specific
+    const SYNCABLE_TABLES = VALID_TABLES.filter(t => t !== 'forge_meta');
+
+    // ─── Lock Management ─────────────────────────────────────────────────
+
+    export function acquireSyncLock(
+      lockPath: string,
+      machineId: string,
+      maxWaitMs: number = 30000,
+      retryIntervalMs: number = 5000
+    ): boolean {
+      const startTime = Date.now();
+
+      while (true) {
+        // Check if lock exists
+        if (existsSync(lockPath)) {
+          try {
+            const lockData = JSON.parse(readFileSync(lockPath, 'utf8'));
+            const lockAge = Date.now() - new Date(lockData.acquired_at).getTime();
+            const staleMs = 2 * 60 * 1000; // 2 minutes
+
+            if (lockAge > staleMs) {
+              // Stale lock — remove and acquire
+              console.warn(`[FORGE Sync] Removing stale lock (${Math.round(lockAge / 1000)}s old, machine: ${lockData.machine_id})`);
+              try { unlinkSync(lockPath); } catch { /* ignore */ }
+            } else {
+              // Lock is fresh — wait and retry
+              const elapsed = Date.now() - startTime;
+              if (elapsed >= maxWaitMs) {
+                console.warn(`[FORGE Sync] Timed out waiting for lock after ${Math.round(elapsed / 1000)}s`);
+                return false;
+              }
+              // Synchronous sleep
+              const sleepUntil = Date.now() + retryIntervalMs;
+              while (Date.now() < sleepUntil) { /* busy wait */ }
+              continue;
+            }
+          } catch {
+            // Malformed lock file — remove it
+            try { unlinkSync(lockPath); } catch { /* ignore */ }
+          }
+        }
+
+        // Acquire the lock
+        try {
+          const lockDir = dirname(lockPath);
+          if (!existsSync(lockDir)) {
+            mkdirSync(lockDir, { recursive: true });
+          }
+          const lockData = {
+            machine_id: machineId,
+            acquired_at: new Date().toISOString(),
+            pid: process.pid,
+          };
+          writeFileSync(lockPath, JSON.stringify(lockData, null, 2), 'utf8');
+          return true;
+        } catch (err) {
+          console.error('[FORGE Sync] Failed to write lock file:', err);
+          return false;
+        }
+      }
+    }
+
+    export function releaseSyncLock(lockPath: string): void {
+      try {
+        if (existsSync(lockPath)) {
+          unlinkSync(lockPath);
+        }
+      } catch {
+        // MUST never throw. If the file is gone, that's fine.
+      }
+    }
+
+    // ─── Configuration ───────────────────────────────────────────────────
+
+    export function loadSyncConfig(configPath?: string): SyncConfig {
+      const resolved = configPath || DEFAULT_SYNC_CONFIG_PATH;
+      const defaults: SyncConfig = {
+        master_path: '',
+        lock_file: 'forge_sync.lock',
+        max_wait_seconds: 30,
+        retry_interval_seconds: 5,
+      };
+
+      try {
+        if (existsSync(resolved)) {
+          const raw = readFileSync(resolved, 'utf8');
+          const parsed = JSON.parse(raw);
+          return { ...defaults, ...parsed };
+        }
+      } catch {
+        console.warn('[FORGE Sync] Failed to read sync config, using defaults');
+      }
+
+      return defaults;
+    }
+
+    // ─── Timestamp Management ────────────────────────────────────────────
+
+    export function getLastSyncTimestamp(dbPath: string): string {
+      try {
+        const db = getConnection(dbPath);
+        const row = db.prepare(
+          "SELECT value FROM forge_meta WHERE key = 'last_sync_timestamp'"
+        ).get() as { value: string } | undefined;
+        return row?.value || '1970-01-01T00:00:00.000Z';
+      } catch {
+        return '1970-01-01T00:00:00.000Z';
+      }
+    }
+
+    export function setLastSyncTimestamp(dbPath: string, timestamp: string): void {
+      try {
+        const db = getConnection(dbPath);
+        db.prepare(
+          "INSERT OR REPLACE INTO forge_meta (key, value) VALUES ('last_sync_timestamp', ?)"
+        ).run(timestamp);
+      } catch (err) {
+        console.error('[FORGE Sync] Failed to set sync timestamp:', err);
+      }
+    }
+
+    // ─── Core Sync Protocol ──────────────────────────────────────────────
+
+    export function syncForgeMemory(
+      direction: 'pull' | 'push',
+      localDbPath: string,
+      masterDbPath: string,
+      machineId: string
+    ): { synced: number; tables: string[] } {
+      // Graceful degradation: if master doesn't exist, return silently
+      if (!masterDbPath || !existsSync(masterDbPath)) {
+        if (masterDbPath && masterDbPath !== '') {
+          console.warn(`[FORGE Sync] Master DB not found at ${masterDbPath} — skipping sync`);
+        }
+        return { synced: 0, tables: [] };
+      }
+
+      const lastSync = getLastSyncTimestamp(localDbPath);
+      let totalSynced = 0;
+      const syncedTables: string[] = [];
+
+      if (direction === 'pull') {
+        return syncPull(localDbPath, masterDbPath, machineId, lastSync);
+      } else {
+        return syncPush(localDbPath, masterDbPath, machineId, lastSync);
+      }
+    }
+
+    function syncPull(
+      localDbPath: string,
+      masterDbPath: string,
+      machineId: string,
+      lastSync: string
+    ): { synced: number; tables: string[] } {
+      let totalSynced = 0;
+      const syncedTables: string[] = [];
+
+      try {
+        // Open master as read-only
+        const masterDb = new Database(masterDbPath, { readonly: true });
+        const localDb = getConnection(localDbPath);
+
+        for (const table of SYNCABLE_TABLES) {
+          try {
+            // Get column names for this table from local DB
+            const columns = localDb.prepare(`PRAGMA table_info(${table})`).all() as any[];
+            if (columns.length === 0) continue;
+            const colNames = columns.map((c: any) => c.name);
+
+            // Select records from master that aren't from this machine and are newer than last sync
+            const rows = masterDb.prepare(
+              `SELECT * FROM ${table} WHERE machine_id != ? AND created_at > ?`
+            ).all(machineId, lastSync) as any[];
+
+            if (rows.length === 0) continue;
+
+            // INSERT OR IGNORE each row into local
+            const placeholders = colNames.map(() => '?').join(', ');
+            const insertStmt = localDb.prepare(
+              `INSERT OR IGNORE INTO ${table} (${colNames.join(', ')}) VALUES (${placeholders})`
+            );
+
+            const insertMany = localDb.transaction((records: any[]) => {
+              let inserted = 0;
+              for (const row of records) {
+                const values = colNames.map(col => row[col] ?? null);
+                const result = insertStmt.run(...values);
+                if (result.changes > 0) inserted++;
+              }
+              return inserted;
+            });
+
+            const inserted = insertMany(rows);
+            if (inserted > 0) {
+              totalSynced += inserted;
+              syncedTables.push(table);
+            }
+          } catch (err) {
+            // Log error for this table but continue with others
+            console.error(`[FORGE Sync] Pull error on ${table}:`, err);
+          }
+        }
+
+        masterDb.close();
+
+        // Update sync timestamp
+        setLastSyncTimestamp(localDbPath, new Date().toISOString());
+      } catch (err) {
+        console.error('[FORGE Sync] Pull failed:', err);
+      }
+
+      return { synced: totalSynced, tables: syncedTables };
+    }
+
+    function syncPush(
+      localDbPath: string,
+      masterDbPath: string,
+      machineId: string,
+      lastSync: string
+    ): { synced: number; tables: string[] } {
+      let totalSynced = 0;
+      const syncedTables: string[] = [];
+
+      const lockPath = join(dirname(masterDbPath), 'forge_sync.lock');
+      const acquired = acquireSyncLock(lockPath, machineId);
+
+      if (!acquired) {
+        console.warn('[FORGE Sync] Could not acquire push lock — skipping sync');
+        return { synced: 0, tables: [] };
+      }
+
+      try {
+        const localDb = getConnection(localDbPath);
+        const masterDb = new Database(masterDbPath);
+        masterDb.pragma('journal_mode = WAL');
+        masterDb.pragma('busy_timeout = 5000');
+
+        for (const table of SYNCABLE_TABLES) {
+          try {
+            const columns = localDb.prepare(`PRAGMA table_info(${table})`).all() as any[];
+            if (columns.length === 0) continue;
+            const colNames = columns.map((c: any) => c.name);
+
+            // Select records from local that ARE from this machine and are newer
+            const rows = localDb.prepare(
+              `SELECT * FROM ${table} WHERE machine_id = ? AND created_at > ?`
+            ).all(machineId, lastSync) as any[];
+
+            if (rows.length === 0) continue;
+
+            const placeholders = colNames.map(() => '?').join(', ');
+            const insertStmt = masterDb.prepare(
+              `INSERT OR IGNORE INTO ${table} (${colNames.join(', ')}) VALUES (${placeholders})`
+            );
+
+            const insertMany = masterDb.transaction((records: any[]) => {
+              let inserted = 0;
+              for (const row of records) {
+                const values = colNames.map(col => row[col] ?? null);
+                const result = insertStmt.run(...values);
+                if (result.changes > 0) inserted++;
+              }
+              return inserted;
+            });
+
+            const inserted = insertMany(rows);
+            if (inserted > 0) {
+              totalSynced += inserted;
+              syncedTables.push(table);
+            }
+          } catch (err) {
+            console.error(`[FORGE Sync] Push error on ${table}:`, err);
+          }
+        }
+
+        masterDb.close();
+
+        // Update sync timestamp on both local and master
+        const now = new Date().toISOString();
+        setLastSyncTimestamp(localDbPath, now);
+      } finally {
+        // ALWAYS release lock — even if everything above failed
+        releaseSyncLock(lockPath);
+      }
+
+      return { synced: totalSynced, tables: syncedTables };
+    }
+    ```
+
+    Write EXACTLY this code to src/learning/sync.ts. Do not abbreviate or skip any function.
+
+    CRITICAL RULES:
+    — Lock file MUST be released in a finally block. A crash during push must not leave a permanent lock.
+    — All operations are INSERT OR IGNORE. Never UPDATE existing records on master. Append-only.
+    — The forge_meta table should be EXCLUDED from sync (it's machine-specific).
+    — If any table fails during sync, log the error and continue with the next table. Don't abort the entire sync.
+
+    Import from ./database.js and ./types.js using ESM .js extensions.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Then test:
+    ```
+    node --import tsx -e "
+      import { acquireSyncLock, releaseSyncLock, loadSyncConfig, syncForgeMemory, getLastSyncTimestamp, setLastSyncTimestamp } from './src/learning/sync.js';
+      import { initializeForgeMemory } from './src/learning/database.js';
+      import { join } from 'path';
+      import { tmpdir } from 'os';
+      import { unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
+
+      const testDir = join(tmpdir(), 'forge_sync_test_' + Date.now());
+      mkdirSync(testDir, { recursive: true });
+      const lockPath = join(testDir, 'test.lock');
+
+      // Test 1: Lock acquire and release
+      const acquired = acquireSyncLock(lockPath, 'test-machine', 5000, 1000);
+      if (!acquired) { console.error('FAIL: Could not acquire lock'); process.exit(1); }
+      if (!existsSync(lockPath)) { console.error('FAIL: Lock file not created'); process.exit(1); }
+      console.log('Lock acquire: PASS');
+
+      releaseSyncLock(lockPath);
+      if (existsSync(lockPath)) { console.error('FAIL: Lock not released'); process.exit(1); }
+      console.log('Lock release: PASS');
+
+      // Test 2: Release on nonexistent file doesn't throw
+      releaseSyncLock(join(testDir, 'nonexistent.lock'));
+      console.log('Release nonexistent: PASS');
+
+      // Test 3: Graceful degradation
+      const result = syncForgeMemory('pull', join(testDir, 'local.db'), '/nonexistent/path/master.db', 'test');
+      if (result.synced !== 0) { console.error('FAIL: Should return 0 for missing master'); process.exit(1); }
+      console.log('Graceful degradation: PASS');
+
+      // Test 4: Sync config defaults
+      const config = loadSyncConfig(join(testDir, 'nonexistent_config.json'));
+      if (config.max_wait_seconds !== 30) { console.error('FAIL: Wrong defaults'); process.exit(1); }
+      console.log('Config defaults: PASS');
+
+      // Test 5: Timestamp get/set
+      const localDb = join(testDir, 'local.db');
+      initializeForgeMemory(localDb);
+      const ts1 = getLastSyncTimestamp(localDb);
+      if (!ts1.includes('1970')) { console.error('FAIL: Default timestamp should be epoch'); process.exit(1); }
+      setLastSyncTimestamp(localDb, '2026-06-23T12:00:00.000Z');
+      const ts2 = getLastSyncTimestamp(localDb);
+      if (!ts2.includes('2026')) { console.error('FAIL: Timestamp not updated'); process.exit(1); }
+      console.log('Timestamps: PASS');
+
+      rmSync(testDir, { recursive: true });
+      console.log('\\nR1-006 ALL TESTS PASS');
+    "
+    ```
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-007
+  name: "Enhanced Hooks — Conditions, Templates, and 24 Default Hooks"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+    Read src/engine/hook-manager.ts first to understand the existing hook system. Do NOT modify it.
+
+    REPLACE src/learning/hooks-enhanced.ts with a COMPLETE implementation containing:
+
+    1. matchGlob(pattern: string, filePath: string): boolean
+       — Supports * (matches any single segment) and ** (matches any number of segments).
+       — *.ts matches foo.ts but not foo/bar.ts. **/*.ts matches any .ts at any depth.
+       — Split both pattern and path by /, compare segment by segment.
+
+    2. testHookConditions(hook: HookDefinition, context: HookContext): boolean
+       — If hook.conditions is null/undefined, return true (always fires).
+       — All conditions are AND'd — every present condition must pass:
+         * file_pattern: comma-separated globs. Fires if context.file matches ANY glob.
+         * exclude_pattern: comma-separated globs. Does NOT fire if context.file matches ANY.
+         * task_types: array. Fires only if context.task_type is in array.
+         * min_prompt_number: integer. Fires only if context.prompt_number >= value.
+         * phases: array. Fires only if context.phase is in array.
+
+    3. resolveHookTemplates(action: string, context: HookContext): string
+       — Replaces template variables: {{file}}, {{files}}, {{project_path}}, {{prompt_number}}, {{build_id}}, {{last_commit}}, {{task_type}}, {{phase}}.
+       — Undefined context values become empty string (never leave {{var}} in output).
+
+    4. generateDefaultHooksConfig(projectName: string): HookDefinition[]
+       — Returns EXACTLY 24 hooks. Here is the complete list:
+
+       SessionStart (non-blocking):
+       { name: 'sync-pull', event: 'SessionStart', action: 'typescript', script: 'syncPull', blocking: false, timeout_seconds: 60, enabled: true, priority: 1, description: 'Pull learning data from master drive' }
+       { name: 'load-knowledge', event: 'SessionStart', action: 'typescript', script: 'loadKnowledge', blocking: false, timeout_seconds: 30, enabled: true, priority: 2, description: 'Load governance rules, skills, fix patterns' }
+       { name: 'present-evolutions', event: 'SessionStart', action: 'typescript', script: 'presentEvolutions', blocking: false, timeout_seconds: 15, enabled: true, priority: 3, description: 'Show pending self-modification proposals' }
+
+       PreToolUse:
+       { name: 'governance-check', event: 'PreToolUse', action: 'typescript', script: 'checkGovernance', blocking: true, timeout_seconds: 10, enabled: true, priority: 10, description: 'Inject matching governance rules into context' }
+       { name: 'fix-pattern-check', event: 'PreToolUse', action: 'typescript', script: 'checkFixPatterns', blocking: false, timeout_seconds: 10, enabled: true, priority: 20, description: 'Inject known fixes as notes' }
+
+       PostToolUse:
+       { name: 'tsc-check', event: 'PostToolUse', action: 'npx tsc --noEmit', script: null, blocking: true, timeout_seconds: 30, enabled: true, priority: 10, description: 'TypeScript compilation check', conditions: { file_pattern: '*.ts,*.tsx' } }
+       { name: 'eslint-check', event: 'PostToolUse', action: 'npx eslint {{file}}', script: null, blocking: true, timeout_seconds: 30, enabled: true, priority: 20, description: 'ESLint check', conditions: { file_pattern: '*.ts,*.tsx', exclude_pattern: '*.config.*,*.d.ts' } }
+       { name: 'schema-drift-inline', event: 'PostToolUse', action: 'typescript', script: 'checkSchemaDrift', blocking: true, timeout_seconds: 30, enabled: true, priority: 30, description: 'Schema drift check', conditions: { task_types: ['CRUD', 'INTEGRATION'] } }
+       { name: 'score-prompt', event: 'PostToolUse', action: 'typescript', script: 'scorePrompt', blocking: false, timeout_seconds: 10, enabled: true, priority: 99, description: 'Record prompt execution score' }
+
+       PreCommit (all blocking):
+       { name: 'gitleaks-scan', event: 'PreCommit', action: 'gitleaks detect --source={{project_path}} --report-format json', script: null, blocking: true, timeout_seconds: 60, enabled: true, priority: 1, description: 'Scan for leaked secrets' }
+       { name: 'schema-drift-commit', event: 'PreCommit', action: 'typescript', script: 'fullSchemaDriftCheck', blocking: true, timeout_seconds: 30, enabled: true, priority: 10, description: 'Full schema drift verification' }
+       { name: 'governance-updated', event: 'PreCommit', action: 'typescript', script: 'verifyGovernanceUpdated', blocking: true, timeout_seconds: 15, enabled: true, priority: 20, description: 'Verify governance docs updated' }
+
+       PreCompact (non-blocking):
+       { name: 'precompact-save', event: 'PreCompact', action: 'typescript', script: 'precompactSave', blocking: false, timeout_seconds: 10, enabled: true, priority: 1, description: 'Save critical context before compaction' }
+
+       PreDeploy (all blocking):
+       { name: 'sentinel-ring3', event: 'PreDeploy', action: 'typescript', script: 'sentinelRing3', blocking: true, timeout_seconds: 600, enabled: true, priority: 1, description: 'Full Ring 3 Sentinel pipeline' }
+       { name: 'six-laws-check', event: 'PreDeploy', action: 'typescript', script: 'checkSixLaws', blocking: true, timeout_seconds: 30, enabled: true, priority: 10, description: 'Verify all Six Laws compliance' }
+       { name: 'env-parity', event: 'PreDeploy', action: 'typescript', script: 'envParityCheck', blocking: true, timeout_seconds: 30, enabled: true, priority: 20, description: 'Compare local vs production env vars' }
+
+       PostDeploy (non-blocking):
+       { name: 'health-check', event: 'PostDeploy', action: 'typescript', script: 'healthCheck', blocking: false, timeout_seconds: 30, enabled: true, priority: 1, description: 'HTTP 200 check on production URL' }
+       { name: 'readme-update', event: 'PostDeploy', action: 'typescript', script: 'updateReadme', blocking: false, timeout_seconds: 30, enabled: true, priority: 10, description: 'Regenerate README from governance' }
+       { name: 'deploy-summary', event: 'PostDeploy', action: 'typescript', script: 'deploySummary', blocking: false, timeout_seconds: 15, enabled: true, priority: 20, description: 'Log deploy summary to build_outcomes' }
+
+       SessionEnd (non-blocking):
+       { name: 'sync-push', event: 'SessionEnd', action: 'typescript', script: 'syncPush', blocking: false, timeout_seconds: 60, enabled: true, priority: 1, description: 'Push learning data to master' }
+       { name: 'update-weights', event: 'SessionEnd', action: 'typescript', script: 'updateWeights', blocking: false, timeout_seconds: 30, enabled: true, priority: 10, description: 'Compute downstream decision error rates' }
+       { name: 'analyze-evolutions', event: 'SessionEnd', action: 'typescript', script: 'analyzeEvolutions', blocking: false, timeout_seconds: 30, enabled: true, priority: 20, description: 'Generate self-modification proposals' }
+       { name: 'generate-handoff', event: 'SessionEnd', action: 'typescript', script: 'generateHandoff', blocking: false, timeout_seconds: 60, enabled: true, priority: 30, description: 'Produce SESSION_HANDOFF.md' }
+       { name: 'git-push-end', event: 'SessionEnd', action: 'git add -A && git commit -m "FORGE-SESSION-END" && git push', script: null, blocking: false, timeout_seconds: 60, enabled: true, priority: 40, description: 'Final git commit and push' }
+
+    5. writeDefaultHooksConfig(projectPath: string, projectName: string): void
+       — Calls generateDefaultHooksConfig, writes to {projectPath}/.forge/hooks.json as pretty JSON.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Then test:
+    ```
+    node --import tsx -e "
+      import { matchGlob, testHookConditions, resolveHookTemplates, generateDefaultHooksConfig } from './src/learning/hooks-enhanced.js';
+
+      // Test glob matching
+      if (!matchGlob('*.ts', 'file.ts')) { console.error('FAIL: basic glob'); process.exit(1); }
+      if (matchGlob('*.ts', 'file.tsx')) { console.error('FAIL: should not match tsx'); process.exit(1); }
+      if (matchGlob('*.ts', 'dir/file.ts')) { console.error('FAIL: * should not match dirs'); process.exit(1); }
+      console.log('Glob matching: PASS');
+
+      // Test template resolution
+      const resolved = resolveHookTemplates('npx eslint {{file}} --cwd {{project_path}}', {
+        project_path: '/my/project', build_id: 'b1', prompt_number: 5, file: '/my/project/src/index.ts'
+      });
+      if (!resolved.includes('/my/project/src/index.ts')) { console.error('FAIL: file not resolved'); process.exit(1); }
+      if (!resolved.includes('--cwd /my/project')) { console.error('FAIL: project_path not resolved'); process.exit(1); }
+      if (resolved.includes('{{')) { console.error('FAIL: unresolved templates remain'); process.exit(1); }
+      console.log('Template resolution: PASS');
+
+      // Test conditions
+      const hook = { name: 'test', event: 'PostToolUse' as const, action: 'test', script: null, blocking: true, timeout_seconds: 30, enabled: true, priority: 10, conditions: { file_pattern: '*.ts,*.tsx', task_types: ['CRUD'] } };
+      const ctx1 = { project_path: '/p', build_id: 'b', prompt_number: 1, file: 'index.ts', task_type: 'CRUD' };
+      if (!testHookConditions(hook, ctx1)) { console.error('FAIL: should match'); process.exit(1); }
+      const ctx2 = { project_path: '/p', build_id: 'b', prompt_number: 1, file: 'index.ts', task_type: 'SCAFFOLD' };
+      if (testHookConditions(hook, ctx2)) { console.error('FAIL: wrong task_type should not match'); process.exit(1); }
+      console.log('Conditions: PASS');
+
+      // Test 24 default hooks
+      const hooks = generateDefaultHooksConfig('test-project');
+      if (hooks.length !== 24) { console.error('FAIL: Expected 24 hooks, got ' + hooks.length); process.exit(1); }
+      const events = new Set(hooks.map(h => h.event));
+      for (const e of ['SessionStart','PreToolUse','PostToolUse','PreCommit','PreCompact','PreDeploy','PostDeploy','SessionEnd']) {
+        if (!events.has(e)) { console.error('FAIL: Missing event ' + e); process.exit(1); }
+      }
+      console.log('24 default hooks: PASS');
+
+      console.log('\\nR1-007 ALL TESTS PASS');
+    "
+    ```
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-008
+  name: "PreCompact Context Preservation and Session Orchestration"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    REPLACE src/learning/precompact.ts with context preservation:
+
+    shouldPreCompact(promptIndex: number, totalPrompts: number): boolean — Returns true if promptIndex/totalPrompts >= 0.8 OR (promptIndex > 30 AND promptIndex % 10 === 0).
+
+    invokePreCompactSave(context: { buildId: string, promptIndex: number, phase: string, projectPath: string, techStackTags: string[], acceptanceCriteria: string, queueStatus: { total: number, completed: number, pending: number } }, dbPath?: string): string — Gathers state: active unresolved errors from fix_patterns (occurrence_count > 0, fix_diff IS NULL), active governance rules, git status --porcelain output. Saves to compact_snapshots via saveToForgeMemory. Returns snapshot id.
+
+    restoreCompactedContext(buildId: string, dbPath?: string): string | null — Reads most recent compact_snapshot for buildId. Parses state_json. Formats as:
+    "=== FORGE CONTEXT RECOVERY ===\nPhase: {phase}\nPrompt: {promptIndex}/{total}\nActive errors: {count}\n{details}\nGovernance rules: {count}\n{summaries}\nAcceptance criteria: {criteria}\n=== END RECOVERY ==="
+    Returns null if no snapshot exists.
+
+    REPLACE src/learning/session.ts with session orchestration:
+
+    getBuildFingerprint(projectPath: string): string — SHA-256 hash of all project files excluding node_modules, .next, .git, .forge/session_state, dist, build, coverage. For each file: relativePath|contentSHA256. Hash the composite. Return 64-char hex.
+
+    exportSessionState(params: { projectPath: string, buildId: string, lastPromptExecuted: number, endReason: 'COMPLETED'|'PAUSED'|'FAILED'|'INTERRUPTED', runStats: { promptsExecuted: number, promptsPassed: number, promptsFailed: number, totalTokens: number, durationMinutes: number }, queueStatus: { total: number, completed: number } }): void — Writes .forge/session_state.json with: build identity, execution position, git state (branch via git branch --show-current, commit via git rev-parse HEAD, dirty flag), build fingerprint, queue status, run stats, first_pass_rate. Also writes to build_outcomes table.
+
+    resumeForgeSession(projectPath: string, dbPath?: string): { canResume: boolean, state?: any, fingerprintMatch?: boolean } — Reads .forge/session_state.json. If doesn't exist, returns { canResume: false }. If exists, computes current fingerprint, compares to stored. Returns { canResume: true, state, fingerprintMatch }.
+
+    testCrashRecovery(projectPath: string, dbPath?: string): { crashed: boolean, recoveryPoint?: any } — Checks .forge/forge_running.lock. If exists and > 5 min old, returns { crashed: true }. Checks compact_snapshots for recovery point.
+
+    setForgeLock(projectPath: string, buildId: string): void — Creates .forge/forge_running.lock with JSON { build_id, machine_id, started_at, pid: process.pid }.
+
+    removeForgeLock(projectPath: string): void — Deletes .forge/forge_running.lock. Never throws.
+
+    exportSessionHandoff(projectPath: string, sessionState: any): void — Generates .forge/SESSION_HANDOFF.md with sections: Build Summary, Completed This Run, Failed This Run, Active Blockers, Queue Status, Next Run Plan, Environment Notes, Learning Highlights.
+
+    Use execSync for git commands with cwd set to projectPath. Use readdirSync/readFileSync for file operations. Import from database.js, queries.js using ESM.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Then test:
+    ```
+    node --import tsx -e "
+      import { shouldPreCompact } from './src/learning/precompact.js';
+      import { getBuildFingerprint, setForgeLock, removeForgeLock } from './src/learning/session.js';
+      import { mkdirSync, existsSync, rmSync, writeFileSync } from 'fs';
+      import { join } from 'path';
+      import { tmpdir } from 'os';
+
+      // PreCompact tests
+      if (!shouldPreCompact(40, 50)) { console.error('FAIL: 80% should trigger'); process.exit(1); }
+      if (shouldPreCompact(5, 50)) { console.error('FAIL: 10% should not trigger'); process.exit(1); }
+      if (!shouldPreCompact(40, 100)) { console.error('FAIL: 40th prompt should trigger (every 10th after 30)'); process.exit(1); }
+      console.log('PreCompact triggers: PASS');
+
+      // Lock tests
+      const testDir = join(tmpdir(), 'forge_session_test_' + Date.now());
+      mkdirSync(join(testDir, '.forge'), { recursive: true });
+      writeFileSync(join(testDir, 'test.txt'), 'hello');
+      setForgeLock(testDir, 'test-build');
+      if (!existsSync(join(testDir, '.forge', 'forge_running.lock'))) { console.error('FAIL: Lock not created'); process.exit(1); }
+      removeForgeLock(testDir);
+      if (existsSync(join(testDir, '.forge', 'forge_running.lock'))) { console.error('FAIL: Lock not removed'); process.exit(1); }
+      removeForgeLock(testDir); // Should not throw
+      console.log('Lock management: PASS');
+
+      rmSync(testDir, { recursive: true });
+      console.log('\\nR1-008 ALL TESTS PASS');
+    "
+    ```
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-009
+  name: "Integration — Wire Learning Engine into Existing Executor"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+    All learning engine modules exist in src/learning/. Now wire them into the existing execution pipeline.
+
+    STEP 1: Read these files COMPLETELY before writing any code:
+    - src/phases/phase3-executor.ts (read the ENTIRE file — understand every function, every variable, every flow)
+    - src/engine/hook-manager.ts (understand hook interface)
+    - src/engine/prompt-assembler.ts (understand prompt flow)
+    - src/engine/claude-runner.ts (understand execution interface)
+
+    STEP 2: Create src/learning/integration.ts with EXACTLY this code:
+
+    ```typescript
+    // FORGE 2.0 Learning Engine — Integration Bridge
+    // Connects learning engine to existing executor. All operations are non-critical:
+    // if any learning call fails, log and continue. Never crash the build.
+    import { initializeForgeMemory, getMachineId } from './database.js';
+    import { saveToForgeMemory } from './queries.js';
+    import { scorePromptExecution, captureError, checkAutoElevation, updateDecisionWeights, loadCrossProjectKnowledge, analyzeForEvolutions, presentEvolutions } from './loops.js';
+    import { syncForgeMemory, loadSyncConfig, getLastSyncTimestamp } from './sync.js';
+    import { testCrashRecovery, setForgeLock, removeForgeLock, resumeForgeSession, exportSessionState, exportSessionHandoff, getBuildFingerprint } from './session.js';
+    import type { GovernanceRule, SkillEntry, FixPattern } from './types.js';
+
+    /**
+     * Called once at the start of a FORGE build run.
+     * Initializes learning, checks for crashes, loads knowledge.
+     * Returns loaded knowledge for the executor to use.
+     */
+    export async function onRunStart(
+      projectPath: string,
+      buildId: string,
+      techStackTags: string[],
+      projectName: string,
+      dbPath?: string
+    ): Promise<{
+      knowledge: {
+        rules: GovernanceRule[];
+        skills: SkillEntry[];
+        fixPatterns: FixPattern[];
+        outcomes: any[];
+        evolutions: any[];
+      };
+      resumeState: any | null;
+    }> {
+      const emptyKnowledge = { rules: [], skills: [], fixPatterns: [], outcomes: [], evolutions: [] };
+      try {
+        // 1. Initialize the learning database (creates if not exists)
+        initializeForgeMemory(dbPath);
+        console.log('[FORGE Learning] Database initialized');
+
+        // 2. Check for crash recovery (stale lock from prior crashed run)
+        const crashCheck = testCrashRecovery(projectPath, dbPath);
+        if (crashCheck.crashed) {
+          console.warn('[FORGE Learning] Crash detected from prior run. Recovery point available:', !!crashCheck.recoveryPoint);
+        }
+
+        // 3. Set the running lock for this build
+        setForgeLock(projectPath, buildId);
+
+        // 4. Sync pull from master (graceful if master unavailable)
+        try {
+          const syncConfig = loadSyncConfig();
+          if (syncConfig.master_path) {
+            const localDb = dbPath || (await import('./database.js')).getForgeDbPath();
+            const masterDb = syncConfig.master_path;
+            const machineId = getMachineId(dbPath);
+            const result = syncForgeMemory('pull', localDb, masterDb, machineId);
+            if (result.synced > 0) {
+              console.log(`[FORGE Learning] Pulled ${result.synced} records from master`);
+            }
+          }
+        } catch { /* sync is non-critical */ }
+
+        // 5. Load cross-project knowledge
+        const knowledge = loadCrossProjectKnowledge(techStackTags, projectName, dbPath);
+
+        // 6. Present pending evolutions
+        const evolutions = presentEvolutions(dbPath);
+        if (evolutions.length > 0) {
+          console.log(`[FORGE Learning] ${evolutions.length} pending evolution proposals:`);
+          for (const evo of evolutions.slice(0, 5)) {
+            console.log(`  [${evo.evolution_type}] ${evo.proposed_change} (confidence: ${evo.confidence})`);
+          }
+        }
+
+        // 7. Check for session resumption
+        let resumeState = null;
+        try {
+          const resumeCheck = resumeForgeSession(projectPath, dbPath);
+          if (resumeCheck.canResume) {
+            resumeState = resumeCheck.state;
+            console.log(`[FORGE Learning] Prior session found. Fingerprint match: ${resumeCheck.fingerprintMatch}`);
+          }
+        } catch { /* resume check is non-critical */ }
+
+        // 8. Record build start
+        try {
+          saveToForgeMemory('build_outcomes', {
+            project_name: projectName,
+            mode: 'RETROFIT',
+            start_time: new Date().toISOString(),
+            total_prompts_planned: 0,
+            total_prompts_executed: 0,
+            prompts_passed: 0,
+            prompts_retried: 0,
+            prompts_failed: 0,
+            total_tokens: 0,
+          }, dbPath);
+        } catch { /* non-critical */ }
+
+        return { knowledge, resumeState };
+      } catch (err) {
+        console.error('[FORGE Learning] onRunStart failed (non-critical):', err);
+        return { knowledge: emptyKnowledge, resumeState: null };
+      }
+    }
+
+    /**
+     * Called after each prompt completes (pass or fail).
+     * Records the result in the learning database.
+     */
+    export function onPromptComplete(result: {
+      promptId: string;
+      success: boolean;
+      retryCount: number;
+      tokensConsumed: number;
+      gatePassRate: number;
+      errorOutput?: string;
+      buildId: string;
+      projectName: string;
+      taskType: string;
+      techStackTags: string[];
+      templateHash: string;
+    }, dbPath?: string): void {
+      try {
+        // Loop 1: Score the prompt execution
+        scorePromptExecution({
+          templateHash: result.templateHash,
+          taskType: result.taskType,
+          techStackTags: result.techStackTags,
+          firstPassSuccess: result.success,
+          retryCount: result.retryCount,
+          tokensConsumed: result.tokensConsumed,
+          gatePassRate: result.gatePassRate,
+          driftScore: 0, // computed elsewhere if needed
+          projectName: result.projectName,
+          buildId: result.buildId,
+        }, dbPath);
+
+        // Loop 2: If failed, capture the error pattern
+        if (!result.success && result.errorOutput) {
+          // Parse error output for error code, file path, message
+          const errorLines = result.errorOutput.split('\n').filter(l => l.trim());
+          for (const line of errorLines.slice(0, 5)) { // Process up to 5 errors per prompt
+            const tsMatch = line.match(/^(.+?)\((\d+),(\d+)\):\s*error\s+(TS\d+):\s*(.+)/);
+            if (tsMatch) {
+              const [, filePath, , , errorCode, errorMessage] = tsMatch;
+              const captured = captureError({
+                errorCode,
+                filePath,
+                errorMessage,
+                errorCategory: 'COMPILE',
+                techStack: result.techStackTags,
+              }, dbPath);
+
+              // Check if this error should be elevated to a governance rule
+              if (captured.isKnown) {
+                checkAutoElevation(captured.fingerprint, dbPath);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Learning failures must NEVER crash the build
+        console.error('[FORGE Learning] onPromptComplete failed (non-critical):', err);
+      }
+    }
+
+    /**
+     * Called once at the end of a FORGE build run.
+     * Saves state, analyzes for improvements, syncs to master.
+     * Lock is ALWAYS released, even on error.
+     */
+    export async function onRunEnd(
+      buildId: string,
+      projectPath: string,
+      runStats: {
+        promptsExecuted: number;
+        promptsPassed: number;
+        promptsFailed: number;
+        totalTokens: number;
+        startTime: string;
+      },
+      dbPath?: string
+    ): Promise<void> {
+      try {
+        // 1. Export session state
+        try {
+          exportSessionState({
+            projectPath,
+            buildId,
+            lastPromptExecuted: runStats.promptsExecuted,
+            endReason: runStats.promptsFailed > 0 ? 'FAILED' : 'COMPLETED',
+            runStats: {
+              promptsExecuted: runStats.promptsExecuted,
+              promptsPassed: runStats.promptsPassed,
+              promptsFailed: runStats.promptsFailed,
+              totalTokens: runStats.totalTokens,
+              durationMinutes: Math.round((Date.now() - new Date(runStats.startTime).getTime()) / 60000),
+            },
+            queueStatus: { total: runStats.promptsExecuted, completed: runStats.promptsPassed },
+          });
+        } catch (err) { console.error('[FORGE Learning] Session state export failed:', err); }
+
+        // 2. Loop 3: Update decision weights
+        try { updateDecisionWeights(buildId, dbPath); } catch { /* non-critical */ }
+
+        // 3. Loop 5: Analyze for evolutions
+        try {
+          const proposals = analyzeForEvolutions(buildId, dbPath);
+          if (proposals.length > 0) {
+            console.log(`[FORGE Learning] Generated ${proposals.length} evolution proposals for review`);
+          }
+        } catch { /* non-critical */ }
+
+        // 4. Generate session handoff document
+        try {
+          const state = { buildId, projectPath, runStats, timestamp: new Date().toISOString() };
+          exportSessionHandoff(projectPath, state);
+          console.log('[FORGE Learning] Session handoff generated');
+        } catch { /* non-critical */ }
+
+        // 5. Sync push to master
+        try {
+          const syncConfig = loadSyncConfig();
+          if (syncConfig.master_path) {
+            const localDb = dbPath || (await import('./database.js')).getForgeDbPath();
+            const machineId = getMachineId(dbPath);
+            const result = syncForgeMemory('push', localDb, syncConfig.master_path, machineId);
+            if (result.synced > 0) {
+              console.log(`[FORGE Learning] Pushed ${result.synced} records to master`);
+            }
+          }
+        } catch { /* sync is non-critical */ }
+      } finally {
+        // 6. ALWAYS remove the running lock — even if everything above failed
+        removeForgeLock(projectPath);
+      }
+    }
+    ```
+
+    Write EXACTLY this code to src/learning/integration.ts.
+
+    STEP 3: Modify src/phases/phase3-executor.ts MINIMALLY:
+    After reading the ENTIRE file, find:
+
+    a. The import section at the top. ADD this import:
+    ```typescript
+    import { onRunStart, onPromptComplete, onRunEnd } from '../learning/integration.js';
+    ```
+
+    b. The function that starts the build/execution loop (look for where buildId is generated or where the queue iteration begins). BEFORE the loop, ADD:
+    ```typescript
+    // Learning engine — non-critical, failures are caught internally
+    const learningState = await onRunStart(projectPath, buildId, ['typescript', 'nextjs'], projectName).catch(() => ({ knowledge: { rules: [], skills: [], fixPatterns: [], outcomes: [], evolutions: [] }, resumeState: null }));
+    ```
+    Adapt variable names (projectPath, buildId, projectName) to match what the existing code uses.
+
+    c. The place where each prompt result is handled (after claude-runner returns). ADD:
+    ```typescript
+    onPromptComplete({
+      promptId: /* current prompt id */,
+      success: /* boolean from result */,
+      retryCount: /* retry count */,
+      tokensConsumed: /* from ClaudeRunResult.tokensEstimated or similar */,
+      gatePassRate: /* gate pass rate if available, or 1.0 */,
+      errorOutput: /* stderr or error output if failed */,
+      buildId: /* build id */,
+      projectName: /* project name */,
+      taskType: /* task type or 'FIX' for repairs */,
+      techStackTags: ['typescript'],
+      templateHash: /* prompt hash or prompt id */,
+    });
+    ```
+    Map each field to the actual variable names used in phase3-executor.ts. Use the existing result object's properties.
+
+    d. The finally block or completion handler. ADD:
+    ```typescript
+    await onRunEnd(buildId, projectPath, {
+      promptsExecuted: /* total executed */,
+      promptsPassed: /* passed count */,
+      promptsFailed: /* failed count */,
+      totalTokens: /* total tokens */,
+      startTime: /* when the run started */,
+    }).catch(() => {});
+    ```
+
+    CRITICAL: Use .catch(() => {}) on every learning call so the existing executor is completely unaffected by learning failures. The learning engine is additive — if it breaks, the build continues exactly as before.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    ```
+    Verify the integration is minimal:
+    ```
+    git diff src/phases/phase3-executor.ts | head -50
+    ```
+    The diff should show only the import line and 3 function calls added. Nothing else should change.
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-010
+  name: "CLI Commands for Learning Engine"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    STEP 1: Read src/cli/index.ts COMPLETELY to understand the existing CLI pattern (Commander.js).
+    STEP 2: Read src/cli/commands/ directory if it exists — understand how subcommands are structured.
+    STEP 3: Read src/cli/config.ts to understand configuration patterns.
+
+    STEP 4: Create src/cli/commands/learning.ts with EXACTLY this code (adapt import paths and patterns to match whatever the existing CLI files use — if they use a different import style, match it):
+
+    ```typescript
+    // FORGE 2.0 CLI — Learning Engine Commands
+    import { Command } from 'commander';
+    import chalk from 'chalk';
+    import { existsSync, statSync } from 'node:fs';
+    import { initializeForgeMemory, getConnection, getForgeDbPath, getMachineId, closeConnection } from '../learning/database.js';
+    import { getGovernanceRules, getPendingEvolutions } from '../learning/queries.js';
+    import { syncForgeMemory, loadSyncConfig, getLastSyncTimestamp } from '../learning/sync.js';
+    import { VALID_TABLES } from '../learning/types.js';
+
+    export function registerLearningCommands(program: Command): void {
+      const learning = program
+        .command('learning')
+        .description('Manage the FORGE learning engine (SQLite knowledge base)');
+
+      // ── forge learning init ──────────────────────────────────────────
+      learning
+        .command('init')
+        .description('Initialize the learning database at ~/.forge/forge_memory.db')
+        .action(() => {
+          try {
+            const dbPath = getForgeDbPath();
+            initializeForgeMemory(dbPath);
+            const db = getConnection(dbPath);
+            const tables = db.prepare(
+              "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            ).all() as any[];
+            const sizeBytes = existsSync(dbPath) ? statSync(dbPath).size : 0;
+            const sizeKb = (sizeBytes / 1024).toFixed(1);
+
+            console.log(chalk.green('✔ Learning database initialized'));
+            console.log(`  Path:   ${chalk.cyan(dbPath)}`);
+            console.log(`  Size:   ${sizeKb} KB`);
+            console.log(`  Tables: ${tables.length}`);
+            tables.forEach((t: any) => console.log(`    - ${t.name}`));
+
+            const machineId = getMachineId(dbPath);
+            console.log(`  Machine ID: ${chalk.yellow(machineId)}`);
+          } catch (err) {
+            console.error(chalk.red('✖ Failed to initialize learning database:'), err);
+            process.exit(1);
+          }
+        });
+
+      // ── forge learning status ────────────────────────────────────────
+      learning
+        .command('status')
+        .description('Show learning database status and row counts')
+        .action(() => {
+          try {
+            const dbPath = getForgeDbPath();
+            if (!existsSync(dbPath)) {
+              console.log(chalk.yellow('Learning database not found. Run: forge learning init'));
+              return;
+            }
+            const db = getConnection(dbPath);
+            const sizeBytes = statSync(dbPath).size;
+            const sizeKb = (sizeBytes / 1024).toFixed(1);
+            const machineId = getMachineId(dbPath);
+            const lastSync = getLastSyncTimestamp(dbPath);
+
+            console.log(chalk.bold('\n📊 FORGE Learning Engine Status\n'));
+            console.log(`  Database: ${chalk.cyan(dbPath)}`);
+            console.log(`  Size:     ${sizeKb} KB`);
+            console.log(`  Machine:  ${chalk.yellow(machineId)}`);
+            console.log(`  Last Sync: ${lastSync === '1970-01-01T00:00:00.000Z' ? chalk.gray('never') : lastSync}`);
+            console.log(chalk.bold('\n  Table Row Counts:'));
+
+            for (const table of VALID_TABLES) {
+              try {
+                const row = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as any;
+                const count = row?.count ?? 0;
+                const color = count > 0 ? chalk.green : chalk.gray;
+                console.log(`    ${table.padEnd(25)} ${color(count)}`);
+              } catch {
+                console.log(`    ${table.padEnd(25)} ${chalk.red('error')}`);
+              }
+            }
+            console.log('');
+          } catch (err) {
+            console.error(chalk.red('✖ Failed to read learning database:'), err);
+          }
+        });
+
+      // ── forge learning sync ──────────────────────────────────────────
+      const sync = learning
+        .command('sync')
+        .description('Sync learning data with master drive');
+
+      sync
+        .command('pull')
+        .description('Pull learning data from master drive')
+        .action(() => {
+          try {
+            const config = loadSyncConfig();
+            if (!config.master_path) {
+              console.log(chalk.yellow('No master_path configured. Set it in ~/.forge/sync_config.json'));
+              return;
+            }
+            const dbPath = getForgeDbPath();
+            const machineId = getMachineId(dbPath);
+            console.log(`Pulling from ${chalk.cyan(config.master_path)}...`);
+            const result = syncForgeMemory('pull', dbPath, config.master_path, machineId);
+            if (result.synced > 0) {
+              console.log(chalk.green(`✔ Pulled ${result.synced} records from tables: ${result.tables.join(', ')}`));
+            } else {
+              console.log(chalk.gray('No new records to pull.'));
+            }
+          } catch (err) {
+            console.error(chalk.red('✖ Sync pull failed:'), err);
+          }
+        });
+
+      sync
+        .command('push')
+        .description('Push learning data to master drive')
+        .action(() => {
+          try {
+            const config = loadSyncConfig();
+            if (!config.master_path) {
+              console.log(chalk.yellow('No master_path configured. Set it in ~/.forge/sync_config.json'));
+              return;
+            }
+            const dbPath = getForgeDbPath();
+            const machineId = getMachineId(dbPath);
+            console.log(`Pushing to ${chalk.cyan(config.master_path)}...`);
+            const result = syncForgeMemory('push', dbPath, config.master_path, machineId);
+            if (result.synced > 0) {
+              console.log(chalk.green(`✔ Pushed ${result.synced} records to tables: ${result.tables.join(', ')}`));
+            } else {
+              console.log(chalk.gray('No new records to push.'));
+            }
+          } catch (err) {
+            console.error(chalk.red('✖ Sync push failed:'), err);
+          }
+        });
+
+      // ── forge learning evolutions ────────────────────────────────────
+      learning
+        .command('evolutions')
+        .description('List pending self-modification proposals')
+        .action(() => {
+          try {
+            const dbPath = getForgeDbPath();
+            if (!existsSync(dbPath)) {
+              console.log(chalk.yellow('Learning database not found. Run: forge learning init'));
+              return;
+            }
+            const evolutions = getPendingEvolutions(dbPath);
+            if (evolutions.length === 0) {
+              console.log(chalk.gray('No pending evolutions.'));
+              return;
+            }
+            console.log(chalk.bold(`\n🧬 ${evolutions.length} Pending Evolution Proposals\n`));
+            for (const evo of evolutions) {
+              const confidenceColor = evo.confidence >= 0.7 ? chalk.green : evo.confidence >= 0.4 ? chalk.yellow : chalk.red;
+              console.log(`  [${chalk.cyan(evo.evolution_type.padEnd(10))}] ${evo.proposed_change}`);
+              console.log(`    Confidence: ${confidenceColor((evo.confidence * 100).toFixed(0) + '%')}  |  Impact: ${evo.estimated_impact}`);
+              console.log(`    Created: ${evo.created_at}\n`);
+            }
+          } catch (err) {
+            console.error(chalk.red('✖ Failed to load evolutions:'), err);
+          }
+        });
+
+      // ── forge learning rules ─────────────────────────────────────────
+      learning
+        .command('rules')
+        .description('List active governance rules from the learning engine')
+        .action(() => {
+          try {
+            const dbPath = getForgeDbPath();
+            if (!existsSync(dbPath)) {
+              console.log(chalk.yellow('Learning database not found. Run: forge learning init'));
+              return;
+            }
+            const rules = getGovernanceRules([], undefined, dbPath);
+            if (rules.length === 0) {
+              console.log(chalk.gray('No active governance rules.'));
+              return;
+            }
+            console.log(chalk.bold(`\n📜 ${rules.length} Active Governance Rules\n`));
+            for (const rule of rules) {
+              const sourceColor = rule.source === 'AUTO_ELEVATED' ? chalk.yellow : rule.source === 'MANUAL' ? chalk.cyan : chalk.gray;
+              console.log(`  ${chalk.bold(rule.rule_short_name)} [${sourceColor(rule.source)}] (enforced ${rule.enforcement_count}x)`);
+              console.log(`    ${rule.rule_text}`);
+              console.log(`    Scope: ${rule.scope}${rule.project_name ? ' (' + rule.project_name + ')' : ''}\n`);
+            }
+          } catch (err) {
+            console.error(chalk.red('✖ Failed to load rules:'), err);
+          }
+        });
+    }
+    ```
+
+    Write EXACTLY this code to src/cli/commands/learning.ts.
+
+    STEP 5: Modify src/cli/index.ts to register the learning commands.
+    Read the existing file. Find where other commands are registered (look for .command() or .addCommand() calls). Add:
+    ```typescript
+    import { registerLearningCommands } from './commands/learning.js';
+    ```
+    at the imports, and:
+    ```typescript
+    registerLearningCommands(program);
+    ```
+    where other commands are registered. Match the exact pattern used for existing commands.
+
+    STEP 6: Add auto-initialization of the learning database in the build command.
+    Read src/cli/index.ts or whichever file defines the 'build' command. Find where the build action starts. Add at the very beginning of the action handler:
+    ```typescript
+    try { (await import('../learning/database.js')).initializeForgeMemory(); } catch { /* learning is non-critical */ }
+    ```
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    npx tsc
+    node dist/cli/index.js --help
+    node dist/cli/index.js learning --help
+    node dist/cli/index.js learning init
+    node dist/cli/index.js learning status
+    ```
+    The first two should show the learning command group. The last two should execute successfully — init creates the DB, status shows table counts.
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-011
+  name: "Tests for Learning Engine Modules"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    STEP 1: Read tests/memory.test.ts and the "test" script in package.json to understand the existing test framework. The project uses node:test (native Node.js test runner) with import syntax.
+
+    STEP 2: Create tests following the same pattern. Write EXACTLY this code for each test file:
+
+    Create tests/learning-database.test.ts:
+    ```typescript
+    import { describe, it, before, after } from 'node:test';
+    import assert from 'node:assert/strict';
+    import { join } from 'node:path';
+    import { tmpdir } from 'node:os';
+    import { unlinkSync, existsSync } from 'node:fs';
+    import { initializeForgeMemory, getConnection, getMachineId, closeConnection } from '../src/learning/database.js';
+
+    describe('Learning Engine — Database', () => {
+      const testDb = join(tmpdir(), `forge_db_test_${Date.now()}.db`);
+
+      after(() => {
+        closeConnection(testDb);
+        if (existsSync(testDb)) unlinkSync(testDb);
+      });
+
+      describe('initializeForgeMemory', () => {
+        it('should create all 14 tables', () => {
+          initializeForgeMemory(testDb);
+          const db = getConnection(testDb);
+          const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as any[];
+          const tableNames = tables.map((t: any) => t.name);
+          assert.ok(tableNames.length >= 14, `Expected 14+ tables, got ${tableNames.length}`);
+          assert.ok(tableNames.includes('prompt_scores'), 'Missing prompt_scores table');
+          assert.ok(tableNames.includes('fix_patterns'), 'Missing fix_patterns table');
+          assert.ok(tableNames.includes('governance_rules'), 'Missing governance_rules table');
+          assert.ok(tableNames.includes('build_outcomes'), 'Missing build_outcomes table');
+          assert.ok(tableNames.includes('hook_execution_log'), 'Missing hook_execution_log table');
+          assert.ok(tableNames.includes('adversary_findings'), 'Missing adversary_findings table');
+        });
+
+        it('should be idempotent — calling twice does not error or change table count', () => {
+          const db = getConnection(testDb);
+          const before = db.prepare("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table'").get() as any;
+          initializeForgeMemory(testDb);
+          const after = db.prepare("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table'").get() as any;
+          assert.equal(before.c, after.c, 'Table count changed after second init');
+        });
+
+        it('should create 20+ indexes', () => {
+          const db = getConnection(testDb);
+          const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'").all();
+          assert.ok(indexes.length >= 20, `Expected 20+ indexes, got ${indexes.length}`);
+        });
+
+        it('should set schema_version in forge_meta', () => {
+          const db = getConnection(testDb);
+          const row = db.prepare("SELECT value FROM forge_meta WHERE key = 'schema_version'").get() as any;
+          assert.equal(row.value, '1.0.0');
+        });
+      });
+
+      describe('getMachineId', () => {
+        it('should return a 16-character hex string', () => {
+          const id = getMachineId(testDb);
+          assert.equal(id.length, 16, `Expected 16 chars, got ${id.length}`);
+          assert.match(id, /^[0-9a-f]{16}$/, 'Should be lowercase hex');
+        });
+
+        it('should return the same value on repeated calls', () => {
+          const id1 = getMachineId(testDb);
+          const id2 = getMachineId(testDb);
+          assert.equal(id1, id2, 'Machine ID should be consistent');
+        });
+      });
+
+      describe('getConnection', () => {
+        it('should return a working database object', () => {
+          const db = getConnection(testDb);
+          assert.ok(db, 'Should return a database object');
+          const result = db.prepare('SELECT 1 + 1 as sum').get() as any;
+          assert.equal(result.sum, 2);
+        });
+
+        it('should use WAL journal mode', () => {
+          const db = getConnection(testDb);
+          const mode = db.pragma('journal_mode', { simple: true }) as string;
+          assert.equal(mode, 'wal', 'Should use WAL mode');
+        });
+      });
+    });
+    ```
+
+    Create tests/learning-fingerprint.test.ts:
+    ```typescript
+    import { describe, it } from 'node:test';
+    import assert from 'node:assert/strict';
+    import { getErrorFingerprint, generalizeFilePath, generalizeErrorMessage } from '../src/learning/fingerprint.js';
+
+    describe('Learning Engine — Error Fingerprinting', () => {
+      describe('getErrorFingerprint', () => {
+        it('should produce same fingerprint for same error pattern in different files', () => {
+          const f1 = getErrorFingerprint({
+            errorCode: 'TS2307', filePath: 'app/api/storms/route.ts',
+            errorMessage: "Module './StormMap' not found", techStack: ['typescript', 'nextjs']
+          });
+          const f2 = getErrorFingerprint({
+            errorCode: 'TS2307', filePath: 'app/api/alerts/route.ts',
+            errorMessage: "Module './AlertMap' not found", techStack: ['typescript', 'nextjs']
+          });
+          assert.equal(f1, f2, 'Same error pattern should produce same fingerprint');
+        });
+
+        it('should produce different fingerprints for different error codes', () => {
+          const f1 = getErrorFingerprint({
+            errorCode: 'TS2307', filePath: 'app/api/storms/route.ts',
+            errorMessage: "Module not found", techStack: ['typescript']
+          });
+          const f2 = getErrorFingerprint({
+            errorCode: 'TS2339', filePath: 'app/api/storms/route.ts',
+            errorMessage: "Property 'name' does not exist", techStack: ['typescript']
+          });
+          assert.notEqual(f1, f2, 'Different errors should have different fingerprints');
+        });
+
+        it('should return exactly 32 lowercase hex characters', () => {
+          const fp = getErrorFingerprint({
+            errorCode: 'TS2307', filePath: 'test.ts',
+            errorMessage: 'Module not found', techStack: ['typescript']
+          });
+          assert.equal(fp.length, 32);
+          assert.match(fp, /^[0-9a-f]{32}$/);
+        });
+
+        it('should be order-independent for tech stack tags', () => {
+          const f1 = getErrorFingerprint({
+            errorCode: 'TS2307', filePath: 'test.ts',
+            errorMessage: 'test', techStack: ['nextjs', 'typescript']
+          });
+          const f2 = getErrorFingerprint({
+            errorCode: 'TS2307', filePath: 'test.ts',
+            errorMessage: 'test', techStack: ['typescript', 'nextjs']
+          });
+          assert.equal(f1, f2, 'Tech stack order should not matter');
+        });
+      });
+
+      describe('generalizeFilePath', () => {
+        it('should wildcard entity-name directory segments', () => {
+          const result = generalizeFilePath('app/api/storms/route.ts');
+          assert.ok(result.includes('*'), 'Should contain wildcard');
+          assert.ok(result.includes('route.ts'), 'Should keep filename');
+          assert.ok(result.includes('app'), 'Should keep framework dir');
+          assert.ok(result.includes('api'), 'Should keep framework dir');
+        });
+
+        it('should keep framework directories intact', () => {
+          const result = generalizeFilePath('src/utils/helpers.ts');
+          assert.ok(!result.includes('*'), 'All segments are framework dirs — no wildcards');
+          assert.equal(result, 'src/utils/helpers.ts');
+        });
+
+        it('should handle Windows backslashes', () => {
+          const result = generalizeFilePath('app\\api\\storms\\route.ts');
+          assert.ok(!result.includes('\\'), 'Should normalize to forward slashes');
+        });
+      });
+
+      describe('generalizeErrorMessage', () => {
+        it('should replace quoted strings with *', () => {
+          const result = generalizeErrorMessage("Module './StormMap' not found");
+          assert.ok(!result.includes('StormMap'), 'Should remove specific names');
+          assert.ok(result.includes('Module'), 'Should keep structural words');
+        });
+
+        it('should replace double-quoted strings', () => {
+          const result = generalizeErrorMessage('Cannot find module "react-query"');
+          assert.ok(!result.includes('react-query'));
+        });
+
+        it('should keep structural TypeScript keywords', () => {
+          const result = generalizeErrorMessage("Property 'name' does not exist on type 'Storm'");
+          assert.ok(result.includes('Property'), 'Should keep Property');
+          assert.ok(result.includes('does not exist'), 'Should keep structural phrase');
+        });
+      });
+    });
+    ```
+
+    Create tests/learning-queries.test.ts:
+    ```typescript
+    import { describe, it, before, after } from 'node:test';
+    import assert from 'node:assert/strict';
+    import { join } from 'node:path';
+    import { tmpdir } from 'node:os';
+    import { unlinkSync, existsSync } from 'node:fs';
+    import { initializeForgeMemory, closeConnection } from '../src/learning/database.js';
+    import { saveToForgeMemory, getForgeMemory, getGovernanceRules, getPendingEvolutions, registerError } from '../src/learning/queries.js';
+
+    describe('Learning Engine — Queries', () => {
+      const testDb = join(tmpdir(), `forge_query_test_${Date.now()}.db`);
+
+      before(() => { initializeForgeMemory(testDb); });
+      after(() => {
+        closeConnection(testDb);
+        if (existsSync(testDb)) unlinkSync(testDb);
+      });
+
+      describe('saveToForgeMemory', () => {
+        it('should auto-generate a UUID id', () => {
+          const id = saveToForgeMemory('governance_rules', {
+            rule_text: 'Test rule', rule_short_name: 'test-1',
+            source: 'MANUAL', tech_stack_tags: JSON.stringify(['typescript']),
+            scope: 'GLOBAL', active: 1, enforcement_count: 0,
+          }, testDb);
+          assert.ok(id, 'Should return an id');
+          assert.ok(id.includes('-'), 'Should be UUID format');
+        });
+
+        it('should auto-add machine_id', () => {
+          const id = saveToForgeMemory('governance_rules', {
+            rule_text: 'Test rule 2', rule_short_name: 'test-2',
+            source: 'MANUAL', tech_stack_tags: '[]', scope: 'GLOBAL', active: 1, enforcement_count: 0,
+          }, testDb);
+          const rows = getForgeMemory('governance_rules', { where: 'id = ?', params: [id] }, testDb);
+          assert.equal(rows.length, 1);
+          assert.ok(rows[0].machine_id, 'Should have machine_id');
+          assert.equal(rows[0].machine_id.length, 16, 'machine_id should be 16 chars');
+        });
+
+        it('should auto-add created_at in ISO format', () => {
+          const id = saveToForgeMemory('governance_rules', {
+            rule_text: 'Test rule 3', rule_short_name: 'test-3',
+            source: 'MANUAL', tech_stack_tags: '[]', scope: 'GLOBAL', active: 1, enforcement_count: 0,
+          }, testDb);
+          const rows = getForgeMemory('governance_rules', { where: 'id = ?', params: [id] }, testDb);
+          assert.ok(rows[0].created_at, 'Should have created_at');
+          assert.ok(rows[0].created_at.includes('T'), 'Should be ISO format');
+        });
+
+        it('should reject invalid table names', () => {
+          assert.throws(() => {
+            saveToForgeMemory('nonexistent_table', { data: 'test' }, testDb);
+          }, /invalid table/i);
+        });
+      });
+
+      describe('getForgeMemory', () => {
+        it('should return empty array for no matches', () => {
+          const result = getForgeMemory('prompt_scores', {}, testDb);
+          assert.ok(Array.isArray(result), 'Should return array');
+        });
+
+        it('should filter with WHERE clause', () => {
+          const id = saveToForgeMemory('governance_rules', {
+            rule_text: 'Unique rule', rule_short_name: 'unique-test',
+            source: 'MANUAL', tech_stack_tags: '[]', scope: 'PROJECT_SPECIFIC', project_name: 'test-project',
+            active: 1, enforcement_count: 0,
+          }, testDb);
+          const result = getForgeMemory('governance_rules', {
+            where: 'rule_short_name = ?', params: ['unique-test']
+          }, testDb);
+          assert.equal(result.length, 1);
+          assert.equal(result[0].rule_short_name, 'unique-test');
+        });
+
+        it('should respect LIMIT', () => {
+          const result = getForgeMemory('governance_rules', { limit: 1 }, testDb);
+          assert.ok(result.length <= 1);
+        });
+      });
+
+      describe('getGovernanceRules', () => {
+        it('should return only active GLOBAL rules when no project specified', () => {
+          const rules = getGovernanceRules(['typescript'], undefined, testDb);
+          assert.ok(Array.isArray(rules));
+          for (const rule of rules) {
+            assert.equal(rule.active, 1, 'Should only return active rules');
+          }
+        });
+      });
+
+      describe('getPendingEvolutions', () => {
+        it('should return empty array when no evolutions exist', () => {
+          const result = getPendingEvolutions(testDb);
+          assert.ok(Array.isArray(result));
+        });
+      });
+    });
+    ```
+
+    Create tests/learning-sync.test.ts:
+    ```typescript
+    import { describe, it, after } from 'node:test';
+    import assert from 'node:assert/strict';
+    import { join } from 'node:path';
+    import { tmpdir } from 'node:os';
+    import { mkdirSync, existsSync, readFileSync, rmSync } from 'node:fs';
+    import { acquireSyncLock, releaseSyncLock, loadSyncConfig, syncForgeMemory, getLastSyncTimestamp, setLastSyncTimestamp } from '../src/learning/sync.js';
+    import { initializeForgeMemory } from '../src/learning/database.js';
+
+    describe('Learning Engine — Sync', () => {
+      const testDir = join(tmpdir(), `forge_sync_test_${Date.now()}`);
+      mkdirSync(testDir, { recursive: true });
+
+      after(() => { rmSync(testDir, { recursive: true, force: true }); });
+
+      describe('acquireSyncLock', () => {
+        it('should create a lock file', () => {
+          const lockPath = join(testDir, 'test1.lock');
+          const acquired = acquireSyncLock(lockPath, 'test-machine', 5000, 1000);
+          assert.ok(acquired, 'Should acquire lock');
+          assert.ok(existsSync(lockPath), 'Lock file should exist');
+          releaseSyncLock(lockPath);
+        });
+
+        it('should write valid JSON with machine_id and pid', () => {
+          const lockPath = join(testDir, 'test2.lock');
+          acquireSyncLock(lockPath, 'my-machine', 5000, 1000);
+          const data = JSON.parse(readFileSync(lockPath, 'utf8'));
+          assert.equal(data.machine_id, 'my-machine');
+          assert.ok(data.pid, 'Should have pid');
+          assert.ok(data.acquired_at, 'Should have timestamp');
+          releaseSyncLock(lockPath);
+        });
+      });
+
+      describe('releaseSyncLock', () => {
+        it('should remove the lock file', () => {
+          const lockPath = join(testDir, 'test3.lock');
+          acquireSyncLock(lockPath, 'test', 5000, 1000);
+          releaseSyncLock(lockPath);
+          assert.ok(!existsSync(lockPath), 'Lock should be removed');
+        });
+
+        it('should not throw on nonexistent file', () => {
+          assert.doesNotThrow(() => {
+            releaseSyncLock(join(testDir, 'does-not-exist.lock'));
+          });
+        });
+      });
+
+      describe('loadSyncConfig', () => {
+        it('should return defaults when config file does not exist', () => {
+          const config = loadSyncConfig(join(testDir, 'nonexistent.json'));
+          assert.equal(config.max_wait_seconds, 30);
+          assert.equal(config.retry_interval_seconds, 5);
+          assert.equal(config.lock_file, 'forge_sync.lock');
+        });
+      });
+
+      describe('syncForgeMemory', () => {
+        it('should return synced: 0 when master path does not exist', () => {
+          const result = syncForgeMemory('pull', join(testDir, 'local.db'), '/nonexistent/master.db', 'test');
+          assert.equal(result.synced, 0);
+          assert.deepEqual(result.tables, []);
+        });
+      });
+
+      describe('timestamps', () => {
+        it('should read default epoch when no timestamp set', () => {
+          const localDb = join(testDir, 'ts_test.db');
+          initializeForgeMemory(localDb);
+          const ts = getLastSyncTimestamp(localDb);
+          assert.ok(ts.includes('1970'), 'Default should be epoch');
+        });
+
+        it('should set and read custom timestamp', () => {
+          const localDb = join(testDir, 'ts_test.db');
+          setLastSyncTimestamp(localDb, '2026-06-23T12:00:00.000Z');
+          const ts = getLastSyncTimestamp(localDb);
+          assert.ok(ts.includes('2026'), 'Should return set timestamp');
+        });
+      });
+    });
+    ```
+
+    Write EXACTLY this code to each test file.
+
+    STEP 3: Verify tests pass:
+    ```
+    npx tsc --noEmit
+    npx tsc
+    npm test 2>&1 | tail -40
+    ```
+    If the test runner doesn't pick up the new files, update package.json test script to include them. The existing test script uses `node --test` which should auto-discover test files.
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-012
+  name: "Run 1 Final Audit — Governance Document Update"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2. Run 1 enhancement is complete.
+
+    STEP 1 — FULL AUDIT (run every command, capture output):
+    ```
+    find src/learning -name "*.ts" | sort
+    find src/learning -name "*.ts" -exec wc -l {} + | tail -1
+    find tests -name "learning*.test.ts" | wc -l
+    npx tsc --noEmit
+    npm test 2>&1 | tail -30
+    node dist/cli/index.js learning status 2>&1
+    ```
+
+    STEP 2 — UPDATE STATE_OF_THE_BUILD.md:
+    Add a new section for "Learning Engine Enhancement" with actual completion status:
+    - SQLite Database (14 tables): status from audit
+    - Query Layer (15 functions): status from audit
+    - Error Fingerprinting: status from audit
+    - Five Learning Loops: status from audit
+    - Cross-Machine Sync: status from audit
+    - Enhanced Hooks (24 defaults): status from audit
+    - PreCompact + Session Orchestration: status from audit
+    - Executor Integration: status from audit
+    - CLI Commands: status from audit
+    - Tests: status from audit
+    Set completion: "Run 1 Enhancement: X/12 prompts complete"
+
+    STEP 3 — UPDATE SESSION_STATE.md:
+    - Current Session: Run 1 Enhancement
+    - Phase: POST-BUILD or appropriate status
+    - Prompts Executed/Passed/Failed: actual counts
+    - Next Action: "Review handoff, begin Run 2: RETROFIT Pipeline"
+
+    STEP 4 — CREATE CHANGELOG-RUN1.md:
+    Document everything that was added:
+    - New files created (full list with paths)
+    - Existing files modified (list which ones and what changed)
+    - New dependencies added (better-sqlite3, @types/better-sqlite3)
+    - New CLI commands added
+    - Architecture decisions (SQLite alongside Supabase, ESM modules, etc.)
+    - Total lines of new code
+    - Test coverage summary
+
+    STEP 5 — CREATE .forge/ENHANCEMENT_AUDIT.md:
+    - Complete inventory of src/learning/ files with purpose and line count
+    - Function registry: every exported function with file location and signature
+    - Database schema: all 14 tables confirmed created
+    - Integration points: where learning hooks into existing code
+
+    ALL content must be based on ACTUAL FILE READS and COMMAND OUTPUT. Do not assume anything — verify from the codebase.
+
+    VERIFICATION:
+    ```
+    npx tsc --noEmit
+    test -f CHANGELOG-RUN1.md && echo "Changelog: EXISTS" || echo "FAIL: no changelog"
+    test -f .forge/ENHANCEMENT_AUDIT.md && echo "Audit: EXISTS" || echo "FAIL: no audit"
+    cat STATE_OF_THE_BUILD.md | head -30
+    ```
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.

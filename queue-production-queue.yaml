@@ -1,0 +1,44 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_PRODUCTION_QUEUE.md, SPEC_PRODUCTION_TIMELINE.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: prodq-001
+    phase: investigate
+    description: "Audit real vs spec'd state of production queue and timeline"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_PRODUCTION_QUEUE.md, SPEC_PRODUCTION_TIMELINE.md,
+      components/admin/ProductionQueueTable.tsx,
+      components/admin/ProductionQueueRealtime.tsx,
+      components/account/ProductionTimeline.tsx, and lib/admin/orderStages.ts
+      in full. Determine exactly which production stages are real and wired
+      to real order/machine_jobs data vs. which are UI shells with mock or
+      placeholder data. Write PRODUCTION_QUEUE_AUDIT.md at the project root
+      with findings cited to file/line and exactly what the next prompt
+      should build to make the queue and customer-facing timeline fully
+      real end to end.
+    gates:
+      - type: file_exists
+        files:
+          - PRODUCTION_QUEUE_AUDIT.md
+
+  - id: prodq-002
+    phase: implement
+    description: "Close production queue/timeline gaps per audit"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read PRODUCTION_QUEUE_AUDIT.md in full. Implement exactly what it
+      specifies. Every stage transition must write a real DB row/update,
+      readable by both the admin ProductionQueueTable and the customer
+      ProductionTimeline from the same source of truth -- do not build two
+      separate mock data paths that can drift.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: wire production queue and customer timeline to real data"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

@@ -1,0 +1,18 @@
+release_id: PIL-RELEASE-32
+version: 1.0.0
+title: Opportunity Qualification Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-31-v1.0.0
+new_agent:
+  id: BEN-QLF-04
+  path: 23-agents/qualification/BEN-QLF-04-opportunity-qualification.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-QLF-04-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 34
+remaining_agent_specifications: 10
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_claimed: false
+  tests_claimed: false
+  production_score_preassigned: false

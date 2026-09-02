@@ -1,0 +1,227 @@
+openapi: "3.1.0"
+info:
+  title: PIL Shared Agent Contracts
+  version: "1.0.0"
+  description: Canonical schemas. Implementations may extend but may not weaken required fields or invariants.
+jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema"
+x-invariants:
+  - every_record_is_tenant_scoped
+  - all_identifiers_are_opaque_uuidv7_or_equivalent
+  - timestamps_are_utc_rfc3339
+  - money_uses_decimal_minor_units_plus_iso_currency
+  - confidence_is_calibrated_0_to_1_and_not_a_substitute_for_evidence
+  - all_mutating_commands_require_idempotency_key_and_expected_version
+components:
+  schemas:
+    Goal:
+      type: object
+      additionalProperties: false
+      required: [goal_id, tenant_id, objective, status, priority, constraints, success_criteria, stop_conditions, budgets, autonomy_ceiling, created_at, version]
+      properties:
+        goal_id: {type: string}
+        tenant_id: {type: string}
+        parent_goal_id: {type: [string, "null"]}
+        objective: {type: string, minLength: 10}
+        rationale: {type: string}
+        status:
+          enum: [PROPOSED, VALIDATED, ACTIVE, PLANNING, RESEARCHING, EXECUTING, OBSERVING, REPLANNING, QUALIFIED, DISQUALIFIED, ENGAGEMENT_READY, CULTIVATION, AWAITING_RESPONSE, MONITORING, RESEARCH_STALE, BLOCKED_POLICY, BLOCKED_HUMAN, FAILED_RECOVERABLE, FAILED_TERMINAL, SATISFIED, PAUSED, REOPENED, SUPERSEDED]
+        priority: {type: integer, minimum: 0, maximum: 100}
+        constraints: {type: array, items: {type: string}}
+        success_criteria: {type: array, minItems: 1, items: {type: string}}
+        stop_conditions: {type: array, minItems: 1, items: {type: string}}
+        budgets: {$ref: '#/components/schemas/BudgetEnvelope'}
+        autonomy_ceiling: {enum: [A0, A1, A2, A3, A4]}
+        freshness_requirement: {type: [string, "null"]}
+        minimum_confidence: {type: number, minimum: 0, maximum: 1}
+        policy_snapshot_id: {type: string}
+        created_at: {type: string, format: date-time}
+        deadline: {type: [string, "null"], format: date-time}
+        version: {type: integer, minimum: 1}
+    BudgetEnvelope:
+      type: object
+      additionalProperties: false
+      required: [wall_clock_ms, token_limit, tool_call_limit, monetary_minor_units, currency, delegation_limit, max_depth]
+      properties:
+        wall_clock_ms: {type: integer, minimum: 1}
+        token_limit: {type: integer, minimum: 1}
+        tool_call_limit: {type: integer, minimum: 0}
+        monetary_minor_units: {type: integer, minimum: 0}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+        delegation_limit: {type: integer, minimum: 0}
+        max_depth: {type: integer, minimum: 0, maximum: 3}
+    DelegatedTask:
+      type: object
+      additionalProperties: false
+      required: [task_id, tenant_id, goal_id, parent_agent, child_agent, objective, constraints, context_refs, allowed_tools, allowed_data_classes, prohibited_data_classes, budgets, deadline, freshness_requirement, minimum_confidence, success_criteria, stop_conditions, escalation_conditions, max_autonomy, idempotency_key, trace_id]
+      properties:
+        task_id: {type: string}
+        tenant_id: {type: string}
+        goal_id: {type: string}
+        parent_task_id: {type: [string, "null"]}
+        parent_agent: {type: string, pattern: '^BEN-[A-Z]{3}-[0-9]{2}$'}
+        child_agent: {type: string, pattern: '^BEN-[A-Z]{3}-[0-9]{2}$'}
+        objective: {type: string}
+        constraints: {type: array, items: {type: string}}
+        context_refs: {type: array, items: {type: string}}
+        allowed_tools: {type: array, items: {type: string}}
+        allowed_data_classes: {type: array, items: {type: string}}
+        prohibited_data_classes: {type: array, minItems: 1, items: {type: string}}
+        budgets: {$ref: '#/components/schemas/BudgetEnvelope'}
+        deadline: {type: string, format: date-time}
+        freshness_requirement: {type: string}
+        minimum_confidence: {type: number, minimum: 0, maximum: 1}
+        success_criteria: {type: array, minItems: 1, items: {type: string}}
+        stop_conditions: {type: array, minItems: 1, items: {type: string}}
+        escalation_conditions: {type: array, minItems: 1, items: {type: string}}
+        max_autonomy: {enum: [A0, A1, A2, A3, A4]}
+        idempotency_key: {type: string}
+        trace_id: {type: string}
+    AgentRun:
+      type: object
+      required: [run_id, tenant_id, goal_id, agent_id, state, observed_state_ref, plan_version, policy_snapshot_id, budget_reservation_id, trace_id, started_at, version]
+      properties:
+        run_id: {type: string}
+        tenant_id: {type: string}
+        goal_id: {type: string}
+        task_id: {type: [string, "null"]}
+        agent_id: {type: string}
+        state: {enum: [CREATED, OBSERVING, PLANNING, AUTHORIZING, EXECUTING, WAITING, EVALUATING, REPLANNING, ESCALATED, PAUSED, SATISFIED, FAILED_RECOVERABLE, FAILED_TERMINAL, CANCELLED]}
+        observed_state_ref: {type: string}
+        plan_version: {type: integer, minimum: 0}
+        policy_snapshot_id: {type: string}
+        budget_reservation_id: {type: string}
+        trace_id: {type: string}
+        started_at: {type: string, format: date-time}
+        heartbeat_at: {type: [string, "null"], format: date-time}
+        completed_at: {type: [string, "null"], format: date-time}
+        version: {type: integer, minimum: 1}
+    Plan:
+      type: object
+      required: [plan_id, run_id, version, hypothesis, steps, risk_assessment, expected_information_gain, stop_conditions, created_at]
+      properties:
+        plan_id: {type: string}
+        run_id: {type: string}
+        version: {type: integer, minimum: 1}
+        supersedes_plan_id: {type: [string, "null"]}
+        hypothesis: {type: string}
+        steps:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [step_id, objective, dependencies, action_type, expected_evidence, authorization_required, status]
+            properties:
+              step_id: {type: string}
+              objective: {type: string}
+              dependencies: {type: array, items: {type: string}}
+              action_type: {enum: [TOOL, DELEGATE, EVALUATE, WAIT, ESCALATE, TERMINATE]}
+              action_ref: {type: [string, "null"]}
+              expected_evidence: {type: array, items: {type: string}}
+              authorization_required: {type: boolean}
+              status: {enum: [PENDING, READY, RUNNING, SUCCEEDED, FAILED, SKIPPED, CANCELLED]}
+        risk_assessment: {type: array, items: {type: string}}
+        expected_information_gain: {type: number, minimum: 0}
+        stop_conditions: {type: array, minItems: 1, items: {type: string}}
+        created_at: {type: string, format: date-time}
+    EvidenceRecord:
+      type: object
+      additionalProperties: false
+      required: [evidence_id, tenant_id, source_snapshot_id, source_url, source_title, source_type, publisher, retrieved_at, excerpt_hash, agent_id, research_run_id, permissibility_decision_id, quality_tier]
+      properties:
+        evidence_id: {type: string}
+        tenant_id: {type: string}
+        source_snapshot_id: {type: string}
+        source_url: {type: string, format: uri}
+        source_title: {type: string}
+        source_type: {type: string}
+        publisher: {type: string}
+        retrieved_at: {type: string, format: date-time}
+        published_at: {type: [string, "null"], format: date-time}
+        excerpt: {type: [string, "null"]}
+        excerpt_hash: {type: string}
+        agent_id: {type: string}
+        research_run_id: {type: string}
+        permissibility_decision_id: {type: string}
+        quality_tier: {enum: [PRIMARY_AUTHORITATIVE, PRIMARY_SELF_REPORTED, SECONDARY_REPUTABLE, AGGREGATOR, DISCOVERY_ONLY, PROHIBITED]}
+    Claim:
+      type: object
+      required: [claim_id, tenant_id, subject_entity_id, predicate, value, classification, evidence_refs, confidence, verification_status, freshness_status, contradiction_status, lineage, version]
+      properties:
+        claim_id: {type: string}
+        tenant_id: {type: string}
+        subject_entity_id: {type: string}
+        predicate: {type: string}
+        value: {}
+        classification: {enum: [VERIFIED_FACT, CORROBORATED_FACT, SINGLE_SOURCE_FACT, REASONED_INFERENCE, ESTIMATE, UNVERIFIED, CONTRADICTED, STALE]}
+        evidence_refs: {type: array, items: {type: string}}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        verification_status: {type: string}
+        freshness_status: {type: string}
+        contradiction_status: {type: string}
+        valid_from: {type: [string, "null"], format: date-time}
+        valid_to: {type: [string, "null"], format: date-time}
+        lineage: {type: array, items: {type: string}}
+        version: {type: integer, minimum: 1}
+    AgentDecision:
+      type: object
+      required: [decision_id, tenant_id, run_id, agent_id, decision_type, alternatives_considered, selected_action, rationale, evidence_refs, policy_decision_refs, confidence, created_at]
+      properties:
+        decision_id: {type: string}
+        tenant_id: {type: string}
+        run_id: {type: string}
+        agent_id: {type: string}
+        decision_type: {type: string}
+        alternatives_considered: {type: array, minItems: 2, items: {type: string}}
+        selected_action: {type: string}
+        rationale: {type: string}
+        evidence_refs: {type: array, items: {type: string}}
+        policy_decision_refs: {type: array, items: {type: string}}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        created_at: {type: string, format: date-time}
+    AgentEvent:
+      type: object
+      required: [event_id, event_type, schema_version, tenant_id, aggregate_id, aggregate_version, occurred_at, producer, correlation_id, causation_id, trace_id, payload]
+      properties:
+        event_id: {type: string}
+        event_type: {type: string}
+        schema_version: {type: string}
+        tenant_id: {type: string}
+        aggregate_id: {type: string}
+        aggregate_version: {type: integer, minimum: 1}
+        occurred_at: {type: string, format: date-time}
+        producer: {type: string}
+        correlation_id: {type: string}
+        causation_id: {type: string}
+        trace_id: {type: string}
+        payload: {type: object}
+x-command-contract:
+  required_envelope: [command_id, tenant_id, actor_id, idempotency_key, expected_version, policy_snapshot_id, trace_id, requested_at, payload]
+x-error-taxonomy:
+  retryable: [PROVIDER_TIMEOUT, RATE_LIMITED, TRANSIENT_NETWORK, WORKER_LOST, DEPENDENCY_UNAVAILABLE]
+  non_retryable: [SCHEMA_INVALID, POLICY_DENIED, AUTHORITY_EXCEEDED, PROHIBITED_DATA, TENANT_MISMATCH]
+  investigate: [ENTITY_AMBIGUITY, EVIDENCE_CONTRADICTION, DUPLICATE_SIDE_EFFECT, STATE_CORRUPTION]
+x-event-taxonomy:
+  - GoalCreated
+  - GoalValidated
+  - GoalActivated
+  - GoalPaused
+  - GoalSatisfied
+  - GoalBlocked
+  - AgentRunStarted
+  - ObservationCaptured
+  - PlanCreated
+  - PlanRevised
+  - TaskDelegated
+  - ToolAuthorized
+  - ToolInvocationCompleted
+  - EvidenceCaptured
+  - ClaimProposed
+  - CriticReviewRequested
+  - CriticReviewCompleted
+  - BudgetThresholdReached
+  - AgentRunEscalated
+  - AgentRunFailed
+  - AgentRunRecovered
+  - OpportunityQualified
+  - MonitoringTriggered
+

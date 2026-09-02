@@ -1,0 +1,40 @@
+program: PIL_ENTERPRISE_QUALITY_REMEDIATION
+version: "1.0.0"
+governing_reference: BEN-SUP-01
+completion_rule: "A file is not complete until all G0-G5 gates pass; file existence and prose length are not completion evidence."
+current_classification:
+  BEN-SUP-01: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-SUP-02: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-SUP-03: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-SUP-04: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-SUP-05: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-SUP-06: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-DIS-01: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-DIS-02: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+  BEN-DIS-03: {status: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE, action: implement_and_execute_G0_G5}
+mandatory_audit_dimensions:
+  - unique_reasoning_boundary
+  - durable_goal_and_state_machine
+  - observation_plan_action_evaluation_replanning
+  - typed_inputs_outputs_commands_events_and_errors
+  - tool_source_data_and_authority_boundaries
+  - delegation_and_recursion
+  - evidence_provenance_freshness_contradiction_and_critic
+  - memory_context_and_learning
+  - tenant_security_privacy_and_policy
+  - budget_rate_model_token_and_stopping_economics
+  - idempotency_concurrency_retry_recovery_and_compensation
+  - api_database_migration_and_integration_contracts
+  - observability_audit_operator_controls_and_runbooks
+  - unit_property_contract_integration_e2e_adversarial_security_load_chaos_recovery_tests
+  - agent_specific_gold_dataset_and_calibration
+  - chain_it_traceability_and_truthful_readiness_verdict
+blocked_actions:
+  - author_new_agents_before_existing_remediation
+  - count_provisional_files_as_completed
+  - preassign_95_100_or_100_100
+  - compress_agent_specific_requirements_into_shared_boilerplate
+  - claim_implementation_or_test_results_without_execution_evidence
+remediation_order: [BEN-SUP-04, BEN-SUP-05, BEN-SUP-06, BEN-DIS-01, BEN-DIS-02, BEN-DIS-03, BEN-SUP-03, BEN-SUP-02, BEN-SUP-01]
+remediation_phase_status: COMPLETE_AT_SPECIFICATION_LEVEL
+next_phase: AUTHOR_REMAINING_AGENTS_AT_FULL_ENTERPRISE_DEPTH

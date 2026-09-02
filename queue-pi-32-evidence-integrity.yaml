@@ -1,0 +1,413 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-32: EVIDENCE INTEGRITY
+#
+# The last two knowledge-integrity agents: BEN-KNW-03 (does the
+# evidence actually support the claim?) and BEN-KNW-04 (which of
+# two conflicting truths is current?). After this queue, the
+# truth layer polices itself: fabricated citations get caught
+# against immutable snapshot bytes, circular sourcing gets
+# detected, staleness triggers re-research, and contradictions
+# get adjudicated with temporal reasoning instead of last-write-
+# wins. Family 7 complete; Phase 3 complete.
+#
+# DIVISION OF LABOR: deterministic primitives do everything
+# mechanically checkable (excerpt-in-snapshot, tier lookup,
+# citation-graph cycles, freshness arithmetic); the agents reason
+# about what determinism cannot decide (does this excerpt
+# SEMANTICALLY support this claim; which temporal reading is
+# true). Same conservative pattern as pi-31.
+#
+# MODEL SPEND RULE unchanged: CI on FakeProvider; one bounded
+# live eval per agent in pi32-009.
+# ============================================================
+
+prompts:
+
+  - id: pi32-001
+    phase: build
+    description: "Preflight: KNW-03/04 contracts read, substrate green"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read FAMILY-7-KNOWLEDGE-OPS.md's BEN-KNW-03 and BEN-KNW-04
+         contracts in full; the registry's claims + sources sections;
+         EVENT_TAXONOMY's claim/contradiction/freshness events;
+         PRIVACY_CONTROLS' source-tier definitions.
+      2. Health: pnpm -r test green; resolution-proof re-run green;
+         migrate --status clean. Capture to
+         evidence\pi-32\preflight.txt.
+      3. Create scripts\verify\verify-pi32-001.mjs: exits 0 only if
+         both contracts' 24 field headings are present and re-runs
+         were green.
+      4. Run: node scripts/verify/verify-pi32-001.mjs
+    expected_outputs:
+      - evidence/pi-32/preflight.txt
+      - scripts/verify/verify-pi32-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi32-002
+    phase: build
+    description: "Deterministic verification primitives: excerpt-in-snapshot, tiers, citation cycles"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\verification\:
+         - excerptInSnapshot(claimId): retrieve the claim's snapshot
+           via SnapshotService, normalize both texts (whitespace,
+           entities, case per a documented normalization - the excerpt
+           must appear in the ACTUAL RETRIEVED BYTES; a claim whose
+           excerpt is absent from its own cited source is a
+           fabrication signal, verdict EXCERPT_NOT_FOUND);
+         - sourceTier(claimId): resolve through sources +
+           permissibility to the tier; tierPolicy(claimType) - the
+           minimum tier + corroboration count the registry/
+           PRIVACY_CONTROLS require per consequential claim type
+           (encode the policy table; if the docs left counts open,
+           conservative defaults + AOQ);
+         - citationGraph(entityRef): build the claim-source graph and
+           detect circular sourcing per KNW-03's contract - same
+           ultimate origin (domain/publisher collapse) counted ONCE
+           for corroboration; A-cites-B-cites-A chains flagged;
+         - corroborationState(claimId): independent-origin count vs
+           the policy.
+      2. Vitest: excerpt present/absent/whitespace-variant; tier
+         resolution; two claims from the same publisher counting as
+         one origin; a circular pair flagged; corroboration math.
+      3. Green; evidence\pi-32\verification-primitives-tests.txt.
+         Typecheck clean.
+      4. Create scripts\verify\verify-pi32-002.mjs standard pattern
+         plus the fabrication-signal and same-origin tests present.
+      5. Run: node scripts/verify/verify-pi32-002.mjs
+    expected_outputs:
+      - packages/services/src/verification/index.ts
+      - scripts/verify/verify-pi32-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-003
+    phase: build
+    description: "BEN-KNW-03 as code: the evidence verifier"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\knowledge\BEN-KNW-03.ts:
+         field-for-field from FAMILY-7; A3; tools: the verification
+         primitives (registered per TOOL_CONTRACTS), claim reads,
+         snapshot retrieval; its writes: verification_status
+         transitions ONLY (the legal status-evolution set from
+         pi-11's claim trigger - VERIFIED_FACT/CORROBORATED_FACT/
+         SINGLE_SOURCE_FACT downgrades and upgrades per the 8-status
+         model), never claim content. Its reasoning task: given the
+         deterministic results, does the excerpt SEMANTICALLY support
+         the claim's assertion (an excerpt can be present yet not
+         support - the semantic gap determinism cannot close);
+         structured output: per-claim verdict, status transition,
+         rationale, corroboration requests (typed research asks when
+         support is thin).
+      2. Prompts per the hardened templates; conservative instruction:
+         when semantic support is arguable, downgrade and request
+         corroboration rather than bless.
+      3. Vitest (FakeProvider through the real kernel): deterministic
+         short-circuits bypass the model (EXCERPT_NOT_FOUND never
+         reaches reasoning - routing test); a semantic-gap case
+         (excerpt present, claim overstates it) downgrades with
+         rationale; status transitions land legally (the pi-11
+         trigger accepts them); corroboration requests surface typed;
+         the no-content-writes restriction (tool set lacks
+         writeClaim/supersede - assert).
+      4. Green; evidence\pi-32\knw03-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi32-003.mjs: standard plus the
+         routing and semantic-gap tests present.
+      6. Run: node scripts/verify/verify-pi32-003.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/BEN-KNW-03.ts
+      - scripts/verify/verify-pi32-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-004
+    phase: build
+    description: "KNW-03 golden evaluation suite"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. __evals__\BEN-KNW-03\: golden fixtures per the contract's
+         evaluation sketch: (a) fabricated excerpt (absent from
+         snapshot) -> EXCERPT_NOT_FOUND deterministically, claim
+         flagged, never VERIFIED; (b) circular pair (two claims, one
+         origin) -> corroboration NOT satisfied, SINGLE_SOURCE;
+         (c) genuine two-independent-origin corroboration ->
+         CORROBORATED_FACT; (d) semantic overreach (excerpt says
+         "served on the gala committee", claim says "board member")
+         -> downgrade + corroboration request; (e) a consequential
+         wealth claim from a low-tier source -> tier policy blocks
+         VERIFIED regardless of excerpt match.
+         Harness per EVALUATION_FRAMEWORK; FakeProvider scripted
+         reasonable.
+      2. Green; evidence\pi-32\knw03-evals.txt.
+      3. Create scripts\verify\verify-pi32-004.mjs: all five expected
+         outcomes passed.
+      4. Run: node scripts/verify/verify-pi32-004.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/__evals__/BEN-KNW-03/index.ts
+      - scripts/verify/verify-pi32-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-005
+    phase: build
+    description: "Freshness engine: policy-driven staleness with re-research triggers"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0029_freshness_policies.sql (per the registry; if
+         it embedded policies in pi.config, follow that instead):
+         freshness windows per claim_type (board seats age faster
+         than education history - seed the policy table with reasoned
+         per-type windows, each with a comment; conservative defaults
+         + AOQ where the docs were silent). Standard migration
+         pattern (expectations, proofs, matrix).
+      2. packages\services\src\verification\freshness.ts: the sweep -
+         claims past their window transition freshness_status to
+         STALE (legal status evolution), emit the staleness event per
+         EVENT_TAXONOMY carrying the claim + its entity + a
+         re-research request payload (the typed ask a future
+         discovery/intelligence goal consumes); scheduled as a
+         workflow-engine recurring task (the engine's scheduling
+         mechanism from pi-12; if recurrence was not built there, add
+         it now minimally - a schedules table + tick handler - with a
+         dated registry amendment).
+      3. Vitest: per-type window math (boundary cases); STALE
+         transition + event emission; already-STALE not re-emitted
+         (idempotent sweep); a re-verified claim (last_verified_at
+         updated by KNW-03) exits STALE.
+      4. Green; evidence\pi-32\freshness-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi32-005.mjs standard pattern
+         plus the idempotent-sweep test present.
+      6. Run: node scripts/verify/verify-pi32-005.mjs
+    expected_outputs:
+      - supabase/migrations/0029_freshness_policies.sql
+      - packages/services/src/verification/freshness.ts
+      - scripts/verify/verify-pi32-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-006
+    phase: build
+    description: "BEN-KNW-04 as code: the contradiction adjudicator"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\knowledge\BEN-KNW-04.ts:
+         field-for-field from FAMILY-7; A3; tools: claim reads
+         (both sides + their snapshots + publication dates), graph
+         reads, supersession (the ONLY agent holding
+         supersedeClaim/supersedeEdge - its contract's authority:
+         mark superseded, never delete), status transitions,
+         re-research request emission. Its reasoning: the directive's
+         temporal-truth pattern - given Source A (is chairman, 2022)
+         vs Source B (left the board, 2024), determine temporal truth
+         (BOTH true in their windows), current status, the historical
+         relationship preserved (valid_from/valid_to on edges; the
+         old claim superseded-not-deleted), the graph update. Output:
+         adjudication (supersede X with Y / both-stand-temporal /
+         irreconcilable), rationale with the dating evidence cited,
+         re-research request when publication dating cannot decide.
+         Irreconcilable -> contradiction stands + H1 if the contract
+         flags consequential classes (follow it).
+      2. Prompts hardened; conservative instruction: when dating
+         evidence is absent, request re-research over guessing a
+         winner.
+      3. Vitest (FakeProvider, real kernel): the chairman case ends
+         with the 2022 claim superseded, the edge valid_to closed,
+         history queryable as-of 2023 (ride pi-30's temporal
+         machinery - assert the as-of read); an undatable conflict
+         yields re-research, no supersession; irreconcilable-
+         consequential parks H1; deletes impossible (tool set).
+      4. Green; evidence\pi-32\knw04-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi32-006.mjs: standard plus the
+         as-of-preserved-history test present.
+      6. Run: node scripts/verify/verify-pi32-006.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/BEN-KNW-04.ts
+      - scripts/verify/verify-pi32-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-007
+    phase: build
+    description: "KNW-04 golden evaluation suite"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. __evals__\BEN-KNW-04\: goldens: (a) the chairman-departure
+         case verbatim from the directive -> supersession with
+         temporal preservation; (b) two current-dated sources
+         disagreeing on a title -> re-research request (undatable);
+         (c) stale low-tier vs fresh high-tier -> fresh wins with
+         tier+date rationale; (d) a contradiction where BOTH claims
+         are true (different roles at different orgs, entity
+         confusion suspected) -> the adjudication routes an ER
+         re-check (a resolution_candidates enqueue - the KNW-04 ->
+         KNW-02 handoff per the contracts); (e) irreconcilable
+         consequential (conflicting giving amounts) -> stands +
+         escalation.
+      2. Green; evidence\pi-32\knw04-evals.txt.
+      3. Create scripts\verify\verify-pi32-007.mjs: all five passed,
+         including the (d) ER-handoff assertion.
+      4. Run: node scripts/verify/verify-pi32-007.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/knowledge/__evals__/BEN-KNW-04/index.ts
+      - scripts/verify/verify-pi32-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-008
+    phase: build
+    description: "Integrity pipeline wiring: the truth layer becomes self-policing"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\verification\pipeline.ts: event-driven
+         wiring through workflow-engine consumers - consequential
+         claim written -> KNW-03 verification goal (batched per the
+         contract's cadence, not per-claim thundering herd - batch
+         window per its cadence field); contradiction recorded ->
+         KNW-04 goal; staleness events -> re-research requests
+         persisted where BEN-SUP-01 will read them (the research_
+         requests structure the registry defines for gap/staleness
+         asks - migrate 0030 if defined as a table); KNW-03 status
+         changes + KNW-04 supersessions ride the existing events into
+         KNW-01 twin rebuilds (assert the chain, do not rebuild it).
+      2. Vitest (integration): a consequential claim write flows to a
+         verification decision without manual intervention; a
+         contradiction flows to adjudication; a stale claim produces
+         a persisted re-research request; the twin reflects a KNW-04
+         supersession end to end (the four-agent relay: claim ->
+         KNW-03 -> KNW-04 -> KNW-01, each hop evidenced in the
+         trail).
+      3. Green; evidence\pi-32\integrity-pipeline-tests.txt.
+         Typecheck clean; matrix green if 0030 landed.
+      4. Create scripts\verify\verify-pi32-008.mjs: standard plus the
+         four-agent relay test present.
+      5. Run: node scripts/verify/verify-pi32-008.mjs
+    expected_outputs:
+      - packages/services/src/verification/pipeline.ts
+      - scripts/verify/verify-pi32-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-009
+    phase: build
+    description: "Bounded live-model evals: KNW-03 and KNW-04 real reasoning"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\integrity-live-eval.mjs: three real
+         completions each through the gateway at the contracts'
+         classes - KNW-03 cases (a) fabricated excerpt (must never
+         bless; the deterministic layer catches it first, so script
+         this one to test the AGENT's behavior when handed a
+         borderline: use case (d) semantic overreach instead, plus
+         (c) and (e)); KNW-04 cases (a), (c), (e). Assertions as in
+         pi31-011: expected outcomes, real claim-id citations
+         (fabricated ids hard-fail), spend captured. Mismatches are
+         findings to diagnose (prompt/fixture/expectation), fixes
+         documented, re-run.
+      2. Key-absent = BLOCKED halt, never faked.
+      3. Results + total spend to
+         evidence\pi-32\integrity-live-eval.json.
+      4. Create scripts\verify\verify-pi32-009.mjs: exits 0 only if
+         six real completions all pass with real citations and a
+         spend figure.
+      5. Run: node scripts/verify/verify-pi32-009.mjs
+    expected_outputs:
+      - scripts/proofs/integrity-live-eval.mjs
+      - evidence/pi-32/integrity-live-eval.json
+      - scripts/verify/verify-pi32-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi32-010
+    phase: build
+    description: "Close-out: fleet board 4/44, Phase 3 complete, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Update docs\architecture\FLEET_STATUS.md: BEN-KNW-03 and
+         BEN-KNW-04 -> LIVE-EVALED with evidence refs (4 of 44 no
+         longer CONTRACTED). schema-snapshot;
+         evidence\pi-32\SUMMARY.md: migrations (0029, 0030 if used),
+         the verification primitives with their fabrication-catch
+         proof, both agents' eval headlines, the four-agent relay,
+         live-eval spend, amendments (zero silent drift), matrix
+         green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-32
+         complete - PHASE 3 COMPLETE; the truth layer is
+         self-policing; next queue pi-40-orchestrator-slice (Phase 4
+         opens: the fleet).
+      3. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-32/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "evidence integrity: KNW-03 verification + KNW-04
+         temporal adjudication, freshness engine, self-policing truth
+         layer - Phase 3 complete (pi-32)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi32-010.mjs: standard close-out
+         plus FLEET_STATUS showing exactly 4 LIVE-EVALED rows.
+      5. Run: node scripts/verify/verify-pi32-010.mjs
+    expected_outputs:
+      - evidence/pi-32/SUMMARY.md
+      - scripts/verify/verify-pi32-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi32-010.mjs"
+    max_retries: 3
+    on_fail: halt

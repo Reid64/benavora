@@ -1,0 +1,60 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: schoolfunder-001
+  name: Governance sync and SchoolFunder integration build
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read SCHEMA_REGISTRY_v2.md in full for any SchoolFunder tables.
+    Read src/app/(dashboard)/ directory listing for any schoolfunder directory.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    SchoolFunder is a service-based tuition fundraising platform where students earn donor-funded educational assistance by volunteering with local nonprofits. It is a Faith Foundation program and a Benavora showcase feature.
+
+    STEP 1: Check if SchoolFunder tables exist:
+    npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); Promise.all([s.from('schoolfunder_students').select('id').limit(1), s.from('schoolfunder_donations').select('id').limit(1), s.from('schoolfunder_volunteer_hours').select('id').limit(1)]).then(r=>r.forEach((x,i)=>console.log(i,x.error?.message||'exists')))"
+
+    STEP 2: Create SchoolFunder schema via Supabase SQL editor. Generate and display this SQL for manual application:
+    CREATE TABLE IF NOT EXISTS schoolfunder_students (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, first_name text NOT NULL, last_name text NOT NULL, email text NOT NULL, school_name text, grade_level text, enrollment_year integer, target_tuition_amount numeric, funded_amount numeric DEFAULT 0, status text DEFAULT 'active', created_at timestamptz DEFAULT now());
+    CREATE TABLE IF NOT EXISTS schoolfunder_volunteer_hours (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), student_id uuid NOT NULL REFERENCES schoolfunder_students(id), org_id uuid NOT NULL REFERENCES organizations(id), hours numeric NOT NULL, activity_description text, verified boolean DEFAULT false, verified_by uuid REFERENCES profiles(id), hour_value numeric DEFAULT 25, logged_at timestamptz DEFAULT now());
+    CREATE TABLE IF NOT EXISTS schoolfunder_donations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL REFERENCES organizations(id), student_id uuid REFERENCES schoolfunder_students(id), donor_name text, donor_email text, amount numeric NOT NULL, payment_status text DEFAULT 'pending', stripe_payment_intent_id text, institution_name text, institution_routing_number text, disbursed boolean DEFAULT false, disbursed_at timestamptz, created_at timestamptz DEFAULT now());
+
+    STEP 3: CREATE src/app/(dashboard)/schoolfunder/page.tsx:
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    Header: "SchoolFunder" H1 + subtitle "Students earn tuition assistance through nonprofit volunteering"
+
+    Stats row (4 cards, green #10B981 accent):
+    - Active Students
+    - Total Hours Logged
+    - Funds Raised
+    - Funds Disbursed
+
+    ADD STUDENT button → inline form: name, email, school, grade, target amount.
+
+    STUDENT TABLE (white card):
+    Columns: Name, School, Hours Logged, Funds Earned (hours * $25), Target Amount, Progress Bar, Status, Actions
+    Progress bar: colored fill based on funded/target percentage.
+    "Log Hours" button per student opens inline hour logging form.
+    "View Details" link.
+
+    RECENT DONATIONS panel (right side, white card):
+    List of recent donations: donor name masked for privacy, amount, student name, date, disbursed badge.
+
+    STEP 4: CREATE src/app/api/schoolfunder/route.ts with GET (list students + stats) and POST (add student).
+    CREATE src/app/api/schoolfunder/hours/route.ts with POST (log volunteer hours).
+    CREATE src/app/api/schoolfunder/donate/route.ts with POST (create Stripe payment intent for donation).
+
+    Add SchoolFunder to sidebar nav under a "Programs" section with green #10B981 icon.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: SchoolFunder integration -- student management, hour logging, donation flow, progress tracking'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

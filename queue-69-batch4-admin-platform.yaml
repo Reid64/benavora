@@ -1,0 +1,207 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL.md
+  - governance/DESIGN_SYSTEM.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: page-command-center-001
+    phase: build
+    description: "/command-center - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /command-center.
+      Section: Admin/Platform. Accent: #1D4ED8 (deep blue, same as Dashboard - this is the
+      admin "home base").
+      Page-specific notes: real live platform stats (20 orgs, 1,247 opportunities, etc.) and
+      a real AI Pipeline Status feed - the "Live - updated less than a minute ago" indicator
+      and its real-time refresh behavior must keep working exactly as-is. "Reset Layout"/
+      "TV Mode" become fixed teal. The per-panel colored top borders (pink/green/blue/purple/
+      orange on the 5 stat cards) are real differentiators, keep them distinct.
+    expected_outputs: [src/app/(dashboard)/command-center/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-orgs-001
+    phase: build
+    description: "/admin/orgs - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/orgs.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real 130-org table with Plan/Status/Onboarding columns - the
+      "Incomplete" onboarding orange text and "No Subscription" badges are real status
+      indicators, keep them distinct. "Impersonate" buttons stay clearly distinguishable as a
+      real, sensitive admin action - do not make them blend into the general section teal in
+      a way that could cause an accidental click on the wrong org's impersonate button; verify
+      visually with real spacing/contrast, this is a real safety concern for an admin tool.
+    expected_outputs: [src/app/(dashboard)/admin/orgs/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-system-001
+    phase: build
+    description: "/admin/system - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/system.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real infrastructure health data - "Healthy" green Supabase status
+      and the "Stale" red worker status are real, meaningful indicators, keep them distinct
+      from the section accent. "Clear Stuck Jobs" is a real, consequential admin action -
+      keep it visually distinct (its current red/warning treatment) rather than repainting
+      with the section accent, same safety reasoning as Impersonate above.
+    expected_outputs: [src/app/(dashboard)/admin/system/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-import-001
+    phase: build
+    description: "/import - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /import.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: the 3-step wizard indicator (Upload/Map Columns/Confirm & Import)
+      takes the section accent on its active-step state, matching the same pattern used on
+      /draft-generator's wizard. "Choose File" stays a standard file input, do not force a
+      restyle that breaks native file-picker behavior.
+    expected_outputs: [src/app/(dashboard)/import/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-sales-outreach-001
+    phase: build
+    description: "/admin/sales-outreach - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/sales-outreach.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real stat cards (Total Prospects/Active Campaigns/Emails Sent
+      Today/Reply Rate/Bounce Rate/Unsubscribe Rate) and 5-tab layout (Campaigns/Domains/
+      Prospects/Suppression List/Analytics) take the section treatment. "New Campaign"
+      becomes fixed teal. "No campaigns yet" needs empty-state polish.
+    expected_outputs: [src/app/(dashboard)/admin/sales-outreach/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-autoapply-ops-001
+    phase: build
+    description: "/admin/autoapply-ops - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/autoapply-ops.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real worker status ("Online," heartbeat live), Queue Depth, and
+      Platform "Running" state are real, keep their real green/status indicators distinct.
+      The 0% success-rate figures (real, since no submissions have run yet) should read as
+      genuinely neutral/informational, not alarming red - use judgment on color, this is a
+      real "no data yet" state, not a failure state.
+    expected_outputs: [src/app/(dashboard)/admin/autoapply-ops/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-monitor-001
+    phase: build
+    description: "/admin/monitor - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/monitor.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real Active/Completed Today/Failed Today/Success Rate stat cards
+      with real colored top-borders (orange/green/red/green) - keep those real status colors
+      distinct from the section accent. "No recent activity" needs empty-state polish.
+    expected_outputs: [src/app/(dashboard)/admin/monitor/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-improvements-001
+    phase: build
+    description: "/admin/improvements - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/improvements.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real stat cards (Total Proposed/Awaiting Review/Approved This
+      Month/Implemented) with colored top-borders (blue/orange/green/purple) - keep distinct.
+      Filter pills (All/Awaiting Review/Approved/Rejected/Implemented) take section treatment.
+      "No proposals match this filter" needs empty-state polish, noting the real explanatory
+      text about AG-38 running nightly.
+    expected_outputs: [src/app/(dashboard)/admin/improvements/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-audit-log-001
+    phase: build
+    description: "/admin/audit-log - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /admin/audit-log.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: real append-only audit table with real login/agent-run events -
+      the "Agent Run" action-type badge and other action-type badges are real, functionally
+      distinct labels, keep them visually distinguishable from each other even after the
+      section accent is applied. Filter row (Organization/Action/User/Entity/From/To) and
+      "Export CSV" take the section treatment.
+    expected_outputs: [src/app/(dashboard)/admin/audit-log/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-settings-001
+    phase: build
+    description: "/settings - deep blue #1D4ED8"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /settings.
+      Section: Admin/Platform. Accent: #1D4ED8.
+      Page-specific notes: the left settings-nav (Organization/Team/Plan Usage/Feature Flags/
+      Danger Zone) and "Save Changes" take the section/teal treatment. CRITICAL: "Danger
+      Zone" is a real, consequential section - keep it visually distinct (its current
+      red/warning treatment), do not repaint it with the section accent, same safety
+      reasoning as Impersonate and Clear Stuck Jobs on other admin pages.
+    expected_outputs: [src/app/(dashboard)/settings/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch4-verify-sync-001
+    phase: build
+    description: "Final regression check, governance sync, and full-platform completion sign-off for Batch 4 (10 pages) - the last batch"
+    prompt: |
+      1. Run a real Playwright pass across all 10 pages in this batch, confirm each carries
+         the section accent, confirm the three explicitly-flagged safety-sensitive elements
+         (Impersonate, Clear Stuck Jobs, Danger Zone) remain visually distinct and were not
+         accidentally blended into the general section teal.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. This is the final batch of a 4-batch, 52-page platform-wide pass. Read
+         FEATURE_REGISTRY_v2.md in full and confirm every page from all 4 batches (66-69) is
+         genuinely documented as complete - if any page from a prior batch was missed or left
+         inconsistent, flag it explicitly here, do not silently let it slide.
+      4. Update FEATURE_REGISTRY_v2.md and governance/DESIGN_SYSTEM.md with the final,
+         complete record of the section-based accent system across the entire platform.
+      5. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a full, honest summary of the
+         entire 4-batch UI overhaul: total pages treated, both real bugs fixed (Compliance,
+         Financials), and explicit, unmissable language on whether this is genuinely complete
+         or whether anything real is still open.
+      6. Scoped git add, commit with message "feat: apply section-based accent + empty-state
+         polish to all Admin/Platform pages, completing the full 52-page UI overhaul across
+         all 4 batches", git push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,26 @@
+project: afs-website
+governance: [CLAUDE.md, SITEMAP.md, COMPONENT_MAP.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: upload-photo-404
+    phase: fix
+    description: "Fix broken /upload/photo route linked from Design Studio"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read app/studio/page.tsx and confirm the Photo to Quote card's href.
+      Read app/upload/page.tsx in full -- it handles photo upload via
+      internal tab state, not a separate route. Either build a real
+      app/upload/photo/page.tsx that renders the same upload flow
+      pre-selected to the photo tab, or change the Design Studio card's
+      href back to the working /upload?tab=photos pattern -- pick whichever
+      requires less duplication of existing logic, and say which you chose
+      and why in your summary.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "fix: resolve /upload/photo 404 from Design Studio"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

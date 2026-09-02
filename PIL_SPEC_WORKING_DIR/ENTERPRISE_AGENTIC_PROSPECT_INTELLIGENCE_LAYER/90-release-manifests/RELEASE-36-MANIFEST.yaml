@@ -1,0 +1,18 @@
+release_id: PIL-RELEASE-36
+version: 1.0.0
+title: Cultivation Strategy Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-35-v1.0.0
+new_agent:
+  id: BEN-STR-03
+  path: 24-agents/strategy/BEN-STR-03-cultivation-strategy.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-STR-03-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 38
+remaining_agent_specifications: 6
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_claimed: false
+  tests_claimed: false
+  production_score_preassigned: false

@@ -34,10 +34,23 @@ import { WarmIntroductionPathfindingAgent } from "@/lib/pil/agents/rel/BEN-REL-0
 import { RelationshipStrengthAgent } from "@/lib/pil/agents/rel/BEN-REL-06";
 import { FoundationRelationshipMappingAgent } from "@/lib/pil/agents/rel/BEN-REL-07";
 import { ProfessionalConnectionMappingAgent } from "@/lib/pil/agents/rel/BEN-REL-08";
+import { MissionAffinityAgent } from "@/lib/pil/agents/qlf/BEN-QLF-01";
+import { FundingEligibilityAgent } from "@/lib/pil/agents/qlf/BEN-QLF-02";
+import { PhilanthropicCapacityPropensityAgent } from "@/lib/pil/agents/qlf/BEN-QLF-03";
 import { OpportunityQualificationAgent } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { TimingReadinessAgent } from "@/lib/pil/agents/qlf/BEN-QLF-05";
 import { ProspectDigitalTwinAgent } from "@/lib/pil/agents/knw/BEN-KNW-01";
 import { EntityResolutionAgent } from "@/lib/pil/agents/knw/BEN-KNW-02";
 import { EvidenceProvenanceAgent } from "@/lib/pil/agents/knw/BEN-KNW-03";
+import { ContradictionFreshnessInvestigatorAgent } from "@/lib/pil/agents/knw/BEN-KNW-04";
+import { ProspectEngagementStrategyAgent } from "@/lib/pil/agents/str/BEN-STR-01";
+import { BestFirstAskAgent } from "@/lib/pil/agents/str/BEN-STR-02";
+import { CultivationStrategyAgent } from "@/lib/pil/agents/str/BEN-STR-03";
+import { NextBestActionAgent } from "@/lib/pil/agents/str/BEN-STR-04";
+import { AgentFleetPerformanceAndLearningAgent } from "@/lib/pil/agents/ops/BEN-OPS-01";
+import { ApplicationProfileOrchestratorAgent } from "@/lib/pil/agents/app/BEN-APP-01";
+import { RecommendationPriorityScorerAgent } from "@/lib/pil/agents/app/BEN-APP-02";
+import { SubmissionOrchestratorAgent } from "@/lib/pil/agents/app/BEN-APP-03";
 
 // Agent factory. pil_agent_registry (agent-registry-service.ts) carries
 // metadata for the 44 agents from PROSPECT_INTELLIGENCE_AGENTS.md plus 4
@@ -128,10 +141,23 @@ const AGENT_FACTORIES: Record<string, () => Agent> = {
   "BEN-REL-06": () => new RelationshipStrengthAgent(),
   "BEN-REL-07": () => new FoundationRelationshipMappingAgent(),
   "BEN-REL-08": () => new ProfessionalConnectionMappingAgent(),
+  "BEN-QLF-01": () => new MissionAffinityAgent(),
+  "BEN-QLF-02": () => new FundingEligibilityAgent(),
+  "BEN-QLF-03": () => new PhilanthropicCapacityPropensityAgent(),
   "BEN-QLF-04": () => new OpportunityQualificationAgent(),
+  "BEN-QLF-05": () => new TimingReadinessAgent(),
   "BEN-KNW-01": () => new ProspectDigitalTwinAgent(),
   "BEN-KNW-02": () => new EntityResolutionAgent(),
   "BEN-KNW-03": () => new EvidenceProvenanceAgent(),
+  "BEN-KNW-04": () => new ContradictionFreshnessInvestigatorAgent(),
+  "BEN-STR-01": () => new ProspectEngagementStrategyAgent(),
+  "BEN-STR-02": () => new BestFirstAskAgent(),
+  "BEN-STR-03": () => new CultivationStrategyAgent(),
+  "BEN-STR-04": () => new NextBestActionAgent(),
+  "BEN-OPS-01": () => new AgentFleetPerformanceAndLearningAgent(),
+  "BEN-APP-01": () => new ApplicationProfileOrchestratorAgent(),
+  "BEN-APP-02": () => new RecommendationPriorityScorerAgent(),
+  "BEN-APP-03": () => new SubmissionOrchestratorAgent(),
 };
 
 export function loadAgentImpl(agentCode: string): Agent {

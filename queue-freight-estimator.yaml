@@ -1,0 +1,50 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_FREIGHT_ESTIMATOR.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: freight-001
+    phase: investigate
+    description: "Confirm zero prior implementation and scope real freight calc integration"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_FREIGHT_ESTIMATOR.md in full. Grep the repo for any
+      existing freight/carrier/shipping-cost code. Check
+      STATE_OF_THE_BUILD.md's DATA BLOCKERS table for "Carrier/freight
+      method" -- this may be genuinely blocked on missing client-supplied
+      carrier rate data, not a code gap. Determine honestly which it is.
+
+      If it's a real code gap (the calculation logic/UI can be built even
+      with placeholder rate data clearly marked as such), write
+      FREIGHT_ESTIMATOR_SCOPE.md describing exactly what to build and where
+      it fits (checkout flow? quote wizard? admin-only?).
+
+      If it's genuinely blocked on missing carrier data with no code to
+      write, write FREIGHT_ESTIMATOR_SCOPE.md stating that plainly and
+      do not invent placeholder logic that would look complete but isn't.
+    gates:
+      - type: file_exists
+        files:
+          - FREIGHT_ESTIMATOR_SCOPE.md
+
+  - id: freight-002
+    phase: implement
+    description: "Build whatever FREIGHT_ESTIMATOR_SCOPE.md identifies as buildable now"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read FREIGHT_ESTIMATOR_SCOPE.md in full. If it found a real gap
+      buildable now, implement exactly what it specifies, following this
+      codebase's existing conventions (pnpm only, afs-* tokens, TypeScript
+      strict, no customer-facing pricing anywhere it doesn't already exist).
+      If it found this is blocked on missing data, make no code changes and
+      instead update STATE_OF_THE_BUILD.md's DATA BLOCKERS table with the
+      precise current status.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: freight estimator per spec (or DATA BLOCKERS update if blocked)"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

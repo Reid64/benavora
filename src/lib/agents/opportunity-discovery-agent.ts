@@ -155,6 +155,7 @@ import {
   type SamGovNormalizedOpportunity,
 } from "@/lib/sources/samgov-client";
 import { discoverLandBankOpportunities } from "@/lib/sources/land-bank-client";
+import { opportunityDiscovered } from "@/lib/observability/metrics";
 
 const FEDERAL_REGISTER_URL =
   "https://www.federalregister.gov/api/v1/documents.json";
@@ -808,6 +809,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
 
       const newOppId = (inserted as { id: string }).id;
       newOpportunityIds.push(newOppId);
+      opportunityDiscovered.labels(sourceLabel, opp.category ?? "uncategorized").inc();
 
       const decisionId = await this.logDecision({
         decisionType: "opportunity_discovered",

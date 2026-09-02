@@ -1,0 +1,14 @@
+{
+  "release": "43-autoapply-integration",
+  "generated_at": "2026-08-27T21:09:08.169049+00:00",
+  "yaml_parse_errors": [],
+  "canonical_agent_count": 47,
+  "unique_agent_ids": 47,
+  "new_agent_spec_files": 3,
+  "new_service_count": 16,
+  "authoritative_service_count": 46,
+  "runtime_implementation_claimed": false,
+  "tests_executed_claimed": false,
+  "production_ready_claimed": false,
+  "static_spec_validation": "PASS"
+}

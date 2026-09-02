@@ -1,0 +1,626 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-13: CONNECTOR GATEWAY + LAUNCH ADAPTERS
+#
+# The acquisition layer. One uniform Connector interface behind
+# one gateway that enforces, for EVERY source access: policy
+# permissibility (pi-11 engine), per-source rate limits, robots
+# policy per PRIVACY_CONTROLS, snapshot capture (every fetched
+# byte content-addressed BEFORE parsing - claims cite snapshots,
+# not live URLs), caching, and metering where the source bills.
+# New sources are new adapters, never new pipelines.
+#
+# HARD-WON DATA LESSONS PORTED FROM THE SIBLING PROJECT (encoded
+# in adapter prompts, not left to rediscovery):
+#   - IRS BMF state CSVs are HEADERLESS, 28 columns.
+#   - Individual IRS 990 XML URLs return HTTP 403; the ZIP bundle
+#     path is the only viable route.
+#   - Federal Register agency slugs must be read from the live
+#     /agencies.json endpoint - hardcoded guessed slugs 400.
+#   - USASpending page-1 amounts exceed numeric(12,2) - oversize
+#     values null the amount, never fail the batch; and error
+#     objects must be unwrapped properly (PostgrestError is not
+#     an Error).
+#   - Node 20 baseline: camoufox segfaults; use the fallback
+#     stealth stack per STANDING_DIRECTIVES.
+#
+# TESTING RULE: unit tests use recorded fixtures/fakes. Live
+# smokes are small, rate-limited, free-tier-safe, and capture
+# real snapshots as their evidence. No live smoke for flagged or
+# unavailable sources - their absence is recorded, not faked.
+# ============================================================
+
+prompts:
+
+  - id: pi13-001
+    phase: build
+    description: "Preflight: contracts read, rails healthy, source registry rows planned"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read TOOL_CONTRACTS.md in full, SERVICE_REGISTRY.md connector/
+         crawler/rate-limiter entries, PRIVACY_CONTROLS.md source
+         permissibility + robots policy sections, and the sources table
+         definition in SCHEMA_REGISTRY.md.
+      2. Health: migrate --status clean; rails-proof green (re-run,
+         capture).
+      3. Write docs\architecture\CONNECTOR_LAUNCH_SET.md: the eleven
+         launch adapters + licensed interfaces, each mapped to: its
+         sources rows (publisher, tier, permissibility class from the
+         seeded classes), its rate limit (from the source's published
+         terms - fetch and cite each: SEC EDGAR's stated req/s, SAM.gov
+         and Grants.gov API terms, ProPublica API guidance, Census,
+         Federal Register, USASpending; where a source publishes no
+         limit, set a conservative default and mark [DERIVED]), its auth
+         needs (which env var), and its tool id in TOOL_CONTRACTS.
+         Flag Google Places: BLOCKED behind feature flag pending the
+         Cloud Console key-restriction fix (known external item).
+      4. Capture to evidence\pi-13\preflight.txt.
+      5. Create scripts\verify\verify-pi13-001.mjs: exits 0 only if the
+         launch-set doc exists covering all eleven + licensed interfaces
+         with a rate-limit line each, and the rails re-run is green.
+      6. Run: node scripts/verify/verify-pi13-001.mjs
+    expected_outputs:
+      - docs/architecture/CONNECTOR_LAUNCH_SET.md
+      - scripts/verify/verify-pi13-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi13-002
+    phase: build
+    description: "Connector interface + gateway core: policy, snapshot, cache, meter on every access"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\connectors\src\core\:
+         - Connector interface per TOOL_CONTRACTS: id, sourceIds,
+           capabilities (search/fetch/enumerate typed operations with zod
+           input/output schemas), authRequirement, rateLimitKey.
+         - ConnectorGateway.execute(connectorId, operation, input, ctx)
+           where ctx carries org/agent/goal/task/purpose. Enforcement
+           order, each with a distinct typed failure:
+           (a) connector registered + source rows active;
+           (b) PolicyEngine.decide for the source's permissibility class
+               + purpose (the pi-11 engine, injected);
+           (c) rate limiter acquire (pi13-003; stub interface now);
+           (d) execute the adapter operation;
+           (e) EVERY raw response body snapshotted via SnapshotService
+               BEFORE parsing - the adapter returns parsed output PLUS
+               the snapshot sha; the gateway refuses an adapter result
+               lacking its snapshot ref (claims cite snapshots - this is
+               the provenance chain's first link);
+           (f) cache layer: content-addressed response reuse within a
+               per-source TTL (cache hit skips (c)-(e), returns the
+               existing snapshot ref, records a cache-hit audit metric);
+           (g) metering hook for billable sources (records to
+               cost_ledger with provider dimensions).
+      2. FakeConnector for tests. Vitest: enforcement order proven by
+         fault injection at each step (policy deny stops before rate
+         limit; missing snapshot ref refused; cache hit skips the
+         adapter call - call recording asserts it).
+      3. Green; evidence\pi-13\gateway-core-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi13-002.mjs standard pattern plus
+         the missing-snapshot-refusal test name present.
+      5. Run: node scripts/verify/verify-pi13-002.mjs
+    expected_outputs:
+      - packages/connectors/src/core/index.ts
+      - scripts/verify/verify-pi13-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-003
+    phase: build
+    description: "Rate limiter service: per-source token buckets honoring published terms"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\ratelimit\: token-bucket limiter keyed by
+         rateLimitKey, config from the CONNECTOR_LAUNCH_SET rates loaded
+         into pi.config (migration 0020_ratelimit_config.sql seeding the
+         per-source rows - guarded upserts; expectations file first);
+         acquire(key) with bounded wait + timeout; a distributed-safety
+         note honestly stating the current guarantee (single-worker-pool
+         accurate; multi-instance uses a DB-coordinated bucket if the
+         registry specified one, else in-process per instance with the
+         limitation documented and an AOQ row logged for the
+         multi-instance future).
+      2. Wire into the gateway for real (replace the stub).
+      3. Vitest (fake timers): burst beyond capacity queues then admits at
+         refill rate; timeout path; distinct keys independent.
+      4. Green; evidence\pi-13\ratelimit-tests.txt. Typecheck clean;
+         matrix green with the config seed.
+      5. Create scripts\verify\verify-pi13-003.mjs standard pattern.
+      6. Run: node scripts/verify/verify-pi13-003.mjs
+    expected_outputs:
+      - supabase/migrations/0020_ratelimit_config.sql
+      - packages/services/src/ratelimit/index.ts
+      - scripts/verify/verify-pi13-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-004
+    phase: build
+    description: "HTTP retrieval core: fetch client, robots policy, document parsing primitives"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\connectors\src\http\: the shared retrieval client
+         (undici) all adapters use - identifying User-Agent per
+         PRIVACY_CONTROLS (set the string; SEC requires a contact UA -
+         honor it), timeout, size caps, redirect policy, gzip; robots
+         handling per the PRIVACY_CONTROLS policy: fetch + cache
+         robots.txt per host, evaluate before crawl-class fetches
+         (API-class sources exempt per the policy - implement exactly
+         what the doc says; if the doc left a judgment open it is an AOQ,
+         not an improvisation), record the robots decision on the sources
+         row robots_policy_state.
+      2. Parsing primitives (packages\connectors\src\parse\): HTML to
+         text extraction, CSV (streaming, handles headerless with
+         supplied column arrays - the IRS lesson generalized), XML
+         (streaming), ZIP entry iteration (the 990 bundle path), JSON
+         with size guards.
+      3. Vitest with fixtures: robots disallow blocks a crawl-class fetch
+         and records state; UA present on every request (recording
+         client); headerless CSV parses with a supplied 28-column array;
+         ZIP iteration yields entries without full-archive memory load
+         (assert peak buffer bound on a fixture).
+      4. Green; evidence\pi-13\http-parse-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi13-004.mjs standard pattern.
+      6. Run: node scripts/verify/verify-pi13-004.mjs
+    expected_outputs:
+      - packages/connectors/src/http/index.ts
+      - packages/connectors/src/parse/index.ts
+      - scripts/verify/verify-pi13-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-005
+    phase: build
+    description: "IRS adapter: BMF enumeration + 990 ZIP-bundle retrieval"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\connectors\src\adapters\irs\: operations per
+         TOOL_CONTRACTS - enumerate nonprofits from BMF state CSVs
+         (www.irs.gov/pub/irs-soi/eo_XX.csv - HEADERLESS, define the
+         28-column BMF_HEADERS array in code with a comment citing the
+         lesson), and fetch 990 filings via the ZIP BUNDLE index route
+         ONLY (individual XML URLs 403 - encode this as a thrown
+         NonRetryable with a message naming the bundle path if any
+         caller attempts direct XML). EIN normalization (9-digit,
+         zero-padded) as a shared util with tests - the EIN-column class
+         of bug gets a regression test here at birth.
+      2. Unit tests on fixtures: a truncated real eo_XX sample fixture
+         parses with correct EIN at its true position; ZIP fixture yields
+         990 XML entries; direct-XML attempt throws the guidance error.
+      3. LIVE SMOKE (small): fetch the first N kilobytes... no - fetch ONE
+         real state file for a SMALL state (e.g. Wyoming) fully, parse,
+         assert row count > 1000 and every EIN 9 digits; snapshot sha
+         recorded. Respect rate limits. Results to
+         evidence\pi-13\irs-smoke.json.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-005.mjs: exits 0 only if unit
+         tests passed and the smoke JSON shows a real row count and a
+         snapshot sha.
+      6. Run: node scripts/verify/verify-pi13-005.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/irs/index.ts
+      - evidence/pi-13/irs-smoke.json
+      - scripts/verify/verify-pi13-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-006
+    phase: build
+    description: "ProPublica Nonprofit Explorer adapter"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\propublica\: search organizations, fetch organization
+         by EIN, fetch filings list - per the public Nonprofit Explorer
+         API (read its current docs live for endpoint shapes; cite the
+         doc URL in code comments). Conservative rate limit per the
+         launch-set doc. Typed outputs per TOOL_CONTRACTS.
+      2. Unit tests on recorded fixtures (fetch one real response ONCE
+         during development, commit as fixture, tests run offline).
+      3. Live smoke: fetch one known EIN (use a large public charity),
+         assert name + at least one filing year present, snapshot sha
+         recorded - evidence\pi-13\propublica-smoke.json.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-006.mjs standard smoke+unit
+         pattern.
+      6. Run: node scripts/verify/verify-pi13-006.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/propublica/index.ts
+      - evidence/pi-13/propublica-smoke.json
+      - scripts/verify/verify-pi13-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-007
+    phase: build
+    description: "SEC/EDGAR adapter: filings search, company facts, insider/ownership documents"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\edgar\: full-text search, company by CIK/ticker,
+         submissions feed, and the ownership-relevant document classes
+         (Forms 3/4/5, SC 13D/G, DEF 14A pointers) - the wealth-origin
+         and liquidity-event evidence backbone for BEN-INT-08/09 later.
+         Honor SEC's published fair-access rules exactly: the stated
+         request rate and the declared-contact User-Agent (verify the
+         current stated values from SEC's developer page live; encode
+         them; cite).
+      2. Unit tests on fixtures (one recorded submissions JSON, one
+         search response).
+      3. Live smoke: resolve one well-known public company by ticker,
+         fetch its submissions feed, assert recent filings present with
+         accession numbers; snapshot sha - evidence\pi-13\edgar-smoke.json.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-007.mjs standard pattern.
+      6. Run: node scripts/verify/verify-pi13-007.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/edgar/index.ts
+      - evidence/pi-13/edgar-smoke.json
+      - scripts/verify/verify-pi13-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-008
+    phase: build
+    description: "SAM.gov + Grants.gov adapters"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\samgov\ (entity + opportunity search; PI_SAM_API_KEY
+         env - add to .env.example; the key value exists in the
+         operator's environment) and adapters\grantsgov\ (opportunity
+         search per its public API). Typed outputs; rate limits per the
+         launch-set doc.
+      2. Unit tests on fixtures for both.
+      3. Live smokes: SAM.gov one entity search (skip gracefully to a
+         BLOCKED evidence note if the env key is absent - do not fail
+         the queue on a missing external credential, record it);
+         Grants.gov one keyword search asserting >= 1 opportunity with
+         id + title; snapshots recorded -
+         evidence\pi-13\samgov-grantsgov-smoke.json.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-008.mjs: unit tests passed AND
+         (both smokes real OR the SAM one explicitly BLOCKED-recorded
+         with Grants.gov real).
+      6. Run: node scripts/verify/verify-pi13-008.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/samgov/index.ts
+      - packages/connectors/src/adapters/grantsgov/index.ts
+      - scripts/verify/verify-pi13-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-009
+    phase: build
+    description: "Federal Register + USASpending adapters - both prior-lesson-hardened"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\federalregister\: document search by agency + type. THE
+         SLUG RULE encoded: agency slugs are LOADED from the live
+         /api/v1/agencies.json at adapter init (cached), never
+         hardcoded - a requested agency not in the live list is a typed
+         error naming the nearest matches. Unit test: a guessed-style
+         slug (department-of-x form) resolves via the live-list mapping
+         or errors helpfully (fixture-based).
+      2. adapters\usaspending\: award search. THE OVERFLOW RULE encoded
+         at the adapter's typed output: award amounts exceeding the
+         registry's numeric bounds are passed through as null WITH an
+         oversize_original field preserving the true value as a string
+         (the truth is not discarded; the registry's column just cannot
+         hold it - and log an AOQ suggesting the registry widen the
+         column for this system, since 14-billion-dollar awards are
+         real). Error unwrapping: adapter errors always surface a real
+         message (test the object-with-message-property case explicitly).
+      3. Live smokes: one Federal Register search for a real agency from
+         the live list asserting >= 1 document; one USASpending page
+         sorted by amount desc asserting the top row parses (the exact
+         page that previously overflowed) - snapshots recorded -
+         evidence\pi-13\fedreg-usaspending-smoke.json.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-009.mjs: standard plus the
+         oversize-passthrough test name present.
+      6. Run: node scripts/verify/verify-pi13-009.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/federalregister/index.ts
+      - packages/connectors/src/adapters/usaspending/index.ts
+      - scripts/verify/verify-pi13-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-010
+    phase: build
+    description: "News search adapter"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\news\: keyword/entity news search behind a provider
+         seam - implement against the provider the launch-set doc
+         selected in pi13-001 (if that selection was left open, the
+         adapter implements a SearXNG-compatible provider first per the
+         stack precedent, with the seam ready for a commercial API, and
+         an AOQ records the choice for Reid). Result shape: title, url,
+         published_at, snippet, source domain - each result destined to
+         become trigger-event evidence for BEN-INT-15-class work.
+      2. Unit tests on fixtures; live smoke IF the selected provider is
+         reachable without a new credential (else BLOCKED-recorded) -
+         evidence\pi-13\news-smoke.json.
+      3. Green; typecheck clean.
+      4. Create scripts\verify\verify-pi13-010.mjs standard pattern with
+         the blocked-allowance.
+      5. Run: node scripts/verify/verify-pi13-010.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/news/index.ts
+      - scripts/verify/verify-pi13-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-011
+    phase: build
+    description: "Open-web crawler adapter: stealth fallback stack, ScraperAPI rotation, policy-gated"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\webcrawl\: fetch-and-extract for arbitrary permitted
+         URLs - the acquisition path for foundation sites, giving pages,
+         bios. Layered strategy: plain retrieval client first; on
+         bot-challenge/403 signatures, escalate to the stealth stack
+         (Playwright with the Node-20-compatible fallback fingerprint
+         approach per STANDING_DIRECTIVES - camoufox is off the table on
+         this runtime) optionally through ScraperAPI rotation
+         (PI_SCRAPERAPI_KEY env; add to .env.example; absent key = no
+         rotation tier, recorded not fatal). EVERY fetch: robots-checked
+         (crawl class), rate-limited per host, snapshotted. Escalation
+         tier recorded on the result (plain/stealth/rotated) - BEN-OPS-01
+         will want source-difficulty telemetry later.
+      2. Extraction: the parse primitives + a structured-page result
+         (title, text, links, contact-pattern hits) - deterministic
+         extraction only here; model-based extraction is agent work, not
+         connector work (state the boundary in the module doc).
+      3. Unit tests: escalation trigger on a fixture 403-with-challenge;
+         robots denial; tier recording.
+      4. Live smoke: crawl ONE benign public page (a well-known
+         foundation's about page), assert text extracted + snapshot sha +
+         tier recorded - evidence\pi-13\webcrawl-smoke.json.
+      5. Green; typecheck clean.
+      6. Create scripts\verify\verify-pi13-011.mjs standard pattern plus
+         the model-extraction boundary comment present in the module
+         (grep).
+      7. Run: node scripts/verify/verify-pi13-011.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/webcrawl/index.ts
+      - evidence/pi-13/webcrawl-smoke.json
+      - scripts/verify/verify-pi13-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-012
+    phase: build
+    description: "Google Places adapter - built complete, feature-flagged OFF pending the key fix"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\places\: text/category + radius search (the geographic
+         enumeration backbone for target-profile runs like the
+         100-mile-radius case), place details - complete implementation
+         against the current Places API (read current docs live). Gate
+         the adapter's registration behind feature flag
+         connector.places.enabled (default OFF) with a clear
+         CircuitOpen-style typed error when invoked while flagged off,
+         naming the known external blocker: the live key's API
+         restriction needs Places enabled in Cloud Console (Reid-side
+         action, tracked already).
+      2. Unit tests on fixtures (full coverage - the adapter must be
+         ready to go live on a flag flip alone).
+      3. NO live smoke (blocked): evidence\pi-13\places-BLOCKED.md
+         recording the flag state and the unblocking action.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-012.mjs: units passed, flag
+         default OFF verified (read the flag seed), BLOCKED note present.
+      6. Run: node scripts/verify/verify-pi13-012.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/places/index.ts
+      - evidence/pi-13/places-BLOCKED.md
+      - scripts/verify/verify-pi13-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-013
+    phase: build
+    description: "CRM/first-party import adapter"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. adapters\firstparty\: CSV/JSON import of tenant-provided
+         donor/contact/company records with a declared mapping (column ->
+         canonical field), validation reporting (row-level errors
+         returned, valid rows proceed), and the provenance stance: every
+         imported record snapshotted (the uploaded file is the source
+         document) and its rows destined for claims with source_type
+         first_party + the consent_ledger linkage PRIVACY_CONTROLS
+         requires for first-party data (write the consent rows on
+         import per the doc).
+      2. Unit tests: mapping application, partial-validity handling,
+         consent rows written, snapshot of the raw upload.
+      3. Live smoke: import a synthetic 20-row fixture CSV end to end
+         through the gateway; assert 20 consent rows + snapshot sha -
+         evidence\pi-13\firstparty-smoke.json.
+      4. Green; typecheck clean.
+      5. Create scripts\verify\verify-pi13-013.mjs standard pattern plus
+         consent-row assertion present.
+      6. Run: node scripts/verify/verify-pi13-013.mjs
+    expected_outputs:
+      - packages/connectors/src/adapters/firstparty/index.ts
+      - scripts/verify/verify-pi13-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-014
+    phase: build
+    description: "Licensed-provider interfaces: DonorSearch/iWave/WealthEngine-class seam, no implementations"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\connectors\src\licensed\: per D-006, the typed
+         interface a wealth-screening provider adapter must satisfy
+         (screenIndividual, screenOrganization, batchScreen - output
+         shapes designed from what this class of provider commonly
+         returns: capacity ratings, gift history matches, real-estate
+         indicators - typed with an explicit provider_confidence field
+         and permissibility class LICENSED_WEALTH_DATA seeded in the
+         data classes if not already), a NotLicensedError implementation
+         registered for each named provider id (donorsearch, iwave,
+         wealthengine) that reports unavailability with the licensing
+         note, and sources rows marked inactive/unlicensed.
+      2. BEN-INT-08's future consumption path documented in the module:
+         when a real license lands, the adapter drop-in replaces the
+         NotLicensedError registration and nothing upstream changes -
+         assert that shape with a compile-level test using a mock
+         licensed adapter satisfying the interface.
+      3. Green; typecheck clean; evidence\pi-13\licensed-seam-tests.txt.
+      4. Create scripts\verify\verify-pi13-014.mjs: interfaces exist,
+         three NotLicensed registrations present, mock-adapter
+         compile test passed.
+      5. Run: node scripts/verify/verify-pi13-014.mjs
+    expected_outputs:
+      - packages/connectors/src/licensed/index.ts
+      - scripts/verify/verify-pi13-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-014.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-015
+    phase: build
+    description: "Full-gateway integration proof: every live adapter through the complete enforcement chain"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\connector-proof.mjs: for EACH adapter with a
+         green live smoke (irs, propublica, edgar, grantsgov, +samgov/
+         news if unblocked), execute one small operation through
+         ConnectorGateway.execute with a real org/goal ctx and assert
+         the full chain artifacts by direct query: policy decision
+         audited, rate-limit acquisition occurred, snapshot row exists
+         with matching sha, sources row touched, cache hit on an
+         immediate repeat (second call returns the same sha without a
+         new snapshot row). Flagged/blocked adapters asserted to refuse
+         with their typed errors (places flag, licensed NotLicensed).
+         Results JSON to evidence\pi-13\connector-proof.json.
+      2. All assertions pass.
+      3. Create scripts\verify\verify-pi13-015.mjs: exits 0 only if the
+         proof covers >= 4 live adapters with full-chain passes and the
+         two refusal classes.
+      4. Run: node scripts/verify/verify-pi13-015.mjs
+    expected_outputs:
+      - scripts/proofs/connector-proof.mjs
+      - evidence/pi-13/connector-proof.json
+      - scripts/verify/verify-pi13-015.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-015.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi13-016
+    phase: build
+    description: "Close-out: sources seeded, snapshot diff, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Ensure every launch adapter's sources rows are seeded (migration
+         0021_sources_seed.sql, guarded upserts, from the launch-set
+         doc - publisher, tier, permissibility class, rate key).
+         expectations file; apply; matrix green.
+      2. schema-snapshot to evidence\pi-13\schema-after.json;
+         evidence\pi-13\SUMMARY.md: adapters delivered (live-smoked /
+         blocked-with-reason / interface-only), the enforcement-chain
+         proof headline, rate-limit table, ported-lesson inventory
+         (each benavora lesson and where it is now encoded as a test),
+         AOQ rows added this queue, zero-silent-drift statement.
+      3. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-13 complete;
+         Phase 1 FULLY COMPLETE (pi-10/11/12/13 all done - state it);
+         next queue pi-20-agent-kernel.
+      4. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-13/SUMMARY.md SESSION_STATE.md STATE_OF_THE_BUILD.md
+         .env.example
+         Commit: "connectors: gateway with policy/ratelimit/snapshot/cache
+         chain + 11 launch adapters + licensed seam - Phase 1 complete
+         (pi-13)"
+         Push. Governance sync.
+      5. Create scripts\verify\verify-pi13-016.mjs: standard close-out
+         plus sources seed rows counted live >= the launch-set count.
+      6. Run: node scripts/verify/verify-pi13-016.mjs
+    expected_outputs:
+      - supabase/migrations/0021_sources_seed.sql
+      - evidence/pi-13/SUMMARY.md
+      - scripts/verify/verify-pi13-016.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi13-016.mjs"
+    max_retries: 3
+    on_fail: halt

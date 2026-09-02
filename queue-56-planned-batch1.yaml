@@ -1,0 +1,102 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - FEATURE_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: build-factor-breakdown-ui-001
+    phase: build
+    description: "Row #106 - Factor Breakdown UI: expandable score explanation per opportunity"
+    prompt: |
+      Row #106 (Factor Breakdown UI): expandable per-opportunity explanation of how a probability score was computed. Row #102 (BUILT-VERIFIED) already computes real, hand-verified factor scores in computeGrantProbability() (src/lib/intelligence/grant-probability-engine.ts) - read that function in full to find its real per-factor breakdown structure (whatever weighted sub-scores it already computes internally).
+
+      Add an expandable UI section to the opportunities page (row #105's existing probability badge) that shows the real per-factor breakdown already computed by the engine - do not invent new factors, surface what computeGrantProbability() genuinely calculates. Real live test: expand the breakdown for a real opportunity in the Faith Foundation org, confirm the displayed factor values match a direct call to the engine for that same opportunity.
+    expected_outputs:
+      - src/app/(dashboard)/opportunities/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: build-agent-log-viewer-001
+    phase: build
+    description: "Row #160 - Agent Log Viewer: per-agent run history and output"
+    prompt: |
+      Row #160 (Agent Log Viewer), Phase 2: per-agent run history and output. agent_runs table already exists and is written by every real agent (confirmed throughout this session's verification work). Row #159 (Agent Marketplace UI, /agents/marketplace) already lists all 43 real seeded agents with last-run relative time and run count.
+
+      Build a detail view reachable from an agent's marketplace card: real run history (timestamp, status, items_found/processed, tokens_used, error if any) queried from the real agent_runs table for that agent_id, paginated. Real live test: open it for an agent with real run history (e.g. AG-17 Discovery, confirmed live-verified earlier this project) and confirm the displayed runs match a direct psql query against agent_runs for that agent_type.
+    expected_outputs:
+      - src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: build-corporate-giving-dna-001
+    phase: build
+    description: "Row #92 - Corporate Giving DNA: AI-generated giving profile per company"
+    prompt: |
+      Row #92 (Corporate Giving DNA), Phase 2: profile per company summarizing its real giving pattern. corporate_prospects (row #87, BUILT-VERIFIED, 49 real rows) and the EA-01 through EA-10 enrichment agents (row #90) already write structured giving-signal data to this table.
+
+      Read corporate_prospects' real schema and whatever enrichment fields EA-01/EA-08 already populate. Build a "Giving DNA" summary: a real Claude call synthesizing the prospect's already-collected real data (industry, prior giving signals, geographic focus if present) into a 2-4 sentence profile plus 2-3 concrete outreach angles, surfaced on the prospect's detail view in the corporate marketplace (row #97, /donor-discovery/marketplace). Real live test: run it against a real seeded prospect, confirm the generated profile only references real fields actually present on that prospect row (no fabricated data), and degrades honestly (states what's missing) for a prospect with sparse enrichment data.
+    expected_outputs:
+      - src/lib/intelligence/corporate-giving-dna.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: build-signal-monitoring-001
+    phase: build
+    description: "Row #99 - Signal Monitoring: LinkedIn + news + 990 watching for relationship signals"
+    prompt: |
+      Row #99 (Signal Monitoring), Phase 2. Read what already exists for adjacent capabilities before building anything new: AG-30 Donor Intent Monitor (row #218, BUILT-VERIFIED) already does 990/signal-based monitoring for corporate donor intent - read donor-intent-monitor-agent.ts in full, this row is very likely the same underlying pattern applied to funder relationships instead of donor intent, not a from-scratch concept.
+
+      LinkedIn has no public API for monitoring third-party posts without a paid partner integration this project doesn't have - do not attempt real LinkedIn scraping (against LinkedIn's terms of service, a real legal/ToS risk, not a technical blocker to route around). Scope this row down explicitly to news + 990 signal watching only (reusing AG-30's real pattern, retargeted at funders/board-member-adjacent entities instead of corporate donors), and document in the registry that LinkedIn monitoring is deliberately excluded and why, rather than silently dropping it.
+
+      Build the news+990 half genuinely, following AG-30's real existing pattern. Real live test against a real funder in the Faith Foundation org's data.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: verify-batch1-sync-001
+    phase: build
+    description: "Governance sync for this batch"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Update FEATURE_REGISTRY_v2.md rows #92, #99, #106, #160 with today's date and real evidence from each prompt above.
+      3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a summary.
+      4. Scoped git add, commit with message "feat: build Factor Breakdown UI, Agent Log Viewer, Corporate Giving DNA, Signal Monitoring (news+990 only, LinkedIn excluded per ToS)", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,78 @@
+project: benavora
+governance:
+- STANDING_DIRECTIVES.md
+- STATE_OF_THE_BUILD.md
+prompts:
+
+- id: forge-fix-001
+  name: Governance sync and orchestrator stdout pipe fix
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1 in FULL. Every line.
+
+    UPGRADE: Replace the Run-Queue function's forge.ps1 execution block so that forge.ps1 stdout streams in real time to both the console AND the orchestrator log file. Currently forge.ps1 runs silently and you only see PASS/FAIL after the entire queue completes. This makes it impossible to monitor progress.
+
+    Find the section in Run-Queue that does:
+      & powershell -ExecutionPolicy Bypass -File "$forgePath\forge.ps1" -project $project -startFrom 0
+      $exitCode = $LASTEXITCODE
+
+    Replace it with a Start-Process approach that:
+    1. Launches forge.ps1 as a child process with -RedirectStandardOutput to a temp file
+    2. While the process runs, polls the temp file every 500ms and appends new lines to both Write-Host and Add-Content $orchestratorLog
+    3. After process exits, flushes any remaining output
+    4. Cleans up temp files
+    5. Returns the exit code correctly
+
+    The implementation must handle:
+    - Process that exits before polling starts (flush all output after exit)
+    - Temp file that doesn't exist yet (wait for first write)
+    - UTF-8 encoding of forge.ps1 output (BOM-aware reading)
+    - $orchestratorLog variable which is already defined in outer scope
+
+    Also fix the OutOfMemoryException that occurs reading large manifest files:
+    Find: $content = Get-Content $manifestPath -Raw
+    Replace with streaming approach:
+    $content = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::UTF8)
+
+    Save the fixed file in place at C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1.
+    Verify: powershell -ExecutionPolicy Bypass -Command "& { . 'C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1' }" 2>&1 | Select-Object -First 5
+    (This just checks syntax, not runs it.)
+
+    Also update STATE_OF_THE_BUILD.md with note: Orchestrator stdout pipe fixed July 2026. OutOfMemoryException fix applied.
+    git add STATE_OF_THE_BUILD.md; git commit -m 'fix: forge-orchestrator -- stdout pipe to log, OutOfMemoryException fix on large manifests'; git push.
+
+- id: forge-fix-002
+  name: FORGE prompt depth enforcement gate
+  prompt: |
+    Read C:\Users\manag\Documents\FORGE\forge.ps1 in FULL. Every line.
+
+    UPGRADE: Add a new gate called "depth" that fires after compile and file_exists gates.
+
+    The depth gate checks that the primary output file of the prompt has meaningful content:
+    - Read the list of files modified in the last git commit: git diff --name-only HEAD~1 HEAD
+    - For each .ts and .tsx file modified: count lines
+    - If the PRIMARY new file (largest new file by line count) has fewer than 80 lines: FAIL the gate
+    - Gate failure message: "GATE:depth FAIL -- primary output file has only X lines. Minimum 80 required for meaningful implementation. Re-running prompt."
+
+    Gate configuration in queue YAML (add to gate options):
+      gates:
+        - compile
+        - file_exists
+        - depth          # new gate -- min 80 lines on primary output file
+        - min_lines: 150 # optional override for minimum
+
+    The depth gate should be OPTIONAL -- only fires if listed in the queue's gates array.
+    For queues that don't specify gates, default behavior is unchanged.
+
+    Also add gate: "no_stubs" -- checks that the primary output file does not contain any of these stub patterns:
+    - "// TODO:"
+    - "throw new Error('Not implemented')"
+    - "console.log('placeholder')"
+    - "return null // implement"
+    If found: FAIL with message listing which stub patterns were detected.
+
+    Save the fixed forge.ps1 in place.
+    Verify syntax: powershell -ExecutionPolicy Bypass -Command "Get-Content 'C:\Users\manag\Documents\FORGE\forge.ps1' | Measure-Object -Line"
+
+    git add -A; git commit -m 'feat: FORGE depth and no_stubs gates -- enforce minimum line counts and no placeholder implementations'; git push.

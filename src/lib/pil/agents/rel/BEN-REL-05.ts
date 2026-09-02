@@ -43,6 +43,40 @@ import type { EvidenceItem, GraphEdge, RelationshipStrength } from "@/lib/pil/ty
 // Permitted tools per spec: T-GRAPH (read), T-EVIDENCE (read), T-MODEL.
 // Written evidence rows here follow the same convention every other REL
 // agent uses (see BEN-REL-02.ts's identical note).
+//
+// Richer-spec upgrade (PIL_AGENT_COMPLETE_ROSTER.md "Relationship (6
+// agents)" / PIL_AGENT_DEPENDENCIES.yaml's BEN-REL-05 entry -- both Phase-1
+// paper specs, design input only): this agent is the only REL agent that
+// names all 5 other REL siblings as dependencies. Two condition-gated
+// delegation batches were added on top of the existing BEN-REL-06
+// per-fresh-path strength-scoring loop:
+//   - No fresh path found (freshRanked.length === 0): fan out one delegation
+//     each to BEN-REL-01/02/03/04 asking for a broader/board/corporate/
+//     org-overlap discovery pass, since this agent's own traversal found
+//     nothing usable.
+//   - Fresh paths found but some went stale on the pre-finalization refetch
+//     (stalePathTargetIds.length > 0): one delegation to BEN-KNW-03 asking
+//     it to re-verify/refresh those edges rather than let them silently
+//     drop out of rotation.
+// Per PIL_AGENT_DEPENDENCIES.yaml's own methodology note, BEN-REL-05 <->
+// BEN-REL-02/03/04 forms a documented, expected delegation CYCLE under
+// this spec's "authority to call" semantics (not a strict data-flow DAG) --
+// REL-02/03/04 each delegate back to BEN-REL-05 on their own no-path-found
+// conditions. This is not resolved with extra cycle-breaking logic here;
+// AgentRunner's existing depth-bounded delegation (agent-runner.ts,
+// context.depth decrementing each hop, delegation only firing while
+// context.depth > 0) is what terminates it at runtime.
+//
+// All five new delegations are constrained to prospect.id, which is only
+// reachable past this file's own early-return guard on !context.prospectId
+// -- so a delegating parent run with a null prospectId (e.g. an org-wide
+// batch sweep) never reaches this code path in the first place and never
+// hands a prospectId-scoped sibling a dead-on-arrival null prospectId.
+//
+// conclusions.decision maps this file's existing computed values onto the
+// roster's 6 named output dimensions (Source Node Authorization, Target
+// Identity, Edge Validity, Path Length, Edge Strength, Introduction
+// Feasibility) -- see the `decision` object built at the end of execute().
 
 const MAX_HOPS = 4;
 const TOP_PATHS_LIMIT = 5;
@@ -187,7 +221,68 @@ export class WarmIntroductionPathfindingAgent implements Agent {
       }
     }
 
+    // Richer-spec delegation: no fresh, usable path exists to any tenant
+    // contact even after the freshness re-check -- fan out to all four
+    // sibling discovery specialists rather than reporting a dead end.
+    // prospect.id is always populated here (see the !context.prospectId
+    // early-return above), so none of these constraints objects can end up
+    // null/empty.
+    if (freshRanked.length === 0) {
+      delegations.push(
+        {
+          childAgentCode: "BEN-REL-01",
+          objective: `No introduction path currently exists to ${prospect.display_name} -- requesting a broader one-hop-outward relationship discovery pass around this prospect.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: prospect.id },
+        },
+        {
+          childAgentCode: "BEN-REL-02",
+          objective: `No introduction path currently exists to ${prospect.display_name} -- requesting a dedicated board/trustee-network pass to surface any board-based route.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: prospect.id },
+        },
+        {
+          childAgentCode: "BEN-REL-03",
+          objective: `No introduction path currently exists to ${prospect.display_name} -- requesting a dedicated corporate-network pass to surface any employer-based route.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: prospect.id },
+        },
+        {
+          childAgentCode: "BEN-REL-04",
+          objective: `No introduction path currently exists to ${prospect.display_name} -- requesting an organizational-overlap pass to surface any shared-membership route.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: prospect.id },
+        },
+      );
+    }
+
+    // Richer-spec delegation: at least one candidate path's edges were
+    // still current when ranked but went stale on the pre-finalization
+    // refetch -- ask BEN-KNW-03 to re-verify/refresh them rather than let
+    // them silently drop out of rotation on the next run.
+    if (freshRanked.length > 0 && stalePathTargetIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `${stalePathTargetIds.length} candidate introduction path(s) to ${prospect.display_name} went stale between computation and finalization -- re-verify/refresh their underlying edges.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id, staleTargetNodeIds: stalePathTargetIds },
+      });
+    }
+
     const tokensUsed = await tryModelTokens(context, runner, 500);
+
+    const top = freshRanked[0] as RankedPath | undefined;
+    const decision = {
+      sourceNodeAuthorization: "tenant_crm_import_contact",
+      targetIdentity: prospect.display_name,
+      edgeValidity: {
+        reverifiedCurrentCount: freshRanked.length,
+        staleDroppedCount: stalePathTargetIds.length,
+      },
+      pathLength: top?.hopCount ?? null,
+      edgeStrength: top?.averageStrengthWeight ?? null,
+      introductionFeasibility: top?.frictionEstimate ?? "no_path_found",
+    };
 
     return {
       status: "completed",
@@ -198,6 +293,7 @@ export class WarmIntroductionPathfindingAgent implements Agent {
         pathsFound: freshRanked.length,
         rankedPaths: freshRanked,
         staleCandidatesDropped: stalePathTargetIds.length,
+        decision,
       },
       delegations,
       tokensUsed,

@@ -1,4 +1,4 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import { getPilClient } from "@/lib/pil/db";
 import { getEvidence, detectContradiction, recordContradiction, getProvenanceHash } from "@/lib/pil/evidence";
 import { getNodesByProspect } from "@/lib/pil/graph";
@@ -26,6 +26,22 @@ import type { EvidenceFreshnessStatus, EvidenceItem, EvidenceVerificationStatus 
 // unbuilt. A standalone BEN-KNW-04 (temporal-truth resolution of already-
 // flagged contradictions) remains unimplemented.
 //
+// Upgrade (additive, BEN-KNW-04 build landing alongside this one): the spec's
+// six dimensions -- Claim Support, Source Directness, Source Independence,
+// Permissibility, Freshness, Lineage Completeness -- were only ever covered
+// for Freshness and Lineage Completeness directly. This upgrade adds the
+// other four as new report fields (claimSupportScore, sourceDirectnessScore,
+// sourceIndependenceScore, permissibilityFlagged) without touching any
+// existing field, DB write, or the scan loops that already existed. It also
+// starts handing the contradiction-*investigation* duty forward to BEN-KNW-04
+// once it exists: this file keeps doing its own detection/recording (that's
+// what populates the pil_contradictions queue BEN-KNW-04 will consume -- it
+// investigates and resolves already-open rows, it does not re-detect them),
+// and additionally fires a delegation to BEN-KNW-04 whenever it records a new
+// contradiction this run. A second new delegation notifies BEN-SUP-05
+// whenever this run flags provenance tampering or a prohibited-source claim
+// -- exactly the class of event that critic exists to independently review.
+//
 // Schema notes (checked against the applied migrations, not the task's
 // prose):
 //   - pil_source_registry has no freshness_ttl_hours column (migration 157)
@@ -50,6 +66,15 @@ import type { EvidenceFreshnessStatus, EvidenceItem, EvidenceVerificationStatus 
 //     the real analog is a pil_graph_edge touching this prospect with zero
 //     pil_graph_edge_evidence rows (an asserted relationship with no cited
 //     backing).
+//   - pil_evidence has no direct foreign key to a specific pil_source_registry
+//     row (migration 157) -- permissibilityFlagged below is therefore
+//     necessarily a best-effort source_type-level check (does ANY
+//     pil_source_registry row sharing this evidence item's source_type have
+//     permissibility_status='prohibited'), not a per-row check tied to the
+//     exact source that produced this evidence item. An evidence item whose
+//     source_type has zero matching pil_source_registry rows at all is NOT
+//     flagged -- unknown permissibility is intentionally not treated the same
+//     as prohibited.
 
 const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
@@ -71,7 +96,102 @@ function ttlHoursFor(sourceType: string): number {
   return TTL_HOURS_BY_SOURCE_TYPE[sourceType] ?? DEFAULT_TTL_HOURS;
 }
 
-const VERIFICATION_WEIGHT: Record<EvidenceVerificationStatus, number> = {
+// Directness tier map for sourceDirectnessScore, reusing exactly the
+// source_type vocabulary already enumerated in TTL_HOURS_BY_SOURCE_TYPE
+// above (no new source_type values invented). Tier labels per the spec's own
+// dimension description:
+//   100 -- "primary/official filing"  (irs_form_990, sec_edgar, nonprofit_filing)
+//   70  -- "secondary official"       (foundation_information, corporate_information, public_records)
+//   50  -- "secondary reported"       (news)
+//   40  -- "first-party unverified"   (crm, internal)
+//   30  -- "tertiary/unverified web"  (open_web) -- also the default for any
+//                                      source_type not present in this map.
+const SOURCE_TYPE_DIRECTNESS_SCORE: Record<string, number> = {
+  irs_form_990: 100,
+  sec_edgar: 100,
+  nonprofit_filing: 100,
+  foundation_information: 70,
+  corporate_information: 70,
+  public_records: 70,
+  news: 50,
+  crm: 40,
+  internal: 40,
+  open_web: 30,
+};
+const DEFAULT_SOURCE_DIRECTNESS_SCORE = 30;
+
+function sourceDirectnessFor(sourceType: string): number {
+  return SOURCE_TYPE_DIRECTNESS_SCORE[sourceType] ?? DEFAULT_SOURCE_DIRECTNESS_SCORE;
+}
+
+// claimSupportScore: percentage of scanned evidence with a non-null,
+// non-empty evidence_excerpt. Deliberately a conservative presence-based
+// heuristic -- evidence with no excerpt at all cannot be said to directly
+// support its own claim -- not full NLP entailment checking (an excerpt that
+// exists but doesn't actually substantiate the claim text isn't caught here;
+// that's out of scope for this file's existing deterministic-scoring
+// architecture).
+function scoreClaimSupport(evidence: EvidenceItem[]): number {
+  if (evidence.length === 0) return 0;
+  const supported = evidence.filter((e) => e.evidence_excerpt != null && e.evidence_excerpt.trim().length > 0).length;
+  return Math.round((supported / evidence.length) * 100);
+}
+
+function scoreSourceDirectness(evidence: EvidenceItem[]): number {
+  if (evidence.length === 0) return 0;
+  const total = evidence.reduce((sum, e) => sum + sourceDirectnessFor(e.source_type), 0);
+  return Math.round(total / evidence.length);
+}
+
+// Distinct-publisher key for sourceIndependenceScore: publisher when set,
+// else the source_url's hostname (documented fallback -- "distinct source_url
+// domain when publisher is null"). When neither exists, each such item is
+// treated as its own unique source (there is no identifier to prove it
+// shares a publisher with anything else).
+function independenceKey(item: EvidenceItem): string {
+  if (item.publisher) return `publisher:${item.publisher}`;
+  if (item.source_url) {
+    try {
+      return `domain:${new URL(item.source_url).hostname}`;
+    } catch {
+      return `url:${item.source_url}`;
+    }
+  }
+  return `unknown:${item.id}`;
+}
+
+// sourceIndependenceScore: for each claim_type group with 2+ evidence items,
+// the fraction with a distinct publisher/domain, averaged across those
+// groups. Groups with exactly 1 item are excluded entirely -- "independence
+// undefined for single-source claims" -- rather than scored as 0, since
+// single-source evidence is already penalized via VERIFICATION_WEIGHT and
+// double-penalizing here would distort evidenceQualityScore. If no claim_type
+// group in this scan has 2+ items, there is nothing to average over; this
+// defaults to 0 (nothing yet demonstrates independence) rather than a
+// placeholder high score.
+function scoreSourceIndependence(evidence: EvidenceItem[]): number {
+  const byClaimType = new Map<string, EvidenceItem[]>();
+  for (const item of evidence) {
+    const list = byClaimType.get(item.claim_type) ?? [];
+    list.push(item);
+    byClaimType.set(item.claim_type, list);
+  }
+  const groupScores: number[] = [];
+  for (const group of byClaimType.values()) {
+    if (group.length < 2) continue;
+    const distinctSources = new Set(group.map(independenceKey));
+    groupScores.push((distinctSources.size / group.length) * 100);
+  }
+  if (groupScores.length === 0) return 0;
+  return Math.round(groupScores.reduce((a, b) => a + b, 0) / groupScores.length);
+}
+
+// Exported so BEN-KNW-04 (Contradiction and Freshness Investigator) can reuse
+// this exact verification-status weighting for its own canonicalWeight()
+// computation rather than defining a third independent copy of the same
+// object literal (BEN-QLF-04.ts has its own separate copy already, out of
+// scope to consolidate here).
+export const VERIFICATION_WEIGHT: Record<EvidenceVerificationStatus, number> = {
   verified_fact: 1,
   corroborated_fact: 0.9,
   single_source_fact: 0.7,
@@ -109,6 +229,14 @@ export interface EvidenceProvenanceReport {
   tamperingFlagged: string[];
   unsupportedClaims: string[];
   evidenceQualityScore: number;
+  // Additive dimension scores (spec's Claim Support / Source Directness /
+  // Source Independence / Permissibility dimensions -- see the scoring
+  // helpers above and findPermissibilityFlagged() below for each one's
+  // documented method and limitations).
+  claimSupportScore: number;
+  sourceDirectnessScore: number;
+  sourceIndependenceScore: number;
+  permissibilityFlagged: string[];
 }
 
 export class EvidenceProvenanceAgent implements Agent {
@@ -150,7 +278,12 @@ export class EvidenceProvenanceAgent implements Agent {
     let contradictionsFound = 0;
     let contradictionsRecorded = 0;
     const contradictedEvidenceIds = new Set<string>();
-    for (const group of byClaimType.values()) {
+    // Tracked so a BEN-KNW-04 delegation below (fired only when this run
+    // records a NEW contradiction) can name the specific claim_types that
+    // just opened a pil_contradictions row, not every claim_type this
+    // prospect has ever contradicted on.
+    const newlyContradictedClaimTypes = new Set<string>();
+    for (const [claimType, group] of byClaimType.entries()) {
       if (group.length < 2) continue;
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
@@ -163,6 +296,7 @@ export class EvidenceProvenanceAgent implements Agent {
           if (!alreadyRecorded) {
             await recordContradiction(itemA.id, itemB.id, context.orgId);
             contradictionsRecorded++;
+            newlyContradictedClaimTypes.add(claimType);
           }
           contradictedEvidenceIds.add(itemA.id);
           contradictedEvidenceIds.add(itemB.id);
@@ -194,12 +328,30 @@ export class EvidenceProvenanceAgent implements Agent {
       }
     }
 
-    // 5. Evidence quality score for the prospect.
-    const evidenceQualityScore = this.scoreEvidenceQuality(evidence, staleFlagged.length, contradictedEvidenceIds.size);
+    // 5. Permissibility cross-reference -- best-effort, source_type-level
+    // only (see the "Schema notes" header comment for why there's no per-row
+    // FK to check this against instead).
+    const permissibilityFlagged = await this.findPermissibilityFlagged(evidence);
+
+    // 6. Evidence quality score for the prospect.
+    const evidenceQualityScore = this.scoreEvidenceQuality(
+      evidence,
+      staleFlagged.length,
+      contradictedEvidenceIds.size,
+      permissibilityFlagged.length,
+    );
     await this.tryUpdateOpportunityConfidence(context.orgId, context.prospectId, evidenceQualityScore);
 
-    // 6. Claims with no supporting evidence -- graph edges with zero pil_graph_edge_evidence rows.
+    // 7. Claims with no supporting evidence -- graph edges with zero pil_graph_edge_evidence rows.
     const unsupportedClaims = await this.findUnsupportedEdgeClaims(context.orgId, context.prospectId);
+
+    // 8. Additive dimension scores -- Claim Support / Source Directness /
+    // Source Independence. See the module-level scoreClaimSupport()/
+    // scoreSourceDirectness()/scoreSourceIndependence() helpers above for
+    // each one's documented method.
+    const claimSupportScore = scoreClaimSupport(evidence);
+    const sourceDirectnessScore = scoreSourceDirectness(evidence);
+    const sourceIndependenceScore = scoreSourceIndependence(evidence);
 
     const report: EvidenceProvenanceReport = {
       prospectId: context.prospectId,
@@ -211,7 +363,30 @@ export class EvidenceProvenanceAgent implements Agent {
       tamperingFlagged,
       unsupportedClaims,
       evidenceQualityScore,
+      claimSupportScore,
+      sourceDirectnessScore,
+      sourceIndependenceScore,
+      permissibilityFlagged,
     };
+
+    // Forward-delegations, additive to the existing scan behavior above.
+    const delegations: DelegationRequest[] = [];
+    if (contradictionsRecorded > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-04",
+        objective: `Prospect ${context.prospectId} has ${contradictionsRecorded} newly-recorded contradiction(s) in pil_contradictions across claim_types [${[...newlyContradictedClaimTypes].join(", ")}]; investigate and resolve.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, claimTypes: [...newlyContradictedClaimTypes] },
+      });
+    }
+    if (tamperingFlagged.length > 0 || permissibilityFlagged.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Prospect ${context.prospectId} evidence scan flagged ${tamperingFlagged.length} provenance-tampering item(s) [${tamperingFlagged.join(", ")}] and ${permissibilityFlagged.length} prohibited-source item(s) [${permissibilityFlagged.join(", ")}] feeding canonical state; critic review requested.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, tamperingFlagged, permissibilityFlagged },
+      });
+    }
 
     await logAction({
       organization_id: context.orgId,
@@ -232,20 +407,48 @@ export class EvidenceProvenanceAgent implements Agent {
       status: "completed",
       evidence: [],
       conclusions: { report },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,
     };
   }
 
-  private scoreEvidenceQuality(evidence: EvidenceItem[], staleCount: number, contradictedCount: number): number {
+  // permissibilityPenalty is the new additive term (0.5-weight convention,
+  // matching stalePenalty/contradictionPenalty exactly). With zero
+  // permissibilityFlagged items it's 0, making (1 - 0.5*0) = 1 a strict
+  // no-op -- the pre-upgrade formula's output is unchanged whenever nothing
+  // is flagged.
+  private scoreEvidenceQuality(
+    evidence: EvidenceItem[],
+    staleCount: number,
+    contradictedCount: number,
+    permissibilityFlaggedCount: number,
+  ): number {
     const weighted = evidence.map((e) => Math.max(0, Math.min(1, e.confidence)) * VERIFICATION_WEIGHT[e.verification_status]);
     const avg = weighted.reduce((a, b) => a + b, 0) / weighted.length;
     const stalePenalty = staleCount / evidence.length;
     const contradictionPenalty = contradictedCount / evidence.length;
-    const score = avg * (1 - 0.5 * stalePenalty) * (1 - 0.5 * contradictionPenalty);
+    const permissibilityPenalty = permissibilityFlaggedCount / evidence.length;
+    const score = avg * (1 - 0.5 * stalePenalty) * (1 - 0.5 * contradictionPenalty) * (1 - 0.5 * permissibilityPenalty);
     return Math.round(Math.max(0, Math.min(1, score)) * 100);
+  }
+
+  // Best-effort permissibility check -- see the "Schema notes" header comment
+  // for why this is source_type-level, not per-row. An evidence item's
+  // source_type with zero matching pil_source_registry rows is NOT flagged
+  // (unknown is not the same as prohibited, intentionally conservative).
+  private async findPermissibilityFlagged(evidence: EvidenceItem[]): Promise<string[]> {
+    const sourceTypes = [...new Set(evidence.map((e) => e.source_type))];
+    if (sourceTypes.length === 0) return [];
+    const { data, error } = await getPilClient().from("pil_source_registry").select("source_type, permissibility_status").in("source_type", sourceTypes);
+    if (error) throw error;
+    const prohibitedSourceTypes = new Set(
+      ((data ?? []) as Array<{ source_type: string; permissibility_status: string }>)
+        .filter((row) => row.permissibility_status === "prohibited")
+        .map((row) => row.source_type),
+    );
+    return evidence.filter((e) => prohibitedSourceTypes.has(e.source_type)).map((e) => e.id);
   }
 
   private async contradictionAlreadyRecorded(evidenceIdA: string, evidenceIdB: string): Promise<boolean> {

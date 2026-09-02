@@ -1,0 +1,169 @@
+project: forge-2
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+prompts:
+- id: ui-design-schema
+  name: Add design_artifacts table to Build Memory
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\learning\database.ts in full.
+    Add this CREATE TABLE IF NOT EXISTS block inside initializeForgeMemory() after existing tables:
+    design_artifacts (id TEXT PRIMARY KEY, build_run_id TEXT NOT NULL, prompt_id TEXT NOT NULL, component_name TEXT NOT NULL, description TEXT NOT NULL, generated_code TEXT NOT NULL, framework TEXT NOT NULL DEFAULT 'react', styling TEXT NOT NULL DEFAULT 'tailwind', file_path TEXT, applied INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL).
+    Add design_artifacts to ALL_FORGE_TABLES.
+    Bump CURRENT_SCHEMA_VERSION to 2.6.0.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(db): design_artifacts table schema v2.6.0'
+  gates:
+  - type: compile
+
+- id: ui-shadcn-installer
+  name: Build ShadcnInstaller — auto-installs shadcn/ui components in target projects
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\skills\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\engine\claude-runner.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\ui-engine\shadcn-installer.ts. Minimum 200 lines.
+    Export interface ShadcnComponent { name: string, command: string, dependencies: string[] }.
+    Export const SHADCN_COMPONENTS: ShadcnComponent[] — define all available shadcn/ui components: button, input, label, select, dialog, sheet, dropdown-menu, table, card, badge, alert, toast, tabs, accordion, avatar, checkbox, radio-group, switch, textarea, form, calendar, date-picker, command, combobox, skeleton, separator, scroll-area, popover, hover-card, tooltip, progress, slider, toggle, navigation-menu, breadcrumb, pagination, alert-dialog, context-menu, menubar, collapsible, aspect-ratio, resizable.
+    Export function detectInstalledComponents(projectPath: string): string[] — reads components.json and src/components/ui/ directory to find already installed components.
+    Export function installComponent(projectPath: string, componentName: string): Promise<void> — runs npx shadcn-ui@latest add {componentName} --yes in projectPath. Skips if already installed.
+    Export function ensureComponentsInstalled(projectPath: string, requiredComponents: string[]): Promise<string[]> — installs any missing components, returns list of newly installed.
+    Export function detectRequiredComponents(promptText: string): string[] — scans prompt text for UI component keywords and maps to shadcn component names.
+    Wire into phase3-executor.ts: before prompt execution for component/page/feature prompt types, call detectRequiredComponents and ensureComponentsInstalled.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(ui-engine): ShadcnInstaller auto-installs components in target projects'
+  gates:
+  - type: compile
+
+- id: ui-component-generator
+  name: Build UIComponentGenerator — generates world-class components using skills templates
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\shadcn-installer.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\engine\claude-runner.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\ui-engine\component-generator.ts. Minimum 250 lines.
+    Export interface ComponentSpec { name: string, description: string, props: string[], dataSource: string|null, interactions: string[], accessibility: string[] }.
+    Export interface GeneratedComponent { spec: ComponentSpec, code: string, storyCode: string, testCode: string, filePath: string }.
+    Export class UIComponentGenerator with method generate(spec: ComponentSpec, projectPath: string, buildRunId: string, promptId: string): Promise<GeneratedComponent>.
+    Implementation:
+    1) Load ui-components skill template from skills library.
+    2) Detect and install required shadcn components via ShadcnInstaller.
+    3) Build generation prompt injecting the ui-components skill template, component spec, and these hard requirements: use shadcn/ui primitives not hand-rolled elements, Tailwind for styling, TypeScript strict, ARIA labels on all interactive elements, loading state, error state, empty state where applicable, dark mode support via dark: prefix, mobile-first responsive.
+    4) Call runClaude with generation prompt.
+    5) Parse response to extract TypeScript component code.
+    6) Generate Storybook story code for the component.
+    7) Generate Vitest test file for the component.
+    8) Write component to projectPath/src/components/{spec.name}.tsx.
+    9) Write story to projectPath/src/stories/{spec.name}.stories.tsx if Storybook detected.
+    10) Persist to design_artifacts table.
+    Export createUIComponentGenerator(): UIComponentGenerator.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(ui-engine): UIComponentGenerator with shadcn skills injection'
+  gates:
+  - type: compile
+
+- id: ui-design-token-system
+  name: Build DesignTokenManager — enforces consistent design tokens across projects
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\component-generator.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\ui-engine\design-token-manager.ts. Minimum 200 lines.
+    Export interface DesignTokens { colors: Record<string, string>, typography: Record<string, string>, spacing: Record<string, string>, borderRadius: Record<string, string>, shadows: Record<string, string>, breakpoints: Record<string, string> }.
+    Export const DEFAULT_DESIGN_TOKENS: DesignTokens — define a world-class default token set using Tailwind CSS variable names for colors (--primary, --secondary, --accent, --muted, --destructive, --background, --foreground, --card, --border, --ring), Inter as default font family, standard Tailwind spacing scale, consistent border radius (sm: 0.25rem, md: 0.375rem, lg: 0.5rem, xl: 0.75rem, full: 9999px).
+    Export function detectProjectTokens(projectPath: string): Partial<DesignTokens> — reads tailwind.config.ts and globals.css to extract existing design tokens.
+    Export function generateTailwindConfig(tokens: DesignTokens): string — generates a complete tailwind.config.ts content string with the token set.
+    Export function generateGlobalsCss(tokens: DesignTokens): string — generates globals.css with CSS custom properties for all tokens supporting both light and dark mode.
+    Export function ensureDesignTokens(projectPath: string, tokens?: Partial<DesignTokens>): Promise<void> — merges provided tokens with defaults, writes tailwind.config.ts and globals.css if not already configured.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(ui-engine): DesignTokenManager consistent design tokens across projects'
+  gates:
+  - type: compile
+
+- id: ui-storybook-generator
+  name: Build StorybookGenerator — auto-generates stories for all components
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\component-generator.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\ui-engine\storybook-generator.ts. Minimum 200 lines.
+    Export function detectStorybookInstalled(projectPath: string): boolean — checks for .storybook directory and @storybook packages in package.json.
+    Export function installStorybook(projectPath: string): Promise<void> — runs npx storybook@latest init --yes in projectPath if not installed.
+    Export function generateStory(componentPath: string, componentName: string, props: string[]): string — generates a complete Storybook story file following CSF3 format with: default export meta with title, component, tags autodocs. Export const Default story. Export const Loading story if component has loading prop. Export const Empty story if component has empty state. Export const Error story if component has error prop.
+    Export function generateStoriesForProject(projectPath: string): Promise<{generated: string[], skipped: string[]}> — scans src/components/ for all .tsx files without existing stories, generates story for each, writes to src/stories/.
+    Export function generateStorybookIndex(projectPath: string): Promise<void> — creates .storybook/main.ts and .storybook/preview.ts configured for Next.js and Tailwind.
+    Wire into UIComponentGenerator: after component generation call generateStory and write to stories directory.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(ui-engine): StorybookGenerator auto-generates CSF3 stories'
+  gates:
+  - type: compile
+
+- id: ui-accessibility-checker
+  name: Build AccessibilityChecker — validates WCAG 2.1 AA compliance
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\component-generator.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\ui-engine\accessibility-checker.ts. Minimum 200 lines.
+    Export interface AccessibilityIssue { severity: 'error'|'warning', rule: string, description: string, fix: string, element?: string }.
+    Export interface AccessibilityReport { filePath: string, issues: AccessibilityIssue[], score: number, passed: boolean }.
+    Export function checkComponentAccessibility(filePath: string, code: string): AccessibilityReport.
+    Implementation checks for: missing aria-label on interactive elements (buttons without text content, icon-only buttons), missing alt on img elements, missing htmlFor on label elements, onClick handlers on non-interactive elements (div, span), missing role on custom interactive elements, color contrast (flags hardcoded color values that may fail contrast), keyboard navigation (onKeyDown handlers missing when onClick present on non-button elements), form fields missing associated labels, dialog missing aria-labelledby.
+    Each issue includes a specific fix suggestion.
+    Score = 100 - (errors * 10) - (warnings * 3) clamped 0-100.
+    passed = score >= 70 and zero errors.
+    Export function checkProjectAccessibility(projectPath: string): Promise<AccessibilityReport[]> — scans all src/components/**/*.tsx files.
+    Wire into Sentinel gate: add accessibility check as optional gate for component prompt types.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(ui-engine): AccessibilityChecker WCAG 2.1 AA validation'
+  gates:
+  - type: compile
+
+- id: ui-forge-design-command
+  name: Register forge design CLI command
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\cli\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\component-generator.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\shadcn-installer.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\design-token-manager.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\storybook-generator.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\accessibility-checker.ts in full.
+    Add forge design command to src\cli\index.ts with subcommands:
+    1) forge design component <project-path> <component-name> --description <text> --props <comma-list> — generates a world-class component using UIComponentGenerator, installs required shadcn deps, writes story, prints file path.
+    2) forge design tokens <project-path> — runs ensureDesignTokens, prints what was configured.
+    3) forge design storybook <project-path> — runs generateStoriesForProject, prints count of stories generated.
+    4) forge design audit <project-path> — runs checkProjectAccessibility, prints report showing score per component, lists all issues with fixes, overall pass/fail.
+    5) forge design install-shadcn <project-path> <component-names...> — installs listed shadcn components.
+    All output in [yyyy-MM-dd HH:mm:ss] [LEVEL] format.
+    Create src\ui-engine\index.ts re-exporting all ui-engine modules.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(cli): forge design command — component tokens storybook audit install-shadcn'
+  gates:
+  - type: compile
+
+- id: ui-phase3-integration
+  name: Wire UI engine into Phase 3 executor for automatic UI enhancement
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\shadcn-installer.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\design-token-manager.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\ui-engine\accessibility-checker.ts in full.
+    In phase3-executor.ts make these additions:
+    1) Before the first prompt of every build run: call ensureDesignTokens(projectPath) to ensure design tokens are configured. Log [UI ENGINE] Design tokens configured.
+    2) For every prompt with prompt_type containing component, page, or ui: call detectRequiredComponents(prompt.text) and ensureComponentsInstalled(projectPath, required). Log [UI ENGINE] Installed {n} shadcn components: {list}.
+    3) After every prompt that passes all Sentinel gates and prompt_type is component or page: call checkComponentAccessibility on each modified .tsx file. If any accessibility errors found: log [UI ENGINE] ACCESSIBILITY: {n} issues found in {file} and add to build report. Do not fail the build — warn only.
+    4) Add accessibility issue count to the per-prompt summary line.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(ui-engine): UI engine wired into Phase 3 for automatic enhancement'
+  gates:
+  - type: compile
+
+- id: ui-governance-update
+  name: Update governance docs to reflect UI engine completion
+  prompt: |
+    In C:\Users\manag\Documents\forge-2 update governance documents:
+    1) STATE_OF_THE_BUILD.md — add UI Engine section marking all 9 prompts DONE with commit hashes. Schema version 2.6.0.
+    2) SESSION_STATE.md — update listing all new files in src/ui-engine/.
+    3) AGENTS.md — add UI engine agents: ShadcnInstaller(src/ui-engine/shadcn-installer.ts), UIComponentGenerator(src/ui-engine/component-generator.ts), DesignTokenManager(src/ui-engine/design-token-manager.ts), StorybookGenerator(src/ui-engine/storybook-generator.ts), AccessibilityChecker(src/ui-engine/accessibility-checker.ts).
+    4) BEHAVIORAL_CONTRACTS.md — add UI-1: Design tokens MUST be configured before first prompt of every build. UI-2: shadcn/ui components MUST be used for all primitive UI elements. UI-3: Accessibility check runs after every component/page prompt. UI-4: All components support dark mode via Tailwind dark: prefix. UI-5: Storybook stories generated for every new component.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'chore: governance docs UI Engine complete'
+  gates:
+  - type: compile

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { getPilClient } from "@/lib/pil/db";
 
 // GET /api/pil/research/[runId] — full ResearchRun with its steps.
@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 type RouteContext = { params: { runId: string } };
 
 export async function GET(_req: Request, { params }: RouteContext) {
-  const gate = await requireRole("viewer");
+  const gate = await requirePilRole("viewer");
   if ("error" in gate) return gate.error;
   const { organizationId } = gate;
 

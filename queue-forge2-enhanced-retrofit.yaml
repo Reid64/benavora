@@ -1,0 +1,213 @@
+project: forge-2
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+prompts:
+- id: retrofit-deep-analysis-schema
+  name: Add deep analysis tables to Build Memory
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\learning\database.ts in full.
+    Add these CREATE TABLE IF NOT EXISTS blocks inside initializeForgeMemory() after existing tables:
+    Table 1: dead_code_findings (id TEXT PRIMARY KEY, build_run_id TEXT NOT NULL, project_path TEXT NOT NULL, file_path TEXT NOT NULL, symbol_name TEXT NOT NULL, symbol_type TEXT NOT NULL, reason TEXT NOT NULL, line_number INTEGER, created_at TEXT NOT NULL).
+    Table 2: orphaned_routes (id TEXT PRIMARY KEY, build_run_id TEXT NOT NULL, project_path TEXT NOT NULL, route_path TEXT NOT NULL, http_methods TEXT NOT NULL, reason TEXT NOT NULL, created_at TEXT NOT NULL).
+    Table 3: schema_drift_findings (id TEXT PRIMARY KEY, build_run_id TEXT NOT NULL, project_path TEXT NOT NULL, finding_type TEXT NOT NULL, table_name TEXT NOT NULL, detail TEXT NOT NULL, severity TEXT NOT NULL, created_at TEXT NOT NULL).
+    Table 4: dependency_audit_findings (id TEXT PRIMARY KEY, build_run_id TEXT NOT NULL, project_path TEXT NOT NULL, package_name TEXT NOT NULL, finding_type TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL).
+    Add all four to ALL_FORGE_TABLES. Bump CURRENT_SCHEMA_VERSION to 2.7.0.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(db): deep analysis tables schema v2.7.0'
+  gates:
+  - type: compile
+
+- id: retrofit-dead-code-detector
+  name: Build DeadCodeDetector — finds unused functions, exports, and types
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\resurrection\governance-gaps.ts in full as reference.
+    Create C:\Users\manag\Documents\forge-2\src\retrofit\dead-code-detector.ts. Minimum 250 lines.
+    Export interface DeadCodeFinding { filePath: string, symbolName: string, symbolType: 'function'|'class'|'interface'|'type'|'const'|'variable', reason: string, lineNumber: number }.
+    Export class DeadCodeDetector with method detect(projectPath: string): Promise<DeadCodeFinding[]>.
+    Implementation:
+    1) Scan all src/**/*.ts and src/**/*.tsx files using fs.readdirSync recursively.
+    2) For each file parse exports using regex patterns: export function, export const, export class, export interface, export type, export enum.
+    3) For each exported symbol search all other files for imports of that symbol using regex: import.*{.*symbolName.*} and dynamic import patterns.
+    4) Symbols with zero imports across entire codebase flagged as potentially dead. Exclude: page.tsx default exports (Next.js route), route.ts named exports (Next.js API), index.ts re-exports, files matching *.test.ts *.spec.ts *.stories.tsx.
+    5) Also detect: functions defined but never called within the same file (inner functions only), variables assigned but never read, imports that are never used in the importing file.
+    6) Persist findings to dead_code_findings table.
+    7) Return all findings sorted by file path.
+    Export createDeadCodeDetector(): DeadCodeDetector.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(retrofit): DeadCodeDetector finds unused symbols across codebase'
+  gates:
+  - type: compile
+
+- id: retrofit-orphaned-route-detector
+  name: Build OrphanedRouteDetector — finds API routes with no frontend caller
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\dead-code-detector.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\retrofit\orphaned-route-detector.ts. Minimum 200 lines.
+    Export interface OrphanedRouteFinding { routePath: string, httpMethods: string[], reason: string, filePath: string }.
+    Export class OrphanedRouteDetector with method detect(projectPath: string): Promise<OrphanedRouteFinding[]>.
+    Implementation:
+    1) Scan src/app/api/**\/route.ts files to enumerate all API routes. Extract route path from file path (remove src/app and /route.ts). Extract exported HTTP methods (GET, POST, PUT, DELETE, PATCH).
+    2) Scan all non-route .ts and .tsx files for fetch() calls, axios calls, and supabase client calls that reference API paths.
+    3) Extract URL strings from fetch() calls: fetch('/api/...'), fetch(`/api/...`), fetch(API_URL + '...').
+    4) For each API route check if its path appears in any fetch call across the frontend codebase.
+    5) Routes with zero frontend callers flagged as orphaned. Exclude: /api/health, /api/webhooks/* (called by external services), /api/auth/* (called by auth library internally).
+    6) Persist to orphaned_routes table.
+    Export createOrphanedRouteDetector(): OrphanedRouteDetector.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(retrofit): OrphanedRouteDetector finds API routes with no frontend caller'
+  gates:
+  - type: compile
+
+- id: retrofit-schema-drift-detector
+  name: Build SchemaDriftDetector — finds drift between DB migrations and TypeScript types
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\orphaned-route-detector.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\retrofit\schema-drift-detector.ts. Minimum 250 lines.
+    Export interface SchemaDriftFinding { findingType: 'table_missing_type'|'type_missing_table'|'column_mismatch'|'type_mismatch', tableName: string, detail: string, severity: 'critical'|'major'|'minor' }.
+    Export class SchemaDriftDetector with method detect(projectPath: string): Promise<SchemaDriftFinding[]>.
+    Implementation:
+    1) Parse all supabase/migrations/*.sql files in chronological order. Extract: CREATE TABLE statements (table name, columns, types), ALTER TABLE ADD COLUMN statements, DROP TABLE statements. Build a final resolved schema map: Map<tableName, Map<columnName, sqlType>>.
+    2) Scan src/**/*.ts and src/**/*.tsx for TypeScript interfaces and types that map to DB tables. Identify by naming convention: interface User {}, type UserRow = {}, Database['public']['Tables']['users']['Row']. Build a TypeScript type map: Map<tableName, Map<propertyName, tsType>>.
+    3) Compare maps: tables in migration schema but no TS type = table_missing_type MAJOR. TS types with no migration table = type_missing_table MAJOR. Columns in migration not in TS type = column_mismatch MINOR. SQL type TEXT but TS type number (or other obvious mismatches) = type_mismatch MAJOR.
+    4) Persist to schema_drift_findings table.
+    Export createSchemaDriftDetector(): SchemaDriftDetector.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(retrofit): SchemaDriftDetector finds drift between migrations and TypeScript types'
+  gates:
+  - type: compile
+
+- id: retrofit-dependency-auditor
+  name: Build DependencyAuditor — finds unused and missing packages
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\schema-drift-detector.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\retrofit\dependency-auditor.ts. Minimum 200 lines.
+    Export interface DependencyFinding { packageName: string, findingType: 'unused'|'missing'|'duplicate'|'outdated_major', detail: string }.
+    Export class DependencyAuditor with method audit(projectPath: string): Promise<DependencyFinding[]>.
+    Implementation:
+    1) Read package.json dependencies and devDependencies.
+    2) Scan all src/**/*.ts and src/**/*.tsx for import statements. Extract package names (first segment of import path, excluding @scope/package which is two segments).
+    3) Packages in package.json not imported anywhere in src/ = unused. Severity: devDependencies unused are warnings, dependencies unused are errors.
+    4) Packages imported in src/ not in package.json = missing (likely a transitive dependency being imported directly).
+    5) Same package appearing in both dependencies and devDependencies = duplicate.
+    6) Run pnpm outdated --json if available, parse output for major version updates available.
+    7) Exclude from unused check: packages that are used in config files (next.config.ts, tailwind.config.ts, vitest.config.ts), type-only packages (@types/*), and packages used in scripts/.
+    8) Persist to dependency_audit_findings table.
+    Export createDependencyAuditor(): DependencyAuditor.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(retrofit): DependencyAuditor finds unused and missing packages'
+  gates:
+  - type: compile
+
+- id: retrofit-coverage-baseline
+  name: Build CoverageBaseline — identifies files with zero test coverage
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\dependency-auditor.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\retrofit\coverage-baseline.ts. Minimum 200 lines.
+    Export interface CoverageBaselineFinding { filePath: string, hasTestFile: boolean, testFilePath: string|null, exportedSymbols: number, coveredSymbols: number, coveragePercent: number, priority: 'critical'|'high'|'medium'|'low' }.
+    Export class CoverageBaseline with method analyze(projectPath: string): Promise<CoverageBaselineFinding[]>.
+    Implementation:
+    1) Scan src/lib/**/*.ts and src/components/**/*.tsx — these are the testable units (exclude page.tsx, route.ts, layout.tsx).
+    2) For each file check if a test file exists: {file}.test.ts, {file}.test.tsx, {file}.spec.ts, __tests__/{filename}.test.ts.
+    3) Count exported symbols (functions, classes, constants) in each file.
+    4) If test file exists, parse it to count test cases (it() and test() calls) as a proxy for covered symbols.
+    5) Priority: critical = src/lib/core or src/lib/utils with no tests. high = src/lib/* with no tests. medium = src/components/* with no tests. low = has some tests but coverage < 50%.
+    6) Generate coverage summary: total files, files with tests, files without tests, estimated coverage percent.
+    7) Output sorted by priority descending.
+    Export createCoverageBaseline(): CoverageBaseline.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(retrofit): CoverageBaseline identifies files with zero test coverage'
+  gates:
+  - type: compile
+
+- id: retrofit-eslint-gate
+  name: Add ESLint and Prettier Sentinel gate
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts in full to understand gate runner pattern.
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase4-sentinel.ts in full to understand gate definitions.
+    Add two new gate types to the Sentinel gate runner:
+    Gate type lint: runs pnpm eslint src/ --max-warnings 0 --format compact in projectPath. PASS if exit code 0. FAIL with warning count and first 10 violations listed. Only runs if .eslintrc.* or eslint.config.* exists in projectPath.
+    Gate type format: runs pnpm prettier --check src/ in projectPath. PASS if exit code 0. FAIL lists files with formatting violations. Only runs if .prettierrc.* or prettier.config.* exists in projectPath. Auto-skip if prettier not in package.json devDependencies.
+    Both gates print in exact FORGE 1.0 format: [GATE] Running gate: lint then [GATE:lint] command (in path) then [GATE:lint] PASS/FAIL detail then [PASS/FAIL] Gate LINT: PASS/FAIL.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(sentinel): ESLint and Prettier gates — style debt prevention'
+  gates:
+  - type: compile
+
+- id: retrofit-bundle-size-gate
+  name: Add bundle size Sentinel gate
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase4-sentinel.ts in full.
+    Add gate type bundle-size to the Sentinel gate runner.
+    Implementation:
+    1) Run pnpm run build in projectPath if .next directory does not exist or is older than 10 minutes.
+    2) Parse .next/build-manifest.json to extract per-page bundle sizes. Sum all chunks for each page.
+    3) Read previous bundle size baseline from Build Memory: SELECT bundle_sizes FROM build_runs WHERE project_path = ? ORDER BY created_at DESC LIMIT 1.
+    4) If no baseline exists: store current sizes as baseline, PASS gate with message BUNDLE SIZE BASELINE ESTABLISHED.
+    5) If baseline exists: compare each page. If any page increased by more than 15%: FAIL gate listing pages with percentage increase. If total bundle increased by more than 10%: FAIL with total size delta.
+    6) On PASS: update baseline in build_runs record.
+    7) Gate only runs for prompt types feature, component, page. Skip for types agent, database, migration, documentation.
+    8) Auto-skip if project is not a Next.js project (no next.config.* found).
+    Print in FORGE 1.0 gate format.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(sentinel): bundle size gate — 15% per-page threshold'
+  gates:
+  - type: compile
+
+- id: retrofit-github-actions
+  name: Build GitHubActionsGenerator — auto-generates CI/CD workflows
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\dependency-auditor.ts in full as reference.
+    Create C:\Users\manag\Documents\forge-2\src\retrofit\github-actions-generator.ts. Minimum 200 lines.
+    Export interface WorkflowConfig { projectName: string, nodeVersion: string, packageManager: string, hasTests: boolean, hasE2e: boolean, deployTarget: 'vercel'|'none' }.
+    Export function detectWorkflowConfig(projectPath: string): WorkflowConfig — reads package.json for name and scripts, detects node version from .nvmrc or package.json engines, detects package manager from lockfile, detects test scripts, detects Vercel from vercel.json or .vercel directory.
+    Export function generateCIWorkflow(config: WorkflowConfig): string — generates a complete .github/workflows/ci.yml content string that: triggers on push to main and pull_request, runs on ubuntu-latest, steps: checkout, setup-node with cache, install dependencies, run tsc --noEmit, run eslint if configured, run tests if configured, run build.
+    Export function generateVercelDeployWorkflow(config: WorkflowConfig): string — generates .github/workflows/deploy.yml that: triggers on push to main only, runs forge verify after Vercel deployment completes using VERCEL_TOKEN secret.
+    Export function generateForgeVerifyWorkflow(config: WorkflowConfig): string — generates .github/workflows/forge-verify.yml that triggers on deployment status events and runs HTTP health checks.
+    Export function ensureGitHubActions(projectPath: string): Promise<string[]> — creates .github/workflows/ directory, writes all applicable workflow files, returns list of files created.
+    Wire into Phase 0 of FORGE build: after toolchain scout, call ensureGitHubActions if .git directory exists and .github/workflows does not.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(retrofit): GitHubActionsGenerator auto-generates CI/CD workflows'
+  gates:
+  - type: compile
+
+- id: retrofit-deep-analysis-command
+  name: Register forge analyze deep analysis CLI command
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\cli\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\dead-code-detector.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\orphaned-route-detector.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\schema-drift-detector.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\dependency-auditor.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\coverage-baseline.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\retrofit\github-actions-generator.ts in full.
+    Add forge analyze command to src\cli\index.ts:
+    forge analyze <project-path> — runs all five deep analysis modules in sequence: DeadCodeDetector, OrphanedRouteDetector, SchemaDriftDetector, DependencyAuditor, CoverageBaseline. Prints comprehensive report in FORGE 1.0 format showing: total findings per category, top 10 most critical findings each, overall health score (100 - weighted findings). Writes full report to project-path/.forge/deep-analysis-{timestamp}.md.
+    forge analyze dead-code <project-path> — runs DeadCodeDetector only.
+    forge analyze routes <project-path> — runs OrphanedRouteDetector only.
+    forge analyze schema <project-path> — runs SchemaDriftDetector only.
+    forge analyze deps <project-path> — runs DependencyAuditor only.
+    forge analyze coverage <project-path> — runs CoverageBaseline only.
+    forge analyze ci <project-path> — runs ensureGitHubActions.
+    Wire forge analyze into forge retrofit command: run full deep analysis before generating continuation queue and include findings in queue prompt context.
+    Create src\retrofit\index.ts re-exporting all retrofit modules.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(cli): forge analyze deep analysis command and retrofit integration'
+  gates:
+  - type: compile
+
+- id: retrofit-governance-update
+  name: Update governance docs to reflect enhanced retrofit completion
+  prompt: |
+    In C:\Users\manag\Documents\forge-2 update governance documents:
+    1) STATE_OF_THE_BUILD.md — add Enhanced Retrofit section marking all 11 prompts DONE with commit hashes. Schema version 2.7.0.
+    2) SESSION_STATE.md — update listing all new files in src/retrofit/.
+    3) AGENTS.md — add retrofit agents: DeadCodeDetector, OrphanedRouteDetector, SchemaDriftDetector, DependencyAuditor, CoverageBaseline, GitHubActionsGenerator — all in src/retrofit/.
+    4) BEHAVIORAL_CONTRACTS.md — add RET-1: forge analyze MUST run before every retrofit build to establish baseline. RET-2: lint and format gates run on every prompt if project has ESLint/Prettier configured. RET-3: Bundle size gate runs on every feature/component/page prompt. RET-4: GitHub Actions MUST be generated at project init if .git exists. RET-5: Schema drift findings MUST be included in retrofit queue prompt context.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'chore: governance docs Enhanced Retrofit complete'
+  gates:
+  - type: compile

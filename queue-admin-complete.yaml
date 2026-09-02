@@ -1,0 +1,98 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: admin-001
+  name: Governance sync and platform admin complete build
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/admin/ directory listing in full.
+    Read all admin page files found in full.
+    Read src/app/(dashboard)/command-center/page.tsx in full.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    BUILD MISSING ADMIN PAGES:
+
+    CREATE src/app/(dashboard)/admin/orgs/page.tsx:
+    Platform-owner only. Lists all organizations in the system.
+    Table (white card): Org Name, Plan badge, Status (Active/Trial/Canceled), Onboarding Complete, Created Date, Agent Runs (last 7 days), View link.
+    Filter by plan, status, onboarding state.
+    Search by org name.
+    "Impersonate" button (sets a cookie to view the platform as that org — for support).
+    Requires role=owner/super_admin check.
+
+    CREATE src/app/(dashboard)/admin/orgs/[orgId]/page.tsx:
+    Detailed org view for platform owner.
+    Shows: org profile, KB completeness, subscription details, all agent runs, all strategic recommendations, all opportunities, autonomous config toggles.
+    "Run Pipeline for Org" button triggers full agent pipeline for this specific org.
+    "Reset Onboarding" button sets onboarding_completed=false.
+    "Upgrade Plan" button opens Stripe portal for this org.
+
+    CREATE src/app/(dashboard)/admin/system/page.tsx:
+    System health dashboard.
+    Shows: Railway worker status (last heartbeat), Supabase connection status, API response times (last 24h average), Error rate (last 24h).
+    Active agent runs across all orgs (real-time polling every 10s).
+    Queue depths: submission_queue count, agent_queue count, dd_requests count.
+    "Clear Stuck Jobs" button: updates any agent_runs stuck in status='running' for > 2 hours to status='failed'.
+
+    CREATE src/app/api/admin/orgs/route.ts:
+    GET: returns all organizations with subscription and run stats. Owner only.
+
+    CREATE src/app/api/admin/orgs/[orgId]/route.ts:
+    GET: returns full org profile with all related data.
+    POST { action: 'run_pipeline' | 'reset_onboarding' }: executes the action.
+
+    CREATE src/app/api/admin/system/route.ts:
+    GET: returns system health metrics.
+    POST { action: 'clear_stuck_jobs' }: clears stuck agent_runs.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: admin orgs list, org detail, system health dashboard -- platform owner complete toolset'; git push.
+
+- id: admin-002
+  name: Audit log and activity feed complete build
+  prompt: |
+    Read src/app/(dashboard)/admin/audit-log/page.tsx in full if exists, note if missing.
+    Read SCHEMA_REGISTRY_v2.md for audit_log or notifications tables in full.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    BUILD AUDIT AND ACTIVITY SYSTEM:
+
+    First check if audit_log table exists:
+    npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); s.from('audit_log').select('id').limit(1).then(r=>console.log('exists:',!r.error,'error:',r.error?.message))"
+
+    If audit_log doesn't exist, create it via SQL in the Supabase dashboard. Provide the SQL:
+    CREATE TABLE IF NOT EXISTS audit_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid REFERENCES organizations(id), user_id uuid REFERENCES profiles(id), action text NOT NULL, entity_type text, entity_id uuid, old_values jsonb, new_values jsonb, ip_address text, user_agent text, created_at timestamptz DEFAULT now());
+    CREATE INDEX idx_audit_org ON audit_log(org_id, created_at DESC);
+    CREATE INDEX idx_audit_user ON audit_log(user_id, created_at DESC);
+
+    CREATE audit middleware: src/lib/audit.ts
+    Export async function logAuditEvent(params: { supabase, orgId, userId, action, entityType?, entityId?, oldValues?, newValues? })
+    Call this from key API routes: application status changes, agent config changes, billing changes.
+
+    CREATE/UPGRADE src/app/(dashboard)/admin/audit-log/page.tsx:
+    Full audit log viewer for platform owner.
+    Filter by: org, user, action type, date range.
+    Table: Timestamp, Organization, User, Action (colored badge by type: create=#10B981, update=#0EA5E9, delete=#EF4444, auth=#8B5CF6), Entity, Details (expandable).
+    Export to CSV button.
+
+    CREATE src/app/(dashboard)/activity/page.tsx:
+    Organization-level activity feed (not admin — visible to org users).
+    Shows last 50 events for this org: agent runs, drafts created, opportunities found, alerts triggered.
+    Each event: icon by type, description, timestamp, link to related entity.
+    Auto-refreshes every 30 seconds.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: audit log and activity feed -- admin log viewer, org activity feed, audit middleware'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

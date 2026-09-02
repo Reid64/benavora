@@ -1,0 +1,193 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STATE_OF_THE_BUILD.md
+  - STANDING_DIRECTIVES.md
+  - UNIVERSAL_SCRAPER_PRD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: uscraper-001
+    phase: schema
+    description: "Create scrape_jobs and scrape_results tables"
+    prompt: |
+      Read UNIVERSAL_SCRAPER_PRD.md section 3.4 in full.
+      Create a new migration file (next sequential number in supabase/migrations/) defining
+      scrape_jobs and scrape_results exactly per the PRD's schema. Add appropriate indexes
+      (job_id on scrape_results, status on scrape_jobs, keyword on scrape_jobs for lookup).
+      Add RLS policies matching the pattern used elsewhere in this codebase for org-scoped
+      or platform-level tables — determine from context whether these should be org-scoped
+      or platform-global (this is infrastructure used across orgs, likely platform-global
+      with service-role-only write access, org-scoped read via a job-ownership column if
+      triggered per-org). Document your choice in a comment.
+      Output the migration SQL to a clearly-named file. Do NOT attempt to apply it (DDL
+      credential is not available in this session — same known constraint as migration 051
+      and 052 tonight). Note in STATE_OF_THE_BUILD.md that this migration is pending manual
+      application via Supabase SQL Editor, same as the last two.
+      git add -A; git commit -m 'feat(scraper-v2): schema for universal scrape_jobs/scrape_results'; git push
+    gates:
+      - type: file_exists
+    max_retries: 2
+    on_fail: continue
+
+  - id: uscraper-002
+    phase: infra
+    description: "Install and verify Camoufox + rebrowser-patches + fingerprint-suite + ghost-cursor"
+    prompt: |
+      Install camoufox-js (or camoufox with appropriate Node bindings — verify current
+      package state, do not assume API shape without checking), rebrowser-patches,
+      an actively-maintained fingerprint generation package (fingerprint-generator or
+      browserforge — verify which has current Node.js support), and ghost-cursor.
+      Create a minimal smoke-test script (scripts/test-camoufox-launch.ts) that launches
+      a Camoufox browser instance, navigates to https://example.com, confirms page content
+      is retrieved, and closes cleanly. Run it and report real output, not just that it
+      compiled — this is a new browser engine dependency and must be proven to actually
+      launch in this environment before anything is built on top of it.
+      If Camoufox's Node.js bindings are immature or broken, report this clearly and do
+      NOT proceed to fake success — this is exactly the kind of claim that must be verified,
+      not assumed. If blocked, document the blocker and what alternative (e.g. staying on
+      playwright-extra + rebrowser-patches only, dropping Camoufox specifically) would still
+      deliver meaningful improvement.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(scraper-v2): install and smoke-test elite stealth stack'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: uscraper-003
+    phase: build
+    description: "Build UniversalFetcher — browser layer wrapping the elite stack"
+    prompt: |
+      Read UNIVERSAL_SCRAPER_PRD.md section 3.2 in full, and the smoke-test result from
+      uscraper-002 to know which stack components are actually working.
+      Create src/lib/scraper-v2/universal-fetcher.ts. Build UniversalFetcher class:
+      fetchPage(url) using the verified-working browser engine from uscraper-002, applying
+      fingerprint generation, ghost-cursor for any interaction, and Crawlee's SessionPool
+      for session/retry management (replace hand-rolled retry logic, don't duplicate it).
+      Include the last_fetch_error diagnostic pattern (log real errors, don't silently
+      swallow) — this directly addresses tonight's earlier regression where a working fix
+      produced zero real database writes with no visible error trail.
+      Write a real test: fetch 3 different real websites (e.g. a news site, a small business
+      site, a .gov site), report actual retrieved content length for each — prove this
+      works against real, varied targets, not one cherry-picked URL.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(scraper-v2): build UniversalFetcher browser layer'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: uscraper-004
+    phase: build
+    description: "Build discovery layer — search + sitemap + direct crawl"
+    prompt: |
+      Read UNIVERSAL_SCRAPER_PRD.md section 3.1 in full.
+      Create src/lib/scraper-v2/discovery.ts. Build discoverUrls(keyword, targetDomain?)
+      that returns candidate URLs via: search engine query (reuse UniversalFetcher, rotate
+      across Google/Bing/DuckDuckGo query URLs to distribute load), sitemap.xml parsing
+      when a targetDomain is given (fast path, check {domain}/sitemap.xml first), and
+      direct crawl fallback (follow same-domain links from a seed URL, bounded depth/count).
+      Test with 2 real keywords unrelated to nonprofits (e.g. "artisan coffee roasters
+      Nashville", "independent bookstores Seattle") — report actual URLs discovered for
+      each, proving this isn't nonprofit-specific.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(scraper-v2): build multi-source discovery layer'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: uscraper-005
+    phase: build
+    description: "Build Claude-based structured extraction layer"
+    prompt: |
+      Read UNIVERSAL_SCRAPER_PRD.md section 3.3 in full.
+      Create src/lib/scraper-v2/extractor.ts. Build extractStructured(pageContent, keyword,
+      outputSchema) that: extracts main readable content from raw HTML (strip nav/footer/ads
+      — use an existing readability library, don't hand-roll HTML parsing), sends content +
+      keyword context + the caller's JSON schema to Claude via the Anthropic SDK, requests
+      structured JSON output matching the schema, returns parsed result with null for fields
+      genuinely absent from the page (explicitly instruct the model not to fabricate missing
+      fields — this must be enforced in the prompt).
+      Test against 2 of the real pages fetched in uscraper-003/004 with a simple schema
+      (e.g. {"business_name":"string","phone":"string","address":"string"}) — report actual
+      extracted output, confirm it's real data from the page, not hallucinated.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(scraper-v2): build Claude-based schema-flexible extraction layer'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: uscraper-006
+    phase: build
+    description: "Wire full pipeline + CLI entry point"
+    prompt: |
+      Read UNIVERSAL_SCRAPER_PRD.md section 3.5 in full.
+      Create scripts/run-universal-scraper.ts implementing the CLI shown in the PRD
+      (--keyword, --schema, --limit flags). Wire discovery -> fetch -> extract -> write to
+      scrape_jobs/scrape_results (tables from uscraper-001 — if not yet applied to
+      production, write clearly-logged mock inserts and flag this, do not silently no-op).
+      Register "scrape:universal": "tsx scripts/run-universal-scraper.ts" in package.json.
+      Run a real end-to-end test: pnpm scrape:universal --keyword "vegan bakeries Austin"
+      --schema '{"name":"string","address":"string","website":"string"}' --limit 5
+      Report the actual terminal output showing real discovered URLs, real fetched content,
+      real extracted structured results — this is the proof the whole pipeline works
+      end-to-end for an arbitrary keyword, not just foundations/nonprofits.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(scraper-v2): wire full universal scraper pipeline + CLI'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: uscraper-007
+    phase: migration
+    description: "Re-platform existing foundation/nonprofit scrapers as universal-scraper templates"
+    prompt: |
+      Read UNIVERSAL_SCRAPER_PRD.md section 4 in full, and the existing
+      src/lib/scraper/foundation-scraper.ts (specifically its working IRS-990 batch-ZIP
+      discovery logic fixed earlier tonight — commit 52dd3ce).
+      Create two pre-configured job templates on top of the new universal-scraper-v2
+      pipeline: one for IRS 990 foundation enrichment (reusing the proven batch-ZIP
+      discovery logic as a custom discovery source, not rebuilding it), one for nonprofit
+      contact extraction. These should produce equivalent or better results than the old
+      scrapers, verified against a small real batch (20-50 records) with actual database
+      writes confirmed via direct query afterward, not terminal output alone.
+      Do not delete the old scraper files yet — leave them in place until the new templates
+      are proven equivalent on a real run.
+      git add -A; git commit -m 'feat(scraper-v2): re-platform foundation/nonprofit scrapers as universal templates'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: uscraper-008
+    phase: governance
+    description: "Governance update reflecting universal scraper build"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md, SESSION_STATE.md, FEATURE_REGISTRY_v2.md.
+      Document the universal scraper build (uscraper-001 through 007): what was proven
+      working with real verified output at each stage, what remains pending (schema
+      migration application, Camoufox stability if flagged as blocked in uscraper-002),
+      and honest current state — do not mark anything BUILT that wasn't verified against
+      real data per this queue's gates.
+      git add STATE_OF_THE_BUILD.md SESSION_STATE.md FEATURE_REGISTRY_v2.md; git commit -m 'governance: universal scraper build status July 28 2026'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

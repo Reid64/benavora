@@ -1,0 +1,55 @@
+release_id: "PIL-RELEASE-01"
+version: "1.0.0"
+title: "Constitutional Foundation and BEN-SUP-01 Reference Agent"
+status: "specification_complete_validated"
+governing_document:
+  title: "BENAVORA ENTERPRISE AGENTIC PROSPECT INTELLIGENCE LAYER"
+  pages_verified: 49
+scope:
+  completed:
+    - system_constitution
+    - canonical_44_agent_registry
+    - canonical_30_service_registry
+    - shared_agent_contracts
+    - chain_it_master_manifest
+    - BEN_SUP_01_reference_agent_specification
+    - enterprise_agent_scorecard
+  explicitly_not_claimed:
+    - implementation_inside_a_target_codebase
+    - live_provider_connectivity
+    - production_performance_results
+    - completion_of_remaining_43_agent_specifications
+files:
+  - path: "README.md"
+    role: release_entrypoint
+  - path: "00-governance/00-system-constitution.md"
+    role: binding_governance
+  - path: "01-registries/01-agent-registry.yaml"
+    role: agent_registry
+  - path: "01-registries/02-service-registry.yaml"
+    role: deterministic_service_registry
+  - path: "02-contracts/03-shared-agent-contracts.yaml"
+    role: shared_machine_readable_contracts
+  - path: "03-chain-it/04-chain-it-master-manifest.yaml"
+    role: continuous_execution_control
+  - path: "04-agents/supervisory/BEN-SUP-01-chief-prospect-intelligence-orchestrator.md"
+    role: reference_agent_specification
+  - path: "05-evaluation/05-enterprise-agent-scorecard.md"
+    role: independent_quality_gate
+validation:
+  yaml_parse: passed
+  file_inventory: passed
+  agent_registry_count: 44
+  service_registry_count: 30
+  BEN_SUP_01:
+    lines: 492
+    required_sections_present: 22
+    self_awarded_score: false
+next_release:
+  id: "PIL-RELEASE-02"
+  planned_scope:
+    - remaining_shared_data_and_policy_architecture
+    - deterministic_service_contracts
+    - BEN_SUP_02
+    - BEN_SUP_03
+

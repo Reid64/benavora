@@ -1,0 +1,156 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL_V2.md
+  - DESIGN_SYSTEM_V2_ASSIGNMENT.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: cleanup-stray-processes-003
+    phase: build
+    description: "Kill any stray node processes before this batch"
+    prompt: |
+      Check for and terminate any node.exe processes not part of this current session before proceeding.
+    expected_outputs: []
+    gates: [{type: compile}]
+    max_retries: 2
+    on_fail: continue
+
+  - id: page-applications-002
+    phase: build
+    description: "/applications - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /applications. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. Preserve real stage-status colors. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/applications/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-deadlines-002
+    phase: build
+    description: "/deadlines - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /deadlines. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. CRITICAL: preserve the real overdue/due-this-week/future color legend exactly - do not repaint. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/deadlines/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-compliance-002
+    phase: build
+    description: "/compliance - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /compliance. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. This page had a real data-loading bug fixed earlier tonight - confirm it still loads real data correctly before styling, do not mask a regression with new colors. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/compliance/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-documents-002
+    phase: build
+    description: "/documents - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /documents. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. Preserve real "Expired" red badges. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/documents/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-outcomes-002
+    phase: build
+    description: "/outcomes - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /outcomes. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/outcomes/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-financials-002
+    phase: build
+    description: "/financials - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /financials. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. This page had a real data-loading bug fixed earlier tonight - confirm it still loads real data correctly before styling. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/financials/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-marketplace-002
+    phase: build
+    description: "/marketplace - Navy frame, Teal accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /marketplace. Section: Applications & Pipeline. Frame: #101B2D. Accent: #2E6B66. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/marketplace/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-email-002
+    phase: build
+    description: "/email - Rust frame, Bronze accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /email. Section: Outreach & Communication. Frame: #A3492F. Accent: #A4712C. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/email/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-email-campaigns-002
+    phase: build
+    description: "/email/campaigns - Rust frame, Bronze accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /email/campaigns. Section: Outreach & Communication. Frame: #A3492F. Accent: #A4712C. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/email/campaigns/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-email-templates-002
+    phase: build
+    description: "/email/templates - Rust frame, Bronze accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /email/templates. Section: Outreach & Communication. Frame: #A3492F. Accent: #A4712C. Preserve the real template-variable chip styling as functionally distinct elements. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/email/templates/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-outreach-002
+    phase: build
+    description: "/outreach and /outreach/templates - Rust frame, Bronze accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to both /outreach and /outreach/templates. Section: Outreach & Communication. Frame: #A3492F. Accent: #A4712C. Full verification standard required on both routes.
+    expected_outputs: [src/app/(dashboard)/outreach/page.tsx, src/app/(dashboard)/outreach/templates/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch3v2-verify-sync-001
+    phase: build
+    description: "Final regression + governance sync for Batch 3 v2 (11 pages)"
+    prompt: |
+      1. Real Playwright pass across all pages in this batch, confirm navy/teal on Applications & Pipeline, rust/bronze on Outreach & Communication, layering with shadows, zero unintended white values. CRITICAL: re-confirm /compliance and /financials load real data cleanly, not just styled correctly.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. Update FEATURE_REGISTRY_v2.md and DESIGN_SYSTEM_V2_ASSIGNMENT.md marking these 11 pages complete under v2.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md honestly.
+      5. Scoped git add, commit "feat: v2 navy/teal design system on Applications & Pipeline, rust/bronze on Outreach & Communication (batch 3 of 4)", push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

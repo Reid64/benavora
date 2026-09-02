@@ -1,0 +1,145 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: dd-001
+  name: Governance sync and donor discovery pipeline audit and fix
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/donor-discovery/ directory listing in full.
+    Read all pages found in that directory in full.
+    Read src/app/(dashboard)/donor-discovery/prospects/page.tsx in full.
+    Read SCHEMA_REGISTRY_v2.md for corporate_prospects table in full.
+    Read worker/dist/src/lib/donor-discovery/ directory listing.
+
+    DONOR DISCOVERY AUDIT:
+
+    1. Check how many corporate_prospects exist in the DB:
+    npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); s.from('corporate_prospects').select('id',{count:'exact',head:true}).then(r=>console.log('Count:',r.count))"
+
+    2. Check if the Google Places API key is configured:
+    Get-Content .env.local | Select-String "GOOGLE_PLACES"
+
+    3. If no prospects exist: run the acquisition script:
+    npx tsx scripts/acquire-corporate-prospects.ts --dry-run (if --dry-run flag exists, else just run it)
+    Report how many prospects were found.
+
+    4. INLINE STYLE AUDIT of all donor discovery pages. For each page:
+    - Replace any Tailwind color classes with inline hex styles
+    - Ensure canvas #D6E4F0, text #FFFFFF, cards background #0D1526
+
+    5. Verify the prospect pipeline page shows:
+    - Total prospects count
+    - Breakdown by industry with colored badges
+    - Intent scores from corporate_intent_signals if any exist
+    - "Run Discovery" button that triggers acquire:prospects
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'fix: donor discovery audit -- inline styles, prospect count verified, discovery trigger'; git push.
+
+- id: dd-002
+  name: Corporate outreach email template builder
+  prompt: |
+    Read src/app/(dashboard)/donor-discovery/ directory in full.
+    Read SCHEMA_REGISTRY_v2.md for corporate_prospects and outreach_campaigns tables in full.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    CREATE src/app/(dashboard)/donor-discovery/outreach/page.tsx:
+
+    Corporate outreach email composer page.
+
+    Header: "Corporate Outreach" H1 + subtitle "AI-crafted personalized outreach to corporate prospects"
+
+    PROSPECT SELECTOR (white card):
+    Search and select corporate prospects from corporate_prospects table.
+    Shows prospect name, company, industry badge, intent_score if available.
+    Multi-select with checkboxes. "Select All High-Intent (>75)" button.
+
+    EMAIL COMPOSER (white card):
+    Template selector: Dropdown with preset templates:
+    - "Community Investment Introduction" — introduce org to CSR team
+    - "Matching Gift Program" — encourage employee matching
+    - "Sponsorship Proposal" — event or program sponsorship
+    - "Grant Application Follow-up" — after submitting to their portal
+    - "Custom" — blank canvas
+
+    AI PERSONALIZATION: "Generate with AI" button calls POST /api/intelligence/outreach/generate:
+    Sends prospect data + org KB profile + selected template type to Claude.
+    Claude generates a personalized email using the org's actual programs and the company's industry/location.
+    Populates subject and body fields.
+
+    Subject line input + Body textarea (minimum 300px height).
+
+    Preview panel: shows rendered email with prospect's company name filled in.
+
+    "Queue for Sending" button: creates outreach_campaigns record and inserts prospects as outreach_prospects records.
+    Shows estimated send time based on sending domain daily limits.
+
+    CREATE src/app/api/intelligence/outreach/generate/route.ts:
+    POST: Accepts { prospectId, orgId, templateType }.
+    Loads prospect data and org KB profile.
+    Calls Claude (max_tokens:600): generates personalized outreach email.
+    System: "You are writing a professional nonprofit outreach email to a corporate CSR team. Be specific, concise, and compelling. Reference their company's community presence. Keep to 150-200 words."
+    Returns { subject: string, body: string }.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: corporate outreach email composer -- AI personalization, template selector, campaign queuing'; git push.
+
+- id: dd-003
+  name: Donor intent monitoring dashboard and alert system
+  prompt: |
+    Read src/app/(dashboard)/donor-discovery/page.tsx in full.
+    Read src/lib/agents/donor-intent-monitor-agent.ts in full.
+    Read SCHEMA_REGISTRY_v2.md for corporate_intent_signals table in full.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    CREATE src/app/(dashboard)/donor-discovery/intent-signals/page.tsx:
+
+    Corporate Intent Intelligence dashboard showing real-time giving signals.
+
+    Header: "Corporate Intent Signals" H1 + subtitle "AI-detected corporate giving indicators — act before the window closes"
+
+    "Run Signal Analysis" button — calls POST /api/intelligence/donor-intent, shows loading state.
+
+    Stats row (4 cards):
+    - Total Signals Detected (last 30 days)
+    - High Intent (score >= 80) with red pulse badge if any
+    - Action Required Today (recommended_deadline = today or past)
+    - Companies Monitored
+
+    SIGNAL FEED (main content):
+    Each signal card (background #0D1526, border-radius 14px, padding 24px, marginBottom 12px):
+    Left accent bar: intent_score >= 80 = #DC2626, 60-79 = #F59E0B, < 60 = #6B7280
+    
+    Company name bold 18px white + signal_type badge (CSR Announcement=#10B981, ESG Report=#0EA5E9, Press Release=#6B7280, Facility Expansion=#8B5CF6, Hiring Trend=#F59E0B)
+    
+    Intent Score: large number 32px bold in accent color with "Intent Score" label
+    
+    Signal summary 14px #8BA8C8 (signal_summary field)
+    
+    Metrics row: Geographic Relevance badge + Mission Alignment badge (both 0-100 scores as colored percentages)
+    
+    Recommended Action: amber card inside the signal: background rgba(245,158,11,0.1), border 1px solid rgba(245,158,11,0.3), recommended_action text
+    
+    Deadline countdown: if recommended_deadline within 48 hours show red "ACT NOW — X hours remaining" pill
+    
+    Action buttons: "Draft Outreach Email" (→ /donor-discovery/outreach?prospectId=X) + "View Company" (→ prospect URL)
+
+    Add "Intent Signals" to the donor discovery nav.
+    Add intent signal count badge to sidebar donor discovery nav item.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: donor intent signals dashboard -- real-time giving indicators, action urgency, outreach integration'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

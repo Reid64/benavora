@@ -1,0 +1,118 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- WORKER_ARCHITECTURE_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: aa-ent-001
+  name: Governance sync and AutoApply autonomous orchestrator enterprise build
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read worker/autoapply-autonomous-orchestrator.ts in FULL. Every line.
+    Read worker/autoapply-processor.ts in FULL if it exists.
+    Read SCHEMA_REGISTRY_v2.md for autoapply_sessions, corporate_prospects, org_autonomous_config tables in FULL.
+    Read WORKER_ARCHITECTURE_v2.md section on AutoApply in FULL.
+
+    ENTERPRISE UPGRADE of worker/autoapply-autonomous-orchestrator.ts:
+
+    The autonomous AutoApply orchestrator runs nightly at 3:00 AM CST. It must submit to corporate donor portals on behalf of Enterprise/Consultant tier orgs that have enabled auto_autoapply_enabled.
+
+    FULL IMPLEMENTATION REQUIREMENTS:
+
+    1. ORG ELIGIBILITY: Query orgs WHERE stripe_subscription_status IN ('active','trialing') AND (plan='enterprise' OR plan='consultant') AND EXISTS (SELECT 1 FROM org_autonomous_config WHERE org_id=organizations.id AND auto_autoapply_enabled=true)
+
+    2. PROSPECT SELECTION: For each eligible org, select corporate_prospects WHERE org_id=? AND status IN ('new','retry') AND (last_autoapply_attempt IS NULL OR last_autoapply_attempt < NOW() - INTERVAL '30 days') ORDER BY COALESCE((SELECT intent_score FROM corporate_intent_signals WHERE company_name=corporate_prospects.name AND org_id=? ORDER BY created_at DESC LIMIT 1), 50) DESC LIMIT max_nightly_autoapply_submissions
+
+    3. PORTAL DETECTION: For each prospect, determine the donation portal type:
+       - Check prospect.website for known portal indicators: cybergrants, benevity, yourcause, blackbaud, submittable, salesforce NPSP
+       - Map to portal_type enum: 'cybergrants' | 'benevity' | 'yourcause' | 'blackbaud' | 'generic' | 'unknown'
+       - For unknown: attempt to discover via Claude web search "[company name] employee matching donation portal submit application"
+
+    4. SESSION QUEUING: Insert autoapply_sessions records for each prospect:
+       { org_id, prospect_id, portal_type, portal_url, status='queued', scheduled_for=tonight, source='autonomous', max_retries=3 }
+       Update corporate_prospects.last_autoapply_attempt = NOW()
+
+    5. DECISION LOGGING: For each session queued, logDecision with:
+       reasoning: "Autonomous AutoApply queued for [company] portal type [type]. Intent score: [score]. Last attempted: [date or never]. Priority rank: [n] of [total] prospects."
+
+    6. EXECUTION TRIGGER: After queuing all sessions, invoke the autoapply-processor to begin executing queued sessions. Pass session IDs as batch.
+
+    7. APPROVAL GATE: Check org_autonomous_config.auto_autoapply_enabled — if any org disables mid-run, stop processing remaining sessions for that org.
+
+    8. NIGHTLY REPORT: After all processing, create notification for each org: "AutoApply completed: X submissions queued, Y completed, Z failed. Review results in AutoApply dashboard."
+
+    This file must be minimum 350 lines. Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: AutoApply autonomous orchestrator enterprise build -- portal detection, session queuing, intent scoring, nightly report'; git push.
+
+- id: aa-ent-002
+  name: AutoApply portal adapter system
+  prompt: |
+    Read worker/autoapply-autonomous-orchestrator.ts in FULL.
+    Read worker/autoapply-processor.ts in FULL if exists.
+    Read SCHEMA_REGISTRY_v2.md for autoapply_sessions table in FULL.
+
+    CREATE src/lib/autoapply/portal-adapters.ts:
+
+    A typed adapter system for different corporate donation portal types.
+
+    Interface PortalAdapter:
+    ```typescript
+    interface PortalAdapter {
+      portalType: PortalType
+      detectPortal(url: string, html: string): boolean
+      extractFormFields(html: string): FormField[]
+      buildSubmissionPayload(org: OrgProfile, kb: KnowledgeBaseProfile, fields: FormField[]): SubmissionPayload
+      validateSubmission(payload: SubmissionPayload): ValidationResult
+    }
+    ```
+
+    Implement adapters for:
+
+    CyberGrantsAdapter:
+    - detectPortal: looks for "cybergrants.com" in URL or "CyberGrants" in HTML
+    - extractFormFields: parses CyberGrants-specific form structure (organization name, EIN, mission, program description, requested amount, budget narrative)
+    - buildSubmissionPayload: maps KB profile fields to CyberGrants field names
+
+    BenevityAdapter:
+    - detectPortal: looks for "benevity.org" or "benevity.com" in URL
+    - Standard Benevity registration form fields
+
+    GenericAdapter (fallback):
+    - detectPortal: always returns false (used as fallback)
+    - extractFormFields: uses Claude to analyze form HTML and extract field labels + input names
+    - buildSubmissionPayload: uses Claude to map org data to identified fields
+
+    CREATE src/lib/autoapply/org-profile-mapper.ts:
+    Maps KnowledgeBaseProfile + Organization data to standardized SubmissionProfile:
+    {
+      legal_name: string
+      ein: string
+      mission_statement: string  // <= 500 words
+      brief_description: string  // <= 150 words
+      program_name: string
+      program_description: string  // <= 300 words
+      requested_amount: number
+      budget_narrative: string  // <= 200 words
+      impact_statement: string  // <= 200 words
+      website: string
+      executive_director_name: string
+      executive_director_email: string
+      phone: string
+      address: string
+      city: string
+      state: string
+      zip: string
+    }
+
+    All fields must be generated from KB data. If a field is null in KB, generate it using Claude with a targeted prompt.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: AutoApply portal adapter system -- CyberGrants, Benevity, Generic adapters, org profile mapper'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

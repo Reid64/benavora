@@ -1,0 +1,216 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL_V2.md
+  - DESIGN_SYSTEM_V2_ASSIGNMENT.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: cleanup-stray-processes-002
+    phase: build
+    description: "Kill any stray node processes before this batch"
+    prompt: |
+      Check for and terminate any node.exe processes not part of this current session before proceeding.
+    expected_outputs: []
+    gates: [{type: compile}]
+    max_retries: 2
+    on_fail: continue
+
+  - id: page-reports-002
+    phase: build
+    description: "/reports - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /reports. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/reports/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-reports-simulator-002
+    phase: build
+    description: "/reports/simulate - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /reports/simulate. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/reports/simulate/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-reports-roi-002
+    phase: build
+    description: "/reports/roi - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /reports/roi. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/reports/roi/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-reports-forecast-002
+    phase: build
+    description: "/reports/forecast - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /reports/forecast. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/reports/forecast/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-digital-twin-002
+    phase: build
+    description: "/intelligence/twin - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/twin. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Preserve real completeness-percentage red/orange/green coloring. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/twin/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-match-feed-002
+    phase: build
+    description: "/intelligence/match-feed - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/match-feed. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/match-feed/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-knowledge-engine-002
+    phase: build
+    description: "/intelligence/knowledge - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/knowledge. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/knowledge/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-recommendations-002
+    phase: build
+    description: "/intelligence/recommendations - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/recommendations. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/recommendations/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-gap-analyzer-002
+    phase: build
+    description: "/intelligence/gap-analysis - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/gap-analysis. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/gap-analysis/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-competitors-002
+    phase: build
+    description: "/intelligence/competitors - Plum frame - LOCKED PAGE"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/competitors. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. This page is a real, intentional paid-plan lock - keep the lock message and upgrade CTA functionally intact, frame color applies to surrounding chrome only. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/competitors/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-semantic-matches-002
+    phase: build
+    description: "/intelligence/matches - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/matches. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/matches/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-reputation-002
+    phase: build
+    description: "/intelligence/reputation - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/reputation. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Preserve real severity-level colors (Critical/High/Medium/Low/Positive filters). Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/reputation/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-disaster-002
+    phase: build
+    description: "/intelligence/disaster - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/disaster. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Use judgment on whether real disaster-urgency red indicators should stay red (likely yes, given what this feature tracks) vs take the section accent. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/disaster/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-community-need-002
+    phase: build
+    description: "/intelligence/community-need - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/community-need. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/community-need/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-donor-intent-002
+    phase: build
+    description: "/intelligence/donor-intent - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/donor-intent. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/donor-intent/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-relationship-graph-002
+    phase: build
+    description: "/intelligence/relationship-graph - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/relationship-graph. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Read the real current page state first, do not assume its layout. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/relationship-graph/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-strategic-advisor-002
+    phase: build
+    description: "/intelligence/strategic-advisor - Plum frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /intelligence/strategic-advisor. Section: Intelligence & Reports. Frame: #7A5980. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/intelligence/strategic-advisor/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch2v2-verify-sync-001
+    phase: build
+    description: "Final regression + governance sync for Batch 2 v2 (17 pages)"
+    prompt: |
+      1. Real Playwright pass across all 17 pages, confirm plum frame + slate blue accent, layering with shadows, zero unintended white values, locked Competitor Intelligence page still functions.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. Update FEATURE_REGISTRY_v2.md and DESIGN_SYSTEM_V2_ASSIGNMENT.md marking all 17 Intelligence & Reports pages complete under v2.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md honestly.
+      5. Scoped git add, commit "feat: v2 plum/slate-blue design system applied to all 17 Intelligence & Reports pages (batch 2 of 4)", push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

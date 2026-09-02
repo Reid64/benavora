@@ -1,0 +1,186 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL_V2.md
+  - DESIGN_SYSTEM_V2_ASSIGNMENT.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: cleanup-stray-processes-001
+    phase: build
+    description: "Kill any stray node processes before starting the overnight run"
+    prompt: |
+      Before any real work: check for and terminate any existing node.exe processes that are not part of this current session (stray dev servers, orphaned builds from earlier sessions). This is a known real risk - leftover processes have caused multi-hour timeout cascades in this project before. Confirm a clean process list before proceeding to the next prompt.
+    expected_outputs: []
+    gates: [{type: compile}]
+    max_retries: 2
+    on_fail: continue
+
+  - id: page-dashboard-002
+    phase: build
+    description: "/dashboard - Gold frame, Navy accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /dashboard. Section: Dashboard/Home. Frame: #B88A2E. Accent: #101B2D. Full verification standard from the protocol required.
+    expected_outputs: [src/app/(dashboard)/dashboard/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-research-002
+    phase: build
+    description: "/research - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /research. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/research/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-opportunities-002
+    phase: build
+    description: "/opportunities - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /opportunities. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Preserve real status/probability colors on opportunity rows - do not repaint them. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/opportunities/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-donor-discovery-002
+    phase: build
+    description: "/donor-discovery - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /donor-discovery. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/donor-discovery/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-donor-discovery-prospects-002
+    phase: build
+    description: "/donor-discovery/prospects - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /donor-discovery/prospects. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/donor-discovery/prospects/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-donor-discovery-intent-002
+    phase: build
+    description: "/donor-discovery/intent-signals - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /donor-discovery/intent-signals. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/donor-discovery/intent-signals/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-nonprofit-directory-002
+    phase: build
+    description: "/nonprofits - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /nonprofits. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/nonprofits/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-foundations-002
+    phase: build
+    description: "/foundations - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /foundations. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/foundations/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-funders-002
+    phase: build
+    description: "/funders - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /funders. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/funders/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-contacts-002
+    phase: build
+    description: "/contacts - Bronze frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /contacts. Section: Research & Discovery. Frame: #A4712C. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/contacts/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-autoapply-002
+    phase: build
+    description: "/autoapply - Gold frame, full accent family for distinct actions"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /autoapply. Section: Draft & Automation. Frame: #B88A2E. This page has multiple distinct real actions (Start Session, Pause, per-item review actions) - give them distinct colors from the proven accent family (Teal/Plum/Slate Blue/Amber/Rust/Olive), matching Draft Generator's precedent. Keep real worker-status green/red indicators untouched. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/autoapply/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-knowledge-base-002
+    phase: build
+    description: "/knowledge-base - Gold frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /knowledge-base. Section: Draft & Automation. Frame: #B88A2E. Accent: #4F6D8F. Preserve the real completeness-percentage color coding. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/knowledge-base/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-alerts-002
+    phase: build
+    description: "/alerts - Gold frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /alerts. Section: Draft & Automation. Frame: #B88A2E. Accent: #4F6D8F. CRITICAL: real overdue-deadline red indicators must stay red, do not repaint. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/alerts/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-activity-002
+    phase: build
+    description: "/activity - Gold frame, Slate Blue accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /activity. Section: Draft & Automation. Frame: #B88A2E. Accent: #4F6D8F. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/activity/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch1v2-verify-sync-001
+    phase: build
+    description: "Final regression + governance sync for Batch 1 v2 (15 pages)"
+    prompt: |
+      1. Real Playwright pass across all 15 pages in this batch, confirm each carries its correct section frame/accent, layering with real shadows, zero unintended white values, no broken functionality.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. Update FEATURE_REGISTRY_v2.md and DESIGN_SYSTEM_V2_ASSIGNMENT.md marking these 15 pages complete under the v2 system.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md - explicit, honest language on whether all 15 passed clean.
+      5. Scoped git add, commit "feat: v2 gold/bronze/navy/stone design system applied to Dashboard, Research & Discovery, and Draft & Automation (batch 1 of 4)", push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

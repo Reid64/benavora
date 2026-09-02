@@ -1,0 +1,233 @@
+project: benavora
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- STANDING_DIRECTIVES.md
+- PLATFORM_VISION_ARCHITECTURE.md
+- AGENTS_v2.md
+prompts:
+
+# ============================================================
+# BLOCK 1 — DATABASE MIGRATIONS (run first, no [id] paths)
+# ============================================================
+
+- id: mig-001
+  name: Digital Twin + Probability Score migrations
+  prompt: "Create src/supabase/migrations/091_digital_twins.sql with these statements separated by semicolons: CREATE TABLE IF NOT EXISTS organizational_digital_twins (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL UNIQUE, mission text, vision text, service_areas text[], programs jsonb DEFAULT '[]', financial_profile jsonb DEFAULT '{}', board_composition jsonb DEFAULT '[]', proven_narrative_patterns text[], key_strengths text[], known_weaknesses text[], twin_completeness_score integer DEFAULT 0, last_rebuilt_at timestamptz, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_digital_twins_org ON organizational_digital_twins(org_id); CREATE TABLE IF NOT EXISTS opportunity_probability_scores (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), opportunity_id uuid NOT NULL, org_id uuid NOT NULL, overall_score integer DEFAULT 0, confidence text DEFAULT 'low', factors jsonb DEFAULT '[]', recommendation text DEFAULT 'consider', key_risks text[], key_strengths text[], estimated_roi text, time_to_complete text, computed_at timestamptz DEFAULT now(), UNIQUE(opportunity_id, org_id)); CREATE INDEX IF NOT EXISTS idx_prob_scores_opp ON opportunity_probability_scores(opportunity_id); CREATE INDEX IF NOT EXISTS idx_prob_scores_org ON opportunity_probability_scores(org_id). Apply via POST https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1 Content-Type application/json body {query: SQL}. Run pnpm tsc --noEmit. Commit: git add -A; git commit -m 'feat: digital twin and probability score migrations'; git push."
+  gates:
+  - type: compile
+
+- id: mig-002
+  name: Agent marketplace + discovery migrations
+  prompt: "Create src/supabase/migrations/092_agent_marketplace.sql: CREATE TABLE IF NOT EXISTS agent_registry (agent_id text PRIMARY KEY, name text NOT NULL, description text NOT NULL, version text DEFAULT '1.0', plan_requirement text NOT NULL DEFAULT 'starter', trigger_type text NOT NULL DEFAULT 'manual', schedule_cron text, avg_runtime_seconds integer, active boolean DEFAULT true, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS agent_configurations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, agent_id text NOT NULL, enabled boolean DEFAULT false, config jsonb DEFAULT '{}', last_run_at timestamptz, run_count integer DEFAULT 0, total_tokens_consumed integer DEFAULT 0, created_at timestamptz DEFAULT now(), UNIQUE(org_id, agent_id)); CREATE TABLE IF NOT EXISTS discovery_runs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), run_date date NOT NULL, opportunities_found integer DEFAULT 0, opportunities_matched integer DEFAULT 0, sources_checked text[], runtime_seconds integer, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS discovery_matches (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, opportunity_id uuid, external_title text, external_source text, external_url text, discovery_run_id uuid REFERENCES discovery_runs(id), match_score numeric, match_reasons text[], status text DEFAULT 'pending', actioned_at timestamptz, created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_agent_configs_org ON agent_configurations(org_id); CREATE INDEX IF NOT EXISTS idx_discovery_matches_org ON discovery_matches(org_id, status). Apply via Supabase Management API same as mig-001. Run pnpm tsc --noEmit. Commit: git add -A; git commit -m 'feat: agent marketplace and discovery migrations'; git push."
+  gates:
+  - type: compile
+
+- id: mig-003
+  name: Reputation intelligence + relationship builder migrations
+  prompt: "Create src/supabase/migrations/093_reputation_intelligence.sql: CREATE TABLE IF NOT EXISTS reputation_signals (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), entity_id uuid NOT NULL, entity_type text NOT NULL, signal_type text NOT NULL, severity text NOT NULL DEFAULT 'yellow', headline text NOT NULL, summary text, source_url text, signal_date date, verified boolean DEFAULT false, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS reputation_alerts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, signal_id uuid REFERENCES reputation_signals(id), status text DEFAULT 'unread', created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS relationship_memory (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, entity_id uuid NOT NULL, entity_type text NOT NULL DEFAULT 'funder', memory_type text NOT NULL, content text NOT NULL, signal_date date, actioned boolean DEFAULT false, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS relationship_recommendations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, entity_id uuid NOT NULL, entity_type text NOT NULL DEFAULT 'funder', recommendation_text text NOT NULL, urgency text DEFAULT 'normal', status text DEFAULT 'pending', created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_reputation_alerts_org ON reputation_alerts(org_id, status); CREATE INDEX IF NOT EXISTS idx_rel_memory_org ON relationship_memory(org_id, entity_id); CREATE INDEX IF NOT EXISTS idx_rel_recs_org ON relationship_recommendations(org_id, status). Apply via Supabase Management API. Run pnpm tsc --noEmit. Commit: git add -A; git commit -m 'feat: reputation intelligence and relationship builder migrations'; git push."
+  gates:
+  - type: compile
+
+- id: mig-004
+  name: Corporate intelligence graph migrations
+  prompt: "Create src/supabase/migrations/094_intelligence_graph.sql: CREATE TABLE IF NOT EXISTS pig_nodes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), node_type text NOT NULL, entity_id uuid NOT NULL, entity_table text NOT NULL, label text NOT NULL, metadata jsonb DEFAULT '{}', created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), UNIQUE(entity_table, entity_id)); CREATE TABLE IF NOT EXISTS pig_edges (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), source_node_id uuid REFERENCES pig_nodes(id) ON DELETE CASCADE, target_node_id uuid REFERENCES pig_nodes(id) ON DELETE CASCADE, relationship_type text NOT NULL, weight numeric DEFAULT 1.0, evidence text, verified boolean DEFAULT false, metadata jsonb DEFAULT '{}', discovered_at timestamptz DEFAULT now(), UNIQUE(source_node_id, target_node_id, relationship_type)); CREATE TABLE IF NOT EXISTS corporate_monitoring_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), prospect_id uuid NOT NULL, event_type text NOT NULL, description text, change_detected jsonb DEFAULT '{}', created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_pig_edges_source ON pig_edges(source_node_id); CREATE INDEX IF NOT EXISTS idx_pig_edges_target ON pig_edges(target_node_id); CREATE INDEX IF NOT EXISTS idx_pig_edges_type ON pig_edges(relationship_type); CREATE INDEX IF NOT EXISTS idx_pig_nodes_entity ON pig_nodes(entity_table, entity_id). Apply via Supabase Management API. Run pnpm tsc --noEmit. Commit: git add -A; git commit -m 'feat: philanthropic intelligence graph migrations'; git push."
+  gates:
+  - type: compile
+
+- id: mig-005
+  name: Forecast and board advisor migrations
+  prompt: "Create src/supabase/migrations/095_forecast_board.sql: CREATE TABLE IF NOT EXISTS funding_forecasts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, forecast_date date NOT NULL, forecast_period text NOT NULL, projected_min numeric, projected_max numeric, projected_most_likely numeric, confidence numeric, methodology text, factors jsonb DEFAULT '{}', key_risks text[], key_opportunities text[], recommended_actions text[], created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS board_members (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, name text NOT NULL, email text, role text, committee text[], term_start date, term_end date, expertise text[], active boolean DEFAULT true, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS board_meetings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, meeting_date date NOT NULL, meeting_type text DEFAULT 'regular', agenda text, status text DEFAULT 'scheduled', created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS board_meeting_packets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, meeting_id uuid REFERENCES board_meetings(id), packet_content jsonb NOT NULL, generated_at timestamptz DEFAULT now(), viewed_by text[]); CREATE TABLE IF NOT EXISTS impact_simulations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, scenario_type text NOT NULL, scenario_params jsonb NOT NULL, simulation_result jsonb, confidence text, generated_at timestamptz DEFAULT now(), created_by uuid); CREATE INDEX IF NOT EXISTS idx_forecasts_org ON funding_forecasts(org_id, forecast_date); CREATE INDEX IF NOT EXISTS idx_board_members_org ON board_members(org_id); CREATE INDEX IF NOT EXISTS idx_simulations_org ON impact_simulations(org_id). Apply via Supabase Management API. Run pnpm tsc --noEmit. Commit: git add -A; git commit -m 'feat: forecast and board advisor migrations'; git push."
+  gates:
+  - type: compile
+
+# ============================================================
+# BLOCK 2 — GRANT PROBABILITY ENGINE (Pillar 5)
+# ============================================================
+
+- id: prob-001
+  name: Grant probability scoring engine
+  prompt: "Create src/lib/intelligence/grant-probability-engine.ts. Export async function computeGrantProbability(opportunityId: string, orgId: string, supabase: any): Promise<{score: number, confidence: string, factors: object[], recommendation: string, key_risks: string[], key_strengths: string[], estimated_roi: string, time_to_complete: string}>. Read opportunity record. Read org digital twin from organizational_digital_twins where org_id matches (may be null). Read org outcomes history: count awarded vs total for same category. Compute 4 deterministic factors without Claude: (1) eligibility_score weight 30 pct: opportunity.eligibility_score / 100 or 0.5 if null. (2) category_win_rate weight 25 pct: awarded_count / total_count for same category or 0.3 if no history. (3) deadline_proximity weight 20 pct: 1.0 if 30+ days, 0.5 if 15-29 days, 0.1 if under 15 days, 0 if past. (4) twin_completeness weight 25 pct: twin.twin_completeness_score / 100 or 0.2 if no twin. Compute weighted_score = sum of factor_value times weight times 100. Confidence = high if all 4 factors have real data, medium if 2-3, low if 0-1. Recommendation = apply if score >= 70, consider if 40-69, skip if below 40. Upsert result to opportunity_probability_scores. Return full result object. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: grant probability scoring engine'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/grant-probability-engine.ts
+
+- id: prob-002
+  name: Grant probability API route and batch runner
+  prompt: "Read src/lib/intelligence/grant-probability-engine.ts in full. Create src/app/api/intelligence/grant-probability/route.ts: POST handler accepts {opportunityId, orgId} body. Reads org_id from x-organization-id header as fallback. Calls computeGrantProbability. Returns result as JSON. Create scripts/batch-score-opportunities.ts: reads all opportunities for all orgs where probability score is null or computed_at is older than 7 days, calls computeGrantProbability for each with 100ms delay between calls, logs progress every 50 records. Add to package.json scripts: 'score:opportunities': 'tsx scripts/batch-score-opportunities.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: grant probability API and batch scorer'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/batch-score-opportunities.ts
+
+- id: prob-003
+  name: Probability scores on opportunities page
+  prompt: "Read src/app/(dashboard)/opportunities/page.tsx in full. Add probability score display to the opportunities list. For each opportunity: fetch probability score from opportunity_probability_scores table (join in the server query). Display as a colored badge: green bg #10B981 white text for score >= 70, amber bg #F59E0B white text for 40-69, red bg #EF4444 white text for below 40, gray if no score. Badge shows score number + pct symbol. Add sort dropdown at top of page: default to Probability (High to Low). Add filter: show only opportunities above a threshold (select: All / 70%+ / 50%+ / Custom). Add a Run Probability Scoring button that POSTs to /api/intelligence/grant-probability for all listed opportunities. Use inline styles for badge colors only. Keep all existing Tailwind classes on other elements unchanged. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: probability scores on opportunities page'; git push."
+  gates:
+  - type: compile
+
+# ============================================================
+# BLOCK 3 — ORGANIZATIONAL DIGITAL TWIN (Pillar 6)
+# ============================================================
+
+- id: twin-001
+  name: Digital Twin builder service
+  prompt: "Create src/lib/intelligence/digital-twin-builder.ts. Export async function buildDigitalTwin(orgId: string, supabase: any): Promise<object>. Read: (1) org record from organizations table. (2) all knowledge_base_entries for org. (3) outcomes history: last 50 outcomes with result, funder_category, awarded_amount. (4) applications history: count by stage. (5) opportunities: categories most applied to. Build twin object without Claude: mission from org.mission or KB entry tagged 'mission', service_areas from org.service_areas or org.city + org.state, programs from KB entries tagged 'program', financial_profile from org financial fields if present, proven_narrative_patterns from outcomes where result='awarded' mapped to their KB categories. Compute twin_completeness_score: +10 for mission, +10 for service_areas, +10 for programs array non-empty, +10 for financial_profile non-empty, +10 for board_composition non-empty, +10 for proven_narrative_patterns non-empty, +10 for key_strengths, +10 for outcomes_count > 5, +10 for kb_entries_count > 10, +10 for applications_count > 5. Max 100. Upsert to organizational_digital_twins table. Return twin object. Create src/app/api/intelligence/digital-twin/route.ts: GET reads orgId from x-organization-id header, calls buildDigitalTwin, returns result. POST triggers a rebuild. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: digital twin builder service'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/digital-twin-builder.ts
+
+- id: twin-002
+  name: Digital Twin profile page
+  prompt: "Read src/app/(dashboard)/knowledge-base/page.tsx in full for layout patterns. Create src/app/(dashboard)/intelligence/twin/page.tsx. Client component. On mount: fetch GET /api/intelligence/digital-twin. Display twin data in sections: (1) Hero card: org name, twin_completeness_score as a circular progress indicator (CSS only, no library), last_rebuilt_at date. Score color: green if >= 80, amber if 50-79, red if below 50. (2) Completeness checklist: 10 items each showing checkmark or X with label and improvement tip. (3) Mission & Service Area section: mission text, service_areas as tags. (4) Programs section: list of programs with description. (5) Proven Narrative Patterns: list of patterns from successful grants. (6) Financial Profile: key financial metrics. (7) Rebuild button: POST to /api/intelligence/digital-twin, shows loading state, refreshes on complete. Add Digital Twin link in sidebar under Intelligence section. Use inline styles for colored elements, Tailwind for layout. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: digital twin profile page'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/intelligence/twin/page.tsx
+
+# ============================================================
+# BLOCK 4 — AGENT MARKETPLACE (Pillar 17)
+# ============================================================
+
+- id: agents-001
+  name: Agent registry seed and API
+  prompt: "Create src/lib/agents/agent-registry-seed.ts. Export const AGENT_REGISTRY_SEED as array of agent definition objects. Include these 16 agents: {agent_id: 'ag-01', name: 'Grant Research Agent', description: 'Discovers new grant opportunities from federal and foundation sources. Runs nightly and delivers personalized matches each morning.', plan_requirement: 'starter', trigger_type: 'scheduled', schedule_cron: '0 8 * * *'}, {agent_id: 'ag-02', name: 'Eligibility Scoring Agent', description: 'Scores every opportunity 0-100 for fit with your organization. Considers mission, geography, budget, and track record.', plan_requirement: 'starter', trigger_type: 'event'}, {agent_id: 'ag-05', name: 'Draft Generator Agent', description: 'Generates complete grant narrative drafts using your Knowledge Base data. Never fabricates information.', plan_requirement: 'starter', trigger_type: 'manual'}, {agent_id: 'ag-13', name: 'Impact Measurement Agent', description: 'Tracks and reports outcome metrics. Identifies success patterns from awarded grants.', plan_requirement: 'starter', trigger_type: 'manual'}, {agent_id: 'ag-15', name: 'Grant Probability Agent', description: 'Scores every opportunity with an 11-factor success probability model. Ranks your pipeline by likelihood of winning.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 3 * * *'}, {agent_id: 'ag-16', name: 'Digital Twin Builder', description: 'Builds and maintains an AI model of your organization. Enables deeper personalization across all features.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 2 1 * *'}, {agent_id: 'ag-17', name: 'Opportunity Discovery Agent', description: 'Wakes up every morning and finds new opportunities matching your mission. You rarely need to search.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 8 * * *'}, {agent_id: 'ag-18', name: 'Reputation Intelligence Agent', description: 'Monitors all your funders for legal issues, leadership changes, and financial distress. Warns you before you waste time on problematic relationships.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 4 * * *'}, {agent_id: 'ag-19', name: 'Relationship Builder Agent', description: 'Monitors funder signals and tells you exactly when and how to engage. Behaves like a full-time development director.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 5 * * *'}, {agent_id: 'ag-22', name: 'Corporate Propensity Agent', description: 'Scores every corporate prospect across 10 donation probability dimensions. Ranks companies by likelihood to donate cash, in-kind, volunteers, and equipment.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 3 * * *'}, {agent_id: 'ag-24', name: 'Personalized Outreach Agent', description: 'Generates AI-individualized emails for corporate prospects. Every message references specific known facts about the company.', plan_requirement: 'professional', trigger_type: 'manual'}, {agent_id: 'ag-25', name: 'Disaster Response Agent', description: 'Monitors FEMA declarations and deploys coordinated response within hours. Surfaces emergency funding and corporate donors automatically.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 */6 * * *'}, {agent_id: 'ag-26', name: 'Funding Forecast Agent', description: 'Generates 90-day and 12-month funding forecasts using probability-weighted pipeline data and market trends.', plan_requirement: 'professional', trigger_type: 'scheduled', schedule_cron: '0 6 1 * *'}, {agent_id: 'ag-27', name: 'Board Meeting Packet Agent', description: 'Generates complete board meeting packets 48 hours before every meeting. Plain language financial summaries and strategic recommendations.', plan_requirement: 'professional', trigger_type: 'event'}, {agent_id: 'ag-28', name: 'Impact Simulation Agent', description: 'Models what-if scenarios before decisions are made. Shows financial, capacity, and beneficiary impact of any strategic choice.', plan_requirement: 'enterprise', trigger_type: 'manual'}, {agent_id: 'ag-23', name: 'Relationship Mapper Agent', description: 'Discovers connections between businesses, foundations, board members, and nonprofits. Builds the Philanthropic Intelligence Graph.', plan_requirement: 'enterprise', trigger_type: 'scheduled', schedule_cron: '0 5 * * 0'}. Create src/app/api/agents/registry/route.ts: GET returns all agent_registry records with org-specific enabled status joined from agent_configurations using x-organization-id header. POST to /api/agents/registry/configure: accepts {agent_id, enabled, config} upserts agent_configurations. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: agent registry seed and API'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/agent-registry-seed.ts
+    - src/app/api/agents/registry/route.ts
+
+- id: agents-002
+  name: Agent Marketplace UI page
+  prompt: "Read src/app/api/agents/registry/route.ts in full. Create src/app/(dashboard)/settings/agents/page.tsx. Client component. On mount: fetch GET /api/agents/registry. Display agents in a responsive grid (3 columns desktop, 2 tablet, 1 mobile). Group by plan_requirement: Starter section, Professional section, Enterprise section. Each agent card: white background, border-radius 12px, padding 20px, box-shadow 0 2px 12px rgba(0,0,0,0.08). Card header: agent name bold 15px color #0F172A. Plan badge: small pill — green bg for starter, blue for professional, purple for enterprise — white text 11px. Description: 13px color #64748B, 3 lines max. Stats row (if enabled): Last run date, Run count, small gray text. Bottom: toggle switch for enabled/disabled. On toggle: POST to /api/agents/registry/configure. Disabled agents in plan above current plan show lock icon instead of toggle with upgrade prompt. Add Agents link in Settings sidebar. Section headers: plus Jakarta Sans 13px uppercase tracking-wide color #94A3B8. Use inline styles for all colors and shadows. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: agent marketplace UI'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/agents/page.tsx
+
+# ============================================================
+# BLOCK 5 — OPPORTUNITY DISCOVERY ENGINE (Pillar 2)
+# ============================================================
+
+- id: disc-001
+  name: Discovery engine core service
+  prompt: "Create src/lib/agents/opportunity-discovery-agent.ts. Export async function runOpportunityDiscovery(orgId: string, supabase: any): Promise<{matched: number, found: number, sources: string[]}>. Read org from organizations table. Read org Digital Twin from organizational_digital_twins. Step 1: Pull new Grants.gov opportunities via existing grantsgov-client.ts if it exists or fetch https://www.grants.gov/grantsws/rest/opportunities/search/ with params {keyword: twin.mission first 50 chars or org.mission, oppStatuses: 'posted', rows: 25}. Step 2: Pull new SAM.gov via existing samgov-client.ts. Step 3: Check Federal Register API https://www.federalregister.gov/api/v1/documents.json?conditions[type][]=NOTICE&conditions[term]=grant+funding&per_page=20&order=newest. For each discovered opportunity: check if already exists in opportunities table by title similarity or external_id. If new: compute basic match score based on keyword overlap between opportunity description and org mission. If score > 0.3: insert to discovery_matches table with org_id, external_title, external_source, match_score, match_reasons. Insert discovery_run record. Return summary stats. Create src/app/api/agents/discovery/route.ts: POST triggers runOpportunityDiscovery for org from x-organization-id header. GET returns last 10 discovery_matches for org ordered by match_score desc. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: opportunity discovery engine'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/opportunity-discovery-agent.ts
+    - src/app/api/agents/discovery/route.ts
+
+- id: disc-002
+  name: Morning digest notification system
+  prompt: "Read src/lib/agents/opportunity-discovery-agent.ts in full. Read src/lib/notifications/notify.ts in full if it exists. Create src/lib/agents/morning-digest.ts. Export async function sendMorningDigest(orgId: string, supabase: any): Promise<void>. Read discovery_matches for org where status='pending' and created_at > 24 hours ago. Read action items: count unread reputation_alerts, count relationship_recommendations where status='pending', count opportunities where deadline between now and 7 days. If any items found: create an in-app alert via alerts table insert with title 'Your Morning Funding Brief' and description summarizing counts: 'X new opportunities discovered, Y funder alerts, Z upcoming deadlines'. Create src/app/api/agents/morning-digest/route.ts: POST triggers sendMorningDigest. GET returns latest digest summary for org. Add morning digest display to dashboard Today's Action Items widget: update the existing action items in src/app/(dashboard)/dashboard/page.tsx to also read from discovery_matches count and reputation_alerts count. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: morning digest notification system'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/morning-digest.ts
+    - src/app/api/agents/morning-digest/route.ts
+
+# ============================================================
+# BLOCK 6 — REPUTATION INTELLIGENCE (Pillar 15)
+# ============================================================
+
+- id: rep-001
+  name: Reputation intelligence service
+  prompt: "Create src/lib/intelligence/reputation-agent.ts. Export async function checkEntityReputation(entityId: string, entityType: string, entityName: string, supabase: any): Promise<object[]>. Search for reputation signals using DuckDuckGo Instant Answer API: fetch https://api.duckduckgo.com/?q=ENTITY_NAME+lawsuit+fraud+scandal+leadership+change&format=json&no_html=1. Parse RelatedTopics array. For each relevant result: call Claude claude-sonnet-4-6 via fetch POST https://api.anthropic.com/v1/messages Authorization Bearer process.env.ANTHROPIC_API_KEY with prompt: 'Analyze this search result about ENTITY_NAME. Is this a reputation risk? Return JSON: {is_risk: bool, signal_type: string, severity: critical|high|medium|low|positive, headline: string (max 100 chars), summary: string (max 200 chars)}'. For each signal with is_risk=true or severity=positive: insert to reputation_signals table. Return array of new signals. Create src/app/api/intelligence/reputation/route.ts: POST accepts {entityId, entityType, entityName} calls checkEntityReputation returns signals. GET with ?orgId= returns all reputation_alerts for org with unread status. PATCH accepts {alertId, status} updates alert status. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: reputation intelligence service'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/reputation-agent.ts
+    - src/app/api/intelligence/reputation/route.ts
+
+- id: rep-002
+  name: Reputation intelligence UI
+  prompt: "Read src/app/(dashboard)/funders/page.tsx in full. Create src/app/(dashboard)/intelligence/reputation/page.tsx. Client component. Sections: (1) Header with subtitle 'Monitor your funders and donors for reputation risks before investing time in applications.' (2) Alert feed: fetch GET /api/intelligence/reputation?orgId= on mount. Display alerts grouped by severity. Each alert card: severity color bar on left (red for critical, orange for high, yellow for medium, blue for low, green for positive). Entity name bold. Signal type badge. Headline text. Summary text. Source link. Date. Mark Read button (PATCH). (3) Add Entity to Monitor: input for funder name, entity type dropdown (funder/corporate/foundation), Check Now button triggering POST to /api/intelligence/reputation. (4) Empty state: friendly message when no alerts. Severity badge colors use inline styles. Add Reputation link in sidebar under Intelligence section. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: reputation intelligence UI'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/intelligence/reputation/page.tsx
+
+# ============================================================
+# BLOCK 7 — DISASTER RESPONSE ENGINE (Pillar 10)
+# ============================================================
+
+- id: disaster-001
+  name: FEMA disaster response engine
+  prompt: "Create src/supabase/migrations/096_disaster_response.sql: CREATE TABLE IF NOT EXISTS disaster_declarations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), fema_disaster_number text UNIQUE, disaster_type text, incident_type text, affected_states text[], declaration_date date, incident_begin_date date, response_deployed boolean DEFAULT false, response_deployed_at timestamptz, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS disaster_emergency_funds (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, funder text NOT NULL, program_type text, typical_amount text, application_url text, notes text, disaster_types text[], active boolean DEFAULT true); CREATE INDEX IF NOT EXISTS idx_disaster_decl_states ON disaster_declarations USING gin(affected_states). Apply via Supabase Management API. Then create src/lib/agents/disaster-response-agent.ts. Export async function pollFEMADeclarations(supabase: any): Promise<number>. Fetch https://www.fema.gov/api/open/v2/disasterDeclarationsSummaries?$orderby=declarationDate desc&$top=20&$format=json. For each declaration in result.DisasterDeclarationsSummaries: check if fema_disaster_number already exists in disaster_declarations. If new: insert to disaster_declarations. Return count of new declarations. Export async function deployDisasterResponse(declarationId: string, orgId: string, supabase: any): deploys response for a specific org. Create src/app/api/agents/disaster/route.ts: GET polls FEMA and returns new declarations. POST triggers deployDisasterResponse for org. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: FEMA disaster response engine'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/disaster-response-agent.ts
+    - src/app/api/agents/disaster/route.ts
+
+- id: disaster-002
+  name: Disaster response UI dashboard
+  prompt: "Read src/lib/agents/disaster-response-agent.ts in full. Create src/app/(dashboard)/intelligence/disaster/page.tsx. Client component. Sections: (1) Live Declarations feed: fetch GET /api/agents/disaster on mount. Show active FEMA declarations as cards: disaster type badge (red for major disaster, orange for emergency), affected states as tags, declaration date, incident type. (2) Deploy Response button on each card: POST to /api/agents/disaster with declarationId. Shows loading then success with count of actions taken. (3) Emergency Funding Database: hardcode 8 common emergency funding sources as cards: FEMA BRIC (mitigation grants), HUD CDBG-DR (community development), SBA Disaster Loans, Red Cross Partnership, Texas GLO Disaster Recovery (for Texas orgs), USDA Rural Development Emergency, Small Business Administration, FEMA Hazard Mitigation. Each card: name, funder, typical amount, Apply link. (4) Empty state: map graphic showing US with message 'No active declarations in your area'. Add Disaster Response link in sidebar under Intelligence. Use inline styles for severity colors. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: disaster response dashboard UI'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/intelligence/disaster/page.tsx
+
+# ============================================================
+# BLOCK 8 — FUNDING KNOWLEDGE ENGINE FOUNDATION (Pillar 18)
+# ============================================================
+
+- id: fke-001
+  name: Knowledge engine RAG infrastructure
+  prompt: "Read SCHEMA_REGISTRY.md for intelligence_funded_proposals schema. Check if pgvector extension is enabled by reading existing migrations for 'vector' or 'pgvector'. Create src/supabase/migrations/097_knowledge_engine.sql: CREATE EXTENSION IF NOT EXISTS vector; ALTER TABLE intelligence_funded_proposals ADD COLUMN IF NOT EXISTS embedding vector(1536); CREATE TABLE IF NOT EXISTS knowledge_patterns (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), pattern_type text NOT NULL, category text, funder_name text, pattern_description text NOT NULL, success_rate numeric, sample_count integer, confidence text DEFAULT 'low', created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS knowledge_queries (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, query_text text NOT NULL, results jsonb, created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_proposals_embedding ON intelligence_funded_proposals USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100). Apply via Supabase Management API. Create src/lib/intelligence/knowledge-engine.ts: Export async function queryKnowledgeEngine(query: string, orgId: string, supabase: any): Promise<{patterns: object[], proposals: object[], insights: string[]}>. For now: query knowledge_patterns table for patterns matching category keywords from query text. Query intelligence_funded_proposals for text match on title and funder_name. Return combined results. Full vector search will be added when embeddings are populated. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: knowledge engine RAG infrastructure'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/knowledge-engine.ts
+
+- id: fke-002
+  name: Knowledge engine query UI
+  prompt: "Read src/lib/intelligence/knowledge-engine.ts in full. Create src/app/api/intelligence/knowledge-query/route.ts: POST accepts {query, orgId}. Reads org_id from x-organization-id header. Calls queryKnowledgeEngine. Logs query to knowledge_queries table. Returns results. Create src/app/(dashboard)/intelligence/knowledge/page.tsx. Client component. Layout: (1) Hero section: 'Funding Knowledge Engine' title. Subtitle: 'Ask any question about what gets funded, why, and how to improve your odds.' Corpus stats: fetch count from intelligence_funded_proposals, count from knowledge_patterns, display as stat chips. (2) Query input: large textarea placeholder 'What narrative elements most often win HRSA community health grants?'. Submit button. (3) Results section: shows after query. Patterns section: list of matching patterns with success_rate badge, sample_count, pattern_description. Proposals section: list of matching funded proposals as cards with title, funder, award_amount, source_url link. Insights section: bulleted list of insights. (4) Suggested queries: clickable chips of 6 preset queries that populate the textarea. Add Knowledge Engine link in sidebar under Intelligence. Use inline styles for colors. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: knowledge engine query UI'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/intelligence/knowledge-query/route.ts
+    - src/app/(dashboard)/intelligence/knowledge/page.tsx
+
+# ============================================================
+# BLOCK 9 — EXECUTIVE COMMAND CENTER FOUNDATION (Pillar 16)
+# ============================================================
+
+- id: ecc-001
+  name: Executive Command Center page
+  prompt: "Read src/app/(dashboard)/dashboard/page.tsx in full for data fetching patterns. Create src/app/(dashboard)/command-center/page.tsx. This is the Executive Command Center — a full-screen operations dashboard for ED/CEO/Development Director. Owner and admin roles only — redirect viewer role to dashboard. Server component fetching all data server-side. Fetch in parallel: (1) opportunities count and top 5 by probability score. (2) applications count by stage. (3) discovery_matches count where status=pending. (4) reputation_alerts count where status=unread. (5) relationship_recommendations count where status=pending. (6) deadlines in next 30 days. (7) funding_forecasts latest for org. (8) Last 5 agent_runs with status. Layout: full viewport width, canvas backgroundColor #0F172A (dark navy). Title bar: 'Executive Command Center' white text, current date/time updating via useEffect. Grid of 6 panel cards each with: backgroundColor #1E293B, borderRadius 12px, padding 20px, border 1px solid rgba(255,255,255,0.08). Panel 1: Live Pipeline (opportunities by stage with counts and dollar values). Panel 2: Today's Priorities (discovery matches + reputation alerts + relationship recommendations with colored counts). Panel 3: Grant Probability Leaderboard (top 5 opportunities by score). Panel 4: Upcoming Deadlines (next 30 days timeline). Panel 5: AI Agent Status (last 5 runs with pass/fail status). Panel 6: Funding Forecast (projected range for next 90 days). All text white or rgba(255,255,255,0.7). Accent colors matching existing palette. Add Command Center link in sidebar for owner/admin only. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: executive command center'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/command-center/page.tsx
+
+# ============================================================
+# BLOCK 10 — FINAL GOVERNANCE + DEPLOY
+# ============================================================
+
+- id: final-002
+  name: Governance update and production deploy
+  prompt: "Read STATE_OF_THE_BUILD.md in full. Read SESSION_STATE.md in full. Update STATE_OF_THE_BUILD.md with new section: ## Overnight Build Session July 17 2026 — Platform Vision Phase 1. List all prompts from this session and their pass/fail status. Update overall feature completion percentage. Update SESSION_STATE.md: Last Session = July 17 2026 overnight run. Features completed = digital twin, grant probability engine, agent marketplace, opportunity discovery, reputation intelligence, disaster response engine, knowledge engine foundation, executive command center. Next priorities = UI redesign continuation, run batch probability scoring, run digital twin builds for all orgs. Run pnpm build. Fix any errors. Then: git add -A; git commit -m 'chore: governance update post Phase 1 platform vision build'; git push. Then: npx vercel deploy --prod. Wait for completion. Report deployment URL."
+  gates:
+  - type: compile

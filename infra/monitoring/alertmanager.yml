@@ -1,0 +1,23 @@
+route:
+  receiver: slack-benavora-alerts
+  group_by: ["alertname", "family"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: slack-benavora-alerts
+      continue: false
+
+receivers:
+  - name: slack-benavora-alerts
+    slack_configs:
+      - api_url_file: /etc/alertmanager/secrets/slack_webhook_url
+        channel: "#benavora-alerts"
+        send_resolved: true
+        title: '{{ .CommonLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}

@@ -1,0 +1,49 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_TRIM_LENGTH_OPTIMIZER.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: trim-opt-001
+    phase: investigate
+    description: "Confirm zero prior implementation and scope the real integration points"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_TRIM_LENGTH_OPTIMIZER.md in full. Grep the entire repo for
+      any existing trim-length/optimizer/stock-length related code (do not
+      assume the spec's naming matches this codebase's naming exactly --
+      search broadly: "trim", "optimizer", "stock length", "cut list").
+
+      Identify the real integration point: this optimizer needs to consume
+      real order line-item lengths (from quote_requests/machine_jobs) and
+      real stock/coil length data. Check lib/data/catalog.ts and SCHEMA.md
+      for whether stock length data exists anywhere already, or whether
+      this needs new fields/a new table.
+
+      Write TRIM_OPTIMIZER_SCOPE.md at the project root: what data model is
+      needed, where in the app this belongs (admin-only tool? part of
+      Command Center? standalone route?), and exactly what trim-opt-002
+      should build.
+    gates:
+      - type: file_exists
+        files:
+          - TRIM_OPTIMIZER_SCOPE.md
+
+  - id: trim-opt-002
+    phase: implement
+    description: "Build the trim length optimizer per TRIM_OPTIMIZER_SCOPE.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read TRIM_OPTIMIZER_SCOPE.md in full. Implement exactly what it
+      specifies. Follow this codebase's existing conventions: pnpm only,
+      afs-* Tailwind tokens only, TypeScript strict mode, no customer-facing
+      pricing anywhere it doesn't already exist, admin-only routes gated
+      the same way every other app/api/admin/** route is gated.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: build trim length optimizer per spec"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

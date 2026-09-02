@@ -1,0 +1,525 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+  - PRODUCTION_READINESS_TESTING_PLAN.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-00: BASELINE + SMOKE
+#
+# Foundation queue for the 16-queue PT audit series. Everything
+# downstream depends on artifacts this queue creates:
+#   - command gate type in forge-orchestrator.ps1
+#   - test-evidence/ framework + WIRING_GAP_REGISTER.md scaffold
+#   - real route manifest from a fresh build
+#   - env-var parity audit (names only, never values)
+#   - test tenant inventory (Org A / Org B)
+#   - dated smoke results (local + prod read-only)
+#
+# EVIDENCE STANDARD (applies to every PT queue): a claim without
+# a file in test-evidence/ containing real captured output does
+# not exist. Session prose saying "verified" is not evidence.
+# ASCII ONLY in every file this queue writes (PS5 pipeline rule).
+# ============================================================
+
+prompts:
+
+  - id: pt00-001
+    phase: build
+    description: "Governance sync, then add a command gate type to forge-orchestrator.ps1"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora unless a step names another path.
+
+      1. Run the canonical governance sync:
+         $repo = "C:\Users\manag\Documents\benavora"; $forge = "C:\Users\manag\Documents\FORGE\projects\benavora"; Get-ChildItem "$repo\*.md" | ForEach-Object { Copy-Item $_.FullName "$forge\$($_.Name)" -Force }
+
+      2. Back up the orchestrator before touching it:
+         Copy-Item C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1 C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1.bak-pt00
+
+      3. Read C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1 in full.
+         Locate the gate-evaluation logic that currently handles gate types
+         "compile" and "build". Do not guess its structure from this prompt --
+         read the real code first.
+
+      4. Add support for a third gate type:
+           gates:
+             - type: command
+               run: "node scripts/prt/verify-example.mjs"
+         Semantics: execute the run string as a command with the project repo
+         directory (the resolved $workDir) as the working directory. Exit code
+         0 = gate pass. Any non-zero exit = gate fail, triggering the same
+         retry path compile/build failures use. Capture stdout+stderr into the
+         same log stream the other gates write to. Make the change minimal and
+         additive -- do not restructure existing gate handling, do not touch
+         the $workDir resolution line (it is a documented permanent fix).
+
+      5. Self-test the new gate path WITHOUT a full FORGE run:
+         a. Create C:\Users\manag\Documents\benavora\scripts\prt\verify-selftest-pass.mjs
+            containing exactly: process.exit(0)
+         b. Create scripts\prt\verify-selftest-fail.mjs containing exactly:
+            console.error("intentional gate failure"); process.exit(1)
+         c. Write a small PowerShell harness (C:\Users\manag\Documents\FORGE\test-command-gate.ps1)
+            that invokes the orchestrator's new gate-execution code path (dot-source
+            or extracted function, whichever the real structure allows) against both
+            scripts and prints PASS-DETECTED / FAIL-DETECTED accordingly.
+         d. Run the harness. Both results must be correct.
+
+      6. Create C:\Users\manag\Documents\benavora\scripts\prt\verify-pt00-001.mjs:
+         a Node script (stdlib only, no new dependencies) that exits 0 only if:
+         - forge-orchestrator.ps1 contains the string "command" inside its
+           gate-handling logic (read the file, check content)
+         - the .bak-pt00 backup file exists
+         - both selftest scripts exist
+         Otherwise print the specific missing item to stderr and exit 1.
+
+      7. Run: node scripts/prt/verify-pt00-001.mjs
+    expected_outputs:
+      - scripts/prt/verify-pt00-001.mjs
+      - scripts/prt/verify-selftest-pass.mjs
+      - scripts/prt/verify-selftest-fail.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-002
+    phase: build
+    description: "Evidence framework: test-evidence/, WIRING_GAP_REGISTER.md scaffold, gap-append helper"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Create directory test-evidence\ with subdirectories:
+         pt-00 pt-01 pt-02 pt-03 pt-04 pt-05 pt-06 pt-07 pt-08 pt-09 pt-10
+         pt-11 pt-12 pt-13 pt-14 pt-15
+         Add test-evidence/ to .gitignore EXCEPT keep test-evidence/*/SUMMARY.md
+         trackable (use a negation pattern). Raw evidence (screenshots, JSON
+         dumps, logs) stays local; dated per-queue SUMMARY.md files get committed.
+
+      2. Create WIRING_GAP_REGISTER.md in the repo root with this exact structure:
+         - Header explaining: this file is the single consolidated output of the
+           PT-00 through PT-15 audit series, replaces NOT_BUILT_MASTER_INVENTORY.md
+           as the source of truth for the rebuild phase, and every row must link
+           to a real evidence file.
+         - A markdown table with columns:
+           ID | Queue | Severity | Category | Finding | Evidence path | Status
+         - Severity legend: BLOCKER (breaks core flows or security), HIGH
+           (real feature broken or data at risk), MEDIUM (degraded/partial),
+           LOW (cosmetic/doc), PENDING-SCOPE (touches one of the 5 open
+           product decisions -- record, do not fix).
+         - Status legend: OPEN, FIXED, WONT-FIX, PENDING-SCOPE.
+
+      3. Create scripts\prt\gap-add.mjs: a Node stdlib-only CLI that appends a
+         row to WIRING_GAP_REGISTER.md. Usage:
+           node scripts/prt/gap-add.mjs --queue pt-01 --severity HIGH --category wiring --finding "text" --evidence "test-evidence/pt-01/file.json"
+         It must: auto-assign the next sequential ID (GAP-0001 style, parse
+         existing rows), refuse to add a row whose --evidence path does not
+         exist on disk (exit 1 with a clear error), and never reorder or
+         rewrite existing rows. ASCII only.
+
+      4. Test gap-add.mjs: create a throwaway evidence file
+         test-evidence\pt-00\framework-selftest.txt, add a LOW test row using
+         it, confirm the row appears with ID GAP-0001, then verify the
+         evidence-must-exist rejection by attempting a row with a fake path
+         and confirming exit code 1.
+
+      5. Create scripts\prt\verify-pt00-002.mjs: exits 0 only if
+         WIRING_GAP_REGISTER.md exists with the required columns, GAP-0001
+         exists, all 16 test-evidence subdirectories exist, and gap-add.mjs
+         rejects a nonexistent evidence path (spawn it and check exit code).
+
+      6. Run: node scripts/prt/verify-pt00-002.mjs
+    expected_outputs:
+      - WIRING_GAP_REGISTER.md
+      - scripts/prt/gap-add.mjs
+      - scripts/prt/verify-pt00-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-003
+    phase: build
+    description: "Fresh build; extract the real route manifest (pages + API routes)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Kill stray node processes, delete .next, then run a completely fresh
+         build: pnpm run build
+         The build must succeed. Capture the full build output to
+         test-evidence\pt-00\fresh-build-output.txt (redirect, do not paraphrase).
+
+      2. Extract the REAL route inventory two independent ways and reconcile:
+         a. From the fresh .next build manifest files (app-paths / routes
+            manifests -- read what actually exists in .next, do not assume
+            filenames from memory).
+         b. From the filesystem: every page.tsx and route.ts under src\app,
+            with dynamic segments preserved as written ([id] etc).
+
+      3. Write test-evidence\pt-00\route-manifest.json:
+         { "generated": "<ISO date>", "build_route_count": N,
+           "fs_page_count": N, "fs_api_route_count": N,
+           "pages": [ ... ], "api_routes": [ ... ],
+           "discrepancies": [ routes present in one source but not the other ] }
+         Every discrepancy is a real finding: add a WIRING_GAP_REGISTER row
+         (severity MEDIUM, category build) per discrepancy via gap-add.mjs,
+         with this JSON as the evidence path.
+
+      4. Record the real total against the testing plan's stated "388 routes":
+         write the actual number and the delta into
+         test-evidence\pt-00\SUMMARY.md (create it, dated).
+
+      5. Create scripts\prt\verify-pt00-003.mjs: exits 0 only if
+         fresh-build-output.txt exists and contains a success marker read from
+         the real output (determine the marker from the actual captured text,
+         e.g. the compiled-successfully line), route-manifest.json exists,
+         parses, and has pages + api_routes arrays with combined length > 100.
+
+      6. Run: node scripts/prt/verify-pt00-003.mjs
+    expected_outputs:
+      - test-evidence/pt-00/route-manifest.json
+      - test-evidence/pt-00/SUMMARY.md
+      - scripts/prt/verify-pt00-003.mjs
+    gates:
+      - type: build
+      - type: command
+        run: "node scripts/prt/verify-pt00-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-004
+    phase: build
+    description: "Env-var parity audit: local vs Vercel vs Railway (names only, never values)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      SECURITY RULE FOR THIS PROMPT: capture variable NAMES only. No values,
+      no partial values, no lengths that fingerprint values. Any evidence file
+      containing a secret value is itself a BLOCKER finding against this run.
+
+      1. Enumerate env var names from four sources:
+         a. Local: .env.local and .env (names only, split on first =).
+         b. Code expectations: grep src\ and worker\ for process.env.X usage;
+            collect the distinct X names.
+         c. Vercel production: npx vercel env ls production
+            (Vercel CLI v51.7.0; answer n to any upgrade prompt). Parse names.
+         d. Railway: use the railway CLI if authenticated (railway variables);
+            if the CLI is not authenticated or not installed, record
+            RAILWAY-UNCHECKED in the evidence rather than guessing, and add a
+            MEDIUM register row noting Railway env could not be audited
+            programmatically.
+
+      2. Write test-evidence\pt-00\env-parity.json:
+         { "code_expects": [...], "local_has": [...], "vercel_prod_has": [...],
+           "railway_has": [... or "UNCHECKED"],
+           "missing_in_vercel": [names code expects but prod lacks],
+           "missing_locally": [...],
+           "unused_in_code": [names set in prod that no code reads] }
+
+      3. Every name in missing_in_vercel is a register row: severity HIGH,
+         category env. unused_in_code entries: severity LOW. Use gap-add.mjs.
+
+      4. Append findings to test-evidence\pt-00\SUMMARY.md.
+
+      5. Create scripts\prt\verify-pt00-004.mjs: exits 0 only if
+         env-parity.json exists, parses, has all listed keys, AND contains no
+         string matching common secret-value shapes (check: no value longer
+         than 0 chars after any name, i.e. the arrays contain bare names with
+         no = character in any entry). Exit 1 with the offending entry if found.
+
+      6. Run: node scripts/prt/verify-pt00-004.mjs
+    expected_outputs:
+      - test-evidence/pt-00/env-parity.json
+      - scripts/prt/verify-pt00-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-005
+    phase: build
+    description: "Supabase test-isolation environment: branch if available, halt with a decision report if not"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      The destructive PT queues (05 tenant-isolation writes, 10 outage
+      simulation, 12 load) must NOT run against the production database.
+      This prompt establishes the isolated environment or halts honestly.
+
+      1. Check whether Supabase branching is available on project
+         vbjplpquqxxfbpazyalt using the Supabase CLI and/or Management API
+         (PAT is in the environment; DDL convention per DIRECTIVE-017 uses
+         DATABASE_URL psql, but branch management is a Management API
+         operation). Capture the raw API/CLI response to
+         test-evidence\pt-00\branch-capability.json.
+
+      2. IF branching is available: create a branch named pt-audit-2026-08.
+         Capture its connection details reference (branch ref/id only, no
+         credentials in evidence). Verify with one read-only query against the
+         branch: SELECT count(*) FROM information_schema.tables WHERE
+         table_schema = 'public'; -- capture the number.
+
+      3. IF branching is NOT available (plan limitation or API refusal):
+         do NOT improvise an alternative (no schema-cloning into prod, no
+         local docker assumption). Write test-evidence\pt-00\BRANCH-DECISION-NEEDED.md
+         stating exactly what was attempted, the raw refusal, and the two real
+         options (enable branching on the plan, or stand up local Supabase via
+         docker) -- then exit the verify script with code 1 so this prompt
+         halts the queue for Reid's decision. That halt is the correct outcome,
+         not a failure to route around.
+
+      4. Create scripts\prt\verify-pt00-005.mjs: exits 0 only if
+         branch-capability.json exists AND a file
+         test-evidence\pt-00\branch-ready.txt exists containing the branch ref
+         and the table count captured in step 2. Exits 1 otherwise.
+
+      5. Run: node scripts/prt/verify-pt00-005.mjs
+    expected_outputs:
+      - test-evidence/pt-00/branch-capability.json
+      - scripts/prt/verify-pt00-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-005.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt00-006
+    phase: build
+    description: "Test tenant inventory: verify Org A accounts, create Org B on the isolated environment"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Verify the documented test accounts actually authenticate against the
+         isolated environment (branch from pt00-005). Documented accounts per
+         TESTING_v2.md: beta1@benavora-test.com, beta2@benavora-test.com,
+         beta3@benavora-test.com (BetaTest2026), plus the demo account
+         demo@faithfoundationsf.org. For each: attempt a real Supabase auth
+         sign-in programmatically, record only { email, auth: pass/fail,
+         org_id, role, onboarding_completed } to
+         test-evidence\pt-00\tenant-inventory.json. Never write passwords to
+         evidence.
+
+      2. Any documented account that fails auth is a register row (severity
+         MEDIUM, category test-data).
+
+      3. Create ORG B for isolation testing on the BRANCH ONLY: a fresh org
+         (orgb-pt-audit@benavora-test.com) with a distinct organization_id,
+         onboarding completed programmatically, and 3-5 seeded rows in each of:
+         opportunities, applications, documents metadata -- enough for PT-05
+         to attempt cross-tenant reads against real rows. Record the org_id
+         and seeded counts in tenant-inventory.json. Node 20 + Supabase
+         scripts require the ws transport shim (import ws; realtime transport
+         ws) per the standing build rule.
+
+      4. Confirm the production demo account write-protection premise that
+         PT-05 will test: locate migration 138 in the migrations directory,
+         record its filename and the protected-table list it declares into
+         tenant-inventory.json (static read only here -- the live enforcement
+         test belongs to PT-05).
+
+      5. Create scripts\prt\verify-pt00-006.mjs: exits 0 only if
+         tenant-inventory.json exists, parses, shows at least one passing Org A
+         account, an orgb entry with a real org_id and nonzero seeded counts,
+         and a migration138 entry with a filename.
+
+      6. Run: node scripts/prt/verify-pt00-006.mjs
+    expected_outputs:
+      - test-evidence/pt-00/tenant-inventory.json
+      - scripts/prt/verify-pt00-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-007
+    phase: build
+    description: "Local smoke suite: run existing smoke + unit tests with dated captured results"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Run the existing suites, capturing full output to files (redirect,
+         never paraphrase):
+         pnpm test:smoke  > test-evidence\pt-00\smoke-results.txt 2>&1
+         pnpm test:unit   > test-evidence\pt-00\unit-results.txt 2>&1
+         pnpm test:api    > test-evidence\pt-00\api-results.txt 2>&1
+         A non-zero exit from a suite is DATA, not a prompt failure: record it
+         and continue. PS5 rule: no && chaining; run as separate commands.
+
+      2. Parse each output file for real pass/fail/skip counts. Write
+         test-evidence\pt-00\suite-baseline.json:
+         { "date": ISO, "smoke": {pass,fail,skip,exit_code},
+           "unit": {...}, "api": {...},
+           "failing_test_names": [ every individually failing test name ] }
+
+      3. Every failing test is a register row (severity HIGH if smoke,
+         MEDIUM otherwise, category regression) with suite-baseline.json as
+         evidence. These are pre-existing failures the PT series inherits --
+         recording them now prevents later queues from rediscovering them as
+         new.
+
+      4. Append counts to test-evidence\pt-00\SUMMARY.md.
+
+      5. Create scripts\prt\verify-pt00-007.mjs: exits 0 only if all three
+         .txt captures exist and are non-empty, suite-baseline.json parses,
+         and its three exit_code fields are integers (any value -- presence
+         proves the runs happened).
+
+      6. Run: node scripts/prt/verify-pt00-007.mjs
+    expected_outputs:
+      - test-evidence/pt-00/suite-baseline.json
+      - scripts/prt/verify-pt00-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-008
+    phase: build
+    description: "Production read-only smoke: HTTP status sweep of live benavora.com"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      READ-ONLY RULE: this prompt sends only GET requests to production.
+      No auth, no POST/PUT/PATCH/DELETE, no form submissions.
+
+      1. From test-evidence\pt-00\route-manifest.json, take every PAGE route
+         that is not dynamic (skip [id]-style segments) and not under
+         (dashboard) auth gating -- plus these known-public paths explicitly:
+         /, /login, /signup, /pricing, and any (marketing) routes in the
+         manifest.
+
+      2. Write scripts\prt\prod-smoke.mjs (stdlib https only): GET each URL at
+         https://www.benavora.com with a 15s timeout, record
+         { path, status, redirect_location_if_3xx, ms } for every one.
+         Auth-gated pages returning a redirect to /login is a PASS (record the
+         redirect). 500s, 404s on manifest-listed routes, and timeouts are
+         FAILs. Run it; write results to test-evidence\pt-00\prod-smoke.json.
+
+      3. Every FAIL is a register row: severity BLOCKER for 500 on a public
+         page, HIGH for 404/timeout, category prod-smoke.
+
+      4. Also GET https://www.benavora.com/ and confirm two known-good markers
+         from the 08-18 verification in the raw HTML: the meta theme-color is
+         #B88A2E (not #0077B6) and the Sign In link href is /login. Record
+         both raw matched strings in prod-smoke.json. A regression on either
+         is a HIGH register row.
+
+      5. Append results to test-evidence\pt-00\SUMMARY.md.
+
+      6. Create scripts\prt\verify-pt00-008.mjs: exits 0 only if
+         prod-smoke.json exists, parses, covers at least 10 routes, every
+         entry has an integer status, and the theme-color + login-href checks
+         are present with their captured strings.
+
+      7. Run: node scripts/prt/verify-pt00-008.mjs
+    expected_outputs:
+      - scripts/prt/prod-smoke.mjs
+      - test-evidence/pt-00/prod-smoke.json
+      - scripts/prt/verify-pt00-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-009
+    phase: build
+    description: "Baseline consolidation: PT-00 summary, register triage, downstream handoff block"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Finalize test-evidence\pt-00\SUMMARY.md: dated, sectioned per prompt
+         (001-008), each section stating what was produced, the headline
+         numbers (route count, env gaps, suite pass/fail, prod smoke
+         pass/fail), and the evidence filenames. ASCII only. No claim without
+         a filename next to it.
+
+      2. Read WIRING_GAP_REGISTER.md and add a "PT-00 Baseline Triage" section
+         below the table: counts by severity, and a one-line callout of any
+         BLOCKER found (or an explicit "no BLOCKERs at baseline" if true).
+
+      3. Write the downstream handoff block into SUMMARY.md -- the exact
+         values later queues consume: branch ref, Org A account emails that
+         passed auth, Org B org_id, route-manifest path, suite-baseline path.
+         PT-01 through PT-15 queue files reference these by path; they must
+         exist under the names used here.
+
+      4. Create scripts\prt\verify-pt00-009.mjs: exits 0 only if SUMMARY.md
+         contains sections for all 8 prior prompts, WIRING_GAP_REGISTER.md
+         contains the triage section, and the handoff block lists a branch ref
+         and an orgb org_id matching tenant-inventory.json.
+
+      5. Run: node scripts/prt/verify-pt00-009.mjs
+    expected_outputs:
+      - test-evidence/pt-00/SUMMARY.md
+      - scripts/prt/verify-pt00-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-010
+    phase: build
+    description: "Governance updates + scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Update STATE_OF_THE_BUILD.md: add a section "PT AUDIT SERIES -- PT-00
+         BASELINE COMPLETE (2026-08-18)" summarizing, with real numbers from
+         the evidence files (read them, do not recall): route count vs the
+         plan's 388 claim, env parity gaps, suite baseline pass/fail, prod
+         smoke results, branch ref, Org B id, register row count by severity.
+         State plainly that per the standing verification standard these are
+         session-verified findings pending Reid's independent review, and that
+         WIRING_GAP_REGISTER.md is now the live findings ledger for the PT
+         series.
+
+      2. Update SESSION_STATE.md: matching dated entry, next queue = pt-01-wiring,
+         blockers = any BLOCKER rows found (list IDs) or none.
+
+      3. Scoped commit -- ONLY these paths (never git add -A):
+         WIRING_GAP_REGISTER.md, scripts/prt/, test-evidence/pt-00/SUMMARY.md,
+         STATE_OF_THE_BUILD.md, SESSION_STATE.md, .gitignore
+         Commit message: "audit(pt-00): baseline complete -- evidence framework,
+         route manifest, env parity, tenant inventory, smoke baselines"
+         Then push. Do NOT run vercel deploy -- nothing in this queue changes
+         application code.
+
+      4. Re-run the governance sync so FORGE context reflects the updated docs:
+         $repo = "C:\Users\manag\Documents\benavora"; $forge = "C:\Users\manag\Documents\FORGE\projects\benavora"; Get-ChildItem "$repo\*.md" | ForEach-Object { Copy-Item $_.FullName "$forge\$($_.Name)" -Force }
+
+      5. Create scripts\prt\verify-pt00-010.mjs: exits 0 only if git log -1
+         shows the pt-00 commit message and git status shows no staged
+         changes remaining for the six committed paths.
+
+      6. Run: node scripts/prt/verify-pt00-010.mjs
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+      - scripts/prt/verify-pt00-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/prt/verify-pt00-010.mjs"
+    max_retries: 3
+    on_fail: halt

@@ -32,7 +32,10 @@ export type CriticVerdict =
   | "RESEARCH_MORE"
   | "BLOCK_INSUFFICIENT_EVIDENCE"
   | "BLOCK_ENTITY_AMBIGUITY"
-  | "BLOCK_POLICY";
+  | "BLOCK_POLICY"
+  | "BLOCK_INDEPENDENCE"
+  | "BLOCK_EVIDENCE_INTEGRITY"
+  | "QUARANTINE_SECURITY";
 
 export interface FactClaim {
   claimType: string;
@@ -73,20 +76,76 @@ export class ProspectResearchCriticAgent implements Agent {
 
     // 1. Receive the completed producing run -- conclusions and evidence only.
     const targetRun = await this.loadAgentRun(targetAgentRunId);
+
+    // Constitutional invariant (spec §3.1 / PIL_SPEC_WORKING_DIR BEN-SUP-05
+    // doc "a research-producing agent cannot certify its own consequential
+    // output"): refuse outright rather than scoring a run this same agent
+    // code produced.
+    if (targetRun && targetRun.agent_id === context.agentCode) {
+      return {
+        status: "failed",
+        evidence: [],
+        conclusions: {},
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: "BEN-SUP-05 cannot review its own prior output (self-certification is constitutionally prohibited)",
+      };
+    }
+
     const assertedFacts = (targetRun?.output as { assertedFacts?: FactClaim[] } | null)?.assertedFacts ?? [];
 
     const evidence = context.prospectId ? await getEvidence(context.prospectId, context.orgId) : [];
 
-    // 2/3. Independently evaluate evidence quality for each claim.
-    const claims = evidence.map((item) => this.evaluateClaim(item, assertedFacts));
+    // 2/3. Independently evaluate evidence quality for each claim, then a
+    // second pass for source independence (claims backed only by repeated
+    // reports from one underlying source are not independently corroborated).
+    let claims = evidence.map((item) => this.evaluateClaim(item, assertedFacts));
+    claims = this.applySourceIndependence(evidence, claims);
 
     const relationshipIssues = context.prospectId ? await this.checkRelationships(context.prospectId, context.orgId) : [];
     const duplicateIdentityRisk = context.prospectId ? await this.checkDuplicateIdentity(context.orgId, context.prospectId) : false;
 
-    const tokensUsed = await this.tryUseTool(context, runner, "T-MODEL", 120);
+    // Cross-tenant signal: the producing run belongs to a different
+    // organization than this review is scoped to. Never treated as an
+    // ordinary evidence-quality issue.
+    const crossTenant = targetRun !== null && targetRun.organization_id !== context.orgId;
 
-    const verdict = this.decideVerdict(claims, relationshipIssues, duplicateIdentityRisk, evidence.length);
-    const summary = this.summarize(verdict, claims, relationshipIssues, duplicateIdentityRisk);
+    // Evidence integrity: the producing run asserted a fact backed by an
+    // evidenceId that doesn't resolve to anything in this cycle's loaded
+    // evidence. Never guess or substitute a replacement -- quarantine it.
+    const evidenceIds = new Set(evidence.map((item) => item.id));
+    const unresolvedEvidenceIds = [...new Set(assertedFacts.filter((f) => !evidenceIds.has(f.evidenceId)).map((f) => f.evidenceId))];
+    if (unresolvedEvidenceIds.length > 0) {
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "critic.evidence_quarantined",
+        resource_type: "pil_agent_runs",
+        resource_id: targetAgentRunId,
+        before_state: null,
+        after_state: { unresolvedEvidenceIds },
+        policy_decision: null,
+        ip_address: null,
+      });
+    }
+
+    const tokensUsed = await this.tryUseTool(context, runner, "T-MODEL", 120);
+    // T-MODEL was permitted but the call still returned 0 tokens -- the
+    // underlying call threw and tryUseTool swallowed it. Never let a
+    // degraded review silently pass.
+    const modelUnavailable = context.tools.includes("T-MODEL") && tokensUsed === 0;
+
+    let verdict = this.decideVerdict(claims, relationshipIssues, duplicateIdentityRisk, evidence.length, crossTenant, unresolvedEvidenceIds);
+    if (modelUnavailable && verdict === "PASS") {
+      verdict = "PASS_WITH_CAVEATS";
+    }
+
+    let summary = this.summarize(verdict, claims, relationshipIssues, duplicateIdentityRisk);
+    if (modelUnavailable) {
+      summary += " Model-assisted review was unavailable this cycle.";
+    }
 
     const report: CriticReport = {
       targetAgentRunId,
@@ -106,7 +165,7 @@ export class ProspectResearchCriticAgent implements Agent {
       resource_type: "pil_agent_runs",
       resource_id: targetAgentRunId,
       before_state: null,
-      after_state: { report },
+      after_state: { report, modelUnavailable },
       policy_decision: null,
       ip_address: null,
     });
@@ -114,15 +173,15 @@ export class ProspectResearchCriticAgent implements Agent {
     // 6. Record the critic decision to pil_policy_decisions.
     await this.recordDecision(context, targetAgentRunId, verdict, summary);
 
-    // 5. On any BLOCK_* verdict, create a HumanReviewItem with the specific failures.
-    if (verdict.startsWith("BLOCK_")) {
+    // 5. On any BLOCK_*/QUARANTINE_SECURITY verdict, create a HumanReviewItem with the specific failures.
+    if (verdict.startsWith("BLOCK_") || verdict === "QUARANTINE_SECURITY") {
       await createReviewItem({
         organization_id: context.orgId,
         review_type: "critic_block",
         subject_type: "pil_agent_runs",
         subject_id: targetAgentRunId,
         requested_by_agent_id: context.agentCode,
-        priority: verdict === "BLOCK_POLICY" ? "urgent" : "high",
+        priority: verdict === "BLOCK_POLICY" || verdict === "QUARANTINE_SECURITY" ? "urgent" : "high",
         status: "pending",
         summary,
         evidence_refs: claims.filter((c) => !c.pass).map((c) => c.evidenceId),
@@ -132,7 +191,7 @@ export class ProspectResearchCriticAgent implements Agent {
     }
 
     return {
-      status: verdict.startsWith("BLOCK_") ? "escalated" : "completed",
+      status: verdict.startsWith("BLOCK_") || verdict === "QUARANTINE_SECURITY" ? "escalated" : "completed",
       evidence: [],
       conclusions: { report },
       delegations: [],
@@ -181,6 +240,42 @@ export class ProspectResearchCriticAgent implements Agent {
     return { evidenceId: item.id, claimType: item.claim_type, failedChecks, pass: failedChecks.length === 0 };
   }
 
+  // Source independence, distinct from weak_source_quality: two or more
+  // items backing the SAME claim_type that all share the identical
+  // source_url are one independence group (spec §5 IndependenceProof.v2 /
+  // constitutional invariant "repeated reports from one underlying source
+  // form one independence group"), not independent corroboration.
+  private applySourceIndependence(evidence: EvidenceItem[], claims: ClaimEvaluation[]): ClaimEvaluation[] {
+    const byClaimType = new Map<string, EvidenceItem[]>();
+    for (const item of evidence) {
+      const list = byClaimType.get(item.claim_type) ?? [];
+      list.push(item);
+      byClaimType.set(item.claim_type, list);
+    }
+
+    const failedIndependenceIds = new Set<string>();
+    for (const items of byClaimType.values()) {
+      const bySource = new Map<string, EvidenceItem[]>();
+      for (const item of items) {
+        if (!item.source_url) continue;
+        const list = bySource.get(item.source_url) ?? [];
+        list.push(item);
+        bySource.set(item.source_url, list);
+      }
+      for (const sourceItems of bySource.values()) {
+        if (sourceItems.length < 2) continue;
+        for (const item of sourceItems) failedIndependenceIds.add(item.id);
+      }
+    }
+
+    if (failedIndependenceIds.size === 0) return claims;
+    return claims.map((c) =>
+      failedIndependenceIds.has(c.evidenceId)
+        ? { ...c, failedChecks: [...c.failedChecks, "source_independence_failure"], pass: false }
+        : c,
+    );
+  }
+
   // Incorrect relationship inference: a speculative, low-confidence edge
   // should never be relied on as a confirmed relationship pathway.
   private async checkRelationships(prospectId: string, orgId: string): Promise<string[]> {
@@ -216,8 +311,25 @@ export class ProspectResearchCriticAgent implements Agent {
     relationshipIssues: string[],
     duplicateIdentityRisk: boolean,
     evidenceCount: number,
+    crossTenant: boolean,
+    unresolvedEvidenceIds: string[],
   ): CriticVerdict {
+    // Checked FIRST, ahead of every other verdict branch: a cross-tenant
+    // signal is a security incident, never an ordinary evidence-quality issue.
+    if (crossTenant) return "QUARANTINE_SECURITY";
+
     if (duplicateIdentityRisk) return "BLOCK_ENTITY_AMBIGUITY";
+
+    // Ahead of the hardFail check, mirroring duplicateIdentityRisk: if
+    // EVERY claim in this review fails source independence, that's a
+    // systemic failure of the review itself, not a per-claim caveat.
+    const allClaimsFailIndependence = claims.length > 0 && claims.every((c) => c.failedChecks.includes("source_independence_failure"));
+    if (allClaimsFailIndependence) return "BLOCK_INDEPENDENCE";
+
+    // After duplicateIdentityRisk and BLOCK_INDEPENDENCE, ahead of the
+    // RESEARCH_MORE/PASS branches: the producing run asserted a fact backed
+    // by evidence that no longer resolves.
+    if (unresolvedEvidenceIds.length > 0) return "BLOCK_EVIDENCE_INTEGRITY";
 
     const hardFail = claims.some((c) => c.failedChecks.includes("inference_presented_as_fact") || c.failedChecks.includes("contradicted"));
     if (hardFail) return "BLOCK_INSUFFICIENT_EVIDENCE";

@@ -1,0 +1,109 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: sales-001
+  name: Governance sync and sales outreach engine schema
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read SCHEMA_REGISTRY_v2.md in FULL.
+    Read src/app/(dashboard)/admin/page.tsx in FULL.
+
+    Apply these migrations via Supabase SQL editor at https://supabase.com/dashboard/project/vbjplpquqxxfbpazyalt/sql/new:
+
+    CREATE TABLE IF NOT EXISTS outreach_campaigns (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, status text DEFAULT 'draft' CHECK (status IN ('draft','active','paused','completed')), target_segment text NOT NULL, email_template_subject text, email_template_body text, sending_domain text, daily_limit integer DEFAULT 50, total_sent integer DEFAULT 0, total_opened integer DEFAULT 0, total_replied integer DEFAULT 0, total_bounced integer DEFAULT 0, total_unsubscribed integer DEFAULT 0, created_at timestamptz DEFAULT now(), launched_at timestamptz, completed_at timestamptz);
+
+    CREATE TABLE IF NOT EXISTS outreach_prospects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), campaign_id uuid REFERENCES outreach_campaigns(id) ON DELETE CASCADE, nonprofit_id uuid REFERENCES nonprofits(id), org_name text NOT NULL, contact_name text, contact_email text NOT NULL, contact_title text, status text DEFAULT 'pending' CHECK (status IN ('pending','sent','opened','replied','bounced','unsubscribed','suppressed')), sent_at timestamptz, opened_at timestamptz, replied_at timestamptz, bounce_code text, sequence_step integer DEFAULT 1, next_followup_at timestamptz, created_at timestamptz DEFAULT now());
+    CREATE INDEX idx_outreach_email ON outreach_prospects(contact_email);
+    CREATE INDEX idx_outreach_status ON outreach_prospects(campaign_id, status);
+
+    CREATE TABLE IF NOT EXISTS email_suppressions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text NOT NULL UNIQUE, reason text NOT NULL CHECK (reason IN ('unsubscribed','bounced','complaint','manual')), suppressed_at timestamptz DEFAULT now());
+    CREATE INDEX idx_suppression_email ON email_suppressions(email);
+
+    CREATE TABLE IF NOT EXISTS sending_domains (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), domain text NOT NULL UNIQUE, daily_limit integer DEFAULT 50, current_warmup_day integer DEFAULT 1, is_warmed boolean DEFAULT false, dns_verified boolean DEFAULT false, created_at timestamptz DEFAULT now());
+
+    Verify all 4 tables created successfully.
+    git add -A; git commit -m 'feat: sales outreach engine schema -- campaigns, prospects, suppressions, sending domains'; git push.
+
+- id: sales-002
+  name: Sales outreach prospect seeding from IRS BMF
+  prompt: |
+    Read SCHEMA_REGISTRY_v2.md for nonprofits, outreach_campaigns, outreach_prospects, email_suppressions tables in FULL.
+
+    CREATE scripts/seed-outreach-prospects.ts:
+
+    This script seeds outreach_prospects from the nonprofits table for a given campaign.
+
+    TARGETING CRITERIA for Benavora's primary campaign (nonprofit ED/development officers):
+    Query nonprofits WHERE:
+    - officer_email IS NOT NULL
+    - officer_email NOT IN (SELECT email FROM email_suppressions)
+    - asset_amount BETWEEN 100000 AND 50000000  (small to mid-size nonprofits -- Benavora's ICP)
+    - ntee_code NOT LIKE 'S%'  (exclude government-adjacent)
+    - ntee_code NOT LIKE 'T%'  (exclude foundations -- they don't need grant automation)
+    - last_enriched_at IS NOT NULL  (only enriched records with good data)
+    LIMIT 10000 per batch
+
+    For each qualifying nonprofit:
+    - Insert into outreach_prospects with campaign_id, nonprofit_id, org_name (from name), contact_name (from officer_name), contact_email (from officer_email), contact_title (from officer_title or 'Executive Director')
+    - ON CONFLICT (campaign_id, contact_email) DO NOTHING
+
+    Add CLI args: --campaign-id [uuid] --limit [number, default 1000] --dry-run
+    In dry-run mode: log prospects that WOULD be added without inserting.
+
+    Add package.json script: "outreach:seed": "tsx scripts/seed-outreach-prospects.ts"
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: outreach prospect seeding -- IRS BMF to campaign pipeline with suppression checking'; git push.
+
+- id: sales-003
+  name: Sales outreach admin UI build
+  prompt: |
+    Read src/app/(dashboard)/admin/page.tsx in FULL.
+    Read SCHEMA_REGISTRY_v2.md for outreach tables in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    CREATE src/app/(dashboard)/admin/sales-outreach/page.tsx:
+
+    Header: "Sales Outreach Engine" H1 + subtitle "Cold email campaigns to nonprofit prospects — separate sending domains protect benavora.com"
+
+    CAMPAIGN DASHBOARD (4 stat cards):
+    - Total Prospects in DB
+    - Active Campaigns
+    - Emails Sent This Week
+    - Average Open Rate
+
+    CAMPAIGNS TABLE (white card):
+    Columns: Campaign Name, Status badge, Target Segment, Sent, Open Rate, Reply Rate, Actions
+    Status badges: draft=#6B7280, active=#10B981 (with pulse), paused=#F59E0B, completed=#0EA5E9
+    "New Campaign" button #10B981 top right
+
+    SENDING DOMAINS panel (white card):
+    List of sending_domains with: domain name, warmup day, daily limit, DNS verified badge (green/red), is_warmed badge
+    "Add Domain" button
+
+    SUPPRESSION LIST panel (white card):
+    Total suppressed count. Search input. Table: email, reason, date. "Add Manual Suppression" button.
+
+    CREATE src/app/api/admin/sales-outreach/route.ts:
+    GET: returns campaigns list with prospect counts and stats
+    POST: creates new campaign
+
+    CREATE src/app/api/admin/sales-outreach/[campaignId]/route.ts:
+    GET: returns campaign details with prospect list
+    PATCH: updates campaign status
+
+    Add to admin nav: "Sales Outreach" href /admin/sales-outreach
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: sales outreach admin UI -- campaign dashboard, sending domains, suppression list'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

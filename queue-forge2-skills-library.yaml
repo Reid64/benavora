@@ -1,0 +1,223 @@
+project: forge-2
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+prompts:
+- id: skills-scaffold
+  name: Create skills library directory structure and loader
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\cli\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts lines 1-100.
+    Create the skills library infrastructure:
+    1) Create directory C:\Users\manag\Documents\forge-2\src\skills\ with index.ts.
+    2) Export interface Skill { id: string, name: string, domain: string, template: string, tags: string[], applicablePromptTypes: string[] }.
+    3) Export interface SkillsLibrary { skills: Skill[], getByDomain(domain: string): Skill[], getByTags(tags: string[]): Skill[], getForPrompt(promptType: string): Skill[], injectIntoContext(promptText: string, projectStack: string[]): string }.
+    4) Export function loadSkillsLibrary(skillsDir: string): SkillsLibrary — reads all *.skill.md files from skillsDir, parses frontmatter (id, name, domain, tags, applicablePromptTypes) and body as template text.
+    5) Export function detectProjectStack(projectPath: string): string[] — reads package.json dependencies and devDependencies, returns array of detected technologies (nextjs, supabase, tailwind, twilio, stripe, prisma, drizzle, vitest, playwright).
+    6) Export function buildSkillsContext(projectPath: string, promptText: string): string — detects stack, loads matching skills, returns formatted context block prefixed with ENGINEERING STANDARDS AND PATTERNS FOR THIS BUILD.
+    7) Wire into phase3-executor.ts: before each prompt execution call buildSkillsContext and prepend to the prompt text sent to Claude Code.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): skills library infrastructure and context injection'
+  gates:
+  - type: compile
+
+- id: skills-nextjs
+  name: Create Next.js 14 App Router engineering skill templates
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\skills\index.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\nextjs-app-router.skill.md with frontmatter: id: nextjs-app-router, name: Next.js 14 App Router Patterns, domain: frontend, tags: [nextjs, react, typescript], applicablePromptTypes: [feature, component, page, api].
+    Body must contain these exact engineering standards as a reference template:
+    ROUTE HANDLERS: Always use NextRequest/NextResponse. Auth via createServerComponentClient or createRouteHandlerClient from supabase-js. Never use getServerSideProps. Every route.ts exports named functions GET/POST/PUT/DELETE/PATCH only.
+    SERVER COMPONENTS: Default to server components. Use 'use client' only when needed for interactivity, browser APIs, or hooks. Never fetch in client components when server component can do it.
+    ERROR HANDLING: Every API route returns { data, error } shape. Error always includes { message: string, code: string, status: number }. Never return raw error objects.
+    LOADING STATES: Every page.tsx has a loading.tsx sibling. Every async server component wraps data fetch in try/catch.
+    METADATA: Every page.tsx exports generateMetadata function.
+    FILE NAMING: page.tsx for pages, layout.tsx for layouts, loading.tsx for suspense, error.tsx for error boundaries, route.ts for API handlers. Never mix.
+    IMPORTS: Use @/ alias for all src imports. Never use relative paths beyond one level.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): Next.js 14 App Router engineering skill template'
+  gates:
+  - type: compile
+
+- id: skills-supabase
+  name: Create Supabase engineering skill templates
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\skills\index.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\supabase.skill.md with frontmatter: id: supabase, name: Supabase Patterns, domain: database, tags: [supabase, postgres, rls], applicablePromptTypes: [api, database, migration, feature].
+    Body must contain:
+    CLIENT USAGE: Server components use createServerComponentClient. Route handlers use createRouteHandlerClient. Never use createClient from supabase-js directly in server code. Admin operations use createClient with service role key from server only, never exposed to client.
+    RLS POLICIES: Every table has RLS enabled. Every policy is named descriptively: users_select_own, companies_insert_authenticated. Never disable RLS. Auth check: auth.uid() = user_id or auth.jwt() ->> role = required_role.
+    MIGRATIONS: Every migration file named: YYYYMMDDHHmmss_description.sql. Never alter existing migrations. Always add IF NOT EXISTS. Always add indexes on foreign keys and frequently queried columns. Every table has id uuid DEFAULT gen_random_uuid() PRIMARY KEY, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now().
+    ERROR HANDLING: Always destructure { data, error } from supabase calls. Never assume success. Log error.message with context. Return standardized error shape to client.
+    REALTIME: Use supabase.channel() not deprecated .from().on(). Always unsubscribe on component unmount.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): Supabase engineering skill template'
+  gates:
+  - type: compile
+
+- id: skills-typescript
+  name: Create TypeScript strict patterns skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\typescript-strict.skill.md with frontmatter: id: typescript-strict, name: TypeScript Strict Engineering Patterns, domain: typescript, tags: [typescript], applicablePromptTypes: [feature, api, component, agent, database].
+    Body must contain:
+    NO ANY: Never use any. Use unknown for truly unknown types and narrow with type guards. Use Record<string, unknown> for dynamic objects.
+    INTERFACES VS TYPES: Interfaces for objects that may be extended. Types for unions, intersections, primitives, tuples. Never mix.
+    ERROR TYPES: Define explicit error types. Never throw raw strings. Use class CustomError extends Error with name and code properties.
+    ASYNC PATTERNS: Always return Promise<Result<T, E>> shape for fallible operations where Result = { data: T, error: null } | { data: null, error: E }. Never throw from async functions that cross module boundaries.
+    ENUMS: Use const enums for compile-time constants. Use string enums for runtime-serializable values. Never use numeric enums.
+    GENERICS: Name generic parameters descriptively: TData, TError, TResponse not T, U, V.
+    STRICT NULL: Never use non-null assertion operator ! unless asserting after a runtime check. Use optional chaining ?. and nullish coalescing ?? everywhere.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): TypeScript strict patterns skill template'
+  gates:
+  - type: compile
+
+- id: skills-api-patterns
+  name: Create API route engineering standards skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\api-patterns.skill.md with frontmatter: id: api-patterns, name: API Route Engineering Standards, domain: api, tags: [nextjs, api, rest], applicablePromptTypes: [api, feature].
+    Body must contain:
+    RESPONSE SHAPE: All API routes return { success: boolean, data?: T, error?: { message: string, code: string, status: number }, meta?: { page, limit, total } }. Never deviate.
+    AUTH MIDDLEWARE: Every protected route calls a shared validateAuth(request) helper first. Returns 401 with { success: false, error: { message: Unauthorized, code: AUTH_REQUIRED, status: 401 } } if invalid.
+    INPUT VALIDATION: Use zod for all request body and query param validation. Define schema before handler. Return 422 with validation errors if invalid.
+    HTTP STATUS CODES: 200 success, 201 created, 400 bad request, 401 unauthorized, 403 forbidden, 404 not found, 409 conflict, 422 validation error, 429 rate limited, 500 internal error. Never use 200 for errors.
+    RATE LIMITING: Every public endpoint has rate limiting via a shared rateLimiter helper. Default 100 req/min per IP.
+    IDEMPOTENCY: POST endpoints that create resources accept optional Idempotency-Key header. Store in idempotency_keys table, return cached response on duplicate.
+    PAGINATION: All list endpoints accept page and limit query params. Default limit 20, max 100. Always return meta.total.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): API route engineering standards skill template'
+  gates:
+  - type: compile
+
+- id: skills-agent-architecture
+  name: Create agent architecture engineering skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\agent-architecture.skill.md with frontmatter: id: agent-architecture, name: Agent Architecture Patterns, domain: agents, tags: [agents, typescript, async], applicablePromptTypes: [agent, feature].
+    Body must contain:
+    AGENT STRUCTURE: Every agent is a class extending BaseAgent. BaseAgent defines: abstract name: string, abstract description: string, abstract run(trigger: string, input?: AgentInput): Promise<AgentRunResult>. AgentRunResult = { success: boolean, itemsProcessed: number, summary: string, errors: string[], durationMs: number }.
+    AGENT REGISTRATION: Every agent registers itself in src/agents/registry.ts via registerAgent(agent). Registry exposes getAgent(name), listAgents(), runAgent(name, trigger, input).
+    TRIGGER TYPES: Agents accept trigger strings: autonomous, manual, chain, schedule, webhook. Behavior may vary by trigger.
+    ERROR HANDLING: Agents never throw. All errors caught internally, added to AgentRunResult.errors, success=false if any critical error. Always process as many items as possible before returning.
+    LOGGING: Every agent logs via agentLogger (child of forge logger). Format: [AGENT:{name}] {action} — {detail}. Log start, progress every 100 items, completion summary.
+    DB PERSISTENCE: Every agent run writes to agent_runs table: id, agent_name, trigger, started_at, completed_at, items_processed, success, errors JSON, summary.
+    CHAINING: Agents can chain by calling registry.runAgent() on completion. Chain depth tracked to prevent infinite loops (max depth 5).
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): agent architecture engineering skill template'
+  gates:
+  - type: compile
+
+- id: skills-ui-components
+  name: Create shadcn/ui and Tailwind UI engineering skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\ui-components.skill.md with frontmatter: id: ui-components, name: UI Component Engineering Standards, domain: ui, tags: [react, tailwind, shadcn, typescript], applicablePromptTypes: [component, page, feature].
+    Body must contain:
+    COMPONENT LIBRARY: Use shadcn/ui as the primary component library. Install components via npx shadcn-ui@latest add [component]. Never hand-roll primitive UI elements (buttons, inputs, modals, dropdowns, tables) that shadcn provides.
+    SHADCN COMPONENTS AVAILABLE: Button, Input, Label, Select, Dialog, Sheet, Dropdown Menu, Table, Card, Badge, Alert, Toast, Tabs, Accordion, Avatar, Checkbox, Radio Group, Switch, Textarea, Form (with react-hook-form), Calendar, Date Picker, Command, Combobox, Data Table (with TanStack Table).
+    TAILWIND PATTERNS: Use cn() utility from @/lib/utils for conditional classes. Never use inline styles. Never use arbitrary values when Tailwind scale values exist. Mobile-first responsive: sm: md: lg: xl: prefixes.
+    ACCESSIBILITY: Every interactive element has aria-label or aria-labelledby. Every form field has associated label. Color contrast minimum 4.5:1. Focus visible on all interactive elements. Never remove outline without replacing with visible focus indicator.
+    LOADING STATES: Every async operation shows skeleton loader not spinner unless operation < 300ms. Use shadcn Skeleton component.
+    EMPTY STATES: Every list/table has an empty state with icon, heading, description, and CTA.
+    ERROR STATES: Every data fetch has error state with retry button.
+    DARK MODE: All components support dark mode via Tailwind dark: prefix. Never hardcode colors.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): shadcn/ui and Tailwind UI engineering skill template'
+  gates:
+  - type: compile
+
+- id: skills-twilio
+  name: Create Twilio integration engineering skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\twilio.skill.md with frontmatter: id: twilio, name: Twilio Integration Patterns, domain: telephony, tags: [twilio, telephony, sms, voice], applicablePromptTypes: [api, feature, agent].
+    Body must contain:
+    CLIENT INIT: Never initialize Twilio client in route handlers directly. Use a singleton getTwilioClient() from src/lib/twilio/client.ts that reads TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN from env. Throw descriptive error if env vars missing.
+    WEBHOOK VALIDATION: Every Twilio webhook route validates signature using twilio.validateRequest(authToken, signature, url, params). Return 403 if invalid. Never skip validation.
+    TWIML: Never hand-build TwiML strings. Use twilio.twiml.VoiceResponse() and twilio.twiml.MessagingResponse(). Always set Content-Type: text/xml on TwiML responses.
+    CALL FLOW: Every call has: initiate -> in-progress -> completed or failed lifecycle. Persist call SID immediately on initiation. Update status on every webhook. Never assume call completed without webhook confirmation.
+    ERROR RECOVERY: Twilio API calls wrapped in try/catch with exponential backoff retry (3 attempts, 1s/2s/4s delays). Log every failed attempt with error code and message.
+    PHONE NUMBERS: Always format E.164 (+1XXXXXXXXXX). Validate before any Twilio API call using libphonenumber-js.
+    STATUS CALLBACKS: Every outbound call and SMS registers status callback URL. Callback updates DB record. Never rely on polling for status.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): Twilio integration engineering skill template'
+  gates:
+  - type: compile
+
+- id: skills-testing
+  name: Create testing engineering skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\testing.skill.md with frontmatter: id: testing, name: Testing Engineering Standards, domain: testing, tags: [vitest, playwright, testing], applicablePromptTypes: [test, feature, api, agent].
+    Body must contain:
+    UNIT TESTS: Use Vitest. Every utility function, pure function, and agent method has unit tests. Test file colocated: src/lib/utils/format.ts -> src/lib/utils/format.test.ts. Describe blocks named after the function. It blocks named should [behavior] when [condition].
+    INTEGRATION TESTS: Every API route has integration tests using Vitest + msw for mocking. Test happy path, auth failure, validation failure, and server error cases for every route.
+    E2E TESTS: Use Playwright. Every critical user flow has an e2e test: signup, login, core feature use, billing. Tests in e2e/ directory. Page object model pattern: each page has a class with locators and action methods.
+    MOCKING: Use vi.mock() for module mocks. Use msw for HTTP mocks. Never mock the implementation under test. Always restore mocks in afterEach.
+    COVERAGE: Minimum 80% line coverage on src/lib/. Minimum 60% on src/components/. Zero coverage acceptable on src/app/ (Next.js pages tested via e2e).
+    ASSERTIONS: Use expect().toMatchInlineSnapshot() for complex objects. Use expect().toHaveBeenCalledWith() not .toHaveBeenCalled() for spy assertions.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): testing engineering standards skill template'
+  gates:
+  - type: compile
+
+- id: skills-stripe
+  name: Create Stripe integration engineering skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\stripe.skill.md with frontmatter: id: stripe, name: Stripe Integration Patterns, domain: billing, tags: [stripe, billing, payments], applicablePromptTypes: [api, feature, agent].
+    Body must contain:
+    CLIENT INIT: Singleton getStripeClient() from src/lib/stripe/client.ts. Server-side only. Never expose secret key to client. Client-side uses NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY with @stripe/stripe-js.
+    WEBHOOK HANDLING: Always verify webhook signature using stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET). Use raw body not parsed JSON. Return 400 if verification fails.
+    IDEMPOTENCY: All Stripe API calls pass idempotencyKey option. Key = [operation]-[entityId]-[timestamp]. Prevents duplicate charges on retry.
+    CUSTOMER SYNC: Stripe customer ID stored in users table as stripe_customer_id. Create customer on first billing action, never on signup. Sync email changes to Stripe.
+    SUBSCRIPTION LIFECYCLE: Handle all subscription webhook events: created, updated, deleted, payment_failed, trial_ending. Update local subscription_status on every event.
+    METADATA: Every Stripe object created includes metadata: { userId, companyId, environment: process.env.NODE_ENV }.
+    TEST MODE: Stripe test mode in development. Never use live keys in development or staging.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): Stripe integration engineering skill template'
+  gates:
+  - type: compile
+
+- id: skills-error-monitoring
+  name: Create error monitoring and observability skill template
+  prompt: |
+    Create C:\Users\manag\Documents\forge-2\src\skills\templates\observability.skill.md with frontmatter: id: observability, name: Error Monitoring and Observability Patterns, domain: observability, tags: [sentry, logging, monitoring], applicablePromptTypes: [feature, api, agent].
+    Body must contain:
+    ERROR BOUNDARIES: Every page has an error.tsx boundary. Every async server component wraps in try/catch. Errors logged to console.error with context object: { userId, route, input }.
+    STRUCTURED LOGGING: Use a shared logger from src/lib/logger.ts. Logger outputs JSON in production, pretty in development. Every log entry includes: timestamp, level, message, context object. Levels: debug, info, warn, error.
+    PERFORMANCE MONITORING: API routes log response time. Threshold warnings: > 500ms warn, > 2000ms error. Use performance.now() not Date.now().
+    HEALTH CHECKS: Every project has /api/health route returning { status: ok, version, timestamp, services: { database: ok/error, cache: ok/error } }.
+    SENTRY INTEGRATION: If NEXT_PUBLIC_SENTRY_DSN is set: initialize Sentry in src/instrumentation.ts, wrap all API routes with Sentry.withSentry, capture exceptions with Sentry.captureException(error, { extra: context }).
+    ALERT THRESHOLDS: Error rate > 1% of requests triggers alert. P99 latency > 3s triggers alert. Database connection failures always trigger alert.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(skills): error monitoring and observability skill template'
+  gates:
+  - type: compile
+
+- id: skills-forge-command
+  name: Register forge skills CLI command
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\cli\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\index.ts in full.
+    Add forge skills command to src\cli\index.ts with subcommands:
+    1) forge skills list <project-path> — detects project stack and lists all matching skills that would be injected for that project.
+    2) forge skills show <skill-id> — prints the full skill template content.
+    3) forge skills inject <project-path> <prompt-text> — shows the full prompt that would be sent to Claude Code with skills injected, for debugging.
+    4) forge skills add <skill-file> — validates and copies a new skill template into the skills library.
+    All output in [yyyy-MM-dd HH:mm:ss] [LEVEL] format.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(cli): forge skills command — list show inject add'
+  gates:
+  - type: compile
+
+- id: skills-governance-update
+  name: Update governance docs to reflect skills library completion
+  prompt: |
+    In C:\Users\manag\Documents\forge-2 update governance documents:
+    1) STATE_OF_THE_BUILD.md — add Skills Library section marking all 12 prompts DONE with commit hashes.
+    2) SESSION_STATE.md — update last session listing all new files in src/skills/templates/.
+    3) AGENTS.md — add SkillsLibrary agent entry: SkillsLibraryLoader(src/skills/index.ts) — detects project stack, loads matching engineering skill templates, injects as context before every Phase 3 prompt execution.
+    4) BEHAVIORAL_CONTRACTS.md — add SKL-1: Skills library MUST be injected before every Phase 3 prompt execution. SKL-2: Skills are matched by project stack detection not hardcoded. SKL-3: New skill templates follow the *.skill.md format with valid frontmatter.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'chore: governance docs Skills Library complete'
+  gates:
+  - type: compile

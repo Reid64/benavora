@@ -1,0 +1,462 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-61: PRODUCTION DEPLOYMENT + GO-LIVE GATES
+#
+# Real infrastructure, gated launch. Topology (stated once,
+# implemented throughout):
+#   - apps/console -> Vercel (a NEW Vercel project; auto-deploy
+#     configured AND verified with a real push - the sibling
+#     project's broken auto-deploy was project-specific, but
+#     verification is mandatory here, with the manual
+#     deploy-command fallback documented regardless)
+#   - apps/api + apps/worker -> Railway (both are long-running
+#     Node services; the api was built and tested as a booted
+#     server, so serverless would be a re-architecture for no
+#     gain)
+#   - Supabase: the existing project, production-hardened, with
+#     fixture-tenant purge via the pi-60 deletion machinery and
+#     the future dedicated-prod-project split recorded as an AOQ
+#     (defensible for a pre-customer launch; not forever)
+#
+# LESSONS ENCODED: deployment verified by probing the deployed
+# artifact, never by CI green alone; sensitive env vars are
+# write-only on both platforms (set correctly the first time;
+# recovery is rotation); every service's boot inventory read
+# from PRODUCTION logs before anything is called done.
+#
+# THE GATE RULE: pi61-010 executes PRODUCTION_GATES.md - every
+# gate green with evidence, or the queue halts. No partial
+# launches, no "mostly ready".
+# ============================================================
+
+prompts:
+
+  - id: pi61-001
+    phase: build
+    description: "Preflight: the evaluation report read, the gate checklist authored"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read docs/architecture/EVALUATION_REPORT.md in full - its
+         readiness assessment and honest-limits list drive the
+         gates. pi-60 ratchet re-run green.
+      2. Write docs\architecture\PRODUCTION_GATES.md: the
+         enumerated go-live gates, each with its verification
+         method and evidence requirement - deployment health
+         (all three services live, boot inventories complete,
+         health probes green), production smoke (the full journey
+         on prod), security (prod RLS matrix, auth fuzz against
+         prod endpoints, secrets audit), data (migrations clean on
+         prod, fixture purge verified, backups verified by
+         RESTORE), operations (monitoring live, alerting tested,
+         runbook exists, kill switches reachable), economics
+         (budget guardrails engaged for the real tenant), and the
+         known-limits acknowledgment (the fixture-gap list from
+         the report carried forward as documented launch limits,
+         each with its unblock owner - Places key, business
+         registry licensing, embeddings key).
+      3. Capture to evidence\pi-61\preflight.txt.
+      4. Create scripts\verify\verify-pi61-001.mjs: the gates doc
+         covers all seven areas with verification methods; ratchet
+         green.
+      5. Run: node scripts/verify/verify-pi61-001.mjs
+    expected_outputs:
+      - docs/architecture/PRODUCTION_GATES.md
+      - scripts/verify/verify-pi61-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi61-002
+    phase: build
+    description: "Production configuration: env inventory, secrets discipline, DB hardening"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The environment inventory: docs\architecture\ENV_REGISTRY.md
+         - every env var across all three services (name, service,
+         sensitivity class, source of truth, rotation note),
+         cross-checked against actual code usage (grep the
+         codebase for process.env reads; an undocumented var or a
+         documented-but-unread var is a finding to fix).
+         .env.example complete and matching.
+      2. Supabase production hardening: confirm RLS matrix green on
+         the live project (it is the prod DB); auth settings
+         reviewed (email confirmations, password policy per
+         current dashboard options - via Management API where
+         settable, documented manual steps where not); PITR/backup
+         status captured (plan-dependent - state what the current
+         plan provides honestly; if PITR needs a plan change,
+         that is a gate item for Reid); connection pooler settings
+         for the Railway services (transaction mode for the api,
+         documented).
+      3. The dedicated-prod-project future split: the AOQ with the
+         migration path sketched (the ONE migrations directory
+         makes it mechanical - state that).
+      4. Evidence to evidence\pi-61\prod-config.txt.
+      5. Create scripts\verify\verify-pi61-002.mjs: ENV_REGISTRY
+         cross-check clean, matrix green, backup status captured.
+      6. Run: node scripts/verify/verify-pi61-002.mjs
+    expected_outputs:
+      - docs/architecture/ENV_REGISTRY.md
+      - scripts/verify/verify-pi61-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-003
+    phase: build
+    description: "Railway: api + worker deployed, probed, boot-verified"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Railway deployment for apps\api and apps\worker: create
+         the services (Railway CLI/API - authenticate per the
+         operator's existing Railway account; if authentication is
+         unavailable to the session, write
+         evidence\pi-61\RAILWAY-AUTH-NEEDED.md with the exact
+         commands Reid runs and halt honestly), env vars set from
+         the registry (sensitive ones flagged for Reid to set via
+         dashboard where CLI exposure is unacceptable - list them
+         explicitly), build/start commands, health-check
+         configuration on both.
+      2. Verification BY PROBING: the api's health endpoint over
+         its public URL; the worker's boot inventory read from
+         Railway production logs (every component line present -
+         the never-started-processor check in its final home);
+         a real queued no-op task executed by the production
+         worker (enqueue via the api, observe completion).
+      3. Evidence (URLs, log excerpts, the task round-trip) to
+         evidence\pi-61\railway-deploy.txt.
+      4. Create scripts\verify\verify-pi61-003.mjs: both services
+         probed live, boot inventory complete, the round-trip
+         task completed.
+      5. Run: node scripts/verify/verify-pi61-003.mjs
+    expected_outputs:
+      - evidence/pi-61/railway-deploy.txt
+      - scripts/verify/verify-pi61-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-004
+    phase: build
+    description: "Vercel: the console deployed, auto-deploy verified with a real push"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Vercel project for apps\console (monorepo root directory
+         configured; the framework build settings; env vars from
+         the registry - NEXT_PUBLIC ones only where genuinely
+         public, the api URL pointed at Railway; sensitive vars
+         via --sensitive flags knowing they are write-only).
+      2. AUTO-DEPLOY VERIFICATION: connect the GitHub repo; make a
+         trivial verifiable change (a build-stamp string in the
+         footer), push, and confirm the deployment triggered AND
+         the stamp appears on the live URL (fetch it). If
+         auto-deploy fails verification: document the failure,
+         fall back to the manual deploy command as the canonical
+         path (written into the runbook), and register the finding
+         - the sibling project's exact trap, handled by
+         verification instead of assumption.
+      3. Production console reachable, login renders, authed shell
+         loads against the production api (a smoke session).
+      4. Evidence to evidence\pi-61\vercel-deploy.txt.
+      5. Create scripts\verify\verify-pi61-004.mjs: the live URL
+         serves the stamp, the deploy path (auto or documented
+         manual) verified, the smoke session captured.
+      6. Run: node scripts/verify/verify-pi61-004.mjs
+    expected_outputs:
+      - evidence/pi-61/vercel-deploy.txt
+      - scripts/verify/verify-pi61-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-005
+    phase: build
+    description: "Production smoke: the full journey against real infrastructure"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Run the pi-51 full-journey Playwright suite against
+         PRODUCTION URLs with a dedicated smoke tenant (created
+         for this purpose, deletable): the complete sentence-to-
+         package journey on real infrastructure - real DB, real
+         Railway worker executing, real critic gating, FakeProvider
+         via a smoke-mode env on the worker for the reasoning
+         steps (production smoke verifies the INFRASTRUCTURE; the
+         real-model production verification is the gated real
+         campaign in pi61-009 - state the split). Screenshots
+         archived.
+      2. Production idle economy check: with the smoke objective
+         complete, observe the orchestrator over 30+ idle minutes
+         in production logs - zero model-gateway calls.
+      3. Evidence to evidence\pi-61\prod-smoke\.
+      4. Create scripts\verify\verify-pi61-005.mjs: the journey
+         passed against production URLs, the idle observation
+         captured.
+      5. Run: node scripts/verify/verify-pi61-005.mjs
+    expected_outputs:
+      - evidence/pi-61/prod-smoke/journey.txt
+      - scripts/verify/verify-pi61-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-006
+    phase: build
+    description: "Monitoring and alerting: honest observability"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The observability layer, built from what exists rather
+         than aspirationally: OPS-01's telemetry surfaced (its
+         collectors already run - an internal status endpoint on
+         the api aggregating: worker heartbeat ages, DLQ depth,
+         breaker states, connector error rates, spend rate,
+         integrity sweep results); external uptime checks on the
+         three public surfaces (a scheduled Railway cron or
+         GitHub Actions schedule hitting health endpoints -
+         choose, implement, verify a real check fired);
+         ALERTING: a real notification channel for P0 conditions
+         (worker dead, DLQ growth, budget hard-stop, health-check
+         failure) - implement email via Resend (the operator has
+         an account; a dedicated sending identity for this
+         product, NOT the sibling project's domains) or, if
+         account access is unavailable to the session, the
+         honest fallback: alerts to a monitored log + the
+         RESEND-SETUP-NEEDED.md halt note. TEST the channel: a
+         synthetic P0 fires a real alert, received and captured.
+      2. The SUP-06 notification seam finally lands on the real
+         channel (escalation notifications flow to the tenant's
+         configured email) - the console-log gap closes, recorded.
+      3. Evidence to evidence\pi-61\monitoring.txt.
+      4. Create scripts\verify\verify-pi61-006.mjs: the status
+         endpoint live, an uptime check fired, the synthetic P0
+         alert delivered (or the honest halt).
+      5. Run: node scripts/verify/verify-pi61-006.mjs
+    expected_outputs:
+      - evidence/pi-61/monitoring.txt
+      - scripts/verify/verify-pi61-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-007
+    phase: build
+    description: "Backup and restore: proven by restoring"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. THE RESTORE DRILL: a backup is a hypothesis until a
+         restore proves it - restore the production database to a
+         Supabase branch (or the plan's restore mechanism -
+         whatever the current plan actually provides; if the plan
+         provides nothing adequate, that is a RED GATE finding
+         for Reid's plan decision, stated plainly), then verify
+         on the restored copy: row counts match a pre-drill
+         census across the core tables; a sample dossier
+         assembles identically; the RLS matrix passes on the
+         restore. Snapshot-bucket durability: Supabase storage
+         redundancy characteristics documented from their current
+         published guarantees (fetch) + a bucket object-count
+         census for drift detection.
+      2. The restore runbook section: exact commands, expected
+         durations, the verification checklist - written from
+         what was ACTUALLY done in the drill.
+      3. Evidence to evidence\pi-61\restore-drill.txt.
+      4. Create scripts\verify\verify-pi61-007.mjs: the drill's
+         census comparisons present and matching (or the red-gate
+         plan finding).
+      5. Run: node scripts/verify/verify-pi61-007.mjs
+    expected_outputs:
+      - evidence/pi-61/restore-drill.txt
+      - scripts/verify/verify-pi61-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-008
+    phase: build
+    description: "Fixture purge + Faith Foundation onboarded as tenant 1"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Fixture-tenant purge: every test/fixture tenant deleted
+         via the pi-60 deletion machinery (tombstones remain per
+         design; the smoke tenant from pi61-005 goes too);
+         post-purge census: zero fixture-org rows in tenant-scoped
+         tables (query per table), shared public-source data
+         (taxonomies, sources, shared snapshots) intact.
+      2. TENANT 1: Faith Foundation onboarded for real - org
+         created, Reid's owner user (his real email; the invite
+         flow exercised for real), tenant settings (address for
+         "of us" resolution, gift ranges, budget defaults set
+         CONSERVATIVELY with SUP-04 active), the constituency-
+         import path verified ready (a 2-row real-format test
+         import through the console, then deleted - the path
+         works; the real import is Reid's action with real
+         consent data).
+      3. Evidence to evidence\pi-61\tenant-1.txt.
+      4. Create scripts\verify\verify-pi61-008.mjs: purge census
+         clean, the org + owner live, the import path round-trip
+         captured.
+      5. Run: node scripts/verify/verify-pi61-008.mjs
+    expected_outputs:
+      - evidence/pi-61/tenant-1.txt
+      - scripts/verify/verify-pi61-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-009
+    phase: build
+    description: "The first real production research: Faith Foundation's inaugural objective"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The production real-model verification, as tenant 1's
+         first genuine value: a REAL bounded objective for Faith
+         Foundation (budget-capped small - a 10-candidate Texas
+         foundation discovery + research on the top 3, real
+         model, real connectors, real critic gating in
+         production), commissioned THROUGH THE CONSOLE (the
+         sentence typed, approved - the real commissioning
+         audit). Observe to completion in production. Then: the
+         fabrication sweep on every produced claim (100%); the
+         dossiers opened in the production console with citation
+         click-throughs verified; total spend from the production
+         ledger printed against the cap.
+      2. This is simultaneously the production real-model gate
+         AND the product's first real output for its first real
+         tenant - treat the resulting dossiers as deliverables
+         (they persist; Reid reviews them via the audit-packet
+         format).
+      3. Evidence to evidence\pi-61\first-real-research.json.
+      4. Create scripts\verify\verify-pi61-009.mjs: completion,
+         100% fabrication sweep, spend within cap, the
+         commissioning audit chain intact.
+      5. Run: node scripts/verify/verify-pi61-009.mjs
+    expected_outputs:
+      - evidence/pi-61/first-real-research.json
+      - scripts/verify/verify-pi61-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-010
+    phase: build
+    description: "THE GO-LIVE GATE: every gate green or halt"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Execute PRODUCTION_GATES.md as a literal checklist:
+         scripts\proofs\go-live-gate.mjs walks every gate,
+         re-verifies each by its stated method (live probes, not
+         evidence-file trust - health endpoints hit NOW, the
+         matrix run NOW, a fresh auth-fuzz sample NOW, the alert
+         channel pinged NOW), and renders the gate table with
+         per-gate evidence refs. The known-limits gate passes
+         only if each limit is documented with its unblock owner
+         (they are constraints, not failures - but undocumented
+         constraints fail the gate).
+      2. ANY red gate: write evidence\pi-61\GATE-FAILURES.md
+         naming each with its remediation, and the verify script
+         exits 1 - the queue HALTS. A red gate at go-live is a
+         halt, not a footnote. All green: the gate table +
+         timestamp to evidence\pi-61\go-live-gate.json.
+      3. Create scripts\verify\verify-pi61-010.mjs: every gate
+         green in the live-verified table.
+      4. Run: node scripts/verify/verify-pi61-010.mjs
+    expected_outputs:
+      - scripts/proofs/go-live-gate.mjs
+      - evidence/pi-61/go-live-gate.json
+      - scripts/verify/verify-pi61-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi61-011
+    phase: build
+    description: "The operations runbook"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\OPERATIONS_RUNBOOK.md, every procedure from
+         what actually exists (commands that were actually run in
+         this queue, not aspirations): incident response per
+         alert type (worker dead -> the restart + reclaim
+         verification; DLQ growth -> the diagnosis queries +
+         requeue procedure; budget hard-stop -> the review +
+         unlock path; breaker stuck open -> the probe), the
+         kill-switch procedures (every scope, console + direct
+         API), deploy procedures (all three services, the
+         verified paths + rollback), the restore procedure (from
+         the drill), cost-monitoring cadence (the daily/weekly
+         checks with their queries), the weekly ops checklist
+         (integrity sweeps, DLQ review, spend review, escalation-
+         inbox hygiene, eval-sampler review), and the known-limits
+         register with unblock paths.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-61
+         complete - PHASE 6 COMPLETE; PRODUCTION IS LIVE with
+         tenant 1 onboarded and first real research delivered;
+         remaining queue: pi-70-benavora-adapter.
+      3. Scoped add: docs/ scripts/ evidence/pi-61/
+         SESSION_STATE.md STATE_OF_THE_BUILD.md
+         Commit: "production: Railway + Vercel deployed and
+         probe-verified, restore drilled, monitoring + alerting
+         live, Faith Foundation onboarded, first real research
+         delivered, all go-live gates green (pi-61)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi61-011.mjs: the runbook's
+         sections present with real commands (grep for the
+         literal commands used earlier in the queue), close-out
+         standard.
+      5. Run: node scripts/verify/verify-pi61-011.mjs
+    expected_outputs:
+      - docs/OPERATIONS_RUNBOOK.md
+      - scripts/verify/verify-pi61-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi61-011.mjs"
+    max_retries: 3
+    on_fail: halt

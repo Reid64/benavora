@@ -1,0 +1,132 @@
+# QUEUE GOC-3 — GBP Operations Center Backend
+#
+# HELD. This queue is fully written and ready, but every prompt below is tagged
+# [GOOGLE API] against the Business Profile APIs — none of it can run against a live
+# API without a confirmed Google Cloud project + GBP API access, which remains the
+# same open question flagged multiple times this session and never answered. This is
+# the same hard gate that held queue-17 (A-48 GBP Control Center scaffold) — do not
+# override this hold without an explicit, current confirmation of GBP API access.
+#
+# If access is confirmed: this queue builds real functionality. If not: do not run it
+# as a "scaffold with fake data" exercise — that reproduces the exact failure pattern
+# (confident-looking UI with no real data behind it) this whole session has been
+# fighting since night one.
+
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- CLAUDE.md
+- docs/audits/2026-08-01-google-ops-center-reconciliation.md
+project: Tarritrix
+prompts:
+- id: goc3-001
+  name: GBP schema — accounts, locations, performance, reviews, posts, media, Q&A
+  prompt: |
+    Read docs/audits/2026-08-01-google-ops-center-reconciliation.md — confirm none of these tables already exist under a different name (A-14 review velocity, A-46 directory registration) before writing. Read SCHEMA_REGISTRY.md for Pattern A RLS requirements.
+
+    Write FILE 1: supabase/migrations/[correct next timestamp]_gbp_operations_center.sql
+
+    Create tables matching GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 3's GBP domain: gbp_accounts, gbp_locations (full Location Master Record per Part 2.5B — resource_name, title, categories, hours, special_hours, attributes, verification_state, profile_completion_state), gbp_location_snapshots, gbp_categories, gbp_attributes, gbp_hours, gbp_special_hours, gbp_services, gbp_performance_daily (search_desktop_impressions, search_mobile_impressions, maps_desktop_impressions, maps_mobile_impressions, website_clicks, call_clicks, direction_requests, messages, bookings, food_orders, menu_clicks), gbp_search_keywords_monthly, gbp_reviews, gbp_review_replies, gbp_questions, gbp_answers, gbp_posts, gbp_post_metrics, gbp_media, gbp_notifications. All Pattern A RLS from creation.
+
+    Apply via Supabase MCP. Verify pg_policies shows Pattern A only.
+
+    pnpm tsc --noEmit — 0 errors.
+
+    git add -A; git commit -m 'feat: GBP Operations Center schema — full location/performance/review/post/media/QA domain'; git push origin main. Report commit hash.
+  gates:
+  - type: compile
+
+- id: goc3-002
+  name: GBP Sync Agent + Pub/Sub Notification Consumer
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID.
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-gbp-sync.ts
+
+    Extends BaseAgent. Daily performance pull (all metrics per gbp_performance_daily), several-times-daily location profile pull, monthly search-keywords pull. Do NOT implement chat/message-history sync — Google discontinued GBP chat and call-history features in July 2024, per Contract non-goal in the master spec.
+
+    Write FILE 2: src/lib/agents/a-[correct-id2]-gbp-notification-consumer.ts
+
+    Pub/Sub webhook consumer. Idempotent event processing, dead-letter handling, reconciliation job for missed events.
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md for both.
+
+    git add -A; git commit -m 'feat: GBP Sync Agent (performance/profile/keywords) + Pub/Sub Notification Consumer'; git push origin main. Report commit hash and both assigned agent IDs.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc3-003
+  name: Review Response Agent — gated per Contract C
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID. Read A-14's current implementation in full — extend it rather than duplicating if it already handles review workflow.
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-gbp-review-response.ts
+
+    Extends BaseAgent. Drafts AI review responses. HARD GATE, no override: must NOT auto-publish for 1-2 star reviews or any review text matching fraud/injury/discrimination/criminal/legal-threat/privacy/employee-accusation/regulated-service patterns — these route to a human-approval queue instead, per GOC-Contract-C. Implement the pattern-matching conservatively (over-flag to human review rather than under-flag).
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md.
+
+    git add -A; git commit -m 'feat: GBP Review Response Agent, hard-gated per Contract C sensitive-review rules'; git push origin main. Report commit hash and assigned agent ID.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc3-004
+  name: Q&A Agent + Post Scheduling Agent
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID.
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-gbp-qa.ts
+
+    Extends BaseAgent. Drafts Q&A answers, flags recurring questions as content opportunities (writes to `recommendations` table).
+
+    Write FILE 2: src/lib/agents/a-[correct-id2]-gbp-post-scheduling.ts
+
+    Extends BaseAgent. Internal scheduling engine — Google does not natively schedule every post type, so this retains posts internally and publishes at the designated time via the API.
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md for both.
+
+    git add -A; git commit -m 'feat: GBP Q&A Agent + internal Post Scheduling Agent'; git push origin main. Report commit hash and both assigned agent IDs.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc3-005
+  name: Media Ingestion Agent — mobile photo capture pipeline
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID.
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-gbp-media-ingestion.ts
+
+    Extends BaseAgent. Handles the mobile crew photo-capture pipeline: accepts an uploaded image with client_id (from current-job selector or GPS match), runs duplicate-hash check, resolution check, routes to a review queue (not direct-publish) before GBP upload, per the operator's stated preference for quality control over speed. Derived checks per master spec Part 2.5's Media Management section: logo-present, cover-present, storefront/interior/exterior/team photo coverage tracking.
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md.
+
+    git add -A; git commit -m 'feat: GBP Media Ingestion Agent — mobile photo pipeline with duplicate/resolution checks and review queue'; git push origin main. Report commit hash and assigned agent ID.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc3-006
+  name: Final verification — GBP Operations Center backend
+  prompt: |
+    Run pnpm tsc --noEmit and pnpm run build — must both pass clean.
+
+    Append a session log entry (append-only) to STATE_OF_THE_BUILD.md listing every table and agent created, with real assigned IDs.
+
+    git add -A; git commit -m 'docs: confirm GOC-3 GBP Operations Center backend complete'; git push origin main. Report commit hash.
+  gates:
+  - type: compile
+  - type: build

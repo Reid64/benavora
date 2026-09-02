@@ -1,0 +1,302 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-02: ARCHITECTURE REVIEW + HARD APPROVAL GATE
+#
+# Builds the consolidated review pack for Reid and then HALTS THE
+# PROGRAM BY DESIGN at pi02-005 until architecture approval is
+# recorded in DECISION_LOG.md as entry D-010. The halt at pi02-005
+# is the queue working correctly, not a failure to debug.
+#
+# Resume protocol (also written into the review pack for Reid):
+#   1. Reid reviews the pack and either approves or lists changes.
+#   2. Approval is recorded by running the provided approval
+#      command (appends D-010 to DECISION_LOG.md).
+#   3. Governance sync, then relaunch FORGE for prospect-intel -
+#      the orchestrator resumes at pi02-005, the gate now passes,
+#      and the queue completes. Phase 1 (pi-10) is then unlocked.
+# ============================================================
+
+prompts:
+
+  - id: pi02-001
+    phase: build
+    description: "Requirement traceability matrix: every directive requirement mapped to a doc section or explicit deferral"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read docs/EAPIL_DIRECTIVE.md and every file in docs/architecture/
+      (including contracts/) before writing anything.
+
+      1. Write docs\architecture\TRACEABILITY_MATRIX.md:
+
+         Part A - Directive sections: one row per requirement-bearing
+         statement in directive Sections 1-22 (work through the directive
+         sequentially; a "requirement-bearing statement" is anything using
+         must/required/mandatory or defining a structure the system needs).
+         Columns: Req ID (TR-001 style) | Directive section | Requirement
+         summary | Where satisfied (doc + section) | Status.
+         Status values: SPECIFIED (a pi-01 doc covers it), SCHEDULED
+         (implementation queue in the library manifest covers it - name the
+         queue), DEFERRED (explicitly postponed - name the DECISION_LOG or
+         open-question entry justifying it), or GAP.
+         A GAP is a real finding: fix it by amending the relevant pi-01 doc
+         in place if mechanical, or log it to ARCHITECTURE_OPEN_QUESTIONS.md
+         if it needs Reid. Zero unexplained GAPs may remain.
+
+         Part B - The 45 Section 21 deliverables: one row each, mapped to
+         the producing doc (deliverables 1-31 range) or producing queue
+         (UI deliverables 32-40 -> pi-51; roadmap/dev-queue/test/readiness
+         41-45 -> ROADMAP.md, the library manifest itself, EVALUATION_
+         FRAMEWORK.md, pi-60/pi-61).
+
+         Part C - The 44 agents: one row each confirming its contract file
+         and its implementing queue (pi-31/32 for KNW, pi-40..45 for the
+         rest), verified against the family files, not assumed.
+
+      2. Create scripts\verify\verify-pi02-001.mjs: exits 0 only if the
+         matrix exists, Part B has exactly 45 rows, Part C has exactly 44
+         rows, and zero rows carry status GAP.
+
+      3. Run: node scripts/verify/verify-pi02-001.mjs
+    expected_outputs:
+      - docs/architecture/TRACEABILITY_MATRIX.md
+      - scripts/verify/verify-pi02-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi02-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi02-002
+    phase: build
+    description: "Decision-compliance audit and consolidated judgment inventory"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\DECISION_COMPLIANCE.md:
+         For each of D-001 through D-009 in DECISION_LOG.md: quote the
+         decision, list every architecture-doc location that implements it
+         (real citations - file + section, verified by reading), and flag
+         any doc statement that contradicts it. A contradiction is fixed in
+         the doc (the DECISION_LOG is binding) with the fix noted here.
+
+      2. Consolidate the judgment inventory Reid must review:
+         a. Every [DERIVED] marker across all contract files: file, agent,
+            field, one-line summary of what was derived. Grouped by family.
+         b. Every row in ARCHITECTURE_OPEN_QUESTIONS.md, with its
+            recommendation. Renumber cleanly (AOQ-001 style) and ensure
+            each has Options + Recommendation filled - an open question
+            without a recommendation is lazy work; add one.
+         Append both as sections of DECISION_COMPLIANCE.md with counts.
+
+      3. Create scripts\verify\verify-pi02-002.mjs: exits 0 only if the file
+         exists with all nine decision sections, a derived-field inventory
+         with a stated total count, and every AOQ row containing a
+         Recommendation.
+
+      4. Run: node scripts/verify/verify-pi02-002.mjs
+    expected_outputs:
+      - docs/architecture/DECISION_COMPLIANCE.md
+      - scripts/verify/verify-pi02-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi02-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi02-003
+    phase: build
+    description: "The review pack: REVIEW_PACK.md - Reid's reading path and ratification list"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      Write docs\architecture\REVIEW_PACK.md - the single document Reid
+      reads first. It must be genuinely reviewable by a non-implementer in
+      under an hour while linking to full depth everywhere:
+
+      1. Executive summary: what was produced (doc inventory with line
+         counts read from disk), what it commits the build to, what it
+         deliberately defers.
+      2. Reading path: the recommended order (this pack -> BLUEPRINT ->
+         the fleet roll-up table in FAMILY-7 -> TRACEABILITY_MATRIX Part B
+         -> DECISION_COMPLIANCE -> deep dives as desired), with one line on
+         what each doc answers.
+      3. RATIFICATION LIST - the specific items requiring Reid's judgment,
+         extracted from DECISION_COMPLIANCE: every AOQ with its
+         recommendation as a checkbox line, plus the API framework
+         recommendation from pi01-015, plus any high-count [DERIVED]
+         clusters worth a spot-check. Each item phrased so a single
+         APPROVE / CHANGE annotation resolves it.
+      4. Top risks restated from ROADMAP.md's register (no new content -
+         a pointer with the top 3 inline).
+      5. THE APPROVAL PROTOCOL, verbatim instructions:
+         - To approve as-is: run the approval command written by pi02-004.
+         - To approve with changes: annotate this file's ratification list,
+           and the next session amends the docs then runs the approval
+           command.
+         - Either way, relaunch FORGE for prospect-intel afterward; the
+           program resumes automatically at the approval gate.
+      6. If the pandoc binary is available on this machine (check), also
+         produce docs\architecture\REVIEW_PACK.docx from this file; if not
+         available, note its absence in SESSION_STATE.md and continue -
+         the md is canonical.
+
+      Create scripts\verify\verify-pi02-003.mjs: exits 0 only if
+      REVIEW_PACK.md exists containing the ratification checklist (at least
+      one checkbox line per AOQ counted in pi02-002), the approval protocol
+      section, and real line counts (digits, not placeholders) in the
+      inventory.
+      Run: node scripts/verify/verify-pi02-003.mjs
+    expected_outputs:
+      - docs/architecture/REVIEW_PACK.md
+      - scripts/verify/verify-pi02-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi02-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi02-004
+    phase: build
+    description: "Approval mechanics: the D-010 approval command and the gate script"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Create scripts\approve-architecture.mjs: an interactive-free Node
+         script Reid runs ONCE to record approval. Behavior:
+         - Refuses to run (exit 1, clear message) if DECISION_LOG.md
+           already contains a D-010 entry.
+         - Appends to DECISION_LOG.md a D-010 entry: "ARCHITECTURE APPROVED
+           - Phase 1 unlocked", the current date, status BINDING, and the
+           sha256 of REVIEW_PACK.md at approval time (so later edits to the
+           reviewed pack are detectable).
+         - Accepts an optional --with-changes "summary text" flag recording
+           that approval followed amendments, embedding the summary.
+         - Prints exactly what was appended and the relaunch instruction.
+
+      2. Create scripts\verify\verify-architecture-approved.mjs - THE GATE:
+         exits 0 only if DECISION_LOG.md contains a D-010 entry with
+         status BINDING and the recorded REVIEW_PACK.md hash matches the
+         file's current sha256 (a mismatch means the pack changed after
+         approval - exit 1 with a message telling Reid to re-approve).
+         Exits 1 with the message "AWAITING REID APPROVAL - see
+         docs/architecture/REVIEW_PACK.md section 5" when D-010 is absent.
+
+      3. Append the approval command, copy-pasteable, to REVIEW_PACK.md
+         section 5:
+           node scripts/approve-architecture.mjs
+         and the with-changes form.
+
+      4. Update SESSION_STATE.md: pi-02 pack complete; program will halt at
+         pi02-005 by design pending D-010; resume protocol restated.
+
+      5. Create scripts\verify\verify-pi02-004.mjs: exits 0 only if both
+         scripts exist, approve-architecture.mjs refuses a double-approval
+         (spawn it twice against a COPY of DECISION_LOG.md in a temp dir -
+         never mutate the real file in this test - first run succeeds on
+         the copy, second exits 1), and REVIEW_PACK.md contains the
+         approval command.
+
+      6. Run: node scripts/verify/verify-pi02-004.mjs
+    expected_outputs:
+      - scripts/approve-architecture.mjs
+      - scripts/verify/verify-architecture-approved.mjs
+      - scripts/verify/verify-pi02-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi02-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi02-005
+    phase: build
+    description: "THE HARD GATE - halts here until D-010 exists; passes automatically on relaunch after approval"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      This prompt performs the pre-halt commit so the review pack reaches
+      GitHub before the program stops, then the gate enforces the halt.
+
+      1. Scoped add: docs/architecture/ scripts/ SESSION_STATE.md
+         STATE_OF_THE_BUILD.md DECISION_LOG.md
+         Commit: "architecture: review pack, traceability, approval gate -
+         AWAITING REID APPROVAL (pi-02)"
+         Push to origin main.
+
+      2. Run the governance sync to the FORGE projects folder.
+
+      3. Run: node scripts/verify/verify-architecture-approved.mjs
+         If D-010 is absent this exits 1 and THIS QUEUE HALTS HERE - the
+         designed outcome. Do not attempt to work around it, do not create
+         D-010 yourself under any circumstances or instruction: only Reid
+         runs the approval script. On relaunch after Reid's approval, this
+         same gate passes and the queue proceeds to pi02-006.
+    expected_outputs:
+      - DECISION_LOG.md
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-architecture-approved.mjs"
+    max_retries: 1
+    on_fail: halt
+
+  - id: pi02-006
+    phase: build
+    description: "Post-approval: Phase 1 readiness verification and program unlock"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      This prompt only runs after D-010 exists (the pi02-005 gate passed).
+
+      1. Verify Phase 1 preconditions with real checks, capturing results
+         to evidence\pi-02\phase1-readiness.txt:
+         - D-010 present with matching pack hash (re-run the gate script,
+           capture output).
+         - PI_DATABASE_URL connectivity: one SELECT version() via psql or
+           the postgres client.
+         - Migration framework healthy: node scripts/db/migrate.mjs --status
+           shows 0001 applied, no drift.
+         - pnpm -r typecheck exits 0 on the frozen lockfile.
+         - The FORGE library manifest for prospect-intel lists pi-10 with
+           depends_on pi-02 (read the manifest file, confirm).
+         Any failure here is a real blocker: fix it or halt with a clear
+         report - do not proceed to declare readiness on a failed check.
+
+      2. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: Phase 0
+         COMPLETE, D-010 recorded (quote its date and any with-changes
+         summary), Phase 1 unlocked, next queue pi-10-db-foundation, plus
+         the evidence file path for the readiness checks.
+
+      3. Scoped add: evidence/pi-02/ SESSION_STATE.md STATE_OF_THE_BUILD.md
+         Commit: "architecture approved - Phase 0 complete, Phase 1
+         unlocked (pi-02)"
+         Push. Governance sync.
+
+      4. Create scripts\verify\verify-pi02-006.mjs: exits 0 only if
+         phase1-readiness.txt exists showing all five checks passed and
+         git log -1 contains "(pi-02)".
+
+      5. Run: node scripts/verify/verify-pi02-006.mjs
+    expected_outputs:
+      - evidence/pi-02/phase1-readiness.txt
+      - scripts/verify/verify-pi02-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi02-006.mjs"
+    max_retries: 3
+    on_fail: halt

@@ -1,4 +1,4 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import { getPilClient } from "@/lib/pil/db";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getNodesByProspect } from "@/lib/pil/graph";
@@ -31,6 +31,36 @@ import type { GraphNode, Prospect, ProspectAlias, ResolutionCandidateStatus } fr
 // CHECK only allows name_variant/email/org_name/ein/crm_id/external_id), so
 // phone matching from the task's step description is not implemented --
 // there is no column to read it from.
+//
+// Delegation wiring (PIL_AGENT_DEPENDENCIES.yaml: depends_on
+// [BEN-KNW-03, BEN-KNW-04, BEN-SUP-05]):
+//   - BEN-KNW-04 (Contradiction and Freshness Investigator): fired whenever
+//     an auto-merge actually executes (status==='match' && merged===true).
+//     Two previously-independent prospects' evidence sets for the same
+//     claim_type were each independently non-contradictory on their own --
+//     merging them can surface NEW contradictions that didn't exist while
+//     the prospects were separate. This file does not re-implement any
+//     contradiction-detection logic itself; it only asks BEN-KNW-04 to scan
+//     the merged entity. This is the concrete reason BEN-KNW-02 and
+//     BEN-KNW-04 mutually depend on each other -- AgentRunner's own
+//     context.depth<=0 => 'escalated' backstop (agent-runner.ts) is the sole
+//     guard against that confirmed mutual-delegation cycle; no new
+//     cycle-guard code is added here.
+//   - BEN-KNW-03 (Evidence and Provenance Verification): fired before
+//     accepting any match/probable_match whose deciding signal was weak --
+//     einMatch===false AND nameSim<0.5, meaning the score leaned mainly on
+//     crmMatch and/or emailDomainMatch, the two weakest signals in the match
+//     formula -- asking for a provenance check on the crm_id/email alias
+//     evidence that drove the match before it is trusted.
+//   - BEN-SUP-05 (critic): fired on every executed auto-merge,
+//     unconditionally, IN ADDITION TO the existing H1 sensitive-attribution
+//     human-review gate below -- identity merges are consequential/
+//     near-irreversible enough to warrant independent critic review even
+//     when they don't touch giving_history/wealth_capacity evidence.
+//   Forward-delegating to BEN-KNW-03/04 before they're necessarily
+//   registered in AGENT_FACTORIES is safe: unregistered agent_ids resolve
+//   gracefully to NotImplementedAgent (agents/index.ts), the same
+//   convention BEN-KNW-01.ts's own BEN-KNW-04 delegation already relies on.
 
 const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const AUTO_MERGE_THRESHOLD = 0.95;
@@ -49,7 +79,12 @@ export interface EntityResolutionPairResult {
   candidateId: string;
 }
 
-function normalizeName(name: string): string[] {
+// Exported so BEN-KNW-01 (Prospect Digital Twin Agent) can reuse this exact
+// token-overlap heuristic for its own lightweight first-twin duplicate scan
+// rather than re-implementing string matching a second time -- BEN-KNW-02
+// remains the authoritative resolver; BEN-KNW-01 only uses this to decide
+// whether to trigger it.
+export function normalizeName(name: string): string[] {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
@@ -57,7 +92,7 @@ function normalizeName(name: string): string[] {
     .filter(Boolean);
 }
 
-function nameSimilarity(a: string, b: string): number {
+export function nameSimilarity(a: string, b: string): number {
   const tokensA = new Set(normalizeName(a));
   const tokensB = new Set(normalizeName(b));
   if (tokensA.size === 0 || tokensB.size === 0) return 0;
@@ -92,13 +127,20 @@ export class EntityResolutionAgent implements Agent {
     }
 
     const results: EntityResolutionPairResult[] = [];
+    const delegations: DelegationRequest[] = [];
     for (const [idA, idB] of pairs) {
       const prospectA = prospects.get(idA);
       const prospectB = prospects.get(idB);
       if (!prospectA || !prospectB) continue;
-      results.push(
-        await this.resolvePair(context, prospectA, prospectB, aliasesByProspect, nodesByProspect),
+      const { result, delegations: pairDelegations } = await this.resolvePair(
+        context,
+        prospectA,
+        prospectB,
+        aliasesByProspect,
+        nodesByProspect,
       );
+      results.push(result);
+      delegations.push(...pairDelegations);
     }
 
     await logAction({
@@ -120,7 +162,7 @@ export class EntityResolutionAgent implements Agent {
       status: "completed",
       evidence: [],
       conclusions: { results },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,
@@ -133,7 +175,7 @@ export class EntityResolutionAgent implements Agent {
     prospectB: Prospect,
     aliasesByProspect: Map<string, ProspectAlias[]>,
     nodesByProspect: Map<string, GraphNode[]>,
-  ): Promise<EntityResolutionPairResult> {
+  ): Promise<{ result: EntityResolutionPairResult; delegations: DelegationRequest[] }> {
     const aliasesA = aliasesByProspect.get(prospectA.id) ?? [];
     const aliasesB = aliasesByProspect.get(prospectB.id) ?? [];
 
@@ -175,6 +217,7 @@ export class EntityResolutionAgent implements Agent {
     let merged = false;
     let survivingProspectId: string | null = null;
     let requiresHumanReview = false;
+    const delegations: DelegationRequest[] = [];
 
     if (matchScore >= AUTO_MERGE_THRESHOLD && !touchesSensitiveAttribution) {
       status = "match";
@@ -183,6 +226,19 @@ export class EntityResolutionAgent implements Agent {
       await this.executeMerge(context, survivor, absorbed, signals);
       merged = true;
       survivingProspectId = survivor.id;
+
+      delegations.push({
+        childAgentCode: "BEN-KNW-04",
+        objective: `BEN-KNW-02 merged prospect ${absorbed.id} into surviving prospect ${survivor.id}; scan the merged entity's evidence for newly-adjacent contradictions between the two previously-independent evidence sets for the same claim_type that did not exist while the prospects were separate.`,
+        maxAutonomy: "A2",
+        constraints: { survivingProspectId: survivor.id, absorbedProspectId: absorbed.id },
+      });
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Critic review requested for BEN-KNW-02 auto-merge of prospect ${absorbed.id} into ${survivor.id} (match score ${matchScore.toFixed(2)}) -- identity merges are consequential/near-irreversible and warrant independent critic review even when they don't touch sensitive giving-history/capacity evidence.`,
+        maxAutonomy: "A2",
+        constraints: { survivingProspectId: survivor.id, absorbedProspectId: absorbed.id, matchScore },
+      });
     } else if (matchScore >= AUTO_MERGE_THRESHOLD && touchesSensitiveAttribution) {
       status = "probable_match";
       requiresHumanReview = true;
@@ -191,6 +247,15 @@ export class EntityResolutionAgent implements Agent {
       requiresHumanReview = true;
     } else {
       status = "not_match";
+    }
+
+    if ((status === "match" || status === "probable_match") && !einMatch && nameSim < 0.5) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `BEN-KNW-02's ${status} between prospect ${prospectA.id} and ${prospectB.id} (score ${matchScore.toFixed(2)}) leaned on weak signals -- no EIN match and name similarity ${nameSim.toFixed(2)}; verify provenance of the crm_id/email alias evidence that drove the match before it is trusted for merge.`,
+        maxAutonomy: "A2",
+        constraints: { prospectIdA: prospectA.id, prospectIdB: prospectB.id, matchScore },
+      });
     }
 
     const candidate = await this.upsertCandidate(context, prospectA.id, prospectB.id, matchScore, status, signals);
@@ -214,15 +279,18 @@ export class EntityResolutionAgent implements Agent {
     }
 
     return {
-      prospectIdA: prospectA.id,
-      prospectIdB: prospectB.id,
-      matchScore,
-      status,
-      signals,
-      merged,
-      survivingProspectId,
-      requiresHumanReview,
-      candidateId: candidate.id,
+      result: {
+        prospectIdA: prospectA.id,
+        prospectIdB: prospectB.id,
+        matchScore,
+        status,
+        signals,
+        merged,
+        survivingProspectId,
+        requiresHumanReview,
+        candidateId: candidate.id,
+      },
+      delegations,
     };
   }
 

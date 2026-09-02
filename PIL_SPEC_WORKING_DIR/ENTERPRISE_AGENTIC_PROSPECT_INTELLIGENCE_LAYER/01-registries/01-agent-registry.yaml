@@ -1,0 +1,30 @@
+schema_version: "3.0.0"
+registry_id: "PIL-AGENT-REGISTRY"
+fleet_count: 47
+count_reconciliation:
+  pre_autoapply_authoritative_count: 44
+  noncanonical_presentation_count_45: rejected
+  new_autoapply_agents: 3
+  authoritative_integrated_count: 47
+  equation: "44 + 3 = 47"
+families:
+  supervisory: {expected_count: 6, ids: [BEN-SUP-01, BEN-SUP-02, BEN-SUP-03, BEN-SUP-04, BEN-SUP-05, BEN-SUP-06]}
+  discovery: {expected_count: 8, ids: [BEN-DIS-01, BEN-DIS-02, BEN-DIS-03, BEN-DIS-04, BEN-DIS-05, BEN-DIS-06, BEN-DIS-07, BEN-DIS-08]}
+  core_intelligence: {expected_count: 10, ids: [BEN-INT-01, BEN-INT-02, BEN-INT-03, BEN-INT-04, BEN-INT-05, BEN-INT-06, BEN-INT-07, BEN-INT-08, BEN-INT-09, BEN-INT-10]}
+  relationship: {expected_count: 6, ids: [BEN-REL-01, BEN-REL-02, BEN-REL-03, BEN-REL-04, BEN-REL-05, BEN-REL-06]}
+  qualification: {expected_count: 5, ids: [BEN-QLF-01, BEN-QLF-02, BEN-QLF-03, BEN-QLF-04, BEN-QLF-05]}
+  strategy: {expected_count: 4, ids: [BEN-STR-01, BEN-STR-02, BEN-STR-03, BEN-STR-04]}
+  knowledge_integrity: {expected_count: 4, ids: [BEN-KNW-01, BEN-KNW-02, BEN-KNW-03, BEN-KNW-04]}
+  operations_evaluation_learning: {expected_count: 1, ids: [BEN-OPS-01]}
+  application_execution:
+    expected_count: 3
+    ids: [BEN-APP-01, BEN-APP-02, BEN-APP-03]
+    specifications:
+      BEN-APP-01: "31-agents/application-execution/BEN-APP-01-corporate-application-planning-execution.md"
+      BEN-APP-02: "31-agents/application-execution/BEN-APP-02-portal-exception-diagnosis-recovery.md"
+      BEN-APP-03: "31-agents/application-execution/BEN-APP-03-application-submission-governance.md"
+status:
+  integrated_agent_specifications_complete: 47
+  implementation_claimed: false
+  executed_tests_claimed: false
+  production_ready_claimed: false

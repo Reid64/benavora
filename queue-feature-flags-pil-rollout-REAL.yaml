@@ -1,0 +1,297 @@
+prompts:
+  - id: launchdarkly-integration-setup
+    prompt: |
+      Integrate LaunchDarkly for feature flagging.
+      
+      Context:
+      - PIL is a major new system: need gradual rollout (10% → 25% → 50% → 100%)
+      - Can't expose half-built system to all customers
+      - Need canary testing before full rollout
+      - Need instant killswitch if issues detected
+      
+      Install: npm install --save launchdarkly-js-client-sdk @launchdarkly/node-server-sdk
+      
+      File: src/lib/feature-flags/ld-client.ts
+      
+      ```typescript
+      import * as ld from '@launchdarkly/node-server-sdk';
+      
+      const ldClient = ld.init(process.env.LAUNCHDARKLY_SDK_KEY!);
+      
+      await ldClient.waitForInitialization();
+      
+      export async function isFeatureEnabled(
+        featureKey: string,
+        user: { key: string; custom?: Record<string, any> },
+        fallback: boolean = false
+      ): Promise<boolean> {
+        try {
+          const value = await ldClient.variation(featureKey, user, fallback);
+          return value;
+        } catch (error) {
+          console.error(`Feature flag error for ${featureKey}:`, error);
+          return fallback;
+        }
+      }
+      
+      export async function getFeatureVariant(
+        featureKey: string,
+        user: { key: string; custom?: Record<string, any> },
+        fallback: string = 'control'
+      ): Promise<string> {
+        try {
+          const detail = await ldClient.variationDetail(featureKey, user, fallback);
+          return detail.value;
+        } catch (error) {
+          console.error(`Feature flag error for ${featureKey}:`, error);
+          return fallback;
+        }
+      }
+      ```
+
+  - id: pil-feature-flags-definition
+    prompt: |
+      Create LaunchDarkly feature flags for PIL rollout.
+      
+      **Flag 1: pil-enabled**
+      - Type: Boolean
+      - Targeting: By user segment
+      - Rules:
+        - Segment "pil_beta_testers" → true (10%)
+        - Segment "pil_canary" → true (25%)
+        - Segment "pil_general_availability" → true (50% → 100%)
+        - Default: false
+      
+      **Flag 2: pil-dossier-ui**
+      - Type: Boolean
+      - Controls: Show Prospect Intelligence Layer dashboard tab
+      - Default: false (hidden until pil-enabled)
+      
+      **Flag 3: pil-autoapply-source**
+      - Type: String
+      - Values: "prospects" (old), "dossiers" (new)
+      - Defaults to "prospects" (safe fallback)
+      - Canary: "dossiers" for 25% of users
+      - GA: "dossiers" for all
+      
+      **Flag 4: pil-agent-family-strictness**
+      - Type: String
+      - Values: "lenient" (skip errors, continue), "strict" (fail on error), "manual_review" (human review needed)
+      - Helps dial in error tolerance during rollout
+      
+      **Flag 5: pil-max-concurrent-runs**
+      - Type: Integer
+      - Default: 5
+      - Can reduce if system load high
+      - Can increase after proving stability
+      
+      Create these in LaunchDarkly dashboard or via SDK.
+
+  - id: feature-flag-middleware
+    prompt: |
+      Add feature flag checks to middleware.
+      
+      File: src/middleware.ts
+      
+      ```typescript
+      import { isFeatureEnabled } from '@/lib/feature-flags/ld-client';
+      import { NextRequest, NextResponse } from 'next/server';
+      
+      export async function middleware(req: NextRequest) {
+        const user = req.headers.get('x-user-id');
+        const org = req.headers.get('x-organization-id');
+        
+        // Check if accessing PIL-specific routes
+        if (req.nextUrl.pathname.startsWith('/dashboard/intelligence')) {
+          const pilEnabled = await isFeatureEnabled(
+            'pil-enabled',
+            { key: user || 'anonymous', custom: { org } }
+          );
+          
+          if (!pilEnabled) {
+            return NextResponse.json(
+              { error: 'PIL not available for your organization' },
+              { status: 403 }
+            );
+          }
+        }
+        
+        // Check AutoApply source
+        if (req.nextUrl.pathname.startsWith('/api/autoapply/queue-populate')) {
+          const source = await getFeatureVariant(
+            'pil-autoapply-source',
+            { key: user || 'anonymous' }
+          );
+          
+          req.headers.set('x-autoapply-source', source);
+        }
+        
+        return NextResponse.next();
+      }
+      ```
+
+  - id: pil-dashboard-conditional-render
+    prompt: |
+      Update dashboard to conditionally show PIL tab based on feature flag.
+      
+      File: src/app/(dashboard)/layout.tsx
+      
+      ```typescript
+      import { isFeatureEnabled } from '@/lib/feature-flags/ld-client';
+      
+      export default async function DashboardLayout({ children }: any) {
+        const user = await getCurrentUser();
+        const pilEnabled = await isFeatureEnabled('pil-dossier-ui', { key: user.id });
+        
+        return (
+          <div className="flex">
+            <Sidebar>
+              <NavItem href="/dashboard">Dashboard</NavItem>
+              <NavItem href="/dashboard/research">Research</NavItem>
+              {pilEnabled && (
+                <NavItem href="/dashboard/intelligence">
+                  Intelligence (Beta)
+                </NavItem>
+              )}
+              <NavItem href="/dashboard/autoapply">AutoApply</NavItem>
+            </Sidebar>
+            {children}
+          </div>
+        );
+      }
+      ```
+
+  - id: autoapply-source-switch
+    prompt: |
+      Update AutoApply queue populator to switch sources based on feature flag.
+      
+      File: src/lib/autoapply/queue-populator.ts
+      
+      ```typescript
+      import { getFeatureVariant } from '@/lib/feature-flags/ld-client';
+      
+      export async function populateSubmissionQueue(tenantId: string, supabase: any) {
+        const source = await getFeatureVariant(
+          'pil-autoapply-source',
+          { key: `org_${tenantId}` },
+          'prospects' // Safe fallback
+        );
+        
+        if (source === 'dossiers') {
+          return populateFromDossiers(tenantId, supabase);
+        } else {
+          return populateFromProspects(tenantId, supabase); // Old behavior
+        }
+      }
+      
+      async function populateFromDossiers(tenantId: string, supabase: any) {
+        // New PIL-powered logic
+        const { data: dossiers } = await supabase
+          .from('pil_prospect_dossiers')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .gte('app_priority_score', 50);
+        
+        // ... rest of dossier logic
+      }
+      
+      async function populateFromProspects(tenantId: string, supabase: any) {
+        // Old behavior (fallback)
+        const { data: prospects } = await supabase
+          .from('pil_prospects')
+          .select('*')
+          .eq('tenant_id', tenantId);
+        
+        // ... old logic
+      }
+      ```
+
+  - id: monitoring-and-metrics-by-flag
+    prompt: |
+      Track metrics per feature flag variant to detect degradation.
+      
+      File: src/lib/observability/flag-metrics.ts
+      
+      ```typescript
+      import { Counter, Histogram } from 'prom-client';
+      
+      export const applicationSubmittedBySource = new Counter({
+        name: 'benavora_application_submitted_by_source_total',
+        help: 'Applications submitted by AutoApply source',
+        labelNames: ['source', 'success'] // source: 'prospects' or 'dossiers'
+      });
+      
+      export const dossierProcessingTime = new Histogram({
+        name: 'benavora_dossier_processing_ms',
+        help: 'Time to process and queue dossier',
+        labelNames: ['family'],
+        buckets: [100, 500, 1000, 5000, 30000]
+      });
+      
+      export const pilErrorRate = new Counter({
+        name: 'benavora_pil_errors_total',
+        help: 'PIL processing errors',
+        labelNames: ['agent_id', 'error_type', 'recovered']
+      });
+      
+      // Usage in queue populator:
+      if (source === 'dossiers') {
+        const startTime = Date.now();
+        try {
+          await populateFromDossiers(...);
+          applicationSubmittedBySource.labels('dossiers', 'true').inc();
+          dossierProcessingTime.labels('app').observe(Date.now() - startTime);
+        } catch (error) {
+          applicationSubmittedBySource.labels('dossiers', 'false').inc();
+          pilErrorRate.labels('queue_populator', error.type, 'false').inc();
+        }
+      }
+      ```
+      
+      Set alert: if (dossier_source_error_rate > 10%) → disable flag, revert to prospects
+
+  - id: rollout-schedule
+    prompt: |
+      Define and execute PIL rollout schedule.
+      
+      **Phase 1: Canary (Week 1-2)**
+      - 10% of beta customers (5 orgs max)
+      - pil-enabled: 10% rollout
+      - Daily metrics review
+      - Monitor: error rates, latency, dossier completion time
+      - Exit criteria: < 1% error rate, p95 latency < 2s, > 90% completion
+      
+      **Phase 2: Canary Expansion (Week 3-4)**
+      - 25% of beta customers (15 orgs)
+      - pil-enabled: 25% rollout
+      - Watch for: capacity issues, database load, agent queuing
+      - Exit criteria: < 0.5% error rate, system stable
+      
+      **Phase 3: General Availability (Week 5-6)**
+      - 50% of all customers (500+ orgs)
+      - pil-enabled: 50% rollout
+      - Full monitoring dashboard active
+      - Support team briefed on troubleshooting
+      - Exit criteria: < 0.1% error rate, customer satisfaction > 4.5/5
+      
+      **Phase 4: Full Rollout (Week 7)**
+      - 100% of customers
+      - pil-enabled: 100% rollout
+      - Deprecate old prospect system
+      
+      **Rollback Plan:**
+      - If error_rate > 5% OR latency_p95 > 5s: immediately set pil-autoapply-source to "prospects"
+      - Notify Reid + support team
+      - Post-mortem within 24h
+      - Fix before re-enabling
+
+gates:
+  - gate: ld-integration
+    description: "LaunchDarkly SDK initialized and first flag retrieved"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; $env:LAUNCHDARKLY_SDK_KEY='sdk-...'; pnpm build 2>&1 | Select-String 'error' -NotMatch | Select-Object -Last 5"
+    success: "no errors|built"
+    
+  - gate: flags-created
+    description: "Feature flags created in LaunchDarkly dashboard"
+    command: "echo 'Verify in LaunchDarkly dashboard: pil-enabled, pil-dossier-ui, pil-autoapply-source, pil-agent-family-strictness, pil-max-concurrent-runs'"
+    success: "created"

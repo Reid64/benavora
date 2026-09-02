@@ -1,0 +1,155 @@
+project: benavora
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- DONOR_DISCOVERY_ARCHITECTURE.md
+- DESIGN_SYSTEM.md
+settings:
+  max_retries_per_prompt: 3
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 10
+  governance_check_frequency: 15
+prompts:
+- id: ui-001
+  name: Sidebar complete rebuild with navy depth and teal accents
+  prompt: "Read src/components/layout/Sidebar.tsx and src/components/layout/nav-items.ts in full. The sidebar must be completely rebuilt with these exact visual properties. Do not use CSS variables for the core structure - use hardcoded Tailwind classes so the design cannot be overridden. The outer sidebar wrapper must use: className containing 'bg-[#1A2B3C] flex flex-col h-full'. The logo area at top must use: 'px-6 py-5 border-b border-[#243B55]'. The nav section must use: 'flex-1 overflow-y-auto py-4 px-3'. Each nav item link in ACTIVE state must use: 'flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#0077B6] text-white font-medium text-sm border-l-4 border-[#00B4D8]'. Each nav item link in INACTIVE state must use: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#CBD5E1] hover:bg-[#243B55] hover:text-white transition-colors text-sm'. Section labels (PLATFORM, etc) must use: 'px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#64748B]'. The NavBadge component must use: 'ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#EF4444] px-1.5 py-0.5 text-[10px] font-bold text-white'. The mobile backdrop overlay must use: 'fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm z-40'. The sidebar panel itself must use: 'fixed inset-y-0 left-0 z-50 w-64 bg-[#1A2B3C] shadow-2xl'. The bottom settings area must have: 'border-t border-[#243B55] px-3 py-4'. The tagline below the logo must use: 'text-[11px] text-[#64748B] font-medium tracking-wide'. After rebuilding run pnpm tsc --noEmit - must show 0 errors. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/layout/Sidebar.tsx
+
+- id: ui-002
+  name: Header complete rebuild with bold navigation and depth
+  prompt: "Read src/components/layout/Header.tsx in full. Rebuild it completely with these exact specifications. The outer header wrapper must use: 'sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm'. The inner container must use: 'flex items-center h-16 px-6'. The nav items container must use: 'flex items-center gap-1'. Each nav link in ACTIVE state must use: 'px-4 py-2 text-sm font-semibold text-[#0077B6] border-b-2 border-[#0077B6] rounded-none -mb-px'. Each nav link in INACTIVE state must use: 'px-4 py-2 text-sm font-semibold text-slate-600 hover:text-[#0077B6] hover:bg-slate-50 rounded-lg transition-colors'. The header must also include a right-side area with: a notification bell icon with red badge, the user avatar circle using 'w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2', and the organization name in 'text-sm font-medium text-slate-700'. The mobile hamburger button must use: 'p-2 rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden'. After rebuilding run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/layout/Header.tsx
+
+- id: ui-003
+  name: Dashboard page complete visual overhaul with color-coded stat cards
+  prompt: "Read src/app/(dashboard)/dashboard/page.tsx in full. This page needs a complete visual overhaul. The page wrapper must use: 'min-h-screen bg-[#EEF2F7] p-6'. The page title section must use: 'mb-8' with h1 using 'text-2xl font-bold text-slate-900' and subtitle using 'text-slate-500 text-sm mt-1'. The stat cards grid must use: 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8'. Each stat card must be a div with: 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 relative overflow-hidden'. Total Opportunities card gets a left accent: add 'absolute left-0 top-0 bottom-0 w-1 bg-[#0077B6] rounded-l-xl'. Applications Submitted card gets: 'absolute left-0 top-0 bottom-0 w-1 bg-[#7C3AED] rounded-l-xl'. Drafts Generated card gets: 'absolute left-0 top-0 bottom-0 w-1 bg-[#F59E0B] rounded-l-xl'. Deadlines This Week card gets: 'absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444] rounded-l-xl'. Each card stat number must use: 'text-3xl font-bold text-slate-900 mt-2'. Each card label must use: 'text-xs font-semibold uppercase tracking-wide text-slate-400'. Each card icon must be top-right positioned with 'absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center' with the accent color as background at 10 percent opacity. The Pipeline section must use: 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8' with header 'text-lg font-semibold text-slate-900 mb-4'. The Upcoming Deadlines panel must use: 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden' with a header bar 'bg-slate-800 px-5 py-4 flex items-center justify-between' with text 'text-white font-semibold text-sm'. Each deadline item must show a colored dot: red for overdue, amber for this week, green for upcoming. Recent Activity section must use: 'bg-white rounded-xl shadow-sm border border-slate-200 p-6' with each activity item having a left icon, main text, and timestamp. After all changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/dashboard/page.tsx
+
+- id: ui-004
+  name: Opportunities page visual overhaul with rich table and colored badges
+  prompt: "Read src/app/(dashboard)/opportunities/page.tsx and all child components it imports in full. Apply these visual changes. Page wrapper: 'min-h-screen bg-[#EEF2F7] p-6'. Page header area: white card 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6'. The filter bar (category tabs showing Government Federal 103, Government State 12, etc) must use: active tab 'bg-[#0077B6] text-white px-4 py-2 rounded-lg text-sm font-semibold', inactive tab 'bg-white border border-slate-200 text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6] px-4 py-2 rounded-lg text-sm font-medium'. The table container must use: 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden'. Table header row: 'bg-[#F8FAFC] border-b border-slate-200'. Each th: 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400'. Each tbody tr: 'border-b border-slate-100 hover:bg-[#F0F4F8] transition-colors cursor-pointer'. The Amount column values must use: 'font-semibold text-slate-900'. The Status badge for Open must use: 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#DCFCE7] text-[#15803D]'. Not Applied badge: 'bg-[#F1F5F9] text-slate-500 px-2.5 py-1 rounded-full text-xs font-medium'. The match percentage badge: replace the red 0% match with a proper badge - 0% gets 'bg-[#FEE2E2] text-[#B91C1C]', any percentage above 50% gets 'bg-[#DCFCE7] text-[#15803D]'. The New Opportunity button must use: 'bg-[#0077B6] hover:bg-[#005F92] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors flex items-center gap-2'. After all changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/opportunities/page.tsx
+
+- id: ui-005
+  name: PageHeader component standardization across all pages
+  prompt: "Find src/components/ui/PageHeader.tsx or wherever the PageHeader component is defined - run: find . -name 'PageHeader*' -not -path '*/node_modules/*' to locate it. Read it in full. Rebuild it with these exact specifications. The outer wrapper must use: 'mb-8'. The content row must use: 'flex items-center justify-between'. The left side: h1 must use 'text-2xl font-bold text-slate-900 tracking-tight', subtitle p must use 'text-sm text-slate-500 mt-1'. The right side actions slot: must render children in a 'flex items-center gap-3'. Any primary button passed as action must be wrapped to ensure it uses: 'bg-[#0077B6] hover:bg-[#005F92] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors inline-flex items-center gap-2'. Add a decorative left border accent to the entire PageHeader: 'border-l-4 border-[#0077B6] pl-4' on the left content side. After changes run pnpm tsc --noEmit. Then find every page that uses PageHeader and verify it renders correctly by checking the imports compile clean. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-006
+  name: Funders and Foundations pages visual overhaul
+  prompt: "Read src/app/(dashboard)/funders/page.tsx and src/app/(dashboard)/foundations/page.tsx in full. Apply the Elevated Slate design system to both pages. Both pages: wrapper 'min-h-screen bg-[#EEF2F7] p-6'. Card grid items must use: 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer'. Card title: 'text-base font-semibold text-slate-900'. Card subtitle: 'text-sm text-slate-400 mt-0.5'. Card metadata row: 'flex items-center gap-4 mt-3 text-xs text-slate-400'. For Foundations page: each foundation card must have a left accent stripe using 'border-l-4 border-[#0077B6]' for private foundations, 'border-l-4 border-[#7C3AED]' for community foundations, 'border-l-4 border-[#F59E0B]' for corporate foundations. Foundation asset amount must display as: 'text-lg font-bold text-[#0077B6]' with label 'text-xs text-slate-400'. For Funders page: funder type badge must use appropriate colors - Government uses 'bg-[#DBEAFE] text-[#1D4ED8]', Foundation uses 'bg-[#EDE9FE] text-[#6D28D9]', Corporate uses 'bg-[#FEF3C7] text-[#92400E]'. Search bars on both pages: 'w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-007
+  name: Applications and Documents pages visual overhaul
+  prompt: "Read src/app/(dashboard)/applications/page.tsx and src/app/(dashboard)/documents/page.tsx in full. Apply Elevated Slate design. Applications page: the pipeline stage view must show stages as horizontal colored pills. Discovery stage: 'bg-[#DBEAFE] text-[#1D4ED8] px-3 py-1 rounded-full text-xs font-semibold'. Eligibility Review: 'bg-[#FEF3C7] text-[#92400E] px-3 py-1 rounded-full text-xs font-semibold'. Applied: 'bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold'. Awarded: 'bg-[#DCFCE7] text-[#15803D] px-3 py-1 rounded-full text-xs font-semibold'. Rejected: 'bg-[#FEE2E2] text-[#B91C1C] px-3 py-1 rounded-full text-xs font-semibold'. Each application row card: 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-3 hover:shadow-md transition-shadow'. Application name: 'text-base font-semibold text-slate-900'. Deadline display: urgent deadlines in 'text-[#EF4444] font-medium' and future deadlines in 'text-slate-400'. Documents page: file type icons must be color coded - PDF gets red icon wrapper, DOCX gets blue, XLSX gets green. Document card: 'bg-white rounded-xl border border-slate-200 p-4 hover:border-[#00B4D8] transition-colors'. Upload button: 'bg-[#0077B6] hover:bg-[#005F92] text-white px-5 py-2.5 rounded-lg font-semibold text-sm'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-008
+  name: Donor Discovery overview and prospects pages visual overhaul
+  prompt: "Read src/app/(dashboard)/donor-discovery/page.tsx and src/app/(dashboard)/donor-discovery/prospects/page.tsx in full. Apply Elevated Slate design. Donor Discovery overview page: Active Requests section - each request card must use 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4'. Status badges: queued 'bg-slate-100 text-slate-600', enumerating 'bg-[#DBEAFE] text-[#1D4ED8]', enriching 'bg-[#FEF3C7] text-[#92400E]', scoring 'bg-[#EDE9FE] text-[#6D28D9]', complete 'bg-[#DCFCE7] text-[#15803D]', failed 'bg-[#FEE2E2] text-[#B91C1C]'. Progress bar: 'h-2 rounded-full bg-[#EEF2F7]' with fill 'bg-gradient-to-r from-[#00B4D8] to-[#0077B6] rounded-full'. Pipeline Funnel stats: each stage pill 'bg-white rounded-lg border border-slate-200 px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer' with count 'text-2xl font-bold text-slate-900' and label 'text-xs text-slate-400 mt-1'. Top Prospects section: score badge green above 70 'bg-[#DCFCE7] text-[#15803D] px-2 py-0.5 rounded-full text-sm font-bold', yellow 40-70 'bg-[#FEF3C7] text-[#92400E]', red below 40 'bg-[#FEE2E2] text-[#B91C1C]'. Prospects table: apply standard table-base classes with colored score badges. New Discovery button: prominent 'bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-009
+  name: Alerts Deadlines and Outcomes pages visual overhaul
+  prompt: "Read src/app/(dashboard)/alerts/page.tsx, src/app/(dashboard)/deadlines/page.tsx, and src/app/(dashboard)/outcomes/page.tsx in full. Apply Elevated Slate design to all three. Alerts page: each alert item must use 'bg-white rounded-xl border border-slate-200 p-4 mb-3 flex items-start gap-4 hover:shadow-sm transition-shadow'. Alert severity: critical gets left border 'border-l-4 border-[#EF4444]', warning gets 'border-l-4 border-[#F59E0B]', info gets 'border-l-4 border-[#0077B6]'. Unread alerts get: 'bg-[#EFF6FF]' background. Alert timestamp: 'text-xs text-slate-400'. Mark as read button: 'text-xs text-[#0077B6] hover:underline font-medium'. Deadlines page: upcoming deadline items sorted by urgency. Overdue items: 'bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3'. This week items: 'bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3'. Future items: 'bg-white border border-slate-200 rounded-xl p-4 mb-3'. Deadline date display: overdue 'text-[#EF4444] font-bold', this week 'text-[#F59E0B] font-bold', future 'text-slate-500'. Outcomes page: outcome metric cards use color-coded accents - success rate gets green accent, total awarded gets teal accent, applications gets violet accent. Charts and graphs must use teal/navy/amber color palette not the default gray. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-010
+  name: Knowledge Base and Intelligence Library visual overhaul
+  prompt: "Read src/app/(dashboard)/knowledge-base/page.tsx and src/app/(dashboard)/intelligence-library/page.tsx in full. Apply Elevated Slate design. Knowledge Base page: document category tabs must use the colored tab style - active tab 'bg-[#0077B6] text-white px-4 py-2 rounded-lg text-sm font-semibold', inactive 'text-slate-600 hover:text-[#0077B6] px-4 py-2 text-sm font-medium'. Document cards: 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-[#00B4D8] transition-all'. Document title: 'text-base font-semibold text-slate-900'. File size and date: 'text-xs text-slate-400'. Upload button: 'bg-[#0077B6] text-white px-5 py-2.5 rounded-lg font-semibold text-sm'. Intelligence Library page: this is a premium feature - style it accordingly. Empty state (corpus is sparse) must show a compelling call-to-action card: 'bg-gradient-to-br from-[#0077B6] to-[#00B4D8] rounded-2xl p-8 text-white text-center'. Title: 'text-2xl font-bold text-white mb-2'. Subtitle: 'text-[#BAE6FD] text-sm mb-6'. CTA button: 'bg-white text-[#0077B6] font-bold px-6 py-3 rounded-xl hover:shadow-lg transition-shadow'. Any loaded proposals must show as: 'bg-white rounded-xl border border-slate-200 p-5 hover:border-[#0077B6]' with proposal type badge in teal. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-011
+  name: Contacts Financials and Reports pages visual overhaul
+  prompt: "Read src/app/(dashboard)/contacts/page.tsx, src/app/(dashboard)/financials/page.tsx, and src/app/(dashboard)/reports/page.tsx in full. Apply Elevated Slate design. Contacts page: contact cards in grid view must use 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow'. Contact avatar: 'w-12 h-12 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold'. Contact name: 'text-base font-semibold text-slate-900 mt-3'. Contact role: 'text-sm text-[#0077B6] font-medium'. Contact organization: 'text-xs text-slate-400'. In list view: 'bg-white border-b border-slate-100 px-5 py-4 flex items-center gap-4 hover:bg-[#F0F4F8] transition-colors'. Financials page: financial metric cards must be bold and clear. Total budget card: large number 'text-4xl font-black text-slate-900', label 'text-sm font-medium text-slate-400 uppercase tracking-wide'. Budget bar charts must use teal fill 'bg-[#0077B6]' on slate track 'bg-slate-200'. Transaction table: alternating rows 'even:bg-[#F8FAFC]'. Positive amounts: 'text-[#15803D] font-semibold'. Negative amounts: 'text-[#B91C1C] font-semibold'. Reports page: report category cards must use icon + title layout with category color coding. Grant reports: teal accent. Financial reports: green accent. Activity reports: violet accent. Export button: 'bg-white border border-slate-200 text-slate-700 hover:border-[#0077B6] hover:text-[#0077B6] px-4 py-2 rounded-lg text-sm font-medium'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-012
+  name: Sales Outreach and AutoApply Ops platform pages visual overhaul
+  prompt: "Read src/app/(dashboard)/sales-outreach/page.tsx and src/app/(dashboard)/autoapply-ops/page.tsx in full. Apply Elevated Slate design. Sales Outreach page: this is a data-heavy page. The prospect table must use: table container 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden'. Column headers: 'bg-[#1A2B3C] text-[#CBD5E1] text-xs font-semibold uppercase tracking-wide px-4 py-3'. This gives the table a premium dark header. Prospect score column: colored badge green/amber/red based on score range. Status column: use pill badges matching the pipeline color system. Action buttons: compact 'bg-[#0077B6] text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-[#005F92]'. AutoApply Ops page: job queue items must show status clearly. Running jobs: 'bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 mb-3' with animated pulse indicator 'w-2 h-2 rounded-full bg-[#0077B6] animate-pulse'. Completed jobs: 'bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-4 mb-3'. Failed jobs: 'bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-4 mb-3'. Job type badges: form-fill 'bg-[#EDE9FE] text-[#6D28D9]', research 'bg-[#DBEAFE] text-[#1D4ED8]', draft 'bg-[#FEF3C7] text-[#92400E]'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-013
+  name: Settings and onboarding pages visual overhaul
+  prompt: "Read src/app/(dashboard)/settings/page.tsx and src/app/onboarding/page.tsx in full. Apply Elevated Slate design. Settings page: settings section cards must use 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6'. Each section header: 'bg-[#F8FAFC] px-6 py-4 border-b border-slate-200 flex items-center gap-3'. Section icon: 'w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center text-[#0077B6]'. Section title: 'text-base font-semibold text-slate-900'. Setting rows: 'px-6 py-4 flex items-center justify-between border-b border-slate-100 last:border-0'. Setting label: 'text-sm font-medium text-slate-700'. Setting description: 'text-xs text-slate-400 mt-0.5'. Toggle switches: active state 'bg-[#0077B6]', inactive 'bg-slate-200'. Save button: 'bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-2.5 rounded-lg font-semibold text-sm'. Danger zone section: 'border border-[#FCA5A5] rounded-xl p-5 bg-[#FFF1F1]' with title 'text-[#B91C1C] font-semibold'. Onboarding page: the step indicator must use 'flex items-center gap-0 mb-8'. Completed steps: 'w-8 h-8 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold'. Current step: 'w-8 h-8 rounded-full border-2 border-[#0077B6] text-[#0077B6] flex items-center justify-center text-sm font-bold'. Future steps: 'w-8 h-8 rounded-full border-2 border-slate-200 text-slate-400 flex items-center justify-center text-sm'. Connector line: 'flex-1 h-0.5 bg-slate-200 mx-1' with completed portion 'bg-[#0077B6]'. Form fields on onboarding must use the premium input style. Save and Continue button: 'bg-[#0077B6] hover:bg-[#005F92] text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-014
+  name: Apply migrations 073 and 074 to database and verify DD pipeline
+  prompt: "Read src/supabase/migrations/073_adapter_usage_log.sql and src/supabase/migrations/074_donor_discovery_geocache.sql in full. These migrations need to be applied to the Supabase database. Use the Supabase Management API to apply each migration. The Supabase project ref is vbjplpquqxxfbpazyalt and the management API token is sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1. For each migration file: POST to https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query with header Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1 and Content-Type application/json with body containing the SQL as a query field. Use Node.js fetch to make these requests - write a small inline script using tsx to execute the migrations. After applying both migrations verify by querying: SELECT table_name FROM information_schema.tables WHERE table_name IN ('adapter_usage_log', 'donor_discovery_geocache'). Then apply the RLS policy for donor_discovery_taxonomy_aliases table: ALTER TABLE donor_discovery_taxonomy_aliases ENABLE ROW LEVEL SECURITY; and CREATE POLICY service_role_all ON donor_discovery_taxonomy_aliases FOR ALL TO service_role USING (true) WITH CHECK (true); Report which migrations succeeded. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-015
+  name: Run pnpm seed dd-aliases to populate NAICS plain language search
+  prompt: "First verify the donor_discovery_taxonomy_aliases table exists and has RLS policy by running a quick Supabase API check against project vbjplpquqxxfbpazyalt. Then run: pnpm seed:dd-aliases and monitor the output. The script uses Claude claude-sonnet-4-6 to generate plain language aliases for all 1012 six-digit NAICS codes in batches of 50. It should produce 3000-8000 total alias rows. If the script fails with any error diagnose and fix before rerunning. Common failures: PostgREST 400 from large .in() queries (fix by chunking to 100 IDs), RLS policy missing (add it), table missing (check migration applied). After seed completes verify by querying the alias count: SELECT COUNT(*) FROM donor_discovery_taxonomy_aliases. Report the final count. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-016
+  name: Flight Path HUD - Mission Control lifecycle dashboard
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md, src/app/(dashboard)/dashboard/page.tsx, and all existing dashboard components in full. Create a new component src/components/dashboard/FlightPathHUD.tsx. This is the Mission Control lifecycle dashboard showing the 6-stage nonprofit funding pipeline: Onboard, Research, Opportunities, Grant Narratives, AutoApply, Donor Discovery. Each stage is a 3D-style flip card built with CSS 3D transforms. The outer container: 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8'. Each stage card wrapper: 'relative h-36 cursor-pointer' with perspective-1000. Each card uses CSS 3D flip on hover: front face shows stage icon, stage name, and live count badge. Back face shows: last activity timestamp, completion percentage bar, and quick action button. Front face styling: 'absolute inset-0 rounded-xl bg-white shadow-sm border border-slate-200 flex flex-col items-center justify-center backface-hidden'. Stage colors: Onboard uses 'border-t-4 border-[#0077B6]', Research uses 'border-t-4 border-[#7C3AED]', Opportunities uses 'border-t-4 border-[#F59E0B]', Grant Narratives uses 'border-t-4 border-[#10B981]', AutoApply uses 'border-t-4 border-[#00B4D8]', Donor Discovery uses 'border-t-4 border-[#EF4444]'. Stage name: 'text-xs font-semibold text-slate-400 uppercase tracking-wide mt-2'. Count badge: 'text-2xl font-black text-slate-900'. Back face: 'absolute inset-0 rounded-xl bg-[#1A2B3C] flex flex-col items-center justify-center backface-hidden rotate-y-180 p-4'. Back face text: white. Progress bar on back: teal fill. Quick action button on back: 'bg-[#0077B6] text-white px-3 py-1.5 rounded-lg text-xs font-semibold mt-2'. Add the FlightPathHUD to the dashboard page at the top before the stat cards. Wire it to read live counts from the existing API routes for each section. After building run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/FlightPathHUD.tsx
+
+- id: ui-017
+  name: Badge and shared UI component library standardization
+  prompt: "Find all shared UI components in src/components/ui/ by running: find src/components/ui -name '*.tsx' | sort. Read each one in full. Standardize these components to use the Elevated Slate design system. Badge component: variants must map to the CSS variable semantic pairs. success variant: 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]'. warning variant: 'bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]'. error/danger variant: 'bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]'. info variant: 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]'. default/neutral variant: 'bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]'. primary variant: 'bg-[#0077B6] text-white'. All badges: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold'. Button component: ensure primary uses 'bg-[#0077B6] hover:bg-[#005F92] text-white', secondary uses 'bg-white border border-slate-200 text-slate-700 hover:border-[#0077B6] hover:text-[#0077B6]', destructive uses 'bg-[#EF4444] hover:bg-[#B91C1C] text-white'. Input/Select components: 'bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none transition-colors'. Card component: 'bg-white rounded-xl shadow-sm border border-slate-200'. After all changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-018
+  name: Research and Draft Generator pages visual overhaul
+  prompt: "Read src/app/(dashboard)/research/page.tsx and src/app/(dashboard)/draft-generator/page.tsx in full. Apply Elevated Slate design. Research page: the search interface must be premium. Search bar: 'w-full bg-white border-2 border-slate-200 rounded-2xl px-6 py-4 text-base text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-4 focus:ring-[#0077B6]/10 outline-none shadow-sm'. Search button: 'bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-4 rounded-2xl font-semibold'. Result cards: 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all'. Result title: 'text-base font-semibold text-slate-900 hover:text-[#0077B6]'. Result source badge: 'bg-[#EFF6FF] text-[#1D4ED8] px-2.5 py-1 rounded-full text-xs font-medium'. Result amount: 'text-[#15803D] font-bold'. Result deadline: urgent 'text-[#EF4444] font-medium' future 'text-slate-400'. Draft Generator page: this is a key revenue feature - style it premium. The generator form must be in a 'bg-white rounded-2xl shadow-md border border-slate-200 p-8'. Section headers inside form: 'text-base font-semibold text-slate-900 mb-4 flex items-center gap-2'. The Generate button must be large and prominent: 'w-full bg-gradient-to-r from-[#00B4D8] to-[#0077B6] hover:from-[#0093AC] hover:to-[#005F92] text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all'. Generated draft output area: 'bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 font-mono text-sm text-slate-700 leading-relaxed'. After changes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-019
+  name: Mobile responsiveness audit and sidebar mobile drawer fix
+  prompt: "Read src/components/layout/Sidebar.tsx, src/components/layout/Header.tsx, and src/components/layout/DashboardLayout.tsx or equivalent layout wrapper in full. Audit and fix mobile responsiveness. The sidebar on mobile must: slide in from the left as a drawer with smooth transition 'translate-x-0 transition-transform duration-300 ease-in-out', be hidden off-screen when closed '-translate-x-full', show over a dark backdrop 'fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm'. The mobile hamburger button in the header must be visible only on small screens 'lg:hidden'. The main content area must have: 'lg:ml-64 min-h-screen bg-[#EEF2F7]'. On mobile the content must be full width 'w-full'. Check every page for any horizontal overflow issues on mobile - look for fixed widths that would break on small screens. The dashboard stat card grid must be responsive: 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'. The opportunities table on mobile must scroll horizontally: 'overflow-x-auto'. Add 'min-w-[700px]' to the table itself so it scrolls cleanly. After all fixes run pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+
+- id: ui-020
+  name: Final build verification deploy and governance update
+  prompt: "Run a complete build verification: pnpm tsc --noEmit first. If any TypeScript errors exist fix them all before proceeding. Then run pnpm run build. If build fails diagnose and fix. After clean build: run git add -A then git commit with message 'feat: complete Elevated Slate UI overhaul - all pages redesigned with navy sidebar teal accents color-coded components Flight Path HUD and mobile responsive layout'. Then run git push. Then run vercel --prod --yes. Wait for deployment to complete and report the final URL and deployment status. Then update STATE_OF_THE_BUILD.md with a complete audit of all UI changes made in this queue run. Update SESSION_STATE.md noting that the UI redesign is complete and listing the next priorities: Intelligence Library corpus ingestion, 298K prospect CSV import, Email/Calendar Phase 4, Tarritrix audit. The governance docs must reflect the actual current state of the codebase not assumptions."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - STATE_OF_THE_BUILD.md
+    - SESSION_STATE.md

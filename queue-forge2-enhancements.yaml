@@ -1,0 +1,634 @@
+project: forge-2
+project_path: C:\Users\manag\Documents\forge-2
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6
+  review_model: claude-sonnet-4-6
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+
+  # ============================================================
+  # PHASE 0: Verify baseline compiles clean
+  # ============================================================
+
+  - id: f2-000
+    phase: verify
+    description: "Verify FORGE 2.0 baseline compiles clean"
+    prompt: |
+      CRITICAL FIRST STEP: Delete any stale build artifacts:
+      rm -rf dist .next node_modules/.cache
+
+      Run: npx tsc --noEmit
+      If there are ANY errors, fix them before proceeding.
+      The codebase must be 100% clean.
+
+      Then verify all 67 source files exist by listing src/ recursively.
+      Report the count and any missing files vs the BLUEPRINT.md structure.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # SECTION 1: ECC Feature Extraction (Enhancement Blueprint 1A-1F)
+  # ============================================================
+
+  - id: f2-001
+    phase: build
+    description: "AgentShield Security Scanner Integration (Blueprint 1A)"
+    prompt: |
+      Create src/tools/agent-shield.ts — security scanner integration.
+
+      This module wraps the AgentShield security scanning concept into FORGE 2.0's
+      existing tool architecture. It does NOT require the external ecc-agentshield package.
+      Instead, implement the scanning logic natively:
+
+      1. Export async function scanProjectSecurity(projectPath: string): Promise<SecurityReport>
+      2. Scan these directories if they exist: .claude/, CLAUDE.md, settings.json, hooks/
+      3. Check for 5 categories of security issues:
+         a. Secrets detection: scan all .ts/.tsx/.env files for API key patterns, tokens, passwords
+            (regex patterns for common key formats: sk-, pk_, AKIA, ghp_, etc.)
+         b. Permission auditing: check if DANGEROUSLY_SKIP_PERMISSIONS is set, flag it
+         c. Hook injection analysis: if hooks.json exists, verify hook scripts don't execute arbitrary URLs
+         d. MCP server risk: check for unknown MCP server URLs in config
+         e. Insecure defaults: check for permissive CORS, missing auth checks in API routes
+      4. Score A-F based on findings (A = 0 issues, F = 10+ critical)
+      5. Return SecurityReport with grade, findings array, and recommendations
+      6. Log results using the existing logLine from ./forge-logger
+
+      Import types from ../types/index.ts. Add SecurityReport and SecurityFinding
+      interfaces to src/types/index.ts if they don't exist.
+
+      All property access must use optional chaining. No unused variables.
+    expected_outputs:
+      - src/tools/agent-shield.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-002
+    phase: build
+    description: "Hook Lifecycle System (Blueprint 1B)"
+    prompt: |
+      Create src/engine/hook-manager.ts — lifecycle hook system for FORGE 2.0.
+
+      This implements automated hooks that fire on build lifecycle events,
+      replacing prompt-embedded governance instructions with system-level enforcement.
+
+      1. Define HookEvent type: 'pre_tool_use' | 'post_tool_use' | 'session_start' |
+         'session_end' | 'pre_compact' | 'pre_file_write' | 'post_file_write' |
+         'pre_build' | 'post_build' | 'pre_prompt' | 'post_prompt'
+      2. Define Hook interface: { id: string, event: HookEvent, script: string,
+         enabled: boolean, priority: number, description: string }
+      3. Define HookResult: { action: 'allow' | 'deny' | 'modify', reason?: string,
+         additionalContext?: string }
+      4. Export class HookManager with:
+         a. loadHooks(projectPath: string): loads hooks from hooks.json in project root
+         b. registerHook(hook: Hook): adds a hook programmatically
+         c. fireEvent(event: HookEvent, context: Record<string, unknown>): Promise<HookResult[]>
+            - Runs all hooks for that event sorted by priority
+            - If ANY hook returns 'deny', the overall result is deny
+            - Collects all additionalContext strings for injection
+         d. getHooks(): returns all registered hooks
+      5. Built-in hooks (always registered):
+         a. pre_file_write: blocks writes to middleware.ts unless explicitly approved
+         b. post_file_write: runs tsc --noEmit check after every file write
+         c. pre_build: verifies governance docs exist and are readable
+      6. Log all hook firings via logLine
+
+      Add HookEvent, Hook, HookResult types to src/types/index.ts.
+      Import logLine from ../tools/forge-logger.
+    expected_outputs:
+      - src/engine/hook-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-003
+    phase: build
+    description: "Memory Persistence Hooks (Blueprint 1C)"
+    prompt: |
+      Create src/memory/session-hooks.ts — session lifecycle memory persistence.
+
+      This handles saving and restoring context across FORGE sessions to prevent
+      context rot during long builds.
+
+      1. Export async function onSessionStart(projectPath: string, memoryClient: SupabaseClient):
+         - Load last session summary from build_runs table (most recent completed/failed run)
+         - Load active error patterns from error_patterns table
+         - Load project-specific learned skills from cross_project_insights
+         - Return a SessionContext object with all loaded data for injection into prompts
+      2. Export async function onSessionEnd(projectPath: string, memoryClient: SupabaseClient, session: SessionMetrics):
+         - Save session summary: prompts executed, pass/fail counts, errors encountered,
+           patterns discovered, total tokens, total cost, duration
+         - Update error_patterns with any new errors from this session
+         - Extract and save any new insights to cross_project_insights
+      3. Export async function onPreCompact(currentContext: string, memoryClient: SupabaseClient):
+         - Extract critical information from the context that would be lost on compaction:
+           current prompt index, accumulated errors, governance state, file modification log
+         - Save to a session_snapshots field in the current build_run record
+         - Return a condensed summary string that preserves essential state
+
+      Use existing memory modules: import from ../memory/builds, ../memory/errors,
+      ../memory/insights. Use existing types from ../types/index.ts.
+      Add SessionContext and SessionMetrics interfaces to types if needed.
+    expected_outputs:
+      - src/memory/session-hooks.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-004
+    phase: build
+    description: "Continuous Learning + Instinct Extraction (Blueprint 1D)"
+    prompt: |
+      Create src/analysis/instinct-extractor.ts — automated learning from build sessions.
+
+      1. Export async function extractInstincts(buildRunId: string, memoryClient: SupabaseClient):
+         - Load the build run and all its prompt executions
+         - Analyze patterns: which prompts failed and why, which succeeded on retry,
+           what fixes were applied by the recovery agent
+         - Extract reusable rules: "When error X occurs, fix Y works"
+         - Store as instinct records in a new instincts array on cross_project_insights
+      2. Export async function extractSkills(buildRunId: string, projectPath: string):
+         - Identify debugging techniques used during the build
+         - Identify workarounds applied for specific error types
+         - Generate SKILL.md formatted content for each discovered technique
+         - Save to {projectPath}/.forge/skills/ directory
+      3. Export async function applyInstincts(prompt: string, instincts: Instinct[]):
+         - Given a prompt about to execute, check if any instincts are relevant
+         - Append relevant instinct rules to the prompt as additional context
+         - Return the enhanced prompt
+
+      Define Instinct interface: { id: string, pattern: string, fix: string,
+      confidence: number, source_project: string, times_applied: number,
+      times_succeeded: number, created_at: string }
+
+      Add to src/types/index.ts. Use existing memory modules.
+    expected_outputs:
+      - src/analysis/instinct-extractor.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-005
+    phase: build
+    description: "pass@k Verification Metrics (Blueprint 1E)"
+    prompt: |
+      Create src/analysis/pass-at-k.ts — statistical prompt quality measurement.
+
+      1. Export async function measurePassAtK(
+           prompt: string, k: number, projectPath: string, runner: ClaudeRunner
+         ): Promise<PassAtKResult>
+         - Run the same prompt k times (default k=3) in isolated git branches
+         - For each run: create branch, execute prompt, run compile gate, record pass/fail
+         - Calculate pass@1 (% of first attempts that pass) and pass@k (% with at least
+           one pass in k attempts)
+         - Clean up branches after measurement
+         - Return PassAtKResult with scores and per-run details
+      2. Export function assessPromptQuality(result: PassAtKResult): QualityAssessment
+         - pass@1 >= 80%: production-ready, no changes needed
+         - pass@1 60-79%: acceptable, consider prompt refinement
+         - pass@1 40-59%: needs rewriting before entering build queue
+         - pass@1 < 40%: block from queue, requires manual intervention
+      3. Export async function validateQueue(
+           queuePath: string, sampleSize: number, projectPath: string, runner: ClaudeRunner
+         ): Promise<QueueValidationResult>
+         - Sample N prompts from the queue
+         - Run measurePassAtK on each
+         - Flag any prompt below 60% threshold
+         - Return overall queue quality score
+
+      Define PassAtKResult, QualityAssessment, QueueValidationResult in types.
+      Import ClaudeRunner type from ../engine/claude-runner.
+      Import GitManager from ../engine/git-manager for branch operations.
+    expected_outputs:
+      - src/analysis/pass-at-k.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-006
+    phase: build
+    description: "Model Router / Cost Optimizer (Blueprint 1F)"
+    prompt: |
+      Update src/engine/model-router.ts to add intelligent cost optimization.
+
+      The file already exists. Enhance it with:
+
+      1. Add a classifyPromptComplexity(prompt: string): 'simple' | 'moderate' | 'complex'
+         - Simple: file scaffolding, boilerplate, formatting, linting fixes (< 50 lines changed)
+         - Moderate: single-feature implementation, bug fixes, test writing
+         - Complex: architecture decisions, multi-file refactors, security reviews, governance checks
+      2. Add routeToModel(complexity: string, config: ModelRouterConfig): string
+         - Simple -> cheapest model (e.g. claude-haiku-4-5-20251001)
+         - Moderate -> mid-tier (e.g. claude-sonnet-4-6)
+         - Complex -> top-tier (e.g. claude-sonnet-4-6 or claude-opus-4-6)
+         - Config overrides allow forcing a specific model per prompt
+      3. Add estimateCost(prompt: string, model: string): CostEstimate
+         - Estimate input/output tokens based on prompt length and expected output
+         - Calculate dollar cost based on model pricing
+      4. Add a skill-hot-loading concept: loadRelevantSkills(prompt: string, skillsDir: string)
+         - Only load SKILL.md files relevant to the current prompt into context
+         - Reduces token usage by not loading irrelevant skills
+
+      Preserve all existing functionality. Only ADD new exports.
+      Update types if needed.
+    expected_outputs:
+      - src/engine/model-router.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  # ============================================================
+  # SECTION 2: FORGE 2.0 Structural Enhancements (Blueprint 2A-2F)
+  # ============================================================
+
+  - id: f2-007
+    phase: build
+    description: "Pre-Commit Governance Gate (Blueprint 2A)"
+    prompt: |
+      Create src/engine/governance-gate.ts — automated pre-commit governance enforcement.
+
+      This converts governance rules from prompt-level suggestions to system-level gates
+      that cannot be bypassed.
+
+      1. Export async function checkGovernanceCompliance(
+           filePath: string, content: string, projectPath: string
+         ): Promise<GovernanceCheckResult>
+         - If filePath is middleware.ts: DENY unless explicitly approved in queue config
+         - If filePath is a governance doc (BLUEPRINT.md, etc.): DENY always
+         - If filePath is an API route: verify it includes organization_id scoping
+         - If filePath contains hardcoded API keys or secrets: DENY
+         - Return { allowed: boolean, violations: string[], suggestions: string[] }
+      2. Export async function runSixLawsCheck(projectPath: string): SixLawsResult
+         - Import and use the existing six-laws-verifier.ts
+         - Run all Six Laws checks against the current codebase state
+         - Return pass/fail per law with details
+      3. Wire into HookManager: register as a pre_file_write hook that fires
+         checkGovernanceCompliance on every file the build agent writes
+
+      Import from ../analysis/six-laws-verifier. Add types to src/types/index.ts.
+    expected_outputs:
+      - src/engine/governance-gate.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-008
+    phase: build
+    description: "Incremental Playwright Verification (Blueprint 2B)"
+    prompt: |
+      Create src/tools/incremental-tester.ts — targeted test runner after build steps.
+
+      1. Export async function runIncrementalTests(
+           changedFiles: string[], projectPath: string, testDir: string
+         ): Promise<TestResult>
+         - Analyze which test files are relevant to the changed source files
+           (by import graph or naming convention: foo.ts -> foo.test.ts)
+         - Run ONLY relevant Playwright/test files, not the full suite
+         - Return pass/fail with details per test
+      2. Export function shouldRunTests(promptIndex: number, frequency: number): boolean
+         - Returns true every N prompts (default frequency = 10)
+         - Always returns true on integration/deploy phase prompts
+      3. Export async function runSmokeTests(projectPath: string): Promise<TestResult>
+         - Run a minimal smoke test suite: compile check + build check + 3 core page loads
+         - Fast validation that nothing is critically broken
+         - Used between every 10th prompt per Blueprint 2B spec
+
+      Define TestResult interface in types. Import logLine from forge-logger.
+    expected_outputs:
+      - src/tools/incremental-tester.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-009
+    phase: build
+    description: "Git Diff Audit Trail Per Prompt (Blueprint 2C)"
+    prompt: |
+      Update src/engine/git-manager.ts to add per-prompt commit isolation.
+
+      The file already exists. Add these new methods:
+
+      1. async commitPromptChanges(promptId: string, phase: string, status: string): Promise<string>
+         - Stages all changes: git add -A
+         - Commits with structured message: FORGE-{project}-P{phase}-{promptId}-{status}
+         - Returns the commit hash
+      2. async getPromptDiff(commitHash: string): Promise<string>
+         - Returns the git diff for a specific prompt's commit
+         - Used for debugging which prompt introduced a regression
+      3. async revertPrompt(commitHash: string): Promise<void>
+         - Surgical revert of a single prompt's commit
+         - Does NOT affect other prompts' changes
+      4. async getChangeLog(since: string): Promise<PromptCommit[]>
+         - Lists all FORGE-prefixed commits since a given hash/date
+         - Returns structured data: promptId, phase, status, filesChanged, hash
+
+      Define PromptCommit interface. Preserve ALL existing methods.
+      Use child_process execSync for git commands (already used in the file).
+    expected_outputs:
+      - src/engine/git-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-010
+    phase: build
+    description: "Dead Code Scanner (Blueprint 2D)"
+    prompt: |
+      Create src/tools/dead-code-scanner.ts — unused import and dead code detection.
+
+      1. Export async function scanDeadCode(projectPath: string): Promise<DeadCodeReport>
+         - Find all .ts/.tsx files in src/
+         - For each file, parse imports and check if they're used in the file body
+         - Detect unused variables (const/let declarations never referenced)
+         - Detect unused exports (exports never imported by any other file)
+         - Return categorized report: unused_imports, unused_variables, unused_exports
+      2. Export async function autoFixImports(projectPath: string): Promise<FixResult>
+         - Remove unused import lines from all files
+         - Return count of files modified and imports removed
+      3. Export function formatDeadCodeReport(report: DeadCodeReport): string
+         - Human-readable summary for logging
+
+      This is a lightweight alternative to knip that works without external deps.
+      Use Node.js fs and basic regex parsing (not full AST — keep it simple and fast).
+
+      Define DeadCodeReport, FixResult interfaces in types.
+    expected_outputs:
+      - src/tools/dead-code-scanner.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-011
+    phase: build
+    description: "Supabase Schema Drift Detection (Blueprint 2E)"
+    prompt: |
+      Update src/tools/schema-validator.ts to add live schema drift detection.
+
+      The file already exists. Add:
+
+      1. async function fetchLiveSchema(supabaseUrl: string, serviceKey: string): Promise<LiveSchema>
+         - Query information_schema.columns for all public tables
+         - Query pg_type for all custom enums
+         - Return structured schema: tables with columns, types, constraints
+      2. async function parseTypescriptTypes(typesPath: string): Promise<ExpectedSchema>
+         - Read the database.ts types file
+         - Extract table names and column names from type definitions
+         - Return structured expected schema
+      3. Export async function detectSchemaDrift(
+           supabaseUrl: string, serviceKey: string, typesPath: string
+         ): Promise<SchemaDriftReport>
+         - Compare live schema vs TypeScript types
+         - Flag: missing tables, missing columns, type mismatches, extra columns
+         - Return drift report with severity per issue
+      4. Export async function autoRegenerateTypes(projectPath: string): Promise<void>
+         - Run: npx supabase gen types typescript --project-id {ref} > src/types/database.ts
+         - Ensures types always match live database
+
+      Define LiveSchema, ExpectedSchema, SchemaDriftReport in types.
+      Preserve all existing functionality.
+    expected_outputs:
+      - src/tools/schema-validator.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-012
+    phase: build
+    description: "Error Pattern Database Enhancement (Blueprint 2F)"
+    prompt: |
+      Update src/memory/errors.ts to add recursive learning from error patterns.
+
+      The file already exists. Add:
+
+      1. async function matchError(errorText: string, client: SupabaseClient): Promise<ErrorMatch | null>
+         - Search error_patterns table for matching error_signature
+         - Use substring matching and similarity scoring
+         - If match found with fix_applied, return the known fix
+         - If match found with recurrence_count >= 3, flag for governance rule creation
+      2. async function recordError(error: ErrorRecord, client: SupabaseClient): Promise<void>
+         - Check if error signature already exists
+         - If exists: increment recurrence_count, update last_seen_at
+         - If new: insert new error_patterns record
+      3. async function recordFix(errorId: string, fix: string, client: SupabaseClient): Promise<void>
+         - Update error_patterns with fix_applied
+         - Set fixed_at timestamp
+      4. async function getRecurringErrors(threshold: number, client: SupabaseClient): Promise<ErrorPattern[]>
+         - Return errors with recurrence_count >= threshold
+         - These are candidates for automatic governance rule creation
+      5. async function generateGovernanceRule(error: ErrorPattern): string
+         - Given a recurring error with a known fix, generate a governance rule
+         - Format as a FORGE preamble instruction
+
+      Define ErrorMatch, ErrorRecord, ErrorPattern interfaces.
+      Preserve ALL existing functionality in the file.
+    expected_outputs:
+      - src/memory/errors.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  # ============================================================
+  # SECTION 3: Wire Everything Into Phase Pipeline
+  # ============================================================
+
+  - id: f2-013
+    phase: build
+    description: "Wire enhancements into Phase 0 Scout"
+    prompt: |
+      Update src/phases/phase0-scout.ts to integrate new tools.
+
+      Add to the Phase 0 scan sequence:
+      1. Run AgentShield security scan (import from ../tools/agent-shield)
+         - Must pass grade B+ to proceed
+         - Log findings to build memory
+      2. Run schema drift detection (import from ../tools/schema-validator)
+         - If drift detected, log warning but don't block (some drift is expected pre-build)
+      3. Verify hook system is initialized (import from ../engine/hook-manager)
+         - Load project hooks.json if it exists
+         - Register built-in governance hooks
+      4. Load session context from memory (import from ../memory/session-hooks)
+         - Restore previous session state
+         - Load relevant error patterns and instincts
+
+      Preserve ALL existing Phase 0 functionality. Only ADD new steps at the end.
+    expected_outputs:
+      - src/phases/phase0-scout.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-014
+    phase: build
+    description: "Wire enhancements into Phase 3 Executor"
+    prompt: |
+      Update src/phases/phase3-executor.ts to integrate new capabilities.
+
+      Add to the execution pipeline:
+      1. Before each prompt: fire pre_prompt hook via HookManager
+      2. Before each prompt: apply instincts from instinct-extractor
+         (check if any learned patterns are relevant to this prompt)
+      3. Before each prompt: route to optimal model via enhanced model-router
+         (classify complexity, select model, estimate cost)
+      4. After each prompt: fire post_prompt hook
+      5. After each prompt: commit changes via git-manager commitPromptChanges()
+      6. Every 10th prompt: run incremental smoke tests via incremental-tester
+      7. After each prompt: run dead code scanner on changed files only
+      8. On prompt failure: check error pattern database for known fixes
+         If match found, apply fix and retry without counting against max_retries
+
+      Preserve ALL existing executor functionality. Wire new features as
+      pre/post steps around the existing prompt execution logic.
+    expected_outputs:
+      - src/phases/phase3-executor.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-015
+    phase: build
+    description: "Wire enhancements into Phase 4 Sentinel"
+    prompt: |
+      Update src/phases/phase4-sentinel.ts to integrate new checks.
+
+      Add to the Sentinel verification sequence:
+      1. Run AgentShield security scan — grade B+ required to pass
+      2. Run schema drift detection — code must match live database
+      3. Run dead code scan — report (don't block) on unused code
+      4. Run Six Laws verification via governance-gate
+      5. Run full Playwright test suite (not incremental)
+
+      Preserve ALL existing Sentinel checks. Add new checks after existing ones.
+    expected_outputs:
+      - src/phases/phase4-sentinel.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: f2-016
+    phase: build
+    description: "Wire enhancements into Phase 5 Learner"
+    prompt: |
+      Update src/phases/phase5-learner.ts to integrate new learning capabilities.
+
+      Add to the post-build learning sequence:
+      1. Run instinct extraction on the completed build
+      2. Run session-end hook to save all metrics to Supabase
+      3. Analyze recurring errors and generate governance rules for any with 3+ occurrences
+      4. Extract skills from successful workarounds and save as SKILL.md files
+      5. Update cross-project insights with new patterns
+
+      Preserve ALL existing Phase 5 functionality. Add new steps after existing ones.
+    expected_outputs:
+      - src/phases/phase5-learner.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  # ============================================================
+  # SECTION 4: Repair Mode
+  # ============================================================
+
+  - id: f2-017
+    phase: build
+    description: "Repair Mode — analyze and fix existing codebases"
+    prompt: |
+      Create src/cli/repair-command.ts — new FORGE operating mode for repairing broken repos.
+
+      1. Export async function runRepairMode(projectPath: string, config: RepairConfig): Promise<RepairResult>
+         a. SCAN: Read the codebase using existing codebase-reader tool
+         b. DIAGNOSE: Run tsc --noEmit, capture all errors
+         c. CLASSIFY: Group errors by type (missing imports, type mismatches, undefined vars,
+            missing modules, enum mismatches)
+         d. PRIORITIZE: Sort by dependency — fix types/interfaces first, then implementations,
+            then UI components
+         e. GENERATE QUEUE: Create a repair queue.yaml with one prompt per error cluster
+         f. EXECUTE: Run the generated queue through the existing Phase 3 executor
+         g. VERIFY: Run compile + build gates after all repairs
+      2. The repair queue should use the error pattern database to apply known fixes first
+      3. Each repair prompt gets the standard FORGE preamble (TypeScript strict rules,
+         optional chaining, etc.)
+      4. Failed repairs log to error_patterns for future learning
+
+      Update src/cli/index.ts to add the 'repair' command alongside 'build'.
+      Define RepairConfig, RepairResult in types.
+    expected_outputs:
+      - src/cli/repair-command.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  # ============================================================
+  # SECTION 5: Integration + Verification
+  # ============================================================
+
+  - id: f2-int
+    phase: integration
+    description: "Final compile and integration verification"
+    prompt: |
+      Run full verification:
+      1. Delete any stale caches: rm -rf dist .next node_modules/.cache
+      2. Run npx tsc --noEmit — fix ALL errors
+      3. Verify all new files exist:
+         - src/tools/agent-shield.ts
+         - src/engine/hook-manager.ts
+         - src/engine/governance-gate.ts
+         - src/memory/session-hooks.ts
+         - src/analysis/instinct-extractor.ts
+         - src/analysis/pass-at-k.ts
+         - src/tools/incremental-tester.ts
+         - src/tools/dead-code-scanner.ts
+         - src/cli/repair-command.ts
+      4. Verify all updated files still compile:
+         - src/engine/model-router.ts
+         - src/engine/git-manager.ts
+         - src/tools/schema-validator.ts
+         - src/memory/errors.ts
+         - src/phases/phase0-scout.ts
+         - src/phases/phase3-executor.ts
+         - src/phases/phase4-sentinel.ts
+         - src/phases/phase5-learner.ts
+      5. Remove any console.log statements
+      6. Remove any unused imports
+      7. Verify src/types/index.ts has all new interfaces
+
+      The build must pass with zero errors.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f2-commit
+    phase: deploy
+    description: "Commit and push FORGE 2.0 enhancements"
+    prompt: |
+      Git commit all changes:
+      git add -A
+      git commit -m "[FORGE] FORGE 2.0 Enhancement Blueprint integrated — hooks, security, learning, repair mode"
+      git push origin main
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt

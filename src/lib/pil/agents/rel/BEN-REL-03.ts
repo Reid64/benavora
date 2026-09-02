@@ -1,8 +1,8 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import { callTool, hostnameOf, MODEL_TOKEN_UNIT_COST_USD, recordRelationshipEvidence, tryModelTokens } from "@/lib/pil/agents/rel/shared";
 import { getPilClient } from "@/lib/pil/db";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
-import type { EvidenceItem, GraphNode } from "@/lib/pil/types";
+import type { EvidenceItem, GraphEdge, GraphNode } from "@/lib/pil/types";
 
 // BEN-REL-03 -- Corporate Relationship Mapping Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~651). Identifies relationships
@@ -34,9 +34,60 @@ import type { EvidenceItem, GraphNode } from "@/lib/pil/types";
 // fabricated. "T-CRM (read)" means a direct read of funders/contacts via the
 // service-role client, same as BEN-DIS-08 documents -- no T-CRM Tool is
 // registered in tools/index.ts.
+//
+// Upgrade (PIL_AGENT_COMPLETE_ROSTER.md/PIL_AGENT_DEPENDENCIES.yaml, paper
+// specs with no implementation evidence -- design input only): this agent
+// previously ran with zero delegations, the largest gap in the Relationship
+// family. Adds five conditional delegations, per depends_on's
+// BEN-INT-02/BEN-INT-03/BEN-KNW-02/BEN-KNW-03/BEN-REL-05 entries, each gated
+// on a concrete signal rather than firing unconditionally: BEN-KNW-02
+// (identity resolution) when a scanned funder's normalized name collides
+// with an existing company node's normalized label but the raw labels
+// differ (a likely misspelled near-duplicate); BEN-INT-03 (beneficial
+// ownership/control verification) when a philanthropy-title contact's title
+// also matches an ownership/control pattern (owner/founder/chair/CEO/
+// president); BEN-INT-02 (career chronicling) when a personnel edge already
+// on file for a contact carries a different title than the one just read
+// from CRM; BEN-KNW-03 (batch provenance verification) once per run, if any
+// corporate or personnel edges were touched; and BEN-REL-05 (warm
+// introduction pathfinding), guarded per the platform constraint below.
+//
+// Platform constraint: this agent runs org-wide (context.prospectId is not
+// read or required) unlike BEN-REL-01/02/05/06, which are single-prospect
+// and early-return without one. AgentRunner.delegate() (agent-runner.ts
+// ~line 330) passes the PARENT's context.prospectId unchanged to a
+// delegated child, so a BEN-REL-05 delegation fired from an org-wide run
+// with prospectId===null would reach BEN-REL-05 with prospectId===null too
+// and immediately no-op via its own early-return. The BEN-REL-05 delegation
+// below is therefore guarded with "if (context.prospectId)" and skipped
+// (with an inline comment) whenever this agent runs without one.
+//
+// Decision object: conclusions.decision maps this file's existing computed
+// values onto the roster's six named output dimensions
+// (companyLegalIdentity/roleOwnershipLinkage/subsidiaryParentBoundaries/
+// sharedEmploymentInterval/commercialVersusPhilanthropicContext/
+// decisionAuthorityUncertainty). subsidiaryParentBoundaries and
+// sharedEmploymentInterval are fixed, documented strings rather than
+// computed values -- this platform's funders schema has no parent/
+// subsidiary column and personnel edges are written with null temporal
+// bounds (see the existing upsertEdge calls below), so those two dimensions
+// are real, named schema gaps, not fabricated data.
 
 const CORPORATE_CATEGORIES = new Set(["corporate_donation", "corporate_sponsorship", "corporate_foundation"]);
 const PHILANTHROPY_TITLE_PATTERN = /philanthrop|community relations|corporate (social )?responsibility|\bcsr\b|giving|foundation/i;
+// Beneficial-ownership/control signal (BEN-INT-03 delegation trigger) --
+// deliberately narrower than PHILANTHROPY_TITLE_PATTERN, matched only
+// against contacts that already passed that gate.
+const OWNERSHIP_TITLE_PATTERN = /owner|founder|chairman|chairwoman|chair|\bceo\b|president/i;
+
+/** Lowercases and strips a trailing legal-entity suffix so "Acme Inc" and "Acme Inc." collide with "Acme" for near-duplicate detection (step 1 below) -- a plain exact-label comparison (upsertNode's own dedup) would not catch this class of misspelling. */
+function normalizeCompanyName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+(inc|llc|corp|corporation|co)\.?$/, "")
+    .trim();
+}
 
 interface FunderRow {
   id: string;
@@ -82,11 +133,47 @@ export class CorporateRelationshipMappingAgent implements Agent {
       properties: { isTenantSelf: true },
     });
 
+    // Snapshot of pre-existing company nodes, used by step 1's near-duplicate
+    // check below -- fetched once, not per-funder, since it only needs to
+    // reflect state from before this run started.
+    const { data: existingCompanyNodeRows, error: existingCompanyNodeError } = await getPilClient()
+      .from("pil_graph_nodes")
+      .select("id, label")
+      .eq("organization_id", context.orgId)
+      .eq("node_type", "company");
+    if (existingCompanyNodeError) throw existingCompanyNodeError;
+    const existingCompanyNodes = (existingCompanyNodeRows ?? []) as Array<{ id: string; label: string }>;
+
     const evidenceCreated: EvidenceItem[] = [];
     const corporateEdgeIds: string[] = [];
     const personnelEdgeIds: string[] = [];
+    const delegations: DelegationRequest[] = [];
+    const roleOwnershipLinkage: Array<{ personNodeId: string; title: string }> = [];
+    let ownershipUncertaintyFlagged = false;
 
     for (const funder of corporateFunders) {
+      // 1. Near-duplicate entity delegation to BEN-KNW-02: an existing
+      // company node whose normalized label matches this funder's but whose
+      // raw label differs is a likely misspelled near-duplicate that
+      // upsertNode's own exact-label dedup would not catch.
+      const normalizedFunderName = normalizeCompanyName(funder.name);
+      const possibleDuplicate = existingCompanyNodes.find(
+        (n) => n.label !== funder.name && normalizeCompanyName(n.label) === normalizedFunderName,
+      );
+      if (possibleDuplicate) {
+        delegations.push({
+          childAgentCode: "BEN-KNW-02",
+          objective: `Possible near-duplicate corporate entity: candidate label "${funder.name}" (funder ${funder.id}) normalizes the same as existing node "${possibleDuplicate.label}" (node ${possibleDuplicate.id}) but the raw labels differ -- confirm whether these are the same legal entity before this run treats them as distinct nodes.`,
+          maxAutonomy: "A2",
+          constraints: {
+            funderId: funder.id,
+            candidateNodeLabel: funder.name,
+            possibleDuplicateNodeId: possibleDuplicate.id,
+            possibleDuplicateLabel: possibleDuplicate.label,
+          },
+        });
+      }
+
       const corporateNode: GraphNode = await upsertNode({
         organization_id: context.orgId,
         node_type: "company",
@@ -149,6 +236,48 @@ export class CorporateRelationshipMappingAgent implements Agent {
           label: contact.name,
           properties: { title: contact.title, crmContactId: contact.id },
         });
+
+        // 2. Ownership/control delegation to BEN-INT-03: this contact's
+        // title carries a decision-authority signal (owner/founder/chair/
+        // CEO/president) beyond the philanthropy-personnel gate above.
+        if (OWNERSHIP_TITLE_PATTERN.test(contact.title)) {
+          roleOwnershipLinkage.push({ personNodeId: personNode.id, title: contact.title });
+          ownershipUncertaintyFlagged = true;
+          delegations.push({
+            childAgentCode: "BEN-INT-03",
+            objective: `${contact.name} (${contact.title}) is on file as philanthropy/CSR personnel for corporate funder ${funder.name}, but their title also carries an ownership/control signal -- verify documented beneficial-ownership/control before this personnel edge is treated as a decision-authority signal.`,
+            maxAutonomy: "A2",
+            constraints: { funderId: funder.id, personNodeId: personNode.id, title: contact.title },
+          });
+        }
+
+        // 3. Career-change delegation to BEN-INT-02: re-fetch any prior
+        // has_contact edge for this exact pair before upserting -- if its
+        // recorded title differs from what CRM has now, that's a real
+        // title/career change worth chronicling, not just a confidence
+        // reconciliation (which upsertEdge's own find-then-write already
+        // handles below).
+        const { data: existingPersonnelEdgeRow, error: existingPersonnelEdgeError } = await getPilClient()
+          .from("pil_graph_edges")
+          .select("*")
+          .eq("organization_id", context.orgId)
+          .eq("source_node_id", corporateNode.id)
+          .eq("target_node_id", personNode.id)
+          .eq("edge_type", "has_contact")
+          .eq("is_current", true)
+          .maybeSingle();
+        if (existingPersonnelEdgeError) throw existingPersonnelEdgeError;
+        const existingPersonnelEdge = existingPersonnelEdgeRow as GraphEdge | null;
+        const previousTitle = existingPersonnelEdge?.properties.title;
+        if (existingPersonnelEdge && typeof previousTitle === "string" && previousTitle !== contact.title) {
+          delegations.push({
+            childAgentCode: "BEN-INT-02",
+            objective: `${contact.name}'s title on file for ${funder.name} changed from "${previousTitle}" to "${contact.title}" -- chronicle this career/title change.`,
+            maxAutonomy: "A2",
+            constraints: { personNodeId: personNode.id, previousTitle, currentTitle: contact.title },
+          });
+        }
+
         const personnelEdge = await upsertEdge({
           organization_id: context.orgId,
           source_node_id: corporateNode.id,
@@ -163,6 +292,24 @@ export class CorporateRelationshipMappingAgent implements Agent {
           properties: { relationshipType: "corporate_philanthropy_personnel", title: contact.title },
         });
         personnelEdgeIds.push(personnelEdge.id);
+
+        // 5. Warm-introduction delegation to BEN-REL-05 (guarded per the
+        // platform-constraint header above): only meaningful when this run
+        // has a single prospect to path toward. Every personNode reaching
+        // this point already matched PHILANTHROPY_TITLE_PATTERN, which
+        // doubles as the seniority proxy the spec calls for (director/
+        // manager-level giving-program titles), so no separate seniority
+        // regex is needed.
+        if (context.prospectId) {
+          delegations.push({
+            childAgentCode: "BEN-REL-05",
+            objective: `Compute a warm-introduction path to ${contact.name} (${contact.title}) at corporate funder ${funder.name} on behalf of prospect ${context.prospectId}.`,
+            maxAutonomy: "A2",
+            constraints: { prospectId: context.prospectId, targetNodeId: personNode.id },
+          });
+        }
+        // else: org-wide sweep mode (context.prospectId is null) has no
+        // single prospect to path an introduction toward -- skip.
 
         evidenceCreated.push(
           await recordRelationshipEvidence({
@@ -217,7 +364,32 @@ export class CorporateRelationshipMappingAgent implements Agent {
       );
     }
 
+    // 4. Batch provenance delegation to BEN-KNW-03: one delegation per run
+    // (not per edge) covering every corporate/personnel edge this run
+    // touched.
+    if (corporateEdgeIds.length + personnelEdgeIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `${corporateEdgeIds.length + personnelEdgeIds.length} corporate/personnel edge(s) newly touched by this BEN-REL-03 run need provenance verification.`,
+        maxAutonomy: "A2",
+        constraints: { edgeIds: [...corporateEdgeIds, ...personnelEdgeIds] },
+      });
+    }
+
     const tokensUsed = await tryModelTokens(context, runner, 500);
+
+    // BEN_REL_03Decision.v1's 6 named output dimensions (roster), populated
+    // from data this method already computes -- no dedicated
+    // pil_rel_03_decisions table exists, so this rides in conclusions
+    // instead (same resolution BEN-REL-01/05's headers document).
+    const decision = {
+      companyLegalIdentity: corporateFunders.map((f) => ({ id: f.id, name: f.name })),
+      roleOwnershipLinkage,
+      subsidiaryParentBoundaries: "not_modeled_no_parent_subsidiary_column_in_schema",
+      sharedEmploymentInterval: "unbounded_no_temporal_validity_set_on_personnel_edges",
+      commercialVersusPhilanthropicContext: "philanthropic",
+      decisionAuthorityUncertainty: ownershipUncertaintyFlagged ? "flagged_for_BEN-INT-03_review" : "unassessed",
+    };
 
     return {
       status: "completed",
@@ -227,8 +399,9 @@ export class CorporateRelationshipMappingAgent implements Agent {
         corporateFundersScanned: corporateFunders.length,
         corporateEdgeIds,
         personnelEdgeIds,
+        decision,
       },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

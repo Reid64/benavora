@@ -1,53 +1,51 @@
 {
-  "capturedAt": "2026-08-21T06:54:53.176Z",
+  "capturedAt": "2026-09-01T19:29:04.124Z",
   "finding": "WGR-143",
   "function": "searchRecentAwardRecipients(90)",
-  "count": 678,
+  "count": 684,
   "error": null,
   "sample": [
     {
-      "legal_name": "DJ&A, P.C.",
+      "legal_name": "PARAMOUNT MACHINE COMPANY, INC.",
       "website": null,
-      "hq_address": "2000 MAPLE ST, Missoula, MT, 59808",
+      "hq_address": null,
       "geo": null,
       "phone": null,
       "naics_codes": [
-        "541330"
+        "332991"
       ],
       "source_adapters": [
         "samgov"
       ],
-      "directory_id": "561d6a62-808e-443b-b6ba-f9a89ccf25aa",
+      "directory_id": "113847a5-9d57-4dfa-983c-ddc9bd1acdad",
       "from_cache": false
     },
     {
-      "legal_name": "MOTHER DAUGHTER CONTRACTING SERVICES LLC",
+      "legal_name": "R. BROWN CONSTRUCTION COMPANY, INC.",
       "website": null,
-      "hq_address": "Charlottesville, VA, 22911",
+      "hq_address": "Willow Creek, CA, 95573",
       "geo": null,
       "phone": null,
       "naics_codes": [
-        "721110"
+        "237310"
       ],
       "source_adapters": [
         "samgov"
       ],
-      "directory_id": "b9d2c187-fa23-4ff0-b167-09805c384efc",
+      "directory_id": "73c1b357-4167-496a-92c1-29e2032a15d8",
       "from_cache": false
     },
     {
-      "legal_name": "202 GROUP LLC",
+      "legal_name": "LUX AETERNA SPACE, INC.",
       "website": null,
-      "hq_address": "1250 CONNECTICUT AVE NW STE 700, WASHINGTON, DC, 20036",
+      "hq_address": "Denver, CO, 80229",
       "geo": null,
       "phone": null,
-      "naics_codes": [
-        "513210"
-      ],
+      "naics_codes": [],
       "source_adapters": [
         "samgov"
       ],
-      "directory_id": "9559e053-90c7-4f81-858d-5c977d8ab8be",
+      "directory_id": "e75b9a20-d216-4c22-b17c-998d9ffd2121",
       "from_cache": false
     }
   ],

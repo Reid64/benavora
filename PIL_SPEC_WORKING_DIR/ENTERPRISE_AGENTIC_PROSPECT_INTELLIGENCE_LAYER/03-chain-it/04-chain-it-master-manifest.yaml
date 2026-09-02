@@ -1,0 +1,97 @@
+manifest_version: "1.0.0"
+program: "BENAVORA ENTERPRISE AGENTIC PROSPECT INTELLIGENCE LAYER"
+execution_mode: "Claude Code Chain-It"
+governing_reference: "BENAVORA ENTERPRISE AGENTIC PROSPECT INTELLIGENCE LAYER.docx"
+rules:
+  - execute_steps_in_dependency_order
+  - never_skip_a_blocking_gate
+  - never_mark_an_unexecuted_test_as_passing
+  - never_invent_provider_endpoints_credentials_schemas_or_performance_results
+  - isolate_provider_specific_logic_behind_adapters
+  - preserve_existing_user_changes
+  - stop_for_missing_authority_credentials_or_material_architectural_conflict
+  - continue_automatically_after_recoverable_failures_are_corrected
+  - record_every_assumption_as_assumption_until_verified
+  - output_machine_readable_phase_report_after_each_step
+phase_report_required_fields:
+  - phase_id
+  - started_at
+  - completed_at
+  - files_read
+  - files_created
+  - files_modified
+  - commands_run
+  - tests_run
+  - tests_passed
+  - tests_failed
+  - assumptions
+  - risks
+  - unresolved_items
+  - evidence
+  - gate_status
+gates:
+  G0:
+    name: repository_and_authority_discovery
+    pass_when:
+      - repository_structure_inspected
+      - governing_instructions_read
+      - existing_changes_preserved
+      - architecture_and_runtime_identified_or_explicitly_marked_unresolved
+  G1:
+    name: constitutional_conformance
+    pass_when:
+      - agent_service_boundary_enforced
+      - tenant_security_evidence_and_autonomy_laws_mapped_to_implementation
+  G2:
+    name: contract_conformance
+    pass_when:
+      - schemas_compile
+      - compatibility_tests_pass
+      - commands_events_and_errors_are_versioned
+  G3:
+    name: deterministic_foundation_ready
+    pass_when:
+      - durable_workflow_policy_budget_audit_evidence_and_observability_dependencies_are_implemented_or_validated
+  G4:
+    name: agent_behavior_ready
+    pass_when:
+      - persistent_goal_loop_demonstrated
+      - tool_selection_and_delegation_are_bounded
+      - replanning_is_observed_in_tests
+  G5:
+    name: production_quality
+    pass_when:
+      - no_blocking_evaluation_category_fails
+      - score_is_at_least_95
+      - security_isolation_recovery_and_load_gates_pass
+steps:
+  - id: PIL-CHAIN-001
+    name: inspect_and_map_target_repository
+    depends_on: []
+    gate: G0
+  - id: PIL-CHAIN-002
+    name: implement_shared_contracts_and_validation
+    depends_on: [PIL-CHAIN-001]
+    gate: G2
+  - id: PIL-CHAIN-003
+    name: implement_required_deterministic_foundations
+    depends_on: [PIL-CHAIN-002]
+    gate: G3
+  - id: PIL-CHAIN-004
+    name: implement_BEN_SUP_01
+    source_spec: "04-agents/supervisory/BEN-SUP-01-chief-prospect-intelligence-orchestrator.md"
+    depends_on: [PIL-CHAIN-003]
+    gate: G4
+  - id: PIL-CHAIN-005
+    name: run_BEN_SUP_01_evaluation_and_remediate
+    depends_on: [PIL-CHAIN-004]
+    gate: G5
+stop_conditions:
+  - governing_documents_conflict_and_no_precedence_rule_exists
+  - required_secret_or_external_authority_is_missing
+  - requested_action_would_violate_law_policy_provider_terms_or_tenant_boundary
+  - destructive_migration_has_no_approved_recovery_plan
+  - critical_security_test_fails_after_bounded_remediation
+completion_claim:
+  forbidden_until: [G0, G1, G2, G3, G4, G5]
+

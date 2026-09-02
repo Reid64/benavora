@@ -1,0 +1,99 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STATE_OF_THE_BUILD.md
+  - STANDING_DIRECTIVES.md
+  - BUILD_FAILURE_ROOT_CAUSE_AUDIT.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q1-001
+    phase: bugfix
+    description: "Fix supabase.from is not a function bug in intelligence/logic-model route (5 test failures)"
+    prompt: |
+      Read src/app/api/intelligence/logic-model/route.ts line 63 and surrounding context in full.
+      The error "TypeError: supabase.from is not a function" fires in 5 tests (tests/api/intelligence.test.ts).
+      Determine root cause: is supabase being imported/instantiated incorrectly (wrong client type,
+      missing await on an async client factory, wrong import path), or is the test mock incompatible
+      with the real client shape. Fix the actual source code bug, not the test, unless the test itself
+      is proven wrong.
+      Run pnpm exec vitest run tests/api/intelligence.test.ts and confirm all 5 tests now pass with real
+      output pasted, not just "should pass now."
+      git add -A; git commit -m 'fix(intelligence): resolve supabase.from is not a function in logic-model route'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q1-002
+    phase: bugfix
+    description: "Fix admin-sales.test.ts DomainManager 500 handling failure"
+    prompt: |
+      Read tests/api/admin-sales.test.ts's failing test ("POST /api/admin/domains > returns 500 when
+      DomainManager throws") and the actual route it tests. Determine why the route doesn't return 500
+      when DomainManager throws (missing try/catch, error swallowed, wrong status code returned).
+      Fix the route. Run the specific test and confirm pass with real output.
+      git add -A; git commit -m 'fix(admin-sales): correct DomainManager error handling to return 500'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q1-003
+    phase: bugfix
+    description: "Fix donor-discovery-requests.test.ts org-scoping failure"
+    prompt: |
+      Read tests/api/donor-discovery-requests.test.ts's failing test ("GET /api/donor-discovery/requests >
+      scopes the list query to the caller") and the actual route. This is a tenant-isolation test failure —
+      treat with the same seriousness as the RLS/auth gaps found earlier this session. Determine whether
+      the route is genuinely leaking cross-org data or the test's assertion is wrong.
+      Fix the actual bug if the route is under-scoped. Run the specific test and confirm pass with real output.
+      git add -A; git commit -m 'fix(donor-discovery): correct org-scoping on requests list endpoint'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q1-004
+    phase: bugfix
+    description: "Fix draft-generation.test.ts hard-limits test failures (2 failures)"
+    prompt: |
+      Read tests/unit/draft-generation.test.ts's 2 failing tests (expected false to be true on result.success
+      in hard-limits tests) and the draft generation logic they test. Determine whether the hard-limit
+      enforcement logic itself is broken or the test's expected values are wrong.
+      Fix the actual bug. Run the specific tests and confirm pass with real output.
+      git add -A; git commit -m 'fix(draft-generation): correct hard-limit enforcement logic'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q1-005
+    phase: verify
+    description: "Full test suite re-run and honest report"
+    prompt: |
+      Run pnpm test:unit (the real vitest-based script) in full. Report the real Test Files / Tests
+      pass/fail counts, exactly as printed, not summarized or rounded. If any of q1-001 through q1-004's
+      fixes didn't actually resolve their target test, say so explicitly rather than reporting overall
+      suite health only.
+      Update STATE_OF_THE_BUILD.md with the real current pass/fail count.
+      git add STATE_OF_THE_BUILD.md; git commit -m 'docs: real test suite status after q1 fixes'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

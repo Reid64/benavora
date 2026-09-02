@@ -1,0 +1,50 @@
+schema_version: "1.0.0"
+registry_id: "PIL-SERVICE-REGISTRY"
+classification: deterministic_support_services
+rule: "Services do not count toward the 44-agent fleet."
+services:
+  - {id: PIL-SVC-01, name: Identity and Authentication, responsibility: workload_and_human_identity}
+  - {id: PIL-SVC-02, name: Tenant Isolation Gateway, responsibility: tenant_context_and_cross_tenant_denial}
+  - {id: PIL-SVC-03, name: RBAC and ABAC Authorization, responsibility: deterministic_authorization}
+  - {id: PIL-SVC-04, name: Policy Enforcement Point, responsibility: data_tool_action_and_provider_policy}
+  - {id: PIL-SVC-05, name: Consent and Purpose Ledger, responsibility: purpose_limitation_and_consent}
+  - {id: PIL-SVC-06, name: Durable Workflow Engine, responsibility: persisted_state_machines_retries_and_timers}
+  - {id: PIL-SVC-07, name: Queue Event Bus and Transactional Outbox, responsibility: effectively_once_event_delivery}
+  - {id: PIL-SVC-08, name: API Gateway, responsibility: north_south_api_control}
+  - {id: PIL-SVC-09, name: Connector Gateway, responsibility: provider_adapter_boundary}
+  - {id: PIL-SVC-10, name: Search and Retrieval Gateway, responsibility: policy_filtered_search_federation}
+  - {id: PIL-SVC-11, name: HTTP Crawler and Browser Broker, responsibility: permitted_web_retrieval}
+  - {id: PIL-SVC-12, name: Document Retrieval and Parsing, responsibility: snapshots_text_tables_and_metadata}
+  - {id: PIL-SVC-13, name: Form 990 Adapter and Parser, responsibility: nonprofit_filing_ingestion}
+  - {id: PIL-SVC-14, name: SEC EDGAR Adapter, responsibility: public_company_filing_ingestion}
+  - {id: PIL-SVC-15, name: Public Records Adapter, responsibility: jurisdiction_specific_permitted_access}
+  - {id: PIL-SVC-16, name: Licensed Provider Adapters, responsibility: contract_bound_provider_access}
+  - {id: PIL-SVC-17, name: CRM Connectors and Synchronization, responsibility: controlled_noncanonical_sync}
+  - {id: PIL-SVC-18, name: Contact Normalization, responsibility: canonical_format_and_permission_metadata}
+  - {id: PIL-SVC-19, name: Entity Match Candidate Engine, responsibility: deterministic_candidate_generation_only}
+  - {id: PIL-SVC-20, name: Deduplication Engine, responsibility: deterministic_duplicate_candidates_and_merge_primitives}
+  - {id: PIL-SVC-21, name: Knowledge Graph Store, responsibility: temporal_provenance_aware_graph_persistence}
+  - {id: PIL-SVC-22, name: Evidence and Source Snapshot Ledger, responsibility: immutable_evidence_lineage}
+  - {id: PIL-SVC-23, name: Audit Ledger, responsibility: append_only_tamper_evident_audit}
+  - {id: PIL-SVC-24, name: Model Gateway, responsibility: model_policy_routing_structured_output_and_fallback}
+  - {id: PIL-SVC-25, name: Cost and Budget Ledger, responsibility: reservations_usage_and_hard_limits}
+  - {id: PIL-SVC-26, name: Rate Limit and Circuit Breaker Manager, responsibility: provider_protection_and_backpressure}
+  - {id: PIL-SVC-27, name: Observability Platform, responsibility: metrics_logs_traces_slos_and_alerts}
+  - {id: PIL-SVC-28, name: Evaluation Infrastructure, responsibility: offline_online_regression_and_red_team_evaluation}
+  - {id: PIL-SVC-29, name: Notification and Human Review Queue, responsibility: escalations_approvals_and_operator_work}
+  - {id: PIL-SVC-30, name: Feature Flag Kill Switch and Configuration, responsibility: controlled_rollout_and_emergency_stop}
+minimum_service_contract_fields:
+  - owner
+  - version
+  - tenant_boundary
+  - api_and_event_contracts
+  - idempotency_semantics
+  - retry_and_timeout_policy
+  - data_classification
+  - security_controls
+  - observability
+  - slo
+  - failure_modes
+  - disaster_recovery
+  - tests
+

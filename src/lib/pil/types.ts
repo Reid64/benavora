@@ -104,6 +104,10 @@ export type ResearchLoopPhase =
   | "escalate"
   | "stop";
 
+// "application" added by migration 167 for the APP family (BEN-APP-01/02/03)
+// -- not one of the original 8 families PROSPECT_INTELLIGENCE_AGENTS.md /
+// migration 155 defined. See BEN-APP-01.ts's header for why this family was
+// introduced rather than reusing an existing one.
 export type AgentFamily =
   | "supervisory"
   | "discovery"
@@ -112,7 +116,8 @@ export type AgentFamily =
   | "qualification"
   | "strategy"
   | "knowledge_integrity"
-  | "operations_evaluation_learning";
+  | "operations_evaluation_learning"
+  | "application";
 
 export type AutonomyLevel = "A0" | "A1" | "A2" | "A3" | "A4";
 
@@ -588,6 +593,118 @@ export interface ProspectOpportunity {
   updated_at: ISODateTime;
 }
 
+// pil_mission_affinity_assessments (migration 165) -- BEN-QLF-01's
+// per-dimension score breakdown (Cause/Population/Program/Geographic
+// Alignment, Recency, Counterevidence). Distinct from the single blended
+// pil_prospect_opportunities.mission_affinity_score column: this table keeps
+// the full "why" behind that number.
+export interface MissionAffinityAssessment {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  opportunity_id: UUID | null;
+  cause_alignment_score: number;
+  population_alignment_score: number | null;
+  program_alignment_score: number;
+  geographic_alignment_score: number;
+  recency_score: number;
+  overall_score: number;
+  counterevidence: string[];
+  unscored_dimensions: string[];
+  evidence_refs: string[];
+  confidence: number;
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
+// pil_funding_eligibility_assessments (migration 165) -- BEN-QLF-02's
+// per-dimension pass/fail breakdown (Applicant Class, Tax Status, Geography,
+// Program Restrictions, Deadline/Window, Required Prerequisites). Each
+// dimension is a nullable boolean: null means no evidence existed either way
+// (distinct from an explicit false, which means a real disqualifying fact
+// was found). `eligible` follows the same tri-state rule at the aggregate
+// level -- see BEN-QLF-02.ts's header comment for the full decision table.
+export interface FundingEligibilityAssessment {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  opportunity_id: UUID | null;
+  eligible: boolean | null;
+  applicant_class_pass: boolean | null;
+  tax_status_pass: boolean | null;
+  geography_pass: boolean | null;
+  program_restrictions_pass: boolean | null;
+  deadline_window_pass: boolean | null;
+  prerequisites_pass: boolean | null;
+  disqualifying_reasons: string[];
+  evidence_refs: string[];
+  confidence: number;
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
+// pil_capacity_propensity_assessments (migration 165) -- BEN-QLF-03's output
+// contract. Column groups are deliberately kept separate per the agent's
+// mission ("Combine capacity and behavior evidence without conflating
+// them") -- capacity_* fields are derived only from BEN-INT-08 wealth
+// evidence, propensity_*/giving_pattern_summary/vehicle_use fields only from
+// BEN-INT-07 giving-history evidence. Never average a capacity_* field with
+// a propensity_* field; cause_relevance_score/uncertainty_notes are shared
+// supporting context, not a third blended dimension.
+export interface CapacityPropensityAssessment {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  opportunity_id: UUID | null;
+  // --- Capacity dimension (wealth-derived; BEN-INT-08 evidence only) ---
+  capacity_estimate_low: number | null;
+  capacity_estimate_high: number | null;
+  capacity_confidence: number;
+  capacity_basis: unknown[];
+  // --- Propensity dimension (behavior-derived; BEN-INT-07 evidence only) ---
+  propensity_score: number;
+  propensity_confidence: number;
+  giving_pattern_summary: Record<string, unknown>;
+  vehicle_use: unknown[];
+  // --- Shared supporting context (not a third blended score) ---
+  cause_relevance_score: number;
+  uncertainty_notes: string | null;
+  evidence_refs: string[];
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
+// pil_timing_readiness_assessments (migration 165) -- BEN-QLF-05's
+// per-dimension timing/readiness breakdown (Application Window, Trigger
+// Recency, Relationship Maturity, Tenant Readiness, Document Readiness,
+// Staleness And Monitor Conditions). Distinct from the single
+// pil_prospect_opportunities.timing_status column (also written by this
+// agent): this table keeps the full "why" behind that status, mirroring
+// pil_mission_affinity_assessments/pil_funding_eligibility_assessments'
+// same detail-table-alongside-blended-column pattern.
+export interface TimingReadinessAssessment {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  opportunity_id: UUID | null;
+  timing_status: ProspectOpportunityTimingStatus;
+  application_window_open: boolean | null;
+  trigger_recency_days: number | null;
+  relationship_maturity_score: number | null;
+  tenant_readiness_score: number | null;
+  document_readiness_score: number | null;
+  monitor_conditions: string[];
+  staleness_flags: string[];
+  unscored_dimensions: string[];
+  confidence: number;
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
 // pil_prospect_digital_twins (migration 150) -- had no TS interface as of
 // PIL-02/PIL-03; added here for BEN-KNW-01.
 export interface ProspectDigitalTwin {
@@ -641,4 +758,288 @@ export interface FeatureFlag {
   reason: string | null;
   created_at: ISODateTime;
   updated_at: ISODateTime;
+}
+
+// BEN-STR-03's fixed 4-stage major-gift cultivation-cycle ladder (roster
+// gives no literal stage names -- this is a standard cultivation-cycle
+// convention, documented alongside the constant's real use in
+// src/lib/pil/agents/str/BEN-STR-03.ts).
+export type CultivationStage =
+  | "identify_shared_ground"
+  | "warm_introduction_or_first_touch"
+  | "deepen_engagement"
+  | "readiness_reassessment";
+
+export type CultivationPlanStatus = "active" | "completed" | "abandoned" | "superseded";
+
+export interface CultivationMilestone {
+  stage: CultivationStage;
+  description: string;
+  suggestedTimingDays: number;
+  completed: boolean;
+  action: string;
+}
+
+export interface CultivationReassessmentGate {
+  stage: CultivationStage;
+  reassessmentRequired: boolean;
+}
+
+// pil_cultivation_plans (migration 166) -- BEN-STR-03's structured
+// multi-step plan output. At most one 'active' row per (organization_id,
+// prospect_id); find-then-write via findActivePlan()/upsertPlan() in
+// BEN-STR-03.ts, mirroring graph.ts's upsertNode/upsertEdge pattern since
+// this table has no natural ON CONFLICT target either.
+export interface CultivationPlan {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  opportunity_id: UUID;
+  stages: CultivationStage[];
+  milestones: CultivationMilestone[];
+  content_evidence_needs: string[];
+  reassessment_gates: CultivationReassessmentGate[];
+  next_reassessment_at: ISODateTime | null;
+  created_by_agent_id: string | null;
+  status: CultivationPlanStatus;
+  created_at: ISODateTime;
+  updated_at: ISODateTime;
+}
+
+// pil_application_profiles (migration 167) -- BEN-APP-01's output contract.
+// request_profiles (migration 051, src/types/database.ts) predates PIL and
+// lives outside the pil_* namespace; RequestProfile below is a narrow
+// hand-mirrored read shape of just the columns BEN-APP-01 needs, not the full
+// generated Database["public"]["Tables"]["request_profiles"] type, matching
+// this file's own convention of hand-maintained mirrors rather than pulling
+// in the generated schema type.
+export type RequestType =
+  | "monetary"
+  | "land"
+  | "in_kind"
+  | "volunteer"
+  | "service"
+  | "partnership"
+  | "sponsorship"
+  | "facility";
+
+export type ApplicationRecommendationStatus = "submit" | "monitor" | "research_more" | "manual_review";
+
+// request_profiles.request_type/target_funder_categories/target_funder_types
+// are plain `text`/`text[]` with no CHECK constraint (migration 051) -- this
+// is the read-only shape BEN-APP-01 queries, not the full Insert/Update
+// surface administrators use to author profiles.
+export interface RequestProfile {
+  id: UUID;
+  organization_id: UUID;
+  name: string;
+  request_type: string;
+  priority: number;
+  active: boolean;
+  needs_description: string;
+  specific_requirements: Record<string, unknown>;
+  target_funder_categories: string[] | null;
+  target_funder_types: string[] | null;
+  pitch_template: string | null;
+  form_field_overrides: Record<string, unknown>;
+  success_criteria: string | null;
+  min_value: number | null;
+  max_value: number | null;
+  value_unit: string;
+  geographic_requirements: Record<string, unknown> | null;
+  created_at: ISODateTime;
+  updated_at: ISODateTime;
+}
+
+export interface ApplicationProfileRiskFactor {
+  factor: string;
+  mitigation: string;
+}
+
+export interface ApplicationProfilePitchParameters {
+  emphasis: string[];
+  avoid: string[];
+  tone: string;
+}
+
+export interface ApplicationProfileRelationshipStrategy {
+  sequence: number;
+  timing: string;
+  first_contact: string;
+  escalation_path: string[];
+}
+
+// pil_application_profiles (migration 167) -- BEN-APP-01's (Application
+// Profile Orchestrator) output. One row per (prospect, matched
+// request_profile) per run, not one blended row per prospect -- the "Multi-
+// profile queuing" requirement (BEN-APP-01.ts's header) needs every matched
+// profile's own ranked score preserved, not collapsed into a single row the
+// way pil_mission_affinity_assessments/pil_capacity_propensity_assessments/
+// pil_timing_readiness_assessments each hold one row per scoring run for a
+// single dimension. Append-only like those sibling tables (no UPDATE/DELETE
+// policy) -- superseding recommendations are found via
+// (organization_id, prospect_id, computed_at DESC), and every row from the
+// same execute() call shares one explicit computed_at value so callers can
+// group "this run's full ranked set" by exact timestamp equality.
+export interface ApplicationProfile {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  opportunity_id: UUID | null;
+  request_type: RequestType;
+  request_profile_id: UUID | null;
+  success_probability: number;
+  recommendation_status: ApplicationRecommendationStatus;
+  strategic_reasoning: string;
+  field_mappings: Record<string, string>;
+  pitch_parameters: ApplicationProfilePitchParameters;
+  risk_factors: ApplicationProfileRiskFactor[];
+  relationship_strategy: ApplicationProfileRelationshipStrategy;
+  evidence_refs: string[];
+  confidence: number;
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
+// pil_priority_scores (migration 168) -- BEN-APP-02's output contract. See
+// BEN-APP-02.ts's header for why this is a dedicated table (mirroring
+// pil_application_profiles' own migration-167 precedent) rather than the
+// task spec's literal pil_prospect_dossiers.priority_score/priority_
+// percentile/priority_recommendation columns.
+export type PriorityPercentile = "top_10" | "top_25" | "top_50" | "bottom_50";
+
+export type PriorityRecommendation = "submit_now" | "submit_next_quarter" | "monitor" | "research_more";
+
+export interface PriorityScoreBreakdown {
+  success_probability: number;
+  capacity_contribution: number;
+  readiness_score: number;
+  effort_efficiency: number;
+  strategic_bonus_multiplier: number;
+}
+
+export interface PriorityScore {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  application_profile_id: UUID | null;
+  priority_score: number;
+  priority_percentile: PriorityPercentile;
+  priority_recommendation: PriorityRecommendation;
+  score_breakdown: PriorityScoreBreakdown;
+  reasoning: string;
+  next_step: string;
+  evidence_refs: string[];
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
+// pil_submission_queue (migration 169) -- BEN-APP-03's output contract. See
+// that migration's own header for why this dedicated table exists alongside
+// (not instead of) the legacy submission_queue table (migration 045) BEN-APP-03
+// also writes portal-eligible rows into.
+export type SubmissionQueueStatus =
+  | "submit_now"
+  | "submit_next_30_days"
+  | "submit_q2"
+  | "needs_more_research"
+  | "blocked";
+
+export type SubmissionMethod =
+  | "portal_autoapply"
+  | "email_draft"
+  | "direct_outreach_task"
+  | "manual_research_required"
+  | "not_applicable";
+
+export interface SubmissionDirectContact {
+  method: "email" | "phone" | "mail" | "none";
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
+export interface SubmissionQueueItem {
+  id: UUID;
+  organization_id: UUID;
+  prospect_id: UUID;
+  application_profile_id: UUID | null;
+  priority_score_id: UUID | null;
+  funder_id: UUID | null;
+  request_profile_id: UUID | null;
+  dossier_id: UUID | null;
+  form_template_id: UUID | null;
+  legacy_submission_queue_id: UUID | null;
+  can_submit: boolean;
+  should_submit: boolean;
+  blockers: string[];
+  status: SubmissionQueueStatus;
+  submission_method: SubmissionMethod;
+  direct_submission: SubmissionDirectContact;
+  suggested_ask_amount: number | null;
+  personalized_pitch: string | null;
+  priority: number;
+  scheduled_submission_date: ISODate | null;
+  assigned_to: string;
+  submission_strategy: string;
+  evidence_refs: string[];
+  computed_by_agent_id: string;
+  computed_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
+// Narrow hand-mirrored read shapes for legacy (pre-PIL) tables BEN-APP-03
+// reads -- same convention RequestProfile above established: only the
+// columns this agent actually needs, not the full generated Database type.
+export interface FunderRecord {
+  id: UUID;
+  organization_id: UUID;
+  name: string;
+  category: string;
+  website: string | null;
+  giving_portal_url: string | null;
+  portal_login_status: string | null;
+  preferred_application_method: string | null;
+}
+
+export interface ContactRecord {
+  id: UUID;
+  organization_id: UUID;
+  funder_id: UUID;
+  name: string;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  preferred_contact_method: string | null;
+  relationship: string | null;
+}
+
+export interface FormTemplateRecord {
+  id: UUID;
+  organization_id: UUID;
+  funder_id: UUID | null;
+  portal_url: string;
+  last_verified_at: ISODateTime | null;
+  last_used_at: ISODateTime | null;
+}
+
+export interface LegacySubmissionQueueRow {
+  id: UUID;
+  organization_id: UUID;
+  funder_id: UUID | null;
+  priority: number;
+  status: string;
+  automation_mode: string;
+  scheduled_for: ISODateTime | null;
+  created_at: ISODateTime;
+}
+
+export interface StaffProfileRecord {
+  id: UUID;
+  organization_id: UUID;
+  email: string;
+  full_name: string | null;
+  role: "owner" | "admin" | "writer" | "viewer";
 }

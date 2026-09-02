@@ -25,6 +25,7 @@ import {
 } from "@/lib/intelligence/knowledge-engine";
 import { NeedStatementEngine } from "@/lib/intelligence/need-statement-engine";
 import type { NeedDataPoint } from "@/lib/intelligence/sources/types";
+import { draftCreated } from "@/lib/observability/metrics";
 import {
   generateLogicModel,
   formatLogicModelAsText,
@@ -1029,6 +1030,8 @@ export async function generateDraft(
       }
     }
   }
+
+  draftCreated.labels(templateType).inc();
 
   return {
     content: draftText,

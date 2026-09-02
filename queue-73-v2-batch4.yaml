@@ -1,0 +1,147 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL_V2.md
+  - DESIGN_SYSTEM_V2_ASSIGNMENT.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: cleanup-stray-processes-004
+    phase: build
+    description: "Kill any stray node processes before this batch"
+    prompt: |
+      Check for and terminate any node.exe processes not part of this current session before proceeding.
+    expected_outputs: []
+    gates: [{type: compile}]
+    max_retries: 2
+    on_fail: continue
+
+  - id: page-command-center-002
+    phase: build
+    description: "/command-center - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /command-center. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Preserve the real live-updating stat panels and their distinct per-panel colored borders. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/command-center/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-orgs-002
+    phase: build
+    description: "/admin/orgs - Navy frame, Gold accent - Impersonate stays distinct"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/orgs. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. CRITICAL safety rule from the protocol: "Impersonate" buttons must stay visually distinct from the general section treatment - real risk of accidental clicks on a sensitive admin action if blended in. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/orgs/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-system-002
+    phase: build
+    description: "/admin/system - Navy frame, Gold accent - Clear Stuck Jobs stays distinct"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/system. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. CRITICAL: "Clear Stuck Jobs" must stay visually distinct per the protocol's safety-sensitive-element rule. Preserve real Healthy/Stale status indicators. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/system/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-import-002
+    phase: build
+    description: "/import - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /import. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/import/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-sales-outreach-002
+    phase: build
+    description: "/admin/sales-outreach - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/sales-outreach. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/sales-outreach/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-autoapply-ops-002
+    phase: build
+    description: "/admin/autoapply-ops - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/autoapply-ops. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Preserve real worker/queue status indicators. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/autoapply-ops/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-monitor-002
+    phase: build
+    description: "/admin/monitor - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/monitor. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Preserve real Active/Completed/Failed status colors. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/monitor/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-improvements-002
+    phase: build
+    description: "/admin/improvements - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/improvements. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/improvements/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-admin-audit-log-002
+    phase: build
+    description: "/admin/audit-log - Navy frame, Gold accent"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /admin/audit-log. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. Preserve real action-type badge distinctions. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/admin/audit-log/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-settings-002
+    phase: build
+    description: "/settings - Navy frame, Gold accent - Danger Zone stays distinct"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL_V2.md in full, apply to /settings. Section: Admin/Platform. Frame: #101B2D. Accent: #B88A2E. CRITICAL: "Danger Zone" must stay visually distinct per the protocol's safety-sensitive-element rule - do not repaint it into the general section treatment. Full verification standard required.
+    expected_outputs: [src/app/(dashboard)/settings/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch4v2-verify-sync-001
+    phase: build
+    description: "Final regression, governance sync, and full-rollout completion sign-off - the last batch"
+    prompt: |
+      1. Real Playwright pass across all 10 pages in this batch, confirm navy/gold treatment, confirm Impersonate/Clear Stuck Jobs/Danger Zone all remain visually distinct from the general section color, not blended in.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. This is the final batch of the full 52-page v2 rollout across queues 70-73. Read FEATURE_REGISTRY_v2.md and DESIGN_SYSTEM_V2_ASSIGNMENT.md in full and confirm every page from all 4 batches is genuinely documented complete - flag explicitly if anything from an earlier batch was missed or inconsistent, do not let it slide silently.
+      4. Update FEATURE_REGISTRY_v2.md and DESIGN_SYSTEM_V2_ASSIGNMENT.md with the final, complete record.
+      5. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a full, honest summary of the entire v2 rollout: total pages treated, any real issues found and fixed along the way, explicit language on whether this is genuinely complete.
+      6. Scoped git add, commit "feat: v2 navy/gold design system applied to all Admin/Platform pages, completing the full 52-page gold/bronze/navy/stone rollout across all 4 batches", push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

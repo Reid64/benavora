@@ -1,0 +1,106 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: landbank-001
+  name: Governance sync and land bank opportunity source integration
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/lib/sources/land-bank-client.ts in FULL if it exists. If missing note it.
+    Read src/lib/agents/opportunity-discovery-agent.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for opportunities table in FULL.
+
+    CREATE or UPGRADE src/lib/sources/land-bank-client.ts with full enterprise implementation:
+
+    Land banks are governmental and quasi-governmental authorities that acquire, manage, and repurpose tax-delinquent and vacant properties. They are CRITICAL funding and partnership sources for housing nonprofits. This client discovers land bank grant programs, RFPs, and partnership opportunities.
+
+    NATIONAL LAND BANK DIRECTORY (hardcoded, authoritative):
+    ```typescript
+    const LAND_BANK_DIRECTORY: LandBankAuthority[] = [
+      // California
+      { name: 'California Community Land Trust Network', state: 'CA', website: 'https://www.cacltnetwork.org', grantUrl: 'https://www.cacltnetwork.org/resources', contact: 'info@cacltnetwork.org', ntee: 'L' },
+      { name: 'Oakland Community Land Trust', state: 'CA', city: 'Oakland', website: 'https://oakclt.org', grantUrl: 'https://oakclt.org/grants', contact: 'info@oakclt.org', ntee: 'L' },
+      { name: 'San Francisco Community Land Trust', state: 'CA', city: 'San Francisco', website: 'https://sfclt.org', grantUrl: 'https://sfclt.org/apply', ntee: 'L' },
+      { name: 'California Housing Finance Agency', state: 'CA', website: 'https://www.calhfa.ca.gov', grantUrl: 'https://www.calhfa.ca.gov/homeownership/programs', ntee: 'L' },
+      // Texas
+      { name: 'Texas Foundations Fund', state: 'TX', website: 'https://www.tdhca.state.tx.us', grantUrl: 'https://www.tdhca.state.tx.us/community-affairs/index.htm', ntee: 'L' },
+      { name: 'Dallas Housing Acquisition and Development Corporation', state: 'TX', city: 'Dallas', website: 'https://dallashousingpolicy.com', ntee: 'L' },
+      // New York
+      { name: 'New York Land Bank Association', state: 'NY', website: 'https://www.nylandbank.org', grantUrl: 'https://www.nylandbank.org/resources', ntee: 'L' },
+      { name: 'Center for Community Progress', state: 'national', website: 'https://communityprogress.org', grantUrl: 'https://communityprogress.org/resources/grants', ntee: 'L' },
+      // Florida
+      { name: 'Florida Housing Finance Corporation', state: 'FL', website: 'https://www.floridahousing.org', grantUrl: 'https://www.floridahousing.org/programs', ntee: 'L' },
+      // Illinois
+      { name: 'Cook County Land Bank Authority', state: 'IL', city: 'Chicago', website: 'https://www.cookcountylandbank.com', ntee: 'L' },
+      // Michigan
+      { name: 'Michigan Land Bank Fast Track Authority', state: 'MI', website: 'https://www.michigan.gov/mshda', ntee: 'L' },
+      // Ohio
+      { name: 'Cuyahoga Land Bank', state: 'OH', city: 'Cleveland', website: 'https://cuyahogalandbank.org', ntee: 'L' },
+      // Pennsylvania
+      { name: 'Philadelphia Land Bank', state: 'PA', city: 'Philadelphia', website: 'https://phllandbank.org', ntee: 'L' },
+      // National
+      { name: 'HUD Community Development Block Grant Program', state: 'national', website: 'https://www.hud.gov/program_offices/comm_planning/cdbg', grantUrl: 'https://grants.gov/search-results-detail/333132', ntee: 'L' },
+      { name: 'HUD HOME Investment Partnerships Program', state: 'national', website: 'https://www.hud.gov/program_offices/comm_planning/home', ntee: 'L' },
+      { name: 'USDA Rural Housing Service', state: 'national', website: 'https://www.rd.usda.gov/programs-services/housing-programs', ntee: 'L' },
+      { name: 'NeighborWorks America', state: 'national', website: 'https://www.neighborworks.org', grantUrl: 'https://www.neighborworks.org/grants', ntee: 'L' },
+      { name: 'Local Initiatives Support Corporation', state: 'national', website: 'https://www.lisc.org', grantUrl: 'https://www.lisc.org/our-resources/grant', ntee: 'L' },
+      { name: 'Enterprise Community Partners', state: 'national', website: 'https://www.enterprisecommunity.org', grantUrl: 'https://www.enterprisecommunity.org/financing-and-development/grants', ntee: 'L' },
+      { name: 'Federal Home Loan Bank Affordable Housing Program', state: 'national', website: 'https://www.fhlbanks.com', ntee: 'L' },
+    ]
+    ```
+
+    discoverLandBankOpportunities(serviceArea, supabase):
+    1. Filter directory by state match OR national entries
+    2. For each matching authority: create an opportunity record if not already in DB
+    3. Query SAM.gov for CFDA 14.* (HUD) programs: GET https://api.sam.gov/opportunities/v2/search?api_key=SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a&q=affordable+housing+land+bank+community+development&postedFrom=[60 days ago]&limit=20
+    4. Parse SAM.gov results and add as opportunities with source='sam_gov_land_bank'
+    5. Insert all into opportunities table: source='land_bank', funder_type='government', ntee_focus='L'
+    6. Return array of created opportunities
+
+    Also create a DEDICATED search function: searchLandBankRFPs(keywords: string[], state: string) that uses Claude web_search to find active RFPs from land bank authorities in real time.
+
+    Update opportunity-discovery-agent.ts:
+    In the decision phase where agent chooses strategy: if org NTEE starts with 'L' (housing) OR org programs include 'housing' keyword, ALWAYS include land bank discovery as one of the sources regardless of other strategy choices.
+    Call discoverLandBankOpportunities() and merge results into main opportunity set.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: land bank opportunity source -- 20 authorities, SAM.gov HUD query, housing agent integration'; git push.
+
+- id: landbank-002
+  name: Land bank UI filter and opportunities page enhancement
+  prompt: |
+    Read src/app/(dashboard)/opportunities/page.tsx in FULL.
+    Read src/lib/sources/land-bank-client.ts in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    Upgrade the opportunities page to surface land bank opportunities prominently for housing orgs:
+
+    1. Add "Land Bank" as a source filter option alongside Federal/Foundation/Corporate/State.
+       Land Bank badge color: #0F766E (teal-700) bg #F0FDFA.
+
+    2. Add a "Land Bank Spotlight" section at the top of the page (only visible if org NTEE is L or org has housing programs):
+       White card, border-radius 14px, padding 20px, left accent bar 4px solid #0F766E.
+       Header: "Land Bank & Affordable Housing Funding" with a house icon.
+       Subtext: "Specialized opportunities from land bank authorities, HUD programs, and community development funders."
+       Shows top 3 land bank opportunities sorted by deadline.
+       "Discover More Land Bank Opportunities" button that triggers POST /api/agents/trigger with agentId='ag-02-opportunity-discovery' and hint='land_bank'.
+
+    3. Add "Run Land Bank Discovery" button to the page header (housing orgs only):
+       Background #0F766E, white text, calls POST /api/agents/trigger.
+
+    4. Create src/app/api/intelligence/land-banks/route.ts:
+       GET: returns all opportunities WHERE source LIKE '%land_bank%' OR funder_type='government' AND title ILIKE '%housing%'
+       POST: triggers land bank discovery for authenticated org
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: land bank UI -- opportunities filter, housing spotlight panel, discovery trigger'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

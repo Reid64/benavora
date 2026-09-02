@@ -1,0 +1,213 @@
+project: benavora
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+prompts:
+
+- id: t6-002
+  name: SAM.gov polling client
+  prompt: "Read src/lib/sources/grantsgov-client.ts in full. Create src/lib/sources/samgov-client.ts matching the same pattern: fetch https://api.sam.gov/opportunities/v2/search?api_key=SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a&ptype=o&limit=100. Parse response.opportunitiesData[]. Map title->name, description->description, responseDeadLine->deadline, awardAmount->amount, category='Government Federal', source='sam_gov', noticeId->external_id. Create src/app/api/sources/samgov/route.ts: GET endpoint accepts orgId param, calls SAM client, deduplicates by external_id, upserts to opportunities table via supabase service role client. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: SAM.gov polling client'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/samgov-client.ts
+    - src/app/api/sources/samgov/route.ts
+
+- id: t6-003
+  name: ProPublica 990 enrichment client
+  prompt: "Create src/lib/sources/propublica-990-client.ts: fetch https://projects.propublica.org/nonprofits/api/v2/organizations/{ein}.json. Extract totrevenue and totassetsend from filings[0]. Create src/app/api/sources/propublica/route.ts: GET with ?ein= param, fetches org detail, upserts asset_amount and revenue to foundation_directory where ein matches, uses supabase service role. Create scripts/enrich-propublica-batch.ts: reads foundation_directory rows where asset_amount IS NULL limit 1000, queries ProPublica by EIN with 300ms delay between calls, upserts results. Add to package.json scripts: 'enrich:propublica-batch': 'tsx scripts/enrich-propublica-batch.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: ProPublica 990 client'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/propublica-990-client.ts
+    - src/app/api/sources/propublica/route.ts
+
+- id: t6-005
+  name: CSV import wizard
+  prompt: "Create src/app/(dashboard)/import/page.tsx: 3-step CSV import. Step 1: file input accept='.csv', parse first 5 rows with FileReader, show preview table. Step 2: map CSV columns to fields name/email/website/category/phone/state/notes via dropdowns. Step 3: POST mapped data to /api/import/csv, show import count. Create src/app/api/import/csv/route.ts: accepts JSON array, validates required field 'name', upserts to funders table via supabase service role, returns {imported, failed}. Add Import link to sidebar nav under Platform section. Style with bg-white rounded-xl shadow-sm border border-slate-200. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: CSV import wizard'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/import/page.tsx
+    - src/app/api/import/csv/route.ts
+
+- id: t6-006
+  name: AutoApply autonomous modes
+  prompt: "Create src/app/api/autoapply/mode/route.ts: GET returns org_settings.autoapply_mode (default 'manual') for orgId from auth, POST updates it to manual/semi_auto/autonomous using supabase service role. Find the most relevant existing AutoApply page and add a mode selector: three buttons Manual/Semi-Auto/Autonomous. Semi-Auto shows amber warning. Autonomous shows red warning text and a confirmation alert before enabling. Only show Autonomous option if user role is owner. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: AutoApply autonomous modes'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/autoapply/mode/route.ts
+
+- id: t6-008
+  name: Foundation profile builder
+  prompt: "Create src/supabase/migrations/075_foundation_profiles.sql: CREATE TABLE IF NOT EXISTS foundation_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), foundation_id uuid REFERENCES foundation_directory(id) ON DELETE CASCADE, avg_grant_size numeric, geographic_focus text, funding_categories text[], computed_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_foundation_profiles_foundation_id ON foundation_profiles(foundation_id). Create src/lib/intelligence/foundation-profiler.ts: exports async function computeFoundationProfile(foundationId, supabase) that reads foundation_directory enrichment jsonb, computes avg_grant_size from grant data if available, returns profile object. Create src/app/api/foundations/[id]/profile/route.ts: GET calls computeFoundationProfile, upserts result to foundation_profiles, returns it. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: foundation profiler'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/foundation-profiler.ts
+    - src/app/api/foundations/[id]/profile/route.ts
+
+- id: t6-009
+  name: Success probability scoring
+  prompt: "Create src/lib/intelligence/success-probability.ts: exports async function computeSuccessProbability(orgId, opportunityId, supabase): Promise<{score:number, confidence:string, factors:object[]}>. Fetch opportunity eligibility_score weight 30pct. Fetch org outcomes success rate for same category weight 25pct. Check deadline is 30+ days out weight 20pct. Count KB narratives weight 25pct. Return weighted average 0-100 as score, confidence 'high'/'medium'/'low', factors array. Create src/app/api/opportunities/[id]/probability/route.ts: GET with ?orgId= param calls computeSuccessProbability returns result. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: success probability'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/success-probability.ts
+    - src/app/api/opportunities/[id]/probability/route.ts
+
+- id: t6-010
+  name: Competitor intelligence
+  prompt: "Create src/lib/intelligence/competitor-intel.ts: exports async function getCompetitorIntel(foundationId, supabase). Reads foundation_directory where id=foundationId, checks enrichment jsonb for any grant recipient data. If no recipient data returns empty array. If recipient data exists groups by recipient name and sums amounts. Returns top 10 as array of {name, total_received, years_funded}. Create src/app/api/foundations/[id]/competitors/route.ts: GET calls getCompetitorIntel returns result. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: competitor intel'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/competitor-intel.ts
+    - src/app/api/foundations/[id]/competitors/route.ts
+
+- id: t6-011
+  name: Semantic funder matching
+  prompt: "Create src/lib/intelligence/semantic-matcher.ts: exports async function matchFunders(orgMission, orgId, supabase, filters?). Queries foundation_directory limit 500. For each record scores keyword overlap: split mission and foundation name into words, compute intersection divided by union. Returns top 50 sorted by score as {id, name, ein, asset_amount, state, score}. Create src/app/api/match/foundations/route.ts: POST accepts {orgId, mission, minGrant, maxGrant, state} calls matchFunders returns results. Create src/app/(dashboard)/research/match/page.tsx: textarea for mission, grant range inputs, submit button calls API, results list with score badge. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: semantic funder matching'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/semantic-matcher.ts
+    - src/app/(dashboard)/research/match/page.tsx
+    - src/app/api/match/foundations/route.ts
+
+- id: t6-012
+  name: Outreach templates
+  prompt: "Create src/supabase/migrations/076_outreach_templates.sql: CREATE TABLE IF NOT EXISTS outreach_templates (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, name text NOT NULL, channel text NOT NULL CHECK (channel IN ('email','linkedin','phone_script','physical_mail')), subject text, body text NOT NULL, created_at timestamptz DEFAULT now()). Create src/app/api/outreach/templates/route.ts: GET returns templates for org from auth, POST creates template. Create src/app/(dashboard)/outreach/page.tsx: tabs for each channel, template cards, New Template modal with name/channel/subject/body fields. Add Outreach link in sidebar nav. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: outreach templates'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/outreach/page.tsx
+    - src/app/api/outreach/templates/route.ts
+
+- id: t6-013
+  name: Follow-up sequences
+  prompt: "Create src/supabase/migrations/077_followup_sequences.sql: CREATE TABLE IF NOT EXISTS followup_sequences (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, name text NOT NULL, trigger_stage text NOT NULL, steps jsonb NOT NULL DEFAULT '[]'::jsonb, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS followup_enrollments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), application_id uuid NOT NULL, sequence_id uuid NOT NULL, enrolled_at timestamptz DEFAULT now(), current_step int DEFAULT 0, status text DEFAULT 'active'). Create src/app/api/outreach/sequences/route.ts: GET/POST for sequences CRUD. Create src/app/(dashboard)/outreach/sequences/page.tsx: list sequences, New Sequence form with name/trigger/steps. Create src/worker/jobs/process-followups.ts: export async function processFollowups() stub that logs 'processing followups'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: follow-up sequences'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/outreach/sequences/page.tsx
+    - src/worker/jobs/process-followups.ts
+
+- id: t6-014
+  name: Grant financial reconciliation
+  prompt: "Create src/supabase/migrations/078_grant_financials.sql: CREATE TABLE IF NOT EXISTS grant_budgets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, application_id uuid, total_budget numeric DEFAULT 0, personnel numeric DEFAULT 0, supplies numeric DEFAULT 0, equipment numeric DEFAULT 0, other numeric DEFAULT 0, period_start date, period_end date, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS grant_expenses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, budget_id uuid REFERENCES grant_budgets(id), category text, description text, amount numeric NOT NULL, expense_date date, created_at timestamptz DEFAULT now()). Create src/app/api/financials/budgets/route.ts: GET/POST. Create src/app/api/financials/expenses/route.ts: GET/POST. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: grant financials'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/financials/budgets/route.ts
+    - src/app/api/financials/expenses/route.ts
+
+- id: t6-015
+  name: Compliance calendar
+  prompt: "Create src/supabase/migrations/079_compliance.sql: CREATE TABLE IF NOT EXISTS compliance_requirements (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, application_id uuid, requirement_type text NOT NULL, title text NOT NULL, due_date date NOT NULL, status text DEFAULT 'upcoming' CHECK (status IN ('upcoming','due_soon','overdue','submitted')), notes text, submitted_at timestamptz, created_at timestamptz DEFAULT now()). Create src/app/api/compliance/route.ts: GET returns requirements sorted by due_date, POST creates, PATCH updates status. Create src/app/(dashboard)/compliance/page.tsx: list with red/amber/green urgency coloring, Mark Submitted button, Add Requirement modal. Add Compliance to sidebar. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: compliance calendar'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/compliance/page.tsx
+    - src/app/api/compliance/route.ts
+
+- id: t6-016
+  name: Deadline prediction
+  prompt: "Create src/lib/intelligence/deadline-predictor.ts: exports async function predictDeadlines(funderId, supabase). Queries opportunities where funder_id=funderId and deadline IS NOT NULL. Groups past deadlines by month number. If any month appears 2+ times returns prediction {predicted_month: number, month_name: string, confidence: 'high'|'medium', basis: string, days_until_next: number}. Returns array of predictions. Create src/app/api/intelligence/deadline-predictions/route.ts: GET with ?funderId= calls predictDeadlines returns results. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: deadline prediction'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/deadline-predictor.ts
+    - src/app/api/intelligence/deadline-predictions/route.ts
+
+- id: t6-017
+  name: Application cloning
+  prompt: "Create src/app/api/applications/[id]/clone/route.ts: POST accepts {targetOpportunityId}. Read source application by id param. Read latest draft_version for source application. Create new application record with targetOpportunityId, org_id from source, status='discovery'. Call Claude claude-sonnet-4-6 with the source draft body and instruction to adapt it for the new opportunity name. Create new draft_version on cloned application with adapted body and label='Adapted from [source name]'. Return {newApplicationId}. Add Clone button to src/app/(dashboard)/applications/page.tsx opening a simple modal to select target opportunity then POST to clone endpoint. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: application cloning'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/applications/[id]/clone/route.ts
+
+- id: t6-018
+  name: Funder relationship scoring
+  prompt: "Create src/supabase/migrations/081_relationship_scores.sql: CREATE TABLE IF NOT EXISTS funder_relationship_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, funder_id uuid NOT NULL, event_type text NOT NULL, event_date timestamptz DEFAULT now(), notes text); CREATE TABLE IF NOT EXISTS funder_relationship_scores (funder_id uuid NOT NULL, org_id uuid NOT NULL, score numeric DEFAULT 0, momentum text DEFAULT 'stable', computed_at timestamptz DEFAULT now(), PRIMARY KEY (funder_id, org_id)). Create src/lib/intelligence/relationship-scorer.ts: exports computeRelationshipScore(funderId, orgId, supabase) counts events with weights award=30 application=10 response=20 outreach=5 returns {score, momentum}. Create src/app/api/funders/[id]/relationship/route.ts: GET computes returns score. Create src/app/api/funders/relationship-scores/route.ts: GET returns scores for all org funders. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: relationship scoring'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/relationship-scorer.ts
+    - src/app/api/funders/[id]/relationship/route.ts
+    - src/app/api/funders/relationship-scores/route.ts
+
+- id: t6-019
+  name: White-label consultant portal
+  prompt: "Create src/supabase/migrations/082_white_label.sql: CREATE TABLE IF NOT EXISTS consultant_client_access (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), consultant_org_id uuid NOT NULL, client_org_id uuid NOT NULL, access_level text DEFAULT 'read', granted_at timestamptz DEFAULT now(), active boolean DEFAULT true). Create src/app/api/consultant/clients/route.ts: GET returns client orgs for consultant using supabase service role. Create src/app/(dashboard)/settings/white-label/page.tsx: shows client list table with access level, Add Client button with email input. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: consultant white-label portal'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/white-label/page.tsx
+    - src/app/api/consultant/clients/route.ts
+
+- id: t6-020
+  name: Automation monitor
+  prompt: "Read SCHEMA_REGISTRY.md to find the exact autoapply sessions table name and columns. Create src/app/api/admin/monitor/route.ts: GET returns {active_count, completed_today, failed_today, recent_failures: last 10 failed sessions with id funder_name error_message created_at} from the autoapply sessions table using supabase service role. Create src/app/api/admin/jobs/[id]/retry/route.ts: POST resets session status to queued. Create src/app/(dashboard)/admin/monitor/page.tsx: 4 stat cards, failures list with retry button, auto-refresh every 10s with setInterval. Add Monitor link in sidebar under Platform for owner/admin roles. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: automation monitor'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/admin/monitor/page.tsx
+    - src/app/api/admin/monitor/route.ts
+
+- id: t6-021
+  name: Notification preferences
+  prompt: "Create src/supabase/migrations/083_notifications.sql: CREATE TABLE IF NOT EXISTS notification_preferences (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, org_id uuid NOT NULL, event_type text NOT NULL, in_app boolean DEFAULT true, email boolean DEFAULT false, UNIQUE(user_id, org_id, event_type)). Create src/lib/notifications/notify.ts: export async function notify(eventType, orgId, userId, data, supabase) that inserts to alerts table if in_app=true and calls Resend if email=true. Create src/app/api/settings/notifications/route.ts: GET/POST for preferences. Create src/app/(dashboard)/settings/notifications/page.tsx: event types list with in-app and email toggles, save button. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: notification preferences'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/notifications/page.tsx
+    - src/lib/notifications/notify.ts
+
+- id: t6-022
+  name: State portal scraping framework
+  prompt: "Create src/lib/sources/state-portals/portal-config.ts: export interface PortalConfig {state: string; portalName: string; searchUrl: string; titleSelector: string; deadlineSelector: string;}. Export const STATE_PORTAL_CONFIGS: PortalConfig[] with entries for TX Florida Illinois California NewYork using real grant portal search URLs from memory or reasonable defaults. Create src/lib/sources/state-portals/portal-scraper.ts: export async function scrapePortal(config: PortalConfig): Promise<Array<{title:string, deadline:string|null, sourceUrl:string, state:string}>>. Uses fetch to GET config.searchUrl, extracts text matching titleSelector pattern with basic string search. Returns empty array on any error. Create src/app/api/sources/state-portals/route.ts: GET with ?state= finds config calls scrapePortal returns results. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: state portal scraper'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/state-portals/portal-config.ts
+    - src/lib/sources/state-portals/portal-scraper.ts
+
+- id: t6-023
+  name: Board report generator
+  prompt: "Create src/lib/reports/board-report-generator.ts: export async function generateBoardReport(orgId, dateFrom, dateTo, supabase): Promise<object>. Queries: COUNT opportunities created between dates, COUNT applications submitted, SUM awarded amounts, top 5 funders by application count, upcoming deadlines next 90 days. Returns structured object with all these fields. Create src/app/api/reports/board-report/route.ts: GET with ?orgId&dateFrom&dateTo calls generateBoardReport returns JSON. Update src/app/(dashboard)/reports/page.tsx: add Board Report section with date pickers and Generate button, displays result as formatted summary. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: board report generator'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/reports/board-report-generator.ts
+    - src/app/api/reports/board-report/route.ts
+
+- id: t6-025
+  name: Relationship scores on funder surfaces and final deploy
+  prompt: "Read src/app/(dashboard)/funders/page.tsx in full. Add relationship score display: fetch /api/funders/relationship-scores on page load, add Score column to table showing colored badge green 70+ amber 40-70 red below 40 gray for no score. Do not restructure existing component. Then run pnpm tsc --noEmit fix all errors. Run pnpm run build fix all errors. Then git add -A; git commit -m 'feat: relationship scores on funder surfaces - Tier 6 complete'; git push; vercel --prod --yes. Update STATE_OF_THE_BUILD.md listing all Tier 6 features now built."
+  gates:
+  - type: compile

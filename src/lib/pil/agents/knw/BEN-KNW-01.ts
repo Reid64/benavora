@@ -3,6 +3,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getNodesByProspect, getEdges } from "@/lib/pil/graph";
 import { logAction } from "@/lib/pil/audit";
+import { nameSimilarity } from "@/lib/pil/agents/knw/BEN-KNW-02";
 import type { EvidenceContradiction, EvidenceItem, GraphNode, ProspectDigitalTwin, ProspectOpportunity } from "@/lib/pil/types";
 
 // BEN-KNW-01 -- Prospect Digital Twin Agent
@@ -42,8 +43,32 @@ import type { EvidenceContradiction, EvidenceItem, GraphNode, ProspectDigitalTwi
 // respectively -- this agent passes through whatever the prior twin row
 // already had for those two fields rather than fabricating content outside
 // its own mission.
+//
+// Fuller dependency wiring (PIL_AGENT_DEPENDENCIES.yaml lists BEN-KNW-02,
+// BEN-KNW-03, BEN-KNW-04, BEN-SUP-05 as this agent's depends_on): beyond the
+// existing BEN-KNW-04 conflict hand-off above, this agent now also
+// delegates (1) to BEN-KNW-02 (Entity Resolution) when it is building a
+// prospect's very first twin (existingTwin is null) and a lightweight
+// same-org/same-entity_type fuzzy-name scan (reusing BEN-KNW-02's own
+// exported nameSimilarity(), threshold 0.5) turns up a possible duplicate --
+// this agent only triggers the check, BEN-KNW-02 does the authoritative
+// resolution; (2) to BEN-KNW-03 (Evidence & Provenance Verification)
+// whenever this run's evidence feeding one of the conflict-checked fields
+// includes an unverified/single-source item, as a forward advisory so the
+// *next* run trusts that data more -- it does not block or alter this run's
+// write; and (3) to BEN-SUP-05 (critic) whenever completeness_score crosses
+// upward through 0.7 for the first time, or capacity changes materially from
+// the prior twin (reusing the existing materiallyDifferent() helper) -- both
+// are signals the twin has become consequential enough for downstream
+// qualification to matter, mirroring BEN-QLF-04's own Tier 1/2 BEN-SUP-05
+// delegation. All three are additive, fire-and-forget delegations recorded
+// in this run's AgentResult -- none of them change what gets written to
+// pil_prospect_digital_twins in this run.
 
 const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
+const DUPLICATE_NAME_SIMILARITY_THRESHOLD = 0.5;
+const UNVERIFIED_VERIFICATION_STATUSES = new Set(["unverified", "single_source_fact"]);
+const COMPLETENESS_CRITIC_THRESHOLD = 0.7;
 
 const BIOGRAPHY_CLAIM_TYPES = new Set(["employment", "education", "board_membership", "business_ownership", "biography"]);
 const GIVING_CLAIM_TYPES = new Set(["giving_history", "donation"]);
@@ -55,6 +80,19 @@ const DIMENSIONS: Array<{ key: string; claimTypes: Set<string> }> = [
   { key: "wealth_indicators", claimTypes: WEALTH_CLAIM_TYPES },
   { key: "affinity", claimTypes: AFFINITY_CLAIM_TYPES },
 ];
+
+// Union of every claim_type that feeds a conflict-checked field with an
+// evidence-backed claim vocabulary (capacity is conflict-checked too, but is
+// derived from pil_prospect_opportunities, not pil_evidence claim types, so
+// it has no entry here). Used to find evidence that is still
+// unverified/single-source before it gets baked into the twin, for the
+// BEN-KNW-03 delegation.
+const CONFLICT_FIELD_CLAIM_TYPES = new Set<string>([
+  ...BIOGRAPHY_CLAIM_TYPES,
+  ...GIVING_CLAIM_TYPES,
+  ...WEALTH_CLAIM_TYPES,
+  ...AFFINITY_CLAIM_TYPES,
+]);
 
 export interface DigitalTwinReport {
   prospectId: string;
@@ -147,6 +185,14 @@ export class ProspectDigitalTwinAgent implements Agent {
       }
     }
 
+    // Captured independently of the conflictCheckedKeys loop above -- that
+    // loop only flags "conflictedFields" when the prior value was non-empty;
+    // the BEN-SUP-05 critic trigger below cares about any material capacity
+    // change from the prior twin, empty-prior included.
+    const capacityMateriallyDifferentFromPrior = existingTwin
+      ? materiallyDifferent(existingTwin.capacity, proposed.capacity)
+      : false;
+
     const nextVersion = existingTwin ? existingTwin.twin_version + 1 : 1;
     const payload = {
       prospect_id: context.prospectId,
@@ -174,6 +220,69 @@ export class ProspectDigitalTwinAgent implements Agent {
         objective: `Resolve conflicting canonical values for prospect ${context.prospectId}: ${conflictedFields.join(", ")}`,
         maxAutonomy: "A2",
         constraints: { prospectId: context.prospectId, fields: conflictedFields },
+      });
+    }
+
+    // BEN-KNW-02 hand-off: only a trigger, fired once per prospect (first
+    // twin only) -- BEN-KNW-02 itself does the authoritative fuzzy/EIN/email/
+    // CRM resolution; this scan just decides whether it's worth running.
+    if (!existingTwin) {
+      const duplicateCandidateIds = await this.findFuzzyDuplicateCandidates(
+        context.orgId,
+        context.prospectId,
+        prospect.canonical_name,
+        prospect.entity_type,
+      );
+      if (duplicateCandidateIds.length > 0) {
+        delegations.push({
+          childAgentCode: "BEN-KNW-02",
+          objective: `First digital twin for prospect ${context.prospectId} ("${prospect.canonical_name}") found ${duplicateCandidateIds.length} possible duplicate(s) by fuzzy name match in the same organization/entity_type: ${duplicateCandidateIds.join(", ")}. BEN-KNW-02 should run authoritative entity resolution between ${context.prospectId} and ${duplicateCandidateIds.join(", ")} before this twin is treated as a distinct entity.`,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, candidateProspectIds: duplicateCandidateIds },
+        });
+      }
+    }
+
+    // BEN-KNW-03 hand-off: forward advisory, does not block or alter this
+    // run's write -- requests verification before the *next* run trusts this
+    // evidence further.
+    const unverifiedConflictFieldEvidence = evidence.filter(
+      (item) => CONFLICT_FIELD_CLAIM_TYPES.has(item.claim_type) && UNVERIFIED_VERIFICATION_STATUSES.has(item.verification_status),
+    );
+    if (unverifiedConflictFieldEvidence.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `Prospect ${context.prospectId}'s digital twin was built partly from unverified/single-source evidence: ${unverifiedConflictFieldEvidence.map((e) => `${e.id} (${e.claim_type})`).join(", ")}. BEN-KNW-03 should verify this evidence before the next twin update relies on it further.`,
+        maxAutonomy: "A2",
+        constraints: {
+          prospectId: context.prospectId,
+          evidenceIds: unverifiedConflictFieldEvidence.map((e) => e.id),
+          claimTypes: [...new Set(unverifiedConflictFieldEvidence.map((e) => e.claim_type))],
+        },
+      });
+    }
+
+    // BEN-SUP-05 hand-off: the twin has become consequential enough for
+    // downstream qualification to matter -- same spirit as BEN-QLF-04's own
+    // Tier 1/2 critic delegation.
+    const priorCompletenessScore = existingTwin?.completeness_score ?? 0;
+    const completenessCrossedUpwardThroughThreshold =
+      existingTwin != null &&
+      priorCompletenessScore < COMPLETENESS_CRITIC_THRESHOLD &&
+      (proposed.completeness_score as number) >= COMPLETENESS_CRITIC_THRESHOLD;
+    if (completenessCrossedUpwardThroughThreshold || capacityMateriallyDifferentFromPrior) {
+      const reasons: string[] = [];
+      if (completenessCrossedUpwardThroughThreshold) {
+        reasons.push(`completeness_score crossed upward through ${COMPLETENESS_CRITIC_THRESHOLD} (${priorCompletenessScore} -> ${proposed.completeness_score})`);
+      }
+      if (capacityMateriallyDifferentFromPrior) {
+        reasons.push("capacity field changed materially from the prior twin");
+      }
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Critic review requested for prospect ${context.prospectId}'s digital twin (version ${nextVersion}): ${reasons.join("; ")}.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, twinId: existingTwin?.id ?? null },
       });
     }
 
@@ -309,6 +418,31 @@ export class ProspectDigitalTwinAgent implements Agent {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     return (data ?? []) as ProspectOpportunity[];
+  }
+
+  // Lightweight trigger for the BEN-KNW-02 hand-off, not authoritative
+  // resolution -- only compares canonical_name via BEN-KNW-02's own
+  // nameSimilarity() against other active prospects in the same org and
+  // entity_type. No .neq() filter against the caller's own id (avoids one
+  // more Supabase builder method); the current prospect is excluded in JS
+  // instead, alongside the actual similarity threshold check.
+  private async findFuzzyDuplicateCandidates(
+    orgId: string,
+    prospectId: string,
+    canonicalName: string,
+    entityType: string,
+  ): Promise<string[]> {
+    const { data, error } = await getPilClient()
+      .from("pil_prospects")
+      .select("id, canonical_name")
+      .eq("organization_id", orgId)
+      .eq("entity_type", entityType)
+      .eq("status", "active");
+    if (error) throw error;
+    const candidates = (data ?? []) as Array<{ id: string; canonical_name: string }>;
+    return candidates
+      .filter((c) => c.id !== prospectId && nameSimilarity(canonicalName, c.canonical_name) >= DUPLICATE_NAME_SIMILARITY_THRESHOLD)
+      .map((c) => c.id);
   }
 
   private async loadTwin(orgId: string, prospectId: string): Promise<ProspectDigitalTwin | null> {

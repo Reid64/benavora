@@ -1,0 +1,549 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-12: MODEL GATEWAY + DURABLE WORKFLOW ENGINE
+#
+# The two execution substrates every agent depends on: all model
+# access flows through one metered, budget-enforced, circuit-
+# broken gateway (D-005), and all long-running work flows through
+# a Postgres-durable engine that survives process death (D-004,
+# and the directive's rule that no architecture decision may
+# assume any process remains continuously alive).
+#
+# TESTING RULE (ported, hard): tests NEVER call the real Anthropic
+# API - fake providers only. Exactly ONE live smoke call happens
+# in pi12-006, on the cheapest class, and its metered cost row is
+# the evidence. Token costs and rate limits make anything else
+# indefensible.
+#
+# AUTHORITY: SCHEMA_REGISTRY (workflow tables), SERVICE_REGISTRY
+# (model gateway, workflow engine entries), AUTONOMY_POLICY,
+# EVENT_TAXONOMY. Read before writing. Amend with dated notes,
+# never drift silently.
+# ============================================================
+
+prompts:
+
+  - id: pi12-001
+    phase: build
+    description: "Preflight: docs read, rails healthy, price table decision recorded"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read SERVICE_REGISTRY.md entries for model gateway and durable
+         workflow engine; the SCHEMA_REGISTRY workflow-infrastructure and
+         cost_ledger sections; EVENT_TAXONOMY.md; the D-004/D-005 entries
+         in DECISION_LOG.md.
+      2. Health: migrate.mjs --status clean; rails-proof re-run green
+         (spawn scripts/proofs/rails-proof.mjs, capture) - the gateway
+         meters into rails this queue must not regress.
+      3. Model pricing is volatile: create
+         packages\services\src\model\pricing.ts as a VERSIONED price
+         table (model id -> input/output per-MTok USD, effective_date,
+         source note) with a loud doc comment: prices are maintained by
+         hand against Anthropic's published pricing, every change is a
+         dated entry, and the gateway refuses (fail-closed) to meter a
+         model absent from the table. Populate current entries for the
+         three routing classes from DECISION_LOG D-005's model choices -
+         verify current model ids and prices against Anthropic's live
+         docs (fetch), do not recall them.
+      4. Capture all of the above to evidence\pi-12\preflight.txt.
+      5. Create scripts\verify\verify-pi12-001.mjs: exits 0 only if the
+         rails re-run shows zero failures and pricing.ts exists with
+         three classes, dated entries, and the fail-closed comment.
+      6. Run: node scripts/verify/verify-pi12-001.mjs
+    expected_outputs:
+      - packages/services/src/model/pricing.ts
+      - evidence/pi-12/preflight.txt
+      - scripts/verify/verify-pi12-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi12-002
+    phase: build
+    description: "Gateway core: provider abstraction, Anthropic adapter, class routing"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\model\: 
+         - ModelProvider interface (complete(request) with messages,
+           system, maxTokens, temperature, abortSignal; returns content,
+           usage {inputTokens, outputTokens}, stopReason, modelId) -
+           providers are dumb transports; ALL policy lives in the gateway.
+         - AnthropicProvider implementing it via @anthropic-ai/sdk (lazy
+           client init; key from env; never logged).
+         - FakeProvider for tests: scripted responses, scripted failures
+           (429/500/timeout), call recording.
+         - ModelGateway.complete(request) where request adds: modelClass
+           (extraction/research/frontier per D-005), orgId, agentId,
+           goalId, taskId, purpose. The gateway resolves class -> concrete
+           model id via config (routing map beside pricing.ts, versioned
+           the same way), and REFUSES a raw model id from callers - class
+           routing is mandatory, bypass is not an API.
+      2. Vitest (FakeProvider only): class resolution for all three;
+         raw-model-id refusal; provider receives exactly the resolved id;
+         usage passthrough integrity.
+      3. Green; evidence\pi-12\gateway-core-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi12-002.mjs: standard pattern plus
+         the raw-id-refusal test name present in output.
+      5. Run: node scripts/verify/verify-pi12-002.mjs
+    expected_outputs:
+      - packages/services/src/model/index.ts
+      - scripts/verify/verify-pi12-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-003
+    phase: build
+    description: "Structured outputs: schema-validated completions with bounded repair"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Extend the gateway: completeStructured(request, zodSchema) -
+         instructs JSON-only output, strips fences defensively, parses,
+         validates against the schema; on validation failure performs at
+         most N repair attempts (N from config, default 2) by returning
+         the validation errors to the model with the original instruction;
+         after N failures returns a typed StructuredOutputError carrying
+         the raw text and the zod issues (callers decide escalation - the
+         gateway never silently substitutes). Every attempt is metered
+         individually (repair calls cost real money and must appear as
+         real cost rows - note for pi12-004 wiring).
+      2. Error taxonomy module: ModelRefusal, ProviderError(retryable?),
+         StructuredOutputError, BudgetExceeded (defined now, enforced in
+         pi12-004), CircuitOpen (pi12-005) - one discriminated union all
+         callers switch on.
+      3. Vitest (FakeProvider): first-try valid; invalid-then-valid repair
+         path with attempt count asserted; N-exhausted error carrying
+         issues; fence-wrapped JSON handled; refusal mapped to
+         ModelRefusal.
+      4. Green; evidence\pi-12\structured-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi12-003.mjs standard pattern plus
+         repair-path test names present.
+      6. Run: node scripts/verify/verify-pi12-003.mjs
+    expected_outputs:
+      - packages/services/src/model/structured.ts
+      - packages/services/src/model/errors.ts
+      - scripts/verify/verify-pi12-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-004
+    phase: build
+    description: "Metering + budget enforcement: every call costed, budgets pre-checked, fail-closed"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Wire CostLedger into the gateway: after EVERY provider call
+         (including each structured-repair attempt and including failed
+         calls that consumed tokens), compute cost from pricing.ts using
+         the response usage and record with full dimensions (org, agent,
+         goal, task, class, model, purpose). A model id missing from
+         pricing.ts throws BEFORE the provider call (fail-closed metering
+         per pi12-001).
+      2. Budget pre-check: before the provider call, resolve the effective
+         budget scope chain (task token/financial budget from
+         delegated_tasks when taskId present; goal budgets; tenant budget
+         from tenant_settings) via CostLedger.getSpend + the budget
+         columns; if the projected call (maxTokens worst case at class
+         price) would breach any scope, throw BudgetExceeded naming the
+         scope - no call is made. Record the denial to audit.
+      3. Vitest: cost row exactness on a scripted usage response
+         (hand-computed decimal, string equality); repair attempts produce
+         N cost rows; missing-price fail-closed; each budget scope breach
+         (task/goal/tenant) individually, with audit row asserted; a
+         passing call under budget records and proceeds.
+      4. Green; evidence\pi-12\metering-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi12-004.mjs: standard plus the
+         three scope-breach test names present.
+      6. Run: node scripts/verify/verify-pi12-004.mjs
+    expected_outputs:
+      - packages/services/src/model/metering.ts
+      - scripts/verify/verify-pi12-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-005
+    phase: build
+    description: "Resilience: retries with backoff, timeouts, per-class circuit breakers"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Gateway resilience layer:
+         - retryable ProviderErrors (429, 5xx, network) retried with
+           exponential backoff + full jitter, attempt cap from config;
+           429 honors retry-after when present; non-retryable (400,
+           auth) never retried;
+         - per-call timeout via abortSignal, configurable per class
+           (frontier calls get longer);
+         - a circuit breaker PER model class: rolling failure-rate window,
+           open on threshold, half-open probe after cooldown, close on
+           probe success - while open, calls throw CircuitOpen immediately
+           (no provider hit) and the state change writes an audit row +
+           an event per EVENT_TAXONOMY.
+      2. Vitest (FakeProvider + fake timers): backoff schedule asserted
+         (recorded delays within jitter bounds); retry-after honored;
+         non-retryable not retried; breaker opens at threshold, rejects
+         while open, half-open probe closes it; audit rows on open/close.
+      3. Green; evidence\pi-12\resilience-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi12-005.mjs standard pattern plus
+         breaker lifecycle test names present.
+      5. Run: node scripts/verify/verify-pi12-005.mjs
+    expected_outputs:
+      - packages/services/src/model/resilience.ts
+      - scripts/verify/verify-pi12-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-006
+    phase: build
+    description: "The one live smoke call: real haiku-class completion, real metered cost row"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write scripts\proofs\gateway-live-smoke.mjs: exactly ONE real
+         call through the full gateway stack - extraction class, a
+         trivial structured task (schema: {ok: boolean}), maxTokens 64,
+         a test org/goal context seeded for the purpose. Assert: valid
+         structured response; exactly the expected number of cost_ledger
+         rows for the run (1, or attempts if a repair fired - assert the
+         actual count matches the gateway's attempt log); the cost row's
+         dimensions all populated; the cost value consistent with
+         pricing.ts for the real usage returned. Write everything
+         (response shape, usage, cost row, NO raw key material) to
+         evidence\pi-12\live-smoke.json.
+      2. If ANTHROPIC_API_KEY is absent from the environment: write
+         evidence\pi-12\LIVE-SMOKE-BLOCKED.md naming the missing env var
+         and exit the verify script 1 - a halt for Reid to set the key is
+         correct; do not fake the smoke.
+      3. Create scripts\verify\verify-pi12-006.mjs: exits 0 only if
+         live-smoke.json exists with a real usage block (nonzero
+         inputTokens) and a matching cost row echo.
+      4. Run: node scripts/verify/verify-pi12-006.mjs
+    expected_outputs:
+      - scripts/proofs/gateway-live-smoke.mjs
+      - scripts/verify/verify-pi12-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-006.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi12-007
+    phase: build
+    description: "Workflow engine core: claim, lease, heartbeat, complete"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's lease/claim protocol section again first - the
+      protocol was specified precisely so this prompt implements without
+      interpretation.
+
+      1. packages\services\src\workflow\: 
+         - WorkExecutor: claims delegated_tasks rows via the registry's
+           exact FOR UPDATE SKIP LOCKED query, takes the lease
+           (lease_expires_at), heartbeats on the specified cadence while
+           the handler runs (background interval; a missed-heartbeat
+           detection test matters more than the happy path), invokes a
+           registered typed handler by task type, records result/error,
+           transitions state, releases.
+         - HandlerRegistry: task type -> handler with zod-validated
+           payloads; unknown type -> immediate DLQ park (no retry burn on
+           unroutable work).
+         - Reclaim sweep: expired-lease rows returned to queued with
+           attempt preserved (the crash-recovery path pi12-011 proves).
+      2. Vitest (real DB, scratch-schema or transactional): claim
+         exclusivity under two concurrent executors (extend the pi-10
+         claim-smoke into the engine layer); heartbeat extends the lease;
+         handler success -> completed + result persisted; unknown type ->
+         dead_letters row with reason.
+      3. Green; evidence\pi-12\engine-core-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi12-007.mjs standard pattern plus
+         the exclusivity and unknown-type test names present.
+      5. Run: node scripts/verify/verify-pi12-007.mjs
+    expected_outputs:
+      - packages/services/src/workflow/index.ts
+      - scripts/verify/verify-pi12-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-008
+    phase: build
+    description: "Retry, backoff, and dead-letter semantics"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Extend the engine: handler failure increments attempt, reschedules
+         with exponential backoff (next-eligible timestamp column per the
+         registry; add via migration 0019_task_backoff.sql if the registry
+         defines it - follow the registry, amend with a dated note if it
+         was omitted); attempts exhausted -> dead_letters with the full
+         error chain and the task parked (state per registry); a
+         requeue-from-DLQ service function (operator action, audited) that
+         resets attempts and restores the task.
+      2. Failure classification: handlers may throw Retryable or
+         NonRetryable typed errors; NonRetryable parks immediately without
+         burning attempts. Unclassified errors default Retryable (state
+         the reasoning in a comment: transient infrastructure faults are
+         the common case; poison-pill detection is the attempt cap's job).
+      3. Vitest: backoff schedule on repeated failure (timestamps
+         asserted); NonRetryable immediate park; exhaustion park with
+         error chain intact; requeue restores and re-executes; requeue
+         writes its audit row.
+      4. Green; evidence\pi-12\retry-dlq-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi12-008.mjs standard pattern.
+      6. Run: node scripts/verify/verify-pi12-008.mjs
+    expected_outputs:
+      - packages/services/src/workflow/retry.ts
+      - scripts/verify/verify-pi12-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-009
+    phase: build
+    description: "Outbox publisher, event bus consumption with offsets, idempotency application"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. OutboxPublisher: polls unpublished outbox rows in commit order,
+         appends to events, marks published - transactionally safe such
+         that a crash between steps cannot double-publish (use the
+         registry's specified mechanism; if it left the exactly-once
+         boundary to implementation, choose insert-with-unique-source-ref
+         and amend the registry with the dated decision).
+      2. EventConsumer: named consumers with offsets in
+         event_consumer_offsets; at-least-once delivery with the
+         idempotency_keys table making handlers effectively-once (helper:
+         withIdempotency(key, scope, fn) - second invocation returns the
+         recorded result without re-executing).
+      3. Emit the first real events: the workflow engine publishes task
+         lifecycle events per EVENT_TAXONOMY (claimed, completed, failed,
+         dead-lettered) through the outbox.
+      4. Vitest: crash-between-publish-and-mark simulated (kill the
+         publisher mid-batch via a fault injection hook) -> no duplicate
+         event after restart; consumer offset resume; withIdempotency
+         second-call short-circuit with recorded result; taxonomy names
+         on emitted events match EVENT_TAXONOMY.md strings (read the doc
+         in the test - drift fails).
+      5. Green; evidence\pi-12\events-tests.txt. Typecheck clean.
+      6. Create scripts\verify\verify-pi12-009.mjs standard pattern plus
+         the no-duplicate-after-crash test name present.
+      7. Run: node scripts/verify/verify-pi12-009.mjs
+    expected_outputs:
+      - packages/services/src/workflow/outbox.ts
+      - packages/services/src/workflow/events.ts
+      - scripts/verify/verify-pi12-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-010
+    phase: build
+    description: "Compensation framework"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. CompensationManager per the registry: handlers register
+         compensating actions as they take effectful steps
+         (registerCompensation(taskId, action, payload)); on terminal
+         failure of a multi-step task, recorded compensations execute in
+         reverse order, each itself durable (a compensation that fails
+         parks to DLQ flagged compensation_failed - never silently
+         dropped); successful full compensation recorded on the
+         compensations rows.
+      2. Vitest: three-step task failing at step 3 -> compensations for
+         steps 2 and 1 run in reverse, states recorded; a failing
+         compensation parks with the flag; a compensated task's final
+         state matches the registry's specified terminal state.
+      3. Green; evidence\pi-12\compensation-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi12-010.mjs standard pattern.
+      5. Run: node scripts/verify/verify-pi12-010.mjs
+    expected_outputs:
+      - packages/services/src/workflow/compensation.ts
+      - scripts/verify/verify-pi12-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-011
+    phase: build
+    description: "apps/worker: the durable host process with graceful shutdown"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. apps\worker\src\index.ts: boots the executor pool (size from
+         env), the outbox publisher, the reclaim sweep, and the event
+         consumers; structured startup log listing every started
+         component (the boot inventory that makes a benavora-style
+         never-started-processor impossible to miss - log line per
+         component, machine-parseable); graceful shutdown on
+         SIGTERM/SIGINT (stop claiming, finish in-flight up to a
+         deadline, release leases); a health probe (simple HTTP endpoint
+         reporting component liveness + last-heartbeat ages).
+      2. A worker README documenting env vars, pool sizing, and the
+         Railway deployment shape (deployment itself is a later phase;
+         the shape is documented now).
+      3. Local run proof: start the worker, hit the health endpoint,
+         capture the boot inventory log + health JSON to
+         evidence\pi-12\worker-boot.txt, SIGTERM it, capture the graceful
+         drain lines.
+      4. Create scripts\verify\verify-pi12-011.mjs: exits 0 only if the
+         boot capture lists all four component types started and the
+         drain lines are present.
+      5. Run: node scripts/verify/verify-pi12-011.mjs
+    expected_outputs:
+      - apps/worker/src/index.ts
+      - evidence/pi-12/worker-boot.txt
+      - scripts/verify/verify-pi12-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-012
+    phase: build
+    description: "THE RESTART-SURVIVAL PROOF: kill -9 mid-run, resume, complete exactly-once"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      This is the queue's reason to exist made observable: the directive
+      forbids assuming any process stays alive.
+
+      1. Write scripts\proofs\durability-proof.mjs:
+         - registers a 3-step test handler where each step writes a
+           step-marker row (side-effect table created in a scratch
+           migration or temp table) and step 2 sleeps long enough to be
+           killed inside;
+         - enqueues one task, starts a real worker process (child
+           process), waits for step-1 marker, then SIGKILLs the worker
+           (kill -9 equivalent on Windows: taskkill /F) mid-step-2;
+         - asserts the task is NOT completed and its lease expires;
+         - starts a fresh worker; the reclaim sweep recovers the task;
+           the handler (written idempotently via withIdempotency per
+           step) resumes;
+         - final assertions: task completed; step markers show each step
+           effectively once (no duplicate side effects - the step-2
+           marker written exactly once despite the kill); the attempt
+           count reflects the recovery honestly; lifecycle events in the
+           bus tell the true story (claimed, reclaimed/re-claimed,
+           completed).
+         Full timeline JSON to evidence\pi-12\durability-proof.json.
+      2. All assertions pass. A double side effect or a stuck task is a
+         real engine bug: fix it, do not weaken the assertion.
+      3. Create scripts\verify\verify-pi12-012.mjs: exits 0 only if the
+         proof JSON exists, shows a real kill event followed by
+         completion, and every assertion passes.
+      4. Run: node scripts/verify/verify-pi12-012.mjs
+    expected_outputs:
+      - scripts/proofs/durability-proof.mjs
+      - evidence/pi-12/durability-proof.json
+      - scripts/verify/verify-pi12-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-013
+    phase: build
+    description: "Concurrency and throughput proof: N workers, M tasks, zero double-execution"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\concurrency-proof.mjs: enqueue 200 short tasks
+         whose handler appends an execution record (task id + executor id
+         + timestamp); run 4 worker processes concurrently to drain;
+         assert: every task executed exactly once (200 records, 200
+         distinct task ids); work distributed across all 4 executors
+         (each claimed at least one); throughput and per-task latency
+         summarized. Results to evidence\pi-12\concurrency-proof.json.
+      2. All assertions pass.
+      3. Create scripts\verify\verify-pi12-013.mjs: exits 0 only if the
+         JSON shows 200/200 exactly-once and 4 active executors.
+      4. Run: node scripts/verify/verify-pi12-013.mjs
+    expected_outputs:
+      - scripts/proofs/concurrency-proof.mjs
+      - evidence/pi-12/concurrency-proof.json
+      - scripts/verify/verify-pi12-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi12-014
+    phase: build
+    description: "Close-out: snapshot, registry reconciliation, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. schema-snapshot to evidence\pi-12\schema-after.json (0019 if
+         created); evidence\pi-12\SUMMARY.md: gateway capabilities with
+         test counts, the live-smoke cost figure, engine capabilities,
+         the durability-proof headline (kill event timestamp -> completion
+         timestamp, exactly-once confirmed), concurrency numbers, every
+         registry/doc amendment (zero silent drift), matrix green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-12 complete
+         with real numbers; unlocked next per manifest: pi-20 (kernel -
+         needs this queue + pi-11, both now done) and pi-13 remains
+         available in parallel.
+      3. Scoped add: supabase/migrations/ packages/ apps/worker/ scripts/
+         evidence/pi-12/SUMMARY.md docs/architecture/ SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "model gateway (routed, metered, budget-enforced,
+         circuit-broken) + durable workflow engine (leases, DLQ,
+         compensation, kill-resume proven) (pi-12)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi12-014.mjs: standard close-out
+         pattern.
+      5. Run: node scripts/verify/verify-pi12-014.mjs
+    expected_outputs:
+      - evidence/pi-12/SUMMARY.md
+      - scripts/verify/verify-pi12-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi12-014.mjs"
+    max_retries: 3
+    on_fail: halt

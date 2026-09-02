@@ -1,0 +1,91 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - TESTING_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q3-001
+    phase: build
+    description: "Build src/__tests__/integration/rls.test.ts — the highest-priority missing test file"
+    prompt: |
+      Read SCHEMA_REGISTRY_v2.md for the full list of org-scoped tables. This test file does not exist
+      yet and is the single most important gap: cross-org data leakage testing. Given tonight's session
+      found real RLS/auth gaps by accident multiple times (documents bucket, storage.objects policy),
+      this needs to be systematic, not incident-driven.
+      Create src/__tests__/integration/rls.test.ts using Vitest (not Jest — check existing test files
+      for the real pattern/imports used in this codebase). For every org-scoped table found in the schema:
+      test that cross-org SELECT returns 0 rows, cross-org INSERT is rejected, cross-org UPDATE affects
+      0 rows. Use two real test orgs (create fresh, clean up after — never hardcode production org IDs).
+      Run the new test file and report real pass/fail output — if any table's RLS is found broken, report
+      this as a finding, do not silently fix it in this prompt (that's a separate, higher-priority fix,
+      flag it in the commit message and STATE_OF_THE_BUILD.md).
+      git add -A; git commit -m 'test(integration): build systematic cross-org RLS test suite'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q3-002
+    phase: build
+    description: "Build storage.objects / bucket RLS test suite"
+    prompt: |
+      Given tonight's session found a real gap (bucket created via API has no storage.objects policy,
+      causing silent upload failures), build a systematic test for every Storage bucket in production.
+      List all buckets via the Storage API. For each, test: can an authenticated user from org A upload
+      to a path scoped to org A, is org B blocked from uploading to org A's path, is org B blocked from
+      reading org A's objects. Create src/__tests__/integration/storage-rls.test.ts.
+      Run and report real results — flag any bucket found missing proper policies, do not silently fix.
+      git add -A; git commit -m 'test(integration): build storage bucket RLS test suite'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q3-003
+    phase: build
+    description: "Build organizations.test.ts, opportunities.test.ts, applications.test.ts (core CRUD round-trip)"
+    prompt: |
+      Per TESTING_v2.md's original Section 2.1 intent (organizations, opportunities, applications round-trip
+      tests), build these three integration test files against the real schema (verify actual column names
+      via SCHEMA_REGISTRY_v2.md and live schema query, do not assume the doc's field names are current).
+      organizations.test.ts: create org, verify required fields persist, verify onboarding_completed/
+      subscription_tier defaults.
+      opportunities.test.ts: create opportunity, verify probability_score handling, verify status filtering.
+      applications.test.ts: verify stage transitions write history records, verify budget upsert logic.
+      Use a real (non-production) test org pattern, clean up after each test.
+      Run and report real pass/fail output.
+      git add -A; git commit -m 'test(integration): build organizations/opportunities/applications round-trip tests'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: q3-004
+    phase: build
+    description: "Build agent-runs.test.ts, foundation-directory.test.ts, corporate-prospects.test.ts"
+    prompt: |
+      Build remaining core integration tests: agent-runs.test.ts (insert/update agent_run status transitions,
+      org scoping), foundation-directory.test.ts (EIN lookup, enrichment jsonb merge behavior — verify against
+      tonight's actual scraper writes, not assumed schema), corporate-prospects.test.ts (unique constraint
+      on legal_name/city/state, scores jsonb structure per the AG-22 propensity scoring built tonight).
+      Run and report real pass/fail output.
+      git add -A; git commit -m 'test(integration): build agent-runs/foundation-directory/corporate-prospects tests'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue

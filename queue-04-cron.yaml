@@ -1,0 +1,42 @@
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+project: Tarritrix
+prompts:
+- id: cron-001
+  name: CRON-01 and CRON-02 Verification
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\vercel.json and all files in src\\app\\api\\cron\\ before writing.\n\nSTEP 1 - Audit existing CRON routes:\nGet-ChildItem C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\cron\\ -Recurse -Filter route.ts | Select-Object FullName\nRead each file found. Verify: (1) CRON-01 drip publisher exists and calls page_generation_queue processing logic. (2) CRON-02 indexation check exists and calls A-08 trigger or equivalent.\n\nSTEP 2 - Verify vercel.json has crons configured. Read vercel.json and check for crons array.\n\nSTEP 3 - Report findings: which CRON routes exist, which are missing, what vercel.json currently shows for crons. Do NOT write any files yet - report only.\n\nSTEP 4 - Based on findings: if CRON-01 route is missing write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\cron\\cron-01-drip-publisher\\route.ts: GET handler, verify CRON_SECRET header, query page_generation_queue for queued pages with status='queued' limit 10, for each page call A02PageGenerator.execute(), update status to 'processing'. Return { pages_processed }.\n\nIf CRON-02 route is missing write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\cron\\cron-02\\route.ts: GET handler, verify CRON_SECRET, query all active clients, for each call A08IndexationTracker.execute(). Return { clients_checked }.\n\nSTEP 5 - pnpm tsc --noEmit. 0 errors. pnpm run build — succeeds.\n\nSTEP 6 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual audit.\n\nACCEPTANCE: CRON-01 and CRON-02 routes exist. pnpm tsc 0 errors. pnpm run build succeeds."
+  gates:
+  - type: compile
+  - type: build
+
+- id: cron-002
+  name: CRON vercel.json Configuration
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\vercel.json in full before writing.\n\nSTEP 1 - Update vercel.json to add or update the crons array. Preserve ALL existing content. Add:\n\"crons\": [\n  {\"path\": \"/api/cron/cron-01-drip-publisher\", \"schedule\": \"0 2 * * *\"},\n  {\"path\": \"/api/cron/cron-02\", \"schedule\": \"0 * * * *\"},\n  {\"path\": \"/api/cron/cron-03\", \"schedule\": \"0 0 1 */3 *\"},\n  {\"path\": \"/api/cron/daily-agent-cycle\", \"schedule\": \"0 3 * * *\"}\n]\nIf crons array already exists merge entries rather than replace — do not duplicate existing entries.\n\nSTEP 2 - Validate vercel.json is valid JSON after edit: node -e \"JSON.parse(require('fs').readFileSync('vercel.json','utf8')); console.log('valid')\"\n\nSTEP 3 - pnpm run build — must succeed.\n\nSTEP 4 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md. git add -A; git commit --no-verify -m 'feat: CRON schedules configured in vercel.json'; git push origin main. Report commit hash.\n\nACCEPTANCE: vercel.json has all 4 cron entries. JSON is valid. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+
+- id: cron-003
+  name: CRON-03 Quarterly Knowledge Refresh
+  prompt: "Read AGENTS.md entry for A-11 Content Refresh Engine. Read existing CRON route files.\n\nSTEP 1 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\cron\\cron-03\\route.ts\nGET handler. Verify CRON_SECRET header. This is the quarterly knowledge refresh - triggers A-11 Content Refresh Engine for ALL active clients with a full deep scan (no page_id filter). Query all active clients. For each client call A11ContentRefreshEngine.execute({ client_id }). Collect results. Also trigger A-10 Content Profile Builder if it exists for each client. Return { clients_processed, refresh_jobs_created, total_decay_signals }.\n\nSTEP 2 - pnpm tsc --noEmit. 0 errors. pnpm run build — succeeds.\n\nSTEP 3 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md. git add -A; git commit --no-verify -m 'feat: CRON-03 quarterly knowledge refresh route'; git push origin main. Report commit hash.\n\nACCEPTANCE: cron-03 route exists. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/api/cron/cron-03/route.ts
+
+- id: cron-004
+  name: CRON Health Monitoring Dashboard
+  prompt: "Read existing dashboard files and CRON route files before writing.\n\nSTEP 1 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\dashboard\\cron-status\\route.ts\nGET with getOperatorContext() auth. Query agent_events table for CRON-triggered runs: filter where trigger_source='cron' or agent_id IN ('CRON-01','CRON-02','CRON-03','DAILY-AGENT-CYCLE'). For each CRON return: { cron_id, last_run_at, last_status, next_scheduled, consecutive_failures, total_runs_7d, success_rate_7d }. Verify agent_events columns against SCHEMA_REGISTRY.md. Return array.\n\nSTEP 2 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\dashboard\\system\\cron-status\\page.tsx\nAdmin-only page. Background #1c2030, accent #06b6d4. Fetches from /api/dashboard/cron-status. Renders each CRON as a card: name, last run timestamp (relative), status badge (success green/fail red/never gray), next scheduled run, 7-day success rate as percentage bar. Alert banner if any CRON has consecutive_failures >= 3: red background with CRON name and last error. Auto-refresh every 60 seconds. TypeScript strict.\n\nSTEP 3 - Add link to CRON status page in DashboardSidebar.tsx under System section if sidebar exists.\n\nSTEP 4 - pnpm tsc --noEmit. 0 errors. pnpm run build — succeeds.\n\nSTEP 5 - Update STATE_OF_THE_BUILD.md marking CRON block complete. Update SESSION_STATE.md next action: queue-05-hardening. git add -A; git commit --no-verify -m 'feat: CRON health monitoring dashboard complete'; git push origin main. Report commit hash.\n\nACCEPTANCE: API route and page both exist. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/api/dashboard/cron-status/route.ts
+    - src/app/dashboard/system/cron-status/page.tsx

@@ -1,0 +1,18 @@
+release_id: PIL-RELEASE-38
+version: 1.0.0
+title: Prospect Digital Twin Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-37-v1.0.0
+new_agent:
+  id: BEN-KNW-01
+  path: 25-agents/knowledge-integrity/BEN-KNW-01-prospect-digital-twin.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-KNW-01-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 40
+remaining_agent_specifications: 4
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_claimed: false
+  tests_claimed: false
+  production_score_preassigned: false

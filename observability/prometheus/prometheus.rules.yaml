@@ -1,0 +1,106 @@
+# Prometheus alert rules for Benavora critical failures.
+#
+# Scraped metric source: /api/metrics (src/app/api/metrics/route.ts), guarded by
+# METRICS_SCRAPE_SECRET. Point your Prometheus-compatible scraper (self-hosted
+# Prometheus, Grafana Cloud, Grafana Alloy, etc. -- Vercel itself cannot run
+# Prometheus/Alertmanager, being serverless) at that endpoint with:
+#   Authorization: Bearer <METRICS_SCRAPE_SECRET>
+#
+# Notification routing to Slack #benavora-alerts is configured separately in
+# alertmanager.yml (Prometheus rules only evaluate conditions; Alertmanager
+# owns delivery). Import both into whichever provider evaluates these rules.
+groups:
+  - name: benavora_alerts
+    rules:
+      # NOTE: benavora_agent_events_total (src/lib/observability/metrics.ts)
+      # is labeled agent_id/event_type/severity -- it has no `family` label,
+      # so grouping it `by (family)` would silently collapse everything into
+      # one empty-label series. `family` is only recorded on
+      # benavora_agent_run_duration_seconds (set from agentDef.family in
+      # src/lib/pil/agent-runner.ts), which also carries a `status` label
+      # ("completed"/"failed"/"blocked"), so failure rate per family is
+      # computed from that histogram's _count series instead.
+      - alert: AgentFamilyFailureRate
+        expr: |
+          (
+            sum(rate(benavora_agent_run_duration_seconds_count{status="failed"}[5m])) by (family)
+            /
+            sum(rate(benavora_agent_run_duration_seconds_count[5m])) by (family)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.family }} family agents failing > 5%"
+          description: "{{ $labels.family }} PIL agent family run failure rate is {{ $value | humanizePercentage }} over the last 5m."
+
+      # benavora_api_latency_ms (src/lib/observability/metrics.ts) is defined
+      # but not yet recorded anywhere in the codebase (no .observe() call
+      # exists). This rule is correct against the metric name but will never
+      # fire until API latency instrumentation is wired into request
+      # handling -- it is inert, not broken.
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95, rate(benavora_api_latency_ms_bucket[5m])) > 5000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency > 5s"
+          description: "p95 API latency is {{ $value }}ms over the last 5m."
+
+      - alert: AuthFailureSpike
+        expr: |
+          rate(benavora_auth_failures_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Auth failure rate spike ({{ $labels.reason }})"
+          description: "Authentication failures ({{ $labels.reason }}) are occurring at {{ $value | humanize }}/s over the last 5m."
+
+      # benavora_supabase_query_ms (src/lib/observability/metrics.ts) is also
+      # defined but not yet recorded anywhere -- same caveat as
+      # HighAPILatency above: inert until query-timing instrumentation lands.
+      - alert: SupabaseSlowQueries
+        expr: |
+          histogram_quantile(0.95, rate(benavora_supabase_query_ms_bucket{operation="select"}[5m])) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database query latency > 1s"
+          description: "p95 select query latency is {{ $value }}ms over the last 5m."
+
+      # benavora_autoapply_source_run_total (src/lib/observability/flag-metrics.ts)
+      # is recorded once per populateSubmissionQueue call, labeled by which
+      # pil-autoapply-source LaunchDarkly variant served the request and its
+      # outcome (success/error/skipped). "skipped" (org has no PIL data yet,
+      # or the run was held by policy) is deliberately excluded from the
+      # numerator -- it isn't degradation. The `increase(...) > 20` clause is
+      # a volume floor: without it, 1 failure out of 2 requests during a quiet
+      # canary window reads as a 50% error rate and fires on noise.
+      #
+      # There is no automated remediation wired to this alert. The rollout
+      # plan in queue-feature-flags-pil-rollout-REAL.yaml (id: rollout-schedule)
+      # specifies a manual rollback: flip pil-autoapply-source to "prospects"
+      # in the LaunchDarkly dashboard and notify Reid + support. Automating
+      # that flip would mean this file's Slack alert can silently rewrite a
+      # production flag for every org with no human in the loop -- if that
+      # changes, it needs its own explicit sign-off, not a side effect of
+      # adding a metric.
+      - alert: DossierSourceErrorRateHigh
+        expr: |
+          (
+            sum(rate(benavora_autoapply_source_run_total{source="dossiers",outcome="error"}[5m]))
+            /
+            sum(rate(benavora_autoapply_source_run_total{source="dossiers"}[5m]))
+          ) > 0.10
+          and
+          sum(increase(benavora_autoapply_source_run_total{source="dossiers"}[5m])) > 20
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "pil-autoapply-source 'dossiers' variant error rate > 10%"
+          description: "{{ $value | humanizePercentage }} of dossiers-source queue-populate runs are failing over the last 5m. Per the rollback plan: set pil-autoapply-source to \"prospects\" in LaunchDarkly and notify Reid + support."

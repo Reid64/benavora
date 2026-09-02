@@ -1,0 +1,147 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: twin-001
+  name: Governance sync and Digital Twin completeness engine
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read SCHEMA_REGISTRY_v2.md for organizational_digital_twins and knowledge_base_profiles tables in FULL.
+    Read src/app/(dashboard)/intelligence/twin/page.tsx in FULL.
+    Read src/app/api/intelligence/twin/route.ts in FULL if it exists, else note it is missing.
+
+    CREATE src/lib/intelligence/twin-completeness.ts:
+
+    Export function calculateTwinCompleteness(twin: OrganizationalDigitalTwin, kb: KnowledgeBaseProfile): TwinCompletenessReport
+
+    TwinCompletenessReport interface:
+    {
+      overall_score: number  // 0-100
+      sections: {
+        name: string
+        score: number  // 0-100
+        missing_fields: string[]
+        quality_score: number  // 0-100, not just presence but depth
+        recommendations: string[]
+      }[]
+      blocking_agents: string[]  // which agents are limited by incompleteness
+      estimated_revenue_impact: number  // $ estimated lost per month from incompleteness
+    }
+
+    Ten sections to evaluate (each worth 10 points):
+    1. mission_and_vision: checks mission length >= 100 words, has measurable outcomes, has target population defined
+    2. programs_and_services: checks min 3 programs, each has description >= 50 words, has outcomes defined
+    3. financial_profile: checks annual_revenue present, budget breakdown present, 3-year trend if possible
+    4. leadership_and_board: checks min 5 board members, each has bio >= 30 words, has professional background
+    5. geographic_service_area: checks city/state defined, service radius, population served count
+    6. target_population: checks demographics defined, needs assessment present, community data cited
+    7. impact_and_outcomes: checks 3+ measurable outcomes with baselines, prior year results if available
+    8. organizational_history: checks founding year, milestones, key achievements
+    9. partnerships_and_coalitions: checks min 2 partners with relationship descriptions
+    10. compliance_and_certifications: checks 501c3 status, state registrations, audit status
+
+    Quality scoring (not just presence): use Claude to evaluate depth and specificity of content.
+    Call Claude (max_tokens: 200) once for quality assessment of the full KB profile.
+
+    blocking_agents: map incompleteness to which agents are affected:
+    - mission < 50 words: blocks draft-generation (confidence penalty), fundability-scorer
+    - no financial data: blocks simulation-agent, probability-scorer
+    - no board data: blocks relationship-builder
+    - no geographic area: blocks community-need-predictor, opportunity-discovery
+
+    estimated_revenue_impact: (100 - overall_score) / 100 * avg_grant_value * monthly_application_rate * 0.15
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: digital twin completeness engine -- 10-section scoring, quality assessment, revenue impact, blocking agents'; git push.
+
+- id: twin-002
+  name: Digital Twin auto-population from existing data sources
+  prompt: |
+    Read src/lib/intelligence/twin-completeness.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for knowledge_base_profiles, nonprofits, and organizational_digital_twins tables in FULL.
+
+    CREATE src/lib/intelligence/twin-auto-populate.ts:
+
+    Export async function autoPopulateTwin(orgId: string, supabase: SupabaseClient): Promise<AutoPopulateResult>
+
+    AutoPopulateResult: { fieldsPopulated: number, fieldsSkipped: number, sources: string[], warnings: string[] }
+
+    Auto-population sources in priority order (never overwrite existing non-null data):
+
+    SOURCE 1 — IRS BMF / nonprofits table:
+    Query nonprofits WHERE ein = (SELECT ein FROM organizations WHERE id=orgId).
+    If found: populate KB mission from nonprofits.mission if KB.mission_data.mission is null.
+    Populate officer_name into leadership_board if board is empty.
+    Populate revenue_amount into financial_data.annual_revenue if null.
+    Populate asset_amount into financial_data.total_assets if null.
+
+    SOURCE 2 — Website scraping via Claude web search:
+    Search "[org name] [city] nonprofit about mission programs" and "[org name] annual report 2024 2025".
+    Extract: additional program descriptions, impact statistics, leadership names.
+    Only populate fields still null after SOURCE 1.
+
+    SOURCE 3 — ProPublica / foundation data:
+    If org EIN found in foundation data: extract grant history, typical award amounts.
+    Populate financial_data.grant_history if null.
+
+    SOURCE 4 — Previous agent_decisions:
+    Query agent_decisions WHERE org_id=orgId for any past reasoning that mentioned org characteristics.
+    Extract facts and populate matching KB fields if still null.
+
+    After population: call calculateTwinCompleteness() and return updated score.
+    Update organizational_digital_twins.completeness_score with new value.
+    Log all changes to a twin_auto_populate_log jsonb field in the twin record.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: digital twin auto-population -- IRS BMF, web search, ProPublica, agent decision sources'; git push.
+
+- id: twin-003
+  name: Digital Twin UI upgrade with completeness visualization and auto-populate trigger
+  prompt: |
+    Read src/app/(dashboard)/intelligence/twin/page.tsx in FULL.
+    Read src/lib/intelligence/twin-completeness.ts in FULL.
+    Read src/lib/intelligence/twin-auto-populate.ts in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    Rewrite src/app/(dashboard)/intelligence/twin/page.tsx completely:
+
+    HEADER SECTION:
+    Twin Completeness score as large circle (160px diameter):
+    - Border 6px solid: green #10B981 if >=80, amber #F59E0B if 60-79, red #DC2626 if <60
+    - Score number 48px bold white centered
+    - "Twin Completeness" label below 12px #8BA8C8
+    - Rotating dashed outer ring animation (same as hub ring)
+
+    Two action buttons right of circle:
+    - "Auto-Populate Twin" button #0EA5E9 -- calls POST /api/intelligence/twin/auto-populate, shows loading spinner, refreshes after complete
+    - "Update Twin" button #8B5CF6 -- links to /intelligence/twin/edit
+
+    Revenue impact callout if score < 80:
+    Amber banner: "Incomplete Twin is estimated to cost $X/month in reduced grant probability. Complete your profile to maximize AI performance."
+
+    SECTION GRID (2 columns, 5 rows = 10 sections):
+    Each section card (white #0D1526 bg, border-radius 12px, padding 16px):
+    - Section name bold 14px white
+    - Score bar: full-width, height 6px, gray bg #1A2B3C, colored fill (green/amber/red by score)
+    - Score percentage right-aligned colored number
+    - Missing fields list in small amber text if score < 80
+    - "Complete" checkmark icon green if score=100
+    - Recommendations collapsed, expandable on click
+
+    BLOCKING AGENTS section (white card below grid):
+    If any agents are blocked by incompleteness: show list with agent name and what's missing.
+    Each item: agent icon color, agent name, "Blocked by: [missing field]", Fix Now button.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: digital twin UI -- completeness circle, 10-section grid, revenue impact, auto-populate trigger, blocking agents'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

@@ -1,0 +1,66 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - AGENTS_v2.md
+  - FEATURE_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q7-001
+    phase: verify
+    description: "Live-verify AG-15 (Grant Probability Agent) — confirm IN BUILD status is accurate"
+    prompt: |
+      Read AGENTS_v2.md's AG-15 spec and FEATURE_REGISTRY_v2.md's current status for it (marked IN BUILD
+      per earlier session notes). Determine real current state: does the code exist, does it compile,
+      does it run against a real test opportunity and produce a plausible probability score.
+      Report honestly if it's further along or behind what FEATURE_REGISTRY_v2.md claims.
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-15".
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-15 Grant Probability Agent real status'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q7-002
+    phase: verify
+    description: "Live-verify AG-16 (Digital Twin Builder) and AG-17 (Opportunity Discovery)"
+    prompt: |
+      Read AGENTS_v2.md's AG-16 and AG-17 specs. Check real current state of each (code exists, compiles,
+      runs against real test data). Report honestly against FEATURE_REGISTRY_v2.md's claimed IN BUILD status.
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-16" and "AG-17" sections.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-16 Digital Twin Builder and AG-17 Opportunity Discovery'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q7-003
+    phase: verify
+    description: "Live-verify AG-18 (Reputation Intelligence) and AG-19 (Relationship Builder)"
+    prompt: |
+      Read AGENTS_v2.md's AG-18 and AG-19 specs. Check real current state of each. Note: FEATURE_REGISTRY_v2.md
+      previously labeled AG-19 as "Recommendation Engine" — AGENTS_v2.md's canonical name is
+      "Relationship Builder." Confirm which is accurate by reading the actual code's real behavior, and
+      correct FEATURE_REGISTRY_v2.md if it's still using the stale name.
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-18" and "AG-19" sections.
+      git add -A; git commit -m 'test(agents): verify AG-18 Reputation Intelligence and AG-19 Relationship Builder, correct naming drift'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue

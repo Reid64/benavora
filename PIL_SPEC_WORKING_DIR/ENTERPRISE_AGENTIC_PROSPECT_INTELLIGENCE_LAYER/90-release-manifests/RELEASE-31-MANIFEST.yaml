@@ -1,0 +1,18 @@
+release_id: PIL-RELEASE-31
+version: 1.0.0
+title: Philanthropic Capacity and Propensity Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-30-v1.0.0
+new_agent:
+  id: BEN-QLF-03
+  path: 23-agents/qualification/BEN-QLF-03-philanthropic-capacity-and-propensity.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-QLF-03-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 33
+remaining_agent_specifications: 11
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_claimed: false
+  tests_claimed: false
+  production_score_preassigned: false

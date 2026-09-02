@@ -1,0 +1,155 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: kb-001
+  name: Governance sync and knowledge base editor complete build
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/knowledge-base/ directory in full.
+    Read all page files found in full.
+    Read SCHEMA_REGISTRY_v2.md for knowledge_base_profiles and organizational_digital_twins tables in full.
+    Read src/app/(dashboard)/intelligence/twin/page.tsx in full.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    BUILD COMPLETE KNOWLEDGE BASE EDITOR:
+
+    The knowledge base is the foundation of every AI output. It must be easy to fill out, save automatically, and show completeness clearly.
+
+    CREATE or UPGRADE src/app/(dashboard)/knowledge-base/edit/page.tsx:
+
+    A comprehensive KB editor with 10 sections, each on a separate tab or accordion:
+
+    LEFT NAV (fixed, 220px): List of 10 sections with completeness percentage per section. Clicking navigates to that section. Sections colored green if complete (>=80%), amber if partial (40-79%), red if empty (<40%).
+
+    RIGHT CONTENT (flex-1): Active section editor.
+
+    SECTION 1 — Mission & Vision:
+    - Mission Statement: textarea min 5 rows, placeholder "Describe your organization's core mission in 100+ words. The more specific you are, the better your AI drafts will be.", word count display, red warning if < 50 words
+    - Vision Statement: textarea
+    - Core Values: tag input (add values as pills)
+    - Year Founded: number input
+    - Auto-save on blur (500ms debounce)
+
+    SECTION 2 — Programs & Services:
+    Dynamic list of programs. Each program:
+    - Program Name: text input
+    - Description: textarea min 3 rows
+    - Target Population: text input
+    - Annual Participants Served: number input
+    - Geographic Area: text input
+    - Key Outcomes: textarea
+    "Add Program" button adds a new program row.
+    "Remove" button with confirmation.
+
+    SECTION 3 — Financial Profile:
+    - Annual Operating Budget: currency input
+    - Primary Revenue Sources: checkboxes with percentage inputs
+    - Last Audited Revenue: currency + year
+    - Endowment if any: currency
+    - Current Fiscal Year End: date
+    - IRS Form 990: file upload area
+
+    SECTION 4 — Leadership & Board:
+    Executive Director: name, email, phone, bio textarea
+    Board Members: dynamic list. Each: name, title/profession, organization, bio (50 words min recommended)
+    "Add Board Member" button.
+
+    SECTION 5 — Geographic Service Area:
+    - Primary Service City/State: text inputs
+    - Service Radius: number input in miles
+    - Counties Served: tag input
+    - Service Area Description: textarea
+    - Map preview (if Google Maps API key available)
+
+    SECTION 6 — Target Population:
+    - Primary Demographics: checkboxes (low-income, homeless, veterans, immigrants, youth, seniors, disabilities, LGBTQ+, formerly incarcerated, rural)
+    - Age Range: from/to inputs
+    - Language Access: checkboxes (English, Spanish, Mandarin, etc.)
+    - Population Size Served Annually: number
+
+    SECTION 7 — Impact & Outcomes:
+    - Key Performance Indicators: dynamic list of KPI name + measurement + baseline + current value
+    - Notable Achievements: textarea
+    - Awards/Recognition: dynamic list
+
+    SECTION 8 — Organizational History:
+    - Founding Story: textarea
+    - Major Milestones: dynamic list (year + milestone)
+    - Significant Challenges Overcome: textarea
+
+    SECTION 9 — Partnerships:
+    - Key Partners: dynamic list (org name + relationship type + duration)
+    - Government Contracts: yes/no + description
+    - Coalition Memberships: tag input
+
+    SECTION 10 — Compliance:
+    - 501(c)(3) Status: yes/no + EIN display
+    - State Registrations: dynamic list by state
+    - Last Audit Date: date input
+    - Audit Result: clean/qualified/adverse
+    - Insurance Coverage: yes/no + types
+    - Background Check Policy: yes/no
+
+    ALL SECTIONS: Auto-save every field on blur. Show "Saved" indicator per section. Green checkmark appears when section is complete.
+
+    CREATE src/app/api/knowledge-base/route.ts:
+    GET: Returns knowledge_base_profiles for authenticated org.
+    PATCH: Accepts partial update of any section. Recalculates completeness score. Triggers twin-completeness recalculation.
+
+    After save: call calculateTwinCompleteness() and update organizational_digital_twins.completeness_score.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: knowledge base editor complete -- 10 sections, auto-save, completeness tracking, twin sync'; git push.
+
+- id: kb-002
+  name: Knowledge base completeness gamification and AI suggestions
+  prompt: |
+    Read src/app/(dashboard)/knowledge-base/edit/page.tsx in full.
+    Read src/lib/intelligence/twin-completeness.ts in full.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex.
+
+    ADD GAMIFICATION AND AI ASSISTANCE to the KB editor:
+
+    1. COMPLETION CELEBRATION: When a section reaches 100% completeness:
+    Show a brief green flash animation on that section's nav item.
+    Show a toast notification: "Mission & Vision complete! Your AI drafts just got better."
+
+    2. OVERALL PROGRESS BAR at top of page:
+    "Your Digital Twin: X% Complete"
+    Colored progress bar: red 0-39%, amber 40-79%, green 80-100%.
+    "Impact: Your current twin completeness means AI drafts score approximately X/100 on average."
+
+    3. AI SUGGESTIONS per section:
+    Each section has an "AI Assist" button that calls POST /api/knowledge-base/suggest.
+    The route loads what's already in the section and asks Claude to:
+    - Identify what information is missing
+    - Suggest specific content based on org type and existing data
+    - Draft placeholder content the user can edit
+    Returns suggestions as editable text pre-populated into the fields.
+
+    CREATE src/app/api/knowledge-base/suggest/route.ts:
+    POST: Accepts { section: string, currentContent: object, orgProfile: object }.
+    Calls Claude (max_tokens:500): "Based on this nonprofit's profile, suggest specific content for the [section] section of their knowledge base. Be specific — use actual program names, realistic statistics, and concrete language. Return JSON matching the section's data structure."
+    Returns suggestions to pre-populate form fields.
+
+    4. IMPORT FROM 990: For the Financial section, add "Import from 990" button:
+    Queries nonprofits table by org EIN.
+    If 990 data exists: pre-populate revenue, employee count, mission from the enriched data.
+    Shows "Imported from 2023 IRS 990 filing" label on pre-populated fields.
+
+    5. KEYBOARD SHORTCUTS: Ctrl+S saves current section. Tab moves between fields. Enter on tag inputs adds the tag.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: KB editor gamification -- completion animations, AI suggestions, 990 import, progress tracking'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

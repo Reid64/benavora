@@ -1,14 +1,17 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
   hostnameOf,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
   upsertCounterpartyNode,
   upsertProspectNode,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
+import { getEvidence } from "@/lib/pil/evidence";
 import { upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNodeType, ProspectEntityType } from "@/lib/pil/types";
 
@@ -81,6 +84,29 @@ interface ContactChannel {
   value: string;
   sourceUrl: string;
   sourceTitle: string | null;
+}
+
+// The six domain dimensions this agent's report scores coverage across, per
+// PIL_AGENT_COMPLETE_ROSTER.md "Core Intelligence" BEN_INT_10Decision.v1
+// contract. Coverage is computed from persisted pil_evidence state
+// (getEvidence()), not just evidence created this run, matching BEN-INT-08/09's
+// own established getEvidence(prospect.id, context.orgId) pattern.
+const CONTACT_DIMENSIONS = [
+  "Channel Type And Provenance",
+  "Business Versus Personal Channel",
+  "Validity/Freshness",
+  "Consent/Suppression State",
+  "Role Relevance",
+  "Contactability Uncertainty",
+] as const;
+
+export interface ContactIntelligenceReport {
+  prospectId: string;
+  dimensionCoverage: Record<(typeof CONTACT_DIMENSIONS)[number], boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+  channelsFound: number;
+  noPermissibleChannelFound: boolean;
 }
 
 export class ContactIntelligenceAgent implements Agent {
@@ -190,16 +216,125 @@ export class ContactIntelligenceAgent implements Agent {
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 350);
+    const noPermissibleChannelFound = channels.length === 0;
+
+    // Everything above this point (evidence + graph writes) is this run's own
+    // defensible determination and has already durably landed via
+    // individually atomic recordIntelligenceEvidence()/upsertEdge() calls.
+    // Gap-analysis/delegation-construction/report-construction below is
+    // secondary reasoning over that already-persisted work -- a bug here must
+    // never discard evidence this run already recorded (roster: "captured
+    // evidence stays immutable").
+    let report: ContactIntelligenceReport = {
+      prospectId: prospect.id,
+      dimensionCoverage: Object.fromEntries(CONTACT_DIMENSIONS.map((d) => [d, false])) as ContactIntelligenceReport["dimensionCoverage"],
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+      channelsFound: channels.length,
+      noPermissibleChannelFound,
+    };
+    let delegations: DelegationRequest[] = [];
+
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const contactEvidence = allEvidence.filter((e) => e.claim_type === "contact");
+      const hasBusinessChannel = contactEvidence.some((e) => {
+        const channelType = (e.value as { channelType?: string } | null)?.channelType;
+        return channelType === "email" || channelType === "organization_contact_page";
+      });
+      const hasLinkedinChannel = contactEvidence.some((e) => {
+        const channelType = (e.value as { channelType?: string } | null)?.channelType;
+        return channelType === "linkedin";
+      });
+
+      const dimensionSignals: Record<(typeof CONTACT_DIMENSIONS)[number], boolean> = {
+        "Channel Type And Provenance": contactEvidence.length > 0,
+        // extractEmail()'s PERSONAL_EMAIL_DOMAINS deny-list means any recorded
+        // email/organization-contact-page channel is already confirmed
+        // non-personal -- that filtering IS this dimension's signal.
+        "Business Versus Personal Channel": hasBusinessChannel,
+        "Validity/Freshness": contactEvidence.some((e) => e.freshness_status === "fresh"),
+        // No agent in this codebase tracks consent or suppression-list state
+        // for a contact channel yet -- an explicit false, not an omitted
+        // field (same pattern as BEN-INT-08's "Liability/Encumbrance
+        // Limitations").
+        "Consent/Suppression State": false,
+        "Role Relevance": hasLinkedinChannel,
+        // Uncertainty is captured via the quantified confidence/
+        // verification_status recorded alongside every contact evidence row.
+        "Contactability Uncertainty": contactEvidence.length > 0,
+      };
+      const dimensionCoverage = Object.fromEntries(
+        CONTACT_DIMENSIONS.map((dimension) => [dimension, dimensionSignals[dimension]]),
+      ) as ContactIntelligenceReport["dimensionCoverage"];
+
+      // Roster delegation targets for BEN-INT-10: BEN-KNW-03, BEN-REL-01,
+      // BEN-QLF-05 (never BEN-KNW-02, never a BEN-INT-0N peer -- documented
+      // roster anomaly shared only with BEN-INT-08 and BEN-INT-04
+      // respectively). Pushed in priority order, capped at
+      // MAX_DELEGATIONS_PER_RUN since AgentRunner executes delegations
+      // synchronously/inline.
+      const candidates: DelegationRequest[] = [];
+      const pushCandidate = (childAgentCode: string, objective: string) => {
+        candidates.push({
+          childAgentCode,
+          objective,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      };
+
+      if (noPermissibleChannelFound) {
+        pushCandidate(
+          "BEN-REL-01",
+          `Prospect ${context.prospectId} has no direct, permissible contact channel on file -- pursue a warm introduction via a known relationship as the only permissible route to this prospect.`,
+        );
+      }
+      if (hasLinkedinChannel) {
+        pushCandidate(
+          "BEN-QLF-05",
+          `Prospect ${context.prospectId} has a verified professional LinkedIn channel confirmed this run -- use as document-readiness input signal for qualification.`,
+        );
+      }
+      if (evidenceCreated.length > 0) {
+        pushCandidate(
+          "BEN-KNW-03",
+          `BEN-INT-10 recorded ${evidenceCreated.length} new contact evidence item(s) for prospect ${context.prospectId} this run -- verify provenance before treating as authoritative.`,
+        );
+      }
+
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+        channelsFound: channels.length,
+        noPermissibleChannelFound,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "ben-int-10.gap_analysis_failed",
+        resource_type: "pil_agent_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { error: message },
+        policy_decision: null,
+        ip_address: null,
+      });
+      delegations = [];
+    }
 
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: {
-        prospectId: prospect.id,
-        channelsFound: channels.length,
-        noPermissibleChannelFound: channels.length === 0,
-      },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

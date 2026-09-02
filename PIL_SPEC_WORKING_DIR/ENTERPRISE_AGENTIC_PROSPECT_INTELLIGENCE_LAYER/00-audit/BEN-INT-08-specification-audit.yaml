@@ -1,0 +1,29 @@
+audit_id: PIL-AUDIT-BEN-INT-08-SPECIFICATION
+specification_id: PIL-AGENT-BEN-INT-08
+specification_version: 1.0.0
+agent_name: Wealth and Capacity Intelligence Agent
+classification: NEW_AGENT_AUTHORED_TO_COMPLETE_CANONICAL_FLEET
+verdict: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+quality_dimensions:
+  agent_service_boundary: PASS_SPECIFICATION
+  durable_goal_observe_plan_evaluate_replan: PASS_SPECIFICATION
+  typed_delegation_authority_and_depth: PASS_SPECIFICATION
+  evidence_provenance_contradiction_freshness: PASS_SPECIFICATION
+  security_privacy_tenant_isolation: PASS_SPECIFICATION
+  idempotency_concurrency_recovery: PASS_SPECIFICATION
+  economics_stopping_and_budget: PASS_SPECIFICATION
+  observability_audit_operator_controls: PASS_SPECIFICATION
+  evaluation_calibration_adversarial_load_chaos_dr: PASS_SPECIFICATION
+  domain_specific_acceptance_contracts: PASS_SPECIFICATION
+domain_dimensions:
+- asset and ownership indicators
+- liquidity indicators
+- liability/encumbrance limitations
+- valuation basis/date
+- capacity range
+- confidence and uncertainty
+implementation_evidence:
+  completed: false
+  tests_executed: false
+  production_ready: false
+  score_assigned: false

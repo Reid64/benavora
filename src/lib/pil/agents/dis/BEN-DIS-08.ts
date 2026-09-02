@@ -1,4 +1,5 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
+import { logAction } from "@/lib/pil/audit";
 import {
   callTool,
   findExistingProspect,
@@ -59,6 +60,17 @@ import type { EvidenceItem, GraphNodeType, Prospect, ProspectEntityType } from "
 // only, never triggers outreach." This agent never writes to
 // funders/contacts and never creates a pil_delegated_tasks row aimed at
 // contact/outreach agents.
+
+// CONSTITUTIONAL INVARIANT (spec): "no CRM mutation command exists at all"
+// for this agent -- only a separately governed dedicated synchronization
+// authority (not itself an agent, no ID given) may ever translate an
+// approved governed decision into a CRM mutation. This agent's human
+// boundary is "no automatic solicitation escalation -- flags only, never
+// triggers outreach." Every getPilClient().from(...) call against either
+// table below is a .select(...) read, never an .insert/.update/.delete --
+// writes only ever target this agent's own pil_prospects/pil_graph_nodes/
+// pil_graph_edges/pil_evidence tables. This must never change.
+const READ_ONLY_CRM_TABLES = ["funders", "contacts"] as const;
 
 const HIDDEN_SIGNAL_QUERY_SUFFIX = "board OR trustee OR family office OR donor-advised fund";
 
@@ -121,7 +133,7 @@ async function findOrCreateCrmProspect(
 interface RediscoveryFlag {
   prospectId: string;
   displayName: string;
-  crmTable: "funders" | "contacts";
+  crmTable: (typeof READ_ONLY_CRM_TABLES)[number];
   crmRecordId: string;
   reason: string;
 }
@@ -132,7 +144,17 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
     const linkedProspectIds: string[] = [];
     const newlyCreatedProspectIds: string[] = [];
     const reclassificationFlags: RediscoveryFlag[] = [];
+    const entityResolutionCandidateProspectIds: string[] = [];
 
+    // Schema gap (live schema, src/types/database.ts): neither `funders` nor
+    // `contacts` currently has any consent/suppression/deletion column, so
+    // the spec's suppression-precedence and deletion-safe-restore
+    // requirements cannot be implemented against real data yet. This is an
+    // honest, documented gap rather than a guess at columns that don't
+    // exist -- if either table ever gains such a column, rows carrying an
+    // active suppression or unresolved-deletion flag must be excluded from
+    // CRM-cross-reference and hidden-signal search entirely.
+    // READ-ONLY per BEN-DIS-08's constitutional invariant -- see READ_ONLY_CRM_TABLES above. Never .insert/.update/.delete here.
     const { data: funderRows, error: funderError } = await getPilClient()
       .from("funders")
       .select("id, name, category, annual_giving_budget")
@@ -140,6 +162,10 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
     if (funderError) throw funderError;
     const funders = (funderRows ?? []) as FunderRow[];
 
+    // Schema gap (live schema, src/types/database.ts): `contacts` likewise
+    // has no consent/suppression/deletion column today -- same documented
+    // gap as `funders` above.
+    // READ-ONLY per BEN-DIS-08's constitutional invariant -- see READ_ONLY_CRM_TABLES above. Never .insert/.update/.delete here.
     const { data: contactRows, error: contactError } = await getPilClient()
       .from("contacts")
       .select("id, funder_id, name, title, relationship, last_contacted_at")
@@ -147,13 +173,33 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
     if (contactError) throw contactError;
     const contacts = (contactRows ?? []) as ContactRow[];
 
+    if (funders.length === 0 && contacts.length === 0) {
+      return {
+        status: "completed",
+        evidence: [],
+        conclusions: { skipped: true, reason: "BEN-DIS-08 found no funders/contacts rows to scan for org " + context.orgId },
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: null,
+      };
+    }
+
     const funderProspectNodeByFunderId = new Map<string, Awaited<ReturnType<typeof upsertNode>>>();
 
     for (const funder of funders) {
+      try {
       const entityType = inferFunderEntityType(funder.category);
       const nodeType = inferFunderNodeType(funder.category);
       const { prospect, created } = await findOrCreateCrmProspect(context.orgId, funder.name, entityType, context.agentCode);
-      if (created) newlyCreatedProspectIds.push(prospect.id);
+      if (created) {
+        newlyCreatedProspectIds.push(prospect.id);
+      } else {
+        // The CRM record matched an already-existing pil_prospect (possibly
+        // sourced by a different Discovery agent) -- this agent must never
+        // assume the match itself; BEN-KNW-02 confirms entity resolution.
+        entityResolutionCandidateProspectIds.push(prospect.id);
+      }
       linkedProspectIds.push(prospect.id);
 
       // The CRM record and the pil_prospect as two distinct, explicitly
@@ -240,18 +286,40 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
             reclassificationFlags.push({
               prospectId: prospect.id,
               displayName: funder.name,
-              crmTable: "funders",
+              crmTable: READ_ONLY_CRM_TABLES[0],
               crmRecordId: funder.id,
               reason: "external board/family-office/DAF signal found with no giving amount on file",
             });
           }
         }
       }
+      } catch (err) {
+        // Recovery protocol: a thrown error while processing one CRM record
+        // must not discard the entire sweep -- log it and continue.
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.crm_row_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { crmTable: "funders" as const, crmRecordId: funder.id, message: err instanceof Error ? err.message : String(err) },
+          policy_decision: null,
+          ip_address: null,
+        });
+        continue;
+      }
     }
 
     for (const contact of contacts) {
+      try {
       const { prospect, created } = await findOrCreateCrmProspect(context.orgId, contact.name, "individual", context.agentCode);
-      if (created) newlyCreatedProspectIds.push(prospect.id);
+      if (created) {
+        newlyCreatedProspectIds.push(prospect.id);
+      } else {
+        entityResolutionCandidateProspectIds.push(prospect.id);
+      }
       linkedProspectIds.push(prospect.id);
 
       const crmRecordNode = await upsertNode({
@@ -352,16 +420,65 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
             reclassificationFlags.push({
               prospectId: prospect.id,
               displayName: contact.name,
-              crmTable: "contacts",
+              crmTable: READ_ONLY_CRM_TABLES[1],
               crmRecordId: contact.id,
               reason: "external board/family-office/DAF/ownership signal found on a cold or unengaged contact",
             });
           }
         }
       }
+      } catch (err) {
+        // Recovery protocol: a thrown error while processing one CRM record
+        // must not discard the entire sweep -- log it and continue.
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.crm_row_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { crmTable: "contacts" as const, crmRecordId: contact.id, message: err instanceof Error ? err.message : String(err) },
+          policy_decision: null,
+          ip_address: null,
+        });
+        continue;
+      }
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
+
+    // Dependencies (roster): this agent feeds BEN-SUP-05 (critic review of
+    // reclassification flags), BEN-KNW-02 (entity-resolution confirmation
+    // for CRM records that matched an already-existing prospect), and
+    // BEN-KNW-03 (provenance review of this run's CRM-sourced evidence
+    // batch). None of these delegations is a CRM mutation -- they are the
+    // correct downstream gates before any human eventually acts.
+    const delegations: DelegationRequest[] = [];
+    if (reclassificationFlags.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Critic review for BEN-DIS-08 hidden-prospect reclassification flags: ${reclassificationFlags.map((f) => f.prospectId).join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { reclassificationFlags },
+      });
+    }
+    if (entityResolutionCandidateProspectIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-02",
+        objective: `Confirm entity-resolution match between existing pil_prospects and newly cross-referenced CRM records: ${entityResolutionCandidateProspectIds.join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { candidateProspectIds: entityResolutionCandidateProspectIds },
+      });
+    }
+    if (evidenceCreated.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `Provenance review for BEN-DIS-08 CRM-sourced evidence batch (org ${context.orgId})`,
+        maxAutonomy: "A2" as const,
+        constraints: { evidenceCount: evidenceCreated.length },
+      });
+    }
 
     return {
       status: "completed",
@@ -374,8 +491,9 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
         // Reclassification flags only -- never a solicitation trigger
         // (spec's explicit human boundary for this agent).
         reclassificationFlags,
+        entityResolutionCandidateProspectIds,
       },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

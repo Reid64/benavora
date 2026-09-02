@@ -1,0 +1,98 @@
+schema_version: "1.0.0"
+document_id: PIL-SVC-CONTRACTS-011
+scope: deterministic_control_plane_batch_01
+service_contract_defaults:
+  tenant_isolation: required
+  authentication: workload_identity_mtls_or_equivalent
+  authorization: default_deny_policy_decision
+  mutation: idempotency_key_and_expected_version_required
+  events: transactional_outbox_and_inbox_deduplication
+  telemetry: correlated_redacted_metrics_logs_traces_audit
+  availability_targets: configured_from_measured_product_requirements_not_invented
+services:
+  PIL-SVC-01:
+    name: Identity and Authentication
+    responsibilities: [human_identity, workload_identity, session_and_token_validation, credential_rotation]
+    commands: [AuthenticateHuman, AuthenticateWorkload, RevokeCredential]
+    queries: [ResolvePrincipal, InspectCredentialStatus]
+    events: [PrincipalAuthenticated, AuthenticationDenied, CredentialRevoked]
+    invariants: [tenant_context_is_not_accepted_from_unverified_payload, short_lived_workload_credentials, secrets_never_enter_agent_context]
+    failure_mode: fail_closed
+  PIL-SVC-02:
+    name: Tenant Isolation Gateway
+    responsibilities: [derive_tenant_context, sign_internal_tenant_envelope, reject_mismatch, quarantine_cross_tenant_signal]
+    commands: [IssueTenantEnvelope, QuarantineRequest]
+    queries: [VerifyTenantEnvelope]
+    events: [TenantContextVerified, TenantMismatchDetected, RequestQuarantined]
+    invariants: [every_internal_request_has_verified_tenant, no_cross_tenant_fallback]
+    failure_mode: security_incident_fail_closed
+  PIL-SVC-03:
+    name: RBAC and ABAC Authorization
+    responsibilities: [role_attribute_and_resource_authorization, approval_scope_validation]
+    queries: [AuthorizeAction, InspectEffectivePermission]
+    events: [AuthorizationAllowed, AuthorizationDenied]
+    invariants: [default_deny, permissions_cannot_be_self_granted, stale_approval_rejected]
+  PIL-SVC-04:
+    name: Policy Enforcement Point
+    responsibilities: [evaluate_global_domain_tenant_goal_task_policy, issue_obligations, snapshot_decision]
+    commands: [PublishPolicyVersion, RetirePolicyVersion]
+    queries: [EvaluatePolicy, ExplainPolicyDecision]
+    events: [PolicyPublished, PolicyAllowed, PolicyDenied, PolicyObligationIssued]
+    invariants: [precedence_global_domain_tenant_goal_task, lower_scope_never_weakens_higher_scope, decision_has_expiry]
+  PIL-SVC-06:
+    name: Durable Workflow Engine
+    responsibilities: [persist_state_machine, timers, retries, joins, leases, cancellation, recovery]
+    commands: [StartWorkflow, SignalWorkflow, CancelWorkflow, RecoverWorkflow]
+    queries: [GetWorkflowState, ListOpenTasks]
+    events: [WorkflowStarted, WorkflowTransitioned, WorkflowPaused, WorkflowRecovered, WorkflowTerminated]
+    invariants: [no_live_process_assumption, optimistic_concurrency, terminal_state_immutable_without_reopen]
+  PIL-SVC-07:
+    name: Queue Event Bus and Transactional Outbox
+    responsibilities: [outbox_publish, ordered_partitioning, inbox_deduplication, dead_letter_quarantine]
+    commands: [PublishOutboxBatch, ReplayDeadLetterScoped]
+    queries: [InspectEvent, InspectDeadLetter]
+    events: [EventPublished, DuplicateSuppressed, EventDeadLettered, DeadLetterReplayed]
+    invariants: [state_and_outbox_atomic, effectively_once_consumption, replay_requires_authorization_and_idempotency]
+  PIL-SVC-23:
+    name: Audit Ledger
+    responsibilities: [append_tamper_evident_audit, integrity_verification, policy_bound_export]
+    commands: [AppendAuditRecord, SealAuditSegment]
+    queries: [QueryAuditTrail, VerifyAuditIntegrity]
+    events: [AuditRecordAppended, AuditIntegrityFailure]
+    invariants: [append_only, tenant_scoped, decision_reconstructability, sensitive_value_redaction]
+  PIL-SVC-24:
+    name: Model Gateway
+    responsibilities: [approved_model_routing, structured_output_validation, context_redaction, fallback, usage_accounting]
+    commands: [InvokeModel]
+    queries: [ListApprovedModels, EstimateModelCost]
+    events: [ModelInvoked, ModelOutputRejected, ModelFallbackSelected]
+    invariants: [model_has_no_authority, version_recorded, output_schema_enforced, fallback_cannot_weaken_policy]
+  PIL-SVC-25:
+    name: Cost and Budget Ledger
+    responsibilities: [atomic_reserve, commit_usage, release, expire, reconcile, anomaly_detection]
+    commands: [ReserveBudget, CommitUsage, ReleaseBudget, ReconcileBudget]
+    queries: [GetAvailableBudget, EstimatePlanCost]
+    events: [BudgetReserved, BudgetCommitted, BudgetReleased, BudgetThresholdReached, BudgetDenied]
+    invariants: [no_overcommit_under_concurrency, descendants_within_parent, immutable_usage_audit]
+  PIL-SVC-30:
+    name: Feature Flag Kill Switch and Configuration
+    responsibilities: [versioned_configuration, staged_rollout, emergency_disable, tenant_and_domain_scoping]
+    commands: [PublishConfiguration, SetFeatureFlag, ActivateKillSwitch, DeactivateKillSwitch]
+    queries: [ResolveConfiguration, InspectKillSwitch]
+    events: [ConfigurationPublished, FeatureFlagChanged, KillSwitchActivated]
+    invariants: [security_kill_switch_highest_precedence, agent_cannot_change_configuration, changes_audited]
+error_contract:
+  fields: [error_code, category, retryable, message_safe, trace_id, policy_decision_id, details_ref]
+  categories: [AUTHENTICATION, AUTHORIZATION, TENANT, POLICY, VALIDATION, CONFLICT, RATE, BUDGET, TRANSIENT, TERMINAL, SECURITY]
+minimum_service_tests:
+  - schema_contract_and_consumer_compatibility
+  - tenant_isolation_and_idor
+  - idempotency_duplicate_and_concurrency
+  - authorization_and_policy_precedence
+  - timeout_retry_circuit_breaker_and_dead_letter
+  - secrets_pii_and_prompt_context_redaction
+  - audit_integrity_and_decision_reconstruction
+  - backup_restore_and_disaster_recovery
+  - load_profile_and_backpressure
+  - chaos_at_transaction_boundaries
+

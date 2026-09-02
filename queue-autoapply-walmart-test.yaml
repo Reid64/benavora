@@ -1,0 +1,80 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- WORKER_ARCHITECTURE_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: aa-walmart-001
+  name: Governance sync and AutoApply Walmart test run
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read worker/autoapply-processor.ts in FULL.
+    Read scripts/test-autoapply-walmart.ts in FULL.
+    Read worker/autoapply-autonomous-orchestrator.ts in FULL.
+
+    STEP 1: Verify Playwright is installed. Run: npx playwright install chromium --with-deps
+    If installation fails: run pnpm add playwright @playwright/test then retry.
+
+    STEP 2: Run the Walmart test script:
+    npx tsx scripts/test-autoapply-walmart.ts
+    Capture the FULL output — every line.
+
+    STEP 3: Based on the result, take these actions:
+    - If status='submitted': EXCELLENT. Document the confirmation text. Update STATE_OF_THE_BUILD.md.
+    - If status='pending_email_verification': EXPECTED on first run. Document what page was reached, what form was filled, what the Deed verification URL looks like. This is a successful navigation test.
+    - If status='captcha_blocked': Document which captcha type was detected. Note the URL where it appeared.
+    - If status='no_portal_found': Fix the portal discovery logic in worker/autoapply-processor.ts to correctly find walmart.com/nonprofits. Retry.
+    - If status='failed': Read the full error. Fix the specific error in autoapply-processor.ts. Retry.
+
+    STEP 4: Regardless of outcome, create src/app/(dashboard)/autoapply/test-results/page.tsx:
+    A page that shows the last 10 AutoApply session results for the org.
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+    Query autoapply_sessions WHERE org_id=? ORDER BY created_at DESC LIMIT 10.
+    Each session card shows: company name, portal_type, status badge (submitted=#10B981, pending_email=#F59E0B, captcha_blocked=#EF4444, failed=#6B7280), screenshot if available, confirmation_text if submitted, error_message if failed, duration.
+    "Run New Test" button that calls POST /api/autoapply/test with { prospectUrl, orgId }.
+
+    STEP 5: Update STATE_OF_THE_BUILD.md with AutoApply test results.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: AutoApply Walmart test run results and test results UI page'; git push.
+    npx vercel deploy --prod.
+    Report production URL and exact test result status.
+
+- id: aa-walmart-002
+  name: AutoApply Spark Good account pre-creation guide and automation
+  prompt: |
+    Read worker/autoapply-processor.ts in FULL.
+    Read scripts/test-autoapply-walmart.ts in FULL.
+    Read src/app/(dashboard)/autoapply/page.tsx in FULL.
+
+    CREATE scripts/setup-sparkgood-account.ts:
+
+    A guided setup script that helps an org pre-create their Walmart Spark Good account so AutoApply can submit grants without hitting the email verification wall on each run.
+
+    The script:
+    1. Checks if a Spark Good account already exists for this org by looking in a new org_portal_accounts table (create via ALTER if needed: org_id, portal_type, account_email, account_created_at, deed_verified boolean, deed_verified_at, notes).
+    2. If no account: launches Playwright browser NON-headless (headless: false) so the human can see and complete the Deed email verification manually.
+    3. Navigates to https://www.walmart.com/nonprofits
+    4. Fills in org details from KB profile automatically
+    5. PAUSES at the Deed email verification step: console.log('\n\n=== ACTION REQUIRED ===\nCheck your email at [email] for a Deed verification link.\nClick the link in your email, then press ENTER here to continue...\n')
+    6. await new Promise(resolve => process.stdin.once('data', resolve))
+    7. After human confirms email verified: continues the browser session to complete account setup
+    8. Saves account details to org_portal_accounts table
+    9. console.log('SUCCESS: Spark Good account verified. AutoApply can now submit to Walmart automatically.')
+
+    Also update worker/autoapply-processor.ts:
+    Before attempting Walmart submission, check org_portal_accounts WHERE org_id=? AND portal_type='walmart_sparkgood' AND deed_verified=true.
+    If verified account exists: use stored credentials to log in instead of creating new account.
+    If no verified account: return status='requires_account_setup' with message='Run pnpm setup:sparkgood to complete one-time account setup'.
+
+    Add package.json script: "setup:sparkgood": "tsx scripts/setup-sparkgood-account.ts"
+
+    Add to autoapply/page.tsx: if any sessions have status='requires_account_setup', show a prominent yellow banner:
+    "One-time setup required for Walmart AutoApply. Run pnpm setup:sparkgood in your terminal to complete Spark Good account verification. This takes 5 minutes and only needs to be done once."
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: Spark Good account pre-creation guide -- one-time setup flow with human-in-loop email verification'; git push.

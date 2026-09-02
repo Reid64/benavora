@@ -1,0 +1,63 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - AGENTS_v2.md
+  - FEATURE_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q8-001
+    phase: verify
+    description: "Live-verify AG-23 (Relationship Mapper) — note possible overlap with RA-01"
+    prompt: |
+      Read AGENTS_v2.md's AG-23 spec. Earlier this session, RA-01 (an old label) was found to reference
+      the same concept as AG-23. Confirm whether these are the same agent under two labels, or genuinely
+      different scopes (AG-23 as "incremental" vs a separate full nightly traversal). Check real code state.
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-23", resolving the naming ambiguity explicitly.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-23 Relationship Mapper, resolve RA-01 naming ambiguity'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q8-002
+    phase: verify
+    description: "Live-verify AG-24 (Personalized Outreach Generator)"
+    prompt: |
+      Read AGENTS_v2.md's AG-24 spec. Check real code state. If it exists, run it against one real test
+      prospect and verify it produces genuinely personalized output (not a generic template with the
+      prospect's name substituted in — check that content actually reflects prospect-specific data).
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-24".
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-24 Personalized Outreach Generator'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q8-003
+    phase: verify
+    description: "Live-verify AG-25 (Disaster Response) and AG-26 (Funding Forecast)"
+    prompt: |
+      Read AGENTS_v2.md's AG-25 and AG-26 specs. Check real code state for each.
+      Append findings to AGENT_VERIFICATION_LOG.md under "AG-25" and "AG-26" sections.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify AG-25 Disaster Response and AG-26 Funding Forecast'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue

@@ -1,0 +1,882 @@
+[
+  {
+    "path": "00-audit/00-quality-remediation-status.yaml",
+    "sha256": "fb284ce0ed80d64454bf101ee5d10dd1d971a20dcedb76e8e9c8ea72f8f9ee21",
+    "bytes": 2644
+  },
+  {
+    "path": "00-audit/BEN-DIS-01-remediation-audit.yaml",
+    "sha256": "bc79f6edfb66c16443dfc59fe9014074391d568313e7deade6bfb43eccbd4ff9",
+    "bytes": 1705
+  },
+  {
+    "path": "00-audit/BEN-DIS-02-remediation-audit.yaml",
+    "sha256": "b87fa617ca258ffd36b5acb55aa6cb4924352dc9c8f8f8f351c23be4da7d8b7c",
+    "bytes": 1683
+  },
+  {
+    "path": "00-audit/BEN-DIS-03-remediation-audit.yaml",
+    "sha256": "e4093f96d3189a08ab7518350831365bf18b8b8aa3af00c9e4122870c75ee0aa",
+    "bytes": 1443
+  },
+  {
+    "path": "00-audit/BEN-DIS-04-specification-audit.yaml",
+    "sha256": "fa3b2c830c9f8a544995ee115f845823230ccd4cf12e3fb318dc50705fe8cfb0",
+    "bytes": 1185
+  },
+  {
+    "path": "00-audit/BEN-DIS-05-specification-audit.yaml",
+    "sha256": "bf4264716c5c5ade2556e5834f34903593ff9200e920a92ee2756f5450c56dc4",
+    "bytes": 1171
+  },
+  {
+    "path": "00-audit/BEN-DIS-06-specification-audit.yaml",
+    "sha256": "59842459bca49a525aa59214462fb91e526b6920363ba1823dc066e37a444d84",
+    "bytes": 1177
+  },
+  {
+    "path": "00-audit/BEN-DIS-07-specification-audit.yaml",
+    "sha256": "bc48ad849773689cae919baf062c50e43e679812a46074bcc32c9dc77600537a",
+    "bytes": 1186
+  },
+  {
+    "path": "00-audit/BEN-DIS-08-specification-audit.yaml",
+    "sha256": "666e00ee0285bacfd3e993161c2a430d0b7ea784ef75558da897a9a2d4447ec4",
+    "bytes": 1215
+  },
+  {
+    "path": "00-audit/BEN-INT-01-specification-audit.yaml",
+    "sha256": "c8141c95e49ac788c4621a4995a3e8084571492e70407720ed8549bf8a77189b",
+    "bytes": 1219
+  },
+  {
+    "path": "00-audit/BEN-INT-02-specification-audit.yaml",
+    "sha256": "0210dfdf58749050e1ce41b0044e34b238f2a43994a012d1daf0d3894cb6458d",
+    "bytes": 1196
+  },
+  {
+    "path": "00-audit/BEN-INT-03-specification-audit.yaml",
+    "sha256": "12664125bfcdd8c454079d89a2a7eb5bf57df5b8cb2c3ba909cb56806b51952c",
+    "bytes": 1195
+  },
+  {
+    "path": "00-audit/BEN-INT-04-specification-audit.yaml",
+    "sha256": "6320ff0adf28801ac3a4cc301f08098e9f6eb74b9165e740971349dcc1ef03fd",
+    "bytes": 1179
+  },
+  {
+    "path": "00-audit/BEN-INT-05-specification-audit.yaml",
+    "sha256": "67678a5bcc2b0933e68ac66c9273865a5556fd0599a9c5ecb0b538c7b7dd3b5f",
+    "bytes": 1186
+  },
+  {
+    "path": "00-audit/BEN-INT-06-specification-audit.yaml",
+    "sha256": "e28853a67849f9aaace78ddea0cf1640d53200da06d66f6ceeb1dfd95de9db39",
+    "bytes": 1171
+  },
+  {
+    "path": "00-audit/BEN-INT-07-specification-audit.yaml",
+    "sha256": "e61967852eed71ba8b0e2b70df66e041d359aca19e10def3bc7356abfe1d8553",
+    "bytes": 1167
+  },
+  {
+    "path": "00-audit/BEN-INT-08-specification-audit.yaml",
+    "sha256": "2058ab3f6f3c2bca50fac6f30524681b5ce2acb430489db40371d4ad29051b5c",
+    "bytes": 1193
+  },
+  {
+    "path": "00-audit/BEN-INT-09-specification-audit.yaml",
+    "sha256": "ef3d1abdb2e279a3247c5cbff3e7d35bbdc7eef7c544d6859bc2ae1c8418c5bb",
+    "bytes": 1190
+  },
+  {
+    "path": "00-audit/BEN-INT-10-specification-audit.yaml",
+    "sha256": "b45772d34d6e861aafde573fce34bbf5cba48b2bfdba8baf9a724c510e82cda8",
+    "bytes": 1180
+  },
+  {
+    "path": "00-audit/BEN-KNW-01-specification-audit.yaml",
+    "sha256": "a9c9e30cd46e02cd6b6bcb7f99582373bd284574435381973124eee1fcb543b4",
+    "bytes": 1138
+  },
+  {
+    "path": "00-audit/BEN-KNW-02-specification-audit.yaml",
+    "sha256": "9033c44aec01689a2b909d322eb7ac8a27913cd45daef8ca7e13c62335fe15ca",
+    "bytes": 1157
+  },
+  {
+    "path": "00-audit/BEN-KNW-03-specification-audit.yaml",
+    "sha256": "59823269c81cd08fec81f3059fd463fd922bad5a8f228d3307e2b56bdb8d5467",
+    "bytes": 1146
+  },
+  {
+    "path": "00-audit/BEN-KNW-04-specification-audit.yaml",
+    "sha256": "12652b7c27929e1b29dd678be3aeea43a16b33beac3a4d2a6fc325a17560d58c",
+    "bytes": 1160
+  },
+  {
+    "path": "00-audit/BEN-OPS-01-specification-audit.yaml",
+    "sha256": "db5ebb795331559e7b0e80de343f24912fd93cff16e34ac7aecdd9c7bb2a096a",
+    "bytes": 1149
+  },
+  {
+    "path": "00-audit/BEN-QLF-01-specification-audit.yaml",
+    "sha256": "1a5efd16093173799b3ab727313abba614efba2d1b645d956589bcef8b736369",
+    "bytes": 1128
+  },
+  {
+    "path": "00-audit/BEN-QLF-02-specification-audit.yaml",
+    "sha256": "795206c9a06bfe1a789c64488662d0c5609cfdad5ec0e2046b43d86afc17bd01",
+    "bytes": 1128
+  },
+  {
+    "path": "00-audit/BEN-QLF-03-specification-audit.yaml",
+    "sha256": "dc64efab6d2e6d710a57578139191ce0733fe29bff244afb1e9f205041a14d98",
+    "bytes": 1145
+  },
+  {
+    "path": "00-audit/BEN-QLF-04-specification-audit.yaml",
+    "sha256": "dc2d575f2c753ad722973111b50239852855a463fa77848b39590afde1fb3527",
+    "bytes": 1134
+  },
+  {
+    "path": "00-audit/BEN-QLF-05-specification-audit.yaml",
+    "sha256": "a865e885e86cec30f40d02201fb1e53d7961d9888eb537483593b77764c3d975",
+    "bytes": 1158
+  },
+  {
+    "path": "00-audit/BEN-REL-01-specification-audit.yaml",
+    "sha256": "24029624a4db8d5ba7ce66fe02fe02d4557f5b7e7e9d119ee87fc99777695090",
+    "bytes": 1141
+  },
+  {
+    "path": "00-audit/BEN-REL-02-specification-audit.yaml",
+    "sha256": "63c9eddb037957dba97804c416d886d9914c4d7e96decc86a2bc773c3b004d9f",
+    "bytes": 1142
+  },
+  {
+    "path": "00-audit/BEN-REL-03-specification-audit.yaml",
+    "sha256": "e750c3f321c933ab89a890465a4a688e29e1a238ed72b2bd380774fd337b36e8",
+    "bytes": 1215
+  },
+  {
+    "path": "00-audit/BEN-REL-04-specification-audit.yaml",
+    "sha256": "c562e8d9df4c10e81d732bda7133230702a90d910e3dcc804d9ab486d21b9873",
+    "bytes": 1128
+  },
+  {
+    "path": "00-audit/BEN-REL-05-specification-audit.yaml",
+    "sha256": "ca82dc27a893e80494113f841c4e3e7de603fe1c9e292ec075cb7a7afd4a52c9",
+    "bytes": 1148
+  },
+  {
+    "path": "00-audit/BEN-REL-06-specification-audit.yaml",
+    "sha256": "cb787a73135d77fe78f5e2527220e762bcf75275c26d24b08da94d772c16b385",
+    "bytes": 1107
+  },
+  {
+    "path": "00-audit/BEN-STR-01-specification-audit.yaml",
+    "sha256": "f117af1f769cf6d0883edb0ccd5af4a8892123a04c6a6d38365f4dac84485ec7",
+    "bytes": 1140
+  },
+  {
+    "path": "00-audit/BEN-STR-02-specification-audit.yaml",
+    "sha256": "8fbe68ad3d814bdb67aa1d89176efc73c71f9b11eee6cc4f0e98016922adeb6b",
+    "bytes": 1124
+  },
+  {
+    "path": "00-audit/BEN-STR-03-specification-audit.yaml",
+    "sha256": "20a04005a58973baae70a6ccc092622fc2d2fbf32c58382b4d6bf224b181f775",
+    "bytes": 1141
+  },
+  {
+    "path": "00-audit/BEN-STR-04-specification-audit.yaml",
+    "sha256": "c5321bde9d70aad11089e10de58ebe5beb34f83ebb0b991afffddef00ad128ae",
+    "bytes": 1121
+  },
+  {
+    "path": "00-audit/BEN-SUP-01-final-cross-contract-audit.yaml",
+    "sha256": "937aeb234c68c1c712a8d59e1d5ece3a1419f36bd9efa436e04ab2039dcb7dbb",
+    "bytes": 1776
+  },
+  {
+    "path": "00-audit/BEN-SUP-02-remediation-audit.yaml",
+    "sha256": "ea212af3b7dcf0e85c79000b3a77ec7e9fa4af4886947adb8242624ccf73e149",
+    "bytes": 1411
+  },
+  {
+    "path": "00-audit/BEN-SUP-03-remediation-audit.yaml",
+    "sha256": "5649dbd0844484eed77840605077c3a18d860477bfa3a23636e1e3456c15d0b1",
+    "bytes": 1419
+  },
+  {
+    "path": "00-audit/BEN-SUP-04-remediation-audit.yaml",
+    "sha256": "a80329d8a17bc1079b0c417cf040a2cc82d7c4022bb804c9a6d6e300487981bc",
+    "bytes": 1424
+  },
+  {
+    "path": "00-audit/BEN-SUP-05-remediation-audit.yaml",
+    "sha256": "2030fb1bf7cc787f32d2c34d3def3778529e8285a60db1450bade6f0de0d019c",
+    "bytes": 1613
+  },
+  {
+    "path": "00-audit/BEN-SUP-06-remediation-audit.yaml",
+    "sha256": "4f80e5a6e2a1ddf1ec9ede39ff727e3959c8a280e228ef8219d14bcd88b94f9b",
+    "bytes": 1794
+  },
+  {
+    "path": "00-governance/00-system-constitution.md",
+    "sha256": "d8b4043c45e41898983fe9a9605e93956d5c710b156460fcb41fab07fba9a797",
+    "bytes": 6883
+  },
+  {
+    "path": "01-registries/01-agent-registry-v2-complete.yaml",
+    "sha256": "407e500f316a3c574810df6f3758e7ed52d14918f7e3f79fb44a733c459b2630",
+    "bytes": 1680
+  },
+  {
+    "path": "01-registries/01-agent-registry-v3-autoapply-integrated.yaml",
+    "sha256": "0aeba9e391054ac5ed5205caf4d0419e3a454a46f4e2c49916aa13a43ee05c89",
+    "bytes": 1753
+  },
+  {
+    "path": "01-registries/01-agent-registry.yaml",
+    "sha256": "0aeba9e391054ac5ed5205caf4d0419e3a454a46f4e2c49916aa13a43ee05c89",
+    "bytes": 1753
+  },
+  {
+    "path": "01-registries/02-service-registry.yaml",
+    "sha256": "269225ae6a38f09ab585506b5a43c765ce100ef4d33611c3822cde58b5cc087d",
+    "bytes": 3673
+  },
+  {
+    "path": "02-contracts/03-shared-agent-contracts.yaml",
+    "sha256": "8eee9ea3345c7b50d61d0f8cf4413ec00b45ca1f67914bf3c9c7ee80ab352c83",
+    "bytes": 11286
+  },
+  {
+    "path": "03-chain-it/04-chain-it-master-manifest.yaml",
+    "sha256": "b130678c6f15469b21048064a8d6d38e4cb08b1a366d2fe499b5064b9e162704",
+    "bytes": 3211
+  },
+  {
+    "path": "04-agents/supervisory/BEN-SUP-01-chief-prospect-intelligence-orchestrator.md",
+    "sha256": "61b6a84daaf0563f8e4d7f3fba002bf30d8f6696f77b68f4de9fa61fac604b0a",
+    "bytes": 40095
+  },
+  {
+    "path": "05-evaluation/05-enterprise-agent-scorecard.md",
+    "sha256": "2d9e8f44775444e69f7b68130f871624786ac729990bf83b512bc142fbd4893a",
+    "bytes": 2834
+  },
+  {
+    "path": "06-data-architecture/06-canonical-data-graph-and-evidence-schemas.yaml",
+    "sha256": "a1a694d8cd15395f4361d4d95dbff2f7af878c5f7ebd699fad6bb68bbd7130b7",
+    "bytes": 9942
+  },
+  {
+    "path": "07-control-architecture/07-policy-autonomy-memory-tenancy-and-economics.md",
+    "sha256": "e8fe229ca696b0ed91ed55a44a1a6a811da8789a5b014ea55cae09bf9d2cb275",
+    "bytes": 6393
+  },
+  {
+    "path": "08-runtime-architecture/08-workflows-events-apis-and-recovery.md",
+    "sha256": "1e6bf6c0e0d4a96c11b0a4f592d431d77ac9376de9a9523c2093f4037d6eef38",
+    "bytes": 5051
+  },
+  {
+    "path": "09-agents/supervisory/BEN-SUP-02-research-strategy-architect.md",
+    "sha256": "a7af7f286668c0ed57be17bfd89adb82e146bc2090ccd2b2e4bbf1747ca67483",
+    "bytes": 36201
+  },
+  {
+    "path": "10-planning-architecture/10-dependency-graph-and-execution-plan-contracts.yaml",
+    "sha256": "54d3ef7337c6829978fef82aef66adb9e274419b7d560baf5f5f948062bfb981",
+    "bytes": 7099
+  },
+  {
+    "path": "11-service-contracts/11-control-plane-service-contracts-batch-01.yaml",
+    "sha256": "730e9b7f6ee73c892b7cbf5268289158c5695c36f5a2119f7febcfae79b8553b",
+    "bytes": 5848
+  },
+  {
+    "path": "12-agents/supervisory/BEN-SUP-03-cross-agent-research-planner.md",
+    "sha256": "74d543291e080a377d0e44a5a51e962ff7f47980b7cd033b7b7f4eae0f0d717c",
+    "bytes": 29930
+  },
+  {
+    "path": "13-service-contracts/13-intelligence-data-service-contracts-batch-02.yaml",
+    "sha256": "5943f3e26747dba0e7113db8095f15605cf0ae1cba5ebe7d17a223d460a65aaf",
+    "bytes": 5380
+  },
+  {
+    "path": "14-evaluation-architecture/14-evaluation-and-production-readiness.md",
+    "sha256": "7fd4db16109942874cbdf236c21b7ce5f02120d0bb781e1024edeec30c2c0d88",
+    "bytes": 3612
+  },
+  {
+    "path": "15-agents/supervisory/BEN-SUP-04-research-portfolio-allocator.md",
+    "sha256": "3edf01d89093e1e98afd52b06d35baa1349534d4f9f7d18b2b239b74a4884d8c",
+    "bytes": 27761
+  },
+  {
+    "path": "16-critic-architecture/16-independent-criticism-and-review-contracts.yaml",
+    "sha256": "24b0853367fed19f07288122d5b926a215c853c6f6e01e0bf401c2d29606c7d2",
+    "bytes": 4364
+  },
+  {
+    "path": "17-agents/supervisory/BEN-SUP-05-prospect-research-critic-red-team.md",
+    "sha256": "003c131c3216c66fff990a97dafb11206db6cacafa93bc1a78105ecbc9de1bbf",
+    "bytes": 26620
+  },
+  {
+    "path": "18-recovery-architecture/18-recovery-investigation-contracts.yaml",
+    "sha256": "20ded9a23dc00bb9ed16e0cd3fc52d742c9f25d318a7488a38ab89ea9f1c59f0",
+    "bytes": 11580
+  },
+  {
+    "path": "18-recovery-architecture/18b-discovery-agent-shared-contract.md",
+    "sha256": "830232795737a38b361de5bbc8f8ef939b6ee04288d986ae381b8c2f67fa403e",
+    "bytes": 8051
+  },
+  {
+    "path": "19-agents/supervisory/BEN-SUP-06-research-recovery-investigator.md",
+    "sha256": "0a9abd1ee6bcfd71ee0dd70f5de5f9094c909ed7b1f5dd3f050afa60644004df",
+    "bytes": 24305
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-01-individual-prospect-discovery.md",
+    "sha256": "a469f7446b724c7c362dc7ff31139ecb9e0eeea55209bd2c20e1baca55ed3d0c",
+    "bytes": 22907
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-02-major-donor-discovery.md",
+    "sha256": "b8bbeee7e7c6c0d9bb6186b33b3dc386e914ffe27d4cc8efdece04a66d177dc6",
+    "bytes": 23312
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-03-foundation-discovery.md",
+    "sha256": "36ac522dfd687226cfd9fc1314f2d99941235aa945eb71f0ca1b35d309c04471",
+    "bytes": 24742
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-04-corporate-giving-discovery.md",
+    "sha256": "24eec6300d8d8121f092739e7694cff399c57ddce72a3f1464d413387f5c9c6a",
+    "bytes": 23901
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-05-executive-prospect-discovery.md",
+    "sha256": "bd553f8b5dbc97763544fcbcaddace0084b418baccc99da06152f7c868ef5508",
+    "bytes": 29991
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-06-geographic-funding-discovery.md",
+    "sha256": "314e0d5d1c45f56f532ef215c098d8994a0ea43efce5694e9d9fbb39f4e43704",
+    "bytes": 28920
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-07-cause-aligned-prospect-discovery.md",
+    "sha256": "a9712c3a4f8f56f7301cfc2ec90cb6d119fa6a21ade0156f9c3ea616756899b8",
+    "bytes": 30220
+  },
+  {
+    "path": "20-agents/discovery/BEN-DIS-08-hidden-prospect-crm-rediscovery.md",
+    "sha256": "21002e2e3167169b30c927a4a8dac7a685f1bd6a6e6672be6ba709e89186e4be",
+    "bytes": 31325
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-01-individual-intelligence.md",
+    "sha256": "ba7f94a02ba16b54806aa3b342b80adb9f2841122669edd47ac05e08707fa937",
+    "bytes": 18636
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-02-employment-and-career-intelligence.md",
+    "sha256": "70ef4e9287cfefa85e7513e7c3df00ef95ddba19e288866b94d5105d71066852",
+    "bytes": 17880
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-03-business-ownership-intelligence.md",
+    "sha256": "3006573a1f55231c77c59b71f42e21fafddfe12492b27a350344a0c0f7086749",
+    "bytes": 17877
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-04-education-and-alumni-intelligence.md",
+    "sha256": "ae81a0e00e65cd31d21442ab16bae813fe074628d6a3f21c25a0eeecb6fe6abb",
+    "bytes": 17650
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-05-nonprofit-board-intelligence.md",
+    "sha256": "1b2f6cd08d28c72d2a5fe16579787aaa5cdbea0d8963e2e61038ed24c43c4f5a",
+    "bytes": 17856
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-06-foundation-intelligence.md",
+    "sha256": "06920c75bcce2fa293104554bce4a2a89e3e50fd253a7e167faeb910e084d4b1",
+    "bytes": 18004
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-07-giving-history-intelligence.md",
+    "sha256": "c9ec82e1644917a9d4848aad95ba74fec7335f836c5665fc9c4710ce664874a9",
+    "bytes": 17822
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-08-wealth-and-capacity-intelligence.md",
+    "sha256": "4ee4f475e3d8ef9e33b6ed83acadaac2716c56f93498e2d7ba20c8a1b8539273",
+    "bytes": 17897
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-09-wealth-origin-and-liquidity-event.md",
+    "sha256": "6f7cd112d728fbb579639cf5ccf059325aee12d14f35e2979b53e53ab4ca65b8",
+    "bytes": 17860
+  },
+  {
+    "path": "21-agents/intelligence/BEN-INT-10-contact-intelligence.md",
+    "sha256": "be4f2e231e494436fb81ff63894f194d10b54875cbb7221fa1d7f2b8958c99a3",
+    "bytes": 17710
+  },
+  {
+    "path": "22-agents/relationship/BEN-REL-01-relationship-discovery.md",
+    "sha256": "805d3135415edfc82ed87e357ae1f80deb36d7d66792e253e012283b47b4a793",
+    "bytes": 17201
+  },
+  {
+    "path": "22-agents/relationship/BEN-REL-02-board-relationship-mapping.md",
+    "sha256": "37b07ae19d45ba146468f38370ae67b6b8016eca013db033417d6b67f412f13b",
+    "bytes": 16859
+  },
+  {
+    "path": "22-agents/relationship/BEN-REL-03-corporate-relationship-mapping.md",
+    "sha256": "854bcc7b2e8e26b8617c93befac2ba6584cf8419c224f39f96cb5fad247fe32d",
+    "bytes": 17392
+  },
+  {
+    "path": "22-agents/relationship/BEN-REL-04-organizational-overlap.md",
+    "sha256": "75cc0ec2dccedaa6aabf48d24638bc089f2222fa644acc6b5f0057c31d9bf677",
+    "bytes": 17053
+  },
+  {
+    "path": "22-agents/relationship/BEN-REL-05-warm-introduction-pathfinding.md",
+    "sha256": "0b7b3470fc0307c5a2c87450977d65cf94364947fedbc75fd8895e2aa290c6f2",
+    "bytes": 17400
+  },
+  {
+    "path": "22-agents/relationship/BEN-REL-06-relationship-strength.md",
+    "sha256": "d8a5fa787a0c1143a6b6b54f5fa0a9d8942c0feb3f47a7e068e3b640c71ca1f4",
+    "bytes": 16811
+  },
+  {
+    "path": "23-agents/qualification/BEN-QLF-01-mission-affinity.md",
+    "sha256": "204b94a902b0af38050228d759983112b109cd88c28531dc483561d01d064d9c",
+    "bytes": 16567
+  },
+  {
+    "path": "23-agents/qualification/BEN-QLF-02-funding-eligibility.md",
+    "sha256": "bc6c449ce6e43a9bee7652a4b1f4e600da958d05d0cb725d197b61acff0104fd",
+    "bytes": 16544
+  },
+  {
+    "path": "23-agents/qualification/BEN-QLF-03-philanthropic-capacity-and-propensity.md",
+    "sha256": "bb6f9685999b32fa92ce6c146f81c143361da2808356bc7678025ec5159be7a5",
+    "bytes": 16747
+  },
+  {
+    "path": "23-agents/qualification/BEN-QLF-04-opportunity-qualification.md",
+    "sha256": "471a5ca84a1d1355e86261c609ef9aa2124e8c0a0e22aaa36ba1d7ca40f871c9",
+    "bytes": 17258
+  },
+  {
+    "path": "23-agents/qualification/BEN-QLF-05-timing-and-readiness.md",
+    "sha256": "53d141bc90da8d09c3eae3bf65fbed9500e8180c9b118d6f9c951d2bffe1b703",
+    "bytes": 16640
+  },
+  {
+    "path": "24-agents/strategy/BEN-STR-01-prospect-engagement-strategy.md",
+    "sha256": "bba06cce62b163c6b7b463db72d4a68f34e3b38b69668c2d8c69f3f1be011d6c",
+    "bytes": 16435
+  },
+  {
+    "path": "24-agents/strategy/BEN-STR-02-best-first-ask.md",
+    "sha256": "65ea3123ae5ee55ca07fadacedd814cad0785ad517d89c07c3920a8a27bb0166",
+    "bytes": 16588
+  },
+  {
+    "path": "24-agents/strategy/BEN-STR-03-cultivation-strategy.md",
+    "sha256": "6a02bb79d56a28010500e8e6a61dcf87635bf8a258da6ad0400ea7f0ac491c88",
+    "bytes": 16571
+  },
+  {
+    "path": "24-agents/strategy/BEN-STR-04-next-best-action.md",
+    "sha256": "a9b45368fdaf72aa0b095d73402d1d028d743aeeb8a1dd27f1b4c71d163f9472",
+    "bytes": 16721
+  },
+  {
+    "path": "25-agents/knowledge-integrity/BEN-KNW-01-prospect-digital-twin.md",
+    "sha256": "5e50fdad61579f6a1d57845b4c318183b2e5859b07a3df439c7a86750cb81cd6",
+    "bytes": 17082
+  },
+  {
+    "path": "25-agents/knowledge-integrity/BEN-KNW-02-entity-resolution.md",
+    "sha256": "2e26db7bcfa13c72fa3c8f99cd8ed1f6d8db37d32044d9fc668f643403ae7574",
+    "bytes": 16933
+  },
+  {
+    "path": "25-agents/knowledge-integrity/BEN-KNW-03-evidence-and-provenance-verification.md",
+    "sha256": "11ad8b1d4bf3f252b4f57b92c9a1681cc03d9c3f512482ffb4b9500dee079ede",
+    "bytes": 16711
+  },
+  {
+    "path": "25-agents/knowledge-integrity/BEN-KNW-04-contradiction-and-freshness-investigator.md",
+    "sha256": "0484fd72c39c6a1e132ed195d870a2948d81a8edcd1342da553cfadce074c72a",
+    "bytes": 17080
+  },
+  {
+    "path": "26-agents/operations-evaluation-learning/BEN-OPS-01-agent-fleet-performance-and-learning.md",
+    "sha256": "0d942d862b6539ba3900dc7a9584083f9ffb33aca5360ebb1d2c5ca53b4ad743",
+    "bytes": 16824
+  },
+  {
+    "path": "30-autoapply-integration/00-complete-gap-analysis-and-agent-count.md",
+    "sha256": "2b5eacce7ce468efb1e640b9161eaf5d8640cc5aab25d1ed73070ce8e4e7c824",
+    "bytes": 15556
+  },
+  {
+    "path": "30-autoapply-integration/01-capability-overlap-and-ownership-matrix.md",
+    "sha256": "039aebc24a4c9bc8c001b6472e9aa721a536fb4a9f48c7de63b552b108213428",
+    "bytes": 4540
+  },
+  {
+    "path": "30-autoapply-integration/02-integrated-subsystem-architecture.md",
+    "sha256": "3e5ee6bdb0796a62f747b57019af876eff078b2b95cdc8f6cfc92f6ed5154642",
+    "bytes": 9882
+  },
+  {
+    "path": "30-autoapply-integration/03-application-contracts.yaml",
+    "sha256": "42f01f60a57fc36c76ab7975948403c9397314b13eed2b4d2af85dc5c91ca62b",
+    "bytes": 3566
+  },
+  {
+    "path": "30-autoapply-integration/04-events-and-contracts.yaml",
+    "sha256": "e6cf861ffbfc3d4ad7c9b5628e8e75193b4fe16d1305f55560d15d94f1547cf5",
+    "bytes": 2453
+  },
+  {
+    "path": "30-autoapply-integration/05-security-policy-and-human-authorization.md",
+    "sha256": "a238f7fc149f22e080e5cc2082843a2a30edfdfbd8fe99b831897bed512d8a8f",
+    "bytes": 4263
+  },
+  {
+    "path": "30-autoapply-integration/06-deterministic-service-extension-registry.yaml",
+    "sha256": "6b53effe610223fb2992bbc21cc0006c2e4838a96553c11ed1ac6df359e7db10",
+    "bytes": 2928
+  },
+  {
+    "path": "30-autoapply-integration/07-testing-evaluation-recovery-red-team.md",
+    "sha256": "99fe56cb78ea7aabf0a4439598099a6473afecdbaa26dd15dbc17820209a1155",
+    "bytes": 3779
+  },
+  {
+    "path": "30-autoapply-integration/08-existing-agent-integration-specifications.md",
+    "sha256": "e4f60b6dd1cfc32041ec584e68076d29b614bfcfaf6b516cbc9fb208173986ba",
+    "bytes": 3203
+  },
+  {
+    "path": "30-autoapply-integration/09-release-43-traceability.md",
+    "sha256": "613aa62b5acd83176a91905a601f5204e98407fcd2dc15e8ab3f65cee99ef38a",
+    "bytes": 1798
+  },
+  {
+    "path": "30-autoapply-integration/10-chain-it-implementation-sequence.md",
+    "sha256": "ebc9f6a669ad8a2bcc422e4103ef98262928483a4ff4191f877158e4861e6b0f",
+    "bytes": 1485
+  },
+  {
+    "path": "31-agents/application-execution/BEN-APP-01-corporate-application-planning-execution.md",
+    "sha256": "90287145bed470856408e3d40b16095308dfddfa63560aac551813b97a35ca35",
+    "bytes": 10174
+  },
+  {
+    "path": "31-agents/application-execution/BEN-APP-02-portal-exception-diagnosis-recovery.md",
+    "sha256": "f62d96ea1d3da14c5bf1436b29f123aa529fa32a4c2d2c5db548110e25ccbb9c",
+    "bytes": 9966
+  },
+  {
+    "path": "31-agents/application-execution/BEN-APP-03-application-submission-governance.md",
+    "sha256": "208dbc3b13b329b36eb9bffa537e301ca20d30620d19842bc255a3938931fa01",
+    "bytes": 10024
+  },
+  {
+    "path": "90-release-manifests/RELEASE-08-MANIFEST.yaml",
+    "sha256": "db8049b6f55798d14154444e3304401900e490685a98551fba9bf27072a9a312",
+    "bytes": 587
+  },
+  {
+    "path": "90-release-manifests/RELEASE-09-MANIFEST.yaml",
+    "sha256": "ee5ecd0e66a3415e3beb259dfbfe99c9332bbaf561b016f4eb54fd019b482865",
+    "bytes": 587
+  },
+  {
+    "path": "90-release-manifests/RELEASE-10-MANIFEST.yaml",
+    "sha256": "14314a178e69d1aec84e2afbb6c85ba206a97fd533241f808189ed1d8161db62",
+    "bytes": 587
+  },
+  {
+    "path": "90-release-manifests/RELEASE-11-MANIFEST.yaml",
+    "sha256": "c4f65df002382878b226c75742f91f066f9003ecdf50eb2969cf2d42fe8008ba",
+    "bytes": 595
+  },
+  {
+    "path": "90-release-manifests/RELEASE-12-MANIFEST.yaml",
+    "sha256": "c94b31d0ea0db92214bba9a1237506068d3cb063ed0cdd443ba62988a54fbae3",
+    "bytes": 688
+  },
+  {
+    "path": "90-release-manifests/RELEASE-13-MANIFEST.yaml",
+    "sha256": "f2f3a6ef79d7a35debf43a3b6b1081a7cba0dc707d897161a5402a7a1fdc9a82",
+    "bytes": 606
+  },
+  {
+    "path": "90-release-manifests/RELEASE-14-MANIFEST.yaml",
+    "sha256": "cd57208ca3a3e1108bb6f00d125864b04e485ec3d32c7bd0baae0e38b2355c3d",
+    "bytes": 628
+  },
+  {
+    "path": "90-release-manifests/RELEASE-15-MANIFEST.yaml",
+    "sha256": "0d4b1c4eedaf98bcb0bfd7baa1c6254e7258bc7cfb844c497aeb2aa209f5759b",
+    "bytes": 622
+  },
+  {
+    "path": "90-release-manifests/RELEASE-16-MANIFEST.yaml",
+    "sha256": "e8accc339f2e4db86e286832690d974470b690abce656ab3eb44e8de7f4629a5",
+    "bytes": 626
+  },
+  {
+    "path": "90-release-manifests/RELEASE-17-MANIFEST.yaml",
+    "sha256": "18f8d4a90df927dd1b3b6e3c8c7002707baaa39d33303d9a4b6dd6519ca01e2b",
+    "bytes": 616
+  },
+  {
+    "path": "90-release-manifests/RELEASE-18-MANIFEST.yaml",
+    "sha256": "183a6eed523f6e9891e7b2e72a5d5dc7ec911793771c72872e392b32dd7e0bb6",
+    "bytes": 606
+  },
+  {
+    "path": "90-release-manifests/RELEASE-19-MANIFEST.yaml",
+    "sha256": "4d9a22add84c6ff38caf532ebf08006f6d35d701e418639836fb0e8d3c54fb61",
+    "bytes": 614
+  },
+  {
+    "path": "90-release-manifests/RELEASE-20-MANIFEST.yaml",
+    "sha256": "c15224ce060cf30e1d7ebce5b0309d72a481183dab7912f74871f16612a46fbe",
+    "bytes": 624
+  },
+  {
+    "path": "90-release-manifests/RELEASE-21-MANIFEST.yaml",
+    "sha256": "a570f7905c77b51c0248c9f4abb30453942642de4ee732b1281dbe47e3449792",
+    "bytes": 626
+  },
+  {
+    "path": "90-release-manifests/RELEASE-22-MANIFEST.yaml",
+    "sha256": "111d5bd7036e5189f5b31c22f71a7923a0e02ad56b802412ec5c3f6b29f75cf0",
+    "bytes": 600
+  },
+  {
+    "path": "90-release-manifests/RELEASE-23-MANIFEST.yaml",
+    "sha256": "584642a50fdf0788fcc192ec1a89f4596bae88a9989831c453886b9609884352",
+    "bytes": 604
+  },
+  {
+    "path": "90-release-manifests/RELEASE-24-MANIFEST.yaml",
+    "sha256": "58ea61de9866511a75defceaf7c16435a22dfb893fe1cf1201aa3ad7b6246d51",
+    "bytes": 612
+  },
+  {
+    "path": "90-release-manifests/RELEASE-25-MANIFEST.yaml",
+    "sha256": "f246bd7621ac1d85610df546ac6dce992ca01006ba14cceeb4982236d1bfefc3",
+    "bytes": 620
+  },
+  {
+    "path": "90-release-manifests/RELEASE-26-MANIFEST.yaml",
+    "sha256": "d4df36e66fa89d051ca5a42d1810848f472b5f313dc6318fcc644ad6d6796e59",
+    "bytes": 604
+  },
+  {
+    "path": "90-release-manifests/RELEASE-27-MANIFEST.yaml",
+    "sha256": "0b9865dbdcdfa752e910b276e538cb095f131e51153415ec779cad5b7d4d650b",
+    "bytes": 618
+  },
+  {
+    "path": "90-release-manifests/RELEASE-28-MANIFEST.yaml",
+    "sha256": "f85702b92a32bd9b19769e9c2cc5e3379231389220a1562e05983e14c873059b",
+    "bytes": 602
+  },
+  {
+    "path": "90-release-manifests/RELEASE-29-MANIFEST.yaml",
+    "sha256": "5f0528cd6f2b1c1c98b895d3a6a70122353c8e265116a0b79fae5f932638c061",
+    "bytes": 593
+  },
+  {
+    "path": "90-release-manifests/RELEASE-30-MANIFEST.yaml",
+    "sha256": "ce5a65f28074eba8166b0da240b528e5476ccbca36e899c6aabed305596ce2b2",
+    "bytes": 599
+  },
+  {
+    "path": "90-release-manifests/RELEASE-31-MANIFEST.yaml",
+    "sha256": "f9703dbdb7db562a678725a5660ffeaceaba72736f19bc2740f191c997a97450",
+    "bytes": 635
+  },
+  {
+    "path": "90-release-manifests/RELEASE-32-MANIFEST.yaml",
+    "sha256": "900409b65d214a078af1eb55e169e2e340f74e07061144a18e0af682f91c4431",
+    "bytes": 611
+  },
+  {
+    "path": "90-release-manifests/RELEASE-33-MANIFEST.yaml",
+    "sha256": "d992f2550b5f150636adbe5ca96550ddc3c967019c949662a7eba717daa323b6",
+    "bytes": 600
+  },
+  {
+    "path": "90-release-manifests/RELEASE-34-MANIFEST.yaml",
+    "sha256": "b375b42fec449054c9be2c2b4f54c3fed3494627b92c049e4a8a7cc632075247",
+    "bytes": 611
+  },
+  {
+    "path": "90-release-manifests/RELEASE-35-MANIFEST.yaml",
+    "sha256": "24db552318b454d3e20da9902b2be0116cc5d0b54fa0b58121afad3cb0af0179",
+    "bytes": 583
+  },
+  {
+    "path": "90-release-manifests/RELEASE-36-MANIFEST.yaml",
+    "sha256": "df1ddf17f0ee384a8709e2c518e5a4ac33c6d2f7519d76179fba76ebbb7c76c2",
+    "bytes": 595
+  },
+  {
+    "path": "90-release-manifests/RELEASE-37-MANIFEST.yaml",
+    "sha256": "3f9ff9f89400f3798cf6ceed607e48b8de122b175355fba4d16218b0d9e43bff",
+    "bytes": 587
+  },
+  {
+    "path": "90-release-manifests/RELEASE-38-MANIFEST.yaml",
+    "sha256": "5237193d53e22d30dc065d8274306edcbaacafe54100cc40ea45a5bd570a48aa",
+    "bytes": 608
+  },
+  {
+    "path": "90-release-manifests/RELEASE-39-MANIFEST.yaml",
+    "sha256": "dd730c39d5218405970a3a68366fa8c0d70ce142953c0545e0823b5b86896cef",
+    "bytes": 600
+  },
+  {
+    "path": "90-release-manifests/RELEASE-40-MANIFEST.yaml",
+    "sha256": "64bc321e72a910b0ca3d18afd22a22e1ed40e1c941e9cb7b69a05f8f3ef45b7a",
+    "bytes": 638
+  },
+  {
+    "path": "90-release-manifests/RELEASE-41-MANIFEST.yaml",
+    "sha256": "3dd8464cc715a002b882db2794a75f1bfeb246199386d23af8249d396eae50f0",
+    "bytes": 640
+  },
+  {
+    "path": "90-release-manifests/RELEASE-42-MANIFEST.yaml",
+    "sha256": "1ad8656e7aab228d2f6b88f7b0a416ca94136fa5816da1cd4dcacd674affcd9a",
+    "bytes": 649
+  },
+  {
+    "path": "90-release-manifests/RELEASE-43-AUTOAPPLY-INTEGRATION.yaml",
+    "sha256": "c4a419e98394d842a086fe4b20d7f8a77b552b69ed1027af1c8e3c7317533fb5",
+    "bytes": 656
+  },
+  {
+    "path": "99-completion/00-final-system-completion-architecture.md",
+    "sha256": "f1b758455458ea4dd6964501e27def15618fe56083ea54fbfcc01384b2b065d0",
+    "bytes": 869
+  },
+  {
+    "path": "99-completion/01-remaining-fleet-ownership-matrix.md",
+    "sha256": "c2c8624aea636929c553ea530b679acd2169bb4a8f8b1ba7f3ff0333300a1689",
+    "bytes": 8705
+  },
+  {
+    "path": "99-completion/02-corporate-application-integration-handoff.md",
+    "sha256": "57d463fde2ac2650e9e63fbc39ba639517193dc3a081395e14a2b49e1e957d98",
+    "bytes": 1576
+  },
+  {
+    "path": "99-completion/03-requirements-traceability.md",
+    "sha256": "72528620f7c45f69257faa1cf2d37164ab2d83c1c5ed21cd6c3c711d7794f9b6",
+    "bytes": 1982
+  },
+  {
+    "path": "99-completion/04-final-chain-it-implementation-directive.md",
+    "sha256": "21947711d2881a149b6f22e2939ca5b23c920a6d4c9c340d021bbaf08e022e05",
+    "bytes": 1573
+  },
+  {
+    "path": "99-completion/FINAL-RELEASE-MANIFEST.yaml",
+    "sha256": "5eae8f2ab88a63c73a44f526138ed318cfda193e55ee8a73145375f7b43f4511",
+    "bytes": 913
+  },
+  {
+    "path": "99-completion/SHA256SUMS.json",
+    "sha256": "82a877e458be97b91d0fedbb5cec048c9e09620ff07f0bcccf7746376e937b68",
+    "bytes": 19405
+  },
+  {
+    "path": "99-completion/VALIDATION-REPORT-RELEASE-43.json",
+    "sha256": "a15e2642ede8f0003fb64a4861e1725da0b50fc606578772b745e176f1137bb1",
+    "bytes": 426
+  },
+  {
+    "path": "99-completion/VALIDATION-REPORT.json",
+    "sha256": "79628041dd8ff46568366ba9e730e07e9c5f26d345a901235e931cd9cf9c0663",
+    "bytes": 1116
+  },
+  {
+    "path": "README-AUTOAPPLY-INTEGRATED.md",
+    "sha256": "5247ed1ea63ded43f37ee54279a9bce56914e297ef33c7775b77074f5a8b34e2",
+    "bytes": 1479
+  },
+  {
+    "path": "README-COMPLETE.md",
+    "sha256": "5247ed1ea63ded43f37ee54279a9bce56914e297ef33c7775b77074f5a8b34e2",
+    "bytes": 1479
+  },
+  {
+    "path": "README.md",
+    "sha256": "79a26f5a713876513f19c90fe5edd1fb026c3411acaa4b0343e93bd106ff4cbe",
+    "bytes": 2306
+  },
+  {
+    "path": "RELEASE-02-MANIFEST.yaml",
+    "sha256": "a5db98727b194c2bf27589e5af88e76cf97f5cf54857bbf6d322ac9c22f53a7b",
+    "bytes": 1162
+  },
+  {
+    "path": "RELEASE-03-MANIFEST.yaml",
+    "sha256": "1a4f6528af69b82dbe6bf33dcd9e16e06e8d5f0657acabd099a4cef0a8ba44b6",
+    "bytes": 1049
+  },
+  {
+    "path": "RELEASE-04-MANIFEST.yaml",
+    "sha256": "468ad267b84922816cdbbd996abdebe84286ac7389694e85c3807f4400c27550",
+    "bytes": 802
+  },
+  {
+    "path": "RELEASE-05-MANIFEST.yaml",
+    "sha256": "c91ec7bee5667683cda0eab5b6adecbed974ddf4bf3aef053cca2b9c393b2a4f",
+    "bytes": 714
+  },
+  {
+    "path": "RELEASE-06-MANIFEST.yaml",
+    "sha256": "c7bd5d08d586848f5c17c6b34a6fad710a9d9d4f6fae4361c16be0f50bbc89fb",
+    "bytes": 970
+  },
+  {
+    "path": "RELEASE-MANIFEST.yaml",
+    "sha256": "5bbb4b8d35aa08b3e09bca1ca22dd9def0dc78182b48f2cbe683836714d84319",
+    "bytes": 1825
+  },
+  {
+    "path": "REMEDIATION-07-MANIFEST.yaml",
+    "sha256": "cfe9e5af29e5c4392dbebe73351b6c000943fcd7def16d9f4c8349e1ca691344",
+    "bytes": 2155
+  }
+]

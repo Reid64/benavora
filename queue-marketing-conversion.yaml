@@ -1,0 +1,130 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- PRD_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: mkt-001
+  name: Governance sync and marketing page conversion optimization
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(marketing)/page.tsx in FULL. Every line.
+    Read src/app/(marketing)/pricing/page.tsx in FULL if it exists.
+    Read PRD_v2.md section on pricing tiers in full.
+
+    The marketing page must convert visitors to signups. Audit every section for conversion effectiveness.
+
+    REQUIRED ADDITIONS to the marketing page:
+
+    1. SOCIAL PROOF SECTION (above the fold, below hero):
+    Three stat cards in a horizontal row:
+    - "1.97M+ Nonprofits" in our database
+    - "113 Awarded Grant Narratives" in Intelligence Library  
+    - "30 Autonomous AI Agents" working 24/7
+    Each: large number in brand blue, label below in white/70%.
+
+    2. FEATURE DEEP-DIVE SECTION:
+    Six feature cards (2x3 grid) with real descriptions:
+    - AI Grant Discovery: "Scans SAM.gov, Grants.gov, 20+ land bank authorities and 1.97M foundation records nightly"
+    - Autonomous Draft Generation: "5-phase pipeline draws from 113 awarded grant narratives to write application-ready drafts"
+    - AutoApply: "Playwright-powered browser automation submits to corporate portals with anti-detection and 2Captcha integration"
+    - Fundability Intelligence: "Scores your org against each opportunity, identifies deficiencies, auto-fixes what it can"
+    - Digital Twin: "Complete organizational intelligence profile used by every AI agent to personalize all outputs"
+    - Strategic Advisor: "Proactive weekly recommendations you didn't ask for based on full intelligence synthesis"
+
+    3. HOW IT WORKS (3-step visual):
+    Step 1: Complete your Digital Twin (5 minutes)
+    Step 2: Autonomous agents discover and score opportunities nightly
+    Step 3: Review AI-drafted applications and submit with one click
+
+    4. PRICING SECTION upgrade:
+    Show three tiers clearly:
+    - Starter: $397/mo — Core features, 5 AutoApply sessions/mo
+    - Professional: $897/mo — Everything + unlimited AutoApply, donor discovery
+    - Enterprise: $1,997/mo — Everything + autonomous mode, white-glove onboarding
+    Annual pricing shown below (20% discount).
+    Most popular badge on Professional.
+    "Start Free Trial" CTA on each.
+
+    5. TESTIMONIALS — replace fabricated ones with "illustrative outcomes" framing:
+    Change header from "What Our Customers Say" to "Outcomes Organizations Like Yours Achieve"
+    Change format from quote cards to outcome stat cards:
+    - "Organizations using AI grant discovery find 3x more matching opportunities"
+    - "Automated draft generation reduces application time from 40 hours to 4 hours"
+    - "Nonprofits with complete Digital Twins score 28 points higher on fundability"
+    Remove any specific person names or org names that are fabricated.
+
+    6. FAQ SECTION (6 questions):
+    Q: How long does setup take? A: Digital Twin setup takes 15 minutes. First opportunities appear within 24 hours.
+    Q: Do I need technical skills? A: No. Benavora is designed for nonprofit staff, not developers.
+    Q: Is my data secure? A: Yes. Row-level security, encrypted at rest, SOC2 practices.
+    Q: Can I cancel anytime? A: Yes. No contracts. Cancel from your billing page anytime.
+    Q: Does AutoApply work on all portals? A: AutoApply works on CyberGrants, Benevity, YourCause, and generic portals. New portals added monthly.
+    Q: What's in the Intelligence Library? A: 113+ real awarded grant narratives across all major NTEE categories, used to train your AI drafts.
+
+    Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: marketing page -- social proof, feature deep-dive, outcome stats replacing fake testimonials, FAQ'; git push.
+
+- id: mkt-002
+  name: Pricing page build and signup flow optimization
+  prompt: |
+    Read src/app/(marketing)/pricing/page.tsx in full if it exists. Note if missing.
+    Read src/app/(marketing)/page.tsx for styling patterns.
+    Read src/app/(auth)/signup/page.tsx in full if it exists.
+
+    CREATE src/app/(marketing)/pricing/page.tsx if it doesn't exist:
+
+    Full standalone pricing page at /pricing.
+
+    Header: "Simple, Transparent Pricing" H1 + "Start free. Upgrade when you're ready." subtitle.
+
+    Toggle: Monthly / Annual (Annual saves 20% -- show crossed-out monthly price + annual price).
+
+    Three pricing cards (white/dark cards on dark canvas):
+    STARTER — $397/mo ($317 annual):
+    - Grant discovery (SAM.gov, Grants.gov, Foundation search)
+    - Eligibility & probability scoring
+    - AI draft generation (5 drafts/month)
+    - Digital Twin (basic)
+    - AutoApply (5 sessions/month)
+    - Email support
+    CTA: "Start Free Trial" → /signup?plan=starter
+
+    PROFESSIONAL — $897/mo ($717 annual) [MOST POPULAR badge]:
+    Everything in Starter plus:
+    - Unlimited AI drafts
+    - Unlimited AutoApply sessions
+    - Donor Discovery (corporate prospects)
+    - Fundability Intelligence Score
+    - Relationship Intelligence
+    - ROI Optimizer
+    - Priority support
+    CTA: "Start Free Trial" → /signup?plan=professional
+
+    ENTERPRISE — $1,997/mo ($1,597 annual):
+    Everything in Professional plus:
+    - Fully Autonomous Mode (30 AI agents running nightly)
+    - Strategic Advisor (proactive weekly recommendations)
+    - Digital Twin auto-population
+    - Community Need Prediction
+    - Global Learning Network access
+    - White-glove onboarding (2 hours with team)
+    - Dedicated success manager
+    - SLA guarantee
+    CTA: "Contact Sales" → mailto:sales@benavora.com
+
+    Below cards: FAQ (same 6 questions from marketing page).
+
+    Also upgrade src/app/(auth)/signup/page.tsx:
+    Add plan pre-selection from ?plan= query param.
+    Show selected plan and price on the signup form.
+    After signup, redirect to /onboarding?plan=[selected_plan].
+
+    Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: pricing page full build, signup plan pre-selection'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

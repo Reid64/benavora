@@ -1,0 +1,74 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - AGENTS_v2.md
+  - WORKER_ARCHITECTURE_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+prompts:
+  - id: q6-001
+    phase: verify
+    description: "Live-verify AG-20 (Corporate Giving Detector) against real company data"
+    prompt: |
+      Read AGENTS_v2.md's AG-20 spec in full. AG-20 was built tonight (compile-gate only, never
+      functionally verified per this session's own audit standard). Run it live against 3 real companies
+      with known, verifiable corporate giving programs (e.g. well-known companies with public CSR pages).
+      Report real extracted output for each — does it correctly detect presence/absence of a giving
+      program, and are extracted details actually accurate (spot-check against the real page manually).
+      Write findings to AGENT_VERIFICATION_LOG.md (create if not exists) under an "AG-20" section.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): live-verify AG-20 Corporate Giving Detector against real data'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q6-002
+    phase: verify
+    description: "Live-verify AG-21 (Executive Biography Analyzer) against real company data"
+    prompt: |
+      Read AGENTS_v2.md's AG-21 spec. Run it live against the same 3 companies from q6-001. Report real
+      extracted executive names/titles/bio content, spot-checked for accuracy against real pages.
+      Append findings to AGENT_VERIFICATION_LOG.md under an "AG-21" section.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): live-verify AG-21 Executive Biography Analyzer'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: q6-003
+    phase: verify
+    description: "Live-verify full EA-01/08/09 -> AG-22 handoff pipeline (behavioral contract test)"
+    prompt: |
+      This is the actual behavioral-contract test Reid asked for: verify agents correctly hand off data
+      to each other, not just that each works alone. Read WORKER_ARCHITECTURE_v2.md's corporate enrichment
+      queue spec. Run the full pipeline (AG-20 -> AG-21 -> merge -> AG-22 propensity scoring) against one
+      real test company end to end. Verify: does AG-22 actually receive and use the enrichment data AG-20/
+      AG-21 produced (not just run independently on empty/default data), does the merged enrichment jsonb
+      contain both agents' real output without one overwriting the other, does AG-22's propensity score
+      output plausibly reflect the real input data (e.g. a company with a large public giving program
+      should score meaningfully differently than one with none — verify this isn't producing identical
+      scores regardless of input, which would indicate the handoff is broken).
+      Append findings to AGENT_VERIFICATION_LOG.md under a "Full Pipeline Handoff" section, including
+      the actual before/after data at each stage.
+      git add AGENT_VERIFICATION_LOG.md; git commit -m 'test(agents): verify full EA-corporate-enrichment -> AG-22 handoff contract'; git push
+    gates:
+      - type: file_exists
+        files: [AGENT_VERIFICATION_LOG.md]
+    max_retries: 2
+    on_fail: continue

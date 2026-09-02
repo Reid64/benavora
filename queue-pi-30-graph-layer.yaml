@@ -1,0 +1,501 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-30: KNOWLEDGE GRAPH LAYER
+#
+# The Postgres-native graph per D-003: nodes/edges with full
+# provenance, confidence, temporal validity, supersession, and
+# contradiction records; recursive-CTE multi-hop with tenant
+# isolation INSIDE the recursion; pgvector semantic retrieval.
+# The graph is where the directive's John Smith example becomes
+# queryable: person -> company -> foundation -> board ->
+# nonprofit -> donation -> cause -> geography -> warm path.
+#
+# THE GRAPH'S ONE COMMANDMENT (schema-enforced from pi-01's
+# registry): AN EDGE WITHOUT SUPPORTING CLAIMS CANNOT EXIST.
+# Every relationship in this graph is evidence, or it is not in
+# this graph. Writes flow only through the evidence-coupled
+# service; raw inserts are blocked for every non-migration role.
+#
+# AUTHORITY: SCHEMA_REGISTRY part 4, TOOL_CONTRACTS graph tools,
+# AGENT_CONTRACT_SPEC (REL family consumption shapes).
+# ============================================================
+
+prompts:
+
+  - id: pi30-001
+    phase: build
+    description: "Preflight: registry part 4 read, substrate green, edge-type governance settled"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read SCHEMA_REGISTRY part 4 (graph + vector) in full,
+         TOOL_CONTRACTS graph tool entries, and the REL-family contracts
+         (FAMILY-4) for the output shapes this layer must serve.
+      2. Health: pnpm -r test green; kernel-proof re-run green; migrate
+         --status clean. Capture.
+      3. Edge-type governance: the registry seeded an edge-type list and
+         flagged extension governance. Settle it now per the AOQ if
+         Reid's pi-02 approval answered it; if the AOQ remains open,
+         implement the conservative reading (edge types live in
+         taxonomy_nodes kind=edge_type, service-write only, additions
+         require a DECISION_LOG entry) and record that as the
+         implemented interpretation with a dated registry note.
+      4. Capture to evidence\pi-30\preflight.txt.
+      5. Create scripts\verify\verify-pi30-001.mjs: exits 0 only if the
+         substrate re-runs green and the edge-type governance statement
+         exists in the registry with a date.
+      6. Run: node scripts/verify/verify-pi30-001.mjs
+    expected_outputs:
+      - evidence/pi-30/preflight.txt
+      - scripts/verify/verify-pi30-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi30-002
+    phase: build
+    description: "Migrations: graph_nodes + graph_edges with the no-unevidenced-edges invariant"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0025_graph.sql exactly per the registry:
+         graph_nodes (node_id, org_id, archetype + entity ref, labels,
+         properties) and graph_edges (all registry columns: edge_type,
+         strength, confidence, valid_from, valid_to,
+         superseded_by_edge_id, supporting_claim_ids uuid[] NOT NULL,
+         contradiction_status, provenance fields). THE COMMANDMENT
+         enforced in-database: CHECK cardinality(supporting_claim_ids)
+         >= 1, PLUS a trigger validating on INSERT/UPDATE that every
+         referenced claim id EXISTS in claims and belongs to the same
+         org (array FKs are not native - the trigger is the integrity
+         mechanism; comment it). Edge uniqueness per the registry's
+         rule (from+to+type+valid_from). Indexes per the registry's
+         justified list (adjacency both directions, type-filtered
+         adjacency, claim-containment GIN).
+         RLS same-file; expectations first; apply; proofs (including:
+         an edge insert with an empty claim array rejected; with a
+         nonexistent claim id rejected; with a cross-org claim id
+         rejected - all three captured verbatim); no-op re-run; matrix
+         green.
+      2. Create scripts\verify\verify-pi30-002.mjs: exits 0 only if the
+         column diff is exact and all three rejection proofs are in
+         evidence.
+      3. Run: node scripts/verify/verify-pi30-002.mjs
+    expected_outputs:
+      - supabase/migrations/0025_graph.sql
+      - scripts/verify/verify-pi30-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-003
+    phase: build
+    description: "Graph write service: evidence-coupled, supersession-aware, temporally honest"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\graph\src\write\: GraphWriter -
+         upsertNode(entityRef, labels, props) (idempotent on entity
+         ref); assertEdge(from, to, type, claimIds, {strength,
+         confidence, validFrom}) - validates claims exist and support
+         (the deep claim-content check is BEN-KNW-03's job later; here
+         the structural org/existence check), applies the uniqueness
+         rule (an assert matching an existing live edge MERGES evidence:
+         claim ids unioned, confidence recomputed per the registry's
+         combination rule - implement exactly what it specifies);
+         supersedeEdge(edgeId, newEdgeInput, reason) - closes valid_to,
+         links superseded_by, writes the new edge, one transaction,
+         linear chains only; markContradicted(edgeId, claimIds, note) -
+         status flip + the contradicting claims recorded, never a
+         deletion (BEN-KNW-04 adjudicates later); every operation
+         audited + evented per EVENT_TAXONOMY.
+      2. Raw-write lockdown proof: attempt a direct graph_edges INSERT
+         as an authenticated non-service user - RLS denies (the service
+         path is the only path); captured.
+      3. Vitest: merge-on-reassert unions claims and recomputes
+         confidence per the rule (hand-computed expectation);
+         supersession chain linearity; contradiction preserves both
+         edges; audit + event per operation; the lockdown.
+      4. Green; evidence\pi-30\graph-write-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi30-003.mjs standard pattern plus
+         the merge-recompute and lockdown tests present.
+      6. Run: node scripts/verify/verify-pi30-003.mjs
+    expected_outputs:
+      - packages/graph/src/write/index.ts
+      - scripts/verify/verify-pi30-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-004
+    phase: build
+    description: "Multi-hop traversal: recursive CTE with isolation inside the recursion"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\graph\src\query\traverse.ts: neighbors(nodeId, {types,
+         direction, asOf}) and traverse(startId, {maxHops, types,
+         direction, asOf, minConfidence}) implemented with the
+         registry's recursive CTE pattern: org_id predicate INSIDE the
+         recursive term (the registry states why - prove it: a test
+         where a cross-org edge exists between two orgs' nodes and the
+         traversal NEVER crosses it, even though a naive outer-filter
+         implementation would leak the intermediate hop), cycle
+         prevention via path-array containment, hop limit as a hard
+         recursion bound, temporal filtering (edges valid at asOf;
+         superseded edges excluded for current-time queries, INCLUDED
+         for as-of queries predating supersession - temporal honesty
+         both directions), confidence floor pruning.
+      2. Vitest against a seeded fixture graph (the John Smith example
+         from the directive built literally as fixture data: person ->
+         owns -> company; person -> board_member_of -> foundation;
+         foundation -> granted_to -> nonprofits; company -> located_in
+         -> geography): each traversal feature proven on it, the
+         isolation leak test, the as-of time-travel case (an edge
+         superseded last month visible at asOf two months ago, invisible
+         now).
+      3. Green; evidence\pi-30\traverse-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi30-004.mjs standard pattern plus
+         the isolation-inside-recursion and as-of tests present.
+      5. Run: node scripts/verify/verify-pi30-004.mjs
+    expected_outputs:
+      - packages/graph/src/query/traverse.ts
+      - scripts/verify/verify-pi30-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-005
+    phase: build
+    description: "Pathfinding: evidence-per-hop paths with composite confidence and alternatives"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\graph\src\query\paths.ts: findPaths(fromId, toId,
+         {maxHops, maxPaths, minEdgeConfidence, asOf}) returning the
+         BEN-REL-05 consumption shape exactly per its contract: ordered
+         paths each with hop count, per-hop {edge, type, strength,
+         confidence, supporting claim ids, freshness (age of the
+         youngest supporting claim's last_verified_at)}, composite path
+         confidence (the registry's aggregation rule - implement its
+         exact formula; if it specified multiplication with a floor,
+         that; hand-compute the test expectation), a friction estimate
+         per the registry's definition, and alternatives ranked.
+         Implementation: bounded bidirectional search or bounded CTE
+         per the registry's stated approach - follow it; if it left the
+         algorithm open, choose, benchmark both directions of the
+         choice in pi30-010, and record the dated registry amendment.
+      2. Vitest on an extended fixture (multiple paths of differing
+         hop counts and confidences between the same endpoints):
+         ranking correctness against hand-computed composites; the
+         weakest-link behavior of the formula visible in the ranking;
+         maxPaths respected; a path through a superseded edge absent
+         now, present as-of.
+      3. Green; evidence\pi-30\paths-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi30-005.mjs standard pattern plus
+         the hand-computed composite assertion present.
+      5. Run: node scripts/verify/verify-pi30-005.mjs
+    expected_outputs:
+      - packages/graph/src/query/paths.ts
+      - scripts/verify/verify-pi30-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-006
+    phase: build
+    description: "Overlap primitives: shared organizations, board co-membership, common neighbors"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\graph\src\query\overlap.ts: the BEN-REL-04 substrate -
+         sharedNeighbors(aId, bId, {types}) (organizations two people
+         both connect to, typed by relationship), boardOverlap(entityId,
+         scope) (co-members across an entity's boards),
+         commonAffiliations(nodeIds[]) for multi-entity overlap - each
+         returning evidence-carrying results (the connecting edges with
+         their claims), each temporally filtered (current by default,
+         asOf supported: a board seat that ENDED is not a current
+         overlap - the directive's temporal-truth example made
+         queryable).
+      2. Vitest on the fixture extended with the historical-seat case:
+         current vs as-of overlap difference asserted; evidence carried
+         through; type filtering.
+      3. Green; evidence\pi-30\overlap-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi30-006.mjs standard pattern.
+      5. Run: node scripts/verify/verify-pi30-006.mjs
+    expected_outputs:
+      - packages/graph/src/query/overlap.ts
+      - scripts/verify/verify-pi30-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-007
+    phase: build
+    description: "Embedding provider seam + the embeddings table live"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Migration 0026_embeddings.sql per the registry: the embeddings
+         table (object_type, object_id, model, dims, embedding vector,
+         content_hash) with its pgvector index per the registry's
+         choice (ivfflat/hnsw as specified - follow it; verify the
+         pgvector extension is installed on the project first: CREATE
+         EXTENSION IF NOT EXISTS vector, and confirm the live version).
+         expectations; apply; proofs; matrix green.
+      2. packages\services\src\embeddings\: an EmbeddingProvider seam
+         (embed(texts) -> vectors) - Anthropic does not provide an
+         embeddings API, so this is a provider decision: implement the
+         seam + a FakeEmbeddingProvider (deterministic hash-based
+         vectors for tests) + ONE real provider adapter chosen by
+         reading current provider options live (Voyage AI is the
+         commonly recommended pairing - verify current status and
+         pricing from its live docs) - the real adapter ships complete
+         but its activation requires PI_EMBEDDINGS_API_KEY; absent key
+         = seam runs Fake in dev and the gap is recorded as an AOQ +
+         .env.example entry for Reid's key decision. Metering: real
+         embedding calls cost money - wire the cost ledger with an
+         embeddings class added to pricing.ts (dated).
+      3. EmbeddingService: embedObject(type, id, content) - content-hash
+         dedupe (unchanged content never re-embeds), batch support,
+         write-through to the table.
+      4. Vitest (Fake): dedupe on identical content; re-embed on
+         changed content; batch integrity; metering rows on the real-
+         adapter path (fake transport recording).
+      5. Green; evidence\pi-30\embeddings-tests.txt. Typecheck clean.
+      6. Create scripts\verify\verify-pi30-007.mjs: standard plus the
+         pgvector live-version capture and the dedupe test present.
+      7. Run: node scripts/verify/verify-pi30-007.mjs
+    expected_outputs:
+      - supabase/migrations/0026_embeddings.sql
+      - packages/services/src/embeddings/index.ts
+      - scripts/verify/verify-pi30-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-008
+    phase: build
+    description: "Semantic + hybrid retrieval over claims and twin summaries"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\graph\src\query\semantic.ts: semanticSearch(orgId,
+         query, {objectTypes, k, minSimilarity}) - embed the query
+         (provider seam), nearest-neighbor over the embeddings table
+         (org-scoped join back to the source objects - the isolation
+         predicate on the JOIN, tested for leakage like pi30-004),
+         returning objects with similarity + their evidence linkage;
+         hybridSearch combining vector similarity with keyword match
+         (websearch_to_tsquery over the object's text) using the
+         registry's specified fusion (RRF or weighted - follow it or
+         amend dated).
+      2. The launch embedding targets per the registry (claims
+         evidence_excerpts, twin summaries, target profile
+         descriptions): wire embedObject calls into EvidenceLedger
+         writes (post-commit, via the outbox - an embedding failure
+         never fails a claim write; the event-driven indexer pattern)
+         - implement the consumer as a workflow-engine handler.
+      3. Vitest (Fake vectors): org isolation on the vector path
+         (leak test); hybrid fusion ranking on a fixture where vector
+         and keyword disagree (hand-ranked expectation); the outbox-
+         driven indexing (claim write -> event -> embedding row appears;
+         claim write with indexer down -> claim stands, embedding
+         arrives on recovery).
+      4. Green; evidence\pi-30\semantic-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi30-008.mjs standard pattern plus
+         the vector-leak and indexer-down tests present.
+      6. Run: node scripts/verify/verify-pi30-008.mjs
+    expected_outputs:
+      - packages/graph/src/query/semantic.ts
+      - scripts/verify/verify-pi30-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-009
+    phase: build
+    description: "Graph tools registered for agents"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Register the TOOL_CONTRACTS graph tools in the kernel
+         ToolRegistry: graph.neighbors, graph.traverse, graph.findPaths,
+         graph.overlap, graph.semanticSearch, graph.assertEdge,
+         graph.supersedeEdge - each wrapping the real services with the
+         contract's zod schemas, data classes, and the write tools
+         carrying the evidence requirement structurally (assertEdge's
+         input REQUIRES claim ids - an agent cannot ask for an
+         unevidenced edge even syntactically).
+      2. Extend the synthetic contract's permitted tools with the read
+         tools + assertEdge, and extend kernel-proof: BEN-TST-01's
+         scripted run now asserts a real edge from its fake-tool
+         evidence, then traverses it - the full agent -> evidence ->
+         graph -> query circle live. Re-run kernel-proof green with the
+         new steps; updated trail captured to
+         evidence\pi-30\kernel-graph-proof.json.
+      3. Green; typecheck clean.
+      4. Create scripts\verify\verify-pi30-009.mjs: exits 0 only if all
+         seven tools are registered (registry listing test) and the
+         extended kernel proof shows the edge asserted and traversed.
+      5. Run: node scripts/verify/verify-pi30-009.mjs
+    expected_outputs:
+      - packages/core/src/tools/graph-tools.ts
+      - evidence/pi-30/kernel-graph-proof.json
+      - scripts/verify/verify-pi30-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-010
+    phase: build
+    description: "Scale proof: synthetic graph at realistic size, latency benchmarks, bounds hold"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\graph-scale.mjs: seed a synthetic org-scoped
+         graph at realistic launch scale - 50,000 nodes, 250,000 edges
+         with a realistic degree distribution (a few high-degree hub
+         nodes: community foundations connect widely; most nodes low
+         degree - generate with a power-law-ish distribution and say
+         so), plus a second org's 10,000-node graph interleaved (the
+         isolation cost is real only if the other tenant's data is
+         physically present). Claims batch-stubbed structurally valid.
+         Benchmarks (each 50 runs, p50/p95 captured):
+         - neighbors on a hub node;
+         - 3-hop traverse from a mid-degree node;
+         - findPaths 4-hop between distant nodes (the warm-intro
+           query shape);
+         - semanticSearch k=20 (fake vectors, index exercised);
+         - the isolation check at scale: a traverse from org A touching
+           zero org-B rows (EXPLAIN-verified: the plan shows the org
+           predicate inside the recursive scan).
+         Sanity thresholds stated in the script with reasoning (p95
+         under a stated bound per query class - state the bounds; a
+         miss is a finding to investigate: check EXPLAIN, fix the index
+         or query, re-run - not a threshold to raise silently).
+      2. Results to evidence\pi-30\graph-scale.json - all within
+         bounds, EXPLAIN excerpt included for the isolation proof.
+      3. Create scripts\verify\verify-pi30-010.mjs: exits 0 only if
+         the five benchmark classes report p50/p95 within their stated
+         bounds and the EXPLAIN excerpt is present.
+      4. Run: node scripts/verify/verify-pi30-010.mjs
+    expected_outputs:
+      - scripts/proofs/graph-scale.mjs
+      - evidence/pi-30/graph-scale.json
+      - scripts/verify/verify-pi30-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-011
+    phase: build
+    description: "Graph integrity sweep tooling: the invariant checkers later phases run continuously"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\graph\src\integrity\: sweep functions the KNW agents
+         and pi-61 gates will consume - orphanedEdges() (edge whose
+         node vanished - should be impossible via FKs; the sweep proves
+         it stays impossible), danglingClaims() (edge claim ids whose
+         claims vanished - impossible via the trigger; prove),
+         brokenSupersessionChains() (cycles or forks in
+         superseded_by), temporalAnomalies() (valid_to before
+         valid_from; overlapping live duplicates), contradictionBacklog
+         (contradicted edges awaiting adjudication with age) - each
+         returning findings with refs, each with a test seeding its
+         anomaly VIA SERVICE-ROLE raw writes (the only way to create
+         them - which is itself the point: note it) and asserting
+         detection.
+      2. A CLI: node scripts/graph-integrity.mjs running all sweeps,
+         JSON out - run it against the scale graph from pi30-010:
+         zero findings expected on service-written data; captured to
+         evidence\pi-30\integrity-clean.json.
+      3. Green; typecheck clean.
+      4. Create scripts\verify\verify-pi30-011.mjs: exits 0 only if
+         every sweep has a detection test and the clean run shows zero
+         findings.
+      5. Run: node scripts/verify/verify-pi30-011.mjs
+    expected_outputs:
+      - packages/graph/src/integrity/index.ts
+      - scripts/graph-integrity.mjs
+      - scripts/verify/verify-pi30-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi30-012
+    phase: build
+    description: "Close-out: snapshot, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. schema-snapshot to evidence\pi-30\schema-after.json;
+         evidence\pi-30\SUMMARY.md: migrations 0025-0026, the
+         no-unevidenced-edges proofs, traversal/pathfinding/overlap
+         capabilities with test counts, the scale benchmark table
+         (query class, p50, p95, bound), embedding provider status
+         (seam + which real adapter, key pending if so, AOQ ref),
+         integrity sweep inventory, registry amendments (zero silent
+         drift), matrix green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-30
+         complete; next queue pi-31-entity-resolution-twin.
+      3. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-30/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md .env.example
+         Commit: "graph: evidence-mandatory edges, temporal multi-hop
+         with in-recursion isolation, pathfinding, overlap, pgvector
+         retrieval, scale-proven (pi-30)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi30-012.mjs: standard close-out
+         pattern.
+      5. Run: node scripts/verify/verify-pi30-012.mjs
+    expected_outputs:
+      - evidence/pi-30/SUMMARY.md
+      - scripts/verify/verify-pi30-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi30-012.mjs"
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,518 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-60: SYSTEM EVALUATION + HARDENING
+#
+# The whole system on trial before production: fleet-wide
+# evaluation, a real-data accuracy campaign, load, chaos at
+# system scale, security and privacy audits, cost calibration,
+# and a long soak - consolidated into the evaluation report
+# pi-61's production gates will judge.
+#
+# SPEND GOVERNANCE FOR THIS QUEUE: pi60-003's fleet live eval
+# is the program's largest deliberate spend. It requires
+# PI_LIVE_EVAL_BUDGET_USD set in the environment - the harness
+# projects total cost BEFORE any call, refuses to start if the
+# projection exceeds the budget, and hard-stops via the ledger
+# if actual spend reaches it. No budget var = BLOCKED halt for
+# Reid to set one. Money is never spent by default.
+#
+# FINDINGS DISCIPLINE: every prompt here feeds a consolidated
+# FINDINGS_REGISTER.md (severity P0-P3, evidence ref, owner
+# prompt). P0/P1 findings are FIXED in pi60-012 before the
+# report; P2/P3 are dispositioned honestly. Nothing found is
+# ever quietly dropped.
+# ============================================================
+
+prompts:
+
+  - id: pi60-001
+    phase: build
+    description: "Evaluation program: what will be measured, against what thresholds"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read EVALUATION_FRAMEWORK.md in full; the pi-45 ratchet
+         re-run green; migrate --status clean.
+      2. Write docs\architecture\EVALUATION_PROGRAM.md: the
+         measurement plan for this queue - per-family eval
+         coverage and pass thresholds (from the framework's
+         numbers; where it gave none, set defensible ones with
+         reasoning, dated), accuracy-audit method for real data
+         (what a human auditor checks per claim), performance
+         bounds (API p95, queue throughput, graph p95 - carry
+         pi-30's bounds forward + API/system additions), cost
+         targets (Section 16's assumptions restated as testable
+         expectations), security/privacy audit checklists
+         (enumerated from PRIVACY_CONTROLS + the registry's
+         security surfaces), soak criteria. Scaffold
+         evidence\pi-60\FINDINGS_REGISTER.md with the severity
+         scheme.
+      3. Create scripts\verify\verify-pi60-001.mjs: the program
+         doc covers all seven areas with thresholds; register
+         scaffolded; ratchet green.
+      4. Run: node scripts/verify/verify-pi60-001.mjs
+    expected_outputs:
+      - docs/architecture/EVALUATION_PROGRAM.md
+      - evidence/pi-60/FINDINGS_REGISTER.md
+      - scripts/verify/verify-pi60-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi60-002
+    phase: build
+    description: "The fleet evaluation harness productionized"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\run-fleet-evals.mjs: every agent's
+         __evals__ suite as one command - per-agent scorecards
+         (cases run/passed, duration) persisted to SUP-02's
+         metrics store (the same rows its sampler writes - one
+         instrument, two cadences), a consolidated report, CI
+         wiring (the pipeline-golden tier runs on every push;
+         document the tier split: pipeline goldens
+         FakeProvider-free-to-run vs live-metered excluded from
+         CI).
+      2. Run the full FakeProvider tier now: every agent, every
+         case, one report - evidence\pi-60\fleet-evals.json. Any
+         failure is a real regression: fix or register P1.
+      3. Create scripts\verify\verify-pi60-002.mjs: the report
+         covers all 44 agents with 100% of pipeline goldens
+         passing (or registered findings for any exception).
+      4. Run: node scripts/verify/verify-pi60-002.mjs
+    expected_outputs:
+      - scripts/evals/run-fleet-evals.mjs
+      - evidence/pi-60/fleet-evals.json
+      - scripts/verify/verify-pi60-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-003
+    phase: build
+    description: "The fleet LIVE evaluation: every agent's signature case, real model, budgeted"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\run-fleet-live-evals.mjs: ONE real-model
+         completion per agent on its signature golden (44 runs;
+         frontier agents at frontier - the honest cost), governed
+         exactly as the queue header states: PI_LIVE_EVAL_BUDGET_USD
+         required (absent -> BLOCKED note + verify exit 1, halt
+         for Reid); pre-run projection printed (per-agent
+         worst-case from pricing.ts, summed); projection > budget
+         -> refuse with the breakdown; ledger-enforced hard stop
+         mid-run at the budget.
+      2. Run it. Results: per-agent pass/fail with the standard
+         assertions (expected outcomes, real citations,
+         fabrication checks where applicable), actual total spend
+         vs projection, to evidence\pi-60\fleet-live-evals.json.
+         Mismatch protocol per agent (diagnose prompt/fixture/
+         expectation; fixes documented; affected agents re-run
+         within budget). Failures surviving diagnosis -> register
+         (an agent whose real-model behavior misses its contract
+         is a P1).
+      3. Update FLEET_STATUS.md: every passing agent ->
+         LIVE-EVALED (the board should approach 44/44 LIVE-EVALED
+         here; exceptions visible).
+      4. Create scripts\verify\verify-pi60-003.mjs: 44 attempted,
+         spend within budget, board updated, exceptions
+         registered.
+      5. Run: node scripts/verify/verify-pi60-003.mjs
+    expected_outputs:
+      - scripts/evals/run-fleet-live-evals.mjs
+      - evidence/pi-60/fleet-live-evals.json
+      - scripts/verify/verify-pi60-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-004
+    phase: build
+    description: "The real-data accuracy campaign: five real prospects, human-auditable"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\real-campaign.mjs: a real mini-campaign on
+         the standing stack with REAL model reasoning and REAL
+         connectors (budget-governed like pi60-003, same env var
+         discipline - a separate PI_CAMPAIGN_BUDGET_USD): a
+         housing-cause tenant objective discovering and
+         deep-researching 5 REAL Texas foundations end to end
+         (discovery -> intelligence -> KNW verification ->
+         qualification where evidence suffices). Then the audit
+         harness: EVERY claim produced runs the pi-32 fabrication
+         primitive (excerpt-in-snapshot at 100% coverage, not
+         sampled); citation-integrity rate, tier distribution,
+         corroboration rates computed; the human-audit packet
+         generated (per-prospect: every conclusion with its
+         claims and excerpts, formatted for Reid to spot-check -
+         THIS is the artifact that tells him whether the product
+         is real).
+      2. Fabrication sweep result MUST be 100% (any
+         excerpt-not-found on system-produced claims is a P0 -
+         the system's core promise). Results + spend to
+         evidence\pi-60\real-campaign.json + the audit packet to
+         evidence\pi-60\audit-packet\.
+      3. Create scripts\verify\verify-pi60-004.mjs: 5 real
+         prospects researched, fabrication sweep 100%, packet
+         exists, spend within budget.
+      4. Run: node scripts/verify/verify-pi60-004.mjs
+    expected_outputs:
+      - scripts/evals/real-campaign.mjs
+      - evidence/pi-60/real-campaign.json
+      - scripts/verify/verify-pi60-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-005
+    phase: build
+    description: "Performance and load"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\load-test.mjs: the concurrent-tenant test -
+         10 seeded tenants each with an active fixture objective
+         (FakeProvider - load tests measure the SYSTEM, not the
+         model), run concurrently on a realistic worker pool:
+         queue throughput and task latency distribution; API p95
+         under concurrent console-pattern traffic (scripted
+         request mix against the booted api); graph query bounds
+         re-verified WITH the load running (the pi-30 benchmarks
+         under contention); isolation spot checks during load
+         (org boundaries hold under concurrency). Bounds from
+         EVALUATION_PROGRAM; misses investigated (EXPLAIN/
+         profiling) and fixed or registered.
+      2. Results to evidence\pi-60\load-test.json.
+      3. Create scripts\verify\verify-pi60-005.mjs: all bound
+         checks present, passes or registered findings.
+      4. Run: node scripts/verify/verify-pi60-005.mjs
+    expected_outputs:
+      - scripts/evals/load-test.mjs
+      - evidence/pi-60/load-test.json
+      - scripts/verify/verify-pi60-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-006
+    phase: build
+    description: "Cost calibration: the unit-economics table"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\cost-calibration.mjs: from the real
+         campaign's ledger + the fixture runs' scripted usage:
+         the unit-economics table - cost per discovered candidate,
+         per researched prospect (by depth tier), per qualified
+         prospect, per orchestration overhead tick; model-class
+         spend distribution; connector overheads. Compare against
+         Section 16's directive assumptions: where reality
+         diverges, state it plainly (this table is Reid's pricing
+         input - optimism here costs him money later).
+      2. Write docs\architecture\UNIT_ECONOMICS.md with the table,
+         methodology, divergences, and the levers (model-class
+         routing shifts, depth budgets, batch sizes) ranked by
+         projected impact.
+      3. Create scripts\verify\verify-pi60-006.mjs: the doc's
+         table populated from real ledger figures (cross-check a
+         sample against the ledger), divergence section present.
+      4. Run: node scripts/verify/verify-pi60-006.mjs
+    expected_outputs:
+      - docs/architecture/UNIT_ECONOMICS.md
+      - scripts/verify/verify-pi60-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-007
+    phase: build
+    description: "System-scale chaos: the pi-21 campaign against the whole organization"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\system-chaos.mjs: during a running fixture
+         campaign (multi-tenant load from pi60-005's harness):
+         worker kills at random intervals (all recover,
+         exactly-once holds - sample side-effect audits);
+         connection-storm simulation (pool exhaustion pressure -
+         graceful degradation, no corrupt state); forced breaker
+         trips on the gateway mid-campaign (parked work resumes on
+         close); a connector outage (the fixture registry adapter
+         killed - discovery branches fail Retryable, replan
+         machinery engages, siblings unaffected); kill-switch
+         engagement mid-campaign (the tenant's work stops at
+         boundaries, others unaffected). Every scenario's
+         invariant checks: no lost tasks, no duplicate side
+         effects, no dangling provenance, trails legal.
+      2. Results to evidence\pi-60\system-chaos.json; violations
+         are P0/P1 findings fixed or registered.
+      3. Create scripts\verify\verify-pi60-007.mjs: all five
+         scenarios with invariant checks passing.
+      4. Run: node scripts/verify/verify-pi60-007.mjs
+    expected_outputs:
+      - scripts/evals/system-chaos.mjs
+      - evidence/pi-60/system-chaos.json
+      - scripts/verify/verify-pi60-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-008
+    phase: build
+    description: "Security posture: the adversarial sweep"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The security audit, all captured: full RLS attack matrix
+         re-run (every table + storage - the accumulated
+         expectations file at its widest); API auth fuzzing
+         (forged JWTs, expired tokens, tampered org claims, role
+         escalation attempts - every endpoint class); secret-shape
+         scan across the repo + built artifacts; storage-policy
+         audit (every bucket >= its declared policies); pnpm audit
+         with disposition of every finding (upgrade or documented
+         acceptance); injection re-verification at the three
+         entries (compiler text, crawled content, imported CSVs -
+         the standing suites re-run + one new probe each);
+         SSRF posture on webcrawl (internal-address fetch attempts
+         refused - add the guard if absent: private-range and
+         metadata-endpoint blocking is mandatory for a
+         URL-fetching system; its absence is a P0 fixed NOW).
+      2. Results to evidence\pi-60\security-audit.json; register
+         fed.
+      3. Create scripts\verify\verify-pi60-008.mjs: all seven
+         audit areas present with passes or registered findings;
+         the SSRF guard proven.
+      4. Run: node scripts/verify/verify-pi60-008.mjs
+    expected_outputs:
+      - scripts/evals/security-audit.mjs
+      - evidence/pi-60/security-audit.json
+      - scripts/verify/verify-pi60-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-009
+    phase: build
+    description: "Privacy compliance: PRIVACY_CONTROLS as executed checklist + the deletion path"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The privacy audit: every PRIVACY_CONTROLS commitment
+         verified as running behavior - protected-characteristics
+         probes at every entry (compiler, connector purposes,
+         claim writes - the standing tests re-run + fresh probes);
+         consent enforcement (revocation propagation re-proven);
+         purpose-limitation spot checks (data-class grants vs
+         actual agent purposes in recent runs - query the
+         decisions); source-permissibility conformance on the
+         real campaign's claims (every claim's source class
+         permitted its purpose - 100% sweep).
+      2. THE DELETION PATH: the directive's data-subject
+         requirements need machinery - if the registry defined it,
+         verify it exists; it was NOT built in any prior queue, so
+         build it now: packages\services\src\privacy\deletion.ts -
+         deleteEntityData(entityRef, orgId, reason): claims,
+         snapshots (org-scoped ones), graph presence, twin,
+         portfolio memberships purged with a deletion tombstone
+         (the audit trail records THAT a deletion happened and
+         why, never the deleted content); shared/public-source
+         snapshots referenced by other orgs survive (scope
+         honesty); migration 0033 for tombstones if needed. Tests:
+         full purge verified by direct queries; the tombstone;
+         the shared-snapshot survival; a post-deletion dossier
+         request 404s cleanly.
+      3. Results to evidence\pi-60\privacy-audit.json.
+      4. Create scripts\verify\verify-pi60-009.mjs: checklist
+         areas covered; the deletion tests passing.
+      5. Run: node scripts/verify/verify-pi60-009.mjs
+    expected_outputs:
+      - packages/services/src/privacy/deletion.ts
+      - evidence/pi-60/privacy-audit.json
+      - scripts/verify/verify-pi60-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-010
+    phase: build
+    description: "The 24-hour soak"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\soak-24h.mjs: the standing stack under
+         continuous realistic schedule load for 24 hours
+         (recurring fixture discovery windows, orchestrator ticks
+         across tenants, freshness sweeps, SUP-02 sampling,
+         OPS-01 telemetry - FakeProvider; the soak measures the
+         SYSTEM): sampled every 15 minutes - worker RSS flat
+         after warmup; DLQ depth zero-or-explained; watermarks
+         advancing; DB connection counts stable; no orphaned
+         leases; idle-tick model-call count ZERO throughout
+         (the economy under duration); event-lag bounded.
+         The run detaches (the 24 hours must not block the FORGE
+         session): launch, verify liveness at 30 minutes, write
+         the monitoring cadence + the completion-check command to
+         evidence\pi-60\SOAK-RUNNING.md, and structure the verify
+         to pass on a healthy 30-minute liveness capture with the
+         24h completion assessed in pi60-012 (state this two-phase
+         design explicitly - an honest asynchronous soak beats a
+         fake synchronous one).
+      2. Create scripts\verify\verify-pi60-010.mjs: launch
+         verified, 30-minute samples healthy, the completion
+         protocol documented.
+      3. Run: node scripts/verify/verify-pi60-010.mjs
+    expected_outputs:
+      - scripts/evals/soak-24h.mjs
+      - evidence/pi-60/SOAK-RUNNING.md
+      - scripts/verify/verify-pi60-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-011
+    phase: build
+    description: "Data-quality audit: the truth layer at statistical width"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\evals\data-quality.mjs: across ALL accumulated
+         data (fixtures + real campaign): claim-quality
+         distribution (verification statuses, tier mix,
+         corroboration rates, inference-label rates - against the
+         EVALUATION_PROGRAM expectations); graph integrity sweeps
+         (pi-30 CLI - zero findings on service-written data); ER
+         precision sampling (a hand-check sample of resolution
+         decisions from the campaign: any wrong merge is a P0);
+         freshness-policy conformance (no claim past-window
+         without STALE status); twin-assembly spot audits
+         (sections trace to claims).
+      2. Results to evidence\pi-60\data-quality.json; register
+         fed.
+      3. Create scripts\verify\verify-pi60-011.mjs: all five
+         audit areas with passes or registered findings.
+      4. Run: node scripts/verify/verify-pi60-011.mjs
+    expected_outputs:
+      - scripts/evals/data-quality.mjs
+      - evidence/pi-60/data-quality.json
+      - scripts/verify/verify-pi60-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-012
+    phase: build
+    description: "Findings remediation + soak completion"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Collect the 24h soak results (per SOAK-RUNNING.md's
+         protocol; if the 24 hours have not elapsed, run the
+         completion check against however many hours exist and
+         state the actual duration honestly - a 14-hour clean
+         soak reported as 14 hours beats a claimed 24); soak
+         criteria assessed; findings registered.
+      2. FINDINGS_REGISTER.md triage: every P0 and P1 FIXED, its
+         fix committed, and the originating proof/audit RE-RUN
+         green (the fix-verify loop per finding, evidenced);
+         P2/P3 dispositioned (fix now / accept with reasoning /
+         defer with owner). Zero unfixed P0/P1 is this prompt's
+         exit condition - the gate enforces it.
+      3. The full ratchet re-run after all fixes: everything
+         green together.
+      4. Evidence: the updated register + per-fix re-run captures
+         to evidence\pi-60\remediation\.
+      5. Create scripts\verify\verify-pi60-012.mjs: register shows
+         zero open P0/P1, every fixed finding has its re-run
+         capture, ratchet green, soak assessed with honest
+         duration.
+      6. Run: node scripts/verify/verify-pi60-012.mjs
+    expected_outputs:
+      - evidence/pi-60/FINDINGS_REGISTER.md
+      - scripts/verify/verify-pi60-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi60-013
+    phase: build
+    description: "The evaluation report: pi-61's gate input"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Write docs\architecture\EVALUATION_REPORT.md: the
+         consolidated verdict - fleet scorecards (pipeline + live,
+         44 agents), the real-campaign accuracy results with the
+         100% fabrication sweep, performance vs bounds, the
+         unit-economics table, chaos results, security posture,
+         privacy compliance incl. the deletion path, soak (honest
+         duration), the findings summary with dispositions, and a
+         plain-language readiness assessment: what is
+         production-strong, what is production-adequate-with-
+         known-limits (the fixture-vs-real gaps: Places off,
+         business registry unlicensed, embeddings key pending -
+         the honest limits list), and what pi-61 must gate on.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-60
+         complete; next queue pi-61-production-gates.
+      3. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-60/ SESSION_STATE.md STATE_OF_THE_BUILD.md
+         Commit: "system evaluation: fleet live-evaled, real-data
+         campaign fabrication-clean, load/chaos/security/privacy
+         audited, unit economics measured, soak run (pi-60)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi60-013.mjs: the report's
+         ten sections present including the honest-limits list.
+      5. Run: node scripts/verify/verify-pi60-013.mjs
+    expected_outputs:
+      - docs/architecture/EVALUATION_REPORT.md
+      - scripts/verify/verify-pi60-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi60-013.mjs"
+    max_retries: 3
+    on_fail: halt

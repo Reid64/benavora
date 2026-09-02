@@ -1,0 +1,15 @@
+release_id: PIL-RELEASE-05
+version: "1.0.0"
+title: "Independent Criticism Architecture and BEN-SUP-05"
+type: cumulative
+inherits: PIL-RELEASE-04
+canonical_fleet_count: 44
+canonical_deterministic_service_count: 30
+new_files:
+  - 16-critic-architecture/16-independent-criticism-and-review-contracts.yaml
+  - 17-agents/supervisory/BEN-SUP-05-prospect-research-critic-red-team.md
+completed_agent_specs: [BEN-SUP-01, BEN-SUP-02, BEN-SUP-03, BEN-SUP-04, BEN-SUP-05]
+remaining_agent_specs: 39
+truthful_status: {specification_complete_for_release_scope: true, implementation_claimed: false, production_score_preassigned: false}
+next_release: {id: PIL-RELEASE-06, agent: BEN-SUP-06, title: Research Recovery Investigator}
+

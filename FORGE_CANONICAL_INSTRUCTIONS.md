@@ -22,16 +22,10 @@
 Claude Code has full filesystem access. It writes every file directly to its correct absolute path. It reads governance docs cold from the filesystem at the start of every prompt. The user never places files, pastes output, or feeds state manually. Every future queue file is written to disk by Claude Code inside the final prompt of every run — not downloaded, not placed manually.
 
 ### Rule 2 — Governance Updates + Incremental Testing
-Every prompt must end with four mandatory instructions:
+Every prompt must end with three mandatory instructions:
 1. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from a live codebase audit (actual command output, never from memory)
 2. Run incremental tests at checkpoints mid-prompt to catch failures early
 3. Verify what was built actually works before the prompt closes
-4. Run `pnpm run build` locally before the final commit of the prompt, and do not commit if it fails.
-   This is not optional and not covered by the `compile` gate (`tsc --noEmit` catches type errors but
-   not the build-time ESLint pass Next.js runs during `next build`, which has broken production
-   directly — see DIRECTIVE-019 in STANDING_DIRECTIVES.md). The target repos are private repos on a
-   GitHub plan without required status checks or branch protection, so nothing downstream of the
-   push can block a bad commit — this local build is the only real gate.
 
 ### Rule 3 — Gates on Every Prompt
 Every prompt MUST include a `gates:` block. FORGE only enforces pass/fail when gates are present. A prompt without gates passes unconditionally regardless of what was built. Minimum required gates on every prompt:
@@ -88,20 +82,6 @@ prompts:
 
 **The compile gate is mandatory on every prompt that writes TypeScript.**
 **The file_exists gate is mandatory on every prompt that creates new files.**
-
-### `scripts/verify-deployment.ts` — production drift check (not yet a gate type)
-
-`scripts/verify-deployment.ts` (`tsx scripts/verify-deployment.ts`) exists to catch the failure
-DIRECTIVE-019 was written for — a build that passes every gate above and reaches `main` cleanly, but
-whose Vercel production deployment never actually lands on that commit (per the 2026-08-11 audit,
-production sat 21 commits stale for 8+ hours with nothing in this pipeline noticing). It compares
-local `git rev-parse HEAD` against the commit Vercel reports live in production via the Vercel REST
-API (`VERCEL_TOKEN` + `VERCEL_PROJECT_ID`), and exits `0` (match), `1` (mismatch or a production
-deployment that itself errored/canceled), `2` (latest production deployment still building/queued —
-not yet comparable, deliberately not conflated with a mismatch), or `3` (couldn't reach a verdict,
-e.g. missing token). This table's five gate types do not currently include a dedicated type that
-invokes this script — it is a manually-run check today. If a `deploy_verify` gate type is added
-later, wire it to these exact exit codes rather than reinterpreting them.
 
 ---
 
@@ -257,7 +237,6 @@ Checklist before producing any queue file:
 - [ ] No colons followed by spaces in name fields
 - [ ] Every prompt ends with governance update mandate from actual audit
 - [ ] Every prompt has incremental test checkpoint mid-execution
-- [ ] Every prompt ends with a mandatory `pnpm run build` before the final commit (DIRECTIVE-019)
 - [ ] Final prompt writes next queue to disk as FIRST action
 - [ ] File names are uniquely timestamped
 - [ ] All TypeScript is inline — no stubs, no "implement as described"

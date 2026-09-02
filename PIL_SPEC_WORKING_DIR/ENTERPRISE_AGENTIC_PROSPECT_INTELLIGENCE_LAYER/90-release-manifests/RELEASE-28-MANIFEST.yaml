@@ -1,0 +1,18 @@
+release_id: PIL-RELEASE-28
+version: 1.0.0
+title: Relationship Strength Agent
+type: cumulative_new_agent_release
+inherits: PIL-RELEASE-27-v1.0.0
+new_agent:
+  id: BEN-REL-06
+  path: 22-agents/relationship/BEN-REL-06-relationship-strength.md
+  status: FINAL_SPECIFICATION_PENDING_IMPLEMENTATION_EVIDENCE
+audit: 00-audit/BEN-REL-06-specification-audit.yaml
+canonical_fleet_count: 44
+specified_agents_to_date: 30
+remaining_agent_specifications: 14
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_claimed: false
+  tests_claimed: false
+  production_score_preassigned: false

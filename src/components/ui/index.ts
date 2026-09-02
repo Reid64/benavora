@@ -40,3 +40,6 @@ export type { SearchBarProps } from "@/components/ui/SearchBar";
 
 export { ColorIcon, ICON_HUE_CLASSES, ICON_HUE_BORDER_CLASSES } from "@/components/ui/ColorIcon";
 export type { ColorIconProps, IconHue } from "@/components/ui/ColorIcon";
+
+export { AutoSaveIndicator } from "@/components/ui/AutoSaveIndicator";
+export type { AutoSaveIndicatorProps } from "@/components/ui/AutoSaveIndicator";

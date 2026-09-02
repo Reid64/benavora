@@ -1,0 +1,49 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_CAD_BIM_LIBRARY.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: cadlib-001
+    phase: investigate
+    description: "Confirm CAD/BIM library route status and real content availability"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      SITEMAP.md and afs-048's changelog note that /admin/cad-library was
+      documented but never built, and its admin nav link was deliberately
+      removed until real content exists. Check
+      app/(public)/architects/cad-library/page.tsx (the customer-facing
+      route) directly -- confirm whether it renders real
+      CADFileCard/CADLibraryBrowser components against real data or
+      placeholder content. Read SPEC_CAD_BIM_LIBRARY.md and
+      components/architects/CADFileCard.tsx and
+      components/architects/CADLibraryBrowser.tsx in full.
+
+      Write CADLIB_AUDIT.md: what's real, what's placeholder, and whether
+      real CAD file assets exist anywhere in this repo or Supabase Storage
+      to actually populate it, or whether this is blocked on client-supplied
+      files (a genuine DATA BLOCKER, not a code gap) -- state which
+      honestly, do not assume.
+    gates:
+      - type: file_exists
+        files:
+          - CADLIB_AUDIT.md
+
+  - id: cadlib-002
+    phase: implement
+    description: "Build whatever CADLIB_AUDIT.md identifies as a real code gap"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read CADLIB_AUDIT.md. If it found this is purely blocked on missing
+      client file assets with no code gap, make no code changes and update
+      STATE_OF_THE_BUILD.md's DATA BLOCKERS table to reflect that precisely
+      instead. If it found a real, fixable code gap (broken query, missing
+      route, UI shell with no data-fetching), fix exactly that.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "fix: CAD/BIM library gaps per audit"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

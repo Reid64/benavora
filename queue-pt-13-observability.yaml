@@ -1,0 +1,113 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-13: OBSERVABILITY & LOGGING  (evidence-standard)
+# depends_on: pt-09. Failures must be visible when they happen.
+# Read-only/static. HALTS at end. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt13-001
+    phase: build
+    description: "Silent catch-block census"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00/09 artifacts. Create test-evidence\pt-13\.
+      2. Census EVERY try/catch and .catch() in the codebase that swallows
+         an error without logging or surfacing it (the class that hides
+         real failures - directly relevant after the .Handle discovery).
+         For each: file, line, what it swallows, whether the swallow is
+         intentional (documented) or a silent hole. Write
+         test-evidence\pt-13\silent-catches.json. Each silent swallow on a
+         real data/agent path is a finding (P2, or P1 if it hides a
+         data-loss path).
+      3. Create scripts\audit\verify-pt13-001.mjs: fails unless
+         silent-catches.json records the census with file/line per entry.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-13: silent catch-block census"
+      5. Run: node scripts/audit/verify-pt13-001.mjs
+    expected_outputs:
+      - test-evidence/pt-13/silent-catches.json
+      - scripts/audit/verify-pt13-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt13-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt13-002
+    phase: build
+    description: "agent_runs/agent_decisions completeness + error-surfacing + prod monitoring reality"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Compare agent_runs / agent_decisions row completeness against the
+         actual agent executions PT-09 proved: are runs being logged for
+         every execution, or are executions happening unlogged? Capture the
+         gap. 2. Trace error-surfacing paths: when a background failure
+         happens, does it reach the UI / an alert, or die silently?
+         3. Document what monitoring/alerting ACTUALLY exists in production
+         (not assumed) - health checks, uptime, error alerting.
+      Write test-evidence\pt-13\observability.json. Unlogged executions or
+      absent error-surfacing are findings.
+      2. Create scripts\audit\verify-pt13-002.mjs: fails unless the JSON
+         records the run-log completeness comparison + monitoring reality.
+      3. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-13: run-log completeness + monitoring reality"
+      4. Run: node scripts/audit/verify-pt13-002.mjs
+    expected_outputs:
+      - test-evidence/pt-13/observability.json
+      - scripts/audit/verify-pt13-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt13-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt13-003
+    phase: build
+    description: "PHASE 13 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-13\PHASE-13-SUMMARY.md: silent-catch count,
+         run-log completeness gap, monitoring that really exists vs assumed.
+         Every number cites evidence.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-13\REVIEW-PACK.md: are failures visible in
+         prod; highest-severity; next-phase note.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-13 COMPLETE: observability, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt13-003.mjs: fails unless summary +
+         review pack exist non-empty and register grew.
+      6. Run: node scripts/audit/verify-pt13-003.mjs
+    expected_outputs:
+      - test-evidence/pt-13/PHASE-13-SUMMARY.md
+      - test-evidence/pt-13/REVIEW-PACK.md
+      - scripts/audit/verify-pt13-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt13-003.mjs"
+    max_retries: 2
+    on_fail: halt

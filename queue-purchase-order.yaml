@@ -1,0 +1,50 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_PURCHASE_ORDER_INTEGRATION.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: po-001
+    phase: investigate
+    description: "Confirm zero prior implementation and scope real PO acceptance flow"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_PURCHASE_ORDER_INTEGRATION.md in full. Grep the repo for
+      any existing purchase-order code. This is a B2B feature -- commercial
+      customers submitting a PO number/document instead of paying by card
+      at checkout. Check app/checkout/page.tsx and
+      app/api/checkout/create-intent/route.ts to confirm neither currently
+      supports any non-Stripe payment path.
+
+      Check SCHEMA.md for whether orders/quotes has any PO-related columns
+      already. Determine the real data model needed (PO number field, PO
+      document upload via the existing document-upload pattern in
+      app/api/documents/upload, admin approval step before fabrication
+      proceeds on a PO-based order).
+
+      Write PO_INTEGRATION_SCOPE.md with findings and exactly what po-002
+      should build.
+    gates:
+      - type: file_exists
+        files:
+          - PO_INTEGRATION_SCOPE.md
+
+  - id: po-002
+    phase: implement
+    description: "Build purchase order acceptance flow per PO_INTEGRATION_SCOPE.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read PO_INTEGRATION_SCOPE.md in full. Implement exactly what it
+      specifies. Reuse the existing document-upload pattern
+      (app/api/documents/upload) for PO document attachment rather than
+      building a new upload path. This is a payment-alternative flow --
+      be careful that no code path can accidentally skip both Stripe
+      payment AND PO approval and let an order proceed unpaid/unapproved.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: purchase order acceptance flow per spec"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

@@ -1,0 +1,31 @@
+release_id: PIL-RELEASE-02
+version: "1.0.0"
+title: "Core Data and Control Architecture plus BEN-SUP-02"
+type: cumulative
+inherits: PIL-RELEASE-01
+governing_document:
+  title: "BENAVORA ENTERPRISE AGENTIC PROSPECT INTELLIGENCE LAYER"
+  pages_verified: 49
+canonical_fleet_count: 44
+canonical_deterministic_service_count: 30
+new_files:
+  - 06-data-architecture/06-canonical-data-graph-and-evidence-schemas.yaml
+  - 07-control-architecture/07-policy-autonomy-memory-tenancy-and-economics.md
+  - 08-runtime-architecture/08-workflows-events-apis-and-recovery.md
+  - 09-agents/supervisory/BEN-SUP-02-research-strategy-architect.md
+completed_agent_specs: [BEN-SUP-01, BEN-SUP-02]
+remaining_agent_specs: 42
+truthful_status:
+  specification_complete_for_release_scope: true
+  implementation_in_target_repository_claimed: false
+  live_provider_validation_claimed: false
+  production_score_preassigned: false
+next_release:
+  id: PIL-RELEASE-03
+  agent: BEN-SUP-03
+  title: Cross-Agent Research Planner
+  infrastructure_scope:
+    - dependency_graph_and_execution_plan_schema
+    - deterministic_service_contracts_batch_1
+    - evaluation_and_production_readiness_expansion
+

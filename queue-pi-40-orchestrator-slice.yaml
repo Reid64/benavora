@@ -1,0 +1,479 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-40: ORCHESTRATOR SLICE
+#
+# BEN-SUP-01 (Chief Prospect Intelligence Orchestrator) and
+# BEN-SUP-03 (Cross-Agent Research Planner) - the minimum
+# supervisory layer that turns a fleet of specialists into an
+# organization. After this queue, a tenant objective becomes a
+# persistent goal that plans itself across agents, fans out in
+# parallel, survives branch failures by replanning, and knows
+# when to stop. The integration proof runs the program's first
+# fully orchestrated multi-agent operation using the four live
+# KNW agents.
+#
+# ECONOMIC DISCIPLINE (the frontier-class agents live here, so
+# this queue is where model spend gets dangerous if sloppy):
+#   - SUP-01's continuous cadence NEVER burns model calls on
+#     empty ticks: a deterministic pre-check (any new evidence?
+#     any research requests? any state change since last tick?)
+#     gates every reasoning invocation. An idle tenant costs
+#     zero model dollars. This gets its own test.
+#   - Planning happens at plan-worthy moments (new objective,
+#     branch failure, evidence sufficiency change), not per tick.
+#
+# MODEL SPEND RULE unchanged: FakeProvider CI; bounded live eval
+# in pi40-011.
+# ============================================================
+
+prompts:
+
+  - id: pi40-001
+    phase: build
+    description: "Preflight: SUP-01/03 contracts read, substrate green"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read FAMILY-1-SUPERVISORY.md's BEN-SUP-01 and BEN-SUP-03
+         contracts in full; the registry's research-portfolio and
+         research_requests structures; the goals/delegation sections
+         again with supervisory eyes (parent goals owning child
+         goals).
+      2. Health: pnpm -r test green; resolution-proof + the pi-32
+         four-agent relay re-run green; migrate --status clean.
+         Capture to evidence\pi-40\preflight.txt.
+      3. Create scripts\verify\verify-pi40-001.mjs: both contracts'
+         24 fields present; re-runs green.
+      4. Run: node scripts/verify/verify-pi40-001.mjs
+    expected_outputs:
+      - evidence/pi-40/preflight.txt
+      - scripts/verify/verify-pi40-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi40-002
+    phase: build
+    description: "Migrations: research portfolios and prospect research state"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+      Read the registry's portfolio/research-state sections first.
+
+      1. Migration 0031_research_portfolios.sql per the registry:
+         research_portfolios (org, owning objective goal_id, name,
+         budget allocations, status), portfolio_members (portfolio,
+         entity ref, priority, research_state enum per the registry's
+         prospect research states, evidence_sufficiency jsonb -
+         per-requirement satisfaction the orchestrator reads,
+         suspended_reason nullable, last_researched_at), and - if the
+         registry placed research_requests here rather than pi-32's
+         0030 - reconcile: ONE canonical location, dated note.
+         Standard migration pattern (expectations, column-diff,
+         proofs, matrix).
+      2. Create scripts\verify\verify-pi40-002.mjs standard pattern.
+      3. Run: node scripts/verify/verify-pi40-002.mjs
+    expected_outputs:
+      - supabase/migrations/0031_research_portfolios.sql
+      - scripts/verify/verify-pi40-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-003
+    phase: build
+    description: "BEN-SUP-03 as code: dependency-aware multi-agent planning"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\supervisory\BEN-SUP-03.ts:
+         field-for-field from FAMILY-1; A4; frontier class; tools:
+         fleet-capability reads (the contract registry as data - what
+         each agent does, its family, its cost class), portfolio/
+         research-state reads, prior-research reads (redundancy
+         prevention needs to see what exists), plan emission.
+         Its structured output: an ExecutionPlan (zod in contracts) -
+         a DAG of planned delegations: nodes {agentId, objective,
+         entityRefs, budgets, successCriteria, dependsOn[]}, parallel
+         branches explicit, join nodes where reconciliation happens,
+         bounded recursion depth, and a redundancy declaration (which
+         existing research it deliberately reuses instead of
+         re-running - a plan that re-researches fresh sufficient
+         evidence must justify it or the validator rejects).
+      2. Plan validation (deterministic, pre-execution): DAG
+         acyclicity; every agentId exists in the registry; budgets
+         sum within the objective's remaining budget; dependencies
+         reference plan nodes; the redundancy rule (nodes targeting
+         entities whose research_state + evidence_sufficiency already
+         satisfy the node's criteria are rejected unless justified).
+      3. Vitest (FakeProvider through the real kernel): a valid plan
+         for the directive's example shape (parallel individual/
+         foundation/board/giving/business branches -> entity
+         reconciliation -> affinity/relationship -> qualification)
+         validates and persists; a cyclic plan rejected; an unknown-
+         agent plan rejected; the redundancy rejection with a seeded
+         already-sufficient entity.
+      4. Green; evidence\pi-40\sup03-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi40-003.mjs: standard plus the
+         redundancy-rejection test present.
+      6. Run: node scripts/verify/verify-pi40-003.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/supervisory/BEN-SUP-03.ts
+      - packages/contracts/src/schemas/execution-plan.ts
+      - scripts/verify/verify-pi40-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-004
+    phase: build
+    description: "Plan execution: DAG fan-out, joins, partial-failure replan"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\orchestration\executor.ts: executePlan
+         (planId) as durable workflow - ready nodes (dependencies
+         satisfied) fan out as parallel DelegatedTasks through the
+         kernel's delegation machinery (authority intersection
+         applies - the plan cannot grant what the objective lacks);
+         joins fire when all inputs complete; node results feed
+         dependent nodes' contexts; PARTIAL FAILURE: a failed branch
+         (exhausted retries) does NOT kill the plan - the executor
+         marks the branch, completes independent branches, and
+         surfaces a replan request to the plan's owner with the
+         failure context (SUP-03 revises: reroute, drop, or escalate
+         per its reasoning); plan state durable and resumable
+         (crash-matrix compatible - the executor is engine-hosted).
+      2. Vitest: a 3-branch plan executes with real parallelism
+         (overlapping execution windows asserted); join receives all
+         branch outputs; a scripted branch failure completes siblings
+         and produces the replan request with context; a revised plan
+         resumes from completed state (finished branches not re-run);
+         authority intersection holds on fan-out.
+      3. Green; evidence\pi-40\executor-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi40-004.mjs: standard plus the
+         siblings-survive and no-rerun-on-replan tests present.
+      5. Run: node scripts/verify/verify-pi40-004.mjs
+    expected_outputs:
+      - packages/core/src/orchestration/executor.ts
+      - scripts/verify/verify-pi40-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-005
+    phase: build
+    description: "BEN-SUP-01 as code: the persistent objective owner"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\contracts\src\agents\supervisory\BEN-SUP-01.ts:
+         field-for-field from FAMILY-1; A4; frontier; continuous
+         cadence; human boundary verbatim (strategic changes outside
+         tenant policy). Tools: portfolio reads/writes, research-state
+         reads, research_requests consumption (pi-32's staleness/gap
+         asks are its inbox), twin reads, cost-ledger reads (its
+         economics), SUP-03 plan requests (delegation to the planner),
+         plan execution control, objective state transitions,
+         final-package emission (the IntelligencePackage typed output:
+         per-entity dossier refs, qualification summary, evidence
+         quality rollup - the contract's final-outputs field).
+         Its reasoning moments (each a distinct structured decision):
+         objective intake (convert a tenant goal into portfolio +
+         initial plan request), progress review (sufficiency per
+         member, deepen/suspend/stop), evidence-event response
+         (reopen on new evidence - consume the KNW event stream),
+         replan approval (accept SUP-03 revisions or escalate).
+      2. THE IDLE-TICK ECONOMY: the continuous loop's tick handler
+         runs a deterministic dirty-check first (new events, new
+         requests, state deltas since last tick watermark) - a clean
+         tick exits WITHOUT any model call. Assert with call
+         recording: 100 idle ticks = zero gateway invocations.
+      3. Vitest (FakeProvider, real kernel): objective intake
+         produces a portfolio + a plan request; a progress review
+         with mixed sufficiency suspends the weak member (reason
+         recorded) and deepens the strong one (a new plan node);
+         a staleness research_request reopens the affected member;
+         the idle-tick zero-spend proof; tenant-policy boundary:
+         a decision the contract classes as strategic raises H1.
+      4. Green; evidence\pi-40\sup01-tests.txt. Typecheck clean.
+      5. Create scripts\verify\verify-pi40-005.mjs: standard plus the
+         idle-tick and H1 tests present.
+      6. Run: node scripts/verify/verify-pi40-005.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/supervisory/BEN-SUP-01.ts
+      - scripts/verify/verify-pi40-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-006
+    phase: build
+    description: "Research economics: the marginal-value reasoning as testable behavior"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. The directive's Section 16 example becomes SUP-01 behavior:
+         packages\core\src\orchestration\economics.ts - the
+         deterministic inputs SUP-01's progress review consumes:
+         per-member marginal-value features (evidence sufficiency
+         delta over recent spend, request backlog, priority,
+         staleness), portfolio spend vs budget, cost-per-sufficient-
+         member trend. The REASONING (suspend broad research,
+         reallocate to top-N relationship work) stays in the agent;
+         the features are computed, exact, and tested.
+      2. The directive's example as a golden: a seeded portfolio of
+         370 members, 42 sufficient, flat recent sufficiency-per-
+         dollar on the tail -> the scripted-reasonable model output
+         suspends the tail and allocates the next budget tranche to
+         the top 15's relationship nodes; assert the resulting
+         portfolio state matches (42 + 15 active shapes, tail
+         suspended with reasons, budget reallocation arithmetic
+         exact).
+      3. Green; evidence\pi-40\economics-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi40-006.mjs: standard plus the
+         370/42/15 golden present.
+      5. Run: node scripts/verify/verify-pi40-006.mjs
+    expected_outputs:
+      - packages/core/src/orchestration/economics.ts
+      - scripts/verify/verify-pi40-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-007
+    phase: build
+    description: "Continuous operation: SUP-01 as a standing scheduled loop"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Wire SUP-01's continuous cadence into the engine's
+         recurrence (pi-32's scheduling mechanism): one standing
+         per-tenant orchestrator tick on the contract's cadence;
+         tick watermarks persisted; concurrent-tick prevention (a
+         slow tick and the next schedule firing - exactly one runs,
+         idempotency key on the watermark window); kill-switch
+         honored (an engaged tenant switch = ticks observe and exit,
+         audited); the worker boot inventory now lists the
+         orchestrator consumer (extend the pi-12 boot log +
+         its verification).
+      2. Vitest: recurrence fires on schedule (fake timers); overlap
+         prevention; kill-switch tick behavior; watermark advance
+         only on successful ticks.
+      3. Green; evidence\pi-40\continuous-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi40-007.mjs: standard plus the
+         overlap-prevention test and the boot-inventory line present.
+      5. Run: node scripts/verify/verify-pi40-007.mjs
+    expected_outputs:
+      - packages/core/src/orchestration/scheduler-wiring.ts
+      - scripts/verify/verify-pi40-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-008
+    phase: build
+    description: "SUP-03 and SUP-01 golden evaluation suites"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. __evals__\BEN-SUP-03\: (a) the directive's parallel-then-
+         reconcile example plan shape; (b) redundancy reuse (a plan
+         over half-researched members reuses the sufficient half);
+         (c) a budget-constrained objective forces a narrower plan
+         (fewer branches, the model's chosen cut justified);
+         (d) dependency correctness on a reconciliation-required
+         shape (ER before affinity - the KNW-02-before-conclusions
+         ordering the contracts demand).
+         __evals__\BEN-SUP-01\: (a) intake-to-portfolio; (b) the
+         370/42/15 economics golden (shared fixture with pi40-006);
+         (c) reopen-on-evidence (a KNW-04 supersession event on a
+         SATISFIED member); (d) sufficiency determination (stop when
+         the contract's success criteria are met - not before, not
+         long after: the scripted trail shows stop at the criteria
+         boundary).
+      2. Green; evidence\pi-40\supervisory-evals.txt.
+      3. Create scripts\verify\verify-pi40-008.mjs: all eight passed.
+      4. Run: node scripts/verify/verify-pi40-008.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/supervisory/__evals__/index.ts
+      - scripts/verify/verify-pi40-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-009
+    phase: build
+    description: "THE FIRST ORCHESTRATED MULTI-AGENT RUN: a real objective through the whole organization"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\orchestration-proof.mjs: seed a tenant
+         objective the four live KNW agents can genuinely serve:
+         "Resolve identities, verify evidence, and adjudicate
+         contradictions across the seeded prospect set" over a
+         fixture set containing: the two-John-Smiths trio, a
+         fabricated-excerpt claim, a semantic-overreach claim, the
+         chairman contradiction, and two stale claims. Run the REAL
+         standing stack (worker up, orchestrator ticking,
+         FakeProvider scripted reasonable everywhere): SUP-01 intakes
+         -> portfolio -> SUP-03 plan (parallel KNW-02 resolution +
+         KNW-03 verification branches -> KNW-04 adjudication join ->
+         KNW-01 twin rebuilds) -> executor fans out -> results
+         aggregate -> SUP-01's review marks members sufficient ->
+         IntelligencePackage emitted.
+         Assertions by direct query: the plan DAG persisted with the
+         right shape; parallel branches genuinely overlapped; every
+         specialist outcome correct (merge, EXCERPT_NOT_FOUND,
+         downgrade, supersession, STALE handling); the package
+         references real dossier state; the objective's transition
+         trail legal end to end; total orchestration overhead ticks
+         that were idle cost zero model calls (the economy holds in
+         the real run).
+         Full trail to evidence\pi-40\orchestration-proof.json.
+      2. All assertions pass.
+      3. Create scripts\verify\verify-pi40-009.mjs: exits 0 only if
+         the trail shows the full relay, the package, and the
+         idle-tick economy.
+      4. Run: node scripts/verify/verify-pi40-009.mjs
+    expected_outputs:
+      - scripts/proofs/orchestration-proof.mjs
+      - evidence/pi-40/orchestration-proof.json
+      - scripts/verify/verify-pi40-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-010
+    phase: build
+    description: "Orchestration hardening: branch-failure replan and crash-resume at the plan level"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Extend the proof with the two hard cases:
+         (a) branch failure mid-orchestration: script one KNW branch
+         to exhaust retries - siblings complete, SUP-03's revision
+         reroutes (scripted reasonable), the objective still reaches
+         its package with the revision visible in lineage;
+         (b) worker SIGKILL mid-fan-out (between branch enqueues):
+         restart; the plan resumes; no branch double-enqueued
+         (idempotency at the plan-node level); the package arrives.
+         Results appended to evidence\pi-40\orchestration-hardening.json.
+      2. Both pass; a double-enqueue is a real executor bug: fix.
+      3. Create scripts\verify\verify-pi40-010.mjs: both cases passing
+         with the no-double-enqueue assertion.
+      4. Run: node scripts/verify/verify-pi40-010.mjs
+    expected_outputs:
+      - evidence/pi-40/orchestration-hardening.json
+      - scripts/verify/verify-pi40-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-011
+    phase: build
+    description: "Bounded live eval: real frontier reasoning for the planner and orchestrator"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\supervisory-live-eval.mjs: four real frontier
+         completions - SUP-03 on goldens (a) and (c); SUP-01 on the
+         economics golden (b) and sufficiency golden (d). Assertions:
+         plan validates and matches the expected DAG family (branch
+         sets, ordering constraints - allow reasonable structural
+         variation, assert the invariants: ER-before-conclusions,
+         parallelism where independent, budgets within bounds);
+         economics decision suspends/deepens in the expected
+         direction with arithmetic-consistent allocations; citations/
+         refs real. Spend captured (frontier calls - expect the
+         largest single-eval figure so far; print it plainly).
+         Mismatch protocol as before (diagnose, fix the right layer,
+         document, re-run).
+      2. Key-absent = BLOCKED halt.
+      3. Results + spend to evidence\pi-40\supervisory-live-eval.json.
+      4. Create scripts\verify\verify-pi40-011.mjs: four real
+         completions, all passing, spend figure present.
+      5. Run: node scripts/verify/verify-pi40-011.mjs
+    expected_outputs:
+      - scripts/proofs/supervisory-live-eval.mjs
+      - evidence/pi-40/supervisory-live-eval.json
+      - scripts/verify/verify-pi40-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi40-012
+    phase: build
+    description: "Close-out: fleet 6/44, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. FLEET_STATUS.md: BEN-SUP-01 and BEN-SUP-03 -> LIVE-EVALED
+         (6 of 44). schema-snapshot; evidence\pi-40\SUMMARY.md:
+         migration 0031, the executor's partial-failure and
+         crash-resume headlines, the idle-tick economy proof, the
+         first-orchestrated-run trail summary, live-eval spend
+         (called out - frontier costs are now real and this figure
+         is the program's unit economics preview), amendments, matrix
+         green.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-40
+         complete; the organization exists - objectives now plan and
+         run themselves across the live fleet; next queue
+         pi-41-discovery-family.
+      3. Scoped add: supabase/migrations/ packages/ scripts/ docs/
+         evidence/pi-40/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "orchestrator slice: SUP-01 + SUP-03, DAG execution
+         with partial-failure replan, idle-tick economy, first
+         orchestrated multi-agent run (pi-40)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi40-012.mjs: standard close-out
+         plus FLEET_STATUS at 6 LIVE-EVALED.
+      5. Run: node scripts/verify/verify-pi40-012.mjs
+    expected_outputs:
+      - evidence/pi-40/SUMMARY.md
+      - scripts/verify/verify-pi40-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi40-012.mjs"
+    max_retries: 3
+    on_fail: halt

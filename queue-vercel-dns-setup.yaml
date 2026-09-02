@@ -1,0 +1,56 @@
+project: benavora
+governance:
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: dns-001
+  name: Governance sync and benavora.com domain verification and Vercel connection
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    STEP 1: Check current domain status in Vercel:
+    Run: npx vercel domains ls
+    Answer n to any upgrade prompts.
+    Report what domains are currently configured.
+
+    STEP 2: Add benavora.com to Vercel project if not already added:
+    Run: npx vercel domains add benavora.com --token [read token from .env.local VERCEL_TOKEN or prompt]
+    Answer n to any upgrade prompts.
+    Report the DNS records Vercel requires.
+
+    STEP 3: Verify the Vercel project link:
+    Run: npx vercel domains inspect benavora.com
+    Report current DNS configuration and verification status.
+
+    STEP 4: Create a DNS configuration guide file at DNS_SETUP_GUIDE.md:
+    Document the exact DNS records needed:
+
+    # benavora.com DNS Configuration
+    ## Records to add in GoDaddy DNS Manager
+    ### Go to: https://dcc.godaddy.com/manage/benavora.com/dns
+
+    | Type | Name | Value | TTL |
+    |------|------|-------|-----|
+    | A | @ | 76.76.21.21 | 600 |
+    | CNAME | www | cname.vercel-dns.com | 600 |
+
+    ### Steps:
+    1. Log into GoDaddy account
+    2. Go to My Products -> Domains -> benavora.com -> DNS
+    3. Delete any existing A record for @
+    4. Add A record: Host=@, Points to=76.76.21.21, TTL=600 seconds
+    5. Add CNAME record: Host=www, Points to=cname.vercel-dns.com, TTL=600 seconds
+    6. Save changes
+    7. DNS propagation takes 10-30 minutes
+    8. After propagation run: npx vercel domains verify benavora.com
+
+    STEP 5: Check if benavora.com is already propagated by querying DNS:
+    Run: nslookup benavora.com 8.8.8.8
+    And: nslookup www.benavora.com 8.8.8.8
+    Report what IP addresses resolve.
+
+    STEP 6: Update STATE_OF_THE_BUILD.md with DNS configuration status.
+
+    git add DNS_SETUP_GUIDE.md STATE_OF_THE_BUILD.md; git commit -m 'docs: DNS setup guide for benavora.com GoDaddy configuration'; git push.
+    Report: current domain verification status, whether DNS is propagated, next steps needed.

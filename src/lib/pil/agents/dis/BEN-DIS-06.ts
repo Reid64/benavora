@@ -1,4 +1,4 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   findOrCreateProspect,
@@ -9,6 +9,7 @@ import {
   recordProspectClassification,
   tryModelTokens,
 } from "@/lib/pil/agents/dis/shared";
+import { logAction } from "@/lib/pil/audit";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem, ProspectEntityType } from "@/lib/pil/types";
 
@@ -57,6 +58,18 @@ interface GeoDiscovery {
 
 export class GeographicFundingDiscoveryAgent implements Agent {
   async execute(context: AgentContext, runner: AgentRunner): Promise<AgentResult> {
+    if (context.goal.trim().length === 0) {
+      return {
+        status: "completed",
+        evidence: [],
+        conclusions: { skipped: true, reason: "BEN-DIS-06 requires a non-empty goal" },
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: null,
+      };
+    }
+
     const criteria = parseGoalCriteria(context.goal);
     const geoLabel = criteria.stateCode ?? criteria.geography ?? "";
     const evidenceCreated: EvidenceItem[] = [];
@@ -81,63 +94,81 @@ export class GeographicFundingDiscoveryAgent implements Agent {
       location: criteria.stateCode ?? undefined,
     });
     if (lookupResult.success) {
-      const matches = ((lookupResult.data as { matches?: Array<{ source: string; name: string; location: string | null; confidence: number; ein: string | null }> } | null)?.matches ?? []).filter(
-        (m) => m.source === "foundation_directory",
-      );
-      for (const match of matches) {
-        await this.recordCandidate(context, runner, {
-          orgId: context.orgId,
-          displayName: match.name,
-          entityType: "private_foundation",
-          nodeType: "foundation",
-          claim: `Foundation operating in resolved geography ${geoLabel}: ${match.name}`,
-          claimType: "geographic_funder_directory_match",
-          sourceUrl: null,
-          sourceTitle: match.name,
-          sourceType: "foundation_information",
-          publisher: "IRS Business Master File",
-          confidence: match.confidence,
-          verificationStatus: "single_source_fact",
-          boundaryConfirmed: true,
-          geoLabel,
-          geographyNode,
-          discoveries,
-          evidenceCreated,
-        });
+      try {
+        const matches = ((lookupResult.data as { matches?: Array<{ source: string; name: string; location: string | null; confidence: number; ein: string | null }> } | null)?.matches ?? []).filter(
+          (m) => m.source === "foundation_directory",
+        );
+        for (const match of matches) {
+          await this.recordCandidate(context, runner, {
+            orgId: context.orgId,
+            displayName: match.name,
+            entityType: "private_foundation",
+            nodeType: "foundation",
+            claim: `Foundation operating in resolved geography ${geoLabel}: ${match.name}`,
+            claimType: "geographic_funder_directory_match",
+            sourceUrl: null,
+            sourceTitle: match.name,
+            sourceType: "foundation_information",
+            publisher: "IRS Business Master File",
+            confidence: match.confidence,
+            verificationStatus: "single_source_fact",
+            boundaryConfirmed: true,
+            geoLabel,
+            geographyNode,
+            discoveries,
+            evidenceCreated,
+          });
 
-        // Fund magnitude for the landscape map, when an EIN is available.
-        if (match.ein) {
-          const nineNinety = await callTool(context, runner, "irs_990_lookup", { ein: match.ein });
-          if (nineNinety.success) {
-            const data = nineNinety.data as { total_grants_paid: number | null; filing_year: number | null };
-            if (data.total_grants_paid != null) {
-              const { prospect } = await findOrCreateProspect({
-                orgId: context.orgId,
-                displayName: match.name,
-                entityType: "private_foundation",
-                agentCode: context.agentCode,
-              });
-              evidenceCreated.push(
-                await recordDiscoveryEvidence({
+          // Fund magnitude for the landscape map, when an EIN is available.
+          if (match.ein) {
+            const nineNinety = await callTool(context, runner, "irs_990_lookup", { ein: match.ein });
+            if (nineNinety.success) {
+              const data = nineNinety.data as { total_grants_paid: number | null; filing_year: number | null };
+              if (data.total_grants_paid != null) {
+                const { prospect } = await findOrCreateProspect({
                   orgId: context.orgId,
-                  prospectId: prospect.id,
-                  claim: `Total grants paid within resolved geography ${geoLabel} per most recent 990 (${data.filing_year ?? "unknown year"}): ${data.total_grants_paid}`,
-                  value: { totalGrantsPaid: data.total_grants_paid, filingYear: data.filing_year, geography: geoLabel },
-                  claimType: "geographic_funding_landscape_magnitude",
-                  sourceUrl: null,
-                  sourceTitle: match.name,
-                  sourceType: "irs_form_990",
-                  publisher: "IRS Form 990",
-                  evidenceExcerpt: null,
+                  displayName: match.name,
+                  entityType: "private_foundation",
                   agentCode: context.agentCode,
-                  researchRunId: context.runId,
-                  confidence: 0.7,
-                  verificationStatus: "corroborated_fact",
-                }),
-              );
+                });
+                evidenceCreated.push(
+                  await recordDiscoveryEvidence({
+                    orgId: context.orgId,
+                    prospectId: prospect.id,
+                    claim: `Total grants paid within resolved geography ${geoLabel} per most recent 990 (${data.filing_year ?? "unknown year"}): ${data.total_grants_paid}`,
+                    value: { totalGrantsPaid: data.total_grants_paid, filingYear: data.filing_year, geography: geoLabel },
+                    claimType: "geographic_funding_landscape_magnitude",
+                    sourceUrl: null,
+                    sourceTitle: match.name,
+                    sourceType: "irs_form_990",
+                    publisher: "IRS Form 990",
+                    evidenceExcerpt: null,
+                    agentCode: context.agentCode,
+                    researchRunId: context.runId,
+                    confidence: 0.7,
+                    verificationStatus: "corroborated_fact",
+                  }),
+                );
+              }
             }
           }
         }
+      } catch (err) {
+        // Recovery protocol: an unexpected thrown error while processing
+        // this phase's matches must not abort the community-foundation or
+        // local-program phases below.
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.geo_phase_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { phase: "foundation_directory", message: err instanceof Error ? err.message : String(err) },
+          policy_decision: null,
+          ip_address: null,
+        });
       }
     }
 
@@ -148,26 +179,41 @@ export class GeographicFundingDiscoveryAgent implements Agent {
       limit: 10,
     });
     if (communitySearch.success) {
-      const results = ((communitySearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
-      for (const item of results) {
-        await this.recordCandidate(context, runner, {
-          orgId: context.orgId,
-          displayName: item.title,
-          entityType: "community_foundation",
-          nodeType: "foundation",
-          claim: `Community foundation serving ${geoLabel}: ${item.title}`,
-          claimType: "community_foundation_mention",
-          sourceUrl: item.url,
-          sourceTitle: item.title,
-          sourceType: "open_web",
-          publisher: hostnameOf(item.url),
-          confidence: 0.4,
-          verificationStatus: "unverified",
-          boundaryConfirmed: false,
-          geoLabel,
-          geographyNode,
-          discoveries,
-          evidenceCreated,
+      try {
+        const results = ((communitySearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
+        for (const item of results) {
+          await this.recordCandidate(context, runner, {
+            orgId: context.orgId,
+            displayName: item.title,
+            entityType: "community_foundation",
+            nodeType: "foundation",
+            claim: `Community foundation serving ${geoLabel}: ${item.title}`,
+            claimType: "community_foundation_mention",
+            sourceUrl: item.url,
+            sourceTitle: item.title,
+            sourceType: "open_web",
+            publisher: hostnameOf(item.url),
+            confidence: 0.4,
+            verificationStatus: "unverified",
+            boundaryConfirmed: false,
+            geoLabel,
+            geographyNode,
+            discoveries,
+            evidenceCreated,
+          });
+        }
+      } catch (err) {
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.geo_phase_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { phase: "community_foundation", message: err instanceof Error ? err.message : String(err) },
+          policy_decision: null,
+          ip_address: null,
         });
       }
     }
@@ -178,31 +224,90 @@ export class GeographicFundingDiscoveryAgent implements Agent {
       limit: 10,
     });
     if (localProgramSearch.success) {
-      const results = ((localProgramSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
-      for (const item of results) {
-        await this.recordCandidate(context, runner, {
-          orgId: context.orgId,
-          displayName: item.title,
-          entityType: "institutional_funder",
-          nodeType: "foundation",
-          claim: `Local giving program in ${geoLabel}: ${item.title}`,
-          claimType: "local_giving_program_mention",
-          sourceUrl: item.url,
-          sourceTitle: item.title,
-          sourceType: "open_web",
-          publisher: hostnameOf(item.url),
-          confidence: 0.35,
-          verificationStatus: "unverified",
-          boundaryConfirmed: false,
-          geoLabel,
-          geographyNode,
-          discoveries,
-          evidenceCreated,
+      try {
+        const results = ((localProgramSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
+        for (const item of results) {
+          await this.recordCandidate(context, runner, {
+            orgId: context.orgId,
+            displayName: item.title,
+            entityType: "institutional_funder",
+            nodeType: "foundation",
+            claim: `Local giving program in ${geoLabel}: ${item.title}`,
+            claimType: "local_giving_program_mention",
+            sourceUrl: item.url,
+            sourceTitle: item.title,
+            sourceType: "open_web",
+            publisher: hostnameOf(item.url),
+            confidence: 0.35,
+            verificationStatus: "unverified",
+            boundaryConfirmed: false,
+            geoLabel,
+            geographyNode,
+            discoveries,
+            evidenceCreated,
+          });
+        }
+      } catch (err) {
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "discovery.geo_phase_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { phase: "local_program", message: err instanceof Error ? err.message : String(err) },
+          policy_decision: null,
+          ip_address: null,
         });
       }
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
+
+    const boundaryConfirmedCount = discoveries.filter((d) => d.boundaryConfirmed).length;
+    const unconfirmed = discoveries.filter((d) => !d.boundaryConfirmed);
+    const sourceDiversityNote = `${boundaryConfirmedCount} boundary-confirmed / ${unconfirmed.length} unconfirmed of ${discoveries.length} total`;
+    // Deliberately conservative, documented default (< 3 candidates across
+    // all three source phases for a resolved geography) pending a real
+    // calibration dataset -- not a magic number. This is the "dense urban
+    // data crowds out low-data geography" failure mode the spec names.
+    const lowDataGeographyRisk = geoLabel !== "" && discoveries.length < 3;
+
+    const delegations: DelegationRequest[] = [];
+
+    // "May delegate cause-alignment refinement to BEN-DIS-07" (spec).
+    if (discoveries.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-DIS-07",
+        objective: `Refine cause alignment for geographically-discovered prospects: ${discoveries.map((d) => d.prospectId).join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { prospectIds: discoveries.map((d) => d.prospectId) },
+      });
+    }
+
+    // Place canonicalization for boundary-unconfirmed candidates is
+    // delegated to deterministic services and BEN-KNW-02 (roster
+    // dependency).
+    if (unconfirmed.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-02",
+        objective: `Canonicalize place/geography for boundary-unconfirmed funding candidates in ${geoLabel}: ${unconfirmed.map((d) => d.prospectId).join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { unconfirmedProspectIds: unconfirmed.map((d) => d.prospectId), geoLabel },
+      });
+    }
+
+    // Critic review (feeds BEN-SUP-05, roster dependency) for every run that
+    // discovered at least one candidate.
+    if (discoveries.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-SUP-05",
+        objective: `Critic review for BEN-DIS-06 geographic funding discoveries in ${geoLabel}: ${discoveries.map((d) => d.prospectId).join(", ")}`,
+        maxAutonomy: "A2" as const,
+        constraints: { prospectIds: discoveries.map((d) => d.prospectId), geoLabel },
+      });
+    }
 
     return {
       status: "completed",
@@ -212,19 +317,10 @@ export class GeographicFundingDiscoveryAgent implements Agent {
         resolvedGeography: geoLabel || null,
         discoveredProspectIds: discoveries.map((d) => d.prospectId),
         discoveries,
+        sourceDiversityNote,
+        lowDataGeographyRisk,
       },
-      // "May delegate cause-alignment refinement to BEN-DIS-07" (spec).
-      delegations:
-        discoveries.length > 0
-          ? [
-              {
-                childAgentCode: "BEN-DIS-07",
-                objective: `Refine cause alignment for geographically-discovered prospects: ${discoveries.map((d) => d.prospectId).join(", ")}`,
-                maxAutonomy: "A2" as const,
-                constraints: { prospectIds: discoveries.map((d) => d.prospectId) },
-              },
-            ]
-          : [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

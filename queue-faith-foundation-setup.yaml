@@ -1,0 +1,86 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: ff-setup-001
+  name: Governance sync and Faith Foundation org dedup and data cleanup
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Faith Foundation org ID: b1ab7402-dfc2-4712-869f-70ea3566cc1d
+    Faith Foundation login: info@faithfoundation.org
+
+    Read SCHEMA_REGISTRY_v2.md for organizations, profiles, knowledge_base_profiles, org_autonomous_config tables in FULL.
+
+    Create a script at scripts/ff-setup.ts that:
+
+    1. DEDUP CHECK: Query SELECT id, name, created_at FROM organizations WHERE name ILIKE '%faith%' OR name ILIKE '%FAITH%'. Report all matches. If more than one exists, identify the canonical one (b1ab7402-dfc2-4712-869f-70ea3566cc1d) and log the duplicate IDs for manual review.
+
+    2. AUTONOMOUS CONFIG: Upsert into org_autonomous_config for org_id='b1ab7402-dfc2-4712-869f-70ea3566cc1d':
+    {
+      auto_research_enabled: true,
+      auto_score_enabled: true,
+      auto_draft_enabled: false,  // require human approval on drafts
+      auto_draft_threshold: 75,
+      auto_reputation_enabled: true,
+      auto_relationship_enabled: true,
+      auto_deadline_prediction_enabled: true,
+      auto_followup_enabled: true,
+      notify_on_auto_draft: true,
+      notify_on_high_score: true,
+      max_auto_drafts_per_night: 3
+    }
+
+    3. KB PROFILE SEED: Check if knowledge_base_profiles exists for this org. If empty or missing sections, populate from known data:
+    - Organization name: Faith Foundation (Foundation for Affordable Instruction & Tenancy Hope)
+    - Mission: Housing stability, homeownership counseling, veterans housing, recovery housing, second chance reentry, single parent stability, emergency bridge housing, financial literacy, cornerstone communities
+    - Service area: San Francisco Bay Area, California
+    - Tax status: 501(c)(3) Wyoming statutory foundation
+    - Website: faithfoundationsf.org
+    - Programs: 9 programs (list all by name)
+    - EIN: (query from organizations table)
+
+    4. ONBOARDING STATUS: Ensure profiles.onboarding_completed = true for the Faith Foundation admin user.
+
+    5. Run the script: npx tsx scripts/ff-setup.ts
+    Report all changes made.
+
+    git add -A; git commit -m 'feat: Faith Foundation setup script -- autonomous config enabled, KB seeded, dedup check'; git push.
+
+- id: ff-setup-002
+  name: Faith Foundation autonomous pipeline test and first night run
+  prompt: |
+    Read scripts/ff-setup.ts in FULL to confirm it ran successfully.
+    Read src/lib/agents/opportunity-discovery-agent.ts in FULL.
+    Read worker/autonomous-orchestrator.ts in FULL.
+
+    Faith Foundation org ID: b1ab7402-dfc2-4712-869f-70ea3566cc1d
+
+    CREATE scripts/ff-agent-test.ts:
+    A manual trigger script that runs the full autonomous pipeline for Faith Foundation in sequence:
+
+    1. Run OpportunityDiscoveryAgent for org b1ab7402-dfc2-4712-869f-70ea3566cc1d
+       - Log: agent run ID, items found, time taken
+    2. Run EligibilityScoringAgent for same org
+       - Log: opportunities scored, avg score
+    3. Run ProbabilityScoringAgent for same org
+       - Log: scores generated, any >= 70
+    4. Run FundabilityScorer for any opportunity with eligibility >= 65
+       - Log: opportunities analyzed, deficiencies found, auto-fixed
+    5. Run CommunityNeedPredictor for same org
+       - Log: signals found, any critical
+    6. Run StrategicAdvisor for same org
+       - Log: recommendations generated, any immediate
+
+    Add package.json script: "ff:test-pipeline": "tsx scripts/ff-agent-test.ts"
+
+    Run: npx tsx scripts/ff-agent-test.ts
+    Report all output — every log line.
+
+    git add -A; git commit -m 'feat: FF agent test pipeline script -- full autonomous sequence test for Faith Foundation'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

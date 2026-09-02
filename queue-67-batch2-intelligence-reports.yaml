@@ -1,0 +1,291 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL.md
+  - governance/DESIGN_SYSTEM.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: page-reports-001
+    phase: build
+    description: "/reports - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /reports.
+      Section: Intelligence & Reports. Accent: #7C3AED (violet).
+      Page-specific notes: the three report-type cards (Grant/Financial/Activity Reports)
+      each have their own colored left-border accent already (blue/green/violet per card) -
+      preserve that per-card differentiation, only the page header and "Generate Board
+      Report" button take the section accent/fixed teal.
+    expected_outputs: [src/app/(dashboard)/reports/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-reports-simulator-001
+    phase: build
+    description: "/reports/simulate - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /reports/simulate.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: the Scenario Builder's 6 selectable cards (Board Expansion/Staff
+      Hire/Geographic Expansion/New Program/Budget Increase/Partnership) each have distinct
+      icon colors - keep them distinct, only the selected-state border and "Run Simulation"
+      button take the section treatment. "No simulations yet" needs empty-state polish.
+    expected_outputs: [src/app/(dashboard)/reports/simulate/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-reports-roi-001
+    phase: build
+    description: "/reports/roi - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /reports/roi.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: currently all-empty state (0 applications tracked, "No ROI
+      insights yet, AG-39 needs at least 10 tracked submissions") - apply full empty-state
+      polish per protocol, including the 3 sub-chart placeholders (Win Rate by Day, Word
+      Count, Attachment Impact).
+    expected_outputs: [src/app/(dashboard)/reports/roi/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-reports-forecast-001
+    phase: build
+    description: "/reports/forecast - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /reports/forecast.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: real live forecast data ($24M projected) with confidence badges
+      (74%/75%) - these are real data indicators, keep them distinct from the section accent.
+      "Run New Forecast" becomes fixed teal.
+    expected_outputs: [src/app/(dashboard)/reports/forecast/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-digital-twin-001
+    phase: build
+    description: "/intelligence/twin - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/twin.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: the 60% completeness ring and per-section progress bars (Mission
+      60%/Programs 33%/Financial 40%/Leadership 84%/Geographic 40%/Target Population 100%)
+      are real, meaningful data - keep their own red/orange/green completeness coloring
+      intact, do not repaint with the section accent. "Auto-Populate Twin"/"Update Twin"
+      become fixed teal.
+    expected_outputs: [src/app/(dashboard)/intelligence/twin/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-match-feed-001
+    phase: build
+    description: "/intelligence/match-feed - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/match-feed.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: real ranked opportunity cards with match scores (42/40/40/39) -
+      "Show factor breakdown" links and "Refresh" become the section treatment, match score
+      numbers keep their own real styling.
+    expected_outputs: [src/app/(dashboard)/intelligence/match-feed/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-knowledge-engine-001
+    phase: build
+    description: "/intelligence/knowledge - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/knowledge.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: real 3,489 funded proposals indexed, 33 success patterns learned -
+      the suggested-query chips and "Ask" button become fixed teal. "Ask a question to get
+      started" empty result state needs the protocol's polish.
+    expected_outputs: [src/app/(dashboard)/intelligence/knowledge/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-recommendations-001
+    phase: build
+    description: "/intelligence/recommendations - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/recommendations.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: currently "No recommendations found" with the org's real profile
+      shown above it - apply empty-state polish to the results area, the org profile summary
+      and filter row (Program Category/Grant Amount/Geographic Scope/Find Matches) take the
+      section treatment.
+    expected_outputs: [src/app/(dashboard)/intelligence/recommendations/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-gap-analyzer-001
+    phase: build
+    description: "/intelligence/gap-analysis - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/gap-analysis.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: real methodology explanation box and 15 real 100%-match
+      opportunity chips - "No gaps flagged" is a genuinely good real result, present it as a
+      positive state (not a broken empty state) with the section accent, not alarming red.
+    expected_outputs: [src/app/(dashboard)/intelligence/gap-analysis/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-competitors-001
+    phase: build
+    description: "/intelligence/competitors - violet #7C3AED - LOCKED/PAYWALLED PAGE"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/competitors.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      CRITICAL page-specific note: this page is intentionally locked ("Enterprise and
+      Consultant plans only," $499/mo and $799/mo upgrade). Per the protocol's locked-page
+      rule: apply the section accent to the surrounding chrome/header only, keep the lock
+      icon and upgrade message exactly as-is functionally, do not remove or weaken the
+      paywall. This is correct pricing-gate behavior, not a bug.
+    expected_outputs: [src/app/(dashboard)/intelligence/competitors/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-semantic-matches-001
+    phase: build
+    description: "/intelligence/matches - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/matches.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: currently "No match analysis yet" - "Run Analysis" becomes fixed
+      teal, apply full empty-state polish to the results area.
+    expected_outputs: [src/app/(dashboard)/intelligence/matches/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-reputation-001
+    phase: build
+    description: "/intelligence/reputation - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/reputation.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: the severity filter pills (All/Critical/High/Medium/Low/Positive)
+      keep their own real red/orange/blue/green semantic colors, do not repaint with the
+      section accent. "Check Now" becomes fixed teal. "No reputation alerts" (a genuinely
+      good result) needs empty-state polish presented positively.
+    expected_outputs: [src/app/(dashboard)/intelligence/reputation/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-disaster-001
+    phase: build
+    description: "/intelligence/disaster - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/disaster.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: real live FEMA declaration cards (Flood/Fire, multiple states) -
+      these are real, currently red-topped urgency cards. Consider whether red is correct
+      semantic urgency (disaster = urgent, keep red) vs. decorative (could take section
+      accent) - use judgment, verify visually, real disaster urgency should probably stay
+      visually distinct/red given what this feature does. "Deploy Response" becomes fixed
+      teal regardless.
+    expected_outputs: [src/app/(dashboard)/intelligence/disaster/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-community-need-001
+    phase: build
+    description: "/intelligence/community-need - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/community-need.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: currently all-zero stats and "No signals yet" - full empty-state
+      polish required. "Run Analysis" becomes fixed teal.
+    expected_outputs: [src/app/(dashboard)/intelligence/community-need/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-donor-intent-001
+    phase: build
+    description: "/intelligence/donor-intent - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/donor-intent.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: identical empty-state pattern to Community Need - currently
+      all-zero stats and "No signals yet." Full empty-state polish required, "Run Analysis"
+      fixed teal.
+    expected_outputs: [src/app/(dashboard)/intelligence/donor-intent/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-relationship-graph-001
+    phase: build
+    description: "/intelligence/relationship-graph - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/relationship-graph.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: this page was not visible in the screenshots provided, so read
+      the actual current page in full before making any change - do not assume its current
+      state, verify it directly. Apply the same section/empty-state rules as its sibling
+      Intelligence pages once you've confirmed what it actually looks like.
+    expected_outputs: [src/app/(dashboard)/intelligence/relationship-graph/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-intel-strategic-advisor-001
+    phase: build
+    description: "/intelligence/strategic-advisor - violet #7C3AED"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /intelligence/strategic-advisor.
+      Section: Intelligence & Reports. Accent: #7C3AED.
+      Page-specific notes: currently "No strategic recommendations yet" - "Generate Insights"
+      becomes fixed teal, full empty-state polish on the results area.
+    expected_outputs: [src/app/(dashboard)/intelligence/strategic-advisor/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch2-verify-sync-001
+    phase: build
+    description: "Final regression check and governance sync for Batch 2 (17 pages - the most neglected section)"
+    prompt: |
+      1. Run a real Playwright pass across all 17 pages from this batch, confirm every one
+         loads clean, carries the violet section accent correctly, semantic colors (severity,
+         completeness, disaster urgency) were preserved where the individual prompts specified,
+         and the locked Competitor Intelligence page's paywall still works.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. Update FEATURE_REGISTRY_v2.md and governance/DESIGN_SYSTEM.md documenting all 17
+         Intelligence & Reports pages as complete.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md - explicit about whether the
+         Relationship Graph page (unverified from screenshots, real state discovered during
+         this batch) needed anything unusual, and honest about any page that needed a real fix.
+      5. Scoped git add, commit with message "feat: apply section-based accent + empty-state
+         polish to all 17 Intelligence & Reports pages (batch 2 of 4)", git push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

@@ -1,0 +1,548 @@
+project: prospect-intel
+github_repo: Reid64/prospect-intel
+
+governance:
+  - DECISION_LOG.md
+  - STANDING_DIRECTIVES.md
+  - SESSION_STATE.md
+  - STATE_OF_THE_BUILD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PI-42: INTELLIGENCE FAMILY - BEN-INT-01 through BEN-INT-10
+#
+# The deep-research core: ten specialists that turn discovered
+# candidates into understood prospects. This family writes the
+# bulk of the system's claims and the graph's edges - everything
+# it produces flows through the evidence rails built in Phases
+# 1-3, lands in twins, and feeds qualification in pi-44.
+#
+# THE D-006 CENTERPIECE (BEN-INT-08): no wealth-screening
+# license exists at launch. INT-08 runs in PUBLIC-EVIDENCE MODE:
+# SEC insider positions, proxy compensation, business ownership,
+# public real-property records - with WIDER confidence intervals
+# and an explicit evidence-basis label on every capacity
+# statement (public_evidence vs licensed_screening). When a
+# license lands, the pi-13 seam drops in and confidence
+# tightens; nothing else changes. Capacity claims NEVER
+# overstate their basis - that is this family's version of
+# wealth-is-not-propensity.
+#
+# Established patterns throughout. Deterministic extraction
+# services do the parsing; agents do the reasoning.
+# ============================================================
+
+prompts:
+
+  - id: pi42-001
+    phase: build
+    description: "Preflight: FAMILY-3 read, ratchet green"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Read FAMILY-3-INTELLIGENCE.md in full (all ten contracts);
+         re-read PRIVACY_CONTROLS' permissible-source rules for
+         giving records and property data (INT-05/10 live at the
+         policy edge - their prompts must encode exactly what the
+         doc permits).
+      2. Health: the pi-41 family ratchet re-run green; migrate
+         --status clean. Capture to evidence\pi-42\preflight.txt.
+      3. Create scripts\verify\verify-pi42-001.mjs: ten contracts x
+         24 fields; ratchet green.
+      4. Run: node scripts/verify/verify-pi42-001.mjs
+    expected_outputs:
+      - evidence/pi-42/preflight.txt
+      - scripts/verify/verify-pi42-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pi42-002
+    phase: build
+    description: "Shared intelligence infrastructure: dossiers, depth budgets, twin flow"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\core\src\intelligence\:
+         - ResearchDossier schema (contracts/zod): per-dimension
+           findings (the dimensions matching twin sections), every
+           finding carrying claim ids + confidence + evidence-basis
+           label; open questions typed (research_requests-compatible);
+           NO free-floating conclusions (schema rejects a finding
+           without claims - the family rule structural).
+         - Depth budgeting: an intelligence node's budget slices
+           across its target entities (per-entity allocation from
+           the plan; the kernel's task budgets carry it); a
+           per-entity exhaustion yields a partial dossier flagged
+           incomplete, never a silent thin one.
+         - Twin flow: dossier findings ARE claims (written through
+           the evidence path during research); the dossier document
+           references them - KNW-01's event-driven rebuilds pick
+           them up with zero new wiring (assert, don't rebuild).
+      2. Vitest: schema rejects claim-less findings; per-entity
+         budget exhaustion flags incomplete; a dossier's claims
+         appear in the twin via the existing event chain.
+      3. Green; evidence\pi-42\intel-infra-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi42-002.mjs standard pattern.
+      5. Run: node scripts/verify/verify-pi42-002.mjs
+    expected_outputs:
+      - packages/core/src/intelligence/index.ts
+      - scripts/verify/verify-pi42-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-003
+    phase: build
+    description: "The 990 analysis toolkit: deterministic filing extraction"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. packages\services\src\filings\: deterministic 990/990-PF
+         extraction over the IRS ZIP-bundle XMLs (pi-13's adapter
+         supplies bytes; this service parses meaning): officers/
+         directors/trustees with compensation; Schedule I grants
+         (recipient, EIN where present, amount, purpose); 990-PF
+         grant equivalents; total assets/distributions; payout
+         computation across years; grant-pattern aggregation
+         (size distribution, cause buckets via recipient NTEE
+         lookup against our nonprofit data, geographic spread from
+         recipient addresses). Version-tolerant parsing (schema
+         years differ - handle the recent major versions; an
+         unparseable year yields a typed gap, never silent zeros).
+      2. Vitest on committed fixture XMLs (build fixtures from real
+         downloaded samples across at least two schema years):
+         extraction exactness against hand-read values; the
+         unparseable-year gap; pattern aggregation math.
+      3. Green; evidence\pi-42\filings-toolkit-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi42-003.mjs: standard plus
+         the two-schema-year and gap tests present.
+      5. Run: node scripts/verify/verify-pi42-003.mjs
+    expected_outputs:
+      - packages/services/src/filings/index.ts
+      - scripts/verify/verify-pi42-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-004
+    phase: build
+    description: "BEN-INT-02 (Foundation Intelligence) + BEN-INT-03 (Corporate Intelligence) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-INT-02.ts field-for-field: the 990 reasoner - tools:
+         the filings toolkit, irs/propublica, webcrawl (foundation
+         sites, guidelines pages), graph writes for grant
+         relationships (foundation -> granted_to -> recipient edges,
+         claim-backed); its signature reasoning: PRIORITIES IN
+         PRACTICE vs stated priorities (grant patterns vs website
+         language - divergence surfaced as a finding), grant-size
+         fit vs a tenant's ask range, application accessibility.
+         BEN-INT-03.ts: corporate giving depth - webcrawl (CSR/
+         foundation pages, matching-gift program detection), edgar
+         (corporate foundation linkage, proxy philanthropy
+         mentions), news; outputs giving-program structures typed.
+      2. Vitest (FakeProvider + fixtures, real kernel): INT-02 on a
+         fixture foundation (3 years of fixture filings) produces
+         the practice-vs-stated divergence finding with claims from
+         BOTH sides (filing claims + website claims); grant edges
+         land evidenced; INT-03 detects the fixture matching
+         program with its snapshot.
+      3. Green; evidence\pi-42\int-02-03-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi42-004.mjs: standard plus
+         the divergence-finding test present.
+      5. Run: node scripts/verify/verify-pi42-004.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/BEN-INT-02.ts
+      - packages/contracts/src/agents/intelligence/BEN-INT-03.ts
+      - scripts/verify/verify-pi42-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-005
+    phase: build
+    description: "BEN-INT-01 (Individual Deep Research) + BEN-INT-04 (Board/Leadership Network) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-INT-01.ts: bounded-depth individual research -
+         biography, career history, organizational affiliations
+         from public sources (webcrawl bios, news, propublica/
+         filings officer listings, edgar officer data); its
+         contract's depth discipline (the plan's depth budget
+         governs how many source-hops per person; the bound
+         tested). BEN-INT-04.ts: the network mapper - THE GRAPH'S
+         PRIMARY AUTHOR: board seats, officer roles, prior
+         affiliations as temporal edges (valid_from from evidence
+         dates; unknown starts handled per the registry's
+         convention), co-membership surfaced via the overlap
+         primitives; every edge claim-backed by construction
+         (assertEdge's schema).
+      2. Vitest: INT-01 dossier sections with claims, depth bound
+         honored (hop counting); INT-04 builds the fixture board
+         (5 people, 2 orgs, one person on both) - edges temporal,
+         overlap query returns the co-member, an undated seat lands
+         per the convention with its dating gap as an open
+         question.
+      3. Green; evidence\pi-42\int-01-04-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi42-005.mjs: standard plus
+         the depth-bound and undated-seat tests present.
+      5. Run: node scripts/verify/verify-pi42-005.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/BEN-INT-01.ts
+      - packages/contracts/src/agents/intelligence/BEN-INT-04.ts
+      - scripts/verify/verify-pi42-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-006
+    phase: build
+    description: "BEN-INT-05 (Giving History) + BEN-INT-06 (Affinity) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-INT-05.ts: public giving reconstruction - donor
+         recognition pages, annual reports, gala/event listings,
+         990 public donor data, news gift announcements - EXACTLY
+         within the PRIVACY_CONTROLS permissibility for each source
+         class (the public-does-not-mean-permitted principle from
+         the directive: the prompt instructs, the policy engine
+         enforces via each source's class - both layers). Gift
+         records as typed claims (amount-or-range, recipient, date
+         precision honest). BEN-INT-06.ts: affinity from public
+         statements/activities/patterns - cause alignment findings
+         with the inference discipline (an inferred affinity is
+         INFERENCE-labeled always; the schema carries the label).
+      2. Vitest: INT-05 fixture donor-wall extraction with range-
+         typed amounts (named ranges like "$10,000-$24,999" stay
+         ranges, never midpointed into fake precision - test);
+         a source whose class disallows the purpose is policy-
+         denied and the agent's trail shows the denial handled
+         (skip + gap, not crash); INT-06 inference labels present
+         on every affinity finding.
+      3. Green; evidence\pi-42\int-05-06-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi42-006.mjs: standard plus
+         the range-integrity and policy-denial-handling tests
+         present.
+      5. Run: node scripts/verify/verify-pi42-006.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/BEN-INT-05.ts
+      - packages/contracts/src/agents/intelligence/BEN-INT-06.ts
+      - scripts/verify/verify-pi42-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-006.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-007
+    phase: build
+    description: "BEN-INT-07 (Life Events/Triggers) + BEN-INT-09 (Business/Liquidity Events) as code"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-INT-07.ts: news-driven life/career event detection for
+         tracked entities (role changes, retirements, awards,
+         company milestones) - events as typed claims with
+         significance reasoning; emits monitoring-trigger events
+         per EVENT_TAXONOMY (Section 15's feed - the standing
+         monitoring consumer arrives with SUP/OPS wiring; the
+         emission contract lands now). BEN-INT-09.ts: the
+         EDGAR-driven liquidity specialist - 8-K material events,
+         M&A, IPO/S-1, Form 4 insider sales patterns; its
+         signature output: liquidity-event findings with magnitude
+         evidence and timing (the directive's business-sale
+         trigger case).
+      2. Vitest: INT-07 fixture news yields typed event claims +
+         emitted trigger events; INT-09 fixture Form 4 series
+         yields a sales-pattern finding with per-filing claims; a
+         fixture 8-K acquisition yields the liquidity finding with
+         magnitude sourced.
+      3. Green; evidence\pi-42\int-07-09-tests.txt. Typecheck
+         clean.
+      4. Create scripts\verify\verify-pi42-007.mjs standard pattern.
+      5. Run: node scripts/verify/verify-pi42-007.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/BEN-INT-07.ts
+      - packages/contracts/src/agents/intelligence/BEN-INT-09.ts
+      - scripts/verify/verify-pi42-007.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-007.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-008
+    phase: build
+    description: "BEN-INT-08 (Wealth Screening) as code: public-evidence mode with honest confidence"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-INT-08.ts field-for-field - the D-006 implementation:
+         tools: edgar (insider positions, proxy compensation,
+         ownership stakes), the licensed seam (its calls land on
+         NotLicensedError today - the agent HANDLES that as a
+         capability gap, recorded in the dossier's basis section,
+         never a crash), INT-09/10 outputs via claims, business-
+         ownership evidence from filings/webcrawl.
+         Its output discipline (schema-enforced): every capacity
+         assessment carries evidence_basis (public_evidence |
+         licensed_screening), a RANGE (never a point estimate),
+         confidence reflecting the basis (public-evidence ranges
+         WIDER - the contract's calibration guidance encoded in
+         the prompt), and the component evidence itemized (which
+         claims support which capacity component).
+      2. Vitest: a fixture public-company executive (proxy comp +
+         Form 4 history + ownership stake fixtures) yields a
+         range-typed capacity with basis public_evidence and
+         itemized components; the licensed-seam NotLicensed path
+         lands as a recorded gap; a schema attempt at a point
+         estimate rejected; when the mock licensed adapter is
+         swapped in (pi-13's compile-level mock), the SAME agent
+         run yields basis licensed_screening with tighter
+         confidence - the drop-in future proven now.
+      3. Green; evidence\pi-42\int-08-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi42-008.mjs: standard plus
+         the point-estimate rejection and mock-license drop-in
+         tests present.
+      5. Run: node scripts/verify/verify-pi42-008.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/BEN-INT-08.ts
+      - scripts/verify/verify-pi42-008.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-008.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-009
+    phase: build
+    description: "BEN-INT-10 (Real Estate/Assets) as code: honest availability"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. BEN-INT-10.ts: public-record property/asset research -
+         county-level property data varies wildly in online
+         availability; the agent's design embraces that honestly:
+         a jurisdiction-capability layer (which counties/states
+         have queryable public records via webcrawl-reachable
+         portals - a maintained capability table starting SPARSE
+         with the fixture jurisdictions + an AOQ noting commercial
+         property-data licensing as the scaling path), findings
+         only where records are genuinely reachable, explicit
+         coverage gaps in the dossier otherwise (an absent record
+         in an uncovered county is UNKNOWN, never "no assets").
+      2. Vitest: covered-jurisdiction fixture yields property
+         claims with snapshots; uncovered jurisdiction yields the
+         typed coverage gap; the UNKNOWN-vs-absent distinction in
+         the dossier output.
+      3. Green; evidence\pi-42\int-10-tests.txt. Typecheck clean.
+      4. Create scripts\verify\verify-pi42-009.mjs: standard plus
+         the unknown-vs-absent test present.
+      5. Run: node scripts/verify/verify-pi42-009.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/BEN-INT-10.ts
+      - scripts/verify/verify-pi42-009.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-009.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-010
+    phase: build
+    description: "Family golden evaluation suites: all ten"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. __evals__ per agent from the contracts' sketches - at
+         minimum each agent's signature case: INT-01 depth bound;
+         INT-02 practice-vs-stated; INT-03 matching program;
+         INT-04 temporal board with the historical-seat case;
+         INT-05 range integrity + permissibility edge; INT-06
+         inference labeling; INT-07 trigger emission; INT-08 the
+         basis/range discipline + the drop-in; INT-09 liquidity
+         magnitude; INT-10 unknown-vs-absent. Plus one shared
+         family case: a full-dossier assembly on one fixture
+         person exercising 5+ agents' claims into one twin.
+      2. Green; per-agent table to evidence\pi-42\intel-evals.txt.
+      3. Create scripts\verify\verify-pi42-010.mjs: all ten agents
+         + the shared case passed.
+      4. Run: node scripts/verify/verify-pi42-010.mjs
+    expected_outputs:
+      - packages/contracts/src/agents/intelligence/__evals__/index.ts
+      - scripts/verify/verify-pi42-010.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-010.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-011
+    phase: build
+    description: "The intelligence pipeline proof: discovery-to-dossier on the standing stack"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\intelligence-pipeline-proof.mjs: the SUP-03
+         example plan comes alive with real INT agents - a seeded
+         portfolio of 3 fixture prospects (one individual, one
+         foundation, one corporate) runs the parallel-branches ->
+         reconciliation -> aggregation shape with the REAL family
+         (FakeProvider reasonable): assert per-prospect dossiers
+         complete with cross-agent claims; the individual's twin
+         integrates INT-01/04/05/06/08 outputs with correct
+         sections; the foundation's grant edges traverse to
+         recipients; capacity carries basis labels; open questions
+         became research_requests; the package references all
+         three. Trail to
+         evidence\pi-42\intelligence-pipeline-proof.json.
+      2. All assertions pass.
+      3. Create scripts\verify\verify-pi42-011.mjs: the trail shows
+         all three dossiers and the twin-integration assertions.
+      4. Run: node scripts/verify/verify-pi42-011.mjs
+    expected_outputs:
+      - scripts/proofs/intelligence-pipeline-proof.mjs
+      - evidence/pi-42/intelligence-pipeline-proof.json
+      - scripts/verify/verify-pi42-011.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-011.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-012
+    phase: build
+    description: "Live eval on real-world data: real 990s, real EDGAR, bounded"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. scripts\proofs\intelligence-live-eval.mjs, three bounded
+         real runs with real model reasoning (sonnet; spend
+         captured):
+         (a) INT-02 on a REAL Texas foundation (pick from the
+         pi-41 live-smoke candidates): real 990 bundle fetch, real
+         toolkit extraction, real reasoning - assert the dossier's
+         grant-pattern findings cite claims whose excerpts exist in
+         the real filing snapshots (the pi-32 primitive run against
+         them - fabrication-checked live);
+         (b) INT-09 on a REAL public company: real EDGAR submissions,
+         a real Form-4-pattern or 8-K finding, claims snapshot-
+         backed;
+         (c) INT-08 public-evidence on a REAL public-company
+         executive (proxy + Form 4 real data): range + basis +
+         itemized components, fabrication-checked.
+      2. Key-absent = BLOCKED halt. Mismatch protocol as
+         established.
+      3. Results + spend to
+         evidence\pi-42\intelligence-live-eval.json.
+      4. Create scripts\verify\verify-pi42-012.mjs: three real runs,
+         fabrication checks passed, spend present.
+      5. Run: node scripts/verify/verify-pi42-012.mjs
+    expected_outputs:
+      - scripts/proofs/intelligence-live-eval.mjs
+      - evidence/pi-42/intelligence-live-eval.json
+      - scripts/verify/verify-pi42-012.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-012.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-013
+    phase: build
+    description: "Family hardening + the ratchet"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. Hardening extensions: (a) injection via a hostile fixture
+         bio page ("this individual has committed $10M" planted
+         instruction-style) - the claim that emerges carries the
+         page as its source with honest tier/confidence, and no
+         instruction-following artifacts appear in the trail;
+         (b) a poisoned 990 fixture (malformed XML mid-schedule) -
+         typed extraction gap, partial dossier honest, no crash;
+         (c) depth-budget explosion resistance: a fixture person
+         with 200 crawlable affiliated pages against a small depth
+         budget - bounded hops, incomplete-flagged;
+         (d) capacity-overstatement guard: a scripted model output
+         claiming licensed_screening basis while only public
+         evidence exists - schema/validation rejects the basis
+         mismatch (the honesty label cannot be forged by the
+         model).
+      2. The ratchet: full proof ladder + pnpm -r test green
+         together; consolidated to
+         evidence\pi-42\family-ratchet.txt.
+      3. Create scripts\verify\verify-pi42-013.mjs: all four
+         hardening families + the ratchet green.
+      4. Run: node scripts/verify/verify-pi42-013.mjs
+    expected_outputs:
+      - packages/core/src/__tests__/hardening/intelligence.test.ts
+      - evidence/pi-42/family-ratchet.txt
+      - scripts/verify/verify-pi42-013.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-013.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pi42-014
+    phase: build
+    description: "Close-out: fleet 24/44, governance, scoped commit"
+    prompt: |
+      Work in C:\Users\manag\Documents\prospect-intel.
+
+      1. FLEET_STATUS.md: INT-01..10 statuses honestly tiered
+         (LIVE-EVALED: 02/08/09; IMPLEMENTED: the rest); footer
+         totals. schema-snapshot; evidence\pi-42\SUMMARY.md: the
+         family's signature guarantees (basis-label unforgeability,
+         range integrity, unknown-vs-absent, real-data fabrication
+         checks), live spend figures, amendments, matrix green,
+         ratchet.
+      2. Update SESSION_STATE.md + STATE_OF_THE_BUILD.md: pi-42
+         complete; the research core is live; next queue
+         pi-43-relationship-family.
+      3. Scoped add: packages/ scripts/ docs/
+         evidence/pi-42/SUMMARY.md SESSION_STATE.md
+         STATE_OF_THE_BUILD.md
+         Commit: "intelligence family: 10 agents - 990 reasoning,
+         network mapping, public-evidence wealth with honest basis
+         labels, real-data live evals (pi-42)"
+         Push. Governance sync.
+      4. Create scripts\verify\verify-pi42-014.mjs: standard
+         close-out plus fleet footer consistency.
+      5. Run: node scripts/verify/verify-pi42-014.mjs
+    expected_outputs:
+      - evidence/pi-42/SUMMARY.md
+      - scripts/verify/verify-pi42-014.mjs
+    gates:
+      - type: command
+        run: "node scripts/verify/verify-pi42-014.mjs"
+    max_retries: 3
+    on_fail: halt

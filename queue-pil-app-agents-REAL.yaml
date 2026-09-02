@@ -1,0 +1,293 @@
+prompts:
+  - id: pil-app-01-build
+    prompt: |
+      You are building BEN-APP-01 (Prospect Intelligence Layer — APPLICATION PROFILE ORCHESTRATOR).
+      
+      Context:
+      - Codebase: C:\Users\manag\Documents\benavora\
+      - PIL agents live at: src/lib/pil/agents/
+      - Agent pattern: `implements Agent` interface, NOT extends
+      - This is agent 1 of 3 in the APP family (application, recommendation, executor)
+      - PIL is domain-agnostic per spec: entities are PERSON/COMPANY/FOUNDATION/NONPROFIT/etc
+      - Dossier output goes to: pil_prospect_dossiers table
+      - Depends on: SUP, DIS, INT, REL, QLF, STR, KNW families completed
+      
+      **APP-01 Mission:**
+      Consume fully-enriched prospect dossiers (output from 8 prior families) and synthesize them into actionable Application Profiles.
+      
+      An Application Profile is NOT a grant application. It's a strategic recommendation:
+      - Which REQUEST TYPE fits this prospect best (monetary/land/in_kind/volunteer/service/partnership/sponsorship/facility)
+      - Which REQUEST PROFILE should the nonprofit use for this prospect
+      - Estimated success probability (0.0-1.0)
+      - Strategic reasoning: why this prospect, why this type, timing considerations
+      - Pre-populated form field mappings (dossier field → form field)
+      - Pitch customization parameters (funder priorities to emphasize, avoid)
+      - Risk factors and mitigation strategies
+      - Relationship strategy: sequence, timing, who should reach out first
+      
+      **Inputs:**
+      - pil_prospect_dossier: Complete dossier from prior families (50+ fields)
+      - organization: The nonprofit using the system
+      - request_profiles: Active request profiles defined by the nonprofit (monetary/land/in_kind/etc)
+      
+      **Outputs to pil_prospect_dossiers.app_recommendations:**
+      ```
+      {
+        "request_type": "monetary|land|in_kind|volunteer|service|partnership|sponsorship|facility",
+        "request_profile_id": "uuid matching nonprofit's profile",
+        "success_probability": 0.75,
+        "strategic_reasoning": "ABC Corp gives $50K annually to housing. Prospect capacity: $30K-50K. Geography: Austin HQ, focus Texas. No prior gifts but strong values alignment via CEO biography.",
+        "field_mappings": {
+          "donation_amount": "dossier.estimated_capacity_low",
+          "company_purpose": "Affordable housing",
+          "contact_strategy": "warm intro via board member"
+        },
+        "pitch_parameters": {
+          "emphasis": ["impact", "scale", "texas_focus"],
+          "avoid": ["workforce_training"],
+          "tone": "partnership, not transaction"
+        },
+        "risk_factors": [
+          { "factor": "no_giving_history", "mitigation": "warm intro increases likelihood 40%" },
+          { "factor": "CEO transition pending", "mitigation": "wait 90 days before outreach" }
+        ],
+        "relationship_strategy": {
+          "sequence": 1,
+          "timing": "Q1 2027",
+          "first_contact": "board_member_warm_intro",
+          "escalation_path": ["program_director", "ED", "CFO"]
+        }
+      }
+      ```
+      
+      **Implementation Requirements:**
+      1. Read complete dossier from pil_prospect_dossiers (all SUP/DIS/INT/REL/QLF/STR/KNW outputs)
+      2. Match dossier entity type (PERSON/COMPANY/FOUNDATION) to organization's request_profiles
+      3. Calculate success_probability using:
+         - Capacity score (from QLF agent)
+         - Affinity/alignment score (from INT agent)
+         - Relationship maturity (from REL agent)
+         - Timing readiness (from STR agent)
+         - Formula: (capacity × 0.3) + (affinity × 0.3) + (relationship × 0.2) + (timing × 0.2)
+      4. Generate field_mappings: hardcode mappings of dossier enrichment fields to typical form fields
+      5. Pitch parameters: extract funder priorities from DIS/INT findings, determine what to emphasize
+      6. Risk assessment: identify blockers (CEO transition, pending reorg, recent denial, etc) from DIS findings
+      7. Relationship strategy: determine contact sequence, who should contact (board member vs staff), timing
+      8. Write output to pil_prospect_dossiers.app_recommendations (JSONB)
+      
+      **Key Logic:**
+      - If success_probability < 0.5: mark as "monitor" rather than "submit"
+      - If relationship_score < 0.3 AND no warm intro path: suggest research before outreach
+      - If capacity indicators contradict (QLF high but recent denial): flag for manual review
+      - Multi-profile queuing: if prospect matches multiple request_profiles, return all with ranked scores
+      
+      **Constraints:**
+      - Never fabricate recommendations
+      - All claims must trace to evidence chain in dossier
+      - If data insufficient for probability: use 0.5 with confidence=medium
+      - Must handle NULL dossier fields gracefully (use "insufficient_data" not crash)
+      
+      **File location:** src/lib/pil/agents/app/BEN-APP-01.ts
+      **Agent ID:** BEN-APP-01
+      **Family:** APP
+      **Implements:** Agent interface with execute() method
+      
+      Build this agent now. Production-grade TypeScript, strict null checks, comprehensive error handling, full unit test suite.
+
+  - id: pil-app-02-build
+    prompt: |
+      You are building BEN-APP-02 (Prospect Intelligence Layer — RECOMMENDATION PRIORITY SCORER).
+      
+      Context:
+      - Depends on: BEN-APP-01 (Application Profile Orchestrator)
+      - Inputs: pil_prospect_dossiers with app_recommendations populated
+      - Organization may have hundreds of qualified prospects and only time/budget for 10-20 outreach campaigns
+      - Decision paralysis: which prospects to pursue FIRST?
+      
+      **APP-02 Mission:**
+      Rank application profiles by strategic priority accounting for:
+      - Success probability
+      - Relationship readiness (time-to-close)
+      - Capacity (potential value)
+      - Effort required (complexity of application)
+      - Urgency factors (deadline-driven opportunities, CEO departures, announced giving)
+      - Strategic alignment (mission fit, precedent value, network effects)
+      - Resource constraints (staff time, prior relationships)
+      
+      **Output: Priority Score (0.0-100.0)**
+      
+      Formula:
+      ```
+      priority_score = (
+        (success_prob × 35) +           // Realistic probability of success
+        (capacity_score × 25) +          // Financial/strategic value
+        (readiness_score × 20) +         // How soon can we move
+        (effort_efficiency × 15) +       // Value per hour of work
+        (strategic_bonus × 5)            // One-time multiplier for network effects
+      )
+      ```
+      
+      Readiness score breakdown:
+      - Warm relationship (REL score > 0.7): 90 points
+      - Known organization, no relationship: 60 points
+      - Cold prospect: 30 points
+      - Negative signal (prior decline, CEO transition): 10 points
+      
+      Effort efficiency:
+      - Simple application (< 30 min to submit): 90
+      - Medium (30-120 min): 60
+      - Complex (requires custom documents, > 2 hours): 30
+      - Extremely complex (custom forms, custom proposals, legal review): 10
+      
+      Strategic bonus (apply 1.0-1.5x multiplier):
+      - First gift from major funder: ×1.5
+      - Demonstrates new sector (e.g., first tech company): ×1.3
+      - Sequential opportunity (foundation gave $10K, now asking $50K): ×1.4
+      - Board member's foundation: ×1.25
+      - No bonus: ×1.0
+      
+      **Implementation:**
+      1. Read completed app_recommendations from pil_prospect_dossiers
+      2. For each prospect, calculate priority_score
+      3. Rank all prospects by score (highest first)
+      4. Tag with percentile (top 10%, top 25%, etc)
+      5. Identify natural breakpoints (e.g., "top 15 prospects account for 70% of potential value")
+      6. Output: pil_prospect_dossiers.priority_score, priority_percentile, priority_recommendation ("submit_now" / "submit_next_quarter" / "monitor" / "research_more")
+      
+      **Outputs:**
+      ```
+      {
+        "priority_score": 78.5,
+        "priority_percentile": "top_10",
+        "priority_recommendation": "submit_now",
+        "score_breakdown": {
+          "success_probability": 75,
+          "capacity_contribution": 72,
+          "readiness_score": 85,
+          "effort_efficiency": 60,
+          "strategic_bonus_multiplier": 1.3
+        },
+        "reasoning": "High probability (75%) warm relationship with founder who sits on board of similar housing nonprofit. Capacity $40-60K based on giving history. Could complete application in 2 hours. First gift from tech sector —strategic precedent.",
+        "next_step": "Schedule call with board member this week to discuss warm intro"
+      }
+      ```
+      
+      **File location:** src/lib/pil/agents/app/BEN-APP-02.ts
+      **Agent ID:** BEN-APP-02
+      **Family:** APP
+      
+      Build now. Production-grade.
+
+  - id: pil-app-03-build
+    prompt: |
+      You are building BEN-APP-03 (Prospect Intelligence Layer — SUBMISSION ORCHESTRATOR).
+      
+      Context:
+      - Depends on: BEN-APP-01 (profiles), BEN-APP-02 (ranking)
+      - This agent translates dossier recommendations into ACTIONS
+      - Inputs: prioritized application profiles
+      - Output: Queue items for AutoApply submission system
+      
+      **APP-03 Mission:**
+      For each ranked application profile, determine:
+      1. CAN we submit? (All required data present? No blockers?)
+      2. SHOULD we submit? (Probability high enough? Timing right?)
+      3. HOW to submit? (Which request_profile? Which contact path? Which form template?)
+      4. WHEN to submit? (Immediately? Batch with others? Schedule for Q2?)
+      5. WHO should submit? (Staff member to handle outreach? Board member intro?)
+      
+      Then create submission queue items (autoapply_submission_queue) with:
+      - funder_id
+      - organization_id
+      - request_profile_id (matched from app_recommendations)
+      - dossier_id (link back to full intelligence)
+      - form_template_id (if portal-based submission)
+      - direct_submission (if no form: email address, contact method)
+      - suggested_ask_amount (from amount-optimizer or profile)
+      - personalized_pitch (from pitch-personalizer)
+      - priority (from APP-02)
+      - scheduled_submission_date
+      - assigned_to (staff email or "unassigned")
+      - submission_strategy (notes on warm intro, timing, escalation)
+      
+      **Can Submit Checklist:**
+      ✓ Organization profile complete (mission, programs, impact data)
+      ✓ At least one request_profile matches (or fallback to monetary)
+      ✓ Funder data exists (name, category, contact method)
+      ✓ No critical blockers (recent decline, suspended status, etc)
+      ✓ Capacity indicated > 0
+      ✓ Affinity indicated (not neutral/negative)
+      
+      **Should Submit Logic:**
+      ```
+      submission_readiness = (
+        success_probability > 0.50 OR
+        (success_probability > 0.35 AND warm_relationship)
+      ) AND
+      NOT (recent_rejection OR CEO_transition_pending)
+      ```
+      
+      **How to Submit Decision Tree:**
+      ```
+      IF portal_available AND form_templates_exist
+        → use AutoApply (FormFillerAgent)
+      ELSE IF email_submission
+        → create draft email in drafts_outbound, flag for manual send
+      ELSE IF direct_contact_only
+        → create outreach task, flag for sales/BD team
+      ELSE
+        → escalate to manual research (no submission path)
+      ```
+      
+      **Output:**
+      Create autoapply_submission_queue items with full context, then return summary:
+      ```
+      {
+        "submission_summary": {
+          "total_prospects_reviewed": 147,
+          "ready_to_submit": 23,
+          "submit_now": 8,
+          "submit_next_30_days": 12,
+          "submit_Q2": 3,
+          "needs_more_research": 14,
+          "blockers_prevent_submission": 110
+        },
+        "submission_actions": [
+          {
+            "funder_id": "...",
+            "funder_name": "ABC Corp Foundation",
+            "request_profile": "Operating Funds",
+            "priority": 1,
+            "submission_method": "portal_autoapply",
+            "scheduled_date": "2027-01-15",
+            "assigned_to": "director@faith.org",
+            "reasoning": "Warm intro via board member confirmed. Form template exists (Meade Tractor pattern). Success prob 78%. Submit immediately."
+          },
+          ...
+        ]
+      }
+      ```
+      
+      **Integration with AutoApply:**
+      - autoapply_submission_queue is the ONLY source of truth for what gets submitted
+      - FormFillerAgent reads from this queue
+      - If priority queue items are unsubmitted for > 7 days, escalate (send reminder to assigned staff)
+      
+      **File location:** src/lib/pil/agents/app/BEN-APP-03.ts
+      **Agent ID:** BEN-APP-03
+      **Family:** APP
+      
+      Build now. Completes all 47 PIL agents (3 agent families completed via prior runs: SUP/DIS/INT/REL/QLF/STR/KNW/OPS all confirmed live).
+      
+      After this prompt, run `pnpm build` to verify no compile errors. If errors, fix in-place (do not skip).
+
+gates:
+  - gate: compile
+    description: "TypeScript strict compilation with no errors"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; pnpm build 2>&1 | Select-String -Pattern '(error|ERR)' -NotMatch | Select-Object -Last 20"
+    success: "No errors found or 'Successfully built'"
+    
+  - gate: test
+    description: "Unit tests for all 3 agents"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; pnpm test -- --testNamePattern='BEN-APP' 2>&1 | Select-Object -Last 30"
+    success: "PASS or tests completed"

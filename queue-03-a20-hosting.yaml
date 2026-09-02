@@ -1,0 +1,63 @@
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+project: Tarritrix
+prompts:
+- id: a20-001
+  name: A-20 DNS Schema Migration
+  prompt: "Read SCHEMA_REGISTRY.md clients table entry in full before writing. Verify which columns already exist.\n\nSTEP 1 - Write C:\\Users\\manag\\Documents\\Tarritrix\\supabase\\migrations\\20260728000000_a20_dns_hosting.sql\nALTER TABLE clients ADD COLUMN IF NOT EXISTS custom_domain TEXT UNIQUE;\nALTER TABLE clients ADD COLUMN IF NOT EXISTS dns_verified_at TIMESTAMPTZ;\nALTER TABLE clients ADD COLUMN IF NOT EXISTS dns_config_type TEXT CHECK (dns_config_type IN ('cname','a_record','none')) DEFAULT 'none';\nALTER TABLE clients ADD COLUMN IF NOT EXISTS dns_last_check_at TIMESTAMPTZ;\nALTER TABLE clients ADD COLUMN IF NOT EXISTS ssl_provisioned_at TIMESTAMPTZ;\nALTER TABLE clients ADD COLUMN IF NOT EXISTS subdomain_slug TEXT UNIQUE;\nCREATE TABLE IF NOT EXISTS dns_verification_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, domain TEXT NOT NULL, check_type TEXT CHECK (check_type IN ('cname','a_record','ssl','dns_propagation')) NOT NULL, result TEXT CHECK (result IN ('pass','fail','pending')) NOT NULL, error_detail TEXT, checked_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE INDEX IF NOT EXISTS idx_dns_log_client ON dns_verification_log(client_id);\nALTER TABLE dns_verification_log ENABLE ROW LEVEL SECURITY;\nCREATE POLICY dns_log_operator ON dns_verification_log FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\n\nApply: cd C:\\Users\\manag\\Documents\\Tarritrix && supabase db push. Report result.\n\nSTEP 2 - pnpm tsc --noEmit. 0 errors required.\n\nSTEP 3 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual audit.\n\nACCEPTANCE: Migration applied. pnpm tsc 0 errors."
+  gates:
+  - type: compile
+
+- id: a20-002
+  name: A-20 Vercel Wildcard Domain and Next.js Config
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\vercel.json and C:\\Users\\manag\\Documents\\Tarritrix\\next.config.ts in full before writing.\n\nSTEP 1 - Update C:\\Users\\manag\\Documents\\Tarritrix\\vercel.json to add wildcard domain support. Add to the JSON (preserve existing content):\n\"domains\": [{\"name\": \"*.tarritrix.app\", \"wildcard\": true}, {\"name\": \"tarritrix.app\"}]\nIf domains key already exists merge rather than replace.\n\nSTEP 2 - Update C:\\Users\\manag\\Documents\\Tarritrix\\next.config.ts to add hostname patterns for custom domains. In the images or remotePatterns config add wildcard hostname support. Add to experimental or top-level config:\nallowedDevOrigins: ['*.tarritrix.app']\nEnsure the file remains valid TypeScript.\n\nSTEP 3 - pnpm tsc --noEmit. 0 errors required. pnpm run build — must succeed.\n\nSTEP 4 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.\n\nSTEP 5 - git add -A; git commit --no-verify -m 'feat: A-20 Vercel wildcard domain config'; git push origin main. Report commit hash.\n\nACCEPTANCE: vercel.json has wildcard domain entry. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+
+- id: a20-003
+  name: A-20 Tenant Resolution Middleware
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\src\\middleware.ts in full before writing. This is a surgical edit — do NOT break existing auth middleware logic.\n\nSTEP 1 - Add tenant resolution to existing middleware.ts. At the top of the middleware function BEFORE any auth logic: read the Host header from request.headers. If Host matches a known custom_domain in the clients table: resolve to client_id and attach to request headers as x-client-id. If Host matches *.tarritrix.app pattern: extract the subdomain_slug, resolve client_id from clients table, attach as x-client-id. If no match: continue without x-client-id (operator dashboard and public routes).\n\nWrite a helper C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\tenant-resolver.ts that does the Supabase lookup with a 10ms timeout target. Use Supabase service role client for this lookup (not the user session client). Cache results in a Map with 60s TTL to avoid DB hit on every request.\n\nSTEP 2 - Import and call resolveTenant() from tenant-resolver.ts in middleware.ts. Attach result to request headers before passing to next().\n\nSTEP 3 - pnpm tsc --noEmit. 0 errors required. Verify middleware.ts still handles auth correctly for /dashboard routes.\n\nSTEP 4 - Write C:\\Users\\manag\\Documents\\Tarritrix\\tests\\unit\\lib\\tenant-resolver.test.ts: 4 tests: custom domain resolves to client_id, subdomain slug resolves to client_id, unknown host returns null, cache hit avoids second DB call.\n\nSTEP 5 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md. git add -A; git commit --no-verify -m 'feat: A-20 tenant resolution middleware'; git push origin main. Report commit hash.\n\nACCEPTANCE: tenant-resolver.ts exists. middleware.ts imports it. pnpm tsc 0 errors. Tests pass. Commit hash reported."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/tenant-resolver.ts
+    - tests/unit/lib/tenant-resolver.test.ts
+
+- id: a20-004
+  name: A-20 Domain Management API Routes
+  prompt: "Read SCHEMA_REGISTRY.md clients table and dns_verification_log table before writing. Verify getOperatorContext() pattern from existing operator routes.\n\nSTEP 1 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\domains\\route.ts\nGET: getOperatorContext() auth. Query clients WHERE operator_id=operator.id, return array of { id, name, custom_domain, subdomain_slug, dns_verified_at, ssl_provisioned_at, dns_config_type }.\nPOST: getOperatorContext() auth. Body: { client_id, custom_domain }. Validate domain format with regex. Verify operator owns client_id. UPDATE clients SET custom_domain=domain, dns_config_type='cname', dns_last_check_at=now() WHERE id=client_id. Return { client_id, custom_domain, cname_target: 'cname.vercel-dns.com' }.\n\nSTEP 2 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\api\\domains\\[domain]\\route.ts\nDELETE: getOperatorContext() auth. Verify operator owns the client with this domain. UPDATE clients SET custom_domain=NULL, dns_verified_at=NULL, ssl_provisioned_at=NULL WHERE custom_domain=domain AND operator_id=operator.id. Return { deleted: true }.\nGET: getOperatorContext() auth. Check DNS propagation by attempting DNS lookup of domain. Insert result to dns_verification_log. Return current verification status.\n\nSTEP 3 - pnpm tsc --noEmit. 0 errors. pnpm run build — succeeds.\n\nSTEP 4 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md. git add -A; git commit --no-verify -m 'feat: A-20 domain management API routes'; git push origin main. Report commit hash.\n\nACCEPTANCE: Both route files exist. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/api/domains/route.ts
+    - src/app/api/domains/[domain]/route.ts
+
+- id: a20-005
+  name: A-20 DNS Setup UI and Subdomain Fallback
+  prompt: "Read C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\dashboard\\clients\\[id]\\ directory before writing.\n\nSTEP 1 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\app\\dashboard\\clients\\[id]\\domain-setup\\page.tsx\nOperator-facing DNS configuration page. Shows: current custom_domain if set, CNAME instruction (point your domain to cname.vercel-dns.com), DNS verification status from dns_verification_log, SSL status, step-by-step setup guide with ambient instructional text per dashboard spec (slate #1c2030 background, cyan #06b6d4 accent). Form to enter custom domain calls POST /api/domains. Verify DNS button calls GET /api/domains/[domain]. Remove domain button calls DELETE /api/domains/[domain]. TypeScript strict, no any.\n\nSTEP 2 - Implement subdomain fallback (Mode B). Update tenant-resolver.ts to generate subdomain_slug from client name if not set: slugify client name to lowercase alphanumeric with hyphens, max 32 chars. On client creation ensure subdomain_slug is auto-populated. Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\slugify.ts with slugify(name: string): string function.\n\nSTEP 3 - Add domain-setup link to DashboardSidebar.tsx client detail section if it exists, or to the SplitView detail panel client actions.\n\nSTEP 4 - pnpm tsc --noEmit. 0 errors. pnpm run build — succeeds.\n\nSTEP 5 - Update STATE_OF_THE_BUILD.md and SESSION_STATE.md. git add -A; git commit --no-verify -m 'feat: A-20 DNS setup UI and subdomain fallback'; git push origin main. Report commit hash.\n\nACCEPTANCE: domain-setup page exists. slugify.ts exists. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/app/dashboard/clients/[id]/domain-setup/page.tsx
+    - src/lib/slugify.ts
+
+- id: a20-006
+  name: A-20 Cache Invalidation and Playwright Acceptance Tests
+  prompt: "Read all A-20 files built in this queue before writing.\n\nSTEP 1 - Write C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\cache-invalidation.ts\nFunction invalidateTenantCache(clientId: string): void — clears the in-memory TTL cache in tenant-resolver.ts for this client_id. Export and call this from the DELETE /api/domains/[domain] route and from the POST /api/domains route after domain registration. This ensures stale domain mappings are cleared immediately on domain change.\n\nSTEP 2 - Update DELETE route in src\\app\\api\\domains\\[domain]\\route.ts to import and call invalidateTenantCache after successful domain removal.\n\nSTEP 3 - Write C:\\Users\\manag\\Documents\\Tarritrix\\tests\\e2e\\a20-hosting.spec.ts\nPlaywright acceptance tests:\n1. GET /api/domains returns operator domain list with auth\n2. POST /api/domains registers a domain and returns cname_target\n3. DELETE /api/domains/[domain] removes domain\n4. /dashboard/clients/[id]/domain-setup page loads with operator auth\n5. Unauthenticated request to /api/domains returns 401\n6. Operator cannot access another operator client domain\n\nUse existing Playwright auth helpers. No new dependencies.\n\nSTEP 4 - pnpm tsc --noEmit. 0 errors. pnpm run build — succeeds.\n\nSTEP 5 - Update STATE_OF_THE_BUILD.md marking A-20 Multi-Tenant Hosting complete with all 6 components. Update SESSION_STATE.md next action: queue-04-cron. git add -A; git commit --no-verify -m 'feat: A-20 Multi-Tenant Hosting complete - cache invalidation and E2E tests'; git push origin main. Report commit hash.\n\nACCEPTANCE: cache-invalidation.ts exists. E2E test file exists. pnpm tsc 0 errors. pnpm run build succeeds. Commit hash reported."
+  gates:
+  - type: compile
+  - type: build
+  - type: file_exists
+    files:
+    - src/lib/cache-invalidation.ts
+    - tests/e2e/a20-hosting.spec.ts

@@ -32,6 +32,23 @@ import type { EvidenceItem, GraphNode, GraphNodeType } from "@/lib/pil/types";
 // the recurring collision this batch continues.
 //
 // Permitted tools per spec: T-GRAPH (read/write), T-WEB, T-EVIDENCE (write).
+//
+// Upgrade (PIL_AGENT_COMPLETE_ROSTER.md/PIL_AGENT_DEPENDENCIES.yaml, paper
+// specs with no implementation evidence -- design input only): adds three
+// conditional delegations alongside the existing REL-02/REL-03 ones, per
+// depends_on's remaining BEN-KNW-02/BEN-KNW-03/BEN-REL-04 entries, each
+// gated on a concrete signal rather than firing unconditionally --
+// BEN-KNW-02 (identity resolution) when the same candidate name surfaces via
+// 2+ distinct one-hop neighbors this run, BEN-KNW-03 (provenance
+// verification) whenever this run created any new (always-speculative,
+// confidence-0.3) edge, and BEN-REL-04 (organizational overlap) whenever
+// this run's neighborhood touched a board-like or corporate-like org node.
+// conclusions.decision also now carries the roster's six named output
+// dimensions (relationshipType/sourceAndDirection/timeInterval/directness/
+// strengthEvidence/alternativeExplanations), populated from data this
+// method already computes -- there is no dedicated pil_rel_01_decisions
+// table, the same "no such table, use conclusions" resolution BEN-REL-05's
+// header already documents.
 
 const BOARD_LIKE_TYPES: GraphNodeType[] = ["foundation", "nonprofit", "board"];
 const CORPORATE_LIKE_TYPES: GraphNodeType[] = ["company"];
@@ -71,6 +88,17 @@ export class RelationshipDiscoveryAgent implements Agent {
     let boardLikeHits = 0;
     let corporateLikeHits = 0;
 
+    // Identity-ambiguity tracking (BEN-KNW-02 delegation trigger): the same
+    // candidate name independently surfaced via 2+ distinct one-hop
+    // neighbors this run is a real ambiguity signal -- keyed lowercase since
+    // "Jane Doe" and "jane doe" are the same ambiguity.
+    const ambiguousCandidateBuckets = new Map<string, { nodeIds: string[]; viaOrganizations: string[] }>();
+    // Organizational-overlap tracking (BEN-REL-04 delegation trigger): every
+    // board-like/corporate-like neighbor this run actually confirmed a new
+    // relationship through.
+    const organizationNodeIdsTouched = new Set<string>();
+    const relationshipTypesAssigned = new Set<string>();
+
     for (const neighbor of existingNeighbors) {
       const relationshipType = relationshipTypeFor(neighbor.node_type);
 
@@ -99,6 +127,12 @@ export class RelationshipDiscoveryAgent implements Agent {
       });
       newNodeIds.push(candidateNode.id);
 
+      const ambiguityKey = candidateName.toLowerCase();
+      const bucket = ambiguousCandidateBuckets.get(ambiguityKey) ?? { nodeIds: [], viaOrganizations: [] };
+      bucket.nodeIds.push(candidateNode.id);
+      bucket.viaOrganizations.push(neighbor.label);
+      ambiguousCandidateBuckets.set(ambiguityKey, bucket);
+
       // upsertEdge's own find-then-write (by source/target/edge_type/
       // is_current) is this agent's duplicate-edge guard (spec observation
       // behavior: "Checks whether a discovered relationship already exists
@@ -118,9 +152,13 @@ export class RelationshipDiscoveryAgent implements Agent {
         properties: { relationshipType, viaOrganization: neighbor.label, viaOrganizationNodeType: neighbor.node_type },
       });
       newEdgeIds.push(edge.id);
+      relationshipTypesAssigned.add(relationshipType);
 
       if (BOARD_LIKE_TYPES.includes(neighbor.node_type)) boardLikeHits += 1;
       if (CORPORATE_LIKE_TYPES.includes(neighbor.node_type)) corporateLikeHits += 1;
+      if (BOARD_LIKE_TYPES.includes(neighbor.node_type) || CORPORATE_LIKE_TYPES.includes(neighbor.node_type)) {
+        organizationNodeIdsTouched.add(neighbor.id);
+      }
 
       evidenceCreated.push(
         await recordRelationshipEvidence({
@@ -143,7 +181,56 @@ export class RelationshipDiscoveryAgent implements Agent {
       );
     }
 
+    const alternativeExplanations = [...ambiguousCandidateBuckets.entries()]
+      .filter(([, bucket]) => bucket.nodeIds.length >= 2)
+      .map(([candidateName, bucket]) => ({
+        candidateName,
+        viaOrganizations: [...new Set(bucket.viaOrganizations)],
+      }));
+
     const delegations: DelegationRequest[] = [];
+
+    // BEN-KNW-02: the same candidate name was independently surfaced via 2+
+    // distinct one-hop neighbors this run -- REL-02/REL-03 must not treat
+    // these as confirmed-same-person until identity is resolved.
+    for (const explanation of alternativeExplanations) {
+      const bucket = ambiguousCandidateBuckets.get(explanation.candidateName);
+      if (!bucket || bucket.nodeIds.length < 2) continue;
+      delegations.push({
+        childAgentCode: "BEN-KNW-02",
+        objective: `Candidate "${explanation.candidateName}" was independently surfaced via ${bucket.nodeIds.length} distinct relationship paths (through ${explanation.viaOrganizations.join(", ")}) while discovering relationships for prospect ${prospect.id} -- BEN-REL-02/BEN-REL-03 should not treat these as confirmed-same-person until identity is resolved.`,
+        maxAutonomy: "A2",
+        constraints: { candidateNodeIds: bucket.nodeIds, candidateName: explanation.candidateName },
+      });
+    }
+
+    // BEN-KNW-03: every edge this agent creates starts at hardcoded
+    // confidence 0.3 / relationship_strength "speculative" -- any new edge
+    // needs provenance/freshness verification before downstream REL agents
+    // build on it.
+    if (newEdgeIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `${newEdgeIds.length} newly discovered low-confidence edge(s) for prospect ${prospect.id} need provenance/freshness verification before BEN-REL-02/BEN-REL-03 build on them.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id, edgeIds: newEdgeIds },
+      });
+    }
+
+    // BEN-REL-04: this prospect just connected to a board-like/corporate-like
+    // institution -- check whether any tenant contact or other prospect
+    // overlaps at the same institution(s). context.prospectId is already
+    // guaranteed non-null here (guarded at the top of this method), so no
+    // additional prospectId guard is needed for this specific delegation.
+    if (organizationNodeIdsTouched.size > 0) {
+      delegations.push({
+        childAgentCode: "BEN-REL-04",
+        objective: `Prospect ${prospect.id} just connected to ${organizationNodeIdsTouched.size} institution(s) this run -- check whether any tenant contact or other prospect also overlaps at the same institution(s).`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id, organizationNodeIds: [...organizationNodeIdsTouched] },
+      });
+    }
+
     if (boardLikeHits > 0) {
       delegations.push({
         childAgentCode: "BEN-REL-02",
@@ -163,6 +250,19 @@ export class RelationshipDiscoveryAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
+    // BEN_REL_01Decision.v1's 6 named output dimensions (roster), populated
+    // from data this method already computes -- no dedicated
+    // pil_rel_01_decisions table exists, so this rides in conclusions
+    // instead (same resolution BEN-REL-05's header documents).
+    const decision = {
+      relationshipType: [...relationshipTypesAssigned],
+      sourceAndDirection: "outbound_from_prospect_one_hop",
+      timeInterval: "unverified_no_temporal_bounds_yet",
+      directness: newEdgeIds.length > 0 ? "indirect_single_source_web_search" : "none_found",
+      strengthEvidence: newEdgeIds.length > 0 ? { confidence: 0.3, label: "speculative" } : null,
+      alternativeExplanations,
+    };
+
     return {
       status: "completed",
       evidence: evidenceCreated,
@@ -172,6 +272,7 @@ export class RelationshipDiscoveryAgent implements Agent {
         existingEdgesOnFile: existingEdges.length,
         newEdgeIds,
         newNodeIds,
+        decision,
       },
       delegations,
       tokensUsed,

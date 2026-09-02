@@ -1,0 +1,297 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-01: FULL APPLICATION WIRING AUDIT
+#
+# Phase 01 of the Benavora Enterprise Audit Program.
+# Depends on PT-00 (route-manifest.json, WIRING_GAP_REGISTER.md,
+# the command-gate engine, evidence-lib.mjs - all now in place).
+#
+# QUESTION THIS PHASE ANSWERS: is the app actually wired
+# together? Every page route renders without error; every
+# visible link/button/nav element resolves to a real
+# destination; nothing is a dead anchor, a 404, or a button
+# wired to nothing.
+#
+# EVIDENCE STANDARD (enforced by every command gate): a claim
+# without a file in test-evidence/pt-01/ containing real
+# captured output does not exist. Prose "verified" fails.
+# ASCII only. Read-only against the app - this phase inspects,
+# it does not fix (fixes are their own later remediation work).
+#
+# Baseline from PT-00: 464 routes total (146 pages, 318 APIs).
+# APIs are PT-02's job; THIS phase walks the 146 pages and
+# their interactive elements.
+#
+# HALTS at its end for Reid's Phase-01 review.
+# ============================================================
+
+prompts:
+
+  - id: pt01-001
+    phase: build
+    description: "Preflight: confirm PT-00 artifacts, scaffold pt-01 evidence"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Confirm PT-00's outputs exist and are readable:
+         test-evidence\pt-00\route-manifest.json (has routes[],
+         deadNav, orphanRoutes), test-evidence\_register\
+         WIRING_GAP_REGISTER.md, scripts\audit\evidence-lib.mjs.
+         If any is missing, HALT - PT-01 cannot proceed without the
+         baseline.
+      2. Create test-evidence\pt-01\.
+      3. From route-manifest.json, extract the list of page routes
+         (type == "page") into test-evidence\pt-01\page-routes.json -
+         the working set this phase walks. Record the count.
+      4. Create scripts\audit\verify-pt01-001.mjs: exits non-zero
+         unless page-routes.json exists, parses, and its count
+         matches the count of type=="page" entries in the PT-00
+         route-manifest (proves nothing dropped).
+      5. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-01
+         started, page-route working set established.
+      6. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-01: preflight, page-route working set"
+      7. Run: node scripts/audit/verify-pt01-001.mjs
+    expected_outputs:
+      - test-evidence/pt-01/page-routes.json
+      - scripts/audit/verify-pt01-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt01-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt01-002
+    phase: build
+    description: "Render pass: every page route loads without an error boundary"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Walk every page route against a real authenticated session and
+      record whether it renders or errors. This is deeper than PT-00's
+      smoke sweep: PT-00 recorded HTTP status; this records whether the
+      RENDERED DOM shows a Next.js error boundary, an empty shell, or a
+      real page.
+
+      1. Start local dev (pnpm dev). Authenticate a real Playwright
+         session via admin-issued magic link for
+         info@faithfoundationsf.org (no password touched) - the
+         established pattern from PT-00.
+      2. For each page route in page-routes.json: navigate; wait for
+         network idle or a bounded timeout; capture (a) final HTTP
+         status, (b) whether an error-boundary/500 component is in the
+         DOM, (c) whether the page has real content vs an empty shell,
+         (d) console errors. Dynamic [id] routes: use a real id where
+         one can be cheaply obtained from a list page, else record as
+         PENDING-SCOPE (do not count a placeholder-UUID 404 as a bug -
+         PT-00's lesson).
+      3. Write test-evidence\pt-01\render-results.json: one row per
+         route with those fields. Every hard error/blank render is a
+         register finding (P0 if a primary-nav page, else P1). The
+         known WGR-004 /documents hang MUST reproduce here - if it
+         does not, that is itself a finding (flaky, needs note).
+      4. Screenshot every failure into
+         test-evidence\pt-01\render-failures\.
+      5. Create scripts\audit\verify-pt01-002.mjs: exits non-zero
+         unless render-results.json covers every route in
+         page-routes.json (count match) and every row has all four
+         fields populated.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-01: render pass across all page routes"
+      7. Run: node scripts/audit/verify-pt01-002.mjs
+    expected_outputs:
+      - test-evidence/pt-01/render-results.json
+      - scripts/audit/verify-pt01-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt01-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt01-003
+    phase: build
+    description: "Nav resolution: sidebar, header, settings, admin nav all resolve"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Every navigation surface must point at real routes. This settles,
+      with live evidence, the nav wiring that PT-00's static
+      nav-items.ts cross-reference could only partially see.
+
+      1. Enumerate every nav element from the real rendered app (not
+         from source guesses): the sidebar (nav-items.ts NAV_ITEMS),
+         the header tab bar (Header.tsx TABS), SettingsNav, and the
+         admin nav. For each entry capture its href/target.
+      2. For each nav target, resolve it against the real route
+         manifest AND by actually clicking it in the authenticated
+         Playwright session - record the resolved status (renders /
+         404 / error). A nav entry that renders is CONFIRMED-OK; one
+         that 404s or errors is a finding (P0 - nav is primary surface).
+      3. Write test-evidence\pt-01\nav-resolution.json: { surface,
+         label, target, resolved_status, verdict }. Cross-check against
+         PT-00's deadNav=0 claim - if any nav entry here fails to
+         resolve, that CONTRADICTS the static finding and is recorded
+         as such (the static scan missed a runtime-only nav).
+      4. Create scripts\audit\verify-pt01-003.mjs: exits non-zero
+         unless nav-resolution.json is non-empty and every entry has a
+         resolved_status.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-01: nav resolution across all nav surfaces"
+      6. Run: node scripts/audit/verify-pt01-003.mjs
+    expected_outputs:
+      - test-evidence/pt-01/nav-resolution.json
+      - scripts/audit/verify-pt01-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt01-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt01-004
+    phase: build
+    description: "Interactive element crawl: links and buttons resolve to something real"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      The deepest wiring check: on every primary page, every link and
+      action button must go somewhere real - not a dead href="#", not a
+      handler that throws, not a button wired to nothing.
+
+      1. For each primary-nav page (the sidebar + header set) and the
+         top 20 most-important sub-pages (dashboard, discovery, drafts,
+         pipeline, opportunities, autoapply, funders, donor-discovery,
+         settings landing, admin landing, etc. - use judgment from the
+         route manifest), crawl every <a> and <button>:
+         - links: resolve href; dead (# or empty or javascript:void)
+           = finding; 404 destination = finding.
+         - buttons: classify by whether they have a wired handler;
+           record buttons with no discernible action. Do NOT trigger
+           destructive actions (no delete/submit/pay) - detect wiring
+           by inspecting the handler binding, not by firing it.
+      2. Write test-evidence\pt-01\element-graph.json: { page, element_
+         type, label, target_or_handler, resolved_status, verdict }.
+         Build a source-element -> destination link graph. Dead ends
+         are findings (P1 unless on a primary flow, then P0).
+      3. Screenshot each dead-end into test-evidence\pt-01\dead-ends\
+         with the failing assertion noted.
+      4. Create scripts\audit\verify-pt01-004.mjs: exits non-zero
+         unless element-graph.json is non-empty and covers at least the
+         full primary-nav page set (assert each primary page appears).
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-01: interactive element wiring crawl"
+      6. Run: node scripts/audit/verify-pt01-004.mjs
+    expected_outputs:
+      - test-evidence/pt-01/element-graph.json
+      - scripts/audit/verify-pt01-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt01-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt01-005
+    phase: build
+    description: "Re-verify the 5 commit-less claimed fixes from scratch"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      History claims five fixes that have no matching commit. After the
+      .Handle false-pass discovery, no prior claim is trusted without
+      fresh live evidence. Re-verify each from scratch.
+
+      1. For each of the five, drive the real authenticated app and
+         capture live evidence of the CURRENT state:
+         a. Integrations Configure - previously reported 404. Navigate,
+            capture actual result.
+         b. Grants.gov "Run Now" link - previously reported broken.
+            Exercise it (non-destructively), capture result.
+         c. Scraping Targets link - previously reported broken.
+            Capture result.
+         d. Branding logo upload - previously reported fixed. Verify
+            the upload control is present and wired (do not upload
+            junk to prod; verify wiring/storage-bucket target).
+         e. Billing nav - previously reported fixed. Capture whether it
+            resolves.
+      2. Write test-evidence\pt-01\claimed-fixes-reverify.json: one row
+         each { item, prior_claim, current_state, evidence_file,
+         verdict }. Each still-broken item is a register finding;
+         each genuinely-working item is CONFIRMED-OK.
+      3. Screenshots for each into test-evidence\pt-01\claimed-fixes\.
+      4. Create scripts\audit\verify-pt01-005.mjs: exits non-zero
+         unless the JSON has all five items each with a current_state
+         and an evidence_file that exists on disk.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-01: re-verified the 5 commit-less claimed fixes"
+      6. Run: node scripts/audit/verify-pt01-005.mjs
+    expected_outputs:
+      - test-evidence/pt-01/claimed-fixes-reverify.json
+      - scripts/audit/verify-pt01-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt01-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt01-006
+    phase: build
+    description: "PHASE 01 summary + register update + HALT for review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate PT-01 and prepare the human review point.
+
+      1. Write test-evidence\pt-01\PHASE-01-SUMMARY.md: pages walked,
+         render pass/fail counts, nav entries resolved vs failed,
+         interactive elements crawled and dead-ends found, the five
+         claimed-fix verdicts. Every number cites its evidence file.
+      2. Confirm every PT-01 finding is in WIRING_GAP_REGISTER.md with
+         a real evidence path and reproduction, continuing the WGR-###
+         numbering after PT-00's rows.
+      3. Write test-evidence\pt-01\REVIEW-PACK.md: the short read for
+         Reid - what wiring is confirmed solid, what is broken and at
+         what severity, and the recommended next phase (PT-02 API/CRUD/
+         auth). Note explicitly which PT-00 findings PT-01 confirmed or
+         contradicted (esp. the deadNav=0 claim and WGR-004 /documents).
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-01
+         complete, wiring truth established, awaiting Reid's review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-01 COMPLETE: wiring audit, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt01-006.mjs: exits non-zero
+         unless PHASE-01-SUMMARY.md and REVIEW-PACK.md exist non-empty
+         and the register has grown beyond PT-00's last row.
+      7. Run: node scripts/audit/verify-pt01-006.mjs
+    expected_outputs:
+      - test-evidence/pt-01/PHASE-01-SUMMARY.md
+      - test-evidence/pt-01/REVIEW-PACK.md
+      - scripts/audit/verify-pt01-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt01-006.mjs"
+    max_retries: 2
+    on_fail: halt

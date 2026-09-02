@@ -1,0 +1,214 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PAGE_TREATMENT_PROTOCOL.md
+  - governance/DESIGN_SYSTEM.md
+  - FEATURE_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: page-applications-001
+    phase: build
+    description: "/applications - teal-blue #0E7490"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /applications.
+      Section: Applications & Pipeline. Accent: #0E7490 (teal-blue).
+      Page-specific notes: the status filter pills (All/Discovery/Drafting/Submitted/Awarded/
+      Denied) keep their own real status colors. "Renewals" becomes fixed teal. Real 2 open
+      applications with real stage badges ("Ready for Review"/"Eligibility Review") - preserve
+      these as-is.
+    expected_outputs: [src/app/(dashboard)/applications/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-deadlines-001
+    phase: build
+    description: "/deadlines - teal-blue #0E7490"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /deadlines.
+      Section: Applications & Pipeline. Accent: #0E7490.
+      Page-specific notes: the real overdue/due-this-week/future color legend (red/orange/
+      gray dots) is meaningful, keep it exactly as-is. Calendar view toggle (Month/Week/List)
+      and filter chips (Application/Follow-up/Reporting/Renewal/Document) take the section
+      treatment.
+    expected_outputs: [src/app/(dashboard)/deadlines/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-compliance-001
+    phase: build
+    description: "/compliance - teal-blue #0E7490 - REAL BUG, FIX FIRST"
+    prompt: |
+      CRITICAL: this page currently shows "Could not load compliance events" with the
+      Compliance Score stuck at 0% "At Risk." This is a real bug, per Reid's explicit
+      instruction to fix now in this same pass, before any styling.
+
+      1. Root-cause this for real: find the real API route/query this page calls, run it
+         directly, find the actual error (missing table, RLS gap, bad query, missing env var -
+         confirm which one, do not guess). Fix the real cause.
+      2. Re-verify live: the page must show real compliance data (or a genuine, correctly-
+         computed score/empty state if there are legitimately zero compliance items yet - not
+         an error message either way).
+      3. Only after the bug is genuinely fixed: read PAGE_TREATMENT_PROTOCOL.md and apply it.
+         Section: Applications & Pipeline. Accent: #0E7490.
+      4. The real Document Expiration list (3 real overdue tax documents shown in an earlier
+         session) should now correctly surface here if the underlying query fix restores it.
+    expected_outputs: [src/app/(dashboard)/compliance/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-documents-001
+    phase: build
+    description: "/documents - teal-blue #0E7490"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /documents.
+      Section: Applications & Pipeline. Accent: #0E7490.
+      Page-specific notes: real "Expired" red badges on 3 real documents are meaningful, keep
+      red. "Upload" button and category filter take the section/teal treatment. Drag-and-drop
+      zone gets a visual refresh consistent with the section but must remain functionally
+      identical.
+    expected_outputs: [src/app/(dashboard)/documents/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-outcomes-001
+    phase: build
+    description: "/outcomes - teal-blue #0E7490"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /outcomes.
+      Section: Applications & Pipeline. Accent: #0E7490.
+      Page-specific notes: currently "No outcomes yet" - full empty-state polish, "Go to
+      pipeline" becomes fixed teal.
+    expected_outputs: [src/app/(dashboard)/outcomes/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-financials-001
+    phase: build
+    description: "/financials - teal-blue #0E7490 - REAL BUG, FIX FIRST"
+    prompt: |
+      CRITICAL: this page currently shows "Could not load financial data" with a completely
+      blank content area. Real bug, fix now per Reid's explicit instruction.
+
+      1. Root-cause for real: find the actual API route/query, run it directly, find the real
+         error. Fix the real cause.
+      2. Re-verify live: real financial data must render, or a genuine correctly-computed
+         empty state if there's legitimately no financial data recorded yet.
+      3. Only after the bug is genuinely fixed: read PAGE_TREATMENT_PROTOCOL.md and apply it.
+         Section: Applications & Pipeline. Accent: #0E7490.
+    expected_outputs: [src/app/(dashboard)/financials/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-marketplace-001
+    phase: build
+    description: "/marketplace - teal-blue #0E7490"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /marketplace.
+      Section: Applications & Pipeline. Accent: #0E7490.
+      Page-specific notes: "New Listing" becomes fixed teal. "No listings matched yet" and
+      "You haven't posted any donations yet" both need real empty-state polish per protocol.
+    expected_outputs: [src/app/(dashboard)/marketplace/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-email-001
+    phase: build
+    description: "/email - blue-violet #4C51C6"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /email.
+      Section: Outreach & Communication. Accent: #4C51C6 (blue-violet).
+      Page-specific notes: All/Linked/Unlinked filter tabs take the section treatment. "No
+      threads" and "Select a thread" both need real empty-state polish, these are two
+      separate empty states on the same page (list panel and detail panel).
+    expected_outputs: [src/app/(dashboard)/email/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-email-campaigns-001
+    phase: build
+    description: "/email/campaigns - blue-violet #4C51C6"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /email/campaigns.
+      Section: Outreach & Communication. Accent: #4C51C6.
+      Page-specific notes: "New Campaign" becomes fixed teal (both instances - header button
+      and the large center CTA). "No campaigns yet" needs full empty-state polish.
+    expected_outputs: [src/app/(dashboard)/email/campaigns/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-email-templates-001
+    phase: build
+    description: "/email/templates - blue-violet #4C51C6"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to /email/templates.
+      Section: Outreach & Communication. Accent: #4C51C6.
+      Page-specific notes: the real template-variable chips ({company_name}, {contact_name},
+      {foundation_name}, etc.) keep their own distinct pill styling, not the section accent -
+      they're functional reference tags. "New Template" becomes fixed teal. "No templates
+      yet" needs empty-state polish.
+    expected_outputs: [src/app/(dashboard)/email/templates/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: page-outreach-001
+    phase: build
+    description: "/outreach and /outreach/templates - blue-violet #4C51C6"
+    prompt: |
+      Read PAGE_TREATMENT_PROTOCOL.md and apply it to both /outreach and /outreach/templates.
+      Section: Outreach & Communication. Accent: #4C51C6.
+      Page-specific notes: "Scan Company" is the primary CTA on /outreach, fixed teal, both
+      the header button and center CTA instance. "No outreach contacts yet" needs empty-state
+      polish. Read /outreach/templates's real current state directly (not assumed) and apply
+      the same section treatment consistently with /email/templates's pattern.
+    expected_outputs: [src/app/(dashboard)/outreach/page.tsx, src/app/(dashboard)/outreach/templates/page.tsx]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt
+
+  - id: batch3-verify-sync-001
+    phase: build
+    description: "Final regression check and governance sync for Batch 3 (11 pages + 2 real bug fixes)"
+    prompt: |
+      1. Run a real Playwright pass across all pages in this batch. CRITICAL: confirm both
+         /compliance and /financials now load real data (or a genuine correct empty state)
+         with zero error messages - re-verify these two specifically and explicitly, since
+         they were real bugs, not just styling.
+      2. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      3. Update FEATURE_REGISTRY_v2.md documenting the two bug fixes with real root-cause
+         evidence (what was actually broken, what the actual fix was) and all 11 pages'
+         section-accent completion.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md - explicit, unmissable language on
+         whether Compliance and Financials are genuinely fixed and verified, not just styled
+         over.
+      5. Scoped git add, commit with message "fix: Compliance and Financials pages (real
+         root-cause fixes); feat: section-based accent + empty-state polish across Applications
+         & Pipeline and Outreach & Communication (batch 3 of 4)", git push.
+    expected_outputs: [FEATURE_REGISTRY_v2.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    gates: [{type: compile}, {type: build}]
+    max_retries: 3
+    on_fail: halt

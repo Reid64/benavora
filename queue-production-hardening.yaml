@@ -1,0 +1,125 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+- TESTING_v2.md
+prompts:
+
+- id: prod-001
+  name: Governance sync and API route security audit
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/api/ directory listing in FULL.
+    Read src/lib/supabase/server.ts in FULL.
+    Read src/middleware.ts in FULL if it exists.
+
+    SECURITY AUDIT of all API routes:
+
+    For every route file under src/app/api/ run this checklist:
+    1. Does it call createServerClient() or equivalent to get an authenticated Supabase client?
+    2. Does it call supabase.auth.getUser() to verify the session?
+    3. Does it return 401 if no valid session?
+    4. Does it use Row Level Security (RLS) queries, or does it have manual org_id filtering?
+    5. Does it validate request body before using it?
+    6. Does it have try/catch with proper error responses (never expose stack traces)?
+
+    For routes that fail any check: fix them in place.
+
+    Common pattern that must be in EVERY authenticated route:
+    ```typescript
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    ```
+
+    Admin-only routes (under /api/admin/) must additionally check:
+    ```typescript
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if (!['owner','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    ```
+
+    Also add rate limiting to autonomous trigger routes: track calls per user per hour in a simple in-memory Map. If > 10 calls/hour: return 429.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'fix: API security audit -- auth checks on all routes, admin gate on admin routes, rate limiting on trigger routes'; git push.
+
+- id: prod-002
+  name: Error boundary and loading states across all dashboard pages
+  prompt: |
+    Read src/app/(dashboard)/layout.tsx in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx in FULL.
+    Read src/app/(dashboard)/opportunities/page.tsx in FULL.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex.
+
+    Add robust error boundaries and loading states:
+
+    CREATE src/components/ui/ErrorBoundary.tsx:
+    Client component that catches render errors.
+    Error display: white card, red left border, error icon, "Something went wrong" title, error message in dev mode only, "Retry" button that calls window.location.reload().
+
+    CREATE src/components/ui/LoadingCard.tsx:
+    Skeleton loading card with animated shimmer effect using CSS animation.
+    Props: { height?: number, width?: string, borderRadius?: number }
+    Shimmer: background gradient animating left to right, color #1A2B3C to #243550 to #1A2B3C.
+
+    CREATE src/components/ui/EmptyState.tsx:
+    Props: { icon: string, title: string, description: string, actionLabel?: string, onAction?: () => void }
+    Centered display with large emoji icon, title 18px white bold, description 14px #8BA8C8, optional action button.
+
+    Update dashboard/page.tsx:
+    - Wrap each major section (FlightPathHUD, action items, pipeline, deadlines) in individual try/catch with inline error display
+    - Add skeleton loading for each section while data fetches
+    - Use Suspense boundaries where applicable
+
+    Update opportunities/page.tsx:
+    - Add loading skeleton for the table
+    - Add EmptyState when no opportunities exist: icon="🔍", title="No opportunities yet", description="Run Research to discover grants matching your mission", action="Run Research Now"
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: error boundaries, loading skeletons, empty states across dashboard and opportunities'; git push.
+
+- id: prod-003
+  name: SEO metadata and marketing page performance
+  prompt: |
+    Read src/app/(marketing)/page.tsx in FULL.
+    Read src/app/layout.tsx in FULL.
+
+    ADD METADATA to every marketing and auth page:
+
+    src/app/layout.tsx — update Metadata export:
+    ```typescript
+    export const metadata: Metadata = {
+      title: { default: 'Benavora — AI Grant Automation for Nonprofits', template: '%s | Benavora' },
+      description: 'Benavora automates grant discovery, application drafting, and donor outreach for nonprofits. 30 autonomous AI agents work 24/7 to maximize your funding.',
+      keywords: ['nonprofit grant automation', 'AI grant writing', 'nonprofit fundraising software', 'grant management software', 'autonomous grant applications'],
+      openGraph: {
+        type: 'website',
+        siteName: 'Benavora',
+        title: 'Benavora — AI Grant Automation for Nonprofits',
+        description: 'AI-powered grant discovery, drafting, and AutoApply submission. 30 autonomous agents working 24/7 for your nonprofit.',
+        url: 'https://benavora.com',
+      },
+      twitter: { card: 'summary_large_image', title: 'Benavora — AI Grant Automation', description: 'AI-powered grant automation for nonprofits.' },
+      robots: { index: true, follow: true },
+    }
+    ```
+
+    CREATE src/app/sitemap.ts:
+    Returns array of sitemap entries for all public marketing pages.
+    Include: /, /pricing, /about, /blog if exists.
+
+    CREATE src/app/robots.ts:
+    Returns robots.txt allowing all crawlers, pointing to sitemap.
+
+    UPDATE marketing page for performance:
+    - Add export const revalidate = 3600 (ISR hourly)
+    - Lazy load the animation SVG (only render after hydration using useEffect)
+    - Add next/image for any img tags with width/height props
+
+    Run pnpm build. Fix all errors. Verify build output shows correct page sizes.
+    git add -A; git commit -m 'feat: SEO metadata, sitemap, robots.txt, marketing page ISR and performance'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

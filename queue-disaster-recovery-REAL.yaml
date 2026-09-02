@@ -1,0 +1,332 @@
+prompts:
+  - id: supabase-pitr-configuration
+    prompt: |
+      Enable Point-In-Time Recovery (PITR) on Supabase production.
+      
+      Context:
+      - Supabase ref: vbjplpquqxxfbpazyalt
+      - PITR allows recovery to any point in past 7 days
+      - Essential for accidental data loss, malicious deletes, corruption
+      
+      Via Supabase dashboard:
+      1. Go to Settings → Backup
+      2. Enable Point-in-Time Recovery (PITR)
+      3. Set retention: 7 days (default)
+      4. Verify backup schedule: daily + continuous WAL archiving
+      
+      Test recovery (on staging):
+      1. Make a test insert into a test table
+      2. Recover database to 1 minute ago
+      3. Verify insert is gone
+      4. Restore to current
+      
+      Runbook: If accidental delete happens, immediately:
+      1. Stop all writes (kill Worker, drain queue)
+      2. Contact Supabase support with timestamp
+      3. PITR restore to 10 min before delete
+      4. Verify data integrity
+      5. Replay any valid transactions from after restore point
+
+  - id: backup-strategy-s3
+    prompt: |
+      Implement automated backups to AWS S3.
+      
+      Context:
+      - Even with PITR, need off-provider backups
+      - S3 more durable than single cloud provider
+      - Cross-region replication for disaster scenarios
+      
+      Setup:
+      1. Create AWS S3 bucket: benavora-prod-backups (us-east-1)
+      2. Enable versioning
+      3. Enable Cross-Region Replication to backup bucket (us-west-2)
+      4. Set lifecycle: delete old versions after 90 days
+      
+      File: scripts/backup-database.ts
+      
+      ```typescript
+      import { exec } from 'child_process';
+      import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+      import { promisify } from 'util';
+      
+      const execAsync = promisify(exec);
+      
+      export async function backupDatabase() {
+        const timestamp = new Date().toISOString().split('T')[0];
+        const backupFile = `/tmp/benavora-backup-${timestamp}.sql.gz`;
+        
+        // 1. Dump database
+        const dumpCmd = `pg_dump postgresql://postgres:${process.env.DATABASE_PASSWORD}@db.vbjplpquqxxfbpazyalt.supabase.co:5432/postgres | gzip > ${backupFile}`;
+        await execAsync(dumpCmd);
+        
+        // 2. Upload to S3
+        const s3 = new S3Client({ region: 'us-east-1' });
+        const fileContent = require('fs').readFileSync(backupFile);
+        
+        await s3.send(new PutObjectCommand({
+          Bucket: 'benavora-prod-backups',
+          Key: `database-dumps/prod-${timestamp}.sql.gz`,
+          Body: fileContent,
+          ServerSideEncryption: 'AES256',
+          Metadata: { 'backup-type': 'full', timestamp }
+        }));
+        
+        console.log(`Backup uploaded: prod-${timestamp}.sql.gz`);
+        
+        // 3. Cleanup local file
+        require('fs').unlinkSync(backupFile);
+      }
+      ```
+      
+      Schedule:
+      - Daily full backup: 2 AM UTC
+      - Weekly backup with tag: every Monday 2 AM
+      - Retention: 90 days
+      
+      Setup as Railway cron job or GitHub Actions.
+
+  - id: circuit-breaker-pattern
+    prompt: |
+      Implement circuit breaker for graceful degradation.
+      
+      File: src/lib/resilience/circuit-breaker.ts
+      
+      ```typescript
+      enum CircuitState {
+        CLOSED = 'closed',      // Normal operation
+        OPEN = 'open',           // Failing, reject requests
+        HALF_OPEN = 'half_open'  // Testing if recovered
+      }
+      
+      export class CircuitBreaker {
+        private state: CircuitState = CircuitState.CLOSED;
+        private failureCount = 0;
+        private lastFailureTime: number | null = null;
+        private successCount = 0;
+        
+        constructor(
+          private failureThreshold: number = 5,
+          private successThreshold: number = 2,
+          private timeout: number = 60000 // 1 minute
+        ) {}
+        
+        async execute<T>(fn: () => Promise<T>): Promise<T> {
+          // If circuit is OPEN, check timeout before attempting recovery
+          if (this.state === CircuitState.OPEN) {
+            const now = Date.now();
+            if (now - this.lastFailureTime! > this.timeout) {
+              this.state = CircuitState.HALF_OPEN;
+              this.successCount = 0;
+            } else {
+              throw new Error('Circuit breaker is OPEN. Service unavailable.');
+            }
+          }
+          
+          try {
+            const result = await fn();
+            
+            // Success: move back to CLOSED if HALF_OPEN
+            if (this.state === CircuitState.HALF_OPEN) {
+              this.successCount++;
+              if (this.successCount >= this.successThreshold) {
+                this.state = CircuitState.CLOSED;
+                this.failureCount = 0;
+              }
+            } else {
+              this.failureCount = 0;
+            }
+            
+            return result;
+          } catch (error) {
+            this.lastFailureTime = Date.now();
+            this.failureCount++;
+            
+            if (this.failureCount >= this.failureThreshold) {
+              this.state = CircuitState.OPEN;
+            }
+            
+            throw error;
+          }
+        }
+        
+        getState() {
+          return this.state;
+        }
+      }
+      ```
+      
+      Usage:
+      ```typescript
+      const agentExecutionBreaker = new CircuitBreaker(5, 2, 60000);
+      
+      export async function executeAgent(agentId: string) {
+        return agentExecutionBreaker.execute(() => agent.run());
+      }
+      ```
+      
+      When circuit opens: return graceful degradation (use cached results, skip agent, return previous dossier).
+
+  - id: incident-response-runbook
+    prompt: |
+      Create incident response runbook.
+      
+      File: INCIDENT_RUNBOOK.md
+      
+      ```markdown
+      # Benavora Incident Response Runbook
+      
+      ## Severity Levels
+      - **SEV-1 (Critical):** System down, data loss, security breach
+      - **SEV-2 (Major):** Feature broken, degraded performance, data inconsistency
+      - **SEV-3 (Minor):** UI bug, non-critical feature, cosmetic issue
+      
+      ## SEV-1 Response (< 5 min)
+      
+      **Immediate Actions:**
+      1. Declare incident in #benavora-incidents
+      2. Page on-call (Reid)
+      3. Assess scope: how many orgs affected? data loss?
+      4. Kill switch: disable feature flag if caused by recent deploy
+      5. Revert last deploy if safe
+      6. Database: check Supabase health dashboard
+      
+      **Communication:**
+      - Notify affected customers within 15 minutes
+      - Update status page every 15 minutes
+      - Provide ETA for resolution
+      
+      **Recovery:**
+      - If data loss: PITR to safe point
+      - If service down: rollback deploy, restart services
+      - If rate limit: enable circuit breaker, degrade gracefully
+      
+      **Post-Incident:**
+      - Postmortem within 24 hours
+      - Root cause analysis
+      - Preventive measures identified
+      
+      ## SEV-2 Response (< 1 hour)
+      
+      1. Assess: impact scope, affected features, workaround possible?
+      2. Reproduce: verify issue locally or in staging
+      3. Fix: code change, database query, config change
+      4. Test: verify fix in staging, run related tests
+      5. Deploy: run `npx vercel deploy --prod`
+      6. Verify: test in production, get customer confirmation
+      7. Postmortem: lightweight analysis of root cause
+      
+      ## SEV-3 Response (< 1 day)
+      
+      - Schedule fix in next sprint or hotfix
+      - Document in GitHub issues
+      - No immediate postmortem needed
+      
+      ## Common Incidents & Recovery
+      
+      ### Database Connection Pool Exhausted
+      **Symptoms:** Connection refused, timeouts, 500 errors
+      **Recovery:**
+      1. Check Railway worker logs: `railway logs`
+      2. Kill stuck connections: `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state='idle' AND query_start < NOW() - interval '30 minutes'`
+      3. Restart Worker: `railway restart`
+      4. Monitor: watch connection count: `SELECT count(*) FROM pg_stat_activity`
+      
+      ### Memory Leak in Worker
+      **Symptoms:** Worker restarting repeatedly, agent runs dying
+      **Recovery:**
+      1. Check Node memory: `ps aux | grep node`
+      2. Increase --max-old-space-size: update Railway env
+      3. Find leak: check recent code changes
+      4. Redeploy with fix or revert
+      
+      ### Supabase Rate Limit (10K req/sec)
+      **Symptoms:** 429 errors on all queries, cascading failures
+      **Recovery:**
+      1. Enable circuit breaker immediately
+      2. Stop Worker to reduce load
+      3. Wait 1-2 minutes for rate limit to reset
+      4. Check what caused spike: check logs for bad queries
+      5. Optimize or throttle the problematic operation
+      
+      ### PIL Agent Cascade Stuck
+      **Symptoms:** Research runs stuck in "pending" for > 30 min
+      **Recovery:**
+      1. Check pil_research_runs: identify stuck runs
+      2. Check pil_agent_run_events: see where it stopped
+      3. Manually mark as failed: UPDATE pil_research_runs SET status='failed' WHERE id='...'
+      4. Check agent code: is there a bug?
+      5. Retry: re-trigger research run
+      ```
+
+  - id: health-check-endpoint
+    prompt: |
+      Create /api/health endpoint for monitoring.
+      
+      File: src/app/api/health/route.ts
+      
+      ```typescript
+      import { createClient } from '@supabase/supabase-js';
+      import { NextResponse } from 'next/server';
+      
+      export async function GET() {
+        const checks: Record<string, any> = {
+          timestamp: new Date().toISOString(),
+          status: 'healthy',
+          checks: {}
+        };
+        
+        // 1. Database connectivity
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        
+        try {
+          const { data } = await supabase.from('organizations').select('count()').limit(1);
+          checks.checks.database = { status: 'ok', latency: 'fast' };
+        } catch (error: any) {
+          checks.checks.database = { status: 'error', error: error.message };
+          checks.status = 'degraded';
+        }
+        
+        // 2. Worker health
+        try {
+          const workerStatus = await fetch(`${process.env.WORKER_URL}/health`);
+          checks.checks.worker = { status: workerStatus.ok ? 'ok' : 'error' };
+        } catch (error: any) {
+          checks.checks.worker = { status: 'error', error: error.message };
+          checks.status = 'degraded';
+        }
+        
+        // 3. Memory usage
+        const memUsage = process.memoryUsage();
+        checks.checks.memory = {
+          heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+          heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+          status: memUsage.heapUsed / memUsage.heapTotal > 0.9 ? 'warning' : 'ok'
+        };
+        
+        const statusCode = checks.status === 'healthy' ? 200 : 503;
+        return NextResponse.json(checks, { status: statusCode });
+      }
+      ```
+      
+      Monitor with: `watch -n 5 'curl -s http://localhost:3000/api/health | jq .'`
+      
+      Setup: Uptime monitoring service hits this endpoint every 60s.
+
+gates:
+  - gate: pitr-enabled
+    description: "PITR configured in Supabase"
+    command: "echo 'Verify in Supabase dashboard: Settings → Backup → PITR enabled with 7-day retention'"
+    success: "enabled|configured"
+    
+  - gate: s3-backups
+    description: "Backup script can upload to S3"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; $env:AWS_ACCESS_KEY_ID='...'; $env:AWS_SECRET_ACCESS_KEY='...'; npx tsx scripts/backup-database.ts 2>&1"
+    success: "uploaded|backup"
+    
+  - gate: health-endpoint
+    description: "/api/health endpoint operational"
+    command: "cd C:\\Users\\manag\\Documents\\benavora; curl -s http://localhost:3000/api/health | Select-String 'status|checks' | Select-Object -First 2"
+    success: "healthy|ok"

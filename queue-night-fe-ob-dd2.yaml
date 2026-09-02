@@ -1,0 +1,151 @@
+prompts:
+  - id: night-001
+    phase: verify
+    description: "Verify DD Phase 1 artifacts exist before building on them"
+    prompt: |
+      Verify these files exist and export the expected symbols: src/lib/donor-discovery/crawler-core.ts (DomainRateLimiter, fetchCompliant), src/lib/donor-discovery/adapters/google-places.ts, src/lib/donor-discovery/directory.ts (upsertDirectoryRecord), worker/dd-request-processor.ts, and a migration containing donor_discovery_directory.
+      Also verify DONOR_DISCOVERY_ARCHITECTURE.md exists in the repo root.
+      If ANY are missing, write the exact list of missing artifacts to STATE_OF_THE_BUILD.md under "## BLOCKED: Night Queue" and exit with a nonzero status so the pipeline halts. If all present, state so and proceed.
+    gates:
+      - type: compile
+    max_retries: 1
+    on_fail: halt
+
+  - id: fe-101
+    phase: build
+    description: "Shared web enrichment engine (used by foundations AND DD prospects)"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 2B. Create src/lib/enrichment/web-extractor.ts — a SHARED engine, not foundation-specific:
+      - extractFromWebsite(url, schema: 'foundation' | 'donor_prospect'): uses crawler-core fetchCompliant to pull the homepage plus up to 4 likely subpages (about, grants/giving/apply, contact — discovered from nav links), concatenates cleaned text (strip scripts/styles, cap 30k chars), and calls Claude (claude-sonnet-4-6, maxDuration pattern N/A — worker only) with a strict JSON-only prompt to extract per schema.
+      - foundation schema: giving_focus_areas[], application_process, application_url, accepts_unsolicited bool|null, contact_email, contact_phone, contact_address, key_people[{name,title}], geographic_focus.
+      - donor_prospect schema: the section 2B fields (has_giving_program, has_donation_form, donation_form_url, csr_page_url, giving_focus_areas, decision_contacts, service_area).
+      - Robust JSON parsing (strip fences), returns {ok, data, error}. Never throws. No module-load side effects.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: fe-102
+    phase: build
+    description: "990-derived enrichment: financials + contact fields for all 133K"
+    prompt: |
+      Read src/lib/ files that already handle IRS 990/BMF ingestion (search for irs990) and reuse their parsing utilities.
+      Create scripts/enrich-foundations-990.ts (pnpm script enrich:990, @ts-nocheck header, ws-transport supabase pattern from scripts/seed-beta-users.ts):
+      - Streams the IRS 990 XML index (apps.irs.gov/pub/epostcard/990/xml/2025/index_2025.csv) and for foundations in foundation_directory (match by EIN) extracts: total_assets, total_giving, grant_count, typical_grant_min/max (from grant schedules where present), phone, address, website_url, fiscal_year.
+      - Adds any missing columns to foundation_directory via a new migration FIRST (enrichment jsonb if not present, enriched_990_at timestamptz).
+      - Batch upserts (500/batch), checkpoint file (resume on rerun from last EIN processed), progress logging every 1000, and writes a completion summary including how many gained a website_url.
+      - After each checkpoint batch, also append raw extracted rows to a local CSV at ./enrichment-output/990-extract.csv (Reid backs this up to DATAOCEAN; note this in the script's completion message).
+      Do NOT run the script — create only.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: fe-103
+    phase: build
+    description: "Website discovery fallback for foundations with no URL"
+    prompt: |
+      Create src/lib/enrichment/website-discovery.ts: for a foundation with no website_url, attempt discovery via the existing SearXNG search integration (find it in src/lib — search for searxng) using query "<legal name> foundation <city> <state>", take the top organic result whose domain is not a directory/aggregator (exclude guidestar, propublica, causeiq, charitynavigator, instrumentl, linkedin, facebook), verify the page title or body contains a fuzzy match of the foundation name (similarity > 0.5), and return {url, confidence}. Store discovered URLs with a discovered_via='search' flag so they're distinguishable from 990-declared sites.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: fe-104
+    phase: build
+    description: "Foundation web-enrichment runner with prioritization + cost controls"
+    prompt: |
+      Create scripts/enrich-foundations-web.ts (pnpm script enrich:web, same script conventions):
+      - Selects foundation_directory rows WITH a website_url and no enrichment.web data, ordered by priority: total_assets desc NULLS LAST, with an optional --ntee filter arg to target subscriber-relevant categories first.
+      - Concurrency 8 (p-limit is already a transitive dep; if unavailable implement a simple semaphore — do NOT install packages), each task: website-discovery fallback if needed, then web-extractor foundation schema, merge into enrichment jsonb (never overwrite non-null with null), set enriched_web_at.
+      - Cost governor: --limit N arg (default 500 per run) and a running Claude-call counter logged at the end; checkpoint/resume identical to fe-102; append results to ./enrichment-output/web-extract.csv per batch.
+      - Update the Foundations dashboard page to show enrichment coverage stats (X of 133K enriched: 990 / web) using a cheap count query — match existing page conventions and the Badge/token design system.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ob-101
+    phase: build
+    description: "Onboarding: skippable gate + persistent dashboard banner"
+    prompt: |
+      Find the current onboarding gate (the redirect that fires when organizations.onboarding_completed is false — search the dashboard layout and middleware).
+      Change the model from hard-gate to soft-gate: 1) track progress per step — add organizations.onboarding_progress jsonb (new migration) storing {completed_steps: string[], last_step: string}; wire the existing 7-step wizard to persist each completed step immediately (save-and-continue), not only at the end. 2) The wizard remains the default landing after first login BUT gets a visible "Explore the platform first" skip link that sets a session flag and routes to /dashboard. 3) While onboarding_completed=false, every dashboard page shows a dismissible-per-session banner: "Organization setup is X of 7 steps complete — Resume setup" linking to the wizard at last_step. Use warning Badge tokens for the banner.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: ob-102
+    phase: build
+    description: "Onboarding resume section in Settings"
+    prompt: |
+      Add an "Organization Setup" section to Settings (follow settings/layout.tsx tab conventions): shows the 7 wizard steps as a checklist with completed/current/pending states (Badge variants: success/info/neutral), overall progress bar, and a "Resume setup" primary button deep-linking to the wizard at the first incomplete step. When onboarding_completed=true it shows all-complete with a "Review answers" link into the wizard in edit mode if the wizard supports revisiting; if it does not, link each completed step label to its wizard step directly.
+      Add a Playwright spec covering: skip link works, banner appears and resumes at correct step, Settings section reflects progress.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-201
+    phase: build
+    description: "DD Phase 2: prospect enrichment stage wired into worker"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 2B-2D. In worker/dd-request-processor.ts, replace the enrichment stub: after enumeration, for each directory record linked to the request that has a website and no enrichment (or enriched_at older than 180 days), run web-extractor with the donor_prospect schema (concurrency 5), merge into donor_discovery_directory.enrichment, set enriched_at. Update request status through 'enriching' with counts. Failures on individual sites must not fail the request — record per-site errors in a request log jsonb.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-202
+    phase: build
+    description: "DD Phase 2: 990/BMF corporate foundation linkage"
+    prompt: |
+      Create src/lib/donor-discovery/foundation-linkage.ts: for a directory company, attempt to find a related corporate foundation in foundation_directory by name heuristics ("<company> foundation", "<company> charitable", "<company> fund" via similarity() > 0.55) and, when the company enrichment includes an EIN or the 990 filer address domain matches the company domain, boost confidence. Returns {foundation_directory_id, confidence} or null. Wire into the worker enrichment stage: store linkage on the directory record (linked_foundation_id, linkage_confidence).
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-203
+    phase: build
+    description: "DD Phase 2: scoring engine with stored rationale"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 2D. Create src/lib/donor-discovery/scoring.ts: scoreProspect(directoryRecord, requestContext) -> {score 0-100, rationale string}. Deterministic weighted model (no Claude call): giving program +25, donation form +20, in-kind signals +15, linked foundation +15 * confidence, geographic match to request +15, size-appropriate +10; rationale is a generated sentence listing which signals fired. Weights read from an org-overridable jsonb in organizations (default constants). Wire into the worker as the scoring stage after enrichment, writing score + rationale to donor_discovery_prospects and advancing request status to 'complete'. Vitest coverage for the weight math and rationale output.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-204
+    phase: build
+    description: "DD Phase 2: re-enrichment TTL cron + minimal prospects UI hook"
+    prompt: |
+      Add a cron route following the existing Vercel cron conventions (check vercel.json and existing /api/cron/* routes, CRON_SECRET guard): /api/cron/dd-reenrich — enqueues a lightweight internal request that re-enriches directory records with enriched_at older than 180 days, capped at 200 per run.
+      On the existing dashboard, add prospect counts to nav-counts if a donor-discovery nav item exists; if the DD dashboard pages don't exist yet (they are Phase 3), do NOT build them — only ensure the API surface from Phase 1 returns score and rationale fields.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: night-002
+    phase: governance
+    description: "Governance update + single commit + push"
+    prompt: |
+      Run pnpm vitest run (all tests must pass; fix regressions you introduced), pnpm tsc --noEmit, pnpm run build — all clean.
+      Update STATE_OF_THE_BUILD.md: sections "Foundation Enrichment Pipeline (built, not yet run)" listing the two scripts and their pnpm commands with expected runtime/cost notes, "Onboarding Soft-Gate + Settings Resume", and "Donor Discovery Phase 2 (enrichment, linkage, scoring, TTL cron)". Explicitly list morning actions for Reid: apply new migrations to production, run pnpm enrich:990 (full 133K, cheap), then pnpm enrich:web --limit 2000 as the first prioritized web pass, back up ./enrichment-output/ to DATAOCEAN immediately after each run.
+      Update SESSION_STATE.md. git add -A, commit -m "feat: foundation enrichment pipeline, onboarding soft-gate, DD phase 2 enrichment+scoring", push origin main.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 2
+    on_fail: halt

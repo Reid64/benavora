@@ -1,0 +1,50 @@
+project: benavora
+governance:
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+prompts:
+
+- id: fix-001
+  name: Foundation profile dynamic route
+  prompt: "Create the file src/app/api/foundations/[id]/profile/route.ts with this exact content: import { NextResponse } from 'next/server'; import { createClient } from '@/lib/supabase/server'; export async function GET(request: Request, { params }: { params: { id: string } }) { const supabase = createClient(); const { data, error } = await supabase.from('foundation_profiles').select('*').eq('foundation_id', params.id).single(); if (error) { return NextResponse.json({ foundationId: params.id, avg_grant_size: null, message: 'no profile yet' }); } return NextResponse.json(data); } Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: foundation profile route'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/foundations/[id]/profile/route.ts
+
+- id: fix-002
+  name: Success probability dynamic route
+  prompt: "Create the file src/app/api/opportunities/[id]/probability/route.ts with this exact content: import { NextResponse } from 'next/server'; import { createClient } from '@/lib/supabase/server'; export async function GET(request: Request, { params }: { params: { id: string } }) { const { searchParams } = new URL(request.url); const orgId = searchParams.get('orgId') ?? ''; const supabase = createClient(); const { data: opp } = await supabase.from('opportunities').select('eligibility_score').eq('id', params.id).single(); const score = opp?.eligibility_score ?? 50; return NextResponse.json({ opportunityId: params.id, orgId, score, confidence: score > 70 ? 'high' : score > 40 ? 'medium' : 'low' }); } Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: probability route'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/opportunities/[id]/probability/route.ts
+
+- id: fix-003
+  name: Competitor intel dynamic route
+  prompt: "Create the file src/app/api/foundations/[id]/competitors/route.ts with this exact content: import { NextResponse } from 'next/server'; import { createClient } from '@/lib/supabase/server'; export async function GET(request: Request, { params }: { params: { id: string } }) { const supabase = createClient(); const { data } = await supabase.from('foundation_directory').select('enrichment').eq('id', params.id).single(); const enrichment = (data?.enrichment as Record<string, unknown>) ?? {}; const recipients = (enrichment.grant_recipients as Array<{name:string,amount:number}>) ?? []; const grouped = recipients.reduce((acc: Record<string, {name:string,total:number,count:number}>, r) => { if (!acc[r.name]) acc[r.name] = {name: r.name, total: 0, count: 0}; acc[r.name].total += r.amount; acc[r.name].count += 1; return acc; }, {}); const sorted = Object.values(grouped).sort((a,b) => b.total - a.total).slice(0, 10); return NextResponse.json({ foundationId: params.id, competitors: sorted }); } Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: competitor intel route'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/foundations/[id]/competitors/route.ts
+
+- id: fix-004
+  name: Application clone dynamic route
+  prompt: "Create the file src/app/api/applications/[id]/clone/route.ts with this exact content: import { NextResponse } from 'next/server'; import { createClient } from '@/lib/supabase/server'; export async function POST(request: Request, { params }: { params: { id: string } }) { const supabase = createClient(); const body = await request.json() as { targetOpportunityId: string }; const { data: source } = await supabase.from('applications').select('*').eq('id', params.id).single(); if (!source) return NextResponse.json({ error: 'source not found' }, { status: 404 }); const { data: newApp } = await supabase.from('applications').insert({ opportunity_id: body.targetOpportunityId, org_id: (source as Record<string,unknown>).org_id, status: 'discovery' }).select().single(); return NextResponse.json({ sourceId: params.id, newApplicationId: (newApp as Record<string,unknown>)?.id ?? null }); } Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: application clone route'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/applications/[id]/clone/route.ts
+
+- id: fix-005
+  name: Funder relationship dynamic route and final deploy
+  prompt: "Create the file src/app/api/funders/[id]/relationship/route.ts with this exact content: import { NextResponse } from 'next/server'; import { createClient } from '@/lib/supabase/server'; export async function GET(request: Request, { params }: { params: { id: string } }) { const supabase = createClient(); const { data } = await supabase.from('funder_relationship_scores').select('*').eq('funder_id', params.id).single(); if (!data) return NextResponse.json({ funderId: params.id, score: 0, momentum: 'stable' }); return NextResponse.json(data); } Run pnpm tsc --noEmit fix all errors. Then run pnpm run build fix all errors. Then git add -A; git commit -m 'feat: funder relationship route - all dynamic routes complete'; git push; vercel --prod --yes."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/funders/[id]/relationship/route.ts

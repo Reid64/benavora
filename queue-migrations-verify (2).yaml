@@ -1,0 +1,57 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, STATE_OF_THE_BUILD.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: migrations-verify-001
+    phase: investigate
+    description: "Query live Supabase directly to confirm which of migrations 007-010 are actually applied"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      STATE_OF_THE_BUILD.md's own history shows repeated confusion about
+      migration status -- several past sessions asserted "not applied"
+      without ever directly querying the live database, and were later
+      corrected. Do not repeat that pattern. Using the project's existing
+      service-role Supabase client pattern (see scripts/fix-gauges-seed.ts
+      or scripts/fix-profile-names.ts for the exact setup), directly query
+      the live database for the real existence of every table introduced by:
+      supabase/migrations/007_delivery_tracking.sql
+      supabase/migrations/008_order_geocoding.sql
+      supabase/migrations/009_command_center_crm.sql
+      supabase/migrations/010_bid_monitor.sql
+
+      For each migration, report exactly which of its tables/columns exist
+      live and which do not -- do not infer from documentation, query
+      directly. Write MIGRATIONS_STATUS.md at the project root with the
+      real findings and, for anything not yet applied, the exact SQL block
+      a human needs to paste into the Supabase SQL Editor to apply it
+      (pull directly from the real migration file content, do not
+      paraphrase or reconstruct it from memory).
+    gates:
+      - type: file_exists
+        files:
+          - MIGRATIONS_STATUS.md
+
+  - id: migrations-verify-002
+    phase: document
+    description: "Correct STATE_OF_THE_BUILD.md and SESSION_STATE.md from confirmed live migration status"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read MIGRATIONS_STATUS.md in full. Update STATE_OF_THE_BUILD.md and
+      SESSION_STATE.md to state the real, confirmed-live status of
+      migrations 007-010 -- replace any stale "not confirmed applied"
+      language with the actual finding. If any migration is confirmed NOT
+      applied, leave the exact apply instructions from MIGRATIONS_STATUS.md
+      clearly visible in STATE_OF_THE_BUILD.md's NEXT ACTION section so a
+      human can act on it directly, in the same style this project's
+      supabase/README.md already uses for prior migrations.
+
+      Do not attempt to apply any migration yourself via a script -- this
+      project's established convention is that a human pastes migrations
+      into the Supabase SQL Editor, not an automated script write path.
+
+      git add -A && git commit -m "docs: confirm live migration status for 007-010"
+      git push origin main
+    gates:
+      - type: compile

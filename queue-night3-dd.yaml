@@ -1,0 +1,171 @@
+project: benavora
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- DONOR_DISCOVERY_ARCHITECTURE.md
+settings:
+  max_retries_per_prompt: 3
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+prompts:
+- id: dd-n3-001
+  name: Fix header nav Donor Discovery permanent placement
+  prompt: "Read C:\\Users\\manag\\Documents\\benavora\\src\\components\\layout\\Header.tsx in full. The top header nav must contain these items in this order with font-weight 600 on all items: Dashboard | Research | Opportunities | AutoApply | Draft Generator | Donor Discovery. Donor Discovery links to /donor-discovery. Active item gets a solid underline indicator. This change keeps getting reverted - add a comment PERMANENT do not remove Donor Discovery from header nav above the nav items array so future AI sessions cannot accidentally delete it. Also read src/components/layout/nav-items.ts and src/components/layout/Sidebar.tsx - remove Donor Discovery from any top-level sidebar position; it must only appear as a drill-down sub-item when the user is already under /donor-discovery. After edits run: pnpm tsc --noEmit - must show 0 errors. Then run: git add src/components/layout/Header.tsx src/components/layout/nav-items.ts src/components/layout/Sidebar.tsx; git commit -m 'fix permanent Donor Discovery header nav placement'. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/layout/Header.tsx
+- id: dd-n3-002
+  name: NAICS alias layer plain language trade name search
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md and SCHEMA_REGISTRY.md in full before writing any code. Create migration file src/supabase/migrations/072_donor_discovery_taxonomy_aliases.sql with this EXACT SQL: CREATE TABLE IF NOT EXISTS donor_discovery_taxonomy_aliases (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), taxonomy_id uuid NOT NULL REFERENCES donor_discovery_taxonomy(id) ON DELETE CASCADE, alias text NOT NULL, alias_type text NOT NULL DEFAULT 'trade_name' CHECK (alias_type IN ('trade_name','keyword','common_name','material')), created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_dd_taxonomy_aliases_taxonomy_id ON donor_discovery_taxonomy_aliases(taxonomy_id); CREATE INDEX IF NOT EXISTS idx_dd_taxonomy_aliases_alias_trgm ON donor_discovery_taxonomy_aliases USING gin(alias gin_trgm_ops); Create script scripts/seed-dd-aliases.ts that uses the Anthropic SDK claude-sonnet-4-6 model to generate plain-language aliases for every 6-digit NAICS code in donor_discovery_taxonomy. For each code Claude generates 3-8 aliases covering common trade names a nonprofit staffer would use such as concrete pourer for 238110, septic installer for 562991, well driller for 237110, electrician for 238210, plumber for 238220, roofer for 238160, HVAC installer for 238220, drywall installer for 238310, painter for 238320, flooring installer for 238330, landscaper for 561730, tree service for 561730, demolition contractor for 238910, excavator for 238910, paving contractor for 237310, fence installer for 238990, carpet cleaner for 561740, window installer for 238150, insulation installer for 238310, masonry contractor for 238140. Process in batches of 50 codes per Claude call structured JSON output only. Upsert results into donor_discovery_taxonomy_aliases. Add package.json script seed:dd-aliases set to tsx scripts/seed-dd-aliases.ts. Create API route src/app/api/donor-discovery/taxonomy/search/route.ts: GET with query param q returns top 20 matches querying alias text first with ilike then taxonomy label returning id code label kind ancestry_label matched_alias. After edits run: pnpm tsc --noEmit. Update governance docs from audit."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/supabase/migrations/072_donor_discovery_taxonomy_aliases.sql
+    - scripts/seed-dd-aliases.ts
+    - src/app/api/donor-discovery/taxonomy/search/route.ts
+- id: dd-n3-003
+  name: Taxonomy combobox upgrade alias-powered plain language search
+  prompt: "Read src/app/(dashboard)/donor-discovery/new/page.tsx and all child components it imports in full. Replace the current taxonomy selector with a full-featured combobox component at src/components/donor-discovery/TaxonomyCombobox.tsx. The combobox has a text input placeholder Search by trade service or material, calls GET /api/donor-discovery/taxonomy/search with query param q and 300ms debounce, shows results as a scrollable list with max-h-72 overflow-y-auto and visible scrollbar, each result shows matched_alias in bold plus ancestry_label in gray text below it, supports multi-select where selected items appear as removable chips above the input, All industries is the default clear state, keyboard navigable with arrow keys enter to select escape to close, empty state shows popular categories Construction Trades Site Services Food Services Professional Services Manufacturing. Wire TaxonomyCombobox into the New Discovery wizard step 1 replacing any existing taxonomy picker. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/donor-discovery/TaxonomyCombobox.tsx
+- id: dd-n3-004
+  name: Google Places adapter Faith Foundation throttle cache-first
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md section 2A and WORKER_ARCHITECTURE.md in full. Create src/lib/donor-discovery/adapters/google-places-adapter.ts. This adapter implements interface RegistryAdapter with name string and enumerate method taking naicsCodes string array and geography Geography returning Promise of RawProspect array. Cache-first: before any Places API call queries donor_discovery_directory for existing records matching naics_codes overlap plus geo proximity using PostGIS ST_DWithin if available else bounding box. Returns cached records immediately only calls Places API for gaps. Places API call uses Nearby Search with keyword derived from NAICS label plus alias and maps response fields to RawProspect schema. Faith Foundation throttle: checks org_id against FAITH_FOUNDATION_ORG_ID env var. If match uses platform GOOGLE_PLACES_API_KEY with monthly spend tracking in adapter_usage_log table. Hard ceiling 100 dollars per month - if current month spend >= 100 dollars returns cached results only with a warning flag. If not Faith Foundation checks for org BYO connector key in donor_discovery_connectors where provider is google_places. If no key found throws AdapterError with BYOK_REQUIRED. All enumerated businesses upserted into donor_discovery_directory with source_adapters containing google_places. Per-domain rate limiting 1 req per 5s using existing token bucket pattern. Create migration 073_adapter_usage_log.sql: CREATE TABLE IF NOT EXISTS adapter_usage_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid, adapter_name text NOT NULL, api_cost_cents int DEFAULT 0, records_returned int DEFAULT 0, cache_hit bool DEFAULT false, called_at timestamptz DEFAULT now()); Add FAITH_FOUNDATION_ORG_ID=b1ab7402-dfc2-4712-869f-70ea3566cc1d to .env.local. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/adapters/google-places-adapter.ts
+    - src/supabase/migrations/073_adapter_usage_log.sql
+- id: dd-n3-005
+  name: Geocoding adapter and geography resolution
+  prompt: "Read src/lib/donor-discovery/adapters/google-places-adapter.ts in full. Create src/lib/donor-discovery/adapters/geocoding-adapter.ts. This adapter resolves a plain-text address to lat lng formatted_address state county zip using Google Geocoding API. Cache-first: stores results in new table donor_discovery_geocache with columns address_hash text PK lat numeric lng numeric formatted_address text state text county text zip text cached_at timestamptz - this is migration 074. Uses same platform key as Google Places with no separate BYOK needed. Rate limited to 10 req per second. Used by the New Discovery wizard to resolve the user address input before creating a discovery request. Wire into the wizard: when user enters address and clicks Geocode button call this adapter display resolved address for confirmation store lat and lng in the request geography field. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/adapters/geocoding-adapter.ts
+    - src/supabase/migrations/074_donor_discovery_geocache.sql
+- id: dd-n3-006
+  name: IRS BMF full ingest 1.8M exempt organizations
+  prompt: "Read SCHEMA_REGISTRY.md and DONOR_DISCOVERY_ARCHITECTURE.md in full. Create script scripts/ingest-irs-bmf-full.ts. This script downloads all IRS BMF CSV files for all states from https://www.irs.gov/pub/irs-soi/eo_XX.csv where XX is each state abbreviation al ak az ar ca co ct de fl ga hi id il in ia ks ky la me md ma mi mn ms mo mt ne nv nh nj nm ny nc nd oh ok or pa ri sc sd tn tx ut vt va wa wv wi wy dc pr plus eo_other.csv. BMF files are headerless with 28 columns. Column positions 0-indexed: EIN=2 NAME=0 STREET=4 CITY=5 STATE=6 ZIP=7 SUBSECTION=8 AFFILIATION=9 CLASSIFICATION=10 RULING=11 DEDUCTIBILITY=12 FOUNDATION=13 ACTIVITY=14 ORGANIZATION=15 STATUS=16 TAX_PERIOD=17 ASSET_CD=18 INCOME_CD=19 FILING_REQ_CD=20 PF_FILING_REQ_CD=21 ACCT_PD=22 ASSET_AMT=23 INCOME_AMT=24 REVENUE_AMT=25 NTEE_CD=26 SORT_NAME=27. For each record upsert into donor_discovery_directory: legal_name from NAME, naics_codes as empty array since BMF has no NAICS, civic_kind as nonprofit_501c3, website as null to be enriched later, hq_address concatenated from STREET CITY STATE ZIP, source_adapters containing irs_bmf, plus store EIN and NTEE_CD in enrichment jsonb field. Process in chunks of 1000 rows log progress every 10000 rows. Skip records where STATUS is not O meaning inactive. Total expected around 1.8M records across all files. Add script to package.json ingest:bmf set to tsx scripts/ingest-irs-bmf-full.ts. Run: pnpm tsc --noEmit on the script only. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/ingest-irs-bmf-full.ts
+- id: dd-n3-007
+  name: ProPublica Nonprofit Explorer adapter
+  prompt: "Read scripts/ingest-irs-bmf-full.ts in full. Create src/lib/donor-discovery/adapters/propublica-adapter.ts. ProPublica Nonprofit Explorer API is free no key required. Base URL is https://projects.propublica.org/nonprofits/api/v2. Endpoints used: GET /search.json with params q for name state id for state ntee id for ntee to search by name state NTEE, and GET /organizations/EIN.json to get full org detail including filings. This adapter given an EIN fetches full org detail from ProPublica and extracts total_revenue total_expenses total_assets ntee_code ntee_description filing_year form_type pdf_url. Upserts these financial signals into donor_discovery_directory.enrichment jsonb field. Rate limited to 1 req per second since ProPublica is free but rate-sensitive. Cache: if enrichment.propublica_enriched_at exists and is less than 90 days old skip. Create script scripts/enrich-nonprofits-propublica.ts that processes donor_discovery_directory records where civic_kind is nonprofit_501c3 and enrichment propublica_enriched_at IS NULL in batches of 100. Add package.json script enrich:propublica set to tsx scripts/enrich-nonprofits-propublica.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/adapters/propublica-adapter.ts
+    - scripts/enrich-nonprofits-propublica.ts
+- id: dd-n3-008
+  name: SAM.gov federal grantee import
+  prompt: "Read SCHEMA_REGISTRY.md in full. Create src/lib/donor-discovery/adapters/samgov-adapter.ts. SAM.gov API key is already in env as SAM_API_KEY with value SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a. SAM.gov Entity Management API base is https://api.sam.gov/entity-information/v3/entities. This adapter searches for active entities by NAICS code using params api_key purposeOfRegistrationCode Z2 for federal assistance naicsCode and activeDate. Maps response to RawProspect with legal_name from legalBusinessName website from entityURL hq_address from physicalAddress naics_codes as array containing the naicsCode. Upserts into donor_discovery_directory with source_adapters containing samgov. Also queries for recent award recipients via GET https://api.sam.gov/opportunities/v2/search with api_key limit 1000 and postedFrom set to 90 days ago to find active federal contractors as potential corporate donors. Rate limited to 450 req per minute with key. Create script scripts/ingest-samgov.ts that ingests top 50 NAICS codes most relevant to nonprofit needs including construction trades professional services food service and transportation. Add package.json script ingest:samgov set to tsx scripts/ingest-samgov.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/adapters/samgov-adapter.ts
+    - scripts/ingest-samgov.ts
+- id: dd-n3-009
+  name: Claude enrichment agent for corporate donor prospects
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md section 2B and AGENTS.md in full. Create src/lib/donor-discovery/agents/enrichment-agent.ts. This agent implements the EnrichmentAgent class with method enrich taking directoryId string and returning Promise of EnrichmentRecord. It fetches the directory record from donor_discovery_directory. If no website skips enrichment and marks enrichment.skip_reason as no_website. Fetches the website using existing web-extractor pattern respecting robots.txt with 5s timeout and user-agent Benavora Platform enrichment@benavora.com. Sends page content to Claude claude-sonnet-4-6 with max_tokens 1000 with structured extraction prompt to extract has_giving_program bool has_donation_form bool donation_form_url string or null csr_page_url string or null giving_focus_areas string array in_kind_history_signals string array decision_contacts array of objects with name title and optional email and phone service_area string company_size_estimate one of small medium large enterprise. Response must be valid JSON only. Upserts enrichment result into donor_discovery_directory.enrichment and sets enriched_at to now. If has_donation_form is true emits event to create AutoApply queue item. Handles errors gracefully so network timeout robots blocked and Claude API error all set enrichment.error_reason and continue. Create worker job handler src/worker/jobs/enrich-donor-prospect.ts that dequeues jobs from existing worker queue pattern calls EnrichmentAgent.enrich and updates donor_discovery_prospects scores. Wire job type enrich_donor_prospect into queue-processor.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/agents/enrichment-agent.ts
+    - src/worker/jobs/enrich-donor-prospect.ts
+- id: dd-n3-010
+  name: Scoring engine with Claude rationale
+  prompt: "Read src/lib/donor-discovery/agents/enrichment-agent.ts and DONOR_DISCOVERY_ARCHITECTURE.md section 2D in full. Create src/lib/donor-discovery/scoring-engine.ts. The scoring engine implements score method taking prospectId string and requestContext RequestContext and returning Promise of ScoreResult. RequestContext includes org mission text ask size estimate geography and taxonomy nodes requested. Scoring weights configurable per org via org_settings jsonb: has_giving_program adds 25 has_donation_form adds 20 in_kind_history_signals length greater than 0 adds 15 foundation_linkage_found adds 15 geographic_match adds 10 company_size_match adds 10 csr_page_exists adds 5. Calls Claude claude-haiku-4-5 with max_tokens 300 to generate a 2-sentence rationale string explaining the score in plain English for the nonprofit user for example This roofing contractor has an active giving program and a donation form on their website making them a strong candidate for an in-kind roofing materials request. Updates donor_discovery_prospects with score as computed_score score_rationale as claude_rationale and scored_at as now. Foundation linkage: queries foundation_directory by fuzzy name match using pg_trgm similarity greater than 0.4 and EIN match if available. Create worker job src/worker/jobs/score-donor-prospect.ts. Wire score_donor_prospect job type into queue-processor.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/scoring-engine.ts
+    - src/worker/jobs/score-donor-prospect.ts
+- id: dd-n3-011
+  name: Request queue worker enumeration to enrichment to scoring pipeline
+  prompt: "Read WORKER_ARCHITECTURE.md and src/worker/queue-processor.ts in full. Create src/worker/jobs/process-discovery-request.ts. This job receives job payload with requestId and organizationId. Fetches donor_discovery_requests record. Updates status to enumerating. Resolves taxonomy nodes to NAICS codes via donor_discovery_taxonomy. Calls GooglePlacesAdapter.enumerate with NAICS codes and geography. For each enumerated prospect upserts into donor_discovery_directory creates donor_discovery_prospects record with pipeline_stage new and enqueues enrich_donor_prospect job. Updates request status to enriching with counts.enumerated set to N. Enrichment jobs run in parallel with max 5 concurrent via existing worker semaphore. After all enrichment complete enqueues score_donor_prospect job for each prospect. After all scoring complete updates request status to complete with counts.scored set to N and completed_at set to now. On any unrecoverable error sets status to failed and stores error_message. Create API route src/app/api/donor-discovery/requests/route.ts: POST creates a new discovery request record and enqueues process_discovery_request job. GET returns paginated list of requests for the org. Wire process_discovery_request into queue-processor.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/worker/jobs/process-discovery-request.ts
+    - src/app/api/donor-discovery/requests/route.ts
+- id: dd-n3-012
+  name: Donor Discovery Overview page
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md section 4 and the existing src/app/(dashboard)/donor-discovery directory structure in full. Create src/app/(dashboard)/donor-discovery/page.tsx as the Overview page. Layout: PageHeader with title Donor Discovery subtitle Find and engage corporate donors matched to your mission and primary button New Discovery linking to /donor-discovery/new. Active Requests section fetches GET /api/donor-discovery/requests and shows each request as a card with request name taxonomy labels geography status badge using colors for queued enumerating enriching scoring complete failed progress bar showing counts and created_at time ago. Empty state shows No discovery requests yet launch your first one. Pipeline Funnel section shows horizontal stat row with prospect counts by pipeline_stage across all requests for New Reviewing Contacted Applied Received Rejected where clicking a stage filters the Prospects page. Top Prospects section fetches top 5 prospects by score where pipeline_stage is new and shows compact cards with company name score badge colored green above 70 yellow 40 to 70 red below 40 score_rationale excerpt taxonomy label and Review button linking to prospect detail. Scout Report block shows placeholder card Weekly Scout Report Coming soon Your personalized digest of new high-scoring prospects. Use existing design tokens with bg-surface cards primary 0077B6 buttons and accent badges. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/donor-discovery/page.tsx
+- id: dd-n3-013
+  name: Prospect detail page with enrichment record and AutoApply handoff
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md sections 4 and 7 in full. Create src/app/(dashboard)/donor-discovery/prospects/[id]/page.tsx. This page fetches donor_discovery_prospects joined with donor_discovery_directory by prospect id scoped by org_id RLS. Header shows company legal_name large dba_name if different score badge colored 0 to 100 and pipeline_stage selector dropdown to advance stage calling PATCH /api/donor-discovery/prospects/[id]. Score section shows score_rationale text in a highlighted card with scored_at date. Enrichment section from directory.enrichment shows has_giving_program as green checkmark or gray X has_donation_form with link to form URL if true csr_page_url clickable giving_focus_areas as badge chips in_kind_history_signals as bulleted list service_area and company_size_estimate. AutoApply handoff: if has_donation_form is true show prominent Queue in AutoApply button in primary color. Clicking creates a funder record plus AutoApply queue item via POST /api/autoapply/queue with source donor_discovery prospect_id form_url from donation_form_url and org_name from legal_name. Show success toast Added to AutoApply queue. If has_donation_form is false show disabled button No donation form found. Contacts section shows decision_contacts array from enrichment each with name title email as mailto link and phone. Activity timeline shows notes field with add-note form and assigned_to selector. Create API routes GET and PATCH for src/app/api/donor-discovery/prospects/[id]/route.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/donor-discovery/prospects/[id]/page.tsx
+    - src/app/api/donor-discovery/prospects/[id]/route.ts
+- id: dd-n3-014
+  name: Connectors page BYO-key provider management
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md section 6 in full. Create src/app/(dashboard)/donor-discovery/connectors/page.tsx. This page manages BYO-key third-party enrichment connectors. Layout: PageHeader Connectors with subtitle Connect your own API keys for deeper prospect enrichment. Provider cards grid 2 columns desktop 1 mobile. Each card shows provider logo placeholder icon provider name description of what it enriches status badge Connected or Not Connected and cost note Your key billed to your account. Providers to show: Google Places for non-Faith-Foundation orgs Apollo.io for Company plus contact enrichment Hunter.io for Email discovery and verification ZoomInfo for Enterprise firmographics coming soon disabled Clay for Multi-source enrichment coming soon disabled. Connect flow: clicking Connect on an active provider opens a modal with API key input password type test button calling POST /api/donor-discovery/connectors/test with provider and api_key on success saves via POST /api/donor-discovery/connectors using encrypted storage via existing BYO-key infrastructure and shows Connected status. Connected state shows Disconnect button last_used_at date and records_enriched count from adapter_usage_log. Create API routes: src/app/api/donor-discovery/connectors/route.ts for GET list and POST save encrypted key, and src/app/api/donor-discovery/connectors/test/route.ts for POST test key validity. Use existing encrypt and decrypt from src/lib/crypto/key-encrypt.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/donor-discovery/connectors/page.tsx
+    - src/app/api/donor-discovery/connectors/route.ts
+    - src/app/api/donor-discovery/connectors/test/route.ts
+- id: dd-n3-015
+  name: TX TDLR license board adapter and land bank directory adapter
+  prompt: "Read DONOR_DISCOVERY_ARCHITECTURE.md section 2A in full. Create src/lib/donor-discovery/adapters/tx-tdlr-adapter.ts. TX TDLR Texas Department of Licensing and Regulation publishes licensee data. This adapter implements RegistryAdapter interface and fetches licensee search results for license types Electrical Contractors ELEC Plumbing PLMB HVAC Elevator ELEV and Boiler BLRP using GET https://www.tdlr.texas.gov/TNPWS/Lookup.aspx with SearchType Business and LicenseType param with appropriate headers. Parses HTML response using node-html-parser installing it if not present to extract business_name license_number license_type city zip phone expiration_date. Filters to active licenses only where expiration_date is after today. Upserts into donor_discovery_directory with source_adapters containing tx_tdlr and naics_codes mapped from license type where ELEC maps to 238210 PLMB to 238220 HVAC to 238220 ELEV to 238290. Create src/lib/donor-discovery/adapters/land-bank-adapter.ts: Center for Community Progress maintains a land bank directory. Fetch https://www.communityprogress.org/resources/land-bank-resources/land-bank-directory/ and scrape the directory table to extract org name state city website and contact. Upsert into donor_discovery_directory with civic_kind land_bank and source_adapters containing land_bank_directory. Add package.json scripts ingest:tdlr set to tsx scripts/ingest-tx-tdlr.ts and ingest:landbanks set to tsx scripts/ingest-land-banks.ts. Create the corresponding script files. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/adapters/tx-tdlr-adapter.ts
+    - src/lib/donor-discovery/adapters/land-bank-adapter.ts
+    - scripts/ingest-tx-tdlr.ts
+    - scripts/ingest-land-banks.ts
+- id: dd-n3-016
+  name: Apollo.io and Hunter.io BYO-key connector implementations
+  prompt: "Read src/app/(dashboard)/donor-discovery/connectors/page.tsx and src/lib/crypto/key-encrypt.ts in full. Create src/lib/donor-discovery/connectors/apollo-connector.ts. Apollo.io People Search API v1 uses POST https://api.apollo.io/v1/mixed_people/search with api_key in body. This connector implements ConnectorEnricher interface with provider string and enrich method taking prospect DirectoryRecord and apiKey string returning Promise of ConnectorEnrichment. Searches by company domain or name. Extracts decision_maker contacts including CEO Executive Director CSR Director and Donations Manager with email phone and LinkedIn URL. Writes to donor_discovery_prospects.enrichment_private which is tenant-scoped and never shared. Logs usage to adapter_usage_log. Create src/lib/donor-discovery/connectors/hunter-connector.ts. Hunter.io Domain Search API uses GET https://api.hunter.io/v2/domain-search with domain and api_key params. Same ConnectorEnricher interface. Extracts all email addresses found for the domain with confidence score. Filters to decision-maker titles including director manager president CEO executive development donor giving and CSR. Writes to enrichment_private. Create worker job src/worker/jobs/run-connector-enrichment.ts that given prospectId and connectorProvider decrypts the org stored API key calls the appropriate connector and saves results. Wire run_connector_enrichment into queue-processor.ts. Run: pnpm tsc --noEmit. Update governance docs."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/connectors/apollo-connector.ts
+    - src/lib/donor-discovery/connectors/hunter-connector.ts
+    - src/worker/jobs/run-connector-enrichment.ts
+- id: dd-n3-017
+  name: Write next queue and update all governance docs
+  prompt: "STEP 1 WRITE NEXT QUEUE FILE FIRST before anything else. Write this exact content to C:\\Users\\manag\\Documents\\FORGE\\projects\\benavora\\queue-night4-intelligence.yaml then verify with Test-Path must return True then Copy-Item to queue.yaml. Content: project: benavora\\ngovernance:\\n- BLUEPRINT.md\\n- STATE_OF_THE_BUILD.md\\n- SESSION_STATE.md\\nprompts:\\n- id: placeholder-001\\n  name: Next queue placeholder\\n  prompt: Read STATE_OF_THE_BUILD.md and continue from last completed prompt.\\n  gates:\\n  - type: compile\\n. STEP 2 Run full codebase audit using find to count pages and routes then run pnpm tsc --noEmit. STEP 3 Update C:\\Users\\manag\\Documents\\benavora\\STATE_OF_THE_BUILD.md adding section Donor Discovery Night 3 Build COMPLETE listing every file created in this queue run with actual file existence verification. Update SESSION_STATE.md with current phase and next action. Update DONOR_DISCOVERY_ARCHITECTURE.md phases section marking Phase 1 complete Phase 2 enrichment engine complete Phase 3 dashboard complete Phase 4 adapters connectors complete. Update SCHEMA_REGISTRY.md with new tables donor_discovery_taxonomy_aliases adapter_usage_log donor_discovery_geocache. STEP 4 run git add -A then git commit with message feat DD Phases 2-4 complete enrichment engine scoring adapters connectors directory expansion then git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - C:\Users\manag\Documents\FORGE\projects\benavora\queue-night4-intelligence.yaml
+    - STATE_OF_THE_BUILD.md
+    - SESSION_STATE.md

@@ -1,0 +1,107 @@
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+project: Tarritrix
+prompts:
+- id: a21-001
+  name: A-21 Hyperlocal Geographic Engine Schema
+  prompt: "Read AGENTS.md A-21 entry in full before writing anything.\n\nWrite migration C:\\Users\\manag\\Documents\\Tarritrix\\supabase\\migrations\\20260728300000_a21_hyperlocal.sql:\nCREATE TABLE IF NOT EXISTS neighborhoods (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, city_id UUID REFERENCES cities(id), name TEXT NOT NULL, zip_code TEXT, county TEXT, state TEXT NOT NULL, parcel_density_class TEXT CHECK (parcel_density_class IN ('residential','commercial','mixed','rural')), topology_class TEXT CHECK (topology_class IN ('urban','suburban','rural','coastal')), median_property_value INTEGER, permit_velocity TEXT, polygon_geojson JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS county_data_sources (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), county TEXT NOT NULL, state TEXT NOT NULL, tier INTEGER CHECK (tier IN (1,2,3)) NOT NULL DEFAULT 3, api_url TEXT, data_type TEXT, last_fetched_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS parcels (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), neighborhood_id UUID REFERENCES neighborhoods(id) ON DELETE CASCADE, parcel_id TEXT, address TEXT, parcel_type TEXT, building_year INTEGER, lot_size_sqft INTEGER, building_sqft INTEGER, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nALTER TABLE neighborhoods ENABLE ROW LEVEL SECURITY;\nALTER TABLE parcels ENABLE ROW LEVEL SECURITY;\nCREATE POLICY neighborhoods_operator ON neighborhoods FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nCREATE POLICY parcels_operator ON parcels FOR ALL TO authenticated USING (neighborhood_id IN (SELECT id FROM neighborhoods WHERE client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid())));\nsupabase db push.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-21 hyperlocal schema neighborhoods parcels county_data_sources'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+
+- id: a21-002
+  name: A-21 Hyperlocal Geographic Engine Implementation
+  prompt: "Read AGENTS.md A-21 entry in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-21-hyperlocal-geographic-engine.ts\nExtends BaseAgent. Input: { client_id: string, county?: string, state?: string }. process(): (1) Fetch county_data_sources for client service area. If tier=3 return early with { tier_3_fallback: true, pages_queued: 0 }. (2) For tier 1/2: query neighborhoods for this client+county. (3) Classify each neighborhood: parcel_density_class from parcel data, topology_class from geographic indicators. (4) Generate page candidates for each neighborhood by inserting to page_generation_queue with intent='neighborhood', metadata including neighborhood_id, zip_code, topology_class. (5) Return { neighborhoods_processed, page_candidates_queued, tier_3_counties_skipped }.\n\nWrite src\\app\\api\\agents\\a-21\\trigger\\route.ts with getOperatorContext() auth.\n\nWrite tests\\unit\\agents\\a-21.test.ts: 5 tests: tier 3 county returns fallback, tier 1 generates page candidates, parcel density classified correctly, topology class assigned, page candidates inserted to queue.\n\npnpm tsc --noEmit 0 errors. Tests pass.\n\ngit add -A; git commit --no-verify -m 'feat: A-21 Hyperlocal Geographic Engine implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-21-hyperlocal-geographic-engine.ts
+    - src/app/api/agents/a-21/trigger/route.ts
+
+- id: a25-a26-001
+  name: A-25 AEO Atomic Fact Engine and A-26 Entity Schema Engine Schema
+  prompt: "Read AGENTS.md entries for A-25 and A-26 in full.\n\nWrite migration C:\\Users\\manag\\Documents\\Tarritrix\\supabase\\migrations\\20260728310000_a25_a26_aeo.sql:\nCREATE TABLE IF NOT EXISTS page_atomic_facts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), page_id UUID NOT NULL REFERENCES pages(id) ON DELETE CASCADE, client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, fact_type TEXT CHECK (fact_type IN ('permit_requirement','hoa_prevalence','local_regulation','service_stat','testimonial_claim','certification_claim')) NOT NULL, fact_text TEXT NOT NULL, source TEXT, verified BOOLEAN NOT NULL DEFAULT false, voice_answer_summary TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS page_entities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), page_id UUID NOT NULL REFERENCES pages(id) ON DELETE CASCADE, entity_type TEXT CHECK (entity_type IN ('LocalBusiness','Service','FAQPage','HowTo','Review')) NOT NULL, schema_json JSONB NOT NULL, validation_status TEXT CHECK (validation_status IN ('valid','invalid','pending')) DEFAULT 'pending', created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS voice_query_patterns (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, query_pattern TEXT NOT NULL, query_type TEXT CHECK (query_type IN ('near_me','how_to','who_provides','what_is','cost_query')) DEFAULT 'near_me', target_page_id UUID REFERENCES pages(id), created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nALTER TABLE page_atomic_facts ENABLE ROW LEVEL SECURITY;\nALTER TABLE page_entities ENABLE ROW LEVEL SECURITY;\nALTER TABLE voice_query_patterns ENABLE ROW LEVEL SECURITY;\nCREATE POLICY paf_operator ON page_atomic_facts FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nCREATE POLICY pe_operator ON page_entities FOR ALL TO authenticated USING (page_id IN (SELECT id FROM pages WHERE client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid())));\nCREATE POLICY vqp_operator ON voice_query_patterns FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nsupabase db push.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-25 A-26 AEO entity schema tables'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+
+- id: a25-001
+  name: A-25 AEO Atomic Fact Engine Implementation
+  prompt: "Read AGENTS.md A-25 entry in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-25-aeo-atomic-fact-engine.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. process(): (1) Read page from pages table. (2) Read client service area (cities, county from neighborhoods). (3) Generate atomic facts using LLM: permit requirements (query municipal context from neighborhoods.permit_velocity), HOA prevalence from topology_class, local regulation context. Each fact is 40-60 words suitable as a voice search direct answer. (4) Generate voice_answer_summary for the page: 40-50 word direct answer to 'who provides [service] in [city]'. (5) Upsert to page_atomic_facts. (6) Return { facts_created, voice_answer_summary }.\n\nWrite src\\app\\api\\agents\\a-25\\trigger\\route.ts with getOperatorContext() auth.\n\nWrite tests\\unit\\agents\\a-25.test.ts: 4 tests.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-25 AEO Atomic Fact Engine implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-25-aeo-atomic-fact-engine.ts
+    - src/app/api/agents/a-25/trigger/route.ts
+
+- id: a26-001
+  name: A-26 Entity Schema Engine Implementation
+  prompt: "Read AGENTS.md A-26 entry in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-26-entity-schema-engine.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. process(): (1) Read page and client data. (2) Build LocalBusiness schema: name from clients.business_name, address from clients NAP data, telephone E.164 format, url from page URL, serviceArea from cities. HARD PROHIBITIONS: no aggregateRating in LocalBusiness, no review property in LocalBusiness, schema must match visible page content. (3) Build Service schema for the page's service type. (4) If page has atomic facts from A-25: build FAQPage schema from fact_text entries formatted as Q&A. (5) Validate all schema JSON against schema.org requirements (required fields present, no prohibited properties). (6) Upsert to page_entities. Return { schemas_created, validation_status }.\n\nWrite src\\app\\api\\agents\\a-26\\trigger\\route.ts with getOperatorContext() auth.\n\nWrite tests\\unit\\agents\\a-26.test.ts: 4 tests including prohibition enforcement.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-26 Entity Schema Engine implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-26-entity-schema-engine.ts
+    - src/app/api/agents/a-26/trigger/route.ts
+
+- id: a27-001
+  name: A-27 Voice Search Optimization Engine Implementation
+  prompt: "Read AGENTS.md A-27 entry in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-27-voice-search-engine.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. process(): (1) Read A-25 atomic facts for page from page_atomic_facts. (2) Read A-26 entity schema from page_entities. (3) Validate Speakable cssSelector would resolve (static check that content has identifiable selectors). (4) Validate voice_answer_summary is 40-50 words. (5) Generate voice keyword variants: take typed keywords from pages table, append 'near me', 'how to', 'who provides' variants. (6) Upsert voice_query_patterns for client+page. (7) Compute voice optimization score 0-100 based on: has voice_answer_summary (+30), summary 40-50 words (+20), speakable schema present (+25), voice keywords generated (+25). (8) Return { voice_score, patterns_created, validation_issues }.\n\nWrite src\\app\\api\\agents\\a-27\\trigger\\route.ts with getOperatorContext() auth.\n\nWrite tests\\unit\\agents\\a-27.test.ts: 4 tests.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-27 Voice Search Optimization Engine implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-27-voice-search-engine.ts
+    - src/app/api/agents/a-27/trigger/route.ts
+
+- id: a32-a33-001
+  name: A-32 Content Seed Variation Engine and A-33 Schema Markup Scrambler
+  prompt: "Read AGENTS.md entries for A-32 and A-33 in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-32-content-seed-variation-engine.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string, seed_template?: string }. process(): (1) Parse seed template into semantic blocks: intro, services, benefits, CTA. If no seed_template use page generated_content. (2) For each block generate 3 variations using LLM with instruction 'Rewrite this paragraph maintaining tone facts and structure but varying sentence structure word choice and phrasing. Avoid clichés.' (3) Per page select one variation per block using deterministic seed hash(client_id + page_id). (4) Ensure no two pages for same client use identical block sequences via hash comparison against content_variations. (5) Return { blocks_varied, variations_generated, hash_conflicts_avoided }.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-33-schema-scrambler.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. process(): Read page_entities schemas for page. For each schema: (1) Randomize JSON key order (sort keys by hash(key + page_id)). (2) Vary phone format (pick one of 3 formats using hash). (3) Vary date formats. (4) Inject optional properties at 80%/60% rates using page_id hash. (5) Validate schema remains valid. (6) Update page_entities with scrambled JSON. Return { schemas_scrambled, validation_passed }.\n\nWrite trigger routes for both. Write 3 tests each.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-32 A-33 content variation schema scrambler'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-32-content-seed-variation-engine.ts
+    - src/lib/agents/a-33-schema-scrambler.ts
+
+- id: a34-a35-001
+  name: A-34 Image Metadata Randomizer and A-35 Component Variation Engine
+  prompt: "Read AGENTS.md entries for A-34 and A-35 in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-34-image-metadata-randomizer.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. process(): (1) For each image referenced in page content, generate 5 alt text variations per image type using deterministic selection via hash(image_url + page_id). (2) Vary title attribute similarly. (3) Store in a simple JSONB column or dedicated table — check SCHEMA_REGISTRY.md for image_metadata_variations table, create if missing. (4) Verify no two pages for same client+image use identical alt text. Return { images_processed, variations_assigned }.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-35-component-variation-engine.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. Implements 11 variation axes per AGENTS.md spec. Uses deterministic seed hash(client_id + page_id). Hard constraints enforced: (1) Conversion form always above-the-fold. (2) Brand colors from client config. (3) TCPA text immutable. (4) WCAG 2.1 AA compliance assumed (no color contrast changes). Returns variation_tuple with axis values. Logs to page_fingerprint_log (create table if missing in migration).\n\nWrite trigger routes. Write 3 tests each.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-34 A-35 image metadata randomizer component variation engine'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-34-image-metadata-randomizer.ts
+    - src/lib/agents/a-35-component-variation-engine.ts
+
+- id: a36-a37-a38-001
+  name: A-36 Internal Link Shuffler A-37 Publish Cadence Jitter A-38 HTTP Fingerprint
+  prompt: "Read AGENTS.md entries for A-36 A-37 A-38 in full.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-36-internal-link-shuffler.ts\nExtends BaseAgent. Input: { client_id: string }. process(): For each published page: get A-06 baseline links. Inject 1-2 additional links randomly (to blog, other cities, FAQ) using hash(page_id) for determinism. Vary anchor text per page using rotation array ['roofing services','expert roofers','professional roofing','local roofers','top roofing']. Ensure no two pages have identical link sets via graph hash. Upsert to internal_links. Return { pages_processed, links_varied }.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-37-publish-cadence-jitter.ts\nExtends BaseAgent. Input: { client_id: string, pages_to_publish: string[] }. process(): Apply ±30 minute jitter to each page publish time using hash(page_id + Date.now()). Never publish more than 15 pages per day per client (2026 Google scaled-content-abuse compliance). Update page_generation_queue scheduled_at with jittered times. Return { pages_scheduled, jitter_applied_minutes }.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-38-http-fingerprint-diffusion.ts\nExtends BaseAgent. Input: { page_id: string }. process(): Compute diffusion values from hash(page_id): cache_ttl between 3600-5400 seconds, last_modified_jitter ±12 hours within last 30 days, etag_format one of 3 formats. Store as page metadata. These values are read by Next.js middleware to set response headers. Return { cache_ttl, last_modified_offset, etag_format }.\n\nWrite trigger routes for all three. Write 3 tests each.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-36 A-37 A-38 link shuffler cadence jitter HTTP fingerprint'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-36-internal-link-shuffler.ts
+    - src/lib/agents/a-37-publish-cadence-jitter.ts
+    - src/lib/agents/a-38-http-fingerprint-diffusion.ts
+
+- id: a46-001
+  name: A-46 Directory Registration Agent
+  prompt: "Read AGENTS.md A-46 entry in full.\n\nWrite migration C:\\Users\\manag\\Documents\\Tarritrix\\supabase\\migrations\\20260728320000_a46_directory.sql:\nCREATE TABLE IF NOT EXISTS directory_registry (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, url TEXT NOT NULL, tier TEXT CHECK (tier IN ('A','B','C')) NOT NULL, track TEXT CHECK (track IN ('A','B','C')) NOT NULL DEFAULT 'B', dr_score INTEGER, api_endpoint TEXT, requires_oauth BOOLEAN DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nCREATE TABLE IF NOT EXISTS directory_submissions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, directory_id UUID NOT NULL REFERENCES directory_registry(id), page_id UUID REFERENCES pages(id), submission_status TEXT CHECK (submission_status IN ('pending','submitted','confirmed','rejected','manual_required')) DEFAULT 'pending', submitted_at TIMESTAMPTZ, confirmation_ref TEXT, operator_review_required BOOLEAN DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now());\nALTER TABLE directory_submissions ENABLE ROW LEVEL SECURITY;\nCREATE POLICY dir_submissions_operator ON directory_submissions FOR ALL TO authenticated USING (client_id IN (SELECT id FROM clients WHERE operator_id = auth.uid()));\nsupabase db push.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\src\\lib\\agents\\a-46-directory-registration-agent.ts\nExtends BaseAgent. Input: { client_id: string, page_id: string }. process(): (1) Fetch Tier A Track A directories from directory_registry. (2) For each: build submission payload from client NAP data + page URL. (3) For Track A directories with api_endpoint: POST to API with payload. (4) For Track B/C: insert to directory_submissions with operator_review_required=true. (5) Update submission status. Return { track_a_submitted, track_bc_queued }.\n\nWrite trigger route and 3 tests.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: A-46 Directory Registration Agent schema and implementation'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/agents/a-46-directory-registration-agent.ts
+    - src/app/api/agents/a-46/trigger/route.ts
+
+- id: phase15-verify
+  name: Phase 1.5 Agents Verification and Deploy
+  prompt: "Verify all Phase 1.5 agent files exist:\nGet-ChildItem 'src\\lib\\agents\\' | Select-Object Name | Where-Object { $_.Name -match 'a-2[1567]|a-3[2-8]|a-46' }\nMust show: a-21 a-25 a-26 a-27 a-32 a-33 a-34 a-35 a-36 a-37 a-38 a-46.\n\npnpm tsc --noEmit\npnpm run build\npnpm vitest run\nAll must pass. Fix any failures.\n\nUpdate STATE_OF_THE_BUILD.md marking Phase 1.5 agents complete. List all 12 agents.\n\nvercel --prod. Report URL.\n\ngit add -A; git commit --no-verify -m 'feat: Phase 1.5 agents complete A-21 A-25 A-26 A-27 A-32-A-38 A-46 deployed'; git push origin main\ngit tag v1.2.0-phase15; git push origin v1.2.0-phase15\nReport commit hash and tag."
+  gates:
+  - type: compile
+  - type: build

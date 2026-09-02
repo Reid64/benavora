@@ -1,0 +1,29 @@
+schema_version: "2.0.0"
+registry_id: "PIL-SERVICE-REGISTRY"
+classification: deterministic_support_services
+rule: "Services do not count toward the genuine-agent fleet."
+base_services_ref: "01-registries/02-service-registry.yaml#v1"
+extension_services:
+  - {id: PIL-SVC-31, name: Browser Execution Sandbox and Broker, responsibility: isolated_policy_bound_browser_execution}
+  - {id: PIL-SVC-32, name: Portal Extraction Semantic Model and Drift Detector, responsibility: page_snapshot_form_semantics_and_change_detection}
+  - {id: PIL-SVC-33, name: Application Credential and Secret Vault, responsibility: portal_credentials_secret_injection_rotation_and_revocation}
+  - {id: PIL-SVC-34, name: Portal Account Authentication and Session Manager, responsibility: registration_login_session_and_account_uniqueness}
+  - {id: PIL-SVC-35, name: Scoped Application Mailbox and Confirmation Correlator, responsibility: minimum_scope_email_correlation_and_confirmation_validation}
+  - {id: PIL-SVC-36, name: Tenant Application Document Catalog and Secure Object Store, responsibility: versioned_tenant_document_inventory_and_sensitivity}
+  - {id: PIL-SVC-37, name: Document Assembly Conversion and Validation, responsibility: assembly_render_conversion_scan_size_type_and_recency_checks}
+  - {id: PIL-SVC-38, name: Form Mutation Upload and Submission Effect Service, responsibility: browser_mutations_uploads_one_time_submit_and_effect_receipts}
+  - {id: PIL-SVC-39, name: Application Case Ledger and State Projection Store, responsibility: canonical_application_execution_aggregate}
+  - {id: PIL-SVC-40, name: Application Idempotency Lease and Reconciliation Service, responsibility: duplicate_prevention_leases_uncertain_effect_reconciliation}
+  - {id: PIL-SVC-41, name: Portal Change Canary and Compatibility Registry, responsibility: portal_fingerprints_canaries_and_known_compatibility}
+  - {id: PIL-SVC-42, name: Application Validation Engine, responsibility: deterministic_field_budget_limit_attachment_and_completeness_validation}
+  - {id: PIL-SVC-43, name: Attestation Signature and Delegated Authority Registry, responsibility: authorized_signers_attestation_classes_and_authority_tokens}
+  - {id: PIL-SVC-44, name: Application CRM and Graph Synchronization Projection, responsibility: noncanonical_application_projection_sync}
+  - {id: PIL-SVC-45, name: Application Communications Correlator, responsibility: scoped_message_notification_and_case_correlation}
+  - {id: PIL-SVC-46, name: Award Fulfillment and Reporting Obligation Tracker, responsibility: post_decision_cash_inkind_delivery_and_reporting_state}
+service_count_after_extension: 46
+security_invariants:
+  - no_service_inherits_agent_reasoning_authority
+  - secrets_never_enter_model_context_or_general_logs
+  - browser_workers_are_ephemeral_and_tenant_isolated
+  - submit_effect_requires_candidate_bound_one_time_authority
+  - crm_is_projection_not_canonical_truth

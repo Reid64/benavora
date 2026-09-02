@@ -1,0 +1,256 @@
+project: hail-intel
+governance:
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- IMPLEMENTATION_BLUEPRINT.md
+- ANCHOR_PROMPT_V8.md
+prompts:
+- id: hi-governance-sync
+  name: Sync governance docs and run deep analysis baseline
+  prompt: |
+    First sync governance docs from repo to FORGE projects folder:
+    $repo = 'C:\Users\manag\Documents\hail-intel'
+    $forge = 'C:\Users\manag\Documents\FORGE\projects\hail-intel'
+    Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+    Read C:\Users\manag\Documents\hail-intel\STATE_OF_THE_BUILD.md in full.
+    Read C:\Users\manag\Documents\hail-intel\SESSION_STATE.md in full.
+    Read C:\Users\manag\Documents\hail-intel\ANCHOR_PROMPT_V8.md in full.
+    Read C:\Users\manag\Documents\hail-intel\IMPLEMENTATION_BLUEPRINT.md in full.
+    Run the FORGE 2.0 deep analysis against C:\Users\manag\Documents\hail-intel:
+    node C:\Users\manag\Documents\forge-2\dist\cli\index.js analyze C:\Users\manag\Documents\hail-intel
+    Read the generated deep analysis report from C:\Users\manag\Documents\hail-intel\.forge\ directory.
+    Write a comprehensive RETROFIT_BASELINE.md to C:\Users\manag\Documents\hail-intel documenting: current build state, queued features from SESSION_STATE, active bugs, deep analysis findings summary, priority order for this retrofit session.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'chore: pre-retrofit baseline analysis and RETROFIT_BASELINE.md'
+  gates:
+  - type: compile
+
+- id: hi-governance-scaffold
+  name: Create missing governance files — AGENTS.md, BEHAVIORAL_CONTRACTS.md, SCHEMA_REGISTRY.md
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\RETROFIT_BASELINE.md in full.
+    Read C:\Users\manag\Documents\hail-intel\IMPLEMENTATION_BLUEPRINT.md in full.
+    Read C:\Users\manag\Documents\hail-intel\STATE_OF_THE_BUILD.md in full.
+    Read C:\Users\manag\Documents\hail-intel\ANCHOR_PROMPT_V8.md in full.
+    Read C:\Users\manag\Documents\hail-intel\src\app\api directory structure using Get-ChildItem C:\Users\manag\Documents\hail-intel\src\app\api -Recurse -Filter route.ts | Select-Object FullName.
+    Create C:\Users\manag\Documents\hail-intel\AGENTS.md documenting every agent that exists or should exist in this codebase based on actual files found. For each agent include: name, file path, purpose, trigger types, inputs, outputs, DB tables written, status (existing/planned). Minimum agents to document: SocialIntelAgent (Reddit+NOAA pollers), LeadScoringAgent, CallCenterAgent, AnalyticsAgent, ARIAAssistantAgent (planned), PDRAgent (planned), SEOAgent (planned), GeoIntelAgent.
+    Create C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md with minimum 20 contracts governing: auth requirements per route category, data isolation between companies, RLS enforcement, no mock data in production, agent error handling, API response shape, Twilio webhook validation, Stripe webhook validation, rate limiting, pagination, logging standards.
+    Create C:\Users\manag\Documents\hail-intel\SCHEMA_REGISTRY.md documenting every table found in supabase/migrations/ with columns, types, indexes, RLS policies, and foreign key relationships. Parse actual migration files to generate accurate schema documentation.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(governance): AGENTS.md BEHAVIORAL_CONTRACTS.md SCHEMA_REGISTRY.md — full governance scaffold'
+  gates:
+  - type: compile
+
+- id: hi-agent-base-architecture
+  name: Create BaseAgent class and agent registry for Hail Intel
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\AGENTS.md in full.
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\agent-architecture.skill.md in full for engineering standards.
+    In C:\Users\manag\Documents\hail-intel create src\lib\agents\base-agent.ts. Minimum 150 lines.
+    Export abstract class BaseAgent with: abstract name: string, abstract description: string, abstract version: string, abstract run(trigger: AgentTrigger, input?: AgentInput): Promise<AgentRunResult>. AgentTrigger = 'autonomous'|'manual'|'chain'|'schedule'|'webhook'. AgentInput = Record<string, unknown>. AgentRunResult = { success: boolean, itemsProcessed: number, summary: string, errors: string[], durationMs: number, data?: unknown }.
+    Protected methods: log(message: string, level?: string): void — logs with [AGENT:{name}] prefix. persistRun(result: AgentRunResult): Promise<void> — writes to agent_runs table in Supabase using service role client.
+    Create src\lib\agents\registry.ts exporting: registerAgent(agent: BaseAgent): void, getAgent(name: string): BaseAgent|undefined, listAgents(): BaseAgent[], runAgent(name: string, trigger: AgentTrigger, input?: AgentInput): Promise<AgentRunResult>.
+    Create supabase migration: 20260721000000_agent_runs.sql creating agent_runs table: id uuid DEFAULT gen_random_uuid() PRIMARY KEY, agent_name TEXT NOT NULL, trigger TEXT NOT NULL, started_at TIMESTAMPTZ NOT NULL, completed_at TIMESTAMPTZ, items_processed INTEGER DEFAULT 0, success BOOLEAN, errors JSONB DEFAULT '[]', summary TEXT, data JSONB, created_at TIMESTAMPTZ DEFAULT now().
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(agents): BaseAgent class and registry — agent infrastructure'
+  gates:
+  - type: compile
+
+- id: hi-social-intel-agent
+  name: Refactor Social Intel into proper agent architecture
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\src\lib\agents\base-agent.ts in full.
+    Read C:\Users\manag\Documents\hail-intel\src\lib\agents\registry.ts in full.
+    Find the existing Reddit and NOAA poller code by reading: Get-ChildItem C:\Users\manag\Documents\hail-intel\src -Recurse | Where-Object { $_.Name -match 'reddit|noaa|social|poller' } | Select-Object FullName then read each found file in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\agent-architecture.skill.md in full.
+    Create C:\Users\manag\Documents\hail-intel\src\lib\agents\social-intel-agent.ts. Minimum 300 lines.
+    Export class SocialIntelAgent extends BaseAgent with name='SocialIntelAgent', description='Polls Reddit and NOAA for hail damage intelligence, scores mentions, updates damage polygons'.
+    Implement run() method that: 1) Polls configured subreddits for hail-related posts using existing Reddit logic refactored into this agent. 2) Polls NOAA LSR API for 90-day hail events using existing NOAA logic refactored. 3) Scores each mention by severity, geography relevance, and recency. 4) Upserts to social_mentions and damage_polygons tables. 5) Returns AgentRunResult with itemsProcessed = total mentions processed.
+    Register in registry.ts.
+    Create API route src\app\api\agents\social-intel\route.ts: POST triggers agent run manually, GET returns last 10 runs from agent_runs.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(agents): SocialIntelAgent — Reddit+NOAA refactored into agent architecture'
+  gates:
+  - type: compile
+
+- id: hi-lead-scoring-agent
+  name: Build LeadScoringAgent — intelligent lead prioritization
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\src\lib\agents\base-agent.ts in full.
+    Read C:\Users\manag\Documents\hail-intel\SCHEMA_REGISTRY.md in full to understand lead and damage data tables.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\agent-architecture.skill.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\supabase.skill.md in full.
+    Create C:\Users\manag\Documents\hail-intel\src\lib\agents\lead-scoring-agent.ts. Minimum 300 lines.
+    Export class LeadScoringAgent extends BaseAgent with name='LeadScoringAgent'.
+    Scoring formula (all factors 0.0-1.0, composite weighted): damageProximity (0.35) — distance from confirmed hail damage polygon. stormRecency (0.25) — days since nearest storm event, exponential decay. propertyValue (0.20) — estimated property value from county assessor data. contactAvailability (0.10) — has phone, email, and address verified. priorContact (0.10) — negative weight if already contacted within 30 days.
+    Composite score = sum of weighted factors, clamped 0.0-1.0.
+    Implement run() method: query all leads without score or with score older than 24 hours. Calculate composite score for each. Upsert score and scoring_factors JSON to leads table. Return itemsProcessed = leads scored.
+    Create API route src\app\api\agents\lead-scoring\route.ts.
+    Register in registry.ts.
+    Create migration 20260721000001_lead_scoring_columns.sql adding: score REAL, score_calculated_at TIMESTAMPTZ, scoring_factors JSONB to lead_records table IF NOT EXISTS.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(agents): LeadScoringAgent — proximity+recency+value+contact scoring'
+  gates:
+  - type: compile
+
+- id: hi-pdr-module
+  name: Build PDR Module — full paint and dent repair vertical
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\IMPLEMENTATION_BLUEPRINT.md in full.
+    Read C:\Users\manag\Documents\hail-intel\SCHEMA_REGISTRY.md in full.
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\nextjs-app-router.skill.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\supabase.skill.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\ui-components.skill.md in full.
+    Build the complete PDR Module for C:\Users\manag\Documents\hail-intel. Minimum 800 lines total across all files.
+    Create migration 20260721000002_pdr_module.sql with tables: pdr_jobs (id, company_id, lead_id, vehicle_make, vehicle_model, vehicle_year, vin, damage_assessment JSONB, estimate_amount REAL, status, technician_id, scheduled_at, completed_at, created_at), pdr_estimates (id, job_id, panel_name, damage_severity, dent_count, repair_hours, labor_rate, parts_cost, total_cost, created_at), pdr_technicians (id, company_id, user_id, certification_level, specialty_panels TEXT[], active BOOLEAN, created_at).
+    Create API routes: src\app\api\pdr\jobs\route.ts (GET list, POST create), src\app\api\pdr\jobs\[id]\route.ts (GET, PUT, DELETE), src\app\api\pdr\estimates\route.ts (GET, POST), src\app\api\pdr\technicians\route.ts (GET, POST).
+    Create pages using shadcn/ui components: src\app\app\pdr\page.tsx (PDR dashboard — job pipeline kanban), src\app\app\pdr\jobs\page.tsx (jobs list with filters), src\app\app\pdr\jobs\[id]\page.tsx (job detail with estimate builder), src\app\app\pdr\technicians\page.tsx (technician management).
+    Add PDR to navigation in src\app\app\layout.tsx for owner/manager roles.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(pdr): complete PDR module — jobs estimates technicians pages API'
+  gates:
+  - type: compile
+
+- id: hi-aria-assistant
+  name: Build ARIA — Claude-powered conversational assistant
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\AGENTS.md in full.
+    Read C:\Users\manag\Documents\hail-intel\SCHEMA_REGISTRY.md in full.
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\nextjs-app-router.skill.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\ui-components.skill.md in full.
+    Build ARIA — Autonomous Roofing Intelligence Assistant for C:\Users\manag\Documents\hail-intel. Minimum 600 lines total.
+    Create src\lib\aria\aria-assistant.ts: Export class ARIAAssistant extending BaseAgent. ARIA answers questions about: leads (who are the best leads right now and why), jobs (what jobs are pending, overdue, or need attention), storms (what storm events hit our territory recently), analytics (how is our pipeline performing). Uses Claude API claude-sonnet-4-6 with a system prompt that includes current user context, company data summary, and available data tools. Implements tool calling: get_top_leads, get_pending_jobs, get_recent_storms, get_pipeline_stats.
+    Create API route src\app\api\aria\chat\route.ts: POST accepts { message: string, conversationHistory: Message[] }, calls ARIAAssistant, streams response back using ReadableStream.
+    Create ARIA UI: src\app\app\aria\page.tsx — full-page chat interface using shadcn components. Messages display with user/assistant avatars. Streaming response display. Suggested prompts: Who are my top 10 leads right now? What jobs need attention today? What storms hit our territory this week? How is our pipeline performing this month?
+    Add ARIA to navigation for all authenticated roles.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(aria): ARIA Claude-powered conversational assistant with tool calling'
+  gates:
+  - type: compile
+
+- id: hi-seo-agent
+  name: Build Website SEO Agent — programmatic SEO for geo-targeted pages
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\AGENTS.md in full.
+    Read C:\Users\manag\Documents\hail-intel\SCHEMA_REGISTRY.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\agent-architecture.skill.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\nextjs-app-router.skill.md in full.
+    Build the SEO Agent for C:\Users\manag\Documents\hail-intel. Minimum 500 lines total.
+    Create src\lib\agents\seo-agent.ts: Export class SEOAgent extending BaseAgent. Generates programmatic SEO pages for geographic hail damage areas. Run() method: queries damage_polygons for active hail events. For each event with sufficient damage data generates an SEO page targeting keywords: hail damage repair {city}, hail damage roofing {zip_code}, storm damage assessment {county}. Writes page content to seo_pages table. Returns itemsProcessed = pages generated.
+    Create migration 20260721000003_seo_pages.sql: seo_pages (id, company_id, slug TEXT UNIQUE, title, meta_description, h1, content TEXT, target_keywords TEXT[], damage_polygon_id, generated_at, published BOOLEAN DEFAULT false, created_at).
+    Create dynamic route src\app\[city]-hail-damage\page.tsx — reads from seo_pages table by slug, renders full SEO-optimized page with: semantic HTML, JSON-LD schema markup (LocalBusiness + Service), meta tags via generateMetadata, storm damage statistics from damage_polygons, CTA to contact the company, FAQ section generated from storm data.
+    Create API routes: src\app\api\seo\generate\route.ts (POST triggers SEO agent), src\app\api\seo\pages\route.ts (GET list, PUT publish/unpublish).
+    Create sitemap: src\app\sitemap.ts that includes all published SEO pages.
+    Register SEOAgent in registry.ts.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(seo): SEOAgent programmatic geo-targeted hail damage pages'
+  gates:
+  - type: compile
+
+- id: hi-stripe-configuration
+  name: Configure Stripe webhooks and billing system
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\SCHEMA_REGISTRY.md in full.
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\stripe.skill.md in full.
+    Configure complete Stripe billing for C:\Users\manag\Documents\hail-intel. Minimum 400 lines total.
+    Find existing Stripe code: Get-ChildItem C:\Users\manag\Documents\hail-intel\src -Recurse | Where-Object { $_.Name -match 'stripe|billing|subscription' } | Select-Object FullName then read each file.
+    Create src\lib\stripe\client.ts — singleton getStripeClient() using STRIPE_SECRET_KEY env var.
+    Create src\lib\stripe\webhook-handler.ts — handles all webhook events: customer.subscription.created, customer.subscription.updated, customer.subscription.deleted, invoice.payment_succeeded, invoice.payment_failed, customer.subscription.trial_will_end. Each event updates local subscription_status in companies table.
+    Create API route src\app\api\webhooks\stripe\route.ts — validates signature using STRIPE_WEBHOOK_SECRET, routes to webhook-handler, returns 200 immediately. Uses raw body not parsed JSON.
+    Create migration 20260721000004_billing_columns.sql adding to companies table: stripe_customer_id TEXT, stripe_subscription_id TEXT, subscription_status TEXT DEFAULT 'trial', subscription_plan TEXT, trial_ends_at TIMESTAMPTZ, billing_email TEXT.
+    Create src\app\app\billing\page.tsx — billing management page showing current plan, usage, upgrade options, invoice history using Stripe Customer Portal redirect.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(billing): Stripe webhooks subscription lifecycle billing page'
+  gates:
+  - type: compile
+
+- id: hi-github-actions
+  name: Generate GitHub Actions CI/CD for Hail Intel
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\STATE_OF_THE_BUILD.md in full.
+    Run forge analyze ci command:
+    node C:\Users\manag\Documents\forge-2\dist\cli\index.js analyze ci C:\Users\manag\Documents\hail-intel
+    If the command fails, manually create .github/workflows/ directory and write these workflow files:
+    .github/workflows/ci.yml — triggers on push and pull_request to main. Jobs: typecheck (pnpm tsc --noEmit), lint (pnpm eslint src/ --max-warnings 0 if eslint configured), build (pnpm run build). Uses node 20, pnpm cache.
+    .github/workflows/deploy-preview.yml — triggers on pull_request. Deploys to Vercel preview using VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID secrets.
+    .github/workflows/deploy-production.yml — triggers on push to main only. Deploys to Vercel production. After deploy runs health check against production URL.
+    All workflows use actions/checkout@v4 and actions/setup-node@v4.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(ci): GitHub Actions CI typecheck lint build deploy workflows'
+  gates:
+  - type: compile
+
+- id: hi-error-monitoring
+  name: Add structured logging and error monitoring to Hail Intel
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\observability.skill.md in full.
+    Add production-grade observability to C:\Users\manag\Documents\hail-intel. Minimum 300 lines total.
+    Create src\lib\logger.ts — structured logger that outputs JSON in production and pretty-printed in development. Exports: logger.info(message, context?), logger.warn(message, context?), logger.error(message, error?, context?), logger.debug(message, context?). Every log entry includes: timestamp ISO, level, message, context object, requestId if available.
+    Create src\lib\performance.ts — exports: measureApiRoute(routeName, fn) wrapper that logs response time, warns if > 500ms, errors if > 2000ms. trackDatabaseQuery(queryName, fn) wrapper for slow query detection.
+    Update src\app\api\health\route.ts (create if missing): return { status: 'ok', version: process.env.npm_package_version, timestamp: new Date().toISOString(), services: { database: check via SELECT 1, supabase: check connection } }. No auth required.
+    Create src\app\error.tsx — root error boundary with friendly error page, error ID for support, log error to console.error with stack.
+    Create src\middleware.ts update or create — add request ID header X-Request-ID: crypto.randomUUID() to every request for tracing.
+    If NEXT_PUBLIC_SENTRY_DSN is in .env.local: create src\instrumentation.ts with Sentry init for both Node and Edge runtimes.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(observability): structured logging performance monitoring health check error boundary'
+  gates:
+  - type: compile
+
+- id: hi-ui-audit-remediation
+  name: Run UI audit and remediate accessibility and design consistency
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\ui-components.skill.md in full.
+    Run the FORGE 2.0 design audit:
+    node C:\Users\manag\Documents\forge-2\dist\cli\index.js design audit C:\Users\manag\Documents\hail-intel
+    Read the audit output and identify the top 10 highest-severity accessibility issues across src\components\.
+    Fix all ERROR severity accessibility issues found: add missing aria-label attributes, add missing htmlFor on labels, fix onClick on non-interactive elements, add missing alt text on images.
+    Run: node C:\Users\manag\Documents\forge-2\dist\cli\index.js design tokens C:\Users\manag\Documents\hail-intel to ensure design tokens are configured.
+    Verify shadcn/ui is installed. If not: cd C:\Users\manag\Documents\hail-intel; npx shadcn-ui@latest init --yes --defaults.
+    Install these shadcn components if not already present: button input label select dialog sheet dropdown-menu table card badge alert toast tabs skeleton.
+    Replace any hand-rolled button or input components that duplicate shadcn equivalents with the shadcn version — read each file before replacing to ensure functionality is preserved.
+    Run pnpm tsc --noEmit in C:\Users\manag\Documents\hail-intel confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'fix(ui): accessibility remediation design tokens shadcn/ui standardization'
+  gates:
+  - type: compile
+
+- id: hi-test-foundation
+  name: Add testing foundation — Vitest config and first test suite
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\forge-2\src\skills\templates\testing.skill.md in full.
+    Add testing foundation to C:\Users\manag\Documents\hail-intel. Minimum 400 lines total across test files.
+    Check if vitest is installed: read package.json. If not: cd C:\Users\manag\Documents\hail-intel; pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/user-event msw.
+    Create vitest.config.ts configured for Next.js: test environment jsdom, setup files, coverage provider v8, include src/**/*.test.ts src/**/*.test.tsx.
+    Create src\lib\agents\__tests__\lead-scoring-agent.test.ts: Test suite for LeadScoringAgent. Tests: calculates damageProximity score correctly for lead within polygon, returns zero damageProximity for lead outside all polygons, applies recency decay to stormRecency score, composite score clamped between 0 and 1, returns success false when database unavailable. Minimum 5 test cases, each with arrange/act/assert pattern.
+    Create src\lib\agents\__tests__\seo-agent.test.ts: Test suite for SEOAgent. Tests: generates correct slug from city and damage type, includes all required SEO fields in generated page, does not generate duplicate pages for same polygon, marks pages as unpublished by default. Minimum 4 test cases.
+    Create src\lib\__tests__\logger.test.ts: Tests that logger includes timestamp and level in every output, logger.error includes error message in context, logger does not throw on undefined context.
+    Add to package.json scripts: test: vitest, test:coverage: vitest --coverage.
+    Run pnpm test --run in C:\Users\manag\Documents\hail-intel confirm all tests pass.
+    Run pnpm tsc --noEmit confirm 0 errors.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'feat(testing): Vitest foundation LeadScoringAgent SEOAgent logger test suites'
+  gates:
+  - type: compile
+
+- id: hi-production-readiness
+  name: Production readiness checklist and deployment preparation
+  prompt: |
+    Read C:\Users\manag\Documents\hail-intel\STATE_OF_THE_BUILD.md in full.
+    Read C:\Users\manag\Documents\hail-intel\BEHAVIORAL_CONTRACTS.md in full.
+    Read C:\Users\manag\Documents\hail-intel\LAUNCH_CHECKLIST.md in full.
+    Run pnpm run build in C:\Users\manag\Documents\hail-intel and confirm clean build. If build fails, fix all build errors before proceeding.
+    Run pnpm tsc --noEmit confirm 0 errors.
+    Create PRODUCTION_READINESS.md in C:\Users\manag\Documents\hail-intel documenting:
+    COMPLETED IN THIS RETROFIT: governance scaffold (AGENTS, BEHAVIORAL_CONTRACTS, SCHEMA_REGISTRY), BaseAgent architecture, SocialIntelAgent refactored, LeadScoringAgent, PDR Module, ARIA assistant, SEO Agent, Stripe webhooks, GitHub Actions CI/CD, structured logging, accessibility remediation, Vitest test foundation.
+    ENVIRONMENT VARIABLES REQUIRED FOR PRODUCTION: list every env var referenced in codebase with description and whether required or optional.
+    SUPABASE MIGRATIONS TO APPLY: list all migration files created in this session in chronological order.
+    REMAINING BEFORE LAUNCH: Reddit API app registration, 10DLC Twilio registration, Stripe production webhook endpoint configuration, GBP OAuth, Facebook OAuth redirect URI, Xactimate pricing database population.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md to reflect everything built in this retrofit session.
+    Commit: git -C C:\Users\manag\Documents\hail-intel add -A; git -C C:\Users\manag\Documents\hail-intel commit -m 'chore: production readiness audit PRODUCTION_READINESS.md governance complete'
+  gates:
+  - type: compile

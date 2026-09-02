@@ -1,0 +1,157 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: humanize-001
+  name: Governance sync and grant narrative humanization engine
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/lib/agents/draft-generation-agent.ts in FULL. Every line.
+    Read src/lib/intelligence/evaluation-library.ts in FULL.
+
+    CREATE src/lib/intelligence/narrative-humanizer.ts:
+
+    Export async function humanizeNarrative(draftText: string, orgProfile: OrgProfile, opportunityContext: OpportunityContext): Promise<HumanizationResult>
+
+    HumanizationResult: { humanizedText: string, humanizationScore: number, aiTellsRemoved: string[], wordCountBefore: number, wordCountAfter: number }
+
+    HUMANIZATION PIPELINE — 4 passes:
+
+    PASS 1 — AI TELL DETECTION AND REMOVAL:
+    Call Claude (max_tokens:200): "Identify the top 5 AI-generated phrases in this grant narrative that sound artificial. Return JSON array of exact phrases to replace."
+    For each identified phrase: generate a human replacement using context from org profile.
+    Common AI tells to always remove:
+    - "In conclusion," "Furthermore," "Moreover," "It is important to note that"
+    - "Leveraging our expertise" → replace with specific staff credentials
+    - "Comprehensive approach" → replace with specific program names
+    - "Impactful outcomes" → replace with specific numbers
+    - "In today's world" → delete entirely
+    - "We are committed to" → replace with specific action verb
+    - Passive voice throughout → convert to active voice
+
+    PASS 2 — SPECIFICITY INJECTION:
+    Scan the narrative for vague statements. For each vague statement:
+    - If it mentions "community members" → replace with specific demographic from org profile (e.g. "847 low-income veterans in San Francisco's Tenderloin district")
+    - If it mentions "our programs" → replace with specific program names from KB
+    - If it mentions "experienced staff" → replace with actual staff qualifications from KB leadership section
+    - If it mentions "proven track record" → replace with specific outcomes data from KB impact section
+    - If it mentions "sustainable impact" → replace with specific 3-year projection
+
+    PASS 3 — VOICE CONSISTENCY:
+    Analyze the narrative's voice (formal vs conversational, first person vs third person).
+    Ensure consistency throughout. Grant narratives should be:
+    - First person plural ("We serve..." not "The organization serves...")
+    - Active voice
+    - Present tense for current programs, past tense for achievements
+    - Specific numbers always (never "many" or "numerous" or "significant")
+
+    PASS 4 — QUALITY SCORE:
+    Call Claude (max_tokens:300): Score the humanized narrative on:
+    - Human voice authenticity (0-100)
+    - Organization specificity (0-100)
+    - AI phrase absence (0-100)
+    - Narrative flow (0-100)
+    Return JSON with scores and top 3 remaining concerns.
+
+    Final humanization_score = average of 4 scores.
+
+    Update draft-generation-agent.ts to call humanizeNarrative() after generating the initial draft, before saving to applications table. Store humanization_score in applications.metadata.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: narrative humanizer -- 4-pass AI tell removal, specificity injection, voice consistency, quality scoring'; git push.
+
+- id: humanize-002
+  name: Draft review UI with humanization scores and edit interface
+  prompt: |
+    Read src/app/(dashboard)/draft-generator/autonomous/page.tsx in FULL.
+    Read src/lib/intelligence/narrative-humanizer.ts in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    Upgrade the autonomous draft review page to show humanization intelligence:
+
+    For each draft card, add a QUALITY PANEL (white inner card, border-radius 10px, padding 16px, marginTop 12px):
+
+    Header: "Draft Quality Analysis" 11px uppercase #8BA8C8
+
+    4 score bars in 2x2 grid:
+    - Human Voice: score/100 with colored progress bar
+    - Org Specificity: score/100
+    - AI Phrase Absence: score/100
+    - Narrative Flow: score/100
+    Each bar: label 11px white, score badge right, bar 6px height gray bg with colored fill
+
+    Overall Quality Score: large circle 60px diameter, colored by score (green>=80, amber 60-79, red<60), score number bold 18px
+
+    Remaining Concerns: if any score < 70, show amber callout with specific concern text
+
+    "Re-Humanize" button: calls POST /api/drafts/[id]/humanize which re-runs the humanization pipeline on the existing draft. Shows loading spinner. Updates scores in place without full page reload.
+
+    "Edit Draft" inline editor: clicking "Edit" opens the draft_content in a textarea (minimum 400px height) with live word count. "Save Changes" button updates the application record. "Re-Score" button after editing re-runs humanization scoring only (not the full pipeline).
+
+    CREATE src/app/api/drafts/[id]/humanize/route.ts:
+    POST: Loads application by id, runs humanizeNarrative() on draft_content, updates application with humanized text and scores. Returns updated scores.
+
+    CREATE src/app/api/drafts/[id]/route.ts:
+    GET: Returns application with draft_content and metadata including humanization scores.
+    PATCH: Updates draft_content. Requires pending_review=true (drafts can be edited while pending).
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: draft review UI with humanization scores, edit interface, re-humanize action'; git push.
+
+- id: humanize-003
+  name: Grant narrative style guide enforcement
+  prompt: |
+    Read src/lib/agents/draft-generation-agent.ts in FULL.
+    Read src/lib/intelligence/narrative-humanizer.ts in FULL.
+
+    CREATE src/lib/intelligence/grant-style-guide.ts:
+
+    A comprehensive style guide enforcer for grant narratives.
+
+    Export function enforceStyleGuide(text: string, funderType: string): StyleGuideResult
+
+    StyleGuideResult: { violations: StyleViolation[], suggestions: string[], correctedText: string }
+
+    StyleViolation: { type: string, originalText: string, suggestedReplacement: string, severity: 'critical' | 'warning' | 'info' }
+
+    STYLE RULES BY FUNDER TYPE:
+
+    FEDERAL FUNDERS (HUD, HHS, DOJ, VA, USDA):
+    - Must reference specific CFDAs and program codes
+    - Must use official HUD/agency terminology for target populations
+    - Budget narrative must use object class categories (Personnel, Fringe, Travel, Equipment, Supplies, Contractual, Other, Indirect)
+    - Evaluation plan must reference Government Performance Results Act (GPRA) metrics where applicable
+    - Avoid advocacy language or political statements
+    - Do not use "underserved" without defining what that means
+    - Always spell out acronyms on first use
+
+    FOUNDATION FUNDERS:
+    - Lead with community impact, not organizational credentials
+    - Include theory of change explicitly
+    - Reference alignment with funder's specific priorities (extracted from opportunity description)
+    - Include sustainability plan (how will the program continue after grant ends)
+    - Avoid jargon specific to other funders' frameworks
+    - Include diversity/equity/inclusion statement if funder prioritizes it
+
+    CORPORATE FUNDERS:
+    - Lead with business case (how supporting this org benefits their company/employees/community)
+    - Keep language concise — executives read these
+    - Include ROI framing where possible
+    - Mention geographic alignment with their facilities
+    - Highlight employee volunteer opportunities
+    - Keep to under 500 words for initial outreach, 1500 for full proposal
+
+    Integrate into draft-generation-agent.ts: after humanization, run enforceStyleGuide(humanizedText, opportunity.funder_type). Log violations as agent_decisions. Include critical violations in the pending_review notification so the human reviewer knows what to address.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: grant style guide enforcer -- federal, foundation, corporate funder-specific rules, violation detection'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

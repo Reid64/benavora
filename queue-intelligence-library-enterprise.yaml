@@ -1,0 +1,449 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: intel-lib-001
+  name: Governance sync and Intelligence Library schema upgrade
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/intelligence-library/page.tsx in FULL. Every line.
+    Read src/app/api/intelligence/proposals/route.ts in FULL.
+    Read src/supabase/migrations/048_grant_intelligence.sql in FULL.
+    Read src/lib/intelligence/evaluation-library.ts in FULL.
+
+    STEP 1 — SCHEMA AUDIT: Run this query and report results:
+    SELECT column_name, data_type FROM information_schema.columns WHERE table_name='intelligence_funded_proposals' ORDER BY ordinal_position;
+
+    STEP 2 — SCHEMA UPGRADE: Apply these columns via Supabase SQL editor at https://supabase.com/dashboard/project/vbjplpquqxxfbpazyalt/sql/new
+    Generate and display this SQL for the user to run:
+
+    ALTER TABLE intelligence_funded_proposals
+      ADD COLUMN IF NOT EXISTS funder_type text DEFAULT 'foundation',
+      ADD COLUMN IF NOT EXISTS funder_category text,
+      ADD COLUMN IF NOT EXISTS ntee_major text,
+      ADD COLUMN IF NOT EXISTS ntee_code text,
+      ADD COLUMN IF NOT EXISTS success_factors jsonb DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS keywords jsonb DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS persuasive_elements jsonb DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS winning_phrases jsonb DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS theory_of_change text,
+      ADD COLUMN IF NOT EXISTS evaluation_approach text,
+      ADD COLUMN IF NOT EXISTS budget_structure jsonb DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS geographic_scope text DEFAULT 'local',
+      ADD COLUMN IF NOT EXISTS org_size_category text,
+      ADD COLUMN IF NOT EXISTS submission_timing jsonb DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS application_word_count integer,
+      ADD COLUMN IF NOT EXISTS sections_included jsonb DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS ai_quality_score integer,
+      ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false,
+      ADD COLUMN IF NOT EXISTS source_url text,
+      ADD COLUMN IF NOT EXISTS source_type text DEFAULT 'manual',
+      ADD COLUMN IF NOT EXISTS import_batch text,
+      ADD COLUMN IF NOT EXISTS full_text_search_vector tsvector;
+
+    CREATE INDEX IF NOT EXISTS idx_funded_proposals_fts ON intelligence_funded_proposals USING gin(full_text_search_vector);
+    CREATE INDEX IF NOT EXISTS idx_funded_proposals_ntee ON intelligence_funded_proposals(ntee_major, ntee_code);
+    CREATE INDEX IF NOT EXISTS idx_funded_proposals_funder_type ON intelligence_funded_proposals(funder_type);
+    CREATE INDEX IF NOT EXISTS idx_funded_proposals_amount ON intelligence_funded_proposals(award_amount);
+    CREATE INDEX IF NOT EXISTS idx_funded_proposals_year ON intelligence_funded_proposals(award_year);
+
+    CREATE OR REPLACE FUNCTION update_funded_proposals_fts() RETURNS trigger AS $$
+    BEGIN
+      NEW.full_text_search_vector := to_tsvector('english',
+        coalesce(NEW.title,'') || ' ' ||
+        coalesce(NEW.funder_name,'') || ' ' ||
+        coalesce(NEW.grant_program,'') || ' ' ||
+        coalesce(NEW.full_text,'') || ' ' ||
+        coalesce(NEW.narrative_excerpt,'')
+      );
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    DROP TRIGGER IF EXISTS funded_proposals_fts_trigger ON intelligence_funded_proposals;
+    CREATE TRIGGER funded_proposals_fts_trigger
+      BEFORE INSERT OR UPDATE ON intelligence_funded_proposals
+      FOR EACH ROW EXECUTE FUNCTION update_funded_proposals_fts();
+
+    UPDATE intelligence_funded_proposals SET full_text_search_vector = to_tsvector('english',
+      coalesce(title,'') || ' ' || coalesce(funder_name,'') || ' ' || coalesce(grant_program,'') || ' ' || coalesce(full_text,'') || ' ' || coalesce(narrative_excerpt,'')
+    );
+
+    STEP 3 — FIX EXISTING RECORDS: Update all 113 existing records to populate new columns from metadata jsonb:
+    Run via npx tsx:
+    Load all records, extract funder_type from funder_name (if contains 'HUD'|'HHS'|'DOJ'|'VA'|'USDA'|'NIH'|'NSF'|'CDC'|'Department'|'Federal' -> 'federal', if contains 'Foundation' -> 'foundation', if contains 'Bank'|'Corp'|'Inc'|'LLC' -> 'corporate', else 'foundation').
+    Extract ntee_major from category field (single letter).
+    Extract success_factors from metadata.success_factors if exists.
+    Extract keywords from metadata.keywords if exists.
+    Upsert all records with populated columns.
+
+    Run pnpm tsc --noEmit. Fix errors.
+    git add -A; git commit -m 'feat: intelligence library schema upgrade -- full-text search, funder_type, ntee columns, persuasive elements'; git push.
+
+- id: intel-lib-002
+  name: Mass data import from NIH, NSF, Federal Register, USASpending
+  prompt: |
+    Read src/supabase/migrations/048_grant_intelligence.sql in FULL.
+    Read src/lib/intelligence/evaluation-library.ts in FULL.
+
+    CREATE scripts/import-federal-awards.ts
+
+    This script imports real federal grant award data from multiple official sources into intelligence_funded_proposals. Target: 400+ new records from federal sources alone.
+
+    SOURCE 1 — USASpending.gov API (most comprehensive, no API key required):
+    Endpoint: https://api.usaspending.gov/api/v2/search/spending_by_award/
+    POST body: { filters: { award_type_codes: ["02","03","04","05"], time_period: [{ start_date: "2022-01-01", end_date: "2024-12-31" }], award_amounts: [{ lower_bound: 25000, upper_bound: 2000000 }] }, fields: ["Award ID","Recipient Name","Award Amount","Awarding Agency","Award Description","Period of Performance Start Date","Primary Place of Performance State Code","CFDA Number","CFDA Title"], limit: 100, page: 1 }
+    Paginate through results (multiple pages).
+    Filter for nonprofit recipients (award_recipient_type contains 'NONPROFIT').
+    For each award: create intelligence_funded_proposals record with:
+      funder_name: awarding_agency
+      grant_program: cfda_title
+      award_amount: award_amount
+      award_year: year from period_of_performance_start_date
+      funder_type: 'federal'
+      ntee_major: map CFDA prefix to NTEE (14.* -> L housing, 93.* -> E/F health, 84.* -> B education, 16.* -> P human services, 66.* -> C environment)
+      narrative_excerpt: award_description (truncate 500 chars)
+      full_text: Generate expanded narrative from award_description using Claude (max_tokens:600): "Expand this federal grant award description into a 400-word grant narrative excerpt showing how a nonprofit would describe this program in a grant application. Write in first person plural, include problem statement, program description, and measurable outcomes."
+      source_type: 'usaspending'
+      source_url: 'https://www.usaspending.gov/award/' + award_id
+      is_verified: true
+
+    SOURCE 2 — NIH Reporter API (no API key required):
+    Endpoint: https://api.reporter.nih.gov/v2/projects/search
+    POST body: { criteria: { org_types: ["NONPROFIT"], award_notice_date: { from_date: "2022-01-01", to_date: "2024-12-31" }, award_amount_range: { min_amount: 25000, max_amount: 5000000 } }, offset: 0, limit: 50, sort_field: "award_amount", sort_order: "desc" }
+    For each result: create record with funder_name='National Institutes of Health', funder_type='federal', ntee_major='E' (health), grant_program from project_title, narrative from abstract text.
+    Paginate 5 pages = 250 records.
+
+    SOURCE 3 — NSF Award Search API (no API key required):
+    Endpoint: https://api.nsf.gov/services/v1/awards.json?agency=NSF&dateStart=01/01/2022&dateEnd=12/31/2024&awardeeStateCode=CA&printFields=id,title,abstractText,awardeeName,fundsObligatedAmt,date&offset=1
+    Paginate multiple states and years.
+    funder_name='National Science Foundation', funder_type='federal', ntee_major='B' (education/science).
+    Generate narrative from abstractText.
+
+    SOURCE 4 — Grants.gov Awarded Grants RSS:
+    Fetch https://www.grants.gov/rss/GG_NewOppByAgency.xml for multiple agencies.
+    Parse XML for recently posted opportunities (these represent active programs, use as templates).
+    Create records with source_type='grants_gov'.
+
+    RATE LIMITING: 1 second delay between API calls. Process in batches of 25. Checkpoint progress to file.
+
+    NARRATIVE QUALITY: For any record where full_text is under 200 words, call Claude to expand it. System prompt: "You are a grant writer. Expand this award description into a compelling 400-word grant narrative excerpt. Use specific program details, measurable outcomes, and persuasive language. Write as if this is from the winning application."
+
+    PERSUASIVE ELEMENTS EXTRACTION: After generating full_text, call Claude (max_tokens:300): "Extract the 5 most persuasive elements from this grant narrative. Return JSON array: [{ element_type: string, text: string, why_it_works: string }]. Element types: compelling_statistic, clear_outcome, emotional_appeal, credibility_marker, urgency_statement."
+    Store in persuasive_elements column.
+
+    WINNING PHRASES EXTRACTION: Call Claude (max_tokens:200): "Extract 8 grant-winning phrases from this narrative. These should be phrases grant reviewers find compelling. Return JSON array of strings."
+    Store in winning_phrases column.
+
+    Add package.json script: "import:federal": "tsx scripts/import-federal-awards.ts"
+    Run: npx tsx scripts/import-federal-awards.ts
+    Report: total records imported by source.
+
+    Run pnpm tsc --noEmit. Fix errors.
+    git add -A; git commit -m 'feat: intelligence library federal import -- USASpending, NIH, NSF, Grants.gov -- 400+ records with persuasive elements'; git push.
+
+- id: intel-lib-003
+  name: Foundation and corporate awards mass import
+  prompt: |
+    Read scripts/import-federal-awards.ts in FULL.
+    Read src/lib/intelligence/evaluation-library.ts in FULL.
+
+    CREATE scripts/import-foundation-awards.ts
+
+    Imports foundation and corporate grant awards from multiple sources. Target: 300+ additional records.
+
+    SOURCE 1 — ProPublica Nonprofit Explorer (foundation giving data):
+    For each of these major foundation EINs, fetch their 990 data and extract grants paid:
+    - Robert Wood Johnson Foundation: EIN 22-1859624
+    - Bill & Melinda Gates Foundation: EIN 56-2618866
+    - Ford Foundation: EIN 13-1684331
+    - W.K. Kellogg Foundation: EIN 38-1360401
+    - MacArthur Foundation: EIN 23-7093598
+    - Annie E. Casey Foundation: EIN 52-6051576
+    - Bloomberg Philanthropies: EIN 20-4109861
+    - Lumina Foundation: EIN 35-2037902
+    - Charles and Lynn Schusterman Family Foundation: EIN 73-1340563
+    - JPMorgan Chase Foundation: EIN 13-6183850
+    - Bank of America Charitable Foundation: EIN 56-2028460
+    - Wells Fargo Foundation: EIN 41-1398224
+    - Google.org: EIN 20-5951171
+
+    For each foundation: GET https://projects.propublica.org/nonprofits/api/v2/organizations/[EIN].json
+    Extract grants_to_preselected_grantees and cash_grants_paid from 990 data.
+    Also fetch https://projects.propublica.org/nonprofits/api/v2/organizations/[EIN]/full.json for detailed filing data.
+
+    For each grant found: create intelligence_funded_proposals record with:
+      funder_name: foundation name
+      funder_type: 'foundation'
+      award_amount: grant amount
+      award_year: filing year
+      narrative_excerpt: generate from grantee name + grant purpose using Claude
+      full_text: Claude-expanded 400-word narrative
+      source_type: 'propublica_990'
+      is_verified: true
+
+    SOURCE 2 — CANDID/Foundation Directory Online (public data):
+    Fetch https://api.candid.org/grants/v1/grants?funder_type=foundation&recipient_type=nonprofit&year=2023&limit=100 if accessible.
+    Parse results and create records.
+
+    SOURCE 3 — Hardcoded foundation awards (150 records) spanning all NTEE codes:
+    Write 150 realistic awarded grant records for foundations not covered above:
+    Include these funders not yet in the library:
+    - Helmsley Charitable Trust (health, education)
+    - Ralph C. Wilson Jr. Foundation (sports, youth)
+    - Doris Duke Charitable Foundation (arts, environment, health)
+    - Surdna Foundation (sustainable environments, strong local economies)
+    - Pew Charitable Trusts (environment, health, civic life)
+    - Joyce Foundation (employment, education, environment, gun violence)
+    - Walton Family Foundation (education, environment)
+    - Simons Foundation (science, education)
+    - Knight Foundation (journalism, arts, community)
+    - Rockefeller Foundation (food, health, energy, economic opportunity)
+    - Conrad N. Hilton Foundation (housing, homelessness, Catholic education)
+    - Harry and Jeanette Weinberg Foundation (poverty, aging, disabled)
+    - The Leona M. and Harry B. Helmsley Charitable Trust
+    - Howard G. Buffett Foundation (food security, water, conflict)
+    - Oak Foundation (environment, housing, education)
+    - Open Society Foundations (democracy, human rights, education)
+    - Skoll Foundation (social entrepreneurship)
+    - Omidyar Network (economic inclusion, education, governance)
+    - Mozilla Foundation (internet health, open source)
+    - Schmidt Futures (science, technology, education)
+
+    For each: 2-4 records across different program areas. Full 400-word narratives. Persuasive elements extracted. Winning phrases extracted. Success factors (4-6 per record).
+
+    SOURCE 4 — Corporate Foundation Awards:
+    50 records from corporate foundation programs:
+    - Walmart Foundation (community, hunger, sustainability)
+    - Target Foundation (education, arts, social services)
+    - Home Depot Foundation (veteran housing, disaster relief)
+    - CVS Health Foundation (health access, substance use)
+    - UPS Foundation (humanitarian relief, diversity)
+    - FedEx Foundation (safe roads, disaster relief)
+    - Verizon Foundation (digital inclusion, education)
+    - AT&T Foundation (education, workforce development)
+    - Microsoft Philanthropies (digital skills, accessibility)
+    - Salesforce.org (education, workforce, equality)
+
+    Run: npx tsx scripts/import-foundation-awards.ts
+    Report total records imported.
+    Add package.json script: "import:foundations": "tsx scripts/import-foundation-awards.ts"
+
+    Run pnpm tsc --noEmit. Fix errors.
+    git add -A; git commit -m 'feat: intelligence library foundation import -- ProPublica 990, 150 foundation records, 50 corporate -- 300+ new records'; git push.
+
+- id: intel-lib-004
+  name: Intelligence Library UI complete rebuild -- enterprise grade
+  prompt: |
+    Read src/app/(dashboard)/intelligence-library/page.tsx in FULL. Every line.
+    Read src/app/api/intelligence/proposals/route.ts in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+    Check current record count: npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); s.from('intelligence_funded_proposals').select('id',{count:'exact',head:true}).then(r=>console.log('Total records:',r.count))"
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    COMPLETE REBUILD of src/app/(dashboard)/intelligence-library/page.tsx:
+
+    This is the highest-value feature in the platform. Rebuild it as a world-class grant intelligence database.
+
+    HEADER:
+    "Grant Intelligence Library" H1 28px bold white.
+    Subtitle: "X awarded grant narratives — the AI draws from these when drafting every application"
+    Dynamic count from API.
+    "Add Awarded Grant" button #8B5CF6 + "Import More" button #0EA5E9
+
+    SEARCH AND FILTER BAR (white card #0D1526, border-radius 14px, padding 20px, marginBottom 20px):
+
+    Row 1: Full-text search input (full width, placeholder "Search by funder, program, keyword, or narrative content...") with Search button.
+    This must use the PostgreSQL full-text search vector -- POST to /api/intelligence/library/search with { query, filters }.
+
+    Row 2 — FILTER PILLS (all filters active simultaneously):
+
+    FUNDER TYPE dropdown (not pills -- proper select):
+    Options: All Types | Federal Government | Private Foundation | Corporate Foundation | Community Foundation | Public Charity
+    Maps to funder_type column values: federal | foundation | corporate | community | public
+
+    NTEE CATEGORY dropdown:
+    Options: All Categories | Health (E,F) | Education (B) | Human Services (P) | Housing & Shelter (L) | Arts & Culture (A) | Environment (C,D) | Community Development (S) | Veterans & Military (W) | Youth Development (O) | Animal Welfare (D) | Public Benefit (T,U,V,W,X,Y,Z)
+    Maps to ntee_major column.
+
+    AWARD AMOUNT range:
+    Min input + Max input (both currency formatted).
+    CRITICAL FIX: The filter must use actual numeric comparison -- WHERE award_amount >= min AND award_amount <= max.
+    The current filter is broken. Fix the API route to handle numeric range filtering correctly.
+
+    AWARD YEAR dropdown: All Years | 2024 | 2023 | 2022 | 2021 | 2020 | Earlier
+
+    GEOGRAPHIC SCOPE: All | Local | Regional | State | National | International
+
+    SOURCE TYPE: All | Federal API | ProPublica 990 | Manual Entry | Platform Learning
+
+    Active filter count badge: "X filters active" pill that appears when any filter is set. Click to clear all.
+
+    STATS ROW (5 cards, background #0D1526, border-radius 12px, padding 16px):
+    - Total Narratives (dynamic from filtered results)
+    - Avg Award Amount (formatted currency)
+    - Federal Grants (count)
+    - Foundation Grants (count)
+    - Corporate Grants (count)
+    All stats update when filters change.
+
+    RESULTS GRID (2 columns on wide screens, 1 column on narrow):
+
+    Each narrative card (background #0D1526, border-radius 14px, padding 24px, marginBottom 0):
+
+    TOP ROW:
+    - Funder type badge: Federal=#1D4ED8 bg #EFF6FF, Foundation=#7C3AED bg #F5F3FF, Corporate=#0891B2 bg #ECFEFF, Community=#059669 bg #ECFDF5
+    - NTEE badge: colored by major category
+    - Award amount: 22px bold #10B981 formatted as "$X,XXX"
+    - Award year: small gray pill
+
+    SECOND ROW:
+    - Funder name: 16px bold white
+    - Grant program: 13px #8BA8C8
+
+    THIRD ROW — Narrative excerpt: 13px #8BA8C8 italic, 3 lines max with "Read More" toggle that expands to full text inline.
+
+    SUCCESS FACTORS: Green pill tags. Max 4 visible, "+N more" if additional.
+
+    WINNING PHRASES (collapsed by default): "View Winning Phrases" toggle reveals 6-8 highlighted phrases in amber pill tags. These are the exact phrases the AI extracts when drafting.
+
+    PERSUASIVE ELEMENTS (collapsed): "View Persuasive Elements" reveals cards showing element_type + why_it_works.
+
+    ACTION ROW:
+    - "Use as Reference" button: adds this narrative to a "Selected References" list that gets injected into the next draft
+    - "View Full Narrative" button: opens full text in an overlay panel
+    - "Copy Winning Phrases" button: copies the winning_phrases array to clipboard formatted as bullet list
+
+    FULL NARRATIVE OVERLAY:
+    Fixed position overlay (backdrop-filter blur), white panel 800px wide, 85vh height, scrollable.
+    Shows: full funder info, award details, complete full_text (formatted with paragraphs), all success factors, all winning phrases, all persuasive elements.
+    "Use in My Draft" prominent CTA button.
+    "Close" X button top right.
+
+    SELECTED REFERENCES PANEL (sticky bottom of page, slides up when any narrative is selected):
+    "X Narratives Selected for AI Reference" with funder names listed.
+    "Generate Draft Using These References" button → /draft-generator?referenceIds=[ids]
+    "Clear Selection" button.
+
+    NIH BUTTON, NSF BUTTON, FEDERAL REGISTER BUTTON, USASPENDING BUTTON:
+    These are quick-filter buttons in the header. Currently dead. Fix them:
+    Each button is a funder_name filter: clicking "NIH" sets funder_name filter to "National Institutes of Health", shows NIH records only.
+    clicking "NSF" filters to "National Science Foundation".
+    clicking "Federal Register" filters to funder_type='federal'.
+    clicking "USASpending" filters to source_type='usaspending'.
+    These are NOT navigation links -- they are filter toggles.
+
+    CATEGORY PAGES (fix dead links):
+    Currently /intelligence-library/[category] pages are blank. Fix the routing:
+    The category links should NOT navigate to separate pages. They should set the NTEE filter on the main library page.
+    Change all category links to: onClick(() => setNteeFilter('O')) etc. instead of href navigation.
+    This eliminates all the blank category pages at once.
+
+    PAGINATION: Show 20 results per page. Previous/Next buttons. "Showing X-Y of Z results" label.
+
+    Update src/app/api/intelligence/proposals/route.ts:
+    GET must handle ALL these query params:
+    - q: full text search using full_text_search_vector @@ plainto_tsquery('english', q)
+    - funder_type: exact match
+    - ntee_major: exact match
+    - min_amount: WHERE award_amount >= min_amount (NUMERIC comparison, not string)
+    - max_amount: WHERE award_amount <= max_amount (NUMERIC comparison, not string)
+    - year: WHERE award_year = year
+    - geographic_scope: exact match
+    - source_type: exact match
+    - funder_name: exact match (for NIH/NSF quick filters)
+    - page: pagination offset (page-1)*20
+    - limit: default 20
+
+    CRITICAL FIX for amount filter: The current bug is that award_amount is stored as text or the comparison is string-based. Fix the query to cast to numeric: WHERE CAST(award_amount AS numeric) >= $min AND CAST(award_amount AS numeric) <= $max
+
+    Also create POST /api/intelligence/library/search:
+    Full-text search using PostgreSQL tsvector.
+    SELECT *, ts_rank(full_text_search_vector, query) as rank FROM intelligence_funded_proposals WHERE full_text_search_vector @@ plainto_tsquery('english', $1) ORDER BY rank DESC LIMIT 20
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix ALL errors.
+    git add -A; git commit -m 'feat: Intelligence Library complete UI rebuild -- enterprise search, all filters fixed, narrative overlay, winning phrases, NIH/NSF/USASpending quick filters, category filter fix'; git push.
+    npx vercel deploy --prod.
+    Report production URL and total record count.
+
+- id: intel-lib-005
+  name: AI pattern extraction engine and draft integration upgrade
+  prompt: |
+    Read src/lib/agents/draft-generation-agent.ts in FULL.
+    Read src/lib/intelligence/evaluation-library.ts in FULL.
+    Read src/app/api/intelligence/proposals/route.ts in FULL.
+
+    CREATE src/lib/intelligence/pattern-extractor.ts:
+
+    This is the engine that extracts actionable intelligence from the library and feeds it to the draft generation agent.
+
+    Export async function extractGrantPatterns(orgProfile: OrgProfile, opportunity: Opportunity, supabase: SupabaseClient): Promise<GrantPatternIntelligence>
+
+    GrantPatternIntelligence: {
+      referenceNarratives: ReferenceNarrative[]
+      winningPhrases: string[]
+      successFactors: string[]
+      persuasiveElements: PersuasiveElement[]
+      budgetStructureRecommendation: BudgetStructure
+      evaluationApproachRecommendation: string
+      theoryOfChangeTemplate: string
+      funderPreferences: string[]
+      avoidPatterns: string[]
+      recommendedWordCount: number
+      recommendedSections: string[]
+    }
+
+    MATCHING ALGORITHM:
+    1. PRIMARY MATCH: SELECT * FROM intelligence_funded_proposals WHERE ntee_major = org_ntee_major AND funder_type = opportunity_funder_type ORDER BY award_amount DESC LIMIT 10
+    2. SECONDARY MATCH: full-text search using org mission keywords + opportunity keywords: WHERE full_text_search_vector @@ plainto_tsquery('english', keywords) LIMIT 5
+    3. FUNDER MATCH: WHERE funder_name ILIKE '%' + funder_name_keyword + '%' LIMIT 3
+    4. AMOUNT MATCH: WHERE award_amount BETWEEN opportunity_amount_min * 0.5 AND opportunity_amount_max * 2 LIMIT 5
+    5. Deduplicate and rank: score each match by relevance (ntee match=3pts, funder_type match=2pts, amount range match=1pt, full_text match=2pts)
+    6. Take top 5 by score
+
+    PATTERN SYNTHESIS: After collecting reference narratives, call Claude (max_tokens:800):
+    System: "You are a senior grant writing strategist. Analyze these successful grant narratives and extract actionable patterns for a new grant application."
+    User: { orgProfile, opportunity, referenceNarratives: top 5 narratives' full text }
+    Extract:
+    - Top 10 winning phrases adapted for this org
+    - Top 5 success factors from matching grants
+    - Budget structure recommendation (% breakdown)
+    - Evaluation approach most common in winning grants of this type
+    - Theory of change template used in similar successful grants
+    - Funder preference signals (what do they seem to value based on what they funded)
+    - Patterns to AVOID (what seems absent from unsuccessful applications based on contrast)
+    - Recommended word count and sections based on award amount and funder type
+
+    UPGRADE draft-generation-agent.ts:
+    Replace the simple library query with extractGrantPatterns():
+    const intelligence = await extractGrantPatterns(orgProfile, opportunity, supabase)
+
+    Inject the full GrantPatternIntelligence into the Phase 2 strategy prompt AND Phase 3 section drafting prompts:
+
+    INTELLIGENCE LIBRARY PATTERN ANALYSIS:
+    Reference grants analyzed: [list funder names and amounts]
+    Winning phrases to incorporate (adapt, not copy): [list]
+    Success factors present in all matching grants: [list]
+    Funder preference signals: [list]
+    Recommended budget structure: Personnel [X]%, Programs [X]%, Admin [X]%
+    Recommended sections: [list]
+    Patterns to avoid: [list]
+    Theory of change template: [text]
+
+    This ensures every draft is genuinely informed by what has actually won grants from similar funders.
+
+    Also update the draft review page to show which reference narratives were used:
+    Add "Intelligence Used" section to each draft card showing: X reference narratives from the Intelligence Library, funder types matched, winning phrases applied count.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: grant pattern extraction engine -- multi-factor matching, pattern synthesis, full intelligence injection into draft pipeline'; git push.
+    npx vercel deploy --prod.
+    Report production URL. Report how many reference narratives were matched for a test opportunity for Faith Foundation.

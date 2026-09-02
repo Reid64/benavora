@@ -1,0 +1,36 @@
+audit_id: PIL-AUDIT-BEN-SUP-06-REMEDIATION
+specification_id: PIL-AGENT-BEN-SUP-06
+specification_version: "2.0.0"
+agent_name: Research Recovery Investigator
+infrastructure_contract: PIL-RECOVERY-018
+infrastructure_version: "2.0.0"
+audit_scope: specification_and_recovery_contract_structure
+verdict: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE
+claims:
+  agent_specification_remediated: true
+  recovery_infrastructure_contract_remediated: true
+  implementation_completed: false
+  tests_executed: false
+  production_ready: false
+  scale_ready: false
+  score_assigned: false
+quality_dimensions:
+  unique_forensic_reasoning_boundary: PASS_SPECIFICATION
+  containment_preservation_and_chain_of_custody: PASS_SPECIFICATION
+  durable_state_multi_hypothesis_and_replanning: PASS_SPECIFICATION
+  typed_case_observation_hypothesis_plan_and_validation_contracts: PASS_SPECIFICATION
+  deterministic_replay_checkpoint_effect_and_recovery_gates: PASS_SPECIFICATION
+  authority_human_control_and_independent_validation: PASS_SPECIFICATION
+  persistence_concurrency_idempotency_and_recursive_recovery: PASS_SPECIFICATION
+  tenant_security_privacy_and_forensic_integrity: PASS_SPECIFICATION
+  memory_observability_slos_adrs_and_runbooks: PASS_SPECIFICATION
+  agent_specific_security_load_chaos_and_dr_tests: PASS_SPECIFICATION
+blocking_evidence_remaining:
+  - G0_repository_failure_surface_and_traceability
+  - G1_constitutional_conformance_in_code
+  - G2_runtime_contract_conformance
+  - G3_deterministic_recovery_foundation_execution
+  - G4_multi_hypothesis_replanning_and_validation_traces
+  - G5_security_calibration_performance_recovery_and_independent_scorecard
+truthfulness_rule: "No readiness or 95-100 score may be claimed until executed G0-G5 evidence exists."
+next_remediation: BEN-DIS-01

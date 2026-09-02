@@ -1,0 +1,159 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-14: SECURITY  (evidence-standard)
+# depends_on: pt-05, pt-06. Needs the real table list (06) and
+# isolation results (05). Adversarial, table-by-table,
+# bundle-deep. Attacks run against branch/local or read-only
+# probes against prod - never destructive against prod data.
+# HALTS at end. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt14-001
+    phase: build
+    description: "Preflight + injection sweep (SQLi/XSS/CSRF/SSRF) across real inputs"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00/05/06 artifacts (need the table list + isolation
+         results). Create test-evidence\pt-14\.
+      2. Injection sweep across every real form and API input (from PT-02's
+         route classification): SQLi (parameterization holes), XSS (stored
+         + reflected), CSRF (state-changing routes without protection),
+         SSRF (any server-side fetch taking a user-supplied URL - the
+         webcrawl/enrichment paths are prime). Run against branch/local for
+         anything state-changing; read-only probes against prod. Capture
+         attempt+result per vector to test-evidence\pt-14\injection.json.
+         Any successful injection is a P0 finding.
+      3. Create scripts\audit\verify-pt14-001.mjs: fails unless
+         injection.json records all four vector classes with per-attempt
+         verdicts.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-14: injection sweep (SQLi/XSS/CSRF/SSRF)"
+      5. Run: node scripts/audit/verify-pt14-001.mjs
+    expected_outputs:
+      - test-evidence/pt-14/injection.json
+      - scripts/audit/verify-pt14-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt14-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt14-002
+    phase: build
+    description: "Table-by-table RLS audit settling the anon-readable dispute"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      Settle the direct conflict in the record: MASTER_BACKLOG Tier-1
+      flagged multiple anon-readable tables + unpoliced storage buckets;
+      a later 2026-08-17 note claimed all confirmed. Re-check each
+      DISPUTED item individually with the real anon key.
+      1. For every table in PT-06's live-schema list, attempt a read with
+         the ANON key (no auth). Capture which tables return rows to anon.
+         Any table exposing real tenant data to anon is a P0 finding.
+         Cross-reference PT-06's missing-tenant-FK flags and PT-05's
+         isolation results.
+      2. storage.objects: per bucket, confirm the access policy; any bucket
+         readable/writable by anon that holds real data is a finding.
+      3. Enumerate the full anon-key surface (tables + buckets + RPCs).
+         Write test-evidence\pt-14\rls-anon-audit.json with the per-table/
+         per-bucket real result, explicitly resolving each previously
+         disputed item.
+      4. Create scripts\audit\verify-pt14-002.mjs: fails unless every table
+         from PT-06's schema has an anon-access verdict and every bucket
+         has a policy verdict.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-14: table-by-table RLS + storage anon audit"
+      6. Run: node scripts/audit/verify-pt14-002.mjs
+    expected_outputs:
+      - test-evidence/pt-14/rls-anon-audit.json
+      - scripts/audit/verify-pt14-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt14-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt14-003
+    phase: build
+    description: "Client-bundle secret scan + middleware/auth surface review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Build the client bundles and scan the SHIPPED output for leaked
+         secrets/keys (service-role keys, API secrets, tokens that should
+         be server-only). Any real secret in a client bundle is a P0.
+         Capture the scan output to test-evidence\pt-14\bundle-scan.txt.
+      2. Review the middleware/auth surface: confirm PT-02's WGR-023
+         (middleware redirecting cron/webhook routes) disposition with a
+         real prod probe if reachable (curl a cron route: 401 vs 307);
+         confirm no route bypasses auth via a middleware matcher gap.
+      3. Write test-evidence\pt-14\bundle-and-middleware.json summarizing
+         the secret scan + middleware findings.
+      4. Create scripts\audit\verify-pt14-003.mjs: fails unless the bundle
+         scan ran (output on disk) and the middleware review is recorded.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-14: client-bundle secret scan + middleware review"
+      6. Run: node scripts/audit/verify-pt14-003.mjs
+    expected_outputs:
+      - test-evidence/pt-14/bundle-scan.txt
+      - test-evidence/pt-14/bundle-and-middleware.json
+      - scripts/audit/verify-pt14-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt14-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt14-004
+    phase: build
+    description: "PHASE 14 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-14\PHASE-14-SUMMARY.md: injection results by
+         vector, the RLS/anon dispute RESOLVED per table, storage bucket
+         policies, bundle secret-scan result, middleware disposition. Every
+         result cites evidence. Lead with any P0.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-14\REVIEW-PACK.md: the security posture in
+         plain terms - any P0 exposure, the anon-table truth, secret-leak
+         status. This is the phase an investor's technical diligence cares
+         about most.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-14 COMPLETE: security, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt14-004.mjs: fails unless summary +
+         review pack exist non-empty and register grew.
+      6. Run: node scripts/audit/verify-pt14-004.mjs
+    expected_outputs:
+      - test-evidence/pt-14/PHASE-14-SUMMARY.md
+      - test-evidence/pt-14/REVIEW-PACK.md
+      - scripts/audit/verify-pt14-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt14-004.mjs"
+    max_retries: 2
+    on_fail: halt

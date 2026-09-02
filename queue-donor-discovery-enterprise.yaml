@@ -1,0 +1,454 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: dd-rebuild-001
+  name: Governance sync and Donor Discovery schema and data pipeline audit
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/donor-discovery/ directory listing in FULL.
+    Read EVERY file in that directory in FULL including all subdirectories.
+    Read worker/dist/src/lib/donor-discovery/ directory listing.
+    Read SCHEMA_REGISTRY_v2.md for corporate_prospects, dd_requests, submission_queue tables in FULL.
+    Read src/app/api/ directory listing for any donor-discovery routes.
+
+    AUDIT: Report exactly:
+    1. What routes exist under src/app/api/ for donor discovery?
+    2. What tables exist in the DB for donor discovery? Run:
+    npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); Promise.all([s.from('corporate_prospects').select('id',{count:'exact',head:true}), s.from('dd_requests').select('id',{count:'exact',head:true}), s.from('submission_queue').select('id',{count:'exact',head:true})]).then(([cp,dd,sq])=>console.log('corporate_prospects:',cp.count,'dd_requests:',dd.count,'submission_queue:',sq.count,'errors:',cp.error?.message,dd.error?.message,sq.error?.message))"
+    3. What does corporate_prospects table actually contain? Show schema and sample records:
+    npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); s.from('corporate_prospects').select('*').limit(3).then(r=>console.log(JSON.stringify(r.data,null,2)))"
+    4. What does the discover flow do when Continue is clicked? Trace the onClick handler.
+    5. What is the dd_request table schema?
+
+    Based on audit findings: document ALL broken pieces before writing any code.
+    Then fix the back button: find why it shows a circle-with-X icon and fix navigation.
+
+    Run pnpm tsc --noEmit. Fix TypeScript errors found.
+    git add -A; git commit -m 'fix: donor discovery audit -- broken pieces documented, back button fixed'; git push.
+
+- id: dd-rebuild-002
+  name: Corporate prospect data pipeline complete build
+  prompt: |
+    Read src/app/(dashboard)/donor-discovery/ directory in FULL.
+    Read SCHEMA_REGISTRY_v2.md for corporate_prospects and dd_requests tables in FULL.
+    Read src/lib/sources/land-bank-client.ts for API pattern reference.
+
+    The corporate_prospects table is the foundation of Donor Discovery. It needs to be populated with real, relevant corporate prospect data.
+
+    CREATE scripts/populate-corporate-prospects.ts
+
+    This script builds a comprehensive corporate prospect database from multiple real sources.
+
+    SOURCE 1 — Google Places API (primary source for local businesses):
+    For each org in organizations WHERE onboarding_completed=true:
+    Load org service area (city, state) from knowledge_base_profiles.
+    Load org NTEE code to determine relevant industry search terms.
+    
+    Industry search matrix (NTEE -> search terms):
+    L (Housing): ['real estate developer', 'home builder', 'property management company', 'bank mortgage lender', 'title company', 'construction company', 'building materials supplier', 'insurance company', 'moving company']
+    E/F (Health): ['hospital', 'medical center', 'pharmaceutical company', 'health insurance company', 'medical device company', 'dental practice chain', 'pharmacy', 'medical staffing agency']
+    B (Education): ['university', 'college', 'private school', 'educational publisher', 'EdTech company', 'tutoring center', 'corporate training company', 'staffing agency']
+    P (Human Services): ['bank', 'credit union', 'grocery chain', 'retail chain', 'staffing agency', 'utility company', 'telecommunications company', 'restaurant chain', 'hotel chain']
+    O (Youth): ['sports equipment retailer', 'entertainment company', 'tech company', 'food and beverage company', 'clothing retailer', 'gaming company']
+    A (Arts): ['hotel chain', 'restaurant group', 'financial services', 'tech company', 'media company', 'advertising agency', 'luxury brand']
+    C/D (Environment): ['energy company', 'utility', 'manufacturing company', 'chemical company', 'transportation company', 'agricultural company']
+    Default: ['Fortune 500', 'major employer', 'corporation', 'company headquarters', 'corporate office']
+
+    For each search term + service area: call Google Places Text Search API:
+    GET https://maps.googleapis.com/maps/api/place/textsearch/json?query=[term]+in+[city]+[state]&type=establishment&key=[GOOGLE_PLACES_API_KEY]
+    
+    For top 10 results per search: fetch Place Details:
+    GET https://maps.googleapis.com/maps/api/place/details/json?place_id=[id]&fields=name,formatted_address,formatted_phone_number,website,rating,user_ratings_total,business_status,types&key=[GOOGLE_PLACES_API_KEY]
+    
+    Insert into corporate_prospects:
+    - name: place.name
+    - website: place.website
+    - phone: place.formatted_phone_number
+    - address: place.formatted_address
+    - city: extracted from address
+    - state: extracted from address
+    - zip: extracted from address
+    - google_place_id: place.place_id
+    - rating: place.rating
+    - user_ratings_total: place.user_ratings_total
+    - industry: determined from search term category
+    - industry_category: one of [real_estate, healthcare, education, financial, retail, manufacturing, technology, energy, hospitality, professional_services, construction, food_beverage, transportation, media]
+    - organization_id: org.id
+    - source: 'google_places'
+    - status: 'new'
+    ON CONFLICT (google_place_id, organization_id) DO NOTHING
+
+    SOURCE 2 — IRS BMF Corporate Donors (from nonprofits table):
+    Query nonprofits WHERE ntee_code LIKE 'T%' (philanthropy/voluntarism foundations) AND asset_amount > 1000000.
+    These are private foundations that donate to nonprofits.
+    Insert as corporate_prospects with industry='private_foundation', source='irs_bmf'.
+
+    SOURCE 3 — SAM.gov Small Business Database:
+    GET https://api.sam.gov/opportunities/v2/search?api_key=SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a&q=community+development&naicsCode=522110&limit=20
+    Insert qualified companies as prospects.
+
+    SOURCE 4 — Hardcoded national corporate donors by industry (500 companies):
+    This is the MOST IMPORTANT source for the popular categories. Create comprehensive lists:
+
+    CONSTRUCTION & TRADES (50 companies):
+    National: Turner Construction, Skanska USA, Webcor Builders, Clark Construction, Walsh Group, DPR Construction, Hensel Phelps, McCarthy Building Companies, Mortenson Construction, Holder Construction, Whiting-Turner, JE Dunn Construction, Gilbane Building Company, Suffolk Construction, Brasfield & Gorrie
+    Regional variations by service area.
+    Each with: csr_focus=['affordable housing','community development'], typical_grant_range={min:5000,max:50000}, portal_type='generic', known_giving_programs=['employee matching','community grants']
+
+    FOOD SERVICES (50 companies):
+    National: McDonald's, Starbucks, Yum! Brands, Darden Restaurants, Aramark, Sodexo, Compass Group, Sysco, US Foods, Performance Food Group, Chipotle, Panera Bread, Dunkin Brands, Jack in the Box, Restaurant Brands International
+    Each with CSR programs: hunger relief, youth employment, community development.
+
+    PROFESSIONAL SERVICES (50 companies):
+    National: Deloitte, PwC, KPMG, EY, McKinsey, BCG, Bain, Accenture, IBM, Cognizant, Infosys, Wipro, Capgemini, Booz Allen Hamilton, Leidos, SAIC, ManTech, ICF, Booz Allen
+    Known for: pro bono services, skills-based volunteering, employee matching, community grants.
+
+    MANUFACTURING (50 companies):
+    National: 3M, Honeywell, General Electric, Caterpillar, Deere & Company, Parker Hannifin, Emerson Electric, Illinois Tool Works, Eaton Corporation, Rockwell Automation, Roper Technologies, Dover Corporation, Xylem, Watts Water Technologies
+    CSR focus: STEM education, workforce development, environmental programs.
+
+    SITE SERVICES (50 companies):
+    National: ABM Industries, ServiceMaster, Aramark Uniform Services, Cintas, Rollins, Terminix, Belfor Holdings, BrightSpring Health, TeamHealth, Envision Healthcare
+    CSR focus: workforce development, community employment, veterans employment.
+
+    TECHNOLOGY (50 companies):
+    National: Microsoft, Google, Amazon, Apple, Meta, Salesforce, Adobe, Oracle, SAP, Cisco, Intel, Qualcomm, NVIDIA, AMD, Broadcom
+    Known for: digital inclusion, education, STEM, workforce development.
+
+    FINANCIAL SERVICES (50 companies):
+    National: JPMorgan Chase, Bank of America, Wells Fargo, Citibank, US Bank, PNC Bank, Truist, Fifth Third Bank, Regions Bank, Huntington Bancshares, KeyBank, Santander US, TD Bank, BMO Harris, BBVA USA
+    Community Reinvestment Act (CRA) compliance drives significant giving. Include CRA program details.
+
+    HEALTHCARE (50 companies):
+    National: UnitedHealth Group, CVS Health, Anthem, Cigna, Humana, Centene, Molina Healthcare, WellCare, Magellan Health, Centene
+    CSR: health equity, access to care, mental health, substance use.
+
+    RETAIL (50 companies):
+    National: Walmart, Target, Costco, Home Depot, Lowe's, Best Buy, Macy's, Nordstrom, TJX Companies, Ross Stores, Burlington, Dollar General, Dollar Tree, Family Dollar, Five Below
+    Community giving: local community grants, employee matching, hunger relief.
+
+    ENERGY & UTILITIES (50 companies):
+    National: Duke Energy, Southern Company, Dominion Energy, Exelon, NextEra Energy, American Electric Power, Xcel Energy, Entergy, Eversource Energy, Consolidated Edison, Pacific Gas & Electric, Edison International, Avangrid, WEC Energy Group
+    CRA-adjacent giving, environmental programs, workforce development.
+
+    For each company: insert into corporate_prospects with full fields including:
+    - known_csr_programs: jsonb array of { program_name, focus_areas, typical_grant_range, application_url, deadline_pattern }
+    - industry_category: standardized category
+    - employee_count_estimate: text range ('1000-5000', '5000-25000', '25000-100000', '100000+')
+    - annual_revenue_estimate: text range
+    - has_employee_matching: boolean
+    - has_community_grants: boolean
+    - has_foundation: boolean
+    - foundation_name: text if applicable
+    - portal_type: 'cybergrants'|'benevity'|'yourcause'|'blackbaud'|'generic'|'unknown'
+    - portal_url: direct URL to their giving portal if known
+
+    Portal mapping (CRITICAL for AutoApply):
+    Companies on Benevity: Microsoft, Google, Salesforce, Adobe, and most Fortune 500 tech companies
+    Companies on CyberGrants: JPMorgan Chase, Bank of America, many financial institutions
+    Companies on YourCause: many manufacturing and industrial companies
+    Companies on Blackbaud: many healthcare and education companies
+
+    Run: npx tsx scripts/populate-corporate-prospects.ts
+    Report total prospects by industry_category.
+    Add package.json script: "populate:prospects": "tsx scripts/populate-corporate-prospects.ts"
+
+    Run pnpm tsc --noEmit. Fix errors.
+    git add -A; git commit -m 'feat: corporate prospects complete data pipeline -- Google Places, IRS BMF, 500 national companies with CSR programs and portal types'; git push.
+
+- id: dd-rebuild-003
+  name: Donor Discovery UI complete enterprise rebuild
+  prompt: |
+    Read src/app/(dashboard)/donor-discovery/ ALL files in FULL.
+    Read SCHEMA_REGISTRY_v2.md for corporate_prospects table FULL schema.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex. Canvas #D6E4F0.
+
+    COMPLETE REBUILD of the entire Donor Discovery section.
+
+    MAIN PAGE src/app/(dashboard)/donor-discovery/page.tsx:
+    
+    Header: "Donor Discovery" H1 + subtitle "AI-powered corporate prospect identification and outreach"
+    
+    Stats row (5 cards, background #0D1526):
+    - Total Prospects in Pipeline
+    - High Intent (intent_score >= 75)
+    - Contacted This Month
+    - Active Outreach Campaigns
+    - Submissions via AutoApply
+    
+    QUICK ACTION CARDS (3 large cards in a row):
+    
+    Card 1 — "Discover Prospects" (#0EA5E9 accent):
+    "Find corporate donors in your service area"
+    "Run Discovery" button → /donor-discovery/discover
+    Shows: last discovery date, prospects found last run
+    
+    Card 2 — "Corporate Outreach" (#8B5CF6 accent):
+    "AI-crafted personalized outreach emails"
+    "Create Campaign" button → /donor-discovery/outreach
+    Shows: active campaigns count, emails sent this week
+    
+    Card 3 — "Intent Signals" (#F59E0B accent):
+    "Real-time corporate giving signals"
+    "View Signals" button → /donor-discovery/intent-signals
+    Shows: high-intent signals count, signals today
+
+    PROSPECT PIPELINE (white card below):
+    Horizontal stage selector: New | Contacted | Interested | Proposal Sent | Won | Declined
+    Count badge per stage.
+    Shows top 5 prospects for selected stage.
+
+    REBUILD src/app/(dashboard)/donor-discovery/discover/page.tsx:
+
+    This is the broken page. Rebuild from scratch.
+
+    Header: "Discover Corporate Prospects" H1 + subtitle "Find companies in your service area with giving programs"
+
+    STEP 1 — CONFIGURE SEARCH (white card):
+    Geography section:
+    - City: text input (pre-filled from KB service area)
+    - State: dropdown (pre-filled from KB)
+    - Search Radius: slider 5-100 miles, default 25
+    - "Use My Service Area" button: fills from KB data
+
+    Industry section:
+    Label: "Select Industries to Search" (required -- at least 1)
+    12 industry cards in a 4x3 grid (white cards with colored icons, selectable):
+    - Construction & Trades: 🏗️ #F59E0B
+    - Technology: 💻 #0EA5E9
+    - Financial Services: 🏦 #10B981
+    - Healthcare: 🏥 #EF4444
+    - Retail & Consumer: 🛍️ #8B5CF6
+    - Manufacturing: ⚙️ #6B7280
+    - Food & Beverage: 🍽️ #F97316
+    - Professional Services: 📋 #06B6D4
+    - Energy & Utilities: ⚡ #EAB308
+    - Real Estate: 🏠 #10B981
+    - Hospitality: 🏨 #EC4899
+    - Education: 📚 #3B82F6
+    
+    Selected state: border 2px solid industry color, background color/10%.
+    Unselected: border 1px solid rgba(255,255,255,0.1), background #0D1526.
+    
+    Clicking toggles selection. "Select All" / "Clear All" buttons.
+
+    Filters section (collapsed by default, "Advanced Filters" toggle):
+    - Minimum Employee Count: select (Any / 50+ / 200+ / 500+ / 1000+ / 5000+)
+    - Has Employee Matching Program: checkbox
+    - Has Community Grants Program: checkbox
+    - Has Corporate Foundation: checkbox
+    - Known AutoApply Portal: checkbox (filters to companies with known portal_type)
+    - Minimum Rating (Google): slider 0-5
+
+    "Find Prospects" button: #0EA5E9, full width, large (padding 16px).
+    On click: POST /api/donor-discovery/search with { city, state, radius, industries, filters }
+    Shows loading spinner with "Searching [X] data sources..." message.
+
+    RESULTS SECTION (appears after search):
+    "Found X prospects matching your criteria"
+    Sort by: Relevance | Company Size | Rating | Has Portal | Has Foundation
+
+    PROSPECT CARDS (white card list, each card):
+    - Company logo placeholder (colored circle with company initial)
+    - Company name bold 16px white
+    - Industry badge (colored by category)
+    - Location: city, state
+    - Employee count estimate badge
+    - Rating: gold stars (if Google Places data)
+    - CSR PROGRAMS row (pill tags): Employee Matching | Community Grants | Has Foundation | Known Portal
+    - Portal type badge if known: Benevity/CyberGrants/YourCause in distinct colors
+    - Intent score badge if corporate_intent_signals exist
+    
+    ACTION BUTTONS per card:
+    - "Add to Pipeline" → sets status='new' in corporate_prospects for this org
+    - "Quick Outreach" → /donor-discovery/outreach?prospectId=X
+    - "AutoApply" → /autoapply?prospectId=X (only if portal_type is known)
+    - "View Details" → /donor-discovery/prospects/[id]
+
+    "Add All to Pipeline" button at top of results.
+
+    REBUILD src/app/(dashboard)/donor-discovery/prospects/[id]/page.tsx:
+
+    Full prospect detail page.
+
+    Header: Company name H1 + industry badge + status badge (New/Contacted/Interested/Won/Declined)
+    
+    Left column (60%):
+    COMPANY PROFILE card:
+    - Website link
+    - Phone
+    - Address
+    - Employee count
+    - Annual revenue estimate
+    - Google rating
+    
+    CSR PROGRAMS card:
+    For each known_csr_programs entry:
+    - Program name bold
+    - Focus areas tags
+    - Typical grant range
+    - Application URL link
+    - Deadline pattern
+    - "Apply via AutoApply" button if portal known
+    
+    ACTIVITY TIMELINE card:
+    All interactions with this company: outreach sent, responses, AutoApply sessions, intent signals.
+    
+    Right column (40%):
+    INTENT SIGNALS card (from corporate_intent_signals):
+    Latest signals with intent scores.
+    "Run Intent Analysis" button.
+    
+    OUTREACH HISTORY card:
+    Emails sent, opened, replied.
+    "Draft New Email" button.
+    
+    NOTES card:
+    Free text notes about this prospect.
+    Auto-save.
+    
+    STATUS PIPELINE card:
+    Current stage with stage progression buttons.
+
+    CREATE src/app/api/donor-discovery/search/route.ts:
+    POST: Accepts { city, state, radius, industries: string[], filters }.
+    Query corporate_prospects WHERE:
+    - organization_id = authenticated org id (or global prospects if org has none)
+    - industry_category IN industries
+    - city ILIKE '%' + city + '%' OR state = state
+    - Apply all filter conditions
+    - ORDER BY: has_employee_matching DESC, has_foundation DESC, rating DESC
+    LIMIT 50.
+    If no org-specific prospects found: return global prospects seeded in populate:prospects script.
+    Return full prospect objects with CSR program details.
+
+    CREATE src/app/api/donor-discovery/pipeline/route.ts:
+    GET: Returns prospects grouped by status for pipeline view.
+    PATCH: Updates prospect status.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix ALL errors.
+    git add -A; git commit -m 'feat: Donor Discovery complete UI rebuild -- discover page with industry selector, prospect cards, CSR programs, AutoApply integration'; git push.
+    npx vercel deploy --prod.
+    Report production URL.
+
+- id: dd-rebuild-004
+  name: Corporate intent monitoring live data feed
+  prompt: |
+    Read src/lib/agents/donor-intent-monitor-agent.ts in FULL.
+    Read src/app/(dashboard)/donor-discovery/intent-signals/page.tsx in FULL if exists.
+    Read SCHEMA_REGISTRY_v2.md for corporate_intent_signals table in FULL.
+
+    The intent monitoring system needs real data flowing through it. Build the complete pipeline.
+
+    STEP 1: Run the donor intent monitor for Faith Foundation right now:
+    npx tsx -e "
+    import {createClient} from '@supabase/supabase-js';
+    import {DonorIntentMonitorAgent} from './src/lib/agents/donor-intent-monitor-agent';
+    const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const agent = new DonorIntentMonitorAgent(s);
+    agent.run('manual').then(r => console.log(JSON.stringify(r, null, 2))).catch(e => console.error(e));
+    "
+    Report the output.
+
+    STEP 2: If no signals were generated, diagnose why:
+    - Does corporate_prospects table have records? (should after previous prompt)
+    - Is the web_search tool configured in the Claude API call?
+    - Is the ANTHROPIC_API_KEY available?
+    Fix whatever is blocking signal generation.
+
+    STEP 3: Create a manual signal seeding script for immediate testing:
+    CREATE scripts/seed-intent-signals.ts
+
+    Seeds corporate_intent_signals with realistic test data for Faith Foundation:
+    Insert 15 high-quality intent signals covering:
+    - Bank of America: "Bank of America announces $1B Community Homeownership Commitment -- press release signal" intent_score=85
+    - Wells Fargo: "Wells Fargo Foundation expands Neighborhood LIFT program to Bay Area" intent_score=88
+    - Google.org: "Google.org $50M commitment to housing and homelessness solutions" intent_score=82
+    - Walmart Foundation: "Walmart Foundation new Community grant cycle opens for housing nonprofits" intent_score=79
+    - Home Depot Foundation: "Home Depot Foundation 2024 Community Impact Grants accepting applications" intent_score=90
+    - JP Morgan Chase: "JPMorgan Chase announces $30B Racial Equity Commitment including housing" intent_score=83
+    - Salesforce: "Salesforce Gives Back -- new nonprofit grant program for Bay Area" intent_score=76
+    - Chevron: "Chevron Humankind announces community investment grants in California" intent_score=71
+    - Kaiser Permanente: "Kaiser Foundation announces social determinants of health grants" intent_score=78
+    - Pacific Gas & Electric: "PG&E Foundation community grants for Bay Area nonprofits" intent_score=72
+    - Comcast NBCUniversal: "Comcast Foundation community impact grants open" intent_score=68
+    - Levi Strauss Foundation: "Levi Strauss Foundation announces workforce development grants" intent_score=74
+    - Gap Inc: "Gap Foundation community investment program SF Bay Area" intent_score=70
+    - Salesforce.org: "Salesforce.org Power of Us Hub grants for nonprofits" intent_score=77
+    - Charles Schwab Foundation: "Charles Schwab Foundation financial empowerment grants 2024" intent_score=73
+
+    Each signal: org_id=FF_ORG_ID, signal_type appropriate, geographic_relevance=85-95 (Bay Area match), mission_alignment=70-90, recommended_action specific to FF programs, recommended_deadline = 14-45 days from now.
+
+    Run: npx tsx scripts/seed-intent-signals.ts
+    Add package.json script: "seed:signals": "tsx scripts/seed-intent-signals.ts"
+
+    STEP 4: Verify the intent signals page shows the seeded data properly.
+    If page doesn't exist: read the route and build it from the spec in queue-donor-discovery-complete.yaml.
+
+    STEP 5: Wire intent signals to AutoApply:
+    For any prospect with intent_score >= 80: automatically add to AutoApply queue if org has auto_autoapply_enabled=true.
+    Update donor-intent-monitor-agent.ts to insert into submission_queue when high-intent signal found and portal_type is known for that company.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix errors.
+    git add -A; git commit -m 'feat: intent monitoring live data -- 15 seeded signals for FF, agent run test, AutoApply queue wiring'; git push.
+
+- id: dd-rebuild-005
+  name: Donor Discovery full integration test and pipeline verification
+  prompt: |
+    Read src/app/(dashboard)/donor-discovery/ all files in FULL.
+    Read SCHEMA_REGISTRY_v2.md for corporate_prospects, corporate_intent_signals tables in FULL.
+
+    COMPLETE INTEGRATION TEST for Faith Foundation donor discovery:
+
+    STEP 1: Count all data:
+    npx tsx -e "
+    import {createClient} from '@supabase/supabase-js';
+    const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const orgId = 'b1ab7402-dfc2-4712-869f-70ea3566cc1d';
+    Promise.all([
+      s.from('corporate_prospects').select('id,name,industry_category,status,intent_score,portal_type').eq('organization_id', orgId).order('created_at', {ascending:false}).limit(10),
+      s.from('corporate_intent_signals').select('company_name,intent_score,signal_type,recommended_action').eq('org_id', orgId).order('intent_score', {ascending:false}).limit(10),
+      s.from('outreach_prospects').select('id').eq('org_id', orgId),
+      s.from('submission_queue').select('id,status').eq('org_id', orgId)
+    ]).then(([cp, signals, outreach, queue]) => {
+      console.log('PROSPECTS:', cp.data?.length, cp.data?.map(p=>p.name+' '+p.industry_category+' portal:'+p.portal_type));
+      console.log('SIGNALS:', signals.data?.length, signals.data?.map(s=>s.company_name+' score:'+s.intent_score));
+      console.log('OUTREACH:', outreach.data?.length);
+      console.log('QUEUE:', queue.data?.length, queue.data?.map(q=>q.status));
+    })"
+
+    STEP 2: Test the discover flow end-to-end:
+    - Verify POST /api/donor-discovery/search returns results for city='San Francisco' state='CA' industries=['financial_services','technology','retail']
+    - Verify results include known_csr_programs data
+    - Verify portal_type is populated for major companies
+
+    STEP 3: Test outreach email generation:
+    - Call POST /api/intelligence/outreach/generate with a real prospect and FF org
+    - Verify Claude generates a personalized email referencing FF's actual programs
+    - Log the generated subject and body
+
+    STEP 4: Verify navigation works:
+    - Test that all donor discovery nav links resolve to real pages (no broken routes)
+    - Test that back button works from prospect detail page
+    - Test that industry selection on discover page triggers search correctly
+
+    STEP 5: Fix any remaining broken elements found during testing.
+
+    STEP 6: Update FEATURE_REGISTRY_v2.md to mark Donor Discovery features as BUILT.
+    Update STATE_OF_THE_BUILD.md with donor discovery status.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: donor discovery integration complete -- prospects populated, signals live, outreach verified, navigation fixed'; git push.
+    npx vercel deploy --prod.
+    Report production URL. Report total prospects, signals, and test results.

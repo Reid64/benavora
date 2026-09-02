@@ -1,0 +1,117 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-10: ERROR HANDLING & RECOVERY  (evidence-standard)
+# depends_on: pt-02, pt-08. BRANCH/LOCAL ONLY - injects faults.
+# Assert graceful degradation, no white screens, no partial-write
+# corruption, clean recovery. HALTS at end. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt10-001
+    phase: build
+    description: "Preflight + malformed-payload fuzz across input surfaces"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00/02/08 artifacts. Create test-evidence\pt-10\.
+      2. Branch/local only. For a representative set of API input surfaces
+         (from PT-02's api-routes.json), send malformed payloads: wrong
+         types, missing required fields, oversized inputs, injection-shaped
+         strings (behavior only - the security depth is PT-14). Assert each
+         returns a clean 4xx with a useful error, never a 500 or a partial
+         write. Capture request+response per case to
+         test-evidence\pt-10\malformed-payloads.json. Any 500 or
+         partial-write on malformed input is a finding.
+      3. Create scripts\audit\verify-pt10-001.mjs: fails unless the JSON
+         records a representative surface set with per-case verdicts.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-10: malformed-payload fuzz"
+      5. Run: node scripts/audit/verify-pt10-001.mjs
+    expected_outputs:
+      - test-evidence/pt-10/malformed-payloads.json
+      - scripts/audit/verify-pt10-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt10-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt10-002
+    phase: build
+    description: "Dependency-outage simulation: Supabase slow/down, worker killed mid-job, bad 3rd-party responses"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      Branch/local only. Simulate the failures that happen in production:
+      1. Supabase slow/unavailable: inject latency/failure on the DB path;
+         assert the app degrades gracefully (loading states, ret/timeout,
+         no white screen), not a crash.
+      2. Worker killed mid-job: kill the worker while a job is in-flight;
+         assert the job is reclaimed or cleanly failed, never left in a
+         corrupt half-done state (ties to PT-08 queue semantics).
+      3. Malformed third-party responses: feed the integration parsers
+         garbage/truncated responses; assert they handle it, not crash.
+      Write test-evidence\pt-10\outage-simulation.json with per-scenario
+      behavior + a post-failure DB integrity check. Any corruption or
+      white-screen is a finding (P1+).
+      3. Create scripts\audit\verify-pt10-002.mjs: fails unless all three
+         scenarios record behavior + a post-failure integrity check.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-10: dependency-outage simulation"
+      5. Run: node scripts/audit/verify-pt10-002.mjs
+    expected_outputs:
+      - test-evidence/pt-10/outage-simulation.json
+      - scripts/audit/verify-pt10-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt10-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt10-003
+    phase: build
+    description: "PHASE 10 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-10\PHASE-10-SUMMARY.md: fault scenarios
+         run, graceful-degradation verdicts, any corruption/white-screen
+         found, post-failure integrity results. Every number cites evidence.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-10\REVIEW-PACK.md: does the app fail safely;
+         highest-severity; next-phase note.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-10 COMPLETE: error handling + recovery, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt10-003.mjs: fails unless summary +
+         review pack exist non-empty and register grew.
+      6. Run: node scripts/audit/verify-pt10-003.mjs
+    expected_outputs:
+      - test-evidence/pt-10/PHASE-10-SUMMARY.md
+      - test-evidence/pt-10/REVIEW-PACK.md
+      - scripts/audit/verify-pt10-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt10-003.mjs"
+    max_retries: 2
+    on_fail: halt

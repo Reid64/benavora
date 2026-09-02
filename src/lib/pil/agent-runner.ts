@@ -5,6 +5,7 @@ import { logAction } from "@/lib/pil/audit";
 import { checkBudget, recordCost } from "@/lib/pil/cost";
 import { canDelegate, checkAgentAuthorization, PolicyViolationError } from "@/lib/pil/policy";
 import { createReviewItem } from "@/lib/pil/human-review";
+import { agentEventsLogged, agentRunDuration } from "@/lib/observability/metrics";
 import type { AgentRun, AgentRunStatus, AutonomyLevel } from "@/lib/pil/types";
 
 // The closed reasoning/execution loop harness
@@ -63,6 +64,12 @@ export class AgentRunner {
   }
 
   async run(context: AgentContext): Promise<AgentResult> {
+    const startTime = Date.now();
+    const observeRun = (status: AgentRunStatus, family: string) => {
+      agentRunDuration.labels(context.agentCode, family, status).observe((Date.now() - startTime) / 1000);
+      agentEventsLogged.labels(context.agentCode, "run_completed", status === "failed" ? "error" : "info").inc();
+    };
+
     const agentDef = await loadAgent(context.agentCode);
     if (!agentDef.active) {
       throw new PolicyViolationError(`Agent ${context.agentCode} is not active`);
@@ -106,6 +113,7 @@ export class AgentRunner {
         policy_decision: policyDecision.decision,
         ip_address: null,
       });
+      observeRun("blocked", agentDef.family);
       return {
         status: "blocked",
         evidence: [],
@@ -133,6 +141,7 @@ export class AgentRunner {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await this.finalizeRun(agentRun, context, "failed", {}, 0, 0, message);
+      observeRun("failed", agentDef.family);
       return {
         status: "failed",
         evidence: [],
@@ -156,6 +165,7 @@ export class AgentRunner {
         if (!authorized) {
           const message = `Delegation from ${context.agentCode} to ${delegation.childAgentCode} at ${delegation.maxAutonomy} exceeds parent authority`;
           await this.finalizeRun(agentRun, context, "failed", result.conclusions, result.tokensUsed, result.costUsd, message);
+          observeRun("failed", agentDef.family);
           return { ...result, status: "failed", error: message };
         }
         await this.delegate(context, agentRun.id, delegation);
@@ -174,6 +184,7 @@ export class AgentRunner {
       result.error,
     );
 
+    observeRun(finalStatus, agentDef.family);
     return { ...result, status: finalStatus };
   }
 

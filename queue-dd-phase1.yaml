@@ -1,0 +1,121 @@
+prompts:
+  - id: dd-101
+    phase: build
+    description: "Donor Discovery migrations: taxonomy, requests, prospects, directory, connectors"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 1C, 3, and 6 in the repo root before writing anything.
+      Read SCHEMA_REGISTRY.md and the two most recent files in supabase/migrations/ to match existing migration conventions exactly (naming, RLS policy style, updated_at triggers).
+      Create the next-numbered migration implementing: donor_discovery_taxonomy (shared, no org_id), donor_discovery_requests (org-scoped, RLS), donor_discovery_prospects (org-scoped, RLS), donor_discovery_directory (shared, no org_id, unique index on lower(legal_name) + website domain), donor_discovery_connectors (org-scoped, RLS, encrypted_api_key text).
+      Follow the column specs in the architecture doc exactly. Add RLS policies matching the pattern used by the funders table. Add indexes: prospects(organization_id, pipeline_stage), prospects(score desc), directory USING gist(geo), requests(organization_id, status).
+      Do NOT apply the migration to production — file only. Register all tables in SCHEMA_REGISTRY.md.
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: halt
+
+  - id: dd-102
+    phase: build
+    description: "Taxonomy seed script: full NAICS 2022 + civic entity branch"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 1A-1C.
+      Create scripts/seed-dd-taxonomy.ts (runnable via pnpm tsx, add package.json script seed:dd-taxonomy).
+      The script must: 1) download the official US Census 2022 NAICS 6-digit code list (use the Census NAICS files at census.gov/naics; prefer a CSV/TXT format; parse robustly). 2) Insert every 6-digit code as kind='naics' with parent linkage built from the 2-digit sector and 4-digit industry group levels. 3) Insert the civic branch: land_bank, community_foundation, corporate_foundation, municipal_surplus, trade_association as kind='civic'. 4) Be idempotent — upsert on (kind, code), safe to re-run. 5) If the Census download fails, exit with a clear error. NEVER fabricate or hardcode a partial NAICS list.
+      Use the Supabase admin client with realtime disabled via ws transport (see scripts/seed-beta-users.ts for the working pattern, including the @ts-nocheck header since scripts/ is excluded from build type-check).
+      Do not run the script — create it only.
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: halt
+
+  - id: dd-103
+    phase: build
+    description: "Crawler core: rate limiter, robots.txt, ToS registry, kill switches"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 5 (compliance is Phase 1 infrastructure, not an afterthought).
+      Create src/lib/donor-discovery/crawler-core.ts exporting:
+      - class DomainRateLimiter: token-bucket per domain, default 1 request per 5 seconds per domain, configurable per adapter, shared across all tenants (module-level state is fine for the worker; document that Vercel routes never crawl).
+      - async fetchCompliant(url, opts): checks robots.txt (fetch + cache 24h in-memory with DB fallback table dd_robots_cache — add to the migration from dd-101 via a new migration if needed), respects disallow rules, applies the rate limiter, sets User-Agent "BenavoraBot/1.0 (+https://benavora.vercel.app/security)", 15s timeout, returns {ok, status, html} and never throws on HTTP errors.
+      - ToS registry check: reads donor_discovery_tos_registry table (create in a new migration: domain, scrape_allowed bool, notes) — fetchCompliant refuses domains where scrape_allowed=false.
+      - Kill switch: every adapter checks process.env.DD_ADAPTER_<NAME>_DISABLED before running.
+      Write it dependency-light; if a robots.txt parser package is genuinely needed use the pre-installed robots-parser package — do NOT run npm/pnpm install.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-104
+    phase: build
+    description: "Google Places registry adapter with budget cap"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 2A.
+      Create src/lib/donor-discovery/adapters/google-places.ts:
+      - enumerate({naicsCodes, geography}): maps NAICS codes to Places API (New) includedTypes/textQuery terms via a maintainable mapping table in the same file (cover the construction/services/retail sectors well; fall back to the NAICS label as textQuery), performs Text Search with pagination, radius from geography.
+      - Budget guard: reads DD_PLACES_MONTHLY_BUDGET_USD (default 200) and tracks spend in a dd_api_spend table (new migration: provider, month, requests, est_cost_usd) at ~$0.032 per text search request; hard-stops with a clear error when the cap is reached.
+      - Normalizes results into donor_discovery_directory upsert shape (legal_name, website, hq_address, geo point, phone, naics_codes, source_adapters append 'google_places').
+      - Requires GOOGLE_PLACES_API_KEY env var; add to the env startup guard in src/lib/env.ts as optional-but-warned.
+      No UI. No calls at module load. Everything lazy and worker-safe.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-105
+    phase: build
+    description: "Request queue: API routes + worker processor skeleton"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 3.
+      Create API routes following the existing route conventions (auth, org_id scoping, requireRole where mutating):
+      - POST /api/donor-discovery/requests — create a request (name, taxonomy_ids, geography), status 'queued'.
+      - GET /api/donor-discovery/requests — list org's requests with counts.
+      - GET /api/donor-discovery/requests/[id] — detail with progress.
+      - GET /api/donor-discovery/prospects — filterable list (request_id, stage, min_score) org-scoped.
+      Create worker/dd-request-processor.ts mirroring worker/queue-processor.ts structure: claims queued requests (FOR UPDATE SKIP LOCKED), runs enumeration via the google-places adapter, upserts directory rows, creates org-scoped prospect rows linked to directory records, updates counts/status through enumerating -> complete, marks failed with error detail on exception. Enrichment and scoring stages are Phase 2 — leave clearly-marked stubs that set status complete after enumeration for now, with a TODO referencing the architecture doc section 2B/2D.
+      maxDuration is irrelevant here (worker, not Vercel route) but the API routes must NOT do any crawling or Places calls.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-106
+    phase: build
+    description: "Directory dedup + upsert module"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 3 (shared directory, compounding moat).
+      Create src/lib/donor-discovery/directory.ts:
+      - normalizeDomain(url): strips protocol/www/paths.
+      - upsertDirectoryRecord(record): dedup priority 1) exact normalized domain match, 2) fuzzy legal_name match (postgres similarity() > 0.65 within 25km geo radius when both have geo). On match: merge (append source_adapters, fill nulls, never overwrite non-null enrichment). On miss: insert.
+      - findOrCreateProspect(orgId, requestId, directoryId): idempotent per (org, directory) — a second request by the same org linking the same company reuses the prospect row and appends the request linkage (add a join table dd_prospect_requests in a migration if the schema needs it).
+      Wire dd-105's worker to use this module instead of raw inserts if it isn't already.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-107
+    phase: test
+    description: "Vitest coverage: RLS shapes, rate limiter, dedup, budget guard"
+    prompt: |
+      Read TESTING.md for the project's test conventions.
+      Add vitest suites: 1) DomainRateLimiter — enforces per-domain spacing, independent domains don't block each other (use fake timers). 2) directory.ts — domain normalization cases, dedup merge behavior (mock supabase client per existing test patterns). 3) google-places budget guard — hard-stops at cap, resets across months. 4) API route auth — requests routes reject unauthenticated and cross-org access (match the style of existing route tests).
+      Run pnpm vitest run — every new test must pass and no existing test may regress. Record final counts.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-108
+    phase: governance
+    description: "Governance update + commit"
+    prompt: |
+      Update STATE_OF_THE_BUILD.md: new section "Donor Discovery — Phase 1" listing every table, module, adapter, route, worker file, and test suite created in dd-101..dd-107, plus explicitly deferred items (enrichment, scoring, dashboard, connectors — Phases 2-4 per DONOR_DISCOVERY_ARCHITECTURE.md).
+      Update SESSION_STATE.md with current commit and Phase 1 completion.
+      Run pnpm tsc --noEmit and pnpm run build to confirm clean, then git add -A and git commit -m "feat(donor-discovery): phase 1 foundation - schema, taxonomy, crawler core, places adapter, request queue".
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 2
+    on_fail: halt

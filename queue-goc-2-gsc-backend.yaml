@@ -1,0 +1,110 @@
+# QUEUE GOC-2 — GSC Control Center Backend
+#
+# Safe to run now, unlike GOC-3 (GBP) — A-08 already has real, live GSC OAuth
+# integration shipped (per-client OAuth, CRON-02, trigger route, RPC — confirmed in
+# STATE_OF_THE_BUILD.md session history). This queue EXTENDS that existing surface
+# per GOC-0's reconciliation findings rather than building parallel GSC access from
+# scratch — if GOC-0 found A-08 already pulls Search Analytics data, goc2-001 below
+# must adapt to extend it, not duplicate it. Read the reconciliation report first,
+# every prompt.
+#
+# Scope, per GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 1.2/2.5: Search Performance
+# (full dimension set), Query Intelligence, Page Intelligence, URL Inspection queue,
+# Sitemap Operations extension. Explicitly excludes anything tagged [TARRITRIX-NATIVE]
+# in the master spec (Core Web Vitals via CrUX, HTTPS monitoring, structured-data
+# validation, Links substitute) — those are GOC-4, separate queue, not written yet.
+
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- CLAUDE.md
+- docs/audits/2026-08-01-google-ops-center-reconciliation.md
+project: Tarritrix
+prompts:
+- id: goc2-001
+  name: GSC schema — properties, search analytics daily, dimensions, sitemaps, inspections
+  prompt: |
+    Read docs/audits/2026-08-01-google-ops-center-reconciliation.md — confirm A-08's exact current table(s) before writing. If A-08 already writes Search Analytics data to an existing table, extend that table's schema rather than creating gsc_search_analytics_daily as a duplicate. Read SCHEMA_REGISTRY.md for RLS Pattern A requirements.
+
+    Write FILE 1: supabase/migrations/[correct next timestamp]_gsc_control_center.sql
+
+    Create (or extend, per the reconciliation finding) tables matching GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 3's GSC domain: gsc_properties (property_url, property_type, permission_level, verification_status, client_id FK), gsc_search_analytics_daily (date, query, page, country, device, search_appearance, search_type, clicks, impressions, ctr, position, property_id FK), gsc_url_inspections (url, inspection_time, verdict, coverage_state, indexing_state, priority, scheduled_date, last_inspected, retry_count), gsc_sitemaps (sitemap_url, status, submission_date, last_downloaded, warnings, errors, submitted_urls, indexed_urls), gsc_manual_check_attestations (check_type, checked_by, checked_at, evidence_url, next_due). All Pattern A RLS from creation.
+
+    Apply via Supabase MCP. Verify pg_policies shows Pattern A only.
+
+    pnpm tsc --noEmit — 0 errors.
+
+    git add -A; git commit -m 'feat: GSC Control Center schema — properties, search analytics dimensions, URL inspection queue, sitemaps, manual-check attestations'; git push origin main. Report commit hash.
+  gates:
+  - type: compile
+
+- id: goc2-002
+  name: Query Intelligence Agent
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID. Read GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 1's Query Intelligence section for the full classification taxonomy (brand/competitor/service/product/problem/informational/transactional/navigational/emergency/near-me/city-modified/question/storm-driven, etc.).
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-query-intelligence.ts
+
+    Extends BaseAgent. Reads gsc_search_analytics_daily for a client, computes per-query: cannibalization count (multiple pages ranking for the same query), classification per the taxonomy above, trend (7-day and 28-day moving average), and generates recommendation records in the existing `recommendations` table (or create it per SCHEMA_REGISTRY.md if it doesn't exist — check reconciliation report first) for: high-impressions-low-CTR, position 4-15 opportunities, query-with-no-purpose-built-page, city-query-without-city-page.
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md.
+
+    git add -A; git commit -m 'feat: Query Intelligence Agent — classification, cannibalization detection, opportunity generation'; git push origin main. Report commit hash and assigned agent ID.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc2-003
+  name: Page Intelligence Agent
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID. Read GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 1's Page Intelligence alert-condition list.
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-page-intelligence.ts
+
+    Extends BaseAgent. Per page, joins gsc_search_analytics_daily (clicks/impressions/position trend) with existing page_schemas, page_quality_scores, and indexation_records tables (confirm exact column names live, do not guess) to detect: impressions drop, clicks drop, position drop, not-indexed, crawled-but-not-indexed, duplicate-canonical, doorway-page-risk. Writes alerts to the existing `alerts` table (check reconciliation report for exact schema) with severity, page reference, and recommended action.
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md.
+
+    git add -A; git commit -m 'feat: Page Intelligence Agent — per-page alert conditions joining GSC data with existing quality/indexation tables'; git push origin main. Report commit hash and assigned agent ID.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc2-004
+  name: URL Inspection Queue Agent + Sitemap Operations extension
+  prompt: |
+    Read AGENTS.md, determine correct next agent ID. Read A-07's current implementation in full (path per reconciliation report) before writing — extend it for GSC-API sitemap submission/validation if it doesn't already do this, rather than duplicating sitemap generation logic.
+
+    Write FILE 1: src/lib/agents/a-[correct-id]-url-inspection-queue.ts
+
+    Extends BaseAgent. Manages gsc_url_inspections per the priority order in GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 2.3 (Contract F, quota-aware): newly-published pages first, then recently-changed, then traffic-loss pages, then high-value pages, then sitemap discrepancies, then random audit sample, then stable pages last. Enforces a hard quota budget per run — do not blanket-poll.
+
+    pnpm tsc --noEmit — 0 errors. Update AGENTS.md.
+
+    git add -A; git commit -m 'feat: URL Inspection Queue Agent — quota-aware priority queue per Contract F'; git push origin main. Report commit hash and assigned agent ID.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - AGENTS.md
+
+- id: goc2-005
+  name: Final verification — GSC Control Center backend
+  prompt: |
+    Run pnpm tsc --noEmit and pnpm run build — must both pass clean.
+
+    Run the existing permission-matrix sync check and RBAC pattern check (verify-permission-matrix-sync.ts, verify-rbac-pattern.ts) — confirm no violations introduced by any new route these agents may have added.
+
+    Append a session log entry (append-only) to STATE_OF_THE_BUILD.md listing: all tables created/extended, all agent IDs actually assigned (not the placeholder names from the master spec), and confirming GOC-2 is complete while GOC-3 (GBP) remains held pending API access.
+
+    git add -A; git commit -m 'docs: confirm GOC-2 GSC Control Center backend complete, GOC-3 GBP remains held'; git push origin main. Report commit hash.
+  gates:
+  - type: compile
+  - type: build

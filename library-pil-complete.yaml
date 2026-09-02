@@ -1,0 +1,53 @@
+# library-pil-complete.yaml
+#
+# Orchestration manifest for the PIL (Prospect Intelligence Layer) agent-completion work,
+# in the format forge-orchestrator.ps1 reads (see
+# C:\Users\manag\Documents\FORGE\library\benavora\FORGE-LIBRARY-README.md and
+# INSTRUCTIONAL_DOC_FOR_ANY_CHAT_ON_ORCHESTRATOR_LIBRARY_USE_WITH_FORGE.md for the schema).
+#
+# CORRECTED SCOPE: the original Phase 2 brief assumed 9 family queues covering 47 agents.
+# The live pil_agent_registry (supabase/migrations/155/163/164) shows 32 of 44 spec agents
+# already implemented and registered in src/lib/pil/agents/index.ts's AGENT_FACTORIES map
+# (SUP 8/8, DIS 8/8, INT 10/10, REL 8/8). The real gap is 10 agents (QLF x4, KNW x1, STR x4,
+# OPS x1), already covered by the single queue below. A 3-agent AutoApply-integration family
+# (BEN-APP-01/02/03) exists only in a newer spec archive, not in the live registry at all —
+# it cannot be queued until a new migration adds it (see PHASE2_APP_FAMILY_SCOPE.md), so it
+# appears here as `status: planned` with no file yet, not as a launchable entry.
+#
+# To use with the real orchestrator: either run this file standalone via
+# forge-orchestrator.ps1 -project pil-complete (after copying it to
+# C:\Users\manag\Documents\FORGE\library\pil-complete\library-manifest.yaml and copying
+# queue-pil-agents-complete.yaml into the same folder), or merge the `queues:` entries below
+# into the existing C:\Users\manag\Documents\FORGE\library\benavora\library-manifest.yaml
+# (recommended, since queue-pil-agents-complete.yaml already lives in the benavora repo/queue
+# set alongside the other 6 backlog queues documented in QUEUE_BACKLOG_SUMMARY.md).
+#
+# Simplest path (no orchestrator needed): this is a single independent queue with no
+# dependencies, so it can also just be launched directly per QUEUE_BACKLOG_SUMMARY.md's
+# existing instructions:
+#   Copy-Item queue-pil-agents-complete.yaml C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml -Force
+#   cd C:\Users\manag\Documents\FORGE; powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora -startFrom 0
+
+project: benavora
+version: "1.0"
+description: "PIL agent-completion work — targets the real registry gap only, not the full 47-agent spec archive"
+created: "2026-08-27"
+
+queues:
+  - id: pil-agents-complete
+    file: queue-pil-agents-complete.yaml
+    description: "BEN-STR-01..04, BEN-OPS-01, BEN-QLF-01/02/03/05, BEN-KNW-04 — closes the real 10-agent gap against the live pil_agent_registry (migrations 155/163/164). 4 linear prompts. Reviewed against FORGE_CANONICAL_INSTRUCTIONS.md — no changes needed, ready to launch."
+    status: pending
+    depends_on: []
+    prompt_count: 4
+    estimated_hours: 12
+    priority: 1
+
+  - id: pil-app-family
+    file: null
+    description: "BEN-APP-01/02/03 (AutoApply integration agents). NOT in the live pil_agent_registry — only in the newer spec archive. Blocked on: (1) a new registry migration, applied via SQL editor per this project's never-migrate-inside-FORGE rule, and (2) a scoping pass mapping the spec's abstract PIL-SVC-31..46 services to real AutoApply files/tables (worker/queue-processor.ts, autoapply_follow_ups, etc.), which the spec itself never does. See PHASE2_APP_FAMILY_SCOPE.md. No queue file exists yet — do not attempt to launch this entry."
+    status: planned
+    depends_on: []
+    prompt_count: 0
+    estimated_hours: null
+    priority: 2

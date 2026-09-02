@@ -1,0 +1,427 @@
+schema_version: "2.0.0"
+document_id: PIL-RECOVERY-018
+title: Enterprise Recovery Investigation Contracts
+status: specification_remediated_pending_implementation_evidence
+
+principles:
+  - containment_precedes_recovery_mutation
+  - evidence_and_audit_are_preserved_before_mutation
+  - durable_state_and_verified_receipts_outrank_logs
+  - unknown_external_effect_is_not_not_executed
+  - replay_requires_idempotency_and_side_effect_proof
+  - canonical_truth_is_never_rebuilt_from_derived_state_or_model_memory
+  - effective_authority_can_only_narrow
+  - destructive_or_irreversible_recovery_requires_human_execution
+  - cross_tenant_incidents_are_quarantined
+  - recovered_state_requires_independent_validation
+  - original_failure_and_recovery_lineage_are_immutable
+
+enums:
+  IncidentType:
+    - ABANDONED_TASK
+    - STALLED_WORKFLOW
+    - CONNECTOR_FAILURE
+    - PARTIAL_RUN
+    - PARTIAL_COMMIT
+    - DUPLICATE_EXECUTION
+    - DUPLICATE_EXTERNAL_EFFECT
+    - WORKFLOW_CORRUPTION
+    - AGGREGATE_CORRUPTION
+    - GRAPH_CORRUPTION
+    - PROJECTION_CORRUPTION
+    - EVIDENCE_INTEGRITY_FAILURE
+    - BUDGET_INCONSISTENCY
+    - EVENT_GAP
+    - EVENT_DUPLICATION
+    - EVENT_REORDERING
+    - POISON_EVENT
+    - ORPHANED_DESCENDANT
+    - STALE_LEASE
+    - POLICY_TOC_TOU
+    - SCHEMA_CORRUPTION
+    - CROSS_TENANT_SIGNAL
+    - UNKNOWN
+  RecoveryStatus:
+    - DETECTED
+    - VALIDATING
+    - CONTAINING
+    - PRESERVING
+    - OBSERVING
+    - HYPOTHESIZING
+    - DIAGNOSTIC_PLANNING
+    - DIAGNOSING
+    - EVALUATING
+    - REPLANNING
+    - RECOVERY_PROPOSED
+    - AUTHORIZING
+    - RECOVERING
+    - VALIDATING_RECOVERY
+    - WAITING_DEPENDENCY
+    - WAITING_HUMAN
+    - BUDGET_CONSTRAINED
+    - CANCEL_REQUESTED
+    - CANCELLED
+    - QUARANTINED
+    - HUMAN_REQUIRED
+    - FAILED_RETRYABLE
+    - FAILED_TERMINAL
+    - RESOLVED
+  EvidenceIntegrityState: [VERIFIED, PARTIAL, SUSPECT, CORRUPTED, UNKNOWN]
+  ExternalEffectState:
+    - CONFIRMED_NOT_EXECUTED
+    - CONFIRMED_EXECUTED_ONCE
+    - CONFIRMED_EXECUTED_MULTIPLE
+    - COMPENSATED
+    - PARTIALLY_EXECUTED
+    - UNKNOWN
+  RecoveryAction:
+    - RESUME_VERIFIED_CHECKPOINT
+    - IDEMPOTENT_REPLAY
+    - REEXECUTE_SUBTREE
+    - SEMANTIC_COMPENSATION
+    - REBUILD_DERIVED_STATE
+    - ROLLBACK_REVERSIBLE
+    - ABANDON_AND_RESTART
+    - QUARANTINE
+    - HUMAN_REPAIR
+  HumanGate: [NONE, H1_APPROVAL, H2_EXECUTION]
+  FinalVerdict: [RESOLVED, HUMAN_REQUIRED, QUARANTINED, FAILED_TERMINAL]
+
+contracts:
+  RecoveryTrigger:
+    version: "2"
+    required:
+      - trigger_id
+      - tenant_id
+      - detector_id
+      - detector_version
+      - incident_type
+      - severity
+      - affected_refs
+      - observed_symptoms
+      - invariant_refs
+      - evidence_refs
+      - detected_at
+      - policy_snapshot_id
+      - authority_grant_ref
+      - data_classification
+      - correlation_id
+      - causation_id
+      - idempotency_key
+      - deadline
+      - initial_budget
+      - schema_versions
+    invariants:
+      - detector_identity_is_authenticated
+      - tenant_is_derived_from_verified_identity
+      - conflicting_duplicate_idempotency_key_is_security_finding
+      - policy_and_authority_are_current_at_acceptance
+
+  RecoveryCase:
+    version: "2"
+    required:
+      - case_id
+      - case_version
+      - tenant_id
+      - trigger_ref
+      - incident_type
+      - status
+      - containment_state
+      - evidence_integrity_state
+      - external_effect_state
+      - blast_radius_state
+      - goal
+      - policy_snapshot_id
+      - authority_grant_ref
+      - budget_state
+      - lease_fencing_token
+      - created_at
+      - updated_at
+    invariants:
+      - terminal_versions_are_immutable
+      - every_mutation_uses_expected_case_version
+      - lease_fencing_token_must_be_current
+
+  PreservationManifest:
+    version: "2"
+    required:
+      - manifest_id
+      - case_id
+      - tenant_id
+      - consistency_mode
+      - items
+      - chain_of_custody
+      - retention_policy_ref
+      - encryption_policy_ref
+      - created_at
+      - manifest_hash
+      - signature
+    item_required:
+      - source_ref
+      - source_version
+      - artifact_class
+      - content_hash
+      - captured_at
+      - collector_identity
+      - immutable_location_ref
+    invariants:
+      - original_suspect_artifacts_are_retained
+      - working_copies_are_separate
+      - access_is_audited
+      - hash_or_signature_failure_blocks_automated_mutation
+
+  ForensicObservation:
+    version: "2"
+    required:
+      - observation_id
+      - case_id
+      - tenant_id
+      - source_system
+      - object_ref
+      - object_version
+      - query_hash
+      - authorization_decision_ref
+      - observed_value_hash
+      - provenance
+      - consistency_level
+      - artifact_class
+      - expected_invariant
+      - observed_invariant
+      - reliability
+      - freshness
+      - limitations
+      - observed_at
+      - custody_ref
+    invariants:
+      - logs_and_traces_are_not_sufficient_proof_of_absence
+      - every_observation_is_tenant_and_authority_scoped
+
+  CausalHypothesis:
+    version: "2"
+    required:
+      - hypothesis_id
+      - case_id
+      - causal_claim
+      - affected_components
+      - predicted_observations
+      - disconfirming_conditions
+      - supporting_evidence_refs
+      - contradictory_evidence_refs
+      - confidence_interval
+      - alternative_hypothesis_refs
+      - required_diagnostics
+      - status
+    status: [OPEN, SUPPORTED, FALSIFIED, INCONCLUSIVE, SUPERSEDED]
+
+  AffectedStateMap:
+    version: "2"
+    required: [map_id, case_id, tenant_id, nodes, edges, generated_at, map_hash]
+    node_classes:
+      - WORKFLOW
+      - TASK
+      - ARTIFACT
+      - EVENT
+      - EVIDENCE
+      - PROJECTION
+      - EXTERNAL_EFFECT
+      - BUDGET
+      - POLICY
+      - TENANT
+      - DEPLOYMENT
+    scope_states: [CONFIRMED, PROBABLE, POSSIBLE, CLEARED, UNKNOWN]
+    invariants:
+      - propagation_stops_at_verified_boundaries
+      - cross_tenant_edge_causes_quarantine
+
+  IdempotencyProof:
+    version: "2"
+    required:
+      - proof_id
+      - command_identity
+      - semantic_operation
+      - scope
+      - mechanism
+      - dedupe_window
+      - ledger_ref
+      - request_hash
+      - response_hash
+      - provider_receipt_ref
+      - external_effect_state
+      - reconciled_at
+      - ambiguity
+      - verifier_identity
+    invariants:
+      - unknown_or_partial_effect_prohibits_automatic_replay
+      - timeout_or_missing_ack_is_not_effect_proof
+
+  CheckpointProof:
+    version: "2"
+    required:
+      - proof_id
+      - workflow_ref
+      - run_ref
+      - checkpoint_id
+      - checkpoint_version
+      - committed_boundary_ref
+      - aggregate_versions
+      - event_positions
+      - outbox_state
+      - inbox_state
+      - child_state
+      - budget_state
+      - policy_snapshot_id
+      - authority_grant_ref
+      - evidence_hashes
+      - runtime_compatibility
+      - schema_compatibility
+      - verifier_identity
+    invariants:
+      - checkpoint_is_durably_committed
+      - no_unaccounted_inflight_effects
+      - log_or_trace_only_checkpoint_is_invalid
+
+  RecoveryAlternative:
+    version: "2"
+    required:
+      - alternative_id
+      - case_id
+      - action
+      - prerequisites
+      - affected_state_refs
+      - side_effect_certainty
+      - idempotency_proof_ref
+      - authority_decision_ref
+      - policy_decision_ref
+      - evidence_impact
+      - data_loss_risk
+      - duplicate_effect_risk
+      - estimated_cost
+      - estimated_downtime
+      - rollback_or_compensation
+      - validation_plan_ref
+      - residual_risk
+      - admissibility
+    admissibility: [ADMISSIBLE, REJECTED_SAFETY, REJECTED_POLICY, REJECTED_AUTHORITY, REJECTED_EVIDENCE, REJECTED_BUDGET]
+
+  RecoveryPlan:
+    version: "2"
+    required:
+      - plan_id
+      - plan_version
+      - case_id
+      - diagnosis
+      - selected_alternative_ref
+      - rejected_alternative_refs
+      - affected_state_map_ref
+      - preservation_manifest_ref
+      - checkpoint_proof_ref
+      - idempotency_proof_ref
+      - budget_reconciliation
+      - ordered_steps
+      - stop_conditions
+      - validation_plan_ref
+      - rollback_or_forward_fix
+      - human_gate
+      - policy_snapshot_id
+      - authority_grant_ref
+      - plan_hash
+    invariants:
+      - selected_alternative_is_admissible
+      - destructive_or_irreversible_step_requires_h2
+      - plan_is_idempotent_or_explicitly_nonreplayable
+
+  RecoveryValidationReport:
+    version: "2"
+    required:
+      - report_id
+      - case_id
+      - plan_ref
+      - validator_identities
+      - validator_independence_proof
+      - workflow_invariants
+      - side_effect_reconciliation
+      - event_reconciliation
+      - dependency_reconciliation
+      - evidence_integrity
+      - graph_projection_agreement
+      - budget_conservation
+      - policy_authority_validation
+      - tenant_isolation_validation
+      - orphan_detection
+      - recurrence_monitors
+      - residual_risks
+      - mandatory_checks_passed
+      - verdict
+      - created_at
+    invariants:
+      - resolved_requires_all_mandatory_checks
+      - consequential_recovery_requires_independent_validator
+
+deterministic_gates:
+  reject_automatic_recovery_when:
+    - tenant_or_cross_tenant_check_fails
+    - policy_or_authority_check_fails
+    - evidence_preservation_is_incomplete
+    - non_idempotent_effect_is_unknown_or_partial
+    - checkpoint_is_unverified
+    - action_is_destructive_or_irreversible
+    - budget_is_insufficient
+    - validation_plan_is_missing
+  verdict_precedence:
+    - cross_tenant_or_security_signal: QUARANTINED
+    - irreversible_or_ambiguous_human_boundary: HUMAN_REQUIRED
+    - unrecoverable_integrity_or_policy_failure: FAILED_TERMINAL
+    - all_mandatory_validations_pass: RESOLVED
+
+commands:
+  - OpenRecoveryCase.v2
+  - ContainRecoveryCase.v2
+  - SubmitRecoveryEvidence.v2
+  - ProposeRecoveryPlan.v2
+  - AuthorizeRecoveryPlan.v2
+  - ExecuteRecoveryPlan.v2
+  - CancelRecoveryCase.v1
+  - QuarantineRecoveryCase.v2
+  - RecordHumanRecoveryAction.v1
+  - CloseRecoveryCase.v2
+
+required_events:
+  - RecoveryCaseOpened.v2
+  - RecoveryContained.v2
+  - RecoveryEvidencePreserved.v2
+  - RecoveryEvidencePreservationFailed.v2
+  - RecoveryHypothesisCreated.v2
+  - RecoveryHypothesisFalsified.v2
+  - RecoveryScopeExpanded.v2
+  - RecoveryPlanProposed.v2
+  - RecoveryPlanRejected.v2
+  - RecoveryPlanAuthorized.v2
+  - RecoveryHumanActionRequested.v2
+  - RecoveryActionStarted.v2
+  - RecoveryActionCompleted.v2
+  - RecoveryActionFailed.v2
+  - RecoveryValidationPassed.v2
+  - RecoveryValidationFailed.v2
+  - RecoveryCaseQuarantined.v2
+  - RecoveryCaseResolved.v2
+  - RecoveryCaseFailedTerminal.v2
+
+required_tests:
+  - containment_precedes_every_mutation
+  - crash_at_every_transaction_boundary
+  - duplicate_missing_and_reordered_events
+  - orphaned_children_and_cancelled_parents
+  - partial_outbox_and_inbox
+  - unknown_external_side_effect_blocks_replay
+  - stale_lease_and_fencing_rejected
+  - budget_leak_and_double_release_detected
+  - graph_rebuild_uses_verified_canonical_sources
+  - evidence_hash_failure_quarantines_dependents
+  - cross_tenant_reference_quarantines_case
+  - compensation_failure_remains_visible
+  - repeat_recovery_is_idempotent_and_bounded
+  - independent_validation_is_enforced
+  - forward_rollback_and_mixed_version_migrations
+  - security_load_soak_chaos_and_disaster_recovery
+
+readiness_rule: "Specification coverage is not implementation evidence. Production readiness requires executed G0-G5 evidence, no blocking failures, and an independently computed score of at least 95/100."

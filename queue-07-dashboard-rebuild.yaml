@@ -1,0 +1,132 @@
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- DASHBOARD_DESIGN_SPEC.md
+project: Tarritrix
+prompts:
+- id: dash-001
+  name: PlatformPulseBar Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nMake directory: New-Item -ItemType Directory -Force -Path 'src\\components\\dashboard'\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\PlatformPulseBar.tsx\n\nFull implementation: 'use client'. Import React useState useEffect. Props: none. Fetches GET /api/dashboard/d1-001 every 30 seconds. Shows platform health metrics as horizontal rows: pages_published_today vs daily_allowance with traffic-light dot (green <80%, amber 80-95%, red >95%), llm_cost_today_usd vs cap_usd with traffic-light, active_clients count, pending_operator_actions count. Background #1c2030, accent #06b6d4. Skeleton loader on first fetch. Error boundary. TypeScript strict no any. Default export PlatformPulseBar.\n\nAfter writing verify: Test-Path 'src\\components\\dashboard\\PlatformPulseBar.tsx' — must return True. Get the line count: (Get-Content 'src\\components\\dashboard\\PlatformPulseBar.tsx').Count — must be > 40. pnpm tsc --noEmit — 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: PlatformPulseBar dashboard component d1-006'; git push origin main. Report commit hash and line count."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/PlatformPulseBar.tsx
+
+- id: dash-002
+  name: RiskCommandPanel Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\RiskCommandPanel.tsx\n\nFull implementation: 'use client'. Fetches GET /api/operator/clients/flagged or /api/dashboard/d1-002 (check which exists via Test-Path). Shows flagged pages as rows: page title, client name, flag reason, relative timestamp, Approve button (POST /api/operator/clients/[id]/flagged/[pageId]/approve), Reject button (POST /api/operator/clients/[id]/flagged/[pageId]/reject). Optimistic UI: remove row on click, restore on error. Empty state: 'No pages require action'. Background #1c2030, active rows get left border 3px solid #06b6d4. TypeScript strict no any. Default export RiskCommandPanel.\n\nVerify: Test-Path 'src\\components\\dashboard\\RiskCommandPanel.tsx' — True. Line count > 40. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: RiskCommandPanel dashboard component d1-007'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/RiskCommandPanel.tsx
+
+- id: dash-003
+  name: PriorityLaneCritical Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\PriorityLaneCritical.tsx\n\nFull implementation: 'use client'. Fetches /api/dashboard/signals?priority=critical (check if route exists first via Test-Path). Label CRITICAL uppercase color #ef4444, left border 3px solid #ef4444, background #1c2030. Each item shows title, client name, age string, action button. Items older than 4 hours without acknowledgement get CSS animation pulse class on a red dot. Sorted oldest first. TypeScript strict no any. Default export PriorityLaneCritical.\n\nVerify: Test-Path 'src\\components\\dashboard\\PriorityLaneCritical.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: PriorityLaneCritical component d1-008'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/PriorityLaneCritical.tsx
+
+- id: dash-004
+  name: PriorityLaneAttention and PriorityLaneInformational Components
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nWrite these TWO files:\n\nFILE 1: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\PriorityLaneAttention.tsx\nAmber left border 3px #f59e0b, label ATTENTION uppercase amber. Fetches signals?priority=attention. Items older than 24h call PATCH /api/dashboard/signals/[id]/dismiss to escalate. Sorted oldest first. TypeScript strict. Default export PriorityLaneAttention.\n\nFILE 2: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\PriorityLaneInformational.tsx\nCyan left border 3px #06b6d4, label INFORMATIONAL uppercase cyan. Fetches signals?priority=informational. Dismiss button calls DELETE /api/dashboard/signals/[id]/dismiss. Items older than 72h auto-escalate. TypeScript strict. Default export PriorityLaneInformational.\n\nVerify both: Test-Path 'src\\components\\dashboard\\PriorityLaneAttention.tsx' — True. Test-Path 'src\\components\\dashboard\\PriorityLaneInformational.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: PriorityLaneAttention PriorityLaneInformational d1-009 d1-010'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/PriorityLaneAttention.tsx
+    - src/components/dashboard/PriorityLaneInformational.tsx
+
+- id: dash-005
+  name: PriorityCommandSurface Container Component
+  prompt: "Write ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\PriorityCommandSurface.tsx\n\nFull implementation: 'use client'. Import PriorityLaneCritical from './PriorityLaneCritical', PriorityLaneAttention from './PriorityLaneAttention', PriorityLaneInformational from './PriorityLaneInformational'. Renders all three in a CSS grid with 3 columns (grid-template-columns: 1fr 1fr 1fr), gap 16px. Header: 'PRIORITY COMMAND SURFACE' uppercase text #94a3b8 12px. Background #0f1623 padding 16px. TypeScript strict. Default export PriorityCommandSurface.\n\nVerify: Test-Path 'src\\components\\dashboard\\PriorityCommandSurface.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: PriorityCommandSurface container d1-008'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/PriorityCommandSurface.tsx
+
+- id: dash-006
+  name: ActivityStream Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\ActivityStream.tsx\n\nFull implementation: 'use client'. Fetches /api/dashboard/activity-feed (verify route exists via Test-Path src\\app\\api\\dashboard\\activity-feed\\route.ts). max-height 400px overflow-y scroll background #1c2030. Each activity item: relative timestamp, actor name, action description, client name, status badge. Badge colors: success #06b6d4 error #ef4444 warning #f59e0b info #94a3b8. IntersectionObserver on last item loads next 20. Polls every 15s for new items prepended with slide-down transition. TypeScript strict no any. Default export ActivityStream.\n\nVerify: Test-Path 'src\\components\\dashboard\\ActivityStream.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: ActivityStream dashboard component d1-011'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/ActivityStream.tsx
+
+- id: dash-007
+  name: IndexHealthGauge SVG Arc Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing. CRITICAL: pure SVG arc only — no recharts no chart.js no external charting library.\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\IndexHealthGauge.tsx\n\nFull implementation. Props: score (number 0-100), label (string), size (number default 200). Pure SVG. Math: cx=size/2, cy=size/2, r=size*0.4, strokeWidth=size*0.06. Arc spans 220deg from 160deg. startAngleRad=160*Math.PI/180. endAngleRad=(160+score/100*220)*Math.PI/180. x1=cx+r*Math.cos(startAngleRad), y1=cy+r*Math.sin(startAngleRad). x2=cx+r*Math.cos(endAngleRad), y2=cy+r*Math.sin(endAngleRad). largeArcFlag=score/100*220>180?1:0. Background arc: same startAngle endAngle of full 220deg stroke #2a3347. Score arc: stroke color interpolated #ef4444 at 0 to #06b6d4 at 100. Center text: score number fontSize=size*0.16, label below fontSize=size*0.07 fill #94a3b8. Animate 0 to score on mount via requestAnimationFrame 1000ms easeOutCubic. TypeScript strict. Default export IndexHealthGauge.\n\nVerify: Test-Path 'src\\components\\dashboard\\IndexHealthGauge.tsx' — True. Select-String -Path 'src\\components\\dashboard\\IndexHealthGauge.tsx' -Pattern 'recharts|chart.js' — must return NOTHING (no charting library). pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: IndexHealthGauge custom SVG arc component d1-013'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/IndexHealthGauge.tsx
+
+- id: dash-008
+  name: IntelligenceRow Component
+  prompt: "Write ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\IntelligenceRow.tsx\n\nFull implementation: 'use client'. Import IndexHealthGauge from './IndexHealthGauge'. Four cards in horizontal flex, background #1c2030, cards separated by 1px #2a3347 border. Card 1 Storm Intelligence: fetches /api/dashboard/storm-events (verify route exists), shows active storm count and affected clients. Card 2 Content Performance: fetches /api/dashboard/charts (verify exists), shows indexed pages and avg position. Card 3 LLM Cost Tracker: fetches /api/dashboard/billing (verify exists), shows today spend vs cap. Card 4 System Health: fetches /api/dashboard/agent-health (verify exists), renders IndexHealthGauge with score from response. All cards: skeleton loader while fetching, error state with retry. TypeScript strict no any. Default export IntelligenceRow.\n\nVerify: Test-Path 'src\\components\\dashboard\\IntelligenceRow.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: IntelligenceRow component d1-012'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/IntelligenceRow.tsx
+
+- id: dash-009
+  name: ClientContext and ClientSelector
+  prompt: "Write these TWO files:\n\nFILE 1: C:\\Users\\manag\\Documents\\Tarritrix\\src\\contexts\\ClientContext.tsx\nNew-Item -ItemType Directory -Force -Path 'src\\contexts'. React context. Interface SelectedClient { id: string; name: string; tier: string; status: string }. Context value: { selectedClient: SelectedClient | null; setSelectedClient: (client: SelectedClient | null) => void }. Export ClientProvider wrapping children. Export useClientContext hook throwing if used outside provider. TypeScript strict.\n\nFILE 2: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\ClientSelector.tsx\n'use client'. Import useClientContext. Fixed 56px height background #0f1623 border-bottom 1px #1e2d42 full width z-index 50 flex items-center justify-between px-4. Left: Tarritrix wordmark text. Center: search input width 300px that filters clients as typed, dropdown list on focus fetching /api/operator/clients, each row shows name tier badge status dot, clicking sets selectedClient. Right: notification bell count from /api/dashboard/stats, logout button calling supabase signOut. Keyboard: arrows move list Enter selects Escape closes. TypeScript strict. Default export ClientSelector.\n\nVerify both Test-Path — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: ClientContext ClientSelector components d1-011 d1-014'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/contexts/ClientContext.tsx
+    - src/components/dashboard/ClientSelector.tsx
+
+- id: dash-010
+  name: DashboardSidebar Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\DashboardSidebar.tsx\n\n'use client'. Import usePathname from next/navigation. Import lucide-react icons: LayoutDashboard Users FileText ListTodo Zap BarChart2 Settings Shield. Fixed width 220px full viewport height background #0f1623 border-right 1px #1e2d42 position fixed left 0 top 56px overflow-y auto. Nav items: Overview /dashboard, Clients /dashboard/clients, Pages /dashboard/pages, Content Queue /dashboard/queue, Storm Intelligence /dashboard/storm, Analytics /dashboard/analytics, Governance /dashboard/governance, System /dashboard/system. Each item: Next.js Link, icon left, label right. Active state (usePathname startsWith route): left border 3px solid #06b6d4 text #06b6d4 bg #1c2030. Hover: bg #1c2030 text #e2e8f0. Default: text #94a3b8. Version number at bottom. TypeScript strict. Default export DashboardSidebar.\n\nVerify: Test-Path 'src\\components\\dashboard\\DashboardSidebar.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: DashboardSidebar navigation component d1-015'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/DashboardSidebar.tsx
+
+- id: dash-011
+  name: SplitView Master-Detail Component
+  prompt: "Read DASHBOARD_DESIGN_SPEC.md before writing.\n\nWrite ONLY this file: C:\\Users\\manag\\Documents\\Tarritrix\\src\\components\\dashboard\\SplitView.tsx\n\n'use client'. Import useClientContext. Master panel: when selectedClient=null width=100%, when selected width=280px, CSS transition width 200ms ease-in-out. Master panel: scrollable list fetching /api/operator/clients, each row shows name tier badge page count health score, clicking calls setSelectedClient. Detail panel: appears when selectedClient not null, flex-grow 1, background #0f1623 border-left 1px #1e2d42. Detail header: client name large, tier badge, status pill, quick action buttons. Tabs via useState: Overview Pages Analytics. Overview tab: fetches /api/operator/clients/[id] for real data. Skeleton on tab switch. TypeScript strict no any. Default export SplitView.\n\nVerify: Test-Path 'src\\components\\dashboard\\SplitView.tsx' — True. pnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: SplitView master-detail component d1-016'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/components/dashboard/SplitView.tsx
+
+- id: dash-012
+  name: Dashboard Layout Assembly
+  prompt: "Read src\\app\\dashboard\\layout.tsx and src\\app\\dashboard\\page.tsx in full before writing.\n\nUpdate src\\app\\dashboard\\layout.tsx:\nImport ClientProvider from src/contexts/ClientContext. Import ClientSelector from src/components/dashboard/ClientSelector. Import DashboardSidebar from src/components/dashboard/DashboardSidebar. Wrap entire layout with ClientProvider. Add ClientSelector as first element (fixed top nav). Add DashboardSidebar as fixed left nav. Main content area: margin-left 220px margin-top 56px. Preserve all existing auth logic.\n\nUpdate src\\app\\dashboard\\page.tsx:\nImport and render in order: PlatformPulseBar, RiskCommandPanel, PriorityCommandSurface, SplitView, ActivityStream, IntelligenceRow. All from src/components/dashboard/. Remove any existing placeholder content. All real data from API routes.\n\npnpm tsc --noEmit 0 errors. pnpm run build — must succeed and show /dashboard in route list.\n\ngit add -A; git commit --no-verify -m 'feat: dashboard layout fully assembled d1-018 all components wired'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: build
+
+- id: dash-013
+  name: Dashboard Playwright E2E Tests
+  prompt: "Read existing tests/ directory structure before writing. Read playwright.config.ts. Read existing auth helpers.\n\nWrite C:\\Users\\manag\\Documents\\Tarritrix\\tests\\dashboard\\dashboard.spec.ts\n\n'use test expect from @playwright/test'. 8 tests using existing auth setup:\n1. /dashboard loads with operator auth — page title or heading present\n2. PlatformPulseBar renders — check for metric rows in DOM\n3. ClientSelector search input present in top nav\n4. DashboardSidebar nav links present — check for Overview Clients links\n5. PriorityCommandSurface renders three lane labels\n6. SplitView renders client list\n7. ActivityStream renders feed container\n8. Unauthenticated /dashboard redirects to /login\n\nUse page.goto, page.locator, expect. Use existing auth cookie/session pattern from other test files.\n\npnpm tsc --noEmit 0 errors.\n\ngit add -A; git commit --no-verify -m 'feat: dashboard E2E tests d1-019'; git push origin main. Report commit hash."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - tests/dashboard/dashboard.spec.ts
+
+- id: dash-014
+  name: Dashboard Final Verification and Deploy
+  prompt: "STEP 1 - Verify all dashboard component files exist:\nGet-ChildItem 'src\\components\\dashboard\\' | Select-Object Name\nMust include: PlatformPulseBar.tsx RiskCommandPanel.tsx PriorityLaneCritical.tsx PriorityLaneAttention.tsx PriorityLaneInformational.tsx PriorityCommandSurface.tsx ActivityStream.tsx IndexHealthGauge.tsx IntelligenceRow.tsx ClientSelector.tsx DashboardSidebar.tsx SplitView.tsx\nTest-Path 'src\\contexts\\ClientContext.tsx' — True\nTest-Path 'tests\\dashboard\\dashboard.spec.ts' — True\n\nSTEP 2 - Full verification:\npnpm tsc --noEmit\npnpm run build\nBoth must pass. Fix any errors before continuing.\n\nSTEP 3 - Deploy:\nvercel --prod\nReport deployment URL.\n\nSTEP 4 - Update STATE_OF_THE_BUILD.md marking dashboard block d1-006 through d1-019 COMPLETE. List every component file with its path. Update SESSION_STATE.md next queue: queue-08-spdi-fixes.\n\nSTEP 5 - git add -A; git commit --no-verify -m 'feat: dashboard complete d1-006 through d1-019 deployed production'; git push origin main\ngit tag v1.1.0-dashboard; git push origin v1.1.0-dashboard\nReport commit hash and tag."
+  gates:
+  - type: compile
+  - type: build

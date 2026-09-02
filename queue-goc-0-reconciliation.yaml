@@ -1,0 +1,46 @@
+# QUEUE GOC-0 — Reconciliation (read-only, must complete before GOC-1/GOC-2/GOC-3 assign real IDs)
+#
+# Per GOOGLE_OPERATIONS_CENTER_MASTER_SPEC.md Part 6. This queue does not write any
+# feature code. It answers the open questions that determine whether GOC-1/GOC-2's
+# agents are genuinely new or extensions of existing agents (A-08, A-07, A-14, A-46, A-47).
+# GOC-1 and GOC-2's prompts are written to read AGENTS.md/SCHEMA_REGISTRY.md live at
+# execution time rather than hardcode IDs from this reconciliation pass, since some time
+# may elapse between GOC-0 and GOC-1 running — but this report is still required reading
+# before GOC-1 launches, so a human can catch anything the live-read misses.
+
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+- AGENTS.md
+- CLAUDE.md
+project: Tarritrix
+prompts:
+- id: goc0-001
+  name: Reconciliation report — existing GBP/GSC surface area, agent IDs, contract numbers
+  prompt: |
+    Read-only investigation. Do not create, edit, or delete any file. Do not commit anything except the report itself.
+
+    Write FILE 1: docs/audits/2026-08-01-google-ops-center-reconciliation.md
+
+    Answer each question with evidence (file path, line number, or live query result — not assumption):
+
+    1. Current highest agent ID in AGENTS.md and in src/lib/agents/ + src/agents/ on disk. List any gaps in the numbering.
+    2. Current highest Contract number in BEHAVIORAL_CONTRACTS.md.
+    3. A-08's actual current scope — read src/lib/agents/a-08-indexation-tracker.ts in full. Does it already cover Search Analytics data pull (clicks/impressions/CTR/position), or only indexation status? Report exactly what it does and does not do today.
+    4. A-07's actual current scope (sitemap generator) — does it already do sitemap submission/validation via GSC API, or only local sitemap.xml generation?
+    5. A-14's actual current scope (review velocity engine) — does it already handle review reply drafting/publishing, or only request-timing?
+    6. A-46 and A-47's actual current scope — confirm they don't already overlap with anything in the GOC spec's Directory/Citation or Q&A intelligence sections.
+    7. Query live schema (via Supabase MCP) for any existing table matching or resembling: gbp_reviews, gbp_locations, gsc_properties, gsc_search_analytics_daily, google_connections, google_accounts, recommendations, tasks, alerts, approvals, audit_events. Report exact existing columns for any match, or confirm "does not exist" for each.
+    8. Confirm whether a Google Cloud project / Pub/Sub topic already exists for this platform (check environment variables, existing OAuth callback routes under src/app/api/admin/google-calendar-auth/ or similar, and any GCP-related config files).
+    9. Confirm current GBP API access status — search the repo for any existing GBP-specific OAuth scopes, credentials placeholders, or setup documentation. Report explicitly whether real GBP API access has been established, and if not, what the last known status was per STATE_OF_THE_BUILD.md.
+
+    Report only. No code changes, no new tables, no new agents. Commit only this report file.
+
+    git add -A; git commit -m 'docs: Google Operations Center reconciliation report (GOC-0)'; git push origin main. Report commit hash.
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - docs/audits/2026-08-01-google-ops-center-reconciliation.md

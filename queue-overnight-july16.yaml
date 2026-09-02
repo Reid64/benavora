@@ -1,0 +1,329 @@
+project: benavora
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+# ============================================================
+# BLOCK 1 — CRITICAL BUG FIXES (must run first)
+# ============================================================
+
+- id: fix-001
+  name: IRS 990 stream parser EIN column fix
+  prompt: "Read scripts/enrich-foundations-990.ts in full (or find the correct filename by searching src/ and scripts/ for files containing '990' and 'EIN' or 'ein'). Find the CSV stream parser section. The bug: IRS 2025 990 index CSV columns have trailing carriage returns on header names causing header lookup to return -1. EIN is at zero-indexed column position 1 (second column). Fix by: (1) trimming all column header strings with .trim() before any lookup, (2) adding a fallback: if header index returns -1 use hardcoded positional index instead. EIN=1, OBJECT_ID=7, XML_BATCH_ID=8 (zero-indexed). Also ensure the script skips rows where the EIN field is empty or non-numeric. Log the first 3 parsed EINs to console for verification. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'fix: IRS 990 stream parser EIN column position'; git push."
+  gates:
+  - type: compile
+
+- id: fix-002
+  name: Admin dashboard 404 fix
+  prompt: "Run: find src/app -type d -name 'admin' to locate all admin directories. Check if src/app/(dashboard)/admin/page.tsx exists. If it does not exist, create it. Read src/app/(dashboard)/dashboard/page.tsx for layout patterns. Create src/app/(dashboard)/admin/page.tsx as a full platform admin dashboard. This page is only accessible to users with role='owner'. It must: (1) redirect non-owner users to /dashboard with a message. (2) Show 4 stat cards using inline style={{}} with hex colors: Total Organizations (count from organizations table via service role), Total Users (count from profiles), Active Subscriptions (count where stripe_subscription_status='active'), Total Opportunities Across Platform (count from opportunities no org filter). (3) Show a table of all organizations with columns: Name, Plan, Created Date, User Count, Opportunity Count, Last Activity. Each row links to /admin/orgs/[id]. (4) Show Recent Signups: last 10 profiles with org name and created_at. All data fetched server-side via supabase service role. Use inline styles throughout matching dashboard color system: canvas #C8D4DC, cards white with colored top bands, navy #1A2B3C header. Run pnpm tsc --noEmit. Run pnpm build fix all errors. Commit: git add -A; git commit -m 'fix: admin dashboard 404 + full platform admin page'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/admin/page.tsx
+
+- id: fix-003
+  name: Intelligence Library dedup fix and truncate
+  prompt: "Search for all files in src/ and scripts/ containing 'intelligence_funded_proposals' or 'ingest-nih' or 'intelligence_proposal_sections'. Read each file found in full. Find the ingestion scripts. Add a WHERE NOT EXISTS deduplication check to every INSERT into intelligence_funded_proposals: before inserting check if a record with the same source_url OR (title AND funder_name) already exists, if so skip. Add the same dedup check to intelligence_proposal_sections based on proposal_id + section_type. Also find the NIH ingestion script and add: at the start of the script, DELETE FROM intelligence_proposal_sections WHERE proposal_id IN (SELECT id FROM intelligence_funded_proposals WHERE source='NIH_NIAID'). DELETE FROM intelligence_funded_proposals WHERE source='NIH_NIAID'. This clears duplicates before re-running. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'fix: intelligence library dedup + truncate before reingest'; git push."
+  gates:
+  - type: compile
+
+- id: fix-004
+  name: Alerts API 500 error fix
+  prompt: "Run the existing alerts API route at /api/alerts by reading src/app/api/alerts/route.ts in full. Identify why it returns 500. Common causes: missing table, wrong column name, RLS blocking service role. Read SCHEMA_REGISTRY.md to find the correct alerts table schema. Fix the route to use the correct table name and column names. If the alerts table does not exist in migrations, create src/supabase/migrations/084_fix_alerts.sql with the correct CREATE TABLE IF NOT EXISTS. Apply via POST to https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query with Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'fix: alerts API 500 error'; git push."
+  gates:
+  - type: compile
+
+# ============================================================
+# BLOCK 2 — PLATFORM ADMIN (owner-only features)
+# ============================================================
+
+- id: admin-001
+  name: Platform admin org detail page
+  prompt: "Create src/app/(dashboard)/admin/orgs/[id]/page.tsx. Owner-only (redirect non-owners). Fetch the organization by id param using supabase service role. Show: (1) Hero card with org name, plan, created date, stripe status, org ID. Use inline styles, navy #1A2B3C header band. (2) Users tab: table of all profiles where organization_id matches — show name, email, role, created_at, last_sign_in_at. (3) Opportunities tab: count and list of opportunities for this org — title, category, deadline, stage. (4) Applications tab: count and list. (5) Billing tab: stripe_customer_id, stripe_subscription_status, current plan name, monthly price. (6) Danger Zone: a Suspend Organization button (POST to /api/admin/orgs/[id]/suspend). All tabs as client-side tab switcher using useState. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: admin org detail page'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/admin/orgs/[id]/page.tsx
+
+- id: admin-002
+  name: Platform admin metrics API
+  prompt: "Create src/app/api/admin/platform-metrics/route.ts. Uses supabase service role (never RLS). Returns JSON with: total_orgs, total_users, total_opportunities, total_applications, total_submitted, total_awarded_amount (SUM), orgs_by_plan (group by plan name with count), signups_last_30_days (count profiles created_at > 30 days ago), active_this_week (count orgs with any opportunity created in last 7 days), revenue_this_month (sum of plan prices for active subscriptions — use hardcoded plan prices: starter=49 professional=149 enterprise=499). Also create src/app/api/admin/orgs/[id]/suspend/route.ts: POST sets organizations.status='suspended' for the org id using service role. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: platform admin metrics API'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/admin/platform-metrics/route.ts
+
+# ============================================================
+# BLOCK 3 — INTELLIGENCE LIBRARY CORPUS BUILD
+# ============================================================
+
+- id: intel-001
+  name: NIH RePORTER API ingestion script
+  prompt: "Read scripts/ directory listing. Read any existing NIH ingestion script in full. Create scripts/ingest-nih-reporter.ts. NIH RePORTER API base: https://api.reporter.nih.gov/v2/projects/search. POST request body: {criteria: {fiscal_years: [2023, 2024], agencies: ['NIAID','NIMH','NIDA','NCI','NHLBI']}, limit: 500, offset: 0, sort_field: 'project_start_date', sort_order: 'desc', include_fields: ['ProjectTitle','AbstractText','ProjectStartDate','ProjectEndDate','AwardAmount','PrincipalInvestigators','Organization','Terms','FundingMechanism','FullStudySection']}. Map to intelligence_funded_proposals: title=ProjectTitle, abstract=AbstractText, funder_name='NIH', agency=agency name, award_amount=AwardAmount, fiscal_year, source='NIH_REPORTER', source_url constructed from project number. Add WHERE NOT EXISTS dedup on source_url before insert. Paginate: loop offset 0,500,1000 until results < 500. Target: 2000 records. Add package.json script 'ingest:nih-reporter': 'tsx scripts/ingest-nih-reporter.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: NIH RePORTER ingestion script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/ingest-nih-reporter.ts
+
+- id: intel-002
+  name: NSF Award Search ingestion script
+  prompt: "Create scripts/ingest-nsf-awards.ts. NSF Award Search API: GET https://api.nsf.gov/services/v1/awards.json with params: keyword='nonprofit community health housing education', dateStart=01/01/2023, dateEnd=12/31/2024, agency='NSF', rpp=25, offset=0, printFields=id,title,abstractText,startDate,expDate,awardeeName,fundsObligatedAmt,primaryProgram. Paginate through results (rpp=25 pages) until no more results. Map to intelligence_funded_proposals: title, abstract=abstractText, funder_name='NSF', award_amount=fundsObligatedAmt, organization=awardeeName, source='NSF_AWARDS', source_url='https://www.nsf.gov/awardsearch/showAward?AWD_ID='+id. Add WHERE NOT EXISTS dedup on source_url. Target 300+ records. Add package.json script 'ingest:nsf': 'tsx scripts/ingest-nsf-awards.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: NSF awards ingestion script'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/ingest-nsf-awards.ts
+
+- id: intel-003
+  name: Federal Register NOFA ingestion script
+  prompt: "Create scripts/ingest-federal-register.ts. Federal Register API: GET https://www.federalregister.gov/api/v1/documents.json with params: conditions[type][]=NOTICE&conditions[agencies][]=department-of-housing-and-urban-development&conditions[agencies][]=department-of-health-and-human-services&conditions[agencies][]=department-of-justice&per_page=100&page=1&fields[]=title&fields[]=abstract&fields[]=publication_date&fields[]=agencies&fields[]=html_url&fields[]=action&order=newest. Filter results where title contains 'Notice of Funding' OR 'Grant Opportunity' OR 'NOFA' OR 'NOFO'. Map to intelligence_funded_proposals: title, abstract, funder_name from agencies[0].name, source='FEDERAL_REGISTER', source_url=html_url, fiscal_year from publication_date year. Paginate pages 1-10. Add WHERE NOT EXISTS dedup on source_url. Add package.json script 'ingest:federal-register': 'tsx scripts/ingest-federal-register.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: Federal Register NOFA ingestion'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/ingest-federal-register.ts
+
+- id: intel-004
+  name: SAMHSA and HRSA grants ingestion
+  prompt: "Create scripts/ingest-samhsa-hrsa.ts. Uses USASpending.gov API (no key required): POST https://api.usaspending.gov/api/v2/search/spending_by_award/ with body: {filters: {agencies: [{type:'awarding',tier:'toptier',name:'Department of Health and Human Services'}], award_type_codes: ['02','03','04','05'], date_type:'action_date', date_range:{start_date:'2023-01-01',end_date:'2024-12-31'}, keywords:['community health','substance abuse','mental health','housing','homeless']}, fields:['Award ID','Recipient Name','Award Amount','Description','Awarding Agency','Awarding Sub Agency','Period of Performance Start Date'], limit:100, page:1, sort:'Award Amount', order:'desc'}. Map to intelligence_funded_proposals: title=Description (first 200 chars), funder_name=Awarding Sub Agency, award_amount, organization=Recipient Name, source='USASPENDING', source_url='https://www.usaspending.gov/award/'+Award ID. Paginate pages 1-10. Add WHERE NOT EXISTS dedup. Add package.json scripts 'ingest:samhsa-hrsa': 'tsx scripts/ingest-samhsa-hrsa.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: SAMHSA HRSA USASpending ingestion'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - scripts/ingest-samhsa-hrsa.ts
+
+- id: intel-005
+  name: Intelligence Library UI overhaul
+  prompt: "Read src/app/(dashboard)/intelligence/page.tsx OR src/app/(dashboard)/intelligence-library/page.tsx in full (search for the correct path). Read SCHEMA_REGISTRY.md for intelligence table schemas. Rewrite the page to show: (1) Header section with corpus stats: total proposals count, total sources count, date range of proposals, last ingestion date. (2) Search bar filtering by title, funder, or keyword. (3) Source filter tabs: ALL / NIH / NSF / FEDERAL_REGISTER / USASPENDING / NIH_NIAID. (4) Results grid: each proposal as a card with title (truncated 80 chars), funder name badge, award amount, fiscal year, organization name, abstract truncated to 150 chars, link to source_url. (5) Pagination: 20 per page. All data fetched client-side via /api/intelligence/proposals route. Create src/app/api/intelligence/proposals/route.ts: GET accepts ?source=&search=&page= returns paginated results from intelligence_funded_proposals. Use inline styles throughout matching dashboard color system. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: intelligence library UI overhaul + proposals API'; git push."
+  gates:
+  - type: compile
+
+# ============================================================
+# BLOCK 4 — TIER 6 REMAINING FEATURES
+# ============================================================
+
+- id: t6-002
+  name: SAM.gov polling client
+  prompt: "Read src/lib/sources/grantsgov-client.ts in full. Create src/lib/sources/samgov-client.ts matching the same pattern: fetch https://api.sam.gov/opportunities/v2/search?api_key=SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a&ptype=o&limit=100&postedFrom=01/01/2024. Parse response.opportunitiesData[]. Map title->name, description->description, responseDeadLine->deadline, awardAmount->amount_max, category='Government Federal', source='sam_gov', noticeId->external_id. Create src/app/api/sources/samgov/route.ts: GET endpoint reads org_id from auth header x-organization-id, calls SAM client, deduplicates by external_id against existing opportunities, upserts to opportunities table including org_id. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: SAM.gov polling client'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/samgov-client.ts
+    - src/app/api/sources/samgov/route.ts
+
+- id: t6-003
+  name: ProPublica 990 batch enrichment
+  prompt: "Create src/lib/sources/propublica-990-client.ts: export async function enrichFoundationFromProPublica(ein: string): Promise<object|null>. Fetches https://projects.propublica.org/nonprofits/api/v2/organizations/EIN.json. Extracts from response.organization: name, ntee_code, state, city, subsection_code. Extracts from filings[0] if exists: totrevenue, totassetsend, totfuncexpns, fiscal_period. Returns structured object or null on any error. Rate limit: await 350ms between calls. Create scripts/enrich-propublica-batch.ts: reads foundation_directory rows where (enrichment->>'propublica_enriched_at') IS NULL AND ein IS NOT NULL, processes in batches of 200, calls enrichFoundationFromProPublica per EIN, upserts result into enrichment jsonb field merging with existing data, sets propublica_enriched_at to now(). Logs progress every 50 records. Add package.json script 'enrich:propublica-batch': 'tsx scripts/enrich-propublica-batch.ts'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: ProPublica 990 batch enrichment'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/sources/propublica-990-client.ts
+    - scripts/enrich-propublica-batch.ts
+
+- id: t6-005
+  name: CSV import wizard
+  prompt: "Read src/app/(dashboard)/funders/page.tsx in full for nav and layout patterns. Create src/app/(dashboard)/import/page.tsx: 3-step CSV import wizard using useState for step tracking. Step 1: file input accept='.csv', parse first 5 rows client-side with FileReader + manual CSV parsing (split newlines then commas), show preview table of first 5 rows with all columns. Next button advances to step 2. Step 2: show detected CSV columns as a list. For each of these target fields: name, email, website, category, phone, state, notes — show a select dropdown populated with detected CSV column names plus a blank option. User maps CSV columns to target fields. Step 3: confirmation screen showing record count and mapped fields. Import button POSTs mapped data to /api/import/csv, shows result count. Create src/app/api/import/csv/route.ts: accepts {records: object[], mapping: object}. Applies mapping to transform records. Validates name is present. Upserts to funders table via supabase service role: name, category default 'Other', website, state, notes. Returns {imported: number, failed: number, errors: string[]}. Add Import nav link to sidebar. Use inline styles matching dashboard color system throughout. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: CSV import wizard'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/import/page.tsx
+    - src/app/api/import/csv/route.ts
+
+- id: t6-008
+  name: Foundation profile builder
+  prompt: "Read src/app/(dashboard)/foundations/page.tsx in full. Read SCHEMA_REGISTRY.md for foundation_directory columns. Create src/supabase/migrations/085_foundation_profiles.sql: CREATE TABLE IF NOT EXISTS foundation_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), foundation_id uuid REFERENCES foundation_directory(id) ON DELETE CASCADE, avg_grant_size numeric, geographic_focus text[], funding_categories text[], total_grants_made numeric, top_recipients jsonb, computed_at timestamptz DEFAULT now(), UNIQUE(foundation_id)). Apply migration via POST to https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query with Authorization Bearer sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1. Create src/lib/intelligence/foundation-profiler.ts: export async function computeFoundationProfile(foundationId: string, supabase: any). Reads foundation_directory by id. Extracts from enrichment jsonb: avg_grant_size, geographic_focus, funding_categories if present. Returns profile object. Create src/app/api/foundations/[id]/profile/route.ts: GET calls computeFoundationProfile, upserts result to foundation_profiles, returns profile. Create src/app/(dashboard)/foundations/[id]/page.tsx if it does not exist: shows foundation detail with name, EIN, assets, revenue, state, website, and a Profile section that fetches /api/foundations/[id]/profile and displays the computed profile fields. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: foundation profile builder'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/foundation-profiler.ts
+    - src/app/api/foundations/[id]/profile/route.ts
+
+- id: t6-009
+  name: Success probability scoring
+  prompt: "Create src/lib/intelligence/success-probability.ts: export async function computeSuccessProbability(orgId: string, opportunityId: string, supabase: any): Promise<{score: number, confidence: 'high'|'medium'|'low', factors: {name: string, weight: number, value: number, contribution: number}[]}>. Factor 1 (30%): opportunity eligibility_score / 100. Factor 2 (25%): org success rate for same category — query outcomes where org_id=orgId and result='awarded' count / total outcomes count for same funder_category. Default 0.5 if no history. Factor 3 (20%): deadline proximity — 1.0 if 30+ days out, 0.5 if 15-29 days, 0.0 if under 15 days. Factor 4 (25%): knowledge base completeness — query knowledge_base_entries count for org, score = min(1.0, count/10). Weighted sum = final score 0-100. Confidence: high if all 4 factors have real data, medium if 2-3, low if 0-1. Create src/app/api/opportunities/[id]/probability/route.ts: GET with org_id from x-organization-id header, calls computeSuccessProbability, returns result. Update src/app/(dashboard)/opportunities/[id]/page.tsx if it exists: add a Success Probability card showing score as colored percentage badge and factor breakdown. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: success probability scoring'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/success-probability.ts
+    - src/app/api/opportunities/[id]/probability/route.ts
+
+- id: t6-011
+  name: Semantic funder matching
+  prompt: "Create src/lib/intelligence/semantic-matcher.ts: export async function matchFunders(orgMission: string, filters: {minGrant?: number, maxGrant?: number, state?: string}, supabase: any): Promise<Array<{id: string, name: string, ein: string, asset_amount: number, state: string, score: number, matchReasons: string[]}>>. Query foundation_directory limit 1000 where asset_amount IS NOT NULL. For each foundation compute keyword overlap score: tokenize orgMission and foundation name+enrichment.funding_categories into lowercase words, remove stop words (the a an of for to in and or), compute Jaccard similarity (intersection/union). Also add score bonus if state matches filter. Sort by score desc return top 50. Include matchReasons array explaining top 3 scoring factors. Create src/app/api/match/foundations/route.ts: POST accepts {mission: string, minGrant: number, maxGrant: number, state: string}, reads org_id from auth, calls matchFunders, returns results. Create src/app/(dashboard)/research/match/page.tsx: textarea for mission statement, grant range number inputs, state dropdown, Find Matches button. Results list: each match shows name, state, asset_amount formatted as currency, score as percentage badge, matchReasons as small tags. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: semantic funder matching page'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/semantic-matcher.ts
+    - src/app/api/match/foundations/route.ts
+    - src/app/(dashboard)/research/match/page.tsx
+
+- id: t6-014
+  name: Grant financial reconciliation
+  prompt: "Read SCHEMA_REGISTRY.md for budget and expense table schemas. Create src/supabase/migrations/086_financial_reconciliation.sql: CREATE TABLE IF NOT EXISTS grant_budgets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), application_id uuid NOT NULL, org_id uuid NOT NULL, line_items jsonb NOT NULL DEFAULT '[]', total_requested numeric DEFAULT 0, total_approved numeric, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS grant_expenses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), application_id uuid NOT NULL, org_id uuid NOT NULL, category text NOT NULL, description text NOT NULL, amount numeric NOT NULL, expense_date date, receipt_url text, created_at timestamptz DEFAULT now()); CREATE TABLE IF NOT EXISTS grant_reconciliation_reports (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), application_id uuid NOT NULL, org_id uuid NOT NULL, total_budget numeric, total_spent numeric, variance numeric, compliance_status text, generated_at timestamptz DEFAULT now()). Apply migration. Create src/app/api/applications/[id]/budget/route.ts: GET returns budget, POST upserts budget line items. Create src/app/api/applications/[id]/expenses/route.ts: GET returns expenses, POST adds expense. Create src/app/api/applications/[id]/reconcile/route.ts: GET computes variance between budget and expenses, returns reconciliation report and upserts to grant_reconciliation_reports. Create src/app/(dashboard)/financials/page.tsx if not exists or update it: show list of applications with awarded amounts, total budgeted, total spent, variance badge (green if under budget, red if over). Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: grant financial reconciliation'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/applications/[id]/budget/route.ts
+    - src/app/api/applications/[id]/reconcile/route.ts
+
+- id: t6-015
+  name: Compliance calendar
+  prompt: "Read SCHEMA_REGISTRY.md for deadlines table schema. Create src/supabase/migrations/087_compliance_calendar.sql: CREATE TABLE IF NOT EXISTS compliance_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, application_id uuid, event_type text NOT NULL, title text NOT NULL, due_date date NOT NULL, recurrence text, completed_at timestamptz, notes text, created_at timestamptz DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_compliance_events_org_due ON compliance_events(org_id, due_date). Apply migration. Create src/app/api/compliance/events/route.ts: GET returns events for org sorted by due_date, POST creates new event. Create src/app/api/compliance/events/[id]/route.ts: PATCH marks complete, DELETE removes. Create src/app/(dashboard)/compliance/page.tsx if not exists or update: show compliance events as a calendar-style list grouped by month. Each event: title, due_date, event_type badge (Report/Audit/Renewal/Meeting), application link if linked, Mark Complete button. Add New Event form: title, due_date, event_type, recurrence. Color code: overdue=red, due this week=amber, upcoming=blue, complete=green. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: compliance calendar'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/compliance/events/route.ts
+    - src/app/(dashboard)/compliance/page.tsx
+
+- id: t6-016
+  name: Deadline prediction engine
+  prompt: "Create src/lib/intelligence/deadline-predictor.ts: export async function predictDeadlines(orgId: string, supabase: any): Promise<Array<{opportunityId: string, opportunityTitle: string, predictedDeadline: string, confidence: number, basis: string}>>. Query opportunities where deadline IS NULL and org_id=orgId. For each: check if there are past opportunities from same funder with deadlines — if so compute average day-of-year and predict next occurrence. If no funder history: use category averages (Government Federal=Sept 30, Private Foundation=varies by quarter, Corporate=rolling). Return array of predictions with confidence score. Create src/app/api/intelligence/deadline-predictions/route.ts: GET reads org_id from x-organization-id header, calls predictDeadlines, returns results. Update src/app/(dashboard)/deadlines/page.tsx: add a Predicted Deadlines section below confirmed deadlines showing predictions with confidence badges and a one-click Add to Calendar button that creates a deadline record. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: deadline prediction engine'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/deadline-predictor.ts
+    - src/app/api/intelligence/deadline-predictions/route.ts
+
+- id: t6-017
+  name: Application cloning with AI adaptation
+  prompt: "Read src/app/(dashboard)/applications/page.tsx in full. Create src/app/api/applications/[id]/clone/route.ts: POST accepts {targetOpportunityId: string} in body. Read source application by id param including draft_content, requested_amount, org_id. Read target opportunity title and description. Call Anthropic API: POST https://api.anthropic.com/v1/messages with Authorization Bearer from ANTHROPIC_API_KEY env, model claude-sonnet-4-6, max_tokens 4096. Prompt: 'Adapt this grant application draft for a new opportunity. Original draft: [draft_content]. New opportunity: [target title and description]. Preserve the organization mission, programs, and impact data. Adapt the language to match the new funder priorities. Return only the adapted narrative text.' Create new application record: opportunity_id=targetOpportunityId, org_id from source, stage='drafting', draft_content=AI response. Return {newApplicationId}. Update applications page: add Clone button on each application row opening a modal with opportunity search/select dropdown, Clone button triggers POST. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: application cloning with AI adaptation'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/applications/[id]/clone/route.ts
+
+- id: t6-018
+  name: Funder relationship scoring
+  prompt: "Create src/supabase/migrations/088_relationship_scores.sql: CREATE TABLE IF NOT EXISTS funder_relationship_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL, funder_id uuid NOT NULL, event_type text NOT NULL CHECK (event_type IN ('award','application','response','outreach','meeting','rejection')), event_date timestamptz DEFAULT now(), notes text); CREATE TABLE IF NOT EXISTS funder_relationship_scores (funder_id uuid NOT NULL, org_id uuid NOT NULL, score numeric DEFAULT 0, momentum text DEFAULT 'stable' CHECK (momentum IN ('rising','stable','declining')), computed_at timestamptz DEFAULT now(), PRIMARY KEY (funder_id, org_id)). Apply migration via Supabase Management API. Create src/lib/intelligence/relationship-scorer.ts: export async function computeRelationshipScore(funderId: string, orgId: string, supabase: any): Promise<{score: number, momentum: string}>. Count events with weights: award=30, response=20, application=10, meeting=15, outreach=5, rejection=-10. Score = sum capped 0-100. Momentum: compare last 90 days score to previous 90 days. Create src/app/api/funders/[id]/relationship/route.ts: GET computes and returns score. POST adds new event. Create src/app/api/funders/relationship-scores/route.ts: GET returns scores for all org funders. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: funder relationship scoring'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/intelligence/relationship-scorer.ts
+    - src/app/api/funders/[id]/relationship/route.ts
+
+- id: t6-019
+  name: White-label consultant portal
+  prompt: "Create src/supabase/migrations/089_white_label.sql: CREATE TABLE IF NOT EXISTS consultant_client_access (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), consultant_org_id uuid NOT NULL REFERENCES organizations(id), client_org_id uuid NOT NULL REFERENCES organizations(id), access_level text DEFAULT 'read' CHECK (access_level IN ('read','write','admin')), granted_at timestamptz DEFAULT now(), active boolean DEFAULT true, UNIQUE(consultant_org_id, client_org_id)). Apply migration. Create src/app/api/consultant/clients/route.ts: GET returns all active client orgs for the requesting org using supabase service role — joins organizations table to get client org details. POST accepts {client_email} finds org by user email adds access record. Create src/app/(dashboard)/settings/white-label/page.tsx: shows client list table (org name, plan, access level, granted date, Remove button). Add Client section: email input + Grant Access button. Shows error if org not found. Add White Label link in Settings sidebar section for owner role only. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: white-label consultant portal'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/white-label/page.tsx
+    - src/app/api/consultant/clients/route.ts
+
+- id: t6-021
+  name: Notification preferences
+  prompt: "Create src/supabase/migrations/090_notification_preferences.sql: CREATE TABLE IF NOT EXISTS notification_preferences (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, org_id uuid NOT NULL, event_type text NOT NULL, in_app boolean DEFAULT true, email boolean DEFAULT false, UNIQUE(user_id, org_id, event_type)); INSERT INTO notification_preferences (user_id, org_id, event_type, in_app, email) — do not insert, let users set. Apply migration. Create src/lib/notifications/notify.ts: export async function notify(eventType: string, orgId: string, userId: string, data: object, supabase: any). Checks notification_preferences for this user+event. If in_app=true inserts to alerts table with title and description from data. If email=true and RESEND_API_KEY env exists calls Resend API. Create src/app/api/settings/notifications/route.ts: GET returns preferences for user, POST upserts preference. Create src/app/(dashboard)/settings/notifications/page.tsx: shows grid of event types (New Opportunity, Deadline Approaching, Application Submitted, Award Received, Research Complete, AutoApply Complete) each with In-App toggle and Email toggle. Save button. Add Notifications link in Settings sidebar. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: notification preferences'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/(dashboard)/settings/notifications/page.tsx
+    - src/lib/notifications/notify.ts
+
+- id: t6-023
+  name: Board report generator
+  prompt: "Read src/app/(dashboard)/reports/page.tsx in full. Create src/lib/reports/board-report-generator.ts: export async function generateBoardReport(orgId: string, dateFrom: string, dateTo: string, supabase: any): Promise<object>. Queries in parallel: (1) COUNT opportunities created between dates, (2) COUNT applications submitted between dates, (3) SUM awarded amounts from outcomes between dates, (4) top 5 funders by application count (join funders+applications), (5) upcoming deadlines next 90 days, (6) success rate for period (awarded/total outcomes). Returns structured object with all fields plus a narrative_summary string built from the data (no AI call needed — template string). Create src/app/api/reports/board-report/route.ts: GET with ?dateFrom&dateTo reads orgId from auth, calls generateBoardReport, returns JSON. Update reports page: add Board Report section with two date inputs (from/to) defaulting to current fiscal year Jan 1 - today, Generate Report button. On success displays: summary stat cards, top funders table, upcoming deadlines list, and a Print/Export button (window.print()). Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: board report generator'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/reports/board-report-generator.ts
+    - src/app/api/reports/board-report/route.ts
+
+# ============================================================
+# BLOCK 5 — NAICS CORPORATE DONATION FLOW
+# ============================================================
+
+- id: naics-001
+  name: NAICS consumer-friendly UI with plain English trade names
+  prompt: "Read src/app/(dashboard)/donor-discovery/page.tsx in full. Read SCHEMA_REGISTRY.md for donor_discovery_taxonomy table schema. Create src/lib/donor-discovery/naics-labels.ts: export const NAICS_FRIENDLY_LABELS: Record<string, string> mapping NAICS codes to plain English consumer names. Include at minimum: '238910':'Site Preparation & Grading', '562991':'Septic System Installation', '237110':'Water Well Drilling', '238220':'Plumbing Contractors', '444180':'Building Material Dealers', '336111':'Auto Manufacturers', '524':'Insurance Companies', '522':'Banks & Credit Unions', '311':'Food Manufacturers', '423':'Industrial Distributors', '531':'Real Estate Companies', '541':'Professional Services Firms', '561':'Business Support Services', '562':'Waste Management Companies', '811':'Auto Repair Shops', '812':'Personal Care Services'. Also export NAICS_CATEGORIES grouping codes into: Construction & Trades, Manufacturing, Financial Services, Food & Agriculture, Real Estate, Professional Services, Retail & Distribution. Create src/app/(dashboard)/donor-discovery/discover/page.tsx: Step 1 — Select business type. Show NAICS_CATEGORIES as large clickable category cards. On category select show sub-types as chips. Step 2 — Set search parameters: geographic radius (10/25/50/100 miles), keywords (optional), minimum company size. Step 3 — Results preview and launch. Create src/app/api/donor-discovery/discover/route.ts: POST accepts {naicsCode, radius, keywords, orgId} calls Google Places API with AIzaSyA3sJ1vkNp1AvPLfKY_5uaiJK0FBiwjlt0 to search for businesses by type near org location. Returns up to 50 prospects. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: NAICS consumer-friendly donor discovery UI'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/donor-discovery/naics-labels.ts
+    - src/app/(dashboard)/donor-discovery/discover/page.tsx
+    - src/app/api/donor-discovery/discover/route.ts
+
+- id: naics-002
+  name: Corporate donation pipeline to AutoApply and email campaign
+  prompt: "Read src/app/(dashboard)/donor-discovery/discover/page.tsx in full. Read src/lib/autoapply/stealth-browser.ts headers to understand AutoApply patterns. Create src/app/api/donor-discovery/prospects/[id]/route-to-autoapply/route.ts: POST reads prospect from donor_discovery_directory, checks enrichment.has_donation_form. If true: creates entry in submission_queue table with funder details and giving_portal_url. Returns {queued: true, queueId}. If false: returns {queued: false, reason: 'no_giving_form'}. Create src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts: POST reads prospect, creates outreach_campaign record (or inserts to existing campaigns table) with contact email from enrichment.decision_contacts, template type 'cold_donation_request', merge fields {org_name, prospect_name, prospect_industry}. Returns {campaignId}. Update discover page results: each prospect card shows two action buttons: 'Add to AutoApply Queue' (blue, shown if has_donation_form=true) and 'Add to Email Campaign' (teal, always shown). Batch select checkbox on each card. Batch action bar at bottom: 'Send X to AutoApply' and 'Add X to Email Campaign'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: corporate donation pipeline AutoApply and email campaign routing'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/app/api/donor-discovery/prospects/[id]/route-to-autoapply/route.ts
+    - src/app/api/donor-discovery/prospects/[id]/route-to-email/route.ts
+
+# ============================================================
+# BLOCK 6 — TEST SUITE FOUNDATION
+# ============================================================
+
+- id: test-001
+  name: Jest unit test foundation
+  prompt: "Read package.json in full. Check if jest is installed. If not: the install must have been done before FORGE runs — skip jest install. Read src/lib/intelligence/success-probability.ts in full. Create src/__tests__/unit/success-probability.test.ts: import computeSuccessProbability. Mock the supabase client. Test case 1: all factors present returns score between 0-100. Test case 2: no outcomes history defaults to 0.5 for factor 2. Test case 3: deadline under 15 days returns factor 3 = 0. Test case 4: confidence is 'high' when all 4 factors have real data. Read src/lib/intelligence/semantic-matcher.ts in full. Create src/__tests__/unit/semantic-matcher.test.ts: test matchFunders returns empty array when no foundations exist. Test score is between 0 and 1. Read src/lib/reports/board-report-generator.ts in full. Create src/__tests__/unit/board-report.test.ts: mock supabase, test generateBoardReport returns all required fields. Add to package.json scripts: 'test': 'jest', 'test:unit': 'jest src/__tests__/unit'. Create jest.config.ts if not exists: module.exports = {preset: 'ts-jest', testEnvironment: 'node', moduleNameMapper: {'^@/(.*)$': '<rootDir>/src/$1'}}. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: jest unit test foundation'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/__tests__/unit/success-probability.test.ts
+    - src/__tests__/unit/semantic-matcher.test.ts
+
+- id: test-002
+  name: Smoke test suite and GitHub Actions workflow
+  prompt: "Create src/__tests__/smoke/api-smoke.test.ts: tests that critical API routes return non-500 responses. Use fetch against process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'. Test routes: GET /api/alerts (expect 200 or 401), GET /api/opportunities (expect 200 or 401), GET /api/funders (expect 200 or 401), GET /api/agents/research/status (expect 200 or 401), GET /api/automation/stats (expect 200 or 401). Each test: fetch the route, assert response.status is not 500 and not 503. Create .github/workflows/daily-tests.yml: name: Daily Test Suite. on: schedule: - cron: '0 5 * * *' (5AM UTC = 11PM CST) plus on: push: branches: [main]. jobs: test: runs-on: ubuntu-latest. steps: checkout, setup-node 18, install pnpm, pnpm install, run pnpm test:unit. Also create .github/workflows/deploy-check.yml: on push to main runs pnpm build and reports success/failure. Add to package.json: 'test:smoke': 'jest src/__tests__/smoke'. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: smoke tests and GitHub Actions daily workflow'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/__tests__/smoke/api-smoke.test.ts
+    - .github/workflows/daily-tests.yml
+
+# ============================================================
+# BLOCK 7 — RESEARCH RESOURCES ENTERPRISE REDESIGN
+# ============================================================
+
+- id: research-001
+  name: Research resources enterprise data layer
+  prompt: "Read src/app/(dashboard)/research/page.tsx in full. Create src/lib/research/resource-registry.ts: export const RESEARCH_RESOURCES: ResourceDefinition[] where ResourceDefinition has fields: id, name, category, description (2 sentences), url, apiAvailable (boolean), dataFreshness ('daily'|'weekly'|'monthly'|'static'), isPinned (boolean), logoUrl (string|null). Define all 21 pinned resources: Grants.gov (Federal Opportunities, daily, api=true), SAM.gov (Federal Registry, daily, api=true), USASpending.gov (Award Database, daily, api=true), NIH RePORTER (Health Research, daily, api=true), NSF Award Search (Science Engineering, weekly, api=true), HRSA Data Warehouse (Health Services, monthly, api=false), HUD Exchange (Housing Community, weekly, api=false), SAMHSA (Behavioral Health, monthly, api=false), DOJ OJP (Justice Programs, monthly, api=false), IRS Tax-Exempt Search (990 Lookup, monthly, api=true), ProPublica Nonprofit Explorer (990 Financials, monthly, api=true), Candid GuideStar (Foundation Profiles, monthly, api=false), Foundation Directory Online (Funder Database, monthly, api=false), GrantWatch (Aggregated Listings, daily, api=false), OpenGrants (Open Source Data, weekly, api=false), USAFacts (Statistical Data, monthly, api=false), Census Bureau (Demographics, monthly, api=true), CDC Wonder (Health Statistics, monthly, api=true), BLS Data Tools (Workforce Statistics, monthly, api=true), Data.gov (Federal Open Datasets, daily, api=true), USASpending Explorer (Contract Grant Explorer, daily, api=true). Also define 30+ additional resources in the same structure with isPinned=false covering state portals, corporate foundations, community foundations, international funders. Export RESOURCE_CATEGORIES as string array. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: research resource registry data layer'; git push."
+  gates:
+  - type: compile
+  - type: file_exists
+    files:
+    - src/lib/research/resource-registry.ts
+
+- id: research-002
+  name: Research resources enterprise UI
+  prompt: "Read src/app/(dashboard)/research/page.tsx in full. Read src/lib/research/resource-registry.ts in full. Find where research source cards are currently rendered on the research page. Replace that section with a new ResourcesSection component defined inline. The component uses useState for: searchQuery, selectedCategory, showAll (boolean). Layout: (1) Section header 'Research Resources' with subtitle 'Authoritative data sources powering your grant research'. (2) Search bar input with placeholder 'Search resources...' — filters both pinned and additional resources by name or category. (3) 3x7 grid of pinned resource cards (21 cards, only shown if searchQuery is empty). Each card: white background, border-radius 12px, padding 16px, box-shadow, colored top band 6px (blue for federal, teal for health, navy for financial, purple for foundation). Card content: resource name bold 14px, category badge small pill, description 12px text-gray-600, 'API Available' green badge if apiAvailable, data freshness small text, Visit button linking to url. (4) Below the grid: a search/dropdown section header 'All Resources' with a search input and alphabetical list of non-pinned resources grouped by category. Each list item: name, category, url link. All inline styles. No Tailwind color classes. Run pnpm tsc --noEmit fix all errors. Commit: git add -A; git commit -m 'feat: research resources enterprise UI 3x7 grid'; git push."
+  gates:
+  - type: compile
+
+# ============================================================
+# BLOCK 8 — FINAL BUILD + DEPLOY
+# ============================================================
+
+- id: final-001
+  name: Governance docs update and final production deploy
+  prompt: "Read STATE_OF_THE_BUILD.md in full. Read SESSION_STATE.md in full. Update STATE_OF_THE_BUILD.md with a new section: ## Overnight Build Session July 16-17 2026. List every feature built this session with status BUILT. Update completion counts. Note any features that had gates fail. Update SESSION_STATE.md: Last Session = July 16-17 2026 overnight FORGE run. Features completed = list all prompt ids. Next priorities = UI redesign continuation, IRS 990 enrichment run, Intelligence Library ingestion scripts execution. Update SCHEMA_REGISTRY.md: add entries for all new tables created this session (foundation_profiles, grant_budgets, grant_expenses, grant_reconciliation_reports, compliance_events, funder_relationship_events, funder_relationship_scores, consultant_client_access, notification_preferences). Then run: pnpm build. Fix any compile errors found. Then: git add -A; git commit -m 'chore: governance docs updated post overnight build July 16-17'; git push. Then run: npx vercel deploy --prod. Wait for deployment to complete. Report final production URL and deployment status."
+  gates:
+  - type: compile

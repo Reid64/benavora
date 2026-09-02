@@ -1,0 +1,101 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- WORKER_ARCHITECTURE_v2.md
+- BEHAVIORAL_CONTRACTS.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: agent-verify-001
+  name: Governance sync and full agent connectivity audit
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read worker/autonomous-orchestrator.ts in FULL. Every line.
+    Read src/lib/agents/ directory listing.
+    Read SCHEMA_REGISTRY_v2.md for agent_runs, agent_decisions, org_autonomous_config tables in FULL.
+
+    CONNECTIVITY AUDIT: For every agent import in autonomous-orchestrator.ts, verify:
+    1. The imported file actually exists in src/lib/agents/
+    2. The import path is correct
+    3. The agent class name matches the export
+
+    List any broken imports. Fix them.
+
+    Also verify the nightly schedule in autonomous-orchestrator.ts matches WORKER_ARCHITECTURE_v2.md:
+    - 1:00 AM CST: OpportunityDiscovery
+    - 1:30 AM CST: EligibilityScoring
+    - 2:00 AM CST: ProbabilityScoring
+    - 2:30 AM CST: FundabilityScorer
+    - 3:00 AM CST: AutoApply autonomous
+    - 3:30 AM CST: DonorIntentMonitor
+    - 4:00 AM CST: SelfImprovementAgent (platform-level)
+    - 4:30 AM CST: CommunityNeedPredictor
+    - 5:00 AM CST: StrategicAdvisor
+    - 5:30 AM CST: AutonomousDigest
+    - 6:00 AM CST: LearningNetworkAggregator (Sundays only, platform-level)
+
+    For any agent in the schedule that is NOT imported or is imported incorrectly: fix the import and the schedule entry.
+
+    Also verify these new agents are in the schedule:
+    - FundabilityScorerAgent (AG-29): src/lib/agents/fundability-scorer-agent.ts
+    - DonorIntentMonitorAgent (AG-30): src/lib/agents/donor-intent-monitor-agent.ts
+    - CommunityNeedPredictorAgent (AG-35): src/lib/agents/community-need-predictor-agent.ts
+    - LearningNetworkAggregatorAgent (AG-36): src/lib/agents/learning-network-aggregator-agent.ts
+    - SimulationAgent (AG-37): src/lib/agents/simulation-agent.ts
+    - SelfImprovementAgent (AG-38): src/lib/agents/self-improvement-agent.ts
+    - ROIOptimizerAgent (AG-39): src/lib/agents/roi-optimizer-agent.ts
+    - StrategicAdvisorAgent (AG-40): src/lib/agents/strategic-advisor-agent.ts
+
+    Add any missing agents to the schedule at appropriate times.
+
+    Run pnpm tsc --noEmit. Fix all TypeScript errors.
+    git add -A; git commit -m 'fix: autonomous orchestrator -- all agents imported and scheduled, connectivity verified'; git push.
+
+- id: agent-verify-002
+  name: API route audit and agent trigger verification
+  prompt: |
+    Read src/app/api/autonomous/ directory listing.
+    Read src/app/api/autonomous/trigger/route.ts in FULL.
+    Read src/app/api/autonomous/config/route.ts in FULL.
+    Read src/app/api/autonomous/decisions/route.ts in FULL.
+
+    TRIGGER ROUTE AUDIT: The POST /api/autonomous/trigger route must correctly instantiate and run any agent by ID.
+
+    Verify it handles ALL of these agent IDs:
+    ag-02-opportunity-discovery -> OpportunityDiscoveryAgent
+    ag-03-probability-scoring -> ProbabilityScoringAgent
+    ag-05-draft-generation -> DraftGenerationAgent
+    ag-06-relationship-builder -> RelationshipBuilderAgent
+    ag-07-deadline-prediction -> DeadlinePredictionAgent
+    ag-29-fundability-scorer -> FundabilityScorerAgent
+    ag-30-donor-intent -> DonorIntentMonitorAgent
+    ag-35-community-need -> CommunityNeedPredictorAgent
+    ag-36-learning-network -> LearningNetworkAggregatorAgent
+    ag-37-simulation -> SimulationAgent
+    ag-38-self-improvement -> SelfImprovementAgent
+    ag-39-roi-optimizer -> ROIOptimizerAgent
+    ag-40-strategic-advisor -> StrategicAdvisorAgent
+    ag-digest -> AutonomousDigestAgent
+
+    For any missing agent mapping: add it to the trigger route switch statement.
+
+    Also verify /api/autonomous/config PATCH correctly updates ALL fields in org_autonomous_config including the new fields:
+    auto_autoapply_enabled, max_nightly_autoapply_submissions
+
+    Create a simple test: npx tsx -e "
+    const res = await fetch('http://localhost:3000/api/autonomous/trigger', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Cookie': 'your-session-cookie'},
+      body: JSON.stringify({agentId: 'ag-40-strategic-advisor'})
+    });
+    console.log(await res.json())"
+    (Note: this will fail without auth -- just verify the route file handles all agent IDs correctly by reading it, not by running the test)
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'fix: autonomous trigger route -- all 14 agents mapped, config PATCH updated'; git push.
+    npx vercel deploy --prod.
+    Report production URL and list of all agent IDs now supported by trigger route.

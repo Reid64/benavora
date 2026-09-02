@@ -1,0 +1,83 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: draft-test-001
+  name: Governance sync and grant draft generation live test for Faith Foundation
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/lib/agents/draft-generation-agent.ts in FULL.
+    Read src/lib/intelligence/evaluation-library.ts in FULL.
+
+    Faith Foundation org ID: b1ab7402-dfc2-4712-869f-70ea3566cc1d
+
+    STEP 1: Find the highest-scoring opportunity for Faith Foundation:
+    npx tsx -e "
+    import {createClient} from '@supabase/supabase-js';
+    const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    s.from('opportunities').select('id,title,funder_name,amount_max,deadline,eligibility_score').eq('organization_id','b1ab7402-dfc2-4712-869f-70ea3566cc1d').order('eligibility_score',{ascending:false}).limit(3).then(r=>console.log(JSON.stringify(r.data,null,2)))"
+
+    STEP 2: If no opportunities exist for FF, insert a test opportunity:
+    npx tsx -e "
+    import {createClient} from '@supabase/supabase-js';
+    const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    s.from('opportunities').insert({
+      organization_id: 'b1ab7402-dfc2-4712-869f-70ea3566cc1d',
+      title: 'HUD Community Development Block Grant - Housing Counseling',
+      funder_name: 'U.S. Department of Housing and Urban Development',
+      funder_type: 'federal',
+      amount_min: 150000,
+      amount_max: 500000,
+      deadline: new Date(Date.now() + 45*24*60*60*1000).toISOString(),
+      description: 'HUD CDBG funds are provided to eligible grantees to develop viable urban communities by providing decent housing, suitable living environments, and expanding economic opportunities for low and moderate income persons.',
+      eligibility_score: 78,
+      source: 'sam_gov',
+      status: 'open',
+      ntee_focus: 'L'
+    }).then(r=>console.log('Inserted:',r.data,'Error:',r.error))"
+
+    STEP 3: Create scripts/test-draft-generation.ts:
+    A script that generates a full grant draft for Faith Foundation:
+
+    1. Load the highest-scoring opportunity
+    2. Load FF org profile and KB data
+    3. Query intelligence_funded_proposals WHERE category='L' OR funder_name ILIKE '%HUD%' LIMIT 3 -- get reference narratives
+    4. Instantiate DraftGenerationAgent and call run('manual', { opportunityId: highestScoringId })
+    5. After run: query applications WHERE org_id=FF_ORG_ID ORDER BY created_at DESC LIMIT 1
+    6. Print the FULL draft content to console
+    7. Print: confidence_score, twin_powered, platform_patterns_applied, intelligence_library_narratives_used
+
+    Run: npx tsx scripts/test-draft-generation.ts
+    Report the COMPLETE output including the actual draft text.
+
+    Add package.json script: "test:draft": "tsx scripts/test-draft-generation.ts"
+
+    STEP 4: Evaluate the draft output:
+    Read the generated draft. Check:
+    - Is it minimum 800 words?
+    - Does it reference Faith Foundation's actual programs?
+    - Does the language resemble the Intelligence Library reference narratives?
+    - Is there a clear problem statement with data?
+    - Is there a measurable outcomes section?
+    - Does it have a budget narrative section?
+
+    If any section is missing or weak: identify the specific gap in draft-generation-agent.ts and fix it.
+    Common fixes needed:
+    - If no problem statement: add a dedicated problem_statement generation phase using community_need_signals if available
+    - If no measurable outcomes: add outcomes extraction from KB impact_data section
+    - If generic language: verify Intelligence Library injection is actually reaching the Claude prompt
+
+    STEP 5: Build draft humanization verification:
+    After generating the draft, run it through a humanization check:
+    Call Claude (max_tokens:500) with the draft text:
+    System: "You are an expert at detecting AI-generated text. Rate this grant narrative on: (1) Human voice authenticity 0-100, (2) Specificity to this organization 0-100, (3) Avoidance of AI clichés 0-100, (4) Narrative flow 0-100. List the top 3 AI tells you detect. Return JSON."
+    Log the humanization scores. If any score < 70: identify what's causing the AI-ness and fix the draft generation prompt.
+
+    git add -A; git commit -m 'feat: grant draft live test -- FF opportunity, Intelligence Library injection verified, humanization scored'; git push.
+    Report: draft word count, confidence score, humanization scores, top 3 AI tells detected.

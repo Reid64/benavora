@@ -1,0 +1,306 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-02: API, CRUD & AUTHORIZATION AUDIT  (evidence-standard)
+#
+# Phase 02 of the Benavora Enterprise Audit Program.
+# Depends on PT-00 (route-manifest.json: 318 API routes) and
+# PT-01 (wiring confirmed). Command-gate engine, ledger, and
+# evidence-lib.mjs all in place and proven.
+#
+# QUESTION: does the API layer work, and does it enforce
+# authorization? Every API route: rejects unauthenticated
+# access; enforces role tiers (viewer/member/admin/owner);
+# round-trips its CRUD cycle with correct status + shape;
+# refuses writes from roles that shouldn't have them.
+#
+# ENVIRONMENT SPLIT (safety):
+# - Unauthenticated-rejection checks: prod-safe (confirm a
+#   401/403 only).
+# - ALL write/mutation/CRUD checks: LOCAL + dedicated Supabase
+#   branch ONLY. Faith Foundation's live demo tenant is never a
+#   write subject. If no branch can be created, mutation checks
+#   run local-only or are recorded PENDING-SCOPE - NEVER against
+#   the production project ref.
+#
+# EVIDENCE STANDARD: every check produces an HTTP capture
+# (method, role, status, body-shape assertion) in
+# test-evidence/pt-02/. Prose "verified" fails the gate.
+# ASCII only.
+#
+# Carries forward from PT-01: prospect table hit 133,812 rows,
+# past PostgREST's 1000-row default cap - this phase MUST test
+# list-endpoint pagination explicitly (silent truncation at
+# 1000 = finding). Re-verifies PT-00's 5 API 500s (WGR-005..009)
+# by ROOT-CAUSING each, not just re-confirming the 500.
+#
+# HALTS at its end for Reid's Phase-02 review.
+# ============================================================
+
+prompts:
+
+  - id: pt02-001
+    phase: build
+    description: "Preflight + API route working set + test-tenant/branch readiness"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Confirm PT-00 and PT-01 artifacts exist (route-manifest.json,
+         WIRING_GAP_REGISTER.md, evidence-lib.mjs). If missing, HALT.
+      2. Create test-evidence\pt-02\.
+      3. From route-manifest.json, extract every API route (type ==
+         "api") into test-evidence\pt-02\api-routes.json (expect ~318).
+         For each, statically classify from handler source: HTTP methods
+         exported (GET/POST/PATCH/PUT/DELETE), whether it calls
+         requireRole/requireAuth (and at what tier), and whether it is a
+         mutation route. This classification drives which checks each
+         route gets.
+      4. Branch strategy for write tests: check whether a Supabase
+         branch can be created via the Management API with the available
+         token. If yes, note the plan. If NO branch is available, record
+         that write/CRUD checks run against LOCAL dev pointed at a
+         local/branch DB ONLY, and any check that cannot be made
+         non-destructive against production is recorded PENDING-SCOPE.
+         NEVER run a mutation against the production project ref.
+      5. Create scripts\audit\verify-pt02-001.mjs: exits non-zero unless
+         api-routes.json parses, is non-empty, count matches the
+         type=="api" count in route-manifest.json, and every row has a
+         methods[] and an auth classification.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-02: preflight, API route working set + classification"
+      7. Run: node scripts/audit/verify-pt02-001.mjs
+    expected_outputs:
+      - test-evidence/pt-02/api-routes.json
+      - scripts/audit/verify-pt02-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt02-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt02-002
+    phase: build
+    description: "Unauthenticated-rejection sweep across every API route (prod-safe)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Every API route that requires auth must reject an unauthenticated
+      request. Read-safe (confirms a rejection only); can run against a
+      real running app.
+
+      1. For every route in api-routes.json, issue an UNAUTHENTICATED
+         request with its primary method (GET where available, else
+         OPTIONS/HEAD; for mutation-only routes, an unauth POST with a
+         minimal body is fine since the expected result is rejection
+         BEFORE any write). Record the status.
+      2. Expected: 401/403 for auth-required routes; 200/redirect only
+         for genuinely public routes (health, signature-authed webhooks,
+         public marketing APIs). An auth-required route (per pt02-001)
+         returning 200 unauthenticated is a register finding (P0 - auth
+         bypass) UNLESS it has its own signature/secret auth - classify
+         those correctly, do not false-flag them.
+      3. Cron routes (/api/cron/*): an unauth call should 401. Confirm
+         (this live-validates the WGR-003 CRON_SECRET concern prod-safe).
+      4. Write test-evidence\pt-02\unauth-sweep.json: { path, method,
+         status, expected, verdict }. Capture any auth-bypass finding's
+         full response.
+      5. Create scripts\audit\verify-pt02-002.mjs: exits non-zero unless
+         unauth-sweep.json covers every route in api-routes.json (count
+         match) and every row has a verdict.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-02: unauthenticated-rejection sweep, all API routes"
+      7. Run: node scripts/audit/verify-pt02-002.mjs
+    expected_outputs:
+      - test-evidence/pt-02/unauth-sweep.json
+      - scripts/audit/verify-pt02-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt02-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt02-003
+    phase: build
+    description: "Role-tier enforcement matrix (viewer/member/admin/owner)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Every role-gated route must enforce its tier: a role below the
+      required tier is refused. Needs real sessions at each role level.
+      LOCAL/branch ONLY - do not create test users in production.
+
+      1. Establish (local/branch) an authenticated session for each role
+         tier the app defines: viewer, member, admin, owner. Reuse the
+         magic-link pattern; create role-differentiated test users on
+         the branch/local DB, never prod.
+      2. For each route classified requireRole(tier) in pt02-001, call
+         it as each role at or below the required tier; record whether it
+         refuses below-tier roles and permits at/above. Focus the matrix
+         on admin- and owner-gated routes (platform admin, billing,
+         white-label, org management) - highest blast radius if
+         under-enforced.
+      3. Write test-evidence\pt-02\role-matrix.json: { path, required_
+         tier, role_tested, status, expected, verdict }. Any route
+         permitting a below-tier role is a register finding (P0 for
+         admin/owner routes, P1 otherwise).
+      4. Create scripts\audit\verify-pt02-003.mjs: exits non-zero unless
+         role-matrix.json is non-empty, covers every admin/owner-gated
+         route from pt02-001, and every row has a verdict.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-02: role-tier enforcement matrix"
+      6. Run: node scripts/audit/verify-pt02-003.mjs
+    expected_outputs:
+      - test-evidence/pt-02/role-matrix.json
+      - scripts/audit/verify-pt02-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt02-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt02-004
+    phase: build
+    description: "CRUD cycle through the API layer on representative resources (branch/local only)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Prove core resources round-trip through the API: create, read,
+      update, delete, correct status codes and body shapes. BRANCH/LOCAL
+      ONLY - real mutations. Never production.
+
+      1. Select the core CRUD-bearing resources from api-routes.json
+         (primary business objects: applications, opportunities, drafts,
+         pipeline items, contacts, donor-discovery prospects,
+         grant_budgets, deadlines - judgment, cover what a real user
+         creates/edits). For each, run a full cycle through the API layer
+         (not direct DB writes):
+         - CREATE: POST, assert 2xx + body has an id + shape.
+         - READ: GET the id, assert match.
+         - UPDATE: PATCH/PUT a field, assert 2xx + persisted.
+         - DELETE: assert 2xx + subsequent GET 404s.
+      2. A viewer-role WRITE attempt on each mutation route: assert
+         rejected (ties role enforcement to real mutation paths).
+      3. Write test-evidence\pt-02\crud-cycles.json: per resource, the
+         four-step capture with statuses and shape assertions. Any
+         failing step (wrong status, unpersisted change, orphan after
+         delete) is a register finding.
+      4. Create scripts\audit\verify-pt02-004.mjs: exits non-zero unless
+         crud-cycles.json covers the selected resources and each has all
+         four CRUD steps with statuses.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-02: CRUD cycles through the API layer (branch/local)"
+      6. Run: node scripts/audit/verify-pt02-004.mjs
+    expected_outputs:
+      - test-evidence/pt-02/crud-cycles.json
+      - scripts/audit/verify-pt02-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt02-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt02-005
+    phase: build
+    description: "Pagination + the 5 known API 500s root-caused"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Two targeted investigations this phase owes.
+
+      1. PAGINATION (from PT-01's 133,812-row discovery): find every
+         list endpoint returning rows from a large table
+         (foundation_directory, donor_discovery_directory, nonprofit
+         tables, prospects). For each, test whether it paginates or
+         silently truncates at PostgREST's 1000-row default. A list route
+         capping at 1000 with no pagination surfaced to the client is a
+         finding (P1 - silent data truncation). Capture actual returned
+         row counts vs table totals.
+      2. THE 5 KNOWN 500s (WGR-005..009): /api/agents/discovery,
+         /api/consultant/clients, /api/outreach/sequences,
+         /api/schoolfunder, /api/settings/notifications - root-cause each
+         by reading the handler and reproducing with a captured error.
+         Record the actual cause (missing table, null deref, bad query).
+         Do NOT fix here (remediation work) - upgrade each register row
+         from "500 confirmed" to "500, root cause: X". WGR-007
+         (followup_sequences) already has a known cause + pending product
+         decision - confirm it still holds, note the decision still owed.
+      3. Write test-evidence\pt-02\pagination-and-500s.json.
+      4. Create scripts\audit\verify-pt02-005.mjs: exits non-zero unless
+         the JSON records a pagination verdict for each large-table list
+         endpoint AND a root cause for each of the 5 known 500s.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-02: pagination audit + 5 known 500s root-caused"
+      6. Run: node scripts/audit/verify-pt02-005.mjs
+    expected_outputs:
+      - test-evidence/pt-02/pagination-and-500s.json
+      - scripts/audit/verify-pt02-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt02-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt02-006
+    phase: build
+    description: "PHASE 02 summary + register update + HALT for review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate PT-02 and prepare the human review point.
+
+      1. Write test-evidence\pt-02\PHASE-02-SUMMARY.md: API routes
+         classified, unauth-rejection pass/fail counts (any auth bypass =
+         the headline), role-matrix results (any under-enforced admin/
+         owner route = also a headline), CRUD cycle results, pagination
+         findings, the 5 root-caused 500s. Every number cites evidence.
+      2. Confirm every PT-02 finding is in WIRING_GAP_REGISTER.md with
+         evidence path and reproduction, continuing WGR-### numbering.
+         Update WGR-005..009 with root causes. Note WGR-003 CRON_SECRET
+         confirmed present in prod (per Reid) and cron routes 401 unauth.
+      3. Write test-evidence\pt-02\REVIEW-PACK.md: the short read for
+         Reid - is the API layer sound and authorization enforced; the
+         highest-severity findings; the still-owed WGR-007 product
+         decision; recommended next phase (PT-05 tenant isolation or
+         PT-06 DB integrity - both feed PT-14 security).
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-02
+         complete, API/auth truth established, awaiting Reid's review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-02 COMPLETE: API/CRUD/auth audit, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt02-006.mjs: exits non-zero unless
+         PHASE-02-SUMMARY.md and REVIEW-PACK.md exist non-empty and the
+         register grew beyond PT-01's last row.
+      7. Run: node scripts/audit/verify-pt02-006.mjs
+    expected_outputs:
+      - test-evidence/pt-02/PHASE-02-SUMMARY.md
+      - test-evidence/pt-02/REVIEW-PACK.md
+      - scripts/audit/verify-pt02-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt02-006.mjs"
+    max_retries: 2
+    on_fail: halt

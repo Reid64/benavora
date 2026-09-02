@@ -1,4 +1,4 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import { MODEL_TOKEN_UNIT_COST_USD, tryModelTokens } from "@/lib/pil/agents/rel/shared";
 import { getPilClient } from "@/lib/pil/db";
 import { getNodesByProspect } from "@/lib/pil/graph";
@@ -32,12 +32,48 @@ import type { EvidenceItem, GraphEdge, GraphNode, RelationshipStrength } from "@
 // agent's T-GRAPH permission as read-only and its output as a column write,
 // not a new-edge write via graph.ts's upsertEdge.
 //
-// Delegation permissions: none -- a leaf specialist other Relationship
-// agents call into (spec).
+// Delegation permissions per spec: originally "none -- a leaf specialist
+// other Relationship agents call into." Upgrade
+// (PIL_AGENT_COMPLETE_ROSTER.md/PIL_AGENT_DEPENDENCIES.yaml, paper specs
+// with no implementation evidence -- design input only) adds three
+// conditional delegations, each gated on a concrete per-edge signal
+// computed inside the existing scoring loop rather than firing
+// unconditionally: BEN-KNW-03 (provenance verification) when an edge's
+// evidence contains a contradicted claim or meaningfully divergent (3+
+// distinct) verification statuses on the same edge, BEN-REL-01
+// (relationship discovery) when an edge scores speculative on thin,
+// indirect evidence (evidenceStrength < 0.35) -- a low-confidence dead end
+// worth searching further for rather than leaving as final -- and
+// BEN-QLF-04 (opportunity qualification; the roster flags this as the only
+// confirmed cross-family delegation target in the Relationship family's 6
+// specs, a mutual pair since BEN-QLF-04.ts's own NEXT_AGENTS_BY_DIMENSION
+// already lists this agent among BEN-QLF-04's recommended next agents) when
+// an edge's relationship_strength tier jumps 2+ ranks in either direction,
+// since BEN-QLF-04's scoreRelationshipStrength() takes the max
+// relationship_strength among a prospect's edges and may now compute
+// differently.
+//
+// conclusions.decisionDimensions also now carries the roster's six named
+// output dimensions per edge (recency/frequency/duration/directInteraction/
+// mutuality/contextRelevance), reusing this agent's already-computed
+// StrengthFactors -- duration and mutuality are documented as real current
+// schema/agent limitations (no interval tracking, no reciprocal-confirmation
+// column) rather than fabricated values.
 
 const PROFESSIONAL_EDGE_TYPES = new Set(["owns", "employed_by", "serves_on_board_of", "trustee_of"]);
 const RECENCY_FRESH_DAYS = 90;
 const RECENCY_AGING_DAYS = 365;
+
+// Ordinal rank of this schema's RelationshipStrength enum, used only to
+// detect a material (2+ tier) jump for the BEN-QLF-04 delegation trigger --
+// not a scoring input.
+const STRENGTH_TIER_RANK: Record<RelationshipStrength, number> = {
+  speculative: 0,
+  weak: 1,
+  moderate: 2,
+  strong: 3,
+  very_strong: 4,
+};
 
 export interface StrengthFactors {
   directness: "direct" | "indirect";
@@ -130,10 +166,24 @@ export class RelationshipStrengthAgent implements Agent {
     const updatedEdgeIds: string[] = [];
     const factorsByEdgeId: Record<string, StrengthFactors> = {};
     const scoresByEdgeId: Record<string, number> = {};
+    // Delegation-trigger accumulators (see header comment for the concrete
+    // condition each one is gated on).
+    const contestedEdgeIds: string[] = [];
+    const weakEdgeIds: string[] = [];
+    const materiallyChangedEdgeIds: string[] = [];
 
     for (const edge of edges) {
       const edgeEvidence = evidenceByEdgeId.get(edge.id) ?? [];
       const bestEvidence = edgeEvidence.reduce<EvidenceItem | null>((best, ev) => (!best || ev.confidence > best.confidence ? ev : best), null);
+
+      // BEN-KNW-03 trigger (contested evidence): an outright contradiction,
+      // or 3+ meaningfully divergent verification statuses on the same
+      // edge, means this edge's strength score should not yet be treated as
+      // final.
+      const distinctVerificationStatuses = new Set(edgeEvidence.map((ev) => ev.verification_status));
+      if (edgeEvidence.some((ev) => ev.verification_status === "contradicted") || (edgeEvidence.length > 1 && distinctVerificationStatuses.size >= 3)) {
+        contestedEdgeIds.push(edge.id);
+      }
 
       const directness: "direct" | "indirect" =
         bestEvidence && (bestEvidence.verification_status === "verified_fact" || bestEvidence.verification_status === "corroborated_fact")
@@ -180,6 +230,23 @@ export class RelationshipStrengthAgent implements Agent {
       factorsByEdgeId[edge.id] = factors;
       scoresByEdgeId[edge.id] = score;
 
+      // BEN-REL-01 trigger (under-evidenced): a speculative label on
+      // indirect, thin evidence is a low-confidence dead end -- worth
+      // searching for corroborating evidence rather than leaving as final.
+      if (strengthLabel === "speculative" && directness === "indirect" && evidenceStrength < 0.35) {
+        weakEdgeIds.push(edge.id);
+      }
+
+      // BEN-QLF-04 trigger (material tier change): read edge.relationship_strength
+      // BEFORE this update() call overwrites it -- `edge` is the row as read
+      // at the top of execute(), never locally mutated, so this is still the
+      // pre-update value.
+      const oldRank = edge.relationship_strength ? STRENGTH_TIER_RANK[edge.relationship_strength] : 0;
+      const newRank = STRENGTH_TIER_RANK[strengthLabel];
+      if (Math.abs(newRank - oldRank) >= 2) {
+        materiallyChangedEdgeIds.push(edge.id);
+      }
+
       const { error: updateError } = await client
         .from("pil_graph_edges")
         .update({
@@ -190,6 +257,58 @@ export class RelationshipStrengthAgent implements Agent {
         .eq("id", edge.id);
       if (updateError) throw updateError;
       updatedEdgeIds.push(edge.id);
+    }
+
+    const delegations: DelegationRequest[] = [];
+
+    if (contestedEdgeIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-KNW-03",
+        objective: `${contestedEdgeIds.length} edge(s) scored by BEN-REL-06 for prospect ${context.prospectId} have contradicted or meaningfully divergent evidence -- resolve which claim is canonical before their strength score is treated as final.`,
+        maxAutonomy: "A2",
+        constraints: { edgeIds: contestedEdgeIds },
+      });
+    }
+
+    if (weakEdgeIds.length > 0) {
+      delegations.push({
+        childAgentCode: "BEN-REL-01",
+        objective: `${weakEdgeIds.length} edge(s) for prospect ${context.prospectId} scored speculative on thin, indirect evidence -- search for corroborating relationship evidence rather than leaving the score as a low-confidence dead end.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, weakEdgeIds },
+      });
+    }
+
+    // context.prospectId is already guaranteed truthy by the early-return
+    // guard at the top of execute(); the check is kept here as defensive
+    // documentation of the real constraint other REL-0N delegations to
+    // prospectId-scoped agents must observe (AgentRunner.delegate() carries
+    // a delegating parent's context.prospectId unchanged to the child, so a
+    // null prospectId here would make BEN-QLF-04 a dead-on-arrival no-op).
+    if (materiallyChangedEdgeIds.length > 0 && context.prospectId) {
+      delegations.push({
+        childAgentCode: "BEN-QLF-04",
+        objective: `${materiallyChangedEdgeIds.length} edge(s) for prospect ${context.prospectId} just crossed a material relationship-strength tier boundary -- re-run qualification since its relationshipStrength dimension may now compute differently.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, materiallyChangedEdgeIds },
+      });
+    }
+
+    const decisionDimensions: Record<string, unknown> = {};
+    for (const [edgeId, factors] of Object.entries(factorsByEdgeId)) {
+      decisionDimensions[edgeId] = {
+        recency: factors.recencyDays,
+        frequency: factors.frequency,
+        // This schema's temporal_validity_start/end columns exist on
+        // pil_graph_edges but this agent does not currently read/write
+        // them -- documented limitation, not a fabricated value.
+        duration: "unmodeled_no_start_end_interval_tracked_on_this_edge_type",
+        directInteraction: factors.directness,
+        // pil_graph_edges has no reciprocal/mutual-confirmation column --
+        // edges are directional, not bidirectionally confirmed.
+        mutuality: "unmodeled_edges_are_directional_not_bidirectionally_confirmed",
+        contextRelevance: `${factors.nature}_shared_orgs_${factors.sharedOrganizationCount}`,
+      };
     }
 
     const tokensUsed = await tryModelTokens(context, runner, 300);
@@ -204,8 +323,9 @@ export class RelationshipStrengthAgent implements Agent {
         factorsByEdgeId,
         scoresByEdgeId,
         nodesInvolved: [...nodeById.keys()],
+        decisionDimensions,
       },
-      delegations: [],
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

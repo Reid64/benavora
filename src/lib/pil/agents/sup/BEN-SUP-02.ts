@@ -3,6 +3,7 @@ import { pilProspects } from "@/lib/pil/db";
 import { getEvidence } from "@/lib/pil/evidence";
 import { listActiveSources } from "@/lib/pil/sources";
 import { logAction } from "@/lib/pil/audit";
+import { createReviewItem } from "@/lib/pil/human-review";
 import type { EvidenceItem, Prospect, ProspectEntityType, SourceType } from "@/lib/pil/types";
 
 // BEN-SUP-02 -- Research Strategy Architect
@@ -11,7 +12,20 @@ import type { EvidenceItem, Prospect, ProspectEntityType, SourceType } from "@/l
 // strategy: analyzes what's already known about the prospect, identifies
 // gaps, selects sources, and produces a structured ResearchPlan for
 // BEN-SUP-03 to turn into a dependency-aware execution plan. This agent may
-// delegate exactly one task per invocation, and only to BEN-SUP-03.
+// delegate exactly one task per invocation, and only to BEN-SUP-03 -- and
+// only once the plan it produced validates as executable.
+//
+// The task spec that commissioned this extension cites
+// PIL_AGENT_COMPLETE_ROSTER.md and PIL_AGENT_DEPENDENCIES.yaml; neither file
+// exists anywhere in this repo (matches the recurring PIL-03 task-collision
+// pattern of prompts citing docs the repo never had). The richer spec's
+// intent -- a versioned strategy with an explicit status lifecycle, a
+// completeness/feasibility report, and BEN-SUP-03 never receiving a plan
+// this agent already knows is unexecutable -- is implemented directly below
+// from the task prompt's own text instead. Only the three status values this
+// agent can determine deterministically from its own data are modeled
+// (DRAFT/VALIDATED/REVIEW_REQUIRED); APPROVED/PUBLISHED/SUPERSEDED/REJECTED
+// require human or downstream action this agent doesn't perform.
 
 type ResearchDimension =
   | "professional_position"
@@ -84,6 +98,13 @@ export interface ResearchPlanAgentAssignment {
   tokenBudget: number;
 }
 
+export interface ResearchPlanCompletenessReport {
+  requiredDimensions: ResearchDimension[];
+  coveredDimensions: ResearchDimension[];
+  gaps: ResearchDimension[];
+  coveragePct: number;
+}
+
 export interface ResearchPlan {
   prospectId: string | null;
   entityType: ProspectEntityType | null;
@@ -93,6 +114,12 @@ export interface ResearchPlan {
   sourceKeys: string[];
   agentAssignments: ResearchPlanAgentAssignment[];
   score: number;
+  // Versioned strategy status lifecycle (roster's fuller BEN-SUP-02 spec).
+  // Only the subset this agent can determine deterministically from its own
+  // data -- APPROVED/PUBLISHED/SUPERSEDED/REJECTED require human or
+  // downstream action this agent doesn't perform.
+  status: "DRAFT" | "VALIDATED" | "REVIEW_REQUIRED";
+  completenessReport: ResearchPlanCompletenessReport;
 }
 
 function coveredDimensionsFromEvidence(evidence: EvidenceItem[]): Set<ResearchDimension> {
@@ -112,6 +139,12 @@ const DEFAULT_DIMENSIONS: ResearchDimension[] = ["wealth_capacity", "giving_hist
 
 export class ResearchStrategyArchitect implements Agent {
   async execute(context: AgentContext, runner: AgentRunner): Promise<AgentResult> {
+    // Recovery: invalid/incomplete objective -- do not build a strategy for
+    // an empty goal.
+    if (!context.goal || context.goal.trim().length === 0) {
+      return this.completed({}, "BEN-SUP-02 requires a non-empty goal to produce a research strategy");
+    }
+
     // 1. Analyze the prospect's known information.
     const prospect = context.prospectId ? await this.loadProspect(context.orgId, context.prospectId) : null;
     const evidence = context.prospectId ? await getEvidence(context.prospectId, context.orgId) : [];
@@ -128,6 +161,39 @@ export class ResearchStrategyArchitect implements Agent {
     // 3. Select data sources appropriate for this prospect type.
     const allowedSourceTypes = new Set(entityType ? (SOURCE_TYPES_BY_ENTITY_TYPE[entityType] ?? DEFAULT_SOURCE_TYPES) : DEFAULT_SOURCE_TYPES);
     const activeSources = await listActiveSources();
+
+    // Recovery: source unavailable -- the catalog itself has nothing usable,
+    // not just for one dimension. Escalate instead of silently producing a
+    // plan with sourceKeys: [] that BEN-SUP-03 could never execute.
+    if (activeSources.length === 0) {
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "strategy.review_required",
+        resource_type: "pil_research_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { reason: "no_active_sources" },
+        policy_decision: null,
+        ip_address: null,
+      });
+      await createReviewItem({
+        organization_id: context.orgId,
+        review_type: "policy_exception",
+        subject_type: "pil_research_runs",
+        subject_id: context.runId,
+        requested_by_agent_id: context.agentCode,
+        priority: "high",
+        status: "pending",
+        summary: `BEN-SUP-02 found zero active sources in the entire source catalog for prospect ${context.prospectId ?? "(none)"}; cannot produce an executable research plan.`,
+        evidence_refs: [],
+        assigned_to_user_id: null,
+        resolved_at: null,
+      });
+      return this.completed({ reason: "no_active_sources" }, "No active sources available in the catalog");
+    }
+
     const selectedSources = activeSources.filter((source) => allowedSourceTypes.has(source.source_type));
 
     const tokensUsed = await this.tryUseTool(context, runner, "T-MODEL", 150);
@@ -146,6 +212,53 @@ export class ResearchStrategyArchitect implements Agent {
     const avgEvidenceConfidence = evidence.length > 0 ? evidence.reduce((sum, item) => sum + item.confidence, 0) / evidence.length : 0;
     const score = Number((0.5 * dimensionCoverageAfterPlan + 0.5 * avgEvidenceConfidence).toFixed(2));
 
+    const completenessReport: ResearchPlanCompletenessReport = {
+      requiredDimensions,
+      coveredDimensions: Array.from(covered),
+      gaps,
+      coveragePct: requiredDimensions.length > 0 ? covered.size / requiredDimensions.length : 1,
+    };
+
+    // 5b. Feasibility: a gap dimension is infeasible if none of the source
+    // types this entity type is allowed to use are actually covered by an
+    // active source in the plan.
+    const coveredSourceTypesInPlan = new Set(selectedSources.map((s) => s.source_type));
+    const infeasibleDimensions: ResearchDimension[] = gaps.filter(
+      () => !Array.from(allowedSourceTypes).some((sourceType) => coveredSourceTypesInPlan.has(sourceType)),
+    );
+
+    let status: ResearchPlan["status"];
+    if (infeasibleDimensions.length > 0) {
+      status = "REVIEW_REQUIRED";
+      await logAction({
+        organization_id: context.orgId,
+        actor_type: "agent",
+        actor_id: context.agentCode,
+        action: "strategy.review_required",
+        resource_type: "pil_research_runs",
+        resource_id: context.runId,
+        before_state: null,
+        after_state: { reason: "infeasible_dimensions", infeasibleDimensions },
+        policy_decision: null,
+        ip_address: null,
+      });
+      await createReviewItem({
+        organization_id: context.orgId,
+        review_type: "policy_exception",
+        subject_type: "pil_research_runs",
+        subject_id: context.runId,
+        requested_by_agent_id: context.agentCode,
+        priority: "normal",
+        status: "pending",
+        summary: `BEN-SUP-02 strategy for prospect ${context.prospectId ?? "(none)"} has ${infeasibleDimensions.length} gap dimension(s) with no active/allowed source coverage: ${infeasibleDimensions.join(", ")}.`,
+        evidence_refs: [],
+        assigned_to_user_id: null,
+        resolved_at: null,
+      });
+    } else {
+      status = "VALIDATED";
+    }
+
     const plan: ResearchPlan = {
       prospectId: context.prospectId,
       entityType,
@@ -155,6 +268,8 @@ export class ResearchStrategyArchitect implements Agent {
       sourceKeys: selectedSources.map((s) => s.source_key),
       agentAssignments,
       score,
+      status,
+      completenessReport,
     };
 
     await logAction({
@@ -165,26 +280,32 @@ export class ResearchStrategyArchitect implements Agent {
       resource_type: "pil_research_runs",
       resource_id: context.runId,
       before_state: null,
-      after_state: { plan },
+      after_state: { plan, status, completenessReport, infeasibleDimensions },
       policy_decision: null,
       ip_address: null,
     });
 
     // 6. Hand the finalized strategy to BEN-SUP-03 for execution planning --
-    // the only delegation this agent is permitted to make.
-    const delegations: DelegationRequest[] = [
-      {
-        childAgentCode: PLANNER_AGENT,
-        objective: `Execute research plan for prospect ${context.prospectId ?? "(none)"}: dimensions=${gaps.join(",") || "none"}`,
-        maxAutonomy: "A2",
-        constraints: { plan },
-      },
-    ];
+    // the only delegation this agent is permitted to make, and only once
+    // the plan has validated as executable. A REVIEW_REQUIRED plan is not
+    // handed off; the human review item just created is the correct next
+    // step, not planning against an infeasible strategy.
+    const delegations: DelegationRequest[] =
+      status === "VALIDATED"
+        ? [
+            {
+              childAgentCode: PLANNER_AGENT,
+              objective: `Execute research plan for prospect ${context.prospectId ?? "(none)"}: dimensions=${gaps.join(",") || "none"}`,
+              maxAutonomy: "A2",
+              constraints: { plan },
+            },
+          ]
+        : [];
 
     return {
       status: "completed",
       evidence: [],
-      conclusions: { plan },
+      conclusions: { plan, infeasibleDimensions },
       delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
@@ -206,6 +327,18 @@ export class ResearchStrategyArchitect implements Agent {
     } catch {
       return 0;
     }
+  }
+
+  private completed(conclusions: Record<string, unknown>, reason: string): AgentResult {
+    return {
+      status: "completed",
+      evidence: [],
+      conclusions: { skipped: true, reason, ...conclusions },
+      delegations: [],
+      tokensUsed: 0,
+      costUsd: 0,
+      error: null,
+    };
   }
 }
 

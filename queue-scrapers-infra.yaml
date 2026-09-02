@@ -1,0 +1,624 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - AUTOAPPLY_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# SCRAPERS + AUTOAPPLY INFRASTRUCTURE + WHITE-LABEL
+# ============================================================
+# 1. State grant scraper framework (reusable for all 50 states)
+# 2. Corporate giving portal monitors
+# 3. AutoApply infrastructure (proxy manager, CAPTCHA, portal discovery)
+# 4. Community foundation registry
+# 5. White-label system for consultant tier
+# ============================================================
+
+prompts:
+
+  # ============================================================
+  # STATE GRANT SCRAPERS
+  # ============================================================
+
+  - id: scrape-001
+    phase: build
+    description: "Create state grant scraper framework with pluggable state modules"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\agents\state-scrapers.ts for existing state scraper code.
+      Read C:\Users\manag\Documents\benavora\src\lib\agents\tdhca.ts for the Texas-specific scraper.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\state-scraper-framework.ts:
+
+      Export abstract class StateScraper:
+        abstract stateName: string;
+        abstract stateCode: string;
+        abstract sources: StateGrantSource[];
+        abstract scrape(): Promise<ScrapedOpportunity[]>;
+
+        protected async fetchPage(url: string): Promise<string>
+          Uses fetch with retry logic, rate limiting (1 req/2 sec), and User-Agent rotation.
+        protected parseWithCheerio(html: string): cheerio.CheerioAPI
+        protected extractDeadline(text: string): Date | null
+          Regex patterns for common date formats.
+        protected extractAmount(text: string): { min?: number, max?: number } | null
+          Regex for dollar amounts, ranges like "$5,000 - $50,000".
+        protected normalizeCategory(rawCategory: string): string
+          Maps state-specific category names to Benavora's standard categories.
+
+      Export interface StateGrantSource {
+        name: string;
+        url: string;
+        type: 'housing'|'community_development'|'health'|'education'|'workforce'|'general';
+        scrapeMethod: 'html'|'rss'|'api'|'pdf';
+      }
+
+      Export interface ScrapedOpportunity {
+        title: string;
+        funder: string;
+        source_url: string;
+        description?: string;
+        deadline?: Date;
+        amount_min?: number;
+        amount_max?: number;
+        category: string;
+        state: string;
+        eligibility_notes?: string;
+        raw_html?: string;
+      }
+
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\scraper-registry.ts:
+        Export class ScraperRegistry:
+        - register(scraper: StateScraper): void
+        - getScraper(stateCode: string): StateScraper | null
+        - getAllScrapers(): StateScraper[]
+        - async runAll(): Promise<{ state: string, found: number, errors: string[] }[]>
+        - async runState(stateCode: string): Promise<ScrapedOpportunity[]>
+    expected_outputs:
+      - src/lib/scrapers/state-scraper-framework.ts
+      - src/lib/scrapers/scraper-registry.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: scrape-002
+    phase: build
+    description: "Create state scraper implementations for Texas and 9 priority states"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\scrapers\state-scraper-framework.ts for StateScraper base class.
+
+      Create state scraper modules in C:\Users\manag\Documents\benavora\src\lib\scrapers\states\:
+
+      texas.ts — TDHCA (https://www.tdhca.texas.gov/nofa), Texas Veterans Commission, TX Health & Human Services
+      california.ts — California HCD (https://www.hcd.ca.gov/grants-and-funding), CalOES
+      newyork.ts — NY Homes & Community Renewal (https://hcr.ny.gov/funding-opportunities), NY DOH
+      florida.ts — Florida Housing Finance Corp (https://www.floridahousing.org/programs)
+      oklahoma.ts — OK Housing Finance Agency, OK DHS
+      louisiana.ts — Louisiana Housing Corp, LA DHH
+      newmexico.ts — NM Mortgage Finance Authority, NM HSD
+      arkansas.ts — AR Development Finance Authority, AR DHS
+      ohio.ts — Ohio Housing Finance Agency (https://ohiohome.org/ppd/funding.aspx)
+      pennsylvania.ts — PA Housing Finance Agency (https://www.phfa.org/programs/)
+
+      Each scraper:
+      - Extends StateScraper
+      - Defines 2-3 StateGrantSource entries for that state's housing/grant agencies
+      - Implements scrape() to fetch and parse each source
+      - Uses cheerio to extract opportunity listings from HTML pages
+      - Extracts: title, deadline, amount, description, application URL
+      - Falls back gracefully if a page structure changes (log warning, skip source)
+
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\states\index.ts:
+        Imports all 10 state scrapers and registers them with ScraperRegistry.
+        Export function initializeScrapers(): ScraperRegistry
+    expected_outputs:
+      - src/lib/scrapers/states/texas.ts
+      - src/lib/scrapers/states/california.ts
+      - src/lib/scrapers/states/newyork.ts
+      - src/lib/scrapers/states/florida.ts
+      - src/lib/scrapers/states/index.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: scrape-003
+    phase: build
+    description: "Create remaining 40 state scrapers using template pattern"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\scrapers\states\texas.ts as the reference implementation.
+      Read C:\Users\manag\Documents\benavora\src\lib\scrapers\state-scraper-framework.ts.
+
+      Create state scraper modules for ALL remaining states in C:\Users\manag\Documents\benavora\src\lib\scrapers\states\:
+
+      For each state, create a file named {state_code_lowercase}.ts.
+      Each state's primary source should be their Housing Finance Agency or equivalent.
+
+      States to create (40 remaining): AL, AK, AZ, CO, CT, DE, GA, HI, ID, IL, IN, IA, KS, KY, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NC, ND, OR, RI, SC, SD, TN, UT, VT, VA, WA, WV, WI, WY, DC
+
+      For each state:
+      - Define the state's Housing Finance Agency URL as the primary source
+      - Use a GENERIC scraper approach: fetch the funding/grants page, extract all links containing keywords like "funding", "grant", "nofa", "application", "rfp"
+      - Extract what's available from the page (some states have structured listings, others have PDF links)
+      - Set scrapeMethod to 'html' for all initially
+
+      Update C:\Users\manag\Documents\benavora\src\lib\scrapers\states\index.ts to import and register all 50 state scrapers + DC.
+
+      NOTE: Many state pages will have different structures. The scrapers should be fault-tolerant — if parsing fails, log the error and return empty results rather than throwing. These scrapers will be refined iteratively as we test each state.
+    expected_outputs:
+      - src/lib/scrapers/states/index.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: scrape-004
+    phase: build
+    description: "Create state scraper cron job and research integration"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\scrapers\scraper-registry.ts.
+      Read C:\Users\manag\Documents\benavora\src\app\api\cron\research\route.ts for existing cron pattern.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\state-scrapers\route.ts:
+        POST: Runs state scrapers. Protected by CRON_SECRET.
+        Calls ScraperRegistry.runAll() or specific states from query param.
+        For each scraped opportunity:
+          1. Check if already exists in opportunities table (match by source_url or title+funder)
+          2. If new: insert into opportunities with source_type='state_scraper', run eligibility scoring
+          3. If existing: check for deadline/amount changes, update if changed
+        Returns: { states_scraped, new_opportunities, updated, errors }
+
+      Add to vercel.json crons (if not already present):
+        { "path": "/api/cron/state-scrapers", "schedule": "0 6 * * *" }
+        Runs daily at 6 AM UTC.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\agents\state-scrapers\[stateCode]\route.ts:
+        POST: Run scraper for a single state. Auth required (admin/writer).
+        Returns scraped opportunities for that state.
+
+      Add "State Grants" as a source card on the Research page:
+      Read and modify C:\Users\manag\Documents\benavora\src\app\(dashboard)\research\page.tsx.
+      Add a card: "State Grant Portals — 50 states + DC, daily automated scanning"
+      With a "Run All States" button and per-state dropdown.
+    expected_outputs:
+      - src/app/api/cron/state-scrapers/route.ts
+      - src/app/api/agents/state-scrapers/[stateCode]/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # CORPORATE GIVING MONITORS
+  # ============================================================
+
+  - id: corp-001
+    phase: build
+    description: "Create corporate giving portal monitor system"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\corporate-monitor.ts:
+
+      Export class CorporateGivingMonitor:
+        - checkPortal(target: CorporateTarget): Promise<PortalStatus>
+          Fetches the giving page, checks if it's still active, extracts key dates and program info.
+          Uses cheerio for HTML parsing. Respects robots.txt conceptually (2s delay).
+        - detectChanges(target: CorporateTarget, previousSnapshot: string): Promise<ChangeReport>
+          Compares current page content to stored snapshot. Reports: new programs, removed programs, deadline changes, amount changes.
+        - async monitorAll(): Promise<MonitoringResult[]>
+          Runs all registered corporate targets sequentially with delays.
+
+      Export interface CorporateTarget {
+        id: string;
+        company_name: string;
+        giving_url: string;
+        category: 'monetary'|'land'|'in_kind'|'volunteer'|'sponsorship'|'general';
+        check_frequency_days: number;
+        last_checked?: Date;
+        last_snapshot?: string;
+      }
+
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\data\corporate-targets.ts:
+        Export const CORPORATE_TARGETS: CorporateTarget[] with initial targets:
+        - Walmart Spark Good (https://walmart.org/how-we-give/local-community-grants)
+        - Home Depot Foundation (https://corporate.homedepot.com/foundation)
+        - Lowe's Foundation (https://corporate.lowes.com/our-responsibilities/lowes-foundation)
+        - Bank of America (https://about.bankofamerica.com/en/making-an-impact/charitable-foundation-funding)
+        - JPMorgan Chase (https://www.jpmorganchase.com/impact/communities)
+        - Wells Fargo Foundation (https://www.wellsfargo.com/about/corporate-responsibility/community-giving/)
+        - Target Foundation (https://corporate.target.com/sustainability-governance/community)
+        - Truist Foundation (https://www.truist.com/purpose/truist-foundation)
+        - US Bank Foundation (https://www.usbank.com/about-us-bank/community/us-bank-foundation.html)
+        - Microsoft Philanthropies (https://www.microsoft.com/en-us/corporate-responsibility/philanthropies)
+        - Google.org (https://www.google.org/)
+        - Amazon (https://www.aboutamazon.com/impact/community)
+
+      Create migration C:\Users\manag\Documents\benavora\supabase\migrations\061_corporate_monitors.sql:
+        CREATE TABLE IF NOT EXISTS corporate_giving_targets (
+          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+          company_name text NOT NULL,
+          giving_url text NOT NULL,
+          category text DEFAULT 'general',
+          check_frequency_days integer DEFAULT 7,
+          last_checked_at timestamptz,
+          last_snapshot text,
+          is_active boolean DEFAULT true,
+          programs_found jsonb DEFAULT '[]',
+          created_at timestamptz DEFAULT NOW(),
+          updated_at timestamptz DEFAULT NOW()
+        );
+    expected_outputs:
+      - src/lib/scrapers/corporate-monitor.ts
+      - src/lib/scrapers/data/corporate-targets.ts
+      - supabase/migrations/061_corporate_monitors.sql
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: corp-002
+    phase: build
+    description: "Create corporate monitor cron and admin UI"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\scrapers\corporate-monitor.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\corporate-monitor\route.ts:
+        POST: Runs corporate giving monitors. Protected by CRON_SECRET.
+        Checks all targets where last_checked_at is null or older than check_frequency_days.
+        For each: fetches page, detects changes from last snapshot, updates snapshot.
+        If changes detected: creates an alert for the org, optionally creates a new opportunity.
+        Returns: { checked, changes_detected, new_programs, errors }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\corporate-targets\route.ts:
+        GET: List all corporate targets with status. Platform admin only.
+        POST: Add a new corporate target. Body: { company_name, giving_url, category }
+        DELETE: Remove a target. Query: id.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\corporate-monitors\page.tsx:
+        Platform admin page showing:
+        - Table of all corporate targets: company name, URL, category, last checked, status (active/stale/error), programs found count
+        - "Add Target" form: company name + URL + category
+        - "Check All" button to trigger immediate monitoring run
+        - "Check" button per row for individual target
+        - Change history log showing detected changes
+
+      Add to vercel.json crons:
+        { "path": "/api/cron/corporate-monitor", "schedule": "0 8 * * 1" }
+        Weekly on Monday at 8 AM UTC.
+    expected_outputs:
+      - src/app/api/cron/corporate-monitor/route.ts
+      - src/app/api/admin/corporate-targets/route.ts
+      - src/app/(dashboard)/platform/corporate-monitors/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # AUTOAPPLY INFRASTRUCTURE
+  # ============================================================
+
+  - id: infra-001
+    phase: build
+    description: "Create proxy manager for AutoApply residential proxy rotation"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\proxy-manager.ts:
+
+      Export class ProxyManager:
+        - constructor(config?: { provider?: string, apiKey?: string, poolSize?: number })
+          Supports multiple proxy providers: brightdata, smartproxy, iproyal, or 'none' (direct).
+          Config from env vars: PROXY_PROVIDER, PROXY_API_KEY, PROXY_POOL_SIZE.
+          If no provider configured: operates in direct mode (no proxy).
+        - async getProxy(region?: string): Promise<ProxyConfig | null>
+          Returns a proxy URL preferring geographic match to the funder's region.
+          ProxyConfig: { server: string, username?: string, password?: string }
+          If in direct mode: returns null.
+        - markFailed(proxyUrl: string): void
+          Temporarily removes from active pool (30 min cooldown).
+        - rotateForSubmission(): ProxyConfig | null
+          Returns fresh proxy, never reuses within same batch.
+        - getStats(): { total: number, active: number, failed: number }
+
+      Modify C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts:
+        Add optional proxy parameter to launch():
+        async launch(options?: { proxy?: ProxyConfig }): Promise<void>
+        If proxy provided: pass to Playwright browser launch:
+          playwright.chromium.launch({ proxy: { server: options.proxy.server, username: options.proxy.username, password: options.proxy.password } })
+        If no proxy: launch without proxy (current behavior).
+
+      NOTE: The proxy integration is OPTIONAL. AutoApply works without proxies. This adds the capability for when scaling beyond ~50 submissions requires IP rotation.
+    expected_outputs:
+      - src/lib/autoapply/proxy-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-002
+    phase: build
+    description: "Create CAPTCHA solving service integration"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts.
+      Read C:\Users\manag\Documents\benavora\worker\queue-processor.ts if it exists.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\captcha-solver.ts:
+
+      Export class CaptchaSolver:
+        - constructor(config?: { provider?: string, apiKey?: string })
+          Provider: '2captcha' or 'none'. Config from env: CAPTCHA_PROVIDER, CAPTCHA_API_KEY (2CAPTCHA_API_KEY).
+          If no provider: returns null for all solve attempts (CAPTCHA items go to manual queue).
+        - async solveRecaptchaV2(siteKey: string, pageUrl: string): Promise<string | null>
+          Calls 2Captcha API: POST https://2captcha.com/in.php with method=userrecaptcha
+          Polls for result: GET https://2captcha.com/res.php?action=get&id={taskId}
+          Returns the g-recaptcha-response token, or null on failure.
+          Timeout: 120 seconds.
+        - async solveHCaptcha(siteKey: string, pageUrl: string): Promise<string | null>
+          Similar flow for hCaptcha challenges.
+        - async solveImageCaptcha(imageBase64: string): Promise<string | null>
+          For simple image CAPTCHAs (text recognition).
+        - detectCaptchaOnPage(page: any): Promise<CaptchaType | null>
+          Scans page DOM for reCAPTCHA, hCaptcha, or image CAPTCHA elements.
+          CaptchaType: 'recaptcha_v2' | 'recaptcha_v3' | 'hcaptcha' | 'image' | null
+        - async solveCaptchaOnPage(page: any): Promise<boolean>
+          Detects CAPTCHA type, solves it, injects the solution token into the page.
+          Returns true if solved, false if unsolvable.
+
+      NOTE: CAPTCHA solving is OPTIONAL. If no API key configured, CAPTCHA-blocked submissions are marked as 'captcha_blocked' and routed to the manual review queue. This is the current behavior — this prompt adds automatic solving as an enhancement.
+    expected_outputs:
+      - src/lib/autoapply/captcha-solver.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-003
+    phase: build
+    description: "Create Portal Discovery Agent"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\enrichment\sources\web-search.ts for DuckDuckGo/SearXNG search.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\portal-discovery.ts:
+
+      Export class PortalDiscoveryAgent:
+        The missing link: given a funder name, find their donation/giving application portal URL.
+
+        - async discoverPortal(funderName: string, funderWebsite?: string): Promise<PortalDiscoveryResult>
+          Strategy 1 (if website known): Crawl the funder's website for links containing keywords:
+            'donate', 'giving', 'grant', 'apply', 'request', 'sponsorship', 'community', 'foundation', 'contribute'
+            Prioritize links on /giving, /grants, /community, /foundation paths.
+          Strategy 2 (if no website): Search DuckDuckGo for "{funderName} donation request form" or "{funderName} grant application".
+            Parse results, prefer .org and corporate domains.
+          Strategy 3: Search for "{funderName} community giving program".
+
+          For each candidate URL: do a HEAD request to verify it's live (200 status).
+          Use Claude to classify: is this actually a giving/donation request page?
+          Confidence scoring: 0-1 based on keyword density, URL patterns, Claude classification.
+
+          PortalDiscoveryResult: { url: string | null, confidence: number, method: 'crawl'|'search', alternatives: string[] }
+
+        - async discoverBatch(funders: Array<{ id: string, name: string, website?: string }>): Promise<Map<string, PortalDiscoveryResult>>
+          Processes a batch of funders with rate limiting (1 req/sec).
+          Updates funders table: sets giving_portal_url for high-confidence results (>0.7).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\agents\portal-discovery\route.ts:
+        POST: Discover portals for specified funders. Body: { funder_ids: string[] } or { all_missing: true }
+        Auth required (admin/writer). maxDuration = 300.
+        Returns: { discovered, failed, high_confidence, low_confidence }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\portal-discovery\route.ts:
+        POST: Runs portal discovery for funders missing giving_portal_url. CRON_SECRET protected.
+        Processes up to 50 funders per run.
+        Cron: daily at 3 AM UTC.
+    expected_outputs:
+      - src/lib/autoapply/portal-discovery.ts
+      - src/app/api/agents/portal-discovery/route.ts
+      - src/app/api/cron/portal-discovery/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # COMMUNITY FOUNDATION REGISTRY
+  # ============================================================
+
+  - id: comm-001
+    phase: build
+    description: "Create community foundation registry and monitoring system"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\community-foundation-monitor.ts:
+
+      Export class CommunityFoundationMonitor:
+        Over 900 community foundations in the US. None have public APIs.
+
+        - async scrapeFoundation(foundation: CommunityFoundation): Promise<FoundationGrants[]>
+          Fetches the foundation's grants/funding page.
+          Extracts: grant program names, deadlines, amounts, eligibility, application URLs.
+          Uses cheerio for HTML parsing.
+        - async detectChanges(foundation: CommunityFoundation): Promise<ChangeReport>
+          Compares current page to stored snapshot.
+          Reports: new grant programs, deadline changes, amount changes, removed programs.
+        - async monitorBatch(foundations: CommunityFoundation[], batchSize: number): Promise<MonitorResult[]>
+          Processes a batch with rate limiting.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\scrapers\data\community-foundations.ts:
+        Export const COMMUNITY_FOUNDATIONS: CommunityFoundation[] with the top 50 by assets:
+        - Silicon Valley Community Foundation
+        - The New York Community Trust
+        - The Chicago Community Trust
+        - The Cleveland Foundation
+        - The San Francisco Foundation
+        - Greater Kansas City Community Foundation
+        - The Boston Foundation
+        - Communities Foundation of Texas
+        - Community Foundation for Southeast Michigan
+        - The Denver Foundation
+        ... (40 more with name, website, state, estimated_assets)
+
+        CommunityFoundation: { name: string, website: string, grants_page?: string, state: string, estimated_assets?: number }
+
+      Create migration C:\Users\manag\Documents\benavora\supabase\migrations\062_community_foundations.sql:
+        CREATE TABLE IF NOT EXISTS community_foundation_registry (
+          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+          name text NOT NULL,
+          website text NOT NULL,
+          grants_page text,
+          state text,
+          estimated_assets numeric(14,2),
+          programs_found jsonb DEFAULT '[]',
+          last_checked_at timestamptz,
+          last_snapshot text,
+          is_active boolean DEFAULT true,
+          created_at timestamptz DEFAULT NOW()
+        );
+        CREATE INDEX idx_comm_foundation_state ON community_foundation_registry(state);
+    expected_outputs:
+      - src/lib/scrapers/community-foundation-monitor.ts
+      - src/lib/scrapers/data/community-foundations.ts
+      - supabase/migrations/062_community_foundations.sql
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # WHITE-LABEL SYSTEM
+  # ============================================================
+
+  - id: wl-001
+    phase: build
+    description: "Create white-label branding system for consultant tier"
+    prompt: |
+      Read the settings and branding pages.
+      Read the layout component at src/app/(dashboard)/layout.tsx.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\white-label\branding.ts:
+
+      Export class WhiteLabelBranding:
+        - getBranding(orgId: string): Promise<BrandConfig>
+          Fetches org-specific branding from org_settings.
+          BrandConfig: { logo_url?: string, company_name?: string, primary_color?: string, accent_color?: string, favicon_url?: string, custom_domain?: string, hide_powered_by: boolean }
+        - getDefaultBranding(): BrandConfig
+          Returns Benavora default branding.
+        - applyBranding(config: BrandConfig): CSSVariables
+          Returns CSS custom properties for runtime theme application.
+
+      Create migration C:\Users\manag\Documents\benavora\supabase\migrations\063_white_label.sql:
+        ALTER TABLE organizations ADD COLUMN IF NOT EXISTS white_label_config jsonb DEFAULT '{}';
+        -- white_label_config: { logo_url, company_name, primary_color, accent_color, favicon_url, custom_domain, hide_powered_by }
+        -- Only consultant tier orgs can set these values.
+
+      Modify C:\Users\manag\Documents\benavora\src\app\(dashboard)\layout.tsx:
+        Load org branding on mount. If white_label_config exists AND org is consultant tier:
+          - Replace header logo with custom logo
+          - Replace "Benavora" text with custom company_name
+          - Apply custom CSS variables for colors
+          - Hide "Powered by Benavora" footer if hide_powered_by = true
+        If not consultant tier: use default Benavora branding.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\white-label\page.tsx:
+        White-label settings page (consultant tier only, gated):
+        - Logo upload (image upload to Supabase Storage)
+        - Company name override
+        - Primary and accent color pickers
+        - Favicon upload
+        - "Hide Powered by Benavora" toggle
+        - Preview panel showing how the dashboard will look with custom branding
+        - Custom domain setup instructions (CNAME pointing)
+        Non-consultant tiers see: "White-label branding is available on the Consultant plan."
+    expected_outputs:
+      - src/lib/white-label/branding.ts
+      - supabase/migrations/063_white_label.sql
+      - src/app/(dashboard)/settings/white-label/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # VERIFICATION + GOVERNANCE
+  # ============================================================
+
+  - id: verify-final
+    phase: build
+    description: "Final build verification and governance update"
+    prompt: |
+      1. Run pnpm tsc --noEmit — fix ALL TypeScript errors.
+      2. Run pnpm run build — fix ALL build errors.
+      3. Verify no route conflicts.
+      4. Count total routes and pages.
+
+      5. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add sections:
+
+         ## State Grant Scrapers: BUILT
+         - Pluggable state scraper framework with abstract StateScraper base class
+         - 50 state + DC scraper modules with Housing Finance Agency as primary source
+         - Priority states (TX, CA, NY, FL, OH, PA, OK, LA, NM, AR) with multi-source scraping
+         - Remaining 40 states with generic HFA page scraping
+         - ScraperRegistry for batch execution
+         - Daily cron at /api/cron/state-scrapers
+         - Per-state manual trigger at /api/agents/state-scrapers/[stateCode]
+         - Research page integration with "State Grants" source card
+
+         ## Corporate Giving Monitors: BUILT
+         - CorporateGivingMonitor with change detection (snapshot diff)
+         - 12 initial corporate targets (Walmart, Home Depot, Lowe's, banks, tech)
+         - corporate_giving_targets table (migration 061)
+         - Weekly cron at /api/cron/corporate-monitor
+         - Platform admin page at /platform/corporate-monitors
+         - Add/remove targets, manual check, change history
+
+         ## AutoApply Infrastructure: BUILT
+         - ProxyManager: rotating residential proxy support (BrightData/SmartProxy/IPRoyal)
+           Optional — works without proxies, adds capability for scale
+         - CaptchaSolver: 2Captcha integration for reCAPTCHA/hCaptcha/image
+           Optional — CAPTCHA items route to manual queue if no API key
+         - PortalDiscoveryAgent: finds giving portal URLs from funder name/website
+           3-strategy approach: website crawl → DuckDuckGo search → keyword search
+           Daily cron processes 50 funders missing portal URLs
+
+         ## Community Foundation Registry: BUILT
+         - CommunityFoundationMonitor with change detection
+         - Top 50 community foundations seeded (by assets)
+         - community_foundation_registry table (migration 062)
+
+         ## White-Label System: BUILT
+         - WhiteLabelBranding engine with runtime CSS variable application
+         - Consultant tier: custom logo, company name, colors, favicon, hide branding
+         - White-label settings page at /settings/white-label (tier-gated)
+         - Layout applies org branding for consultant tier orgs
+         - Migration 063: white_label_config column on organizations
+
+      6. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md accordingly.
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

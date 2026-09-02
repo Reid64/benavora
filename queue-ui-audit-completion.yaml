@@ -1,0 +1,80 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- FEATURE_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+- AUTONOMOUS_PLATFORM_VISION.md
+prompts:
+
+- id: ui-audit-001
+  name: Governance sync and full UI audit across all dashboard pages
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/dashboard/page.tsx in FULL.
+    Read src/app/(dashboard)/opportunities/page.tsx in FULL.
+    Read src/app/(dashboard)/applications/page.tsx in FULL.
+    Read src/app/(dashboard)/intelligence/page.tsx in FULL.
+
+    For EACH of these pages conduct a full inline style audit:
+    1. List every Tailwind color class still present (bg-*, text-*, border-* with color values)
+    2. List every CSS variable reference (var(--*)) that may not render
+    3. List every element with no styling at all (naked divs/spans)
+    4. List every hardcoded inline style already present
+
+    Write audit results to src/lib/audit/ui-audit-2026-07-20.ts as a comment block.
+    Then for dashboard/page.tsx and opportunities/page.tsx: rewrite any section that still uses Tailwind color classes, replacing with inline style={{}} hex values. Canvas #D6E4F0. White text #FFFFFF. Muted text #8BA8C8.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'fix: UI audit -- replace remaining Tailwind color classes with inline hex styles on dashboard and opportunities'; git push.
+
+- id: ui-audit-002
+  name: Intelligence pages complete inline style pass
+  prompt: |
+    Read src/app/(dashboard)/intelligence/page.tsx in FULL.
+    Read src/app/(dashboard)/intelligence/twin/page.tsx in FULL.
+    Read src/app/(dashboard)/intelligence/reputation/page.tsx in FULL.
+    Read src/app/(dashboard)/intelligence/strategic-advisor/page.tsx in FULL.
+    Read src/app/(dashboard)/intelligence/donor-intent/page.tsx in FULL.
+    Read src/app/(dashboard)/intelligence/community-need/page.tsx in FULL.
+    Read src/app/(dashboard)/dashboard/page.tsx first 50 lines for color token reference.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex values. No Tailwind color classes. Canvas #D6E4F0.
+
+    For EACH intelligence page:
+    - Verify all cards use background:#0D1526 with border:1px solid rgba(255,255,255,0.08) and border-radius:16px
+    - Verify all primary text is color:#FFFFFF
+    - Verify all secondary text is color:#8BA8C8
+    - Verify all accent colors use the page's entity color (gold for FF, blue for Benavora, etc.)
+    - Verify all badges/pills use inline styles
+    - Fix any Tailwind color classes found
+
+    Also ensure each intelligence page has a nav link in src/components/layout/nav-items.ts or Sidebar.tsx. List which pages are missing nav entries and add them.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'fix: intelligence pages inline style pass -- all pages verified, missing nav entries added'; git push.
+
+- id: ui-audit-003
+  name: Reports and admin pages complete inline style pass
+  prompt: |
+    Read src/app/(dashboard)/reports/simulate/page.tsx in FULL.
+    Read src/app/(dashboard)/reports/roi/page.tsx in FULL.
+    Read src/app/(dashboard)/admin/improvements/page.tsx in FULL.
+    Read src/app/(dashboard)/admin/monitor/page.tsx in FULL.
+    Read src/app/(dashboard)/command-center/page.tsx in FULL.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex values. Canvas #D6E4F0.
+
+    For simulate/page.tsx: verify the scenario builder cards have colored icons and the 3-year projection inline SVG bar chart renders correctly. The bars must be inline SVG rects with hardcoded colors -- no chart library dependency.
+
+    For roi/page.tsx: verify the win-rate-by-day bar chart is inline SVG. Each bar: 7 bars Mon-Sun, colored green if that day has highest win rate, gray otherwise. No recharts or d3 dependency.
+
+    For improvements/page.tsx: verify the proposal cards have left accent bars colored by risk_level (low=#10B981, medium=#F59E0B, high=#DC2626). Approve and Reject buttons must be distinct colors.
+
+    For command-center/page.tsx: verify platform-owner access check redirects non-owners. Verify all-org queries have no org_id filter.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'fix: reports and admin pages inline style pass -- inline SVG charts, risk badges, platform owner gate'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

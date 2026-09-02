@@ -1,0 +1,97 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STANDING_DIRECTIVES.md
+  - BEHAVIORAL_CONTRACTS.md
+  - SCHEMA_REGISTRY_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: demo-account-investigate-001
+    phase: build
+    description: "Identify exactly what 'onboarding information' means as protected fields, before building anything"
+    prompt: |
+      Reid wants a demo account, scoped to the real Faith Foundation org (b1ab7402-dfc2-4712-869f-70ea3566cc1d), with FULL functional navigability - can trigger real actions (run AutoApply, generate drafts, click through every feature) - but CANNOT alter the org's already-onboarded core information. This is real production data protection for a live org, not a toy feature - be careful and precise, not fast and approximate.
+
+      1. Read the real current role/permission system in full: every role value (owner/admin/writer/viewer/consultant if it exists), how canEdit()/checkPermission() and RLS policies actually gate writes today. Do not assume from memory - read the real, current code.
+      2. Define "onboarding information" precisely and concretely by reading what onboarding actually writes: organizations table's core profile fields (name, mission, EIN, service_area, annual_budget etc.), knowledge_base org-profile entries, board_members roster, organizational_digital_twins - list every real table/column that onboarding populates, sourced from reading the actual onboarding flow code (src/app/api/onboarding/... and related), not guessed.
+      3. Determine the cleanest real implementation path: a new role value with a scoped write-block on exactly the identified onboarding fields, OR a new boolean flag on profiles (e.g. restricted_onboarding_edit) layered on top of an existing role (e.g. "writer" minus onboarding-write). State which approach fits this codebase's existing patterns better and why.
+      4. Write DEMO_ACCOUNT_SCOPE_2026-08-15.md with the precise field list and chosen implementation approach. This is the spec the next prompt builds against - be exhaustive, a missed protected field is a real data-corruption risk for a live org, not just an incomplete feature.
+    expected_outputs:
+      - DEMO_ACCOUNT_SCOPE_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [DEMO_ACCOUNT_SCOPE_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: demo-account-build-001
+    phase: build
+    description: "Implement the scoped permission - full functional access except the identified onboarding fields"
+    prompt: |
+      Read DEMO_ACCOUNT_SCOPE_2026-08-15.md in full before writing any code - build exactly against that spec, do not improvise a different scope.
+
+      Implement the chosen approach (new role or flag). Wire it through every real write path to the identified onboarding fields (RLS policy updates where writes are DB-enforced, canEdit()/checkPermission() updates where enforcement is application-level) so this account type is blocked from writing to those specific fields/tables, while remaining unrestricted everywhere else - including the ability to trigger real actions (AutoApply runs, draft generation, research agents, everything a normal writer-role user could do).
+
+      Be conservative: if any write path to a protected field is ambiguous or hard to fully lock down with confidence, block more broadly rather than less - a slightly-too-restrictive demo account is a minor inconvenience, an under-protected one is a real risk to Faith Foundation's actual data.
+
+      Run pnpm run build and pnpm tsc --noEmit after implementation, confirm clean.
+    expected_outputs:
+      - src/lib/hooks/useProfile.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: demo-account-create-001
+    phase: build
+    description: "Create the real account with a strong random password, handed off securely - not fabricated, not committed to git"
+    prompt: |
+      Create a real Supabase Auth user scoped to the real Faith Foundation org (b1ab7402-dfc2-4712-869f-70ea3566cc1d) with the new restricted role/flag built in the prior prompt.
+
+      Email: use demo@faithfoundationsf.org (confirm this doesn't collide with a real existing account first - if it does, use a clearly-labeled alternative like platform-demo@faithfoundationsf.org instead).
+
+      Generate a real, strong random password (minimum 20 characters, mixed case/numbers/symbols - use a real cryptographically random generator, not something guessable or pattern-based).
+
+      Write the real credentials to a new file, DEMO_ACCOUNT_CREDENTIALS_2026-08-15.md, at the repo root. This file must NOT be committed to git - add it to .gitignore in this same prompt before anything else, then confirm via git status that it shows as untracked/ignored, not staged.
+    expected_outputs:
+      - DEMO_ACCOUNT_CREDENTIALS_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [DEMO_ACCOUNT_CREDENTIALS_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: demo-account-verify-001
+    phase: build
+    description: "Real live test - confirm full navigability AND confirm protected writes are genuinely blocked"
+    prompt: |
+      This is the step that actually matters - do not skip or shortcut it. Using the real account created in the prior prompt:
+
+      1. Confirm the account can genuinely reach and use core functionality: navigate to at least 5 real distinct pages across different feature areas, and successfully trigger at least one real write-capable action (e.g. generate a real AI draft, or trigger a real research agent run) - confirm via a real DB read that the action's result was actually written.
+      2. Confirm the account CANNOT write to the protected onboarding fields identified in DEMO_ACCOUNT_SCOPE_2026-08-15.md - attempt a real write to at least 3 of the protected fields/tables using this account's real session/credentials, and confirm each attempt is genuinely rejected (a real permission error, not a silent no-op that might mask a gap).
+      3. Write findings to DEMO_ACCOUNT_VERIFICATION_2026-08-15.md - the exact pages/actions tested and their real results, and the exact protected-field write attempts and their real rejection results. If ANY protected-field write attempt succeeds when it shouldn't, that is a real, serious bug - fix it and re-test before considering this done, do not report success with a known gap.
+      4. Run pnpm run build and pnpm tsc --noEmit, confirm clean.
+      5. Scoped git add (exclude DEMO_ACCOUNT_CREDENTIALS_2026-08-15.md - it must never be committed), commit with message "feat: scoped demo account for Faith Foundation - full navigability, onboarding-write-protected, real access-boundary verified live", git push.
+    expected_outputs:
+      - DEMO_ACCOUNT_VERIFICATION_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [DEMO_ACCOUNT_VERIFICATION_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt

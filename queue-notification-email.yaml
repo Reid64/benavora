@@ -1,0 +1,114 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- STATE_OF_THE_BUILD.md
+- STANDING_DIRECTIVES.md
+prompts:
+
+- id: notif-001
+  name: Governance sync and notification system complete build
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/app/(dashboard)/alerts/page.tsx in full.
+    Read SCHEMA_REGISTRY_v2.md for notifications table in full.
+    Read src/app/api/ directory listing for any notification routes.
+    Read src/app/(dashboard)/dashboard/page.tsx first 30 lines for color tokens.
+
+    NOTIFICATION SYSTEM COMPLETE BUILD:
+
+    CHECK notifications table schema:
+    npx tsx -e "import {createClient} from '@supabase/supabase-js'; const s=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY); s.from('notifications').select('*').limit(1).then(r=>console.log(JSON.stringify(r.data,null,2),'error:',r.error?.message))"
+
+    Create a complete notification center:
+
+    CREATE or UPGRADE src/app/api/notifications/route.ts:
+    GET: Returns notifications for authenticated org/user. Supports ?unread_only=true, ?priority=urgent&priority=immediate filters.
+    PATCH: Marks notification as read. Body: { id: string } or { all: true }.
+    POST: Creates notification (internal use by agents). Requires service role or internal API key.
+
+    CREATE src/components/notifications/NotificationBell.tsx:
+    A notification bell icon for the header/sidebar showing unread count.
+    Polls /api/notifications?unread_only=true every 60 seconds.
+    Click opens a dropdown panel showing last 10 notifications:
+    - Each: icon by type, title, description truncated 80 chars, time ago, unread dot
+    - "Mark all read" button
+    - "View all" link to /alerts
+    Unread count badge: red circle with number, max "9+"
+    If count=0: gray bell, no badge.
+
+    CRITICAL: inline style={{}} only. Hardcoded hex.
+    Bell icon can be SVG inline.
+    Dropdown: position absolute, z-index 100, background #0D1526, border 1px solid rgba(255,255,255,0.1), border-radius 12px, width 360px, box-shadow 0 8px 32px rgba(0,0,0,0.5).
+
+    UPGRADE src/app/(dashboard)/alerts/page.tsx:
+    Notification types must have distinct visual treatment:
+    - AGENT_COMPLETE: blue #0EA5E9 icon (check circle)
+    - DRAFT_READY: purple #8B5CF6 icon (document)
+    - URGENT_DEADLINE: red #EF4444 icon (clock)
+    - HIGH_INTENT_SIGNAL: amber #F59E0B icon (lightning)
+    - STRATEGIC_RECOMMENDATION: gold #C9A84C icon (star)
+    - COMMUNITY_NEED: orange #F97316 icon (chart)
+    - IMPROVEMENT_PROPOSAL: green #10B981 icon (lightbulb)
+    - CRITICAL: red pulse animation on the icon
+
+    Add notification bell to header in src/app/(dashboard)/layout.tsx.
+
+    Run pnpm tsc --noEmit. Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'feat: notification center -- bell component, dropdown panel, typed notifications, alerts page upgrade'; git push.
+
+- id: notif-002
+  name: Resend email delivery integration
+  prompt: |
+    Read src/app/api/notifications/route.ts in full.
+    Read package.json to check if resend is installed.
+    Read .env.local to check for RESEND_API_KEY.
+
+    EMAIL DELIVERY VIA RESEND:
+
+    1. Install Resend if not present: pnpm add resend
+
+    2. CREATE src/lib/email/resend-client.ts:
+    Initialize Resend client with RESEND_API_KEY from env.
+    Export async function sendEmail({ to, subject, html, from? }): Promise<EmailResult>
+    Default from: "Benavora <notifications@benavora.com>"
+
+    3. CREATE src/lib/email/templates/ directory with these templates:
+
+    src/lib/email/templates/draft-ready.ts:
+    Export function draftReadyEmail(params: { orgName, draftTitle, opportunityName, funderName, confidenceScore, reviewUrl }): { subject, html }
+    Subject: "AI Draft Ready for Review: [opportunityName]"
+    HTML: Clean, minimal email. Dark header with Benavora logo text. White body.
+    Shows: draft title, funder, confidence score as colored badge, "Review Draft" CTA button in brand blue.
+
+    src/lib/email/templates/morning-digest.ts:
+    Export function morningDigestEmail(params: { orgName, items: DigestItem[], date }): { subject, html }
+    Subject: "Your Benavora Morning Digest — [date]"
+    Shows top 5 priority items from the autonomous digest agent output.
+
+    src/lib/email/templates/urgent-alert.ts:
+    Export function urgentAlertEmail(params: { orgName, alertTitle, alertBody, actionUrl, actionLabel }): { subject, html }
+    Subject: "⚠️ Action Required: [alertTitle]"
+    Red header to signal urgency.
+
+    src/lib/email/templates/welcome.ts:
+    Export function welcomeEmail(params: { orgName, adminName }): { subject, html }
+    Subject: "Welcome to Benavora — Your AI grant team is ready"
+
+    4. WIRE INTO NOTIFICATION SYSTEM:
+    In src/app/api/notifications/route.ts POST handler:
+    After inserting notification record, check notification.priority.
+    If priority='immediate' OR priority='urgent': send email via sendEmail().
+    If priority='digest': queue for daily digest (store in notifications, digest agent picks up).
+    If priority='standard': no email, in-app only.
+
+    5. WIRE INTO DRAFT AGENT:
+    In draft-generation-agent.ts, after inserting application with pending_review=true:
+    Call sendEmail with draftReadyEmail template.
+    Send to org's admin email.
+
+    Run pnpm tsc --noEmit. Fix all errors.
+    git add -A; git commit -m 'feat: Resend email delivery -- draft ready, morning digest, urgent alert, welcome templates wired to notification system'; git push.
+    npx vercel deploy --prod.
+    Report production URL.

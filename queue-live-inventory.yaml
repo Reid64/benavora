@@ -1,0 +1,49 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_LIVE_INVENTORY.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: inventory-001
+    phase: investigate
+    description: "Confirm zero prior implementation and scope real inventory data model"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read SPEC_LIVE_INVENTORY.md in full. Grep the repo for any existing
+      inventory/stock-level code. Check components/product/StockBadge.tsx
+      specifically -- it may already read a stock field on products, or it
+      may be a static placeholder. Read it directly, do not assume.
+
+      Check SCHEMA.md for whether any table tracks real stock quantities
+      today. If none does, this needs a real schema addition, not just UI.
+
+      Write LIVE_INVENTORY_SCOPE.md: what StockBadge.tsx actually does
+      today, what data model is needed for real live stock levels, and
+      exactly what inventory-002 should build. If real stock data has no
+      source of truth anywhere (no warehouse system integration exists),
+      state that plainly as a genuine gap rather than inventing fake numbers.
+    gates:
+      - type: file_exists
+        files:
+          - LIVE_INVENTORY_SCOPE.md
+
+  - id: inventory-002
+    phase: implement
+    description: "Build live inventory tracking per LIVE_INVENTORY_SCOPE.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read LIVE_INVENTORY_SCOPE.md in full. Implement exactly what it
+      specifies -- likely a new migration for stock quantities per
+      product/gauge/material combination, an admin-only UI to update
+      stock levels manually (since no warehouse system integration exists
+      per this codebase's DATA BLOCKERS), and StockBadge.tsx reading real
+      data instead of a placeholder.
+
+      Follow this codebase's existing conventions exactly.
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: real live inventory tracking per spec"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

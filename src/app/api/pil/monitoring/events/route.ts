@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { getEvents } from "@/lib/pil/monitoring";
 
 // GET /api/pil/monitoring/events -- monitoring events for the org (optionally
@@ -9,7 +9,7 @@ import { getEvents } from "@/lib/pil/monitoring";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const gate = await requireRole("viewer");
+  const gate = await requirePilRole("viewer");
   if ("error" in gate) return gate.error;
   const { organizationId } = gate;
 

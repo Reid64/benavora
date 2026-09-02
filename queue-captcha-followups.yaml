@@ -1,0 +1,228 @@
+# ============================================================
+# BENAVORA — Enterprise Fix: Feature #63 + Feature #74
+# 63: Wire CaptchaSolver into AutoApply form-filler pipeline
+# 74: Implement process-followups worker job (full production quality)
+# ============================================================
+
+prompts:
+
+- id: captcha-wire-001
+  name: Wire CaptchaSolver into AutoApply form-filler pipeline (enterprise)
+  prompt: |
+    MANDATORY PRE-READ — read ALL of these files in full before writing a single line of code.
+    Do not skip any. Do not skim. Read every line:
+      src/lib/autoapply/captcha-solver.ts
+      src/lib/autoapply/form-filler-agent.ts
+      src/lib/autoapply/stealth-browser.ts
+      src/lib/autoapply/multi-page-handler.ts
+      src/lib/autoapply/screenshot-manager.ts
+      src/lib/autoapply/alerting.ts
+      src/types/database.ts (search for automation_sessions columns)
+      src/supabase/migrations/080_autonomous_agent_infrastructure.sql
+
+    After reading, verify:
+    - Exact interface name and all fields of FillResult in form-filler-agent.ts
+    - Exact method signatures of detectCaptcha(), solveCaptcha(), injectSolution() in captcha-solver.ts
+    - Where page navigation occurs in fillAndSubmit() — find every await page.goto() and await page.click() that triggers navigation
+    - How automation_sessions rows are updated for status transitions
+    - How screenshots are currently captured and stored via screenshot-manager.ts
+    - What alerting.ts exposes for sending failure alerts
+
+    IMPLEMENTATION — surgical addition only, zero removal of existing logic:
+
+    1. IMPORT: Add `import { CaptchaSolver } from './captcha-solver.js'` at the top of
+       form-filler-agent.ts alongside existing imports. Do not reorganize imports.
+
+    2. INSTANTIATION: Inside fillAndSubmit(), instantiate `const captchaSolver = new CaptchaSolver()`
+       once, before the multi-page loop begins.
+
+    3. DETECTION HOOK — wire into EVERY page context where form fields are about to be filled.
+       This means: on initial page load AND after every multi-page navigation. The detection
+       must run after the page settles (after any existing waitForSelector or networkidle waits)
+       and before AdvancedFieldHandler begins filling fields on that page.
+
+    4. SOLVE + INJECT flow per detected captcha:
+       a. Call `captchaSolver.detectCaptcha(page)` — if null, continue normally.
+       b. If detection returned a result: log `[CaptchaSolver] ${detection.type} detected on ${page.url()}`
+       c. Call `captchaSolver.solveCaptcha(detection, page)` — if token is null (API key
+          missing or 2captcha failed), log `[CaptchaSolver] WARN: solve failed — continuing without token`
+          and continue. NEVER throw. NEVER block submission.
+       d. If token returned: call `captchaSolver.injectSolution(page, detection, token)`
+       e. After injection: wait 1500ms for the captcha widget to register the token before
+          proceeding with field filling. Use `await new Promise(r => setTimeout(r, 1500))`.
+       f. Log `[CaptchaSolver] ${detection.type} solved and injected successfully`
+
+    5. FILLRESULT INTERFACE: Add these two fields to the FillResult interface (do not remove
+       any existing fields):
+         captchaEncountered: boolean;
+         captchaSolved: boolean;
+       Populate captchaEncountered=true if any captcha was detected on any page.
+       Populate captchaSolved=true only if token was successfully obtained AND injected.
+       Default both to false.
+
+    6. AUTOMATION SESSION AUDIT: After captcha detection (whether solved or not), insert a row
+       into agent_runs (or update automation_sessions — read the schema to determine which is
+       correct) recording: event_type='captcha_detected', captcha_type=detection.type,
+       page_url=page.url(), solved=boolean, session_id from FillOptions.sessionId.
+       Use the existing supabase client already available in fillAndSubmit(). Wrap in try/catch
+       — audit failure must never block the fill flow.
+
+    7. SCREENSHOT ON CAPTCHA: After injection (or failed solve), capture a screenshot via
+       ScreenshotManager if it is already instantiated in fillAndSubmit(). If not instantiated
+       there, instantiate it. Label the screenshot 'captcha-[detected|solved|failed]-[timestamp]'.
+
+    8. ALERTING: If captcha was detected but solve failed (token null), call the alerting
+       mechanism from alerting.ts to notify the operator. Read alerting.ts to find the correct
+       method and signature. Never guess.
+
+    9. TWOCAPTCHA_API_KEY absent: the entire captcha path must degrade gracefully.
+       If the key is missing: detect only (log the detection), skip solve/inject,
+       set captchaSolved=false, fire the alert, take the screenshot, continue filling.
+       Under no circumstance does a missing API key cause an exception or halt.
+
+    10. TYPESCRIPT: After all changes, run `pnpm tsc --noEmit`. Fix every error before committing.
+        The file must compile with zero errors and zero new warnings introduced by this change.
+
+    11. COMMIT: git add -A; git commit -m 'feat(autoapply): enterprise captcha integration -- detect/solve/inject recaptcha v2/v3 hcaptcha turnstile, audit logging, screenshot capture, graceful degradation on missing key'; git push
+
+    QUALITY BAR: The final form-filler-agent.ts must handle captchas on every page of a
+    multi-page form, never block on failure, produce a complete audit trail, and alert
+    operators when human intervention may be needed. This is production AutoApply infrastructure
+    that Faith Foundation and paying customers will depend on.
+  gates:
+    - type: compile
+    - type: file_contains
+      file: src/lib/autoapply/form-filler-agent.ts
+      contains: "CaptchaSolver"
+    - type: file_contains
+      file: src/lib/autoapply/form-filler-agent.ts
+      contains: "captchaEncountered"
+    - type: file_contains
+      file: src/lib/autoapply/form-filler-agent.ts
+      contains: "captchaSolved"
+
+- id: followup-processor-001
+  name: Implement process-followups worker job (full production quality)
+  prompt: |
+    MANDATORY PRE-READ — read ALL of these files in full before writing a single line of code.
+    Do not skip any. Do not skim. Read every line:
+      src/worker/jobs/process-followups.ts
+      src/lib/agents/follow-up-generator.ts
+      src/lib/agents/followup-generator-agent.ts (if it exists — check first)
+      src/lib/autoapply/follow-up-scheduler.ts
+      src/supabase/migrations/081_application_followups.sql
+      src/lib/supabase/admin.ts
+      worker/autonomous-orchestrator.ts (first 120 lines minimum)
+      worker/scheduler.ts (read in full)
+
+    Also read:
+      src/types/database.ts — search for "application_followups" to get the exact
+      TypeScript type. Use these types throughout — never use `any` for DB rows.
+
+    CONFIRMED SCHEMA from migration 081 (do not deviate):
+    Table: application_followups
+    Columns: id (uuid), organization_id (uuid), application_id (uuid),
+             follow_up_type ('check_in'|'thank_you'|'feedback_request'|'renewal_prep'),
+             scheduled_date (date), channel (text, default 'email'),
+             content (text), status ('scheduled'|'sent'|'cancelled'), created_at (timestamptz)
+    Indexes: (organization_id, status), (application_id)
+    RLS: enabled, policy scoped by organization_id via profiles.organization_id
+
+    CONFIRMED AGENT: FollowUpGeneratorAgent in src/lib/agents/follow-up-generator.ts
+    - Takes FollowUpInput { applicationId: string }
+    - Returns FollowUpResult with steps: FollowUpStep[] (thank_you day1, check_in day14, status_request day30)
+    - Stores sequence as a note on the application (FOLLOW_UP_NOTE_PREFIX)
+    - Read the full execute() method to understand what it does and does not do
+
+    IMPLEMENTATION — replace the 4-line stub with full production logic:
+
+    1. IMPORTS: Import ws from 'ws'. Import createClient from '@supabase/supabase-js'.
+       Import FollowUpGeneratorAgent and FollowUpInput from the correct path (verify exact
+       export names by reading the file). Import Database type from src/types/database.ts.
+
+    2. SUPABASE CLIENT: Create admin client using SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+       from process.env. Pass `{ realtime: { transport: ws } }` in global options — this is
+       required for Node 20 (no native WebSocket). Read src/lib/supabase/admin.ts to see if
+       createAdminClient() already handles this — if so, import and use it instead of
+       creating a raw client. Do not create two clients.
+
+    3. MAIN QUERY: Query application_followups where:
+       - status = 'scheduled'
+       - scheduled_date <= current date (use `new Date().toISOString().split('T')[0]` for today's date)
+       Order by scheduled_date ASC, created_at ASC.
+       Fetch all due rows in one query — do not paginate unless result count exceeds 500.
+
+    4. EARLY EXIT: If no due rows found, log `[processFollowups] No follow-ups due today (${today})`
+       and return. Do not proceed.
+
+    5. PER-ROW PROCESSING — for each due application_followup row:
+       a. Log `[processFollowups] Processing ${row.follow_up_type} for application ${row.application_id}`
+       b. Fetch the application row to verify it exists and get org context:
+          SELECT id, organization_id, status FROM applications WHERE id = row.application_id
+          If not found: log error, mark row status='cancelled', continue to next row.
+       c. Instantiate FollowUpGeneratorAgent with { supabase: adminClient, organizationId: row.organization_id }
+          Read the BaseAgent constructor signature to get the exact options shape.
+       d. Call agent.run({ applicationId: row.application_id }) — this generates the sequence
+          and stores it as a note. Capture the result.
+       e. On agent success: update application_followups row: set status='sent',
+          update content field with the relevant step content from the agent result
+          (match follow_up_type to the corresponding FollowUpStep.type — map:
+          'thank_you' -> FollowUpStep type 'thank_you',
+          'check_in' -> 'check_in',
+          'feedback_request' -> 'status_request',
+          'renewal_prep' -> use the last step or the check_in step — pick whichever is
+          most appropriate after reading FollowUpResult.steps).
+       f. On agent failure: log the error with full stack trace. Do NOT mark as sent.
+          Do NOT mark as cancelled. Leave status='scheduled' so it retries next run.
+          Log `[processFollowups] RETRY: ${row.id} will retry on next run`
+       g. After each row (success or failure): await 500ms to avoid hammering Claude API.
+
+    6. SUMMARY LOG: After all rows processed, log:
+       `[processFollowups] Complete: ${sent} sent, ${failed} failed, ${skipped} skipped of ${total} due`
+
+    7. AGENT_RUNS LOGGING: After the full run, insert one row into agent_runs recording:
+       agent_type='follow_up_generator', trigger_source='schedule',
+       status= 'completed' if sent > 0 or failed === 0, else 'failed',
+       output_summary = JSON.stringify({ sent, failed, skipped, total }),
+       organization_id = null (platform-level job, not per-org),
+       started_at and completed_at timestamps.
+       Wrap in try/catch — logging failure must never throw.
+
+    8. ERROR HANDLING: The entire processFollowups() function must be wrapped in a
+       top-level try/catch. Any unhandled exception logs the full error and returns
+       without rethrowing — the worker must never crash due to a follow-up processing failure.
+
+    9. WORKER WIRING: Read worker/scheduler.ts in full. Find the jobs array or cron schedule.
+       Add processFollowups to the 2AM nightly sweep (same window as the autonomous orchestrator
+       sweep documented in autonomous-orchestrator.ts). Import processFollowups at the top of
+       the scheduler file. Do not alter any existing job entries. Do not change timing of
+       existing jobs. If scheduler.ts does not exist, read worker/index.ts or worker/server.ts
+       to find the correct wiring point.
+
+    10. TYPESCRIPT: Run `pnpm tsc --noEmit`. Fix every error. Zero new `any` types introduced.
+        Zero new TypeScript errors. Zero suppressed errors with @ts-ignore or @ts-expect-error
+        unless the same pattern already exists in the file being edited.
+
+    11. GOVERNANCE: Update STATE_OF_THE_BUILD.md — find the Feature #74 Follow-Up Sequences
+        entry and change status from PARTIAL to BUILT. Add a one-line note: "process-followups
+        worker job fully implemented — queries due application_followups rows, generates via
+        FollowUpGeneratorAgent, marks sent, logs to agent_runs, wired into 2AM nightly sweep."
+        Update SESSION_STATE.md with this session's completion.
+
+    12. COMMIT: git add -A; git commit -m 'feat(worker): implement process-followups -- full production follow-up processor, due-row query, FollowUpGeneratorAgent integration, agent_runs audit, 2AM nightly sweep wiring, governance docs updated'; git push
+
+    QUALITY BAR: The final process-followups.ts must be 150+ lines, handle every failure
+    mode gracefully, never crash the worker, produce a complete audit trail in agent_runs,
+    and correctly advance application_followups rows through their lifecycle. This runs
+    nightly against real tenant data.
+  gates:
+    - type: compile
+    - type: file_contains
+      file: src/worker/jobs/process-followups.ts
+      contains: "application_followups"
+    - type: file_contains
+      file: src/worker/jobs/process-followups.ts
+      contains: "FollowUpGeneratorAgent"
+    - type: file_contains
+      file: src/worker/jobs/process-followups.ts
+      contains: "agent_runs"

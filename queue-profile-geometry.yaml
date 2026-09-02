@@ -1,0 +1,371 @@
+project: afs-website
+
+governance:
+  - CLAUDE.md
+  - BLUEPRINT.md
+  - SCHEMA.md
+  - DESIGN_TOKENS.md
+  - COMPONENT_MAP.md
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+
+settings:
+  max_retries_per_prompt: 3
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: afs-geo-001
+    name: Audit current BendSequenceDiagram rendering engine
+    prompt: |
+      Read CLAUDE.md, COMPONENT_MAP.md, and STATE_OF_THE_BUILD.md from C:\Users\manag\Documents\afs-website.
+
+      Find and read in full every file related to profile rendering:
+      - components/studio/BendSequenceDiagram.tsx
+      - app/studio/library/page.tsx
+      - app/api/studio/match-profile/route.ts
+      - lib/data/machine-profile-fabrication.ts
+      - Any other file that renders a profile shape from bend sequence data
+
+      Audit the current geometry rendering algorithm in BendSequenceDiagram.tsx.
+      Answer these specific questions in a written report saved to C:\Users\manag\Documents\afs-website\GEOMETRY_AUDIT.md:
+
+      1. What is the current algorithm for converting bend steps into 2D coordinates?
+      2. Does it treat bend angles as ABSOLUTE (each angle is measured from horizontal) or RELATIVE (each angle is a turn from the previous direction)?
+      3. What does the database schema for machine_profile_bends contain? List every column and its meaning.
+      4. What does each bend step's angleDegrees represent — is it the turn angle, the interior angle, or something else?
+      5. Show the exact rendering code path from database row to SVG path.
+      6. Identify every place where a profile shape is rendered (SVG, canvas, or otherwise).
+      7. What profiles currently render correctly vs incorrectly?
+
+      Do not change any code. Audit only.
+      Commit GEOMETRY_AUDIT.md: git add GEOMETRY_AUDIT.md && git commit -m 'docs: geometry rendering audit' && git push origin main
+    gates:
+      - type: compile
+      - type: file_exists
+        files:
+          - GEOMETRY_AUDIT.md
+
+  - id: afs-geo-002
+    name: Build correct turtle-graphics geometry engine
+    prompt: |
+      Read CLAUDE.md and GEOMETRY_AUDIT.md from C:\Users\manag\Documents\afs-website before writing any code.
+      Read components/studio/BendSequenceDiagram.tsx in full.
+      Read the machine_profile_bends table schema from SCHEMA.md.
+
+      The current rendering engine produces incorrect profile shapes because it misinterprets the bend angle data.
+
+      The correct algorithm for rendering a Thalmann DS2801 bend sequence is:
+
+      TURTLE GRAPHICS ALGORITHM:
+      Each bend step in machine_profile_bends represents ONE BEND POINT with:
+        - left_leg_in: length of the leg BEFORE this bend (in inches)
+        - right_leg_in: length of the leg AFTER this bend (in inches)
+        - bend_angle_degrees: the TURN ANGLE at this bend point
+          - Positive angle = turn counterclockwise (bend upward)
+          - Negative angle = turn clockwise (bend downward)
+          - 0 degrees = no turn (straight continuation)
+          - 90 degrees = sharp right-angle turn upward
+          - -90 degrees = sharp right-angle turn downward
+
+      RENDERING PROCEDURE:
+      1. Start at origin (0, 0), facing RIGHT (direction = 0 degrees)
+      2. For the FIRST bend step:
+         a. Draw a line of length left_leg_in in the current direction
+         b. Turn by bend_angle_degrees (add to current direction)
+         c. Draw a line of length right_leg_in in the new direction
+      3. For EACH SUBSEQUENT bend step:
+         a. The current position is already at the end of the previous step's right leg
+         b. The current direction is already the direction after the previous bend
+         c. Turn by this step's bend_angle_degrees
+         d. Draw a line of length right_leg_in in the new direction
+      4. The result is a connected polyline representing the profile cross-section
+
+      SPECIAL CASES:
+      - bend_angle_degrees = 0: this is NOT a bend, it is a straight continuation. Draw right_leg_in in current direction only.
+      - When step numbers are non-sequential (gaps in step numbers): treat them as sequential — step order is what matters, not the step number values.
+      - Angles outside [-180, 180]: normalize by wrapping.
+
+      COORDINATE SYSTEM FOR SVG:
+      - X increases rightward
+      - Y increases DOWNWARD (SVG convention — flip sign of Y component when computing direction)
+      - So "turn counterclockwise by 90 degrees" visually means turning upward, which in SVG means Y decreases
+
+      Direction math:
+        currentDirectionDeg += bend_angle_degrees
+        dx = Math.cos(currentDirectionDeg * Math.PI / 180) * legLength
+        dy = -Math.sin(currentDirectionDeg * Math.PI / 180) * legLength  // negative because SVG Y is flipped
+        nextX = currentX + dx
+        nextY = currentY + dy
+
+      REWRITE components/studio/BendSequenceDiagram.tsx completely:
+
+      The component must:
+      1. Accept these props:
+         interface BendSequenceDiagramProps {
+           bends: Array<{
+             step: number
+             leftLegIn: number    // maps from left_leg_in column
+             rightLegIn: number   // maps from right_leg_in column
+             angleDegrees: number // maps from bend_angle_degrees column
+             radiusIn?: number    // optional, for future radius rendering
+           }>
+           width?: number         // SVG width, default 200
+           height?: number        // SVG height, default 150
+           className?: string
+           strokeColor?: string   // default '#C0001A' (afs-crimson)
+           strokeWidth?: number   // default 2
+           showDimensions?: boolean // show leg length labels, default false
+           padding?: number       // padding inside SVG viewBox, default 12
+         }
+
+      2. Implement the turtle graphics algorithm exactly as specified above
+
+      3. Auto-scale the result to fit within the SVG viewBox:
+         - Compute bounding box of all generated points
+         - Scale and translate to fit within (padding, padding, width-padding*2, height-padding*2)
+         - Preserve aspect ratio
+         - Center the profile within the viewBox
+
+      4. Render as SVG <polyline> with the computed points
+
+      5. If showDimensions is true: render small text labels at the midpoint of each leg showing the length in fractional inches
+
+      6. Handle edge cases:
+         - Empty bends array: render a horizontal line placeholder
+         - Single bend: render correctly
+         - All zero angles: render a straight line
+
+      7. Sort bends by step number before processing (do not assume they arrive in order)
+
+      8. Export the geometry computation as a separate named export for reuse:
+         export function computeProfilePoints(bends: BendInput[]): { points: {x: number, y: number}[], boundingBox: {minX, minY, maxX, maxY} }
+
+      After rewriting, verify by computing points for this known-good test case:
+      bends = [
+        { step: 1, leftLegIn: 2, rightLegIn: 1, angleDegrees: 90 },
+        { step: 2, leftLegIn: 1, rightLegIn: 3, angleDegrees: -90 }
+      ]
+      Expected shape: a Z-shaped profile (right 2", turn up 90°, right 1", turn down 90°, right 3")
+      Log the computed points to verify they match expectation before committing.
+
+      Run pnpm tsc --noEmit — 0 errors required.
+      Run pnpm run build — must pass.
+      git add -A && git commit -m 'fix: rewrite BendSequenceDiagram with correct turtle-graphics geometry' && git push origin main
+    gates:
+      - type: compile
+      - type: file_exists
+        files:
+          - components/studio/BendSequenceDiagram.tsx
+
+  - id: afs-geo-003
+    name: Fix match-profile API to return correct bend data shape
+    prompt: |
+      Read CLAUDE.md from C:\Users\manag\Documents\afs-website.
+      Read app/api/studio/match-profile/route.ts in full.
+      Read components/studio/BendSequenceDiagram.tsx in full (just rewritten in afs-geo-002).
+
+      The match-profile API returns bend data to the client for rendering in BendSequenceDiagram.
+      Verify the API returns bend data in the exact shape BendSequenceDiagram now expects:
+        { step, leftLegIn, rightLegIn, angleDegrees, radiusIn }
+
+      If the API currently returns different field names (e.g. left_leg_in snake_case, or angle_degrees, or nBiegewinkel):
+      - Update the API response to map database column names to the camelCase prop names BendSequenceDiagram expects
+      - Do not change BendSequenceDiagram — it is the source of truth for the prop shape
+
+      Also verify app/studio/library/page.tsx passes bend data in the correct shape to BendSequenceDiagram.
+      Fix any mismatches.
+
+      Run pnpm tsc --noEmit — 0 errors.
+      Run pnpm run build — must pass.
+      git add -A && git commit -m 'fix: match-profile API returns correct bend data shape for BendSequenceDiagram' && git push origin main
+    gates:
+      - type: compile
+
+  - id: afs-geo-004
+    name: Profile Library — fix card rendering and expand to all profiles
+    prompt: |
+      Read CLAUDE.md from C:\Users\manag\Documents\afs-website.
+      Read app/studio/library/page.tsx in full.
+      Read components/studio/BendSequenceDiagram.tsx in full.
+
+      Fix these specific issues in the Profile Library page:
+
+      1. PROFILE COUNT — Currently hardcoded to 75. Fix:
+         - Query machine_profiles with is_active = true (no is_public filter for authenticated users, is_public = true for anonymous)
+         - Display actual count dynamically from query result
+         - Remove ALL hardcoded references to "75" from the page
+         - Remove all references to "Thalmann DS2801" from public-facing copy
+         - Change subtitle to exactly: "Browse every profile in our machine library"
+
+      2. CARD SIZE — Profile cards are too small to read. Fix:
+         - Minimum card width: 280px
+         - BendSequenceDiagram inside each card: width=240, height=180
+         - Profile name: text-sm font-semibold, full name visible (no truncation unless > 40 chars)
+         - Show: blank width in inches, bend count, fabrication count
+
+      3. CLICK TO EXPAND — Add full-size modal when clicking any profile card:
+         - Modal overlay: dark backdrop, centered, max-w-2xl
+         - Large BendSequenceDiagram: width=500, height=400, showDimensions=true
+         - Profile name (large, bold)
+         - Blank width in inches AND mm
+         - Bend count
+         - Each bend step listed: "Step N: left leg X", "turn Y°", "right leg Z"
+         - Fabricated N times count
+         - [Load into FlashDraft] button → navigates to /studio/draft?loadProfile={id}
+         - [Close] button
+
+      4. PROFILE NAMES — German names are showing. Apply English translations:
+         Run this SQL via Supabase service role client in a one-time script scripts/translate-profile-names.ts:
+         UPDATE machine_profiles SET name_en = 'Rake Fascia' WHERE name_original ILIKE '%ortgang%';
+         UPDATE machine_profiles SET name_en = 'Valley Flashing' WHERE name_original ILIKE '%kehle%';
+         UPDATE machine_profiles SET name_en = 'Edge Angle' WHERE name_original ILIKE '%randwinkel%';
+         UPDATE machine_profiles SET name_en = 'Snap Lock Panel' WHERE name_original ILIKE '%steckpaneel%';
+         UPDATE machine_profiles SET name_en = 'Eave Drip Edge' WHERE name_original ILIKE '%traufe%';
+         UPDATE machine_profiles SET name_en = 'Pent Roof Profile' WHERE name_original ILIKE '%pult%';
+         UPDATE machine_profiles SET name_en = 'Radius Profile' WHERE name_original ILIKE '%rund%';
+         UPDATE machine_profiles SET name_en = 'Trapezoid Profile' WHERE name_original ILIKE '%trapez%';
+         UPDATE machine_profiles SET name_en = CONCAT('Profile ', REGEXP_REPLACE(name_original, '^Rheinzink-Profile_', '')) WHERE name_original ILIKE 'rheinzink%';
+         UPDATE machine_profiles SET is_public = false WHERE name_original IN ('Messe', 'Toli', 'Toli1');
+         UPDATE machine_profiles SET is_public = false WHERE name_original ILIKE '%BUG%';
+         -- Numbered profiles: rename to "Standard Profile NNN"
+         UPDATE machine_profiles SET name_en = CONCAT('Standard Profile ', LPAD(name_original, 3, '0')) WHERE name_original ~ '^[0-9]+$' AND LENGTH(name_original) <= 4;
+
+         Add to package.json: "translate:profile-names": "tsx scripts/translate-profile-names.ts"
+         Run the script.
+         Report how many rows were updated.
+
+      5. BROWSE BUTTON — Change "Browse Profile Library" button to bg-afs-crimson text-white
+
+      Run pnpm tsc --noEmit — 0 errors.
+      Run pnpm run build — must pass.
+      git add -A && git commit -m 'fix: profile library card size, click-to-expand, English names, dynamic count' && git push origin main
+    gates:
+      - type: compile
+      - type: file_exists
+        files:
+          - scripts/translate-profile-names.ts
+
+  - id: afs-geo-005
+    name: Validate geometry rendering against known profiles
+    prompt: |
+      Read CLAUDE.md from C:\Users\manag\Documents\afs-website.
+      Read components/studio/BendSequenceDiagram.tsx in full.
+      Read GEOMETRY_AUDIT.md from C:\Users\manag\Documents\afs-website.
+
+      Create a validation page at app/studio/geometry-test/page.tsx that:
+
+      1. Fetches the first 20 public profiles from machine_profiles with their bend sequences
+      2. Renders each profile using BendSequenceDiagram with showDimensions=true
+      3. Shows alongside each profile:
+         - Profile name
+         - Blank width
+         - Each bend step's raw data: step number, left leg, right leg, angle
+         - The computed SVG points from computeProfilePoints()
+      4. This page is for internal validation only — add to /admin routes, not public nav
+      5. Renders at /admin/geometry-test
+
+      Also create a unit test file lib/flashdraft/__tests__/geometry.test.ts that tests computeProfilePoints with:
+
+      Test 1 — Simple L-shape:
+        bends: [{ step:1, leftLegIn:4, rightLegIn:3, angleDegrees:90 }]
+        Expected: starts at (0,0), goes right to (4,0), turns up 90°, ends at (4,-3) [SVG Y is down so -3 means up visually]
+
+      Test 2 — Z-shape:
+        bends: [
+          { step:1, leftLegIn:2, rightLegIn:1, angleDegrees:90 },
+          { step:2, leftLegIn:1, rightLegIn:3, angleDegrees:-90 }
+        ]
+        Expected: (0,0)→(2,0)→(2,-1)→(3,-1)→(3,-1)→(6,-1) [right 2, up 1, right 1, down 0, right 3]
+        Note: after second bend (turn down -90° from going up = going right again) so final segment goes right
+
+      Test 3 — Coping cap (typical):
+        bends: [
+          { step:1, leftLegIn:3, rightLegIn:4, angleDegrees:-90 },
+          { step:2, leftLegIn:4, rightLegIn:3, angleDegrees:90 }
+        ]
+        Expected: U-shape going down then right then up
+
+      Test 4 — Straight line (0 degree bend):
+        bends: [{ step:1, leftLegIn:2, rightLegIn:3, angleDegrees:0 }]
+        Expected: straight horizontal line of total length 5"
+
+      Run tests: pnpm test -- --testPathPattern geometry (add jest or vitest config if needed, use whatever test runner is already configured)
+      If no test runner is configured, skip the test file and only build the validation page.
+
+      Run pnpm tsc --noEmit — 0 errors.
+      Run pnpm run build — must pass.
+      git add -A && git commit -m 'feat: geometry validation page and unit tests' && git push origin main
+    gates:
+      - type: compile
+      - type: file_exists
+        files:
+          - app/admin/geometry-test/page.tsx
+
+  - id: afs-geo-006
+    name: FlashDraft — wire Load from Library using correct geometry
+    prompt: |
+      Read CLAUDE.md from C:\Users\manag\Documents\afs-website.
+      Read app/studio/draft/page.tsx in full.
+      Read components/studio/BendSequenceDiagram.tsx in full.
+      Read app/api/studio/load-profile/[id]/route.ts if it exists.
+
+      The Load from Library feature in FlashDraft loads a machine profile and should pre-populate the canvas with its geometry.
+      Currently this fails for anonymous users due to RLS, and may not correctly translate the database bend sequence into canvas points.
+
+      Fix both issues:
+
+      1. CREATE app/api/studio/load-profile/[id]/route.ts (if it doesn't exist):
+         - GET endpoint
+         - Uses service role client (bypasses RLS)
+         - Fetches machine_profile by id WHERE is_public = true OR user is admin
+         - Fetches all machine_profile_bends for that profile ordered by step_number
+         - Returns: { profile: { id, name_en, blank_width_in, blank_width_mm }, bends: [{step, leftLegIn, rightLegIn, angleDegrees, radiusIn}] }
+         - 404 if profile not found or not public and user not admin
+
+      2. In app/studio/draft/page.tsx, find the "Load from Library" functionality:
+         - Update it to call /api/studio/load-profile/{id}
+         - Use computeProfilePoints() from BendSequenceDiagram to convert bend sequence to canvas points
+         - Translate the computed points into the FlashDraft canvas coordinate system
+         - Set the profile name from the loaded profile's name_en
+         - Show a success toast: "Profile loaded: {name}"
+
+      3. In app/studio/library/page.tsx, ensure [Load into FlashDraft] button in the modal:
+         - Links to /studio/draft?loadProfile={profileId}
+         - The draft page reads the query param on mount and loads the profile
+
+      Run pnpm tsc --noEmit — 0 errors.
+      Run pnpm run build — must pass.
+      git add -A && git commit -m 'feat: wire Load from Library with correct geometry and service-role bypass' && git push origin main
+    gates:
+      - type: compile
+      - type: file_exists
+        files:
+          - app/api/studio/load-profile/[id]/route.ts
+
+  - id: afs-geo-007
+    name: Update governance docs and mark geometry work complete
+    prompt: |
+      Read CLAUDE.md from C:\Users\manag\Documents\afs-website.
+      Read the current STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+      Do a full audit of what was built in afs-geo-001 through afs-geo-006 by checking git log --oneline -10.
+
+      Update STATE_OF_THE_BUILD.md:
+      - Add section: PROFILE GEOMETRY ENGINE
+      - Document: BendSequenceDiagram rewritten with correct turtle-graphics algorithm
+      - Document: computeProfilePoints() exported as reusable function
+      - Document: Profile Library showing correct profile shapes
+      - Document: Load from Library wired correctly
+      - Document: GEOMETRY_AUDIT.md added
+      - Document: German profile names translated
+      - Note: geometry-test page at /admin/geometry-test for validation
+
+      Update SESSION_STATE.md with current session summary.
+      Update COMPONENT_MAP.md to accurately describe the new BendSequenceDiagram component.
+
+      git add -A && git commit -m 'docs: update governance after profile geometry engine rebuild' && git push origin main
+    gates:
+      - type: compile

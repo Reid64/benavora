@@ -1,0 +1,20 @@
+audit_id: PIL-AUDIT-BEN-SUP-03-REMEDIATION
+specification_id: PIL-AGENT-BEN-SUP-03
+specification_version: "2.0.0"
+agent_name: Cross-Agent Research Planner
+verdict: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE
+claims: {specification_remediated: true, implementation_completed: false, tests_executed: false, production_ready: false, score_assigned: false}
+quality_dimensions:
+  unique_topology_planning_boundary: PASS_SPECIFICATION
+  typed_node_edge_join_alternative_and_plan_contracts: PASS_SPECIFICATION
+  durable_state_alternatives_selection_and_replanning: PASS_SPECIFICATION
+  deterministic_dag_terminal_input_gate_and_budget_proofs: PASS_SPECIFICATION
+  parallelism_join_partial_result_and_cancellation_semantics: PASS_SPECIFICATION
+  exact_delegation_depth_three_and_capability_routing: PASS_SPECIFICATION
+  work_fingerprint_reuse_and_corroboration_separation: PASS_SPECIFICATION
+  atomic_activation_policy_toc_tou_persistence_and_recovery: PASS_SPECIFICATION
+  security_tenancy_observability_operator_adrs_and_runbooks: PASS_SPECIFICATION
+  agent_specific_load_soak_chaos_and_dr: PASS_SPECIFICATION
+blocking_evidence_remaining: [G0_repository_discovery, G1_code_conformance, G2_runtime_contracts, G3_deterministic_foundations, G4_agentic_traces, G5_production_evidence]
+truthfulness_rule: "No readiness or 95-100 score may be claimed until executed G0-G5 evidence exists."
+next_remediation: BEN-SUP-02

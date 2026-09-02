@@ -1,0 +1,136 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-11: REGRESSION SUITE EXECUTION  (evidence-standard)
+# depends_on: pt-01. Run the built-but-never-run suites FOR REAL
+# with dated pass/fail numbers. Especially important post-.Handle:
+# these suites may never have truly run. HALTS at end. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt11-001
+    phase: build
+    description: "Preflight + inventory the existing test suites"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00/01 artifacts. Create test-evidence\pt-11\.
+      2. Inventory every existing test suite in the repo: unit, smoke,
+         api, visual-regression.spec.ts, cross-browser, soak, migration
+         tests. For each record: file, framework, last-known status claim,
+         and whether it appears to have ever actually run to completion.
+         Write test-evidence\pt-11\suite-inventory.json.
+      3. Create scripts\audit\verify-pt11-001.mjs: fails unless
+         suite-inventory.json lists the suites with their run-command.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-11: test-suite inventory"
+      5. Run: node scripts/audit/verify-pt11-001.mjs
+    expected_outputs:
+      - test-evidence/pt-11/suite-inventory.json
+      - scripts/audit/verify-pt11-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt11-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt11-002
+    phase: build
+    description: "Execute unit/smoke/api/migration suites for real, dated numbers"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Actually RUN each unit/smoke/api/migration suite from the
+         inventory. Capture the real, dated pass/fail/skip counts and the
+         raw output to test-evidence\pt-11\suite-results-core.json (+ raw
+         logs). Do not summarize a suite as passing without its real
+         output on disk. Failing tests are findings; a suite that cannot
+         even start is a higher-severity finding (it was never real).
+      2. Create scripts\audit\verify-pt11-002.mjs: fails unless
+         suite-results-core.json records real counts + a log path per suite.
+      3. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-11: core suites executed with real numbers"
+      4. Run: node scripts/audit/verify-pt11-002.mjs
+    expected_outputs:
+      - test-evidence/pt-11/suite-results-core.json
+      - scripts/audit/verify-pt11-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt11-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt11-003
+    phase: build
+    description: "Visual regression + cross-browser + soak (the known-flaky trio)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. VISUAL REGRESSION: run visual-regression.spec.ts against a fresh
+         baseline of the current verified UI; capture diffs.
+      2. CROSS-BROWSER: rerun targeting the known WebKit navigation race
+         (history notes a 10/17 prior); capture the real pass rate now.
+      3. SOAK: rerun accounting for the known rate-limiter finding; capture
+         whether it holds over the soak duration.
+      Write test-evidence\pt-11\suite-results-flaky.json with real results +
+      artifact paths. Persisting flakiness/failures are findings.
+      3. Create scripts\audit\verify-pt11-003.mjs: fails unless all three
+         record real results with artifact/log paths.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-11: visual/cross-browser/soak executed"
+      5. Run: node scripts/audit/verify-pt11-003.mjs
+    expected_outputs:
+      - test-evidence/pt-11/suite-results-flaky.json
+      - scripts/audit/verify-pt11-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt11-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt11-004
+    phase: build
+    description: "PHASE 11 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Write test-evidence\pt-11\PHASE-11-SUMMARY.md: each suite's real
+         dated pass/fail numbers, which suites had never truly run before,
+         persisting failures. Every number cites its raw log.
+      2. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      3. Write test-evidence\pt-11\REVIEW-PACK.md: the true state of the
+         test suites; highest-severity; next-phase note.
+      4. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-11 COMPLETE: regression suites, review pack ready"; Push.
+      5. Create scripts\audit\verify-pt11-004.mjs: fails unless summary +
+         review pack exist non-empty and register grew.
+      6. Run: node scripts/audit/verify-pt11-004.mjs
+    expected_outputs:
+      - test-evidence/pt-11/PHASE-11-SUMMARY.md
+      - test-evidence/pt-11/REVIEW-PACK.md
+      - scripts/audit/verify-pt11-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt11-004.mjs"
+    max_retries: 2
+    on_fail: halt

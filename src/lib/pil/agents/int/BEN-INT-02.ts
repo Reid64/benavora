@@ -1,15 +1,18 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
   hostnameOf,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
   upsertCounterpartyNode,
   upsertProspectNode,
 } from "@/lib/pil/agents/int/shared";
-import { upsertEdge } from "@/lib/pil/graph";
+import { logAction } from "@/lib/pil/audit";
+import { getEvidence } from "@/lib/pil/evidence";
+import { getEdges, upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
 
 // BEN-INT-02 -- Employment & Career Intelligence Agent
@@ -25,6 +28,29 @@ import type { EvidenceItem } from "@/lib/pil/types";
 // irs_990_lookup exist) -- this agent uses web_search/web_crawl only, same
 // substitution the task spec for this batch explicitly names ("Uses
 // web_search and web_crawl").
+
+// Six domain dimensions this agent's report scores coverage across, per
+// PIL_AGENT_COMPLETE_ROSTER.md's "Core Intelligence" BEN_INT_02Decision.v1
+// contract. Coverage is computed from persisted pil_evidence/pil_graph_edges
+// state (getEvidence/getEdges), not just evidence created this run, matching
+// BEN-INT-08's own established getEvidence(prospect.id, context.orgId)
+// pattern for reading the full existing dossier.
+const CAREER_DIMENSIONS = [
+  "Employer Legal Identity",
+  "Role/Title Semantics",
+  "Start/End/Effective Dates",
+  "Executive Mobility",
+  "Compensation Observations When Lawful",
+  "Career Contradictions",
+] as const;
+
+export interface EmploymentCareerIntelligenceReport {
+  prospectId: string;
+  dimensionCoverage: Record<string, boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+  employmentRecordsFound: number;
+}
 
 interface EmploymentRecord {
   title: string;
@@ -114,11 +140,134 @@ export class EmploymentCareerIntelligenceAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 400);
 
+    // Everything below is secondary reasoning layered on top of the
+    // evidence-gathering above, which has already durably committed via
+    // individually atomic recordIntelligenceEvidence()/upsertEdge() calls. A
+    // bug here must never discard that already-collected evidence or fail
+    // this run -- recovery starts from persisted truth, and captured
+    // evidence stays immutable regardless of what happens next.
+    let report: EmploymentCareerIntelligenceReport = {
+      prospectId: prospect.id,
+      dimensionCoverage: Object.fromEntries(CAREER_DIMENSIONS.map((d) => [d, false])),
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+      employmentRecordsFound: records.length,
+    };
+    let delegations: DelegationRequest[] = [];
+
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const personEdges = personNode ? await getEdges(personNode.id) : [];
+      const employmentEvidence = allEvidence.filter((e) => e.claim_type === "employment");
+      const employmentEdges = personEdges.filter((e) => e.edge_type === "employed_by");
+
+      const dimensionCoverage: Record<string, boolean> = {
+        "Employer Legal Identity":
+          employmentEvidence.some((e) => Boolean((e.value as { company?: string } | null)?.company)) ||
+          employmentEdges.length > 0,
+        "Role/Title Semantics": employmentEvidence.some((e) => Boolean((e.value as { title?: string } | null)?.title)),
+        "Start/End/Effective Dates": employmentEdges.some(
+          (e) => e.temporal_validity_start !== null || e.temporal_validity_end !== null,
+        ),
+        "Executive Mobility": employmentEvidence.length > 1 || employmentEdges.length > 1,
+        "Compensation Observations When Lawful": allEvidence.some(
+          (e) => e.claim_type === "high_compensation_officer_signal" || (e.claim_type === "employment" && /compensation|salary/i.test(e.claim)),
+        ),
+        "Career Contradictions": employmentEvidence.some(
+          (e) => e.verification_status === "contradicted" || e.contradiction_status !== "none",
+        ),
+      };
+
+      // Ownership-signal trigger: an employment-search result whose title
+      // itself reads as a founder/owner/principal mention is exactly
+      // BEN-INT-03's Legal Entity Ownership dimension surfacing early.
+      const hasOwnershipSignal = records.some((r) => /founder|co-founder|\bowner\b|principal/i.test(r.title));
+      // Executive-mobility trigger: both a current AND a prior role were
+      // found this run -- a documented career change exists that
+      // BEN-INT-01's Biographical And Role Chronology dimension should
+      // re-sync.
+      const hasExecutiveMobility = records.length > 1;
+      // Identity-ambiguity trigger: no employment record found at all this
+      // run.
+      const identityAmbiguous = records.length === 0;
+      // Evidence-verification trigger: new evidence was recorded this run
+      // and needs provenance verification.
+      const needsEvidenceVerification = evidenceCreated.length > 0;
+
+      const candidates: DelegationRequest[] = [];
+      const pushCandidate = (childAgentCode: string, objective: string) => {
+        candidates.push({
+          childAgentCode,
+          objective,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      };
+
+      // Priority order per the roster's BEN-INT-02 delegation list -- stop
+      // once MAX_DELEGATIONS_PER_RUN candidates are collected, even if a
+      // lower-priority condition below also holds.
+      if (identityAmbiguous) {
+        pushCandidate(
+          "BEN-KNW-02",
+          `Prospect ${context.prospectId} has no employment record found by this BEN-INT-02 run -- resolve identity ambiguity before further career research.`,
+        );
+      }
+      if (hasOwnershipSignal) {
+        pushCandidate(
+          "BEN-INT-03",
+          `Prospect ${context.prospectId} has an employment result whose title reads as founder/owner/principal -- research legal entity ownership.`,
+        );
+      }
+      if (hasExecutiveMobility) {
+        pushCandidate(
+          "BEN-INT-01",
+          `Prospect ${context.prospectId} has both a current and a prior role found this run -- re-sync biographical role chronology for the documented career change.`,
+        );
+      }
+      if (needsEvidenceVerification) {
+        pushCandidate(
+          "BEN-KNW-03",
+          `BEN-INT-02 recorded ${evidenceCreated.length} new employment evidence item(s) for prospect ${context.prospectId} this run -- verify provenance before treating as authoritative.`,
+        );
+      }
+
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+        employmentRecordsFound: records.length,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "ben-int-02.gap_analysis_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { error: message },
+          policy_decision: null,
+          ip_address: null,
+        });
+      } catch {
+        // Audit logging is best-effort -- never let it mask the
+        // already-collected evidence this run already durably recorded.
+      }
+      delegations = [];
+    }
+
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: { prospectId: prospect.id, employmentRecordsFound: records.length },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

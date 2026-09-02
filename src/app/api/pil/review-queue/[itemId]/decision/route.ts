@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requirePilRole } from "@/lib/feature-flags/pil";
 import { HumanReviewError, submitReviewDecision } from "@/lib/pil/human-review";
 
 // POST /api/pil/review-queue/[itemId]/decision — submit a human review
@@ -18,7 +18,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const gate = await requireRole("admin");
+  const gate = await requirePilRole("admin");
   if ("error" in gate) return gate.error;
   const { userId } = gate;
 

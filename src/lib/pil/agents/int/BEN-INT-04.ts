@@ -1,16 +1,42 @@
-import type { Agent, AgentContext, AgentResult, AgentRunner } from "@/lib/pil/agent-runner";
+import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
   getProspectById,
   hostnameOf,
+  MAX_DELEGATIONS_PER_RUN,
   MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
   upsertCounterpartyNode,
   upsertProspectNode,
 } from "@/lib/pil/agents/int/shared";
+import { logAction } from "@/lib/pil/audit";
+import { getEvidence } from "@/lib/pil/evidence";
 import { upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+
+// Six domain dimensions this agent's report scores coverage across, per
+// PIL_AGENT_COMPLETE_ROSTER.md's "Core Intelligence" BEN_INT_04Decision.v1
+// contract. Coverage is computed from persisted pil_evidence state
+// (getEvidence), not just evidence created this run, matching BEN-INT-08's
+// own established getEvidence(prospect.id, context.orgId) pattern for
+// reading the full existing dossier.
+const EDUCATION_DIMENSIONS = [
+  "Institution Identity",
+  "Degree/Credential Status",
+  "Attendance Versus Graduation",
+  "Class Year",
+  "Alumni Governance/Service",
+  "Institutional Overlap",
+] as const;
+
+export interface EducationAlumniIntelligenceReport {
+  prospectId: string;
+  dimensionCoverage: Record<string, boolean>;
+  evidenceCreatedThisRun: number;
+  delegationsIssued: string[];
+  educationMentionsFound: number;
+}
 
 // BEN-INT-04 -- Education & Alumni Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3"). Researches educational
@@ -117,11 +143,108 @@ export class EducationAlumniIntelligenceAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 300);
 
+    // Everything below is secondary reasoning layered on top of the
+    // evidence-gathering above, which has already durably committed via
+    // individually atomic recordIntelligenceEvidence()/upsertEdge() calls. A
+    // bug here must never discard that already-collected evidence or fail
+    // this run -- recovery starts from persisted truth, and captured
+    // evidence stays immutable regardless of what happens next.
+    let report: EducationAlumniIntelligenceReport = {
+      prospectId: prospect.id,
+      dimensionCoverage: Object.fromEntries(EDUCATION_DIMENSIONS.map((d) => [d, false])),
+      evidenceCreatedThisRun: evidenceCreated.length,
+      delegationsIssued: [],
+      educationMentionsFound: mentions.length,
+    };
+    let delegations: DelegationRequest[] = [];
+
+    try {
+      const allEvidence = await getEvidence(prospect.id, context.orgId);
+      const educationEvidence = allEvidence.filter((e) => e.claim_type === "education");
+      const hasDegree = educationEvidence.some(
+        (e) => typeof (e.value as { degree?: string | null } | null)?.degree === "string",
+      );
+      const hasGradYear = educationEvidence.some(
+        (e) => typeof (e.value as { graduationYear?: string | null } | null)?.graduationYear === "string",
+      );
+
+      const dimensionCoverage: Record<string, boolean> = {
+        "Institution Identity": educationEvidence.length > 0,
+        "Degree/Credential Status": hasDegree,
+        "Attendance Versus Graduation": educationEvidence.length > 0,
+        "Class Year": hasGradYear,
+        "Alumni Governance/Service": allEvidence.some((e) => e.claim_type === "nonprofit_board"),
+        "Institutional Overlap": educationEvidence.length > 0,
+      };
+
+      // Priority order per the roster's BEN-INT-04 delegation list -- stop
+      // once MAX_DELEGATIONS_PER_RUN candidates are collected, even if a
+      // lower-priority condition below also holds.
+      const candidates: DelegationRequest[] = [];
+      const pushCandidate = (childAgentCode: string, objective: string) => {
+        candidates.push({
+          childAgentCode,
+          objective,
+          maxAutonomy: "A2",
+          constraints: { prospectId: context.prospectId, triggeredBy: context.agentCode },
+        });
+      };
+
+      if (mentions.length === 0) {
+        pushCandidate(
+          "BEN-KNW-02",
+          `Prospect ${context.prospectId} has no education/alumni mentions found by this BEN-INT-04 run -- resolve identity ambiguity before further intelligence gathering.`,
+        );
+      }
+      if (mentions.length > 0) {
+        pushCandidate(
+          "BEN-REL-04",
+          `BEN-INT-04 created ${mentions.length} institution edge(s) for prospect ${context.prospectId} this run -- check whether this institution overlaps with other prospects/organizations already in this tenant's graph.`,
+        );
+      }
+      if (evidenceCreated.length > 0) {
+        pushCandidate(
+          "BEN-KNW-03",
+          `BEN-INT-04 recorded ${evidenceCreated.length} new evidence item(s) for prospect ${context.prospectId} this run -- verify provenance before treating as authoritative.`,
+        );
+      }
+
+      delegations = candidates.slice(0, MAX_DELEGATIONS_PER_RUN);
+
+      report = {
+        prospectId: prospect.id,
+        dimensionCoverage,
+        evidenceCreatedThisRun: evidenceCreated.length,
+        delegationsIssued: delegations.map((d) => d.childAgentCode),
+        educationMentionsFound: mentions.length,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await logAction({
+          organization_id: context.orgId,
+          actor_type: "agent",
+          actor_id: context.agentCode,
+          action: "ben-int-04.gap_analysis_failed",
+          resource_type: "pil_agent_runs",
+          resource_id: context.runId,
+          before_state: null,
+          after_state: { error: message },
+          policy_decision: null,
+          ip_address: null,
+        });
+      } catch {
+        // Audit logging is best-effort -- never let it mask the
+        // already-collected evidence this run already durably recorded.
+      }
+      delegations = [];
+    }
+
     return {
       status: "completed",
       evidence: evidenceCreated,
-      conclusions: { prospectId: prospect.id, educationMentionsFound: mentions.length },
-      delegations: [],
+      conclusions: { report },
+      delegations,
       tokensUsed,
       costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
       error: null,

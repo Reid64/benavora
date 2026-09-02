@@ -1,0 +1,58 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - FEATURE_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: multichannel-outreach-001
+    phase: build
+    description: "Row #77 - build LinkedIn/phone/physical-mail channels using concrete, ToS-safe defaults"
+    prompt: |
+      Row #77 (Multi-Channel Outreach): email works, LinkedIn/phone/physical mail were never implemented. Reid wants this built - no automated third-party sending exists for any of these three channels without either violating a platform's terms of service or requiring paid API partnerships this project doesn't have. Build the ToS-safe version of each: a real drafted asset plus a real logged task for a human to actually send/place/mail, not fake automated sending.
+
+      1. LinkedIn: generate a real, personalized connection-request message or InMail draft (Claude call, using the same personalization pattern as row #118's outreach generator) for a given contact, and log it as a real task on the contact's record for a human to copy/send manually - no automated LinkedIn API calls.
+      2. Phone: generate real call talking points (Claude call, referencing the contact/funder's real known context) and log a real "call task" with due date on the contact's record - no automated dialing.
+      3. Physical mail: generate a real mail-merge letter as a PDF (reuse the existing document assembly engine, row #115) using the contact's real address and org's real letterhead/KB content, and log a real "mail task."
+
+      Wire all three into the existing outreach templates/send UI (src/app/(dashboard)/outreach/templates or the equivalent current page) as new channel options alongside email. Real live test: generate one real draft/task of each of the 3 types against a real contact in the Faith Foundation org, confirm the generated content is genuinely personalized (not templated boilerplate) and the task is real and queryable.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: multichannel-verify-sync-001
+    phase: build
+    description: "Governance sync"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Update row #77 with today's date, real evidence, and an explicit note that all 3 channels are draft-and-log (human sends), not automated third-party sending - state why (ToS/API-partnership constraints), not as an apology, as a factual design note.
+      3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+      4. Scoped git add, commit with message "feat: multi-channel outreach - LinkedIn/phone/mail draft+task generation (human-sends model)", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

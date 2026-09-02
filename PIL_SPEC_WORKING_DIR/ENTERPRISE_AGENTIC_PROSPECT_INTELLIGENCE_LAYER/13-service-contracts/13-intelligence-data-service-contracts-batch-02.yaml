@@ -1,0 +1,92 @@
+schema_version: "1.0.0"
+document_id: PIL-SVC-CONTRACTS-013
+scope: deterministic_intelligence_data_plane_batch_02
+defaults:
+  tenant_isolation: mandatory
+  provider_access: adapter_only
+  mutation: idempotency_key_expected_version_and_outbox
+  evidence: immutable_snapshot_and_lineage
+  authorization: global_domain_tenant_goal_task_default_deny
+services:
+  PIL-SVC-09:
+    name: Connector Gateway
+    responsibilities: [adapter_registration, credential_brokerage, provider_policy, normalized_errors]
+    queries: [ResolveCapability, EstimateConnectorCost, InspectProviderHealth]
+    commands: [InvokeConnectorCapability]
+    invariants: [agents_never_receive_credentials, endpoint_and_license_are_registry_owned, provider_response_is_untrusted]
+  PIL-SVC-10:
+    name: Search and Retrieval Gateway
+    responsibilities: [federated_permitted_search, query_budgeting, result_deduplication, discovery_only_labeling]
+    commands: [ExecuteSearchPlan]
+    queries: [EstimateSearchCost]
+    invariants: [snippets_not_final_evidence, tenant_purpose_and_source_policy_checked, results_have_provider_and_query_lineage]
+  PIL-SVC-11:
+    name: HTTP Crawler and Browser Broker
+    responsibilities: [permitted_http_and_browser_retrieval, robots_terms_rate_controls, snapshot_handoff]
+    commands: [RetrieveUrl, ExecuteBrowserRetrieval]
+    invariants: [no_arbitrary_agent_network, redirects_and_downloads_reauthorized, retrieved_instructions_are_data]
+  PIL-SVC-12:
+    name: Document Retrieval and Parsing
+    responsibilities: [content_hashing, immutable_snapshot, text_table_metadata_extraction, parser_versioning]
+    commands: [PersistSnapshot, ParseSnapshot]
+    queries: [GetParsedDocument, CompareSnapshotHash]
+    invariants: [raw_snapshot_preserved_when_permitted, parser_output_links_exact_snapshot, extraction_never_certifies_truth]
+  PIL-SVC-19:
+    name: Entity Match Candidate Engine
+    responsibilities: [blocking_keys, normalized_feature_generation, candidate_pairs, deterministic_similarity]
+    commands: [GenerateMatchCandidates]
+    queries: [ExplainCandidateFeatures]
+    invariants: [candidate_generation_not_identity_resolution, features_are_tenant_scoped_and_auditable]
+  PIL-SVC-20:
+    name: Deduplication Engine
+    responsibilities: [duplicate_candidates, merge_primitives, reversible_aliasing, split_support]
+    commands: [ProposeDuplicate, ApplyApprovedMerge, SplitMergedEntity]
+    invariants: [consequential_ambiguous_merge_requires_agent_or_human_decision, evidence_and_history_never_destroyed]
+  PIL-SVC-21:
+    name: Knowledge Graph Store
+    responsibilities: [temporal_nodes_edges, provenance_queries, bounded_multihop_traversal, point_in_time_views]
+    commands: [AppendEntityVersion, AppendEdgeVersion, SupersedeGraphFact]
+    queries: [GetEntityView, TraverseGraph, GetPointInTimeGraph]
+    invariants: [every_edge_has_evidence_or_explicit_unverified_status, traversal_tenant_depth_time_and_cost_bounded]
+  PIL-SVC-22:
+    name: Evidence and Source Snapshot Ledger
+    responsibilities: [immutable_snapshot_metadata, evidence_locator, claim_lineage, integrity_verification]
+    commands: [RegisterSnapshot, AppendEvidenceRecord, LinkClaimEvidence]
+    queries: [GetEvidence, VerifyEvidenceIntegrity, ReconstructClaim]
+    invariants: [append_only, content_hash_verified, inference_never_reclassified_as_fact_without_new_evidence]
+  PIL-SVC-26:
+    name: Rate Limit and Circuit Breaker Manager
+    responsibilities: [tenant_provider_limits, token_bucket_or_equivalent, backpressure, health_circuit]
+    commands: [AcquireCapacity, ReportOutcome, OpenCircuit, CloseCircuit]
+    queries: [GetCapacityForecast, GetCircuitState]
+    invariants: [no_policy_bypass_via_fallback, fairness_and_tenant_limits, retry_after_respected]
+  PIL-SVC-27:
+    name: Observability Platform
+    responsibilities: [redacted_metrics_logs_traces, slos, alerts, dashboards, correlation]
+    commands: [EmitMetric, EmitLog, EmitTraceSpan]
+    queries: [QueryOperationalView]
+    invariants: [no_secrets_or_prohibited_data, audit_is_separate_tamper_evident_store, high_cardinality_controlled]
+  PIL-SVC-28:
+    name: Evaluation Infrastructure
+    responsibilities: [dataset_versioning, offline_online_eval, regression, red_team, calibration, release_gate]
+    commands: [RunEvaluation, RegisterDataset, CompareVersions, PublishGateDecision]
+    queries: [GetEvaluationReport, GetGateStatus]
+    invariants: [agent_cannot_score_or_certify_itself, skipped_tests_visible, evaluator_and_dataset_versions_recorded]
+  PIL-SVC-29:
+    name: Notification and Human Review Queue
+    responsibilities: [review_assignment, approval_scope, expiry, correction_lineage, escalation]
+    commands: [CreateReview, ClaimReview, Approve, Reject, Correct, Expire]
+    queries: [GetReview, ListPendingReviews]
+    invariants: [silence_not_approval, reviewer_identity_and_scope_verified, stale_approval_rejected]
+required_tests:
+  - provider_contract_and_license_enforcement
+  - redirect_download_and_prompt_injection_safety
+  - immutable_snapshot_and_parser_reproducibility
+  - entity_merge_split_and_cross_tenant_denial
+  - temporal_graph_and_bounded_traversal
+  - evidence_integrity_and_claim_reconstruction
+  - rate_fairness_backpressure_and_circuit_recovery
+  - telemetry_redaction_and_trace_correlation
+  - independent_evaluation_and_release_gate
+  - human_review_scope_expiry_and_replay
+

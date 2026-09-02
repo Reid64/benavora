@@ -1,0 +1,435 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- BEHAVIORAL_CONTRACTS.md
+- STANDING_DIRECTIVES.md
+- STATE_OF_THE_BUILD.md
+prompts:
+
+- id: enrich-001
+  name: Governance sync and fundability scorer enterprise hardening
+  prompt: |
+    First: sync governance docs:
+    $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read src/lib/agents/fundability-scorer-agent.ts in FULL. Every line.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md sections for fundability_scores and fundability_deficiencies tables in FULL.
+    Read AGENTS_v2.md section for AG-29 in FULL.
+    DO NOT write any code until all four files are read completely.
+
+    ENTERPRISE HARDENING REQUIREMENTS — rewrite src/lib/agents/fundability-scorer-agent.ts completely:
+
+    The current implementation must be upgraded to enterprise engineering standards. Every requirement below is mandatory — none are optional:
+
+    1. FULL IMPLEMENTATION: The Claude API call must send a system prompt of minimum 400 words precisely defining the scoring rubric: 0-100 scale definitions, exactly what constitutes each deficiency category (mission_alignment, geographic_eligibility, financial_capacity, staff_capacity, track_record, reporting_capability, board_governance, compliance_status), exact JSON schema the model must return, and explicit instructions to return ONLY JSON with no preamble. Model: claude-sonnet-4-6, max_tokens: 2000.
+
+    2. DEFICIENCY AUTO-FIX ENGINE: For each deficiency where is_auto_fixable=true, implement the actual fix logic:
+       - missing_website: query knowledge_base_profiles, extract website field, update opportunity match if found, mark fix_status='fixed'
+       - missing_mission: query knowledge_base_profiles.mission_data, if populated set fix_status='fixed', if empty create notification with action='complete_digital_twin'
+       - missing_financial_docs: check application_documents table for 990/audit docs, if found link them, if not create org notification
+       - incomplete_programs: query knowledge_base_profiles.programs_data, if sections populated mark fixed, else notify
+       - Each auto-fix must update fundability_deficiencies.fix_status and fundability_deficiencies.fixed_at
+
+    3. PROBABILITY DELTA CALCULATION: probability_with_fixes must be calculated by re-running Claude with deficiencies marked as resolved, not estimated. Two Claude calls per opportunity: one with current state, one with deficiencies hypothetically fixed.
+
+    4. FULL ERROR HANDLING: Every database operation in try/catch. Failed opportunities logged to error array but run continues. completeRun reports: { opportunitiesScored, avgScore, totalDeficiencies, autoFixed, manualRequired, errors: string[] }.
+
+    5. RATE LIMITING: Maximum 5 concurrent Claude API calls using p-limit or sequential processing with 500ms delay between calls.
+
+    6. CACHING: Skip opportunities scored within last 7 days unless force=true passed in input.
+
+    7. TRIGGER CHAIN: After run completes, if any opportunity has overall_score >= 85, chain to draft-generation-agent with that opportunity ID.
+
+    8. DECISION LOGGING: Log one agent_decisions record per opportunity scored with full reasoning string minimum 100 words.
+
+    This file must be minimum 350 lines of real implementation. If under 350 lines, the implementation is incomplete.
+
+    Run pnpm tsc --noEmit, fix ALL TypeScript errors.
+    git add -A; git commit -m 'feat: AG-29 fundability scorer enterprise hardening -- full auto-fix, probability delta, rate limiting, chain trigger'; git push.
+
+- id: enrich-002
+  name: Donor intent monitor enterprise hardening
+  prompt: |
+    Read src/lib/agents/donor-intent-monitor-agent.ts in FULL. Every line.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for corporate_intent_signals table in FULL.
+    Read AGENTS_v2.md for AG-30 in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/donor-intent-monitor-agent.ts completely:
+
+    1. WEB SEARCH INTEGRATION: The agent must use Claude's web_search tool (type: 'web_search_20250305', name: 'web_search') in every Claude API call. Each corporate prospect gets 3 targeted searches:
+       - "[company name] CSR donations giving 2025 2026"
+       - "[company name] ESG report community investment"
+       - "[company name] press release grant foundation"
+       Parse ALL tool_use and tool_result blocks from response.content array. Never assume content[0] is text — iterate and filter by type.
+
+    2. SIGNAL SCORING ALGORITHM — exact weights required:
+       - facility_expansion: base_score=90, geographic_match_multiplier=1.3
+       - disaster_declaration: base_score=85, recency_multiplier=(days_since <= 30 ? 1.5 : days_since <= 90 ? 1.2 : 1.0)
+       - csr_announcement: base_score=80
+       - esg_report: base_score=70, mission_match_multiplier based on NTEE overlap
+       - hiring_trend (sustainability/community roles): base_score=65
+       - press_release: base_score=50
+       Final intent_score = Math.min(100, Math.round(base_score * geographic_relevance_factor * mission_alignment_factor))
+
+    3. GEOGRAPHIC RELEVANCE: Compare company city/state from corporate_prospects.city/state against org service areas from knowledge_base_profiles.geographic_data. Score: same_city=1.0, same_state=0.7, adjacent_state=0.4, national=0.2.
+
+    4. MISSION ALIGNMENT: Extract NTEE code from organizations table. Map NTEE to industry categories. Compare against signal content using Claude classification call.
+
+    5. RECOMMENDED ACTION GENERATION: For intent_score >= 80: "Schedule introduction within 48 hours. [Company] signal indicates active giving window. Recommended approach: [specific to signal type]". For 60-79: "Monitor and prepare proposal. Target submission in 30 days."
+
+    6. DEDUPLICATION: Before inserting, check corporate_intent_signals for same company_name + signal_type within last 60 days. Update if exists, insert if new.
+
+    7. NOTIFICATION: For intent_score >= 80 and geographic_relevance >= 0.7: immediately call supabase.from('notifications').insert with priority='urgent' and full action recommendation.
+
+    Minimum 300 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-30 donor intent monitor enterprise hardening -- web search, weighted scoring, geo relevance, dedup'; git push.
+
+- id: enrich-003
+  name: Community need predictor enterprise hardening
+  prompt: |
+    Read src/lib/agents/community-need-predictor-agent.ts in FULL.
+    Read src/lib/agents/autonomous-base.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for community_need_signals table in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/community-need-predictor-agent.ts:
+
+    1. DATA SOURCE MATRIX — implement searches for ALL of these:
+       a. Census: "[city state] population poverty rate 2024 2025 census"
+       b. Housing: "[city state] housing prices rent increase eviction rate 2025"
+       c. Employment: "[city state] unemployment rate job losses 2025"
+       d. Health: "[city state] health disparities uninsured rate 2025" (only for health/human services NTEE)
+       e. Education: "[city state] school enrollment dropout rate 2025" (only for education NTEE)
+       f. Disaster: "[city state] FEMA disaster declaration 2025"
+
+    2. TREND ANALYSIS: For each signal, Claude must classify trend_direction by comparing against baseline. Prompt must include: "Classify trend as: increasing (metric worsening >5%), decreasing (metric improving >5%), stable (within 5%), or spike (sudden >20% change in under 90 days)."
+
+    3. PREDICTED DEMAND INCREASE: Calculate as integer percentage. Formula: base_demand_increase = trend_severity_score * 10 where trend_severity_score: spike=10, increasing=5, stable=0, decreasing=-3. Cap at 150%.
+
+    4. PROGRAM RECOMMENDATION ENGINE: Map signal categories to Faith Foundation program types:
+       - housing/eviction signals → "Expand Housing Voucher Program and Emergency Bridge Housing"
+       - employment signals → "Expand Financial Literacy and Second Chance Reentry programs"
+       - veteran signals → "Expand Veterans Path Home program"
+       - recovery signals → "Expand Recovery Housing and Cornerstone Communities"
+       Include specific grant programs to apply for based on the signal type.
+
+    5. GRANT OPPORTUNITY LINKAGE: After creating community_need_signals, query opportunities table for grants with matching focus areas. Create notification linking the signal to matching open opportunities.
+
+    6. SEVERITY ESCALATION: CRITICAL signals (predicted_demand_increase >= 50% OR spike trend) trigger immediate notifications. HIGH (20-49%) get daily digest inclusion. MEDIUM/LOW get weekly digest only.
+
+    Minimum 280 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-35 community need predictor enterprise hardening -- data matrix, trend analysis, program matching, grant linkage'; git push.
+
+- id: enrich-004
+  name: Learning network aggregator enterprise hardening
+  prompt: |
+    Read src/lib/agents/learning-network-aggregator-agent.ts in FULL. Every line.
+    Read SCHEMA_REGISTRY_v2.md for platform_learning_patterns and org_learning_contributions tables in FULL.
+    Read AUTONOMOUS_PLATFORM_VISION.md section on Global Learning Network in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/learning-network-aggregator-agent.ts:
+
+    1. PATTERN EXTRACTION ENGINE: For each awarded outcome, the Claude analysis prompt must extract ALL of these pattern types:
+       a. narrative_language: top 5 impactful phrases (exact phrases 3-8 words that appeared in winning narratives)
+       b. budget_structure: { personnel_pct: number, programs_pct: number, admin_pct: number, indirect_pct: number }
+       c. keyword: top 10 grant-specific keywords by frequency
+       d. timing: { days_before_deadline: number, day_of_week: 0-6, month: 1-12 }
+       e. attachment_combination: sorted array of document types present at submission
+       f. funder_preference: extracted from funder profile (if available) — preferred org sizes, NTEE codes, impact metrics
+
+    2. ANONYMIZATION PROTOCOL: Before any pattern storage:
+       - Strip all proper nouns (org names, staff names, city names) using regex: /\b[A-Z][a-z]+ (?:[A-Z][a-z]+ )*(?:Foundation|Institute|Center|Agency|Organization|Program|Project)\b/g
+       - Strip phone/email/URL patterns
+       - Strip dollar amounts over $10K (replace with [BUDGET_RANGE])
+       - Keep only structural language, methodology terms, impact metrics
+
+    3. STATISTICAL CONFIDENCE: Only update success_rate when sample_count >= 3. For sample_count < 3, store patterns but flag confidence as 'low'. Query: SELECT COUNT(*) FROM platform_learning_patterns WHERE pattern_type=? AND funder_category=? to check before updating.
+
+    4. CROSS-NTEE PATTERNS: After per-NTEE analysis, run a second Claude pass to identify patterns that succeed across multiple NTEE codes (universal patterns). Store with ntee_code=NULL and higher weight.
+
+    5. WINNING EXAMPLE STORAGE: Store sanitized excerpt (max 200 chars after anonymization) in winning_examples jsonb array. Limit to 5 examples per pattern. Use FIFO — remove oldest when limit reached.
+
+    6. CONTRIBUTION AUDIT: Every org_learning_contributions record must include: which pattern_ids were created/updated, timestamp, anonymized=true flag, hash of source content for dedup.
+
+    7. WEEKLY DIGEST: After aggregation, generate a platform_learning_insights summary and store to a notifications record for platform owner: "This week: X patterns updated, Y new patterns discovered, top performing pattern: [description]."
+
+    Minimum 400 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-36 learning network aggregator enterprise hardening -- full pattern extraction, anonymization protocol, statistical confidence'; git push.
+
+- id: enrich-005
+  name: Simulation agent enterprise hardening
+  prompt: |
+    Read src/lib/agents/simulation-agent.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for simulation_scenarios table in FULL.
+    Read src/app/(dashboard)/reports/simulate/page.tsx in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/simulation-agent.ts:
+
+    1. MULTI-YEAR FINANCIAL MODEL: The Claude prompt must produce a proper 3-year financial model, not estimates. Required JSON schema:
+    {
+      year_1: { revenue_increase: number, grant_count_increase: number, cost: number, net_benefit: number },
+      year_2: { revenue_increase: number, grant_count_increase: number, cost: number, net_benefit: number },
+      year_3: { revenue_increase: number, grant_count_increase: number, cost: number, net_benefit: number },
+      cumulative_roi: number,
+      payback_months: number,
+      probability_improvement: number,
+      risk_factors: [{ factor: string, probability: number, mitigation: string }],
+      assumptions: string[],
+      confidence: 'high' | 'medium' | 'low',
+      confidence_reasoning: string
+    }
+
+    2. HISTORICAL CALIBRATION: Before running simulation, query the org's actual outcome history:
+       - SELECT AVG(amount_awarded), COUNT(*), AVG(probability_score) FROM outcomes WHERE org_id=?
+       - Use these as baselines in the prompt: "Current success rate: X%. Current average award: $Y."
+
+    3. SCENARIO-SPECIFIC LOGIC: Each scenario type requires different variable inputs AND different baseline context:
+       - board_expansion: query current board size from KB, calculate sector coverage gaps, estimate fundraising network expansion
+       - staff_hire: calculate current grant writer capacity (applications/quarter), estimate increase per hire by role
+       - geographic_expansion: query current service area radius, estimate new prospect pool size using foundation data
+       - new_program: estimate NTEE alignment expansion, calculate new eligible funder universe size
+       - budget_increase: calculate current budget vs typical funder minimums, estimate newly eligible grants
+
+    4. PLATFORM LEARNING INTEGRATION: Query platform_learning_patterns for org's NTEE code. If patterns exist with sample_count >= 5, inject top 3 patterns into the Claude prompt as calibration data.
+
+    5. SCENARIO COMPARISON: If org has previous simulations, include comparison in response: "Previous board expansion simulation projected X%, actual outcome was Y% (Z% variance)."
+
+    6. VALIDATION: Before inserting, validate that roi_multiple > 0, payback_months between 1-120, all year projections are positive numbers. Reject and re-run Claude if validation fails (max 2 retries).
+
+    Minimum 320 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-37 simulation agent enterprise hardening -- multi-year model, historical calibration, scenario-specific logic, platform learning'; git push.
+
+- id: enrich-006
+  name: Self-improvement agent enterprise hardening
+  prompt: |
+    Read src/lib/agents/self-improvement-agent.ts in FULL. Every line.
+    Read SCHEMA_REGISTRY_v2.md for improvement_proposals and agent_performance_metrics tables in FULL.
+    Read BEHAVIORAL_CONTRACTS.md sections 16-17 in FULL.
+    Read worker/autonomous-orchestrator.ts in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/self-improvement-agent.ts:
+
+    HARD LIMIT (must appear as comment at top of file and be enforced in code):
+    // HARD LIMIT: This agent NEVER modifies production code, prompts, configs, or database schema.
+    // It ONLY creates improvement_proposals records requiring explicit human approval.
+    // Any proposal of type 'code_change' or 'schema_change' is automatically rejected before insertion.
+
+    1. METRICS CALCULATION ENGINE: The calculateAgentMetrics() method must compute for each agent over last 7 days:
+       - success_rate: completed_runs / total_runs * 100
+       - avg_confidence_score: AVG(confidence_score) FROM agent_runs WHERE agent_id=?
+       - avg_items_processed: AVG(items_processed) FROM agent_runs WHERE agent_id=?
+       - review_rate: decisions_requiring_review / total_decisions * 100
+       - auto_approval_rate: decisions_auto_approved / total_decisions * 100
+       - error_rate: failed_runs / total_runs * 100
+       Upsert into agent_performance_metrics for yesterday's date. UNIQUE constraint on (agent_id, metric_date).
+
+    2. UNDERPERFORMANCE DETECTION — exact thresholds:
+       - success_rate < 75% over 7 days: CRITICAL underperformer
+       - avg_confidence_score < 60: LOW confidence concern
+       - review_rate > 40%: HIGH human review burden
+       - error_rate > 20%: RELIABILITY concern
+       Each threshold breach generates a specific finding object with evidence.
+
+    3. PROPOSAL GENERATION PROMPT: The Claude system prompt must be minimum 300 words defining:
+       - What constitutes a meaningful improvement (not cosmetic)
+       - Acceptable proposal types: prompt_optimization, agent_threshold, workflow_change, ui_improvement, data_quality
+       - Forbidden proposal types: code_change, schema_change, permission_change
+       - Required evidence format (specific metrics, not vague observations)
+       - Required impact statement format (specific percentage or count improvement expected)
+       - Risk assessment criteria (low/medium/high definitions)
+
+    4. PROPOSAL DEDUPLICATION: Before inserting, check improvement_proposals for similar proposals in last 30 days (same proposal_type + same affected agent). If similar exists and was rejected, do not re-propose for 90 days.
+
+    5. CONFIDENCE FILTERING: Only insert proposals with confidence_score >= 70. Log rejected proposals to orchestrator log.
+
+    6. IMMEDIATE ESCALATION: If any agent has success_rate < 50% OR error_rate > 40%: create a HIGH PRIORITY notification for platform owner with specific agent name and metrics. Do not wait for daily digest.
+
+    7. WEEKLY PERFORMANCE REPORT: After metrics calculation, generate a formatted text report stored in improvement_proposals with proposal_type='performance_report': summary of all agent performance over last 7 days, trends, and recommended focus areas.
+
+    Minimum 380 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-38 self-improvement agent enterprise hardening -- metrics engine, underperformance detection, proposal filtering, escalation'; git push.
+
+- id: enrich-007
+  name: ROI optimizer enterprise hardening
+  prompt: |
+    Read src/lib/agents/roi-optimizer-agent.ts in FULL.
+    Read SCHEMA_REGISTRY_v2.md for submission_variables and roi_insights tables in FULL.
+    Read src/app/(dashboard)/reports/roi/page.tsx in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/roi-optimizer-agent.ts:
+
+    1. VARIABLE TRACKING — trackSubmissionVariables() must capture ALL of these without exception:
+       - submission_day_of_week: new Date(application.submitted_at).getDay()
+       - days_before_deadline: Math.floor((new Date(opportunity.deadline) - new Date(application.submitted_at)) / 86400000)
+       - word_count: application.draft_content?.split(/\s+/).filter(Boolean).length ?? 0
+       - attachment_count: SELECT COUNT(*) FROM application_documents WHERE application_id=?
+       - has_budget: application.budget_data !== null && Object.keys(application.budget_data).length > 0
+       - has_logic_model: SELECT EXISTS(SELECT 1 FROM application_documents WHERE application_id=? AND document_type='logic_model')
+       - has_board_list: SELECT EXISTS(SELECT 1 FROM application_documents WHERE application_id=? AND document_type='board_list')
+       - narrative_readability_score: Call Claude with draft_content and system: "Rate readability 0-100. Return only a JSON number. 100=perfectly clear, 0=incomprehensible. Consider: sentence length, jargon density, active vs passive voice, clarity of impact statements."
+       - prompt_version: application.draft_source or 'unknown'
+       - platform_patterns_applied: application.platform_patterns_applied ?? 0
+
+    2. CORRELATION ANALYSIS ENGINE: The monthly analysis must compute:
+       - Win rate by day_of_week: GROUP BY submission_day_of_week WHERE outcome_result='awarded'
+       - Optimal word count range: Find quartile of word_count for awarded vs denied, report as "winning range: X-Y words"
+       - Attachment impact: For each attachment type (has_budget, has_logic_model, has_board_list), compute win rate WITH vs WITHOUT
+       - Days before deadline: Bucket into 0-3, 4-7, 8-14, 15-30, 30+ days, compute win rate per bucket
+       - Minimum sample size for statistical significance: n >= 8 per bucket before reporting insight
+
+    3. INSIGHT QUALITY THRESHOLD: Only create roi_insights where:
+       - sample_size >= 8
+       - confidence >= 0.65 (correlation strength, not just sample size)
+       - The difference between winning and losing pattern is >= 10 percentage points
+
+    4. ACTIONABLE RECOMMENDATION FORMAT: Every roi_insights.recommended_action must be a specific instruction:
+       - "Submit applications on Tuesdays or Wednesdays — 34% higher win rate vs Friday submissions (n=23)"
+       - "Include Logic Model document — wins 61% WITH vs 38% WITHOUT (n=31)"
+       NOT vague: "Submit earlier" or "Include more documents"
+
+    5. INTEGRATION INTO DRAFT AGENT: Create a new exported function getSubmissionRecommendations(orgId: string): Promise<string[]> that returns the top 3 current insights as instruction strings. The draft generation agent will call this and inject into every new draft's generation prompt.
+
+    6. AUTO-APPLY RECOMMENDATIONS: When trackSubmissionVariables is called at submission time, check existing roi_insights for this org. If any insight has a clear violation (e.g. submitting on Friday when Friday has lowest win rate), create a notification warning before submission completes.
+
+    Minimum 350 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-39 ROI optimizer enterprise hardening -- full variable tracking, correlation engine, actionable insights, draft integration'; git push.
+
+- id: enrich-008
+  name: Strategic advisor enterprise hardening
+  prompt: |
+    Read src/lib/agents/strategic-advisor-agent.ts in FULL. Every line.
+    Read SCHEMA_REGISTRY_v2.md for strategic_recommendations table in FULL.
+    Read AUTONOMOUS_PLATFORM_VISION.md section on AI Strategic Advisor in FULL.
+
+    ENTERPRISE HARDENING — rewrite src/lib/agents/strategic-advisor-agent.ts:
+
+    1. INTELLIGENCE SYNTHESIS: The data loading phase must query ALL of the following and include non-null results in the Claude prompt:
+       - Pipeline value: SELECT SUM(amount_requested), COUNT(*), AVG(eligibility_score) FROM applications WHERE org_id=? AND status NOT IN ('denied','withdrawn')
+       - Success rate: SELECT COUNT(*) FILTER (WHERE outcome='awarded') / NULLIF(COUNT(*), 0) FROM outcomes WHERE org_id=? AND created_at >= NOW() - INTERVAL '12 months'
+       - Latest funding forecast: SELECT * FROM funding_forecasts WHERE org_id=? ORDER BY created_at DESC LIMIT 1
+       - ROI insights: SELECT insight_description, winning_pattern, recommended_action FROM roi_insights WHERE org_id=? ORDER BY confidence DESC LIMIT 5
+       - Community need signals CRITICAL/HIGH: SELECT * FROM community_need_signals WHERE org_id=? AND severity IN ('critical','high') AND created_at >= NOW() - INTERVAL '30 days'
+       - High-intent corporate signals: SELECT * FROM corporate_intent_signals WHERE org_id=? AND intent_score >= 75 ORDER BY intent_score DESC LIMIT 5
+       - Pending relationship recommendations: SELECT COUNT(*) FROM relationship_recommendations WHERE org_id=? AND status='pending'
+       - Upcoming high-value deadlines: SELECT * FROM opportunities WHERE org_id=? AND deadline BETWEEN NOW() AND NOW() + INTERVAL '90 days' AND eligibility_score >= 70 ORDER BY deadline ASC LIMIT 5
+       - Platform patterns for NTEE: SELECT * FROM platform_learning_patterns WHERE (ntee_code=org_ntee OR ntee_code IS NULL) AND success_rate >= 0.65 ORDER BY success_rate DESC LIMIT 5
+       - Fundability deficiencies unresolved: SELECT COUNT(*) FROM fundability_deficiencies WHERE fix_status='pending' AND fundability_score_id IN (SELECT id FROM fundability_scores WHERE org_id=?)
+
+    2. ADVISOR SYSTEM PROMPT: Minimum 400 words. Must include:
+       - Role definition: "You are a senior strategic advisor to a nonprofit executive director with 25 years experience in fundraising, grant strategy, and organizational development."
+       - Output requirement: "Generate 4-7 specific, data-driven strategic recommendations. These are PROACTIVE — recommendations the ED has not asked for but needs to hear."
+       - Specificity requirement: "Every recommendation must cite specific data from the intelligence provided. No generic advice. Every recommendation must include: (1) the specific observation that triggered it, (2) the specific action recommended, (3) the specific expected outcome with timeline."
+       - Urgency classification criteria: "immediate=action required within 48 hours, urgent=within 2 weeks, normal=within 60 days, low=strategic horizon >60 days"
+
+    3. CATEGORY INTELLIGENCE RULES: Each recommendation category has specific triggers:
+       - apply_now: eligible opportunity + deadline within 21 days + eligibility_score >= 70 + no existing application
+       - postpone: application in draft + opportunity deadline > 60 days + lower priority than another open opportunity
+       - hire: pipeline value > 3x current capacity (estimated by avg applications per quarter) + success_rate >= 50%
+       - expand: community_need_signal for currently unserved geography + potential funding identified
+       - pivot: success_rate < 30% in current primary category + higher success in adjacent category
+       - partnership: two or more community_need_signals + relationship_recommendations pending for complementary orgs
+       - board: corporate_intent_signals with company matching board member gaps + intro path exists
+       - compliance: upcoming reporting deadline within 30 days based on outcome history
+
+    4. IMPACT ESTIMATION: Every recommendation must include expected_impact with specific numbers:
+       - apply_now: "Expected award probability X% based on eligibility score. Award value $Y."
+       - hire: "Current capacity: X applications/quarter. With hire: Y applications/quarter. Revenue impact: +$Z."
+       - board: "X corporate connections identified. Warm intro path via [relationship type]."
+
+    5. DEDUPLICATION: Check strategic_recommendations for same category + same triggered_by data within last 30 days. Skip if highly similar exists (similarity check via Claude if needed).
+
+    6. DASHBOARD WIDGET UPDATE: After inserting recommendations, call the nav-counts API to update the strategic advisor badge count so the dashboard shows the new count immediately.
+
+    Minimum 450 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: AG-40 strategic advisor enterprise hardening -- full intelligence synthesis, 400-word advisor prompt, category rules, impact estimation'; git push.
+
+- id: enrich-009
+  name: All 18 original autonomous agents enterprise upgrade
+  prompt: |
+    Read src/lib/agents/ directory listing in full.
+    Read src/lib/agents/autonomous-base.ts in full.
+    Read AGENTS_v2.md in full.
+    Read BEHAVIORAL_CONTRACTS.md sections 16-17 in full.
+
+    List all agent files in src/lib/agents/. For each agent file (opportunity-discovery-agent.ts, probability-scoring-agent.ts, draft-generation-agent.ts, autonomous-digest-agent.ts, relationship-builder-agent.ts, deadline-prediction-agent.ts, followup-generator-agent.ts, eligibility-scoring-agent.ts, deadline-extraction-agent.ts, compliance-check-agent.ts, fit-analysis-agent.ts, budget-builder-agent.ts, renewal-tracker-agent.ts, outcome-analyzer-agent.ts, document-expiry-agent.ts, knowledge-gap-agent.ts, search-profile-optimizer-agent.ts), read the file and assess:
+    - Does it extend AutonomousAgent?
+    - Does it call startRun() at the beginning and completeRun() or failRun() at the end?
+    - Does it call logDecision() for every significant action?
+    - Does it respect the hard limits from BEHAVIORAL_CONTRACTS.md?
+    - Does it have try/catch on every database operation?
+    - Does it have proper input validation?
+    - Does its Claude API call use max_tokens >= 1000 with a detailed system prompt >= 150 words?
+
+    For EVERY agent that fails any of the above checks, upgrade it in place to meet all requirements.
+
+    SPECIFIC UPGRADES REQUIRED FOR ALL AGENTS:
+    1. Wrap entire run() body in try/catch — failRun() must be called if uncaught exception
+    2. Every supabase query must have .throwOnError() or explicit error handling
+    3. Every Claude call must have the model explicitly set to 'claude-sonnet-4-6'
+    4. Every logDecision() call must have reasoning string >= 50 words
+    5. completeRun() must always be called — never exit run() without it
+    6. Items processed counter must be accurate (count actual database records affected, not estimates)
+
+    Also upgrade draft-generation-agent.ts specifically:
+    - Add call to roi-optimizer-agent.getSubmissionRecommendations(orgId) and inject top 3 recommendations into draft generation prompt
+    - Add twin_completeness calculation using knowledge_base_profiles completeness
+    - Reduce confidence_score by (100 - twin_completeness) * 0.25 if twin < 70%
+    - HARD LIMIT CHECK: before any output, verify pending_review=true AND auto_generated=true are set. If either is false, throw new Error('HARD LIMIT VIOLATION')
+
+    Run pnpm tsc --noEmit, fix ALL errors across all agent files.
+    git add -A; git commit -m 'feat: all 18 autonomous agents enterprise upgrade -- hard limits enforced, error handling, accurate metrics, ROI integration'; git push.
+
+- id: enrich-010
+  name: Worker autonomous orchestrator enterprise hardening
+  prompt: |
+    Read worker/autonomous-orchestrator.ts in FULL. Every line.
+    Read WORKER_ARCHITECTURE_v2.md in FULL.
+    Read BEHAVIORAL_CONTRACTS.md in FULL.
+    Read src/lib/agents/self-improvement-agent.ts in FULL.
+
+    ENTERPRISE HARDENING — upgrade worker/autonomous-orchestrator.ts:
+
+    1. NIGHTLY SCHEDULE PRECISION: Every agent in the nightly pipeline must have exact CST time slots:
+       - 1:00 AM: OpportunityDiscoveryAgent — per org
+       - 1:30 AM: EligibilityScoringAgent — per org
+       - 2:00 AM: ProbabilityScoringAgent — per org
+       - 2:30 AM: FundabilityScorer (AG-29) — per org
+       - 3:00 AM: AutoApply autonomous batch — enterprise orgs only
+       - 3:30 AM: DonorIntentMonitor (AG-30) — per org
+       - 4:00 AM: SelfImprovementAgent (AG-38) — platform level, runs once
+       - 4:30 AM: CommunityNeedPredictor (AG-35) — per org
+       - 5:00 AM: StrategicAdvisor (AG-40) — per org
+       - 5:30 AM: AutonomousDigestAgent — per org (sends morning summary)
+       - 6:00 AM: LearningNetworkAggregator (AG-36) — platform level, runs once (Sunday only)
+
+    2. PER-ORG CONCURRENCY: Run each agent for multiple orgs concurrently using Promise.allSettled() with maximum 3 concurrent orgs to avoid Claude rate limits. Log which orgs succeeded and which failed.
+
+    3. ORG ELIGIBILITY FILTERING: Before running any agent per-org:
+       - Load org_autonomous_config for this org
+       - Check the specific toggle for this agent (auto_research_enabled, auto_score_enabled, etc.)
+       - Skip org silently if toggle is false
+       - Skip org if stripe_subscription_status NOT IN ('active','trialing')
+
+    4. AGENT RUN TRACKING: Create agent_runs record at start of each agent execution with status='running'. Update to 'completed' or 'failed' at end. Set items_processed to actual count. Set trigger_source='schedule'.
+
+    5. PLATFORM-LEVEL AGENT HANDLING: SelfImprovementAgent and LearningNetworkAggregator run at platform level (not per org). They need service_role supabase client, not user-scoped client. The orchestrator must have two supabase clients: orgClient (user-scoped) and platformClient (service_role).
+
+    6. ERROR ISOLATION: If any per-org agent fails for one org, continue with remaining orgs. If a platform-level agent fails, log and continue to next scheduled task. Never abort the entire nightly run due to one failure.
+
+    7. NIGHTLY REPORT: At end of nightly run (after all scheduled tasks), compile and log:
+       - Total orgs processed
+       - Per-agent: success count, failure count, total items processed
+       - Platform agents: success/failure
+       - Total run time
+       - Any CRITICAL failures requiring attention
+
+    8. TIMEZONE HANDLING: All schedule times are CST. Use proper timezone offset calculation. Do not hardcode UTC offsets — use date-fns-tz or equivalent.
+
+    Minimum 500 lines. Run pnpm tsc --noEmit, fix all errors.
+    git add -A; git commit -m 'feat: autonomous orchestrator enterprise hardening -- precise schedule, concurrency control, platform agents, nightly report'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

@@ -1,0 +1,1730 @@
+# FORGE 2.0 Build Queue — Run 1: Foundation
+# Executed by FORGE 1.0 (Node.js/TypeScript CLI) via Claude Code
+# Each prompt uses: claude -p --dangerously-skip-permissions
+# Working directory: C:\Users\manag\Documents\forge-2
+# Total prompts: 22
+# Build ID: forge20-run1-foundation
+# FORGE 1.0 is Node.js/TypeScript. There is NO forge.ps1.
+
+- id: r1-001
+  name: "Scaffold — FORGE 2.0 Module Structure and Dependencies"
+  description: |
+    CONTEXT:
+    You are extending an existing Node.js/TypeScript CLI tool called FORGE 1.0 located at C:\Users\manag\Documents\forge-2. FORGE 2.0 adds a governance and specification layer on top of the existing execution engine. Both versions coexist in this directory. Do NOT delete or modify any existing FORGE 1.0 files. You are ADDING new modules.
+
+    TASK:
+    1. Audit the existing project structure. Run `ls -la` and `find . -name "*.ts" -not -path "*/node_modules/*"` to understand what exists.
+    2. Install required dependencies: `better-sqlite3`, `@types/better-sqlite3`, `crypto` (built-in), `glob`, `js-yaml`, `@types/js-yaml`
+    3. Create the FORGE 2.0 module directory structure under `src/forge2/`:
+
+    ```
+    src/forge2/
+      learning/
+        database.ts       — SQLite initialization, connection management
+        queries.ts         — All read/write query functions
+        fingerprint.ts     — Error fingerprinting algorithm (SHA-256)
+        loops.ts           — Five learning loop implementations
+      sync/
+        sync.ts            — Cross-machine sync protocol
+        lock.ts            — File lock management for sync
+      core/
+        pipeline.ts        — Phase routing, main entry point
+        gates.ts           — Gate engine, gate configuration
+        retry.ts           — Retry logic with backoff
+        git.ts             — Git snapshots, structured commits
+        report.ts          — Build report generation
+      hooks/
+        engine.ts          — Hook execution engine
+        parser.ts          — hooks.json parser + schema validation
+        conditions.ts      — Condition evaluation + template resolution
+        precompact.ts      — PreCompact context preservation
+        defaults.ts        — Default 24-hook configuration
+        evolution.ts       — Hook performance analysis + evolution proposals
+      types.ts             — All shared TypeScript interfaces and types
+      constants.ts         — All shared constants, enums, config defaults
+    ```
+
+    4. Create `src/forge2/types.ts` with ALL TypeScript interfaces:
+    - ForgeConfig (project config shape)
+    - PromptScore, FixPattern, DecisionWeight, GovernanceRule, PendingEvolution, BuildOutcome, SkillEntry, ReconcileDecision, ScanReport, HookExecutionLog, CompactSnapshot, BuildFingerprint, AdversaryFinding (one interface per database table, matching the schema in SCHEMA_REGISTRY)
+    - HookDefinition (name, event, action, script, blocking, timeout_seconds, enabled, on_failure, priority, description, conditions)
+    - HookConditions (file_pattern, exclude_pattern, task_types, min_prompt_number, phases)
+    - HookResult (status: PASS|FAIL|TIMEOUT|SKIP, output, hook_name)
+    - HookContext (project_path, build_id, prompt_number, file, files, task_type, phase, last_commit)
+    - SessionState (full shape from Session Orchestration spec — build_id, project_name, project_path, serialized_at, machine_id, end_reason, last_prompt_executed, current_phase, current_run_number, git state, build_fingerprint, queue_status, active_blockers, environment, run_stats, learning_summary, files_modified)
+    - GateResult (passed, gate_name, output, duration_ms)
+    - RetryResult (succeeded, attempts, final_output)
+    - SyncConfig (master_path, lock_file, max_wait_seconds, retry_interval_seconds)
+
+    5. Create `src/forge2/constants.ts` with:
+    - FORGE_DB_PATH = path.join(os.homedir(), '.forge', 'forge_memory.db')
+    - FORGE_DIR = '.forge'
+    - TASK_TYPES = ['SCAFFOLD','CRUD','INTEGRATION','AI_PIPELINE','CONFIG','TEST','FIX'] as const
+    - ERROR_CATEGORIES = ['COMPILE','RUNTIME','TEST','LINT','SECURITY','SCHEMA','DEPLOY'] as const
+    - EVOLUTION_TYPES = ['HOOK','TEMPLATE','RULE','THRESHOLD','CONFIG','GATE'] as const
+    - HOOK_EVENTS = ['PreToolUse','PostToolUse','SessionStart','SessionEnd','PreCompact','PreCommit','PreDeploy','PostDeploy'] as const
+    - END_REASONS = ['COMPLETED','PAUSED','FAILED','INTERRUPTED'] as const
+    - MATURITY_STAGES = ['FOUNDATION','GROWTH','ENTERPRISE'] as const
+    - COMMIT_FORMAT = 'FORGE-{project}-P{phase}-T{task}-{status}'
+    - MAX_HOOK_DEPTH = 2
+    - STALE_LOCK_MINUTES = 2
+    - STALE_SESSION_HOURS = 48
+
+    6. Every file must have real TypeScript code — exported interfaces, types, constants. No placeholder comments, no TODOs. Each module file should export an empty object or stub functions that will be implemented in subsequent prompts, but the TYPE definitions must be complete and final.
+
+    ACCEPTANCE CRITERIA:
+    - `npx tsc --noEmit` passes with 0 errors from the project root
+    - All files in src/forge2/ exist and contain real TypeScript code
+    - `better-sqlite3` and `js-yaml` are in package.json dependencies
+    - types.ts contains every interface listed above with full property definitions
+    - constants.ts contains every constant listed above
+    - No existing FORGE 1.0 files were deleted or modified
+
+    FILE MANIFEST — CREATE:
+    src/forge2/types.ts
+    src/forge2/constants.ts
+    src/forge2/learning/database.ts (stub exports)
+    src/forge2/learning/queries.ts (stub exports)
+    src/forge2/learning/fingerprint.ts (stub exports)
+    src/forge2/learning/loops.ts (stub exports)
+    src/forge2/sync/sync.ts (stub exports)
+    src/forge2/sync/lock.ts (stub exports)
+    src/forge2/core/pipeline.ts (stub exports)
+    src/forge2/core/gates.ts (stub exports)
+    src/forge2/core/retry.ts (stub exports)
+    src/forge2/core/git.ts (stub exports)
+    src/forge2/core/report.ts (stub exports)
+    src/forge2/hooks/engine.ts (stub exports)
+    src/forge2/hooks/parser.ts (stub exports)
+    src/forge2/hooks/conditions.ts (stub exports)
+    src/forge2/hooks/precompact.ts (stub exports)
+    src/forge2/hooks/defaults.ts (stub exports)
+    src/forge2/hooks/evolution.ts (stub exports)
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    test -f src/forge2/types.ts && echo "types.ts exists" || echo "FAIL: types.ts missing"
+    test -f src/forge2/constants.ts && echo "constants.ts exists" || echo "FAIL: constants.ts missing"
+    find src/forge2 -name "*.ts" | wc -l  # Should be >= 21
+    grep "better-sqlite3" package.json && echo "sqlite dep found" || echo "FAIL: missing dep"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set Run 1 status to IN_PROGRESS, Module "Scaffold" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, remove src/forge2/ directory and revert package.json changes.
+
+- id: r1-002
+  name: "Learning Engine — Database Initialization and Full Schema"
+  description: |
+    CONTEXT:
+    FORGE 2.0's brain is a local SQLite database at ~/.forge/forge_memory.db. It stores all learning data: prompt scores, error patterns, fix patterns, governance rules, evolution proposals, build outcomes, skills, and more. The database uses better-sqlite3 for synchronous, high-performance access. This is the foundation module — everything else depends on it.
+
+    Interfaces are defined in src/forge2/types.ts (created in R1-001). Use them.
+
+    TASK:
+    Implement src/forge2/learning/database.ts with these exact functions:
+
+    1. `getForgeDbPath(): string` — Returns path to forge_memory.db. Uses FORGE_DB_PATH from constants. Creates ~/.forge/ directory if it doesn't exist.
+
+    2. `getConnection(dbPath?: string): Database` — Returns a better-sqlite3 Database instance. Creates the file if it doesn't exist. Sets WAL mode for performance. Sets busy_timeout to 5000ms.
+
+    3. `initializeForgeMemory(dbPath?: string): void` — Creates ALL 14 tables with exact SQL from the schema below. Must be idempotent (IF NOT EXISTS on everything). Creates all indexes. Seeds forge_meta with schema_version='1.0.0', created_at, and empty machine_id.
+
+    4. `getMachineId(): string` — Generates a deterministic machine ID from hostname + MAC address. SHA-256 hash, first 16 hex chars. Stores in forge_meta on first call, reads from forge_meta on subsequent calls. Uses os.hostname() and os.networkInterfaces().
+
+    COMPLETE SQL SCHEMA (all 14 tables — execute every statement):
+    ```sql
+    CREATE TABLE IF NOT EXISTS forge_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS prompt_scores (
+      id TEXT PRIMARY KEY,
+      prompt_template_hash TEXT NOT NULL,
+      task_type TEXT NOT NULL CHECK(task_type IN ('SCAFFOLD','CRUD','INTEGRATION','AI_PIPELINE','CONFIG','TEST','FIX')),
+      tech_stack_tags TEXT NOT NULL DEFAULT '[]',
+      first_pass_success INTEGER NOT NULL CHECK(first_pass_success IN (0, 1)),
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      tokens_consumed INTEGER NOT NULL DEFAULT 0,
+      gate_pass_rate REAL NOT NULL DEFAULT 0.0,
+      drift_score REAL NOT NULL DEFAULT 0.0,
+      project_name TEXT NOT NULL,
+      build_id TEXT NOT NULL,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_prompt_scores_task_type ON prompt_scores(task_type);
+    CREATE INDEX IF NOT EXISTS idx_prompt_scores_template_hash ON prompt_scores(prompt_template_hash);
+    CREATE INDEX IF NOT EXISTS idx_prompt_scores_project ON prompt_scores(project_name);
+    CREATE INDEX IF NOT EXISTS idx_prompt_scores_created ON prompt_scores(created_at);
+
+    CREATE TABLE IF NOT EXISTS fix_patterns (
+      id TEXT PRIMARY KEY,
+      error_fingerprint TEXT NOT NULL,
+      error_message TEXT NOT NULL,
+      error_category TEXT NOT NULL CHECK(error_category IN ('COMPILE','RUNTIME','TEST','LINT','SECURITY','SCHEMA','DEPLOY')),
+      file_path_pattern TEXT NOT NULL,
+      fix_diff TEXT,
+      fix_description TEXT,
+      fix_files_modified TEXT DEFAULT '[]',
+      tech_stack_tags TEXT NOT NULL DEFAULT '[]',
+      occurrence_count INTEGER NOT NULL DEFAULT 1,
+      success_rate REAL NOT NULL DEFAULT 0.0,
+      times_fix_applied INTEGER NOT NULL DEFAULT 0,
+      times_fix_succeeded INTEGER NOT NULL DEFAULT 0,
+      auto_governance_rule TEXT,
+      governance_rule_id TEXT,
+      last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_fix_patterns_fingerprint ON fix_patterns(error_fingerprint);
+    CREATE INDEX IF NOT EXISTS idx_fix_patterns_category ON fix_patterns(error_category);
+    CREATE INDEX IF NOT EXISTS idx_fix_patterns_stack ON fix_patterns(tech_stack_tags);
+    CREATE INDEX IF NOT EXISTS idx_fix_patterns_count ON fix_patterns(occurrence_count DESC);
+
+    CREATE TABLE IF NOT EXISTS decision_weights (
+      id TEXT PRIMARY KEY,
+      decision_type TEXT NOT NULL,
+      option_chosen TEXT NOT NULL,
+      downstream_error_rate REAL NOT NULL DEFAULT 0.0,
+      downstream_retry_rate REAL NOT NULL DEFAULT 0.0,
+      downstream_prompts INTEGER NOT NULL DEFAULT 0,
+      downstream_errors INTEGER NOT NULL DEFAULT 0,
+      downstream_retries INTEGER NOT NULL DEFAULT 0,
+      sample_size INTEGER NOT NULL DEFAULT 1,
+      project_name TEXT NOT NULL,
+      build_id TEXT NOT NULL,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_decision_weights_type ON decision_weights(decision_type, option_chosen);
+    CREATE INDEX IF NOT EXISTS idx_decision_weights_error_rate ON decision_weights(downstream_error_rate ASC);
+
+    CREATE TABLE IF NOT EXISTS governance_rules (
+      id TEXT PRIMARY KEY,
+      rule_text TEXT NOT NULL,
+      rule_short_name TEXT NOT NULL,
+      source TEXT NOT NULL CHECK(source IN ('MANUAL','AUTO_ELEVATED','INSTINCT','RETROFIT')),
+      source_error_fingerprint TEXT,
+      tech_stack_tags TEXT NOT NULL DEFAULT '[]',
+      scope TEXT NOT NULL CHECK(scope IN ('GLOBAL','PROJECT_SPECIFIC')),
+      project_name TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      enforcement_count INTEGER NOT NULL DEFAULT 0,
+      last_enforced TEXT,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_governance_rules_active ON governance_rules(active, scope);
+    CREATE INDEX IF NOT EXISTS idx_governance_rules_stack ON governance_rules(tech_stack_tags);
+
+    CREATE TABLE IF NOT EXISTS pending_evolutions (
+      id TEXT PRIMARY KEY,
+      evolution_type TEXT NOT NULL CHECK(evolution_type IN ('HOOK','TEMPLATE','RULE','THRESHOLD','CONFIG','GATE')),
+      proposed_change TEXT NOT NULL,
+      change_detail TEXT NOT NULL,
+      evidence TEXT NOT NULL,
+      estimated_impact TEXT NOT NULL,
+      confidence REAL NOT NULL CHECK(confidence >= 0.0 AND confidence <= 1.0),
+      status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','APPROVED','REJECTED','SUPERSEDED')),
+      reviewed_at TEXT,
+      review_note TEXT,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_evolutions_status ON pending_evolutions(status);
+
+    CREATE TABLE IF NOT EXISTS build_outcomes (
+      id TEXT PRIMARY KEY,
+      project_name TEXT NOT NULL,
+      mode TEXT NOT NULL CHECK(mode IN ('GREENFIELD','RETROFIT')),
+      start_time TEXT NOT NULL,
+      end_time TEXT,
+      end_reason TEXT CHECK(end_reason IN ('COMPLETED','PAUSED','FAILED','INTERRUPTED') OR end_reason IS NULL),
+      total_prompts_planned INTEGER NOT NULL DEFAULT 0,
+      total_prompts_executed INTEGER NOT NULL DEFAULT 0,
+      prompts_passed INTEGER NOT NULL DEFAULT 0,
+      prompts_retried INTEGER NOT NULL DEFAULT 0,
+      prompts_failed INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      architecture_decisions TEXT DEFAULT '[]',
+      maturity_stage TEXT CHECK(maturity_stage IN ('FOUNDATION','GROWTH','ENTERPRISE') OR maturity_stage IS NULL),
+      first_pass_rate REAL,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_build_outcomes_project ON build_outcomes(project_name);
+    CREATE INDEX IF NOT EXISTS idx_build_outcomes_created ON build_outcomes(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS skill_library (
+      id TEXT PRIMARY KEY,
+      skill_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tech_stack_tags TEXT NOT NULL DEFAULT '[]',
+      source_error_fingerprint TEXT,
+      source_build_id TEXT,
+      trigger_context TEXT,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      effectiveness_rate REAL NOT NULL DEFAULT 0.0,
+      times_injected INTEGER NOT NULL DEFAULT 0,
+      times_prevented_error INTEGER NOT NULL DEFAULT 0,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_library_stack ON skill_library(tech_stack_tags);
+    CREATE INDEX IF NOT EXISTS idx_skill_library_fingerprint ON skill_library(source_error_fingerprint);
+
+    CREATE TABLE IF NOT EXISTS reconcile_decisions (
+      id TEXT PRIMARY KEY,
+      project_name TEXT NOT NULL,
+      feature_id TEXT NOT NULL,
+      feature_name TEXT NOT NULL,
+      decision TEXT NOT NULL CHECK(decision IN ('BUILD','DEFER','ABANDON','APPROVED','SKIPPED','FIX','IGNORE','INJECT','SKIP')),
+      category TEXT NOT NULL,
+      severity TEXT,
+      rationale TEXT,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_reconcile_project ON reconcile_decisions(project_name, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS scan_reports (
+      id TEXT PRIMARY KEY,
+      project_name TEXT NOT NULL,
+      scan_scope TEXT NOT NULL CHECK(scan_scope IN ('A','B','C')),
+      critical_count INTEGER NOT NULL DEFAULT 0,
+      warn_count INTEGER NOT NULL DEFAULT 0,
+      info_count INTEGER NOT NULL DEFAULT 0,
+      broken_imports INTEGER NOT NULL DEFAULT 0,
+      dead_files INTEGER NOT NULL DEFAULT 0,
+      schema_drift INTEGER NOT NULL DEFAULT 0,
+      tsc_errors INTEGER NOT NULL DEFAULT 0,
+      test_pass_rate REAL,
+      report_json TEXT NOT NULL,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_scan_reports_project ON scan_reports(project_name, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS hook_execution_log (
+      id TEXT PRIMARY KEY,
+      hook_name TEXT NOT NULL,
+      event TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('PASS','FAIL','TIMEOUT','SKIP')),
+      duration_ms INTEGER NOT NULL,
+      output TEXT,
+      build_id TEXT NOT NULL,
+      prompt_number INTEGER,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_hook_log_build ON hook_execution_log(build_id);
+    CREATE INDEX IF NOT EXISTS idx_hook_log_name ON hook_execution_log(hook_name, status);
+    CREATE INDEX IF NOT EXISTS idx_hook_log_duration ON hook_execution_log(duration_ms DESC);
+
+    CREATE TABLE IF NOT EXISTS compact_snapshots (
+      id TEXT PRIMARY KEY,
+      build_id TEXT NOT NULL,
+      prompt_index INTEGER NOT NULL,
+      state_json TEXT NOT NULL,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_compact_build ON compact_snapshots(build_id, prompt_index DESC);
+
+    CREATE TABLE IF NOT EXISTS build_fingerprints (
+      id TEXT PRIMARY KEY,
+      build_id TEXT NOT NULL,
+      prompt_number INTEGER NOT NULL,
+      fingerprint TEXT NOT NULL,
+      file_count INTEGER NOT NULL,
+      total_size_kb INTEGER NOT NULL,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_fingerprints_build ON build_fingerprints(build_id, prompt_number);
+
+    CREATE TABLE IF NOT EXISTS adversary_findings (
+      id TEXT PRIMARY KEY,
+      build_id TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      severity TEXT NOT NULL CHECK(severity IN ('BLOCKER','SIGNIFICANT','MINOR','DISMISSED')),
+      vector TEXT,
+      issue TEXT NOT NULL,
+      fix TEXT,
+      resolution TEXT DEFAULT 'PENDING' CHECK(resolution IN ('PENDING','FIXED','DISMISSED','DEFERRED')),
+      resolved_at TEXT,
+      machine_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_adversary_build ON adversary_findings(build_id);
+    CREATE INDEX IF NOT EXISTS idx_adversary_severity ON adversary_findings(severity);
+    ```
+
+    ACCEPTANCE CRITERIA:
+    - initializeForgeMemory() creates all 14 tables and all indexes when called on a fresh path
+    - Calling initializeForgeMemory() twice on the same DB does not error or lose data
+    - getMachineId() returns a consistent 16-char hex string across calls
+    - getConnection() returns a working better-sqlite3 Database object
+    - All functions are properly typed with TypeScript
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/learning/database.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const { initializeForgeMemory, getConnection, getMachineId } = require('./dist/forge2/learning/database');
+      const path = require('path');
+      const testDb = path.join(require('os').tmpdir(), 'forge_test_' + Date.now() + '.db');
+      initializeForgeMemory(testDb);
+      const db = getConnection(testDb);
+      const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all();
+      console.log('Tables:', tables.length);
+      if (tables.length < 14) { console.error('FAIL: Expected 14 tables, got ' + tables.length); process.exit(1); }
+      initializeForgeMemory(testDb); // idempotency test
+      const id = getMachineId();
+      if (id.length !== 16) { console.error('FAIL: machine ID length'); process.exit(1); }
+      console.log('R1-002 PASS');
+      db.close();
+      require('fs').unlinkSync(testDb);
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Learning Engine — Database Init" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/learning/database.ts to stub state.
+
+- id: r1-003
+  name: "Learning Engine — Core Query Infrastructure"
+  description: |
+    CONTEXT:
+    The learning database is initialized (R1-002). Now build the core query layer that every other module uses. No module ever writes raw SQL — they call these functions. All records use UUID primary keys and include machine_id. All timestamps are ISO 8601.
+
+    TASK:
+    Implement src/forge2/learning/queries.ts with these functions:
+
+    GENERIC OPERATIONS:
+    1. `generateId(): string` — Returns a new UUID v4 via crypto.randomUUID().
+    2. `saveToForgeMemory(table: string, data: Record<string, any>, dbPath?: string): string` — Generic insert. Auto-generates UUID id and adds machine_id from getMachineId(). Auto-adds created_at as ISO 8601. Returns the generated id. Validates table name against known tables (whitelist). Uses parameterized queries (never string interpolation).
+    3. `getForgeMemory(table: string, options?: { where?: string, params?: any[], orderBy?: string, limit?: number }, dbPath?: string): any[]` — Generic SELECT with optional WHERE, ORDER BY, LIMIT. Returns array (empty if no results, never null). Validates table name. Uses parameterized queries for params.
+    4. `updateForgeMemory(table: string, id: string, data: Record<string, any>, dbPath?: string): boolean` — Generic UPDATE by id. Returns true if row was updated.
+
+    PROMPT SCORE FUNCTIONS:
+    5. `savePromptScore(score: Omit<PromptScore, 'id' | 'machine_id' | 'created_at'>, dbPath?: string): string` — Insert a prompt execution score with all four dimensions (first_pass_success, tokens_consumed, gate_pass_rate, drift_score).
+    6. `getBestPromptTemplates(taskType: string, techStackTags: string[], minSamples?: number, dbPath?: string): Array<{template_hash: string, avg_pass_rate: number, avg_tokens: number, sample_count: number}>` — Aggregate prompt_scores by template hash for matching task type, ordered by first-pass rate descending. Minimum 3 samples (configurable). Returns top 5.
+
+    FIX PATTERN FUNCTIONS:
+    7. `getFixPattern(fingerprint: string, dbPath?: string): FixPattern | null` — Lookup by error fingerprint. Returns null if not found.
+    8. `registerError(error: { errorCode: string, filePath: string, errorMessage: string, errorCategory: string, techStack: string[] }, dbPath?: string): string` — Registers a new error. Computes fingerprint via getErrorFingerprint(). If fingerprint exists, increments occurrence_count and updates last_seen. If new, creates new fix_patterns entry.
+    9. `registerFix(fingerprint: string, fix: { fixDiff?: string, fixDescription: string, filesModified: string[] }, dbPath?: string): void` — Associates a fix with an existing error fingerprint. Updates fix_diff, fix_description, fix_files_modified. Increments times_fix_applied. Recalculates success_rate.
+    10. `updateFixPattern(fingerprint: string, updates: Partial<FixPattern>, dbPath?: string): void` — Partial update of a fix pattern by fingerprint.
+
+    GOVERNANCE RULE FUNCTIONS:
+    11. `getGovernanceRules(techStackTags: string[], projectName?: string, dbPath?: string): GovernanceRule[]` — Returns active rules matching tech stack. Includes GLOBAL scope + PROJECT_SPECIFIC for the given project. Ordered by enforcement_count descending.
+    12. `incrementGovernanceEnforcement(ruleId: string, dbPath?: string): void` — Increments enforcement_count and updates last_enforced to now.
+
+    DECISION WEIGHT FUNCTIONS:
+    13. `getDecisionWeights(decisionType: string, minBuilds?: number, dbPath?: string): Array<{option: string, avg_error_rate: number, avg_retry_rate: number, total_samples: number}>` — Aggregate by decision_type, weighted error rate. Minimum 2 builds (configurable).
+
+    SKILL / EVOLUTION FUNCTIONS:
+    14. `getRelevantSkills(techStackTags: string[], dbPath?: string): SkillEntry[]` — Skills matching tech stack tags, ordered by effectiveness_rate descending.
+    15. `getPendingEvolutions(dbPath?: string): PendingEvolution[]` — All PENDING status, ordered by confidence descending.
+
+    CRITICAL IMPLEMENTATION RULES:
+    - NEVER use string interpolation in SQL. Always use parameterized queries (? placeholders).
+    - Table name validation: whitelist of known table names. Throw error for unknown tables.
+    - All Get-* functions return empty arrays (never null or undefined) when no results match.
+    - All JSON fields (tech_stack_tags, fix_files_modified, architecture_decisions, etc.) are stored as JSON strings and parsed on read.
+    - Import types from ../types.ts and functions from ./database.ts.
+
+    ACCEPTANCE CRITERIA:
+    - All 15 functions are exported and properly typed
+    - saveToForgeMemory correctly auto-generates id and machine_id
+    - getForgeMemory returns empty array for no-match queries
+    - All SQL uses parameterized queries (grep for string interpolation in SQL — should find none)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/learning/queries.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const db = require('./dist/forge2/learning/database');
+      const q = require('./dist/forge2/learning/queries');
+      const path = require('path');
+      const testDb = path.join(require('os').tmpdir(), 'forge_test_' + Date.now() + '.db');
+      db.initializeForgeMemory(testDb);
+      // Test saveToForgeMemory
+      const id = q.saveToForgeMemory('governance_rules', {
+        rule_text: 'Test rule', rule_short_name: 'test',
+        source: 'MANUAL', tech_stack_tags: JSON.stringify(['typescript']),
+        scope: 'GLOBAL', active: 1, enforcement_count: 0
+      }, testDb);
+      if (!id) { console.error('FAIL: no id returned'); process.exit(1); }
+      // Test getForgeMemory
+      const rules = q.getForgeMemory('governance_rules', { where: 'id = ?', params: [id] }, testDb);
+      if (rules.length !== 1) { console.error('FAIL: expected 1 rule'); process.exit(1); }
+      // Test empty result
+      const empty = q.getForgeMemory('prompt_scores', {}, testDb);
+      if (!Array.isArray(empty)) { console.error('FAIL: expected array'); process.exit(1); }
+      console.log('R1-003 PASS');
+      require('fs').unlinkSync(testDb);
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Learning Engine — Query Layer" to IN_PROGRESS.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/learning/queries.ts to stub state.
+
+- id: r1-004
+  name: "Learning Engine — Error Fingerprinting Algorithm"
+  description: |
+    CONTEXT:
+    The error fingerprinting algorithm creates deterministic identifiers for error patterns. Two identical errors in different files produce the same fingerprint. Two different errors in the same file produce different fingerprints. This is how FORGE learns from errors across projects and machines.
+
+    TASK:
+    Implement src/forge2/learning/fingerprint.ts:
+
+    1. `getErrorFingerprint(error: { errorCode: string, filePath: string, errorMessage: string, techStack: string[] }): string`
+
+    Algorithm — SHA-256 hash of four concatenated, pipe-separated components:
+
+    Component 1 — Error code: Machine-readable identifier. Examples: TS2307, no-unused-vars, TypeError, ENOENT. Lowercase, trimmed.
+
+    Component 2 — Generalized file path: Replace dynamic segments with wildcards.
+    - `app/api/storms/route.ts` → `app/api/*/route.ts`
+    - `components/dashboard/StormMap.tsx` → `components/*/StormMap.tsx`
+    - `src/utils/helpers.ts` → `src/utils/helpers.ts` (no dynamic segment)
+    Rules: Replace path segments that look like entity names (lowercase words, contain hyphens/underscores that suggest dynamic naming) with `*`. Keep filenames intact. Keep known framework directories intact (app, api, components, src, lib, utils, types, hooks, middleware).
+
+    Component 3 — Error message template: Replace specific identifiers with `*`.
+    - `Module './StormMap' not found` → `Module '*' not found`
+    - `Property 'name' does not exist on type 'Storm'` → `Property '*' does not exist on type '*'`
+    - `Cannot find name 'fetchStorms'` → `Cannot find name '*'`
+    Rules: Replace quoted strings with `*`. Replace identifiers following common patterns (PascalCase, camelCase words that are clearly app-specific) with `*`. Keep structural words (Module, Property, type, Cannot, find, not, does, exist, on).
+
+    Component 4 — Tech stack context: Sorted, comma-separated tags. Example: `nextjs,supabase,typescript`
+
+    Final: SHA-256 hash of `component1|component2|component3|component4`. Return first 32 hex characters.
+
+    2. `generalizeFilePath(filePath: string): string` — Exported helper for testing.
+    3. `generalizeErrorMessage(message: string): string` — Exported helper for testing.
+
+    ACCEPTANCE CRITERIA:
+    - Same error in different files produces same fingerprint (e.g., TS2307 import error in storms/route.ts and alerts/route.ts)
+    - Different errors in same file produce different fingerprints
+    - Fingerprint is exactly 32 hex characters
+    - generalizeFilePath correctly wildcards entity-name segments
+    - generalizeErrorMessage correctly replaces specific identifiers
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/learning/fingerprint.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const fp = require('./dist/forge2/learning/fingerprint');
+      // Same error, different files → same fingerprint
+      const f1 = fp.getErrorFingerprint({ errorCode: 'TS2307', filePath: 'app/api/storms/route.ts', errorMessage: \"Module './StormMap' not found\", techStack: ['typescript','nextjs'] });
+      const f2 = fp.getErrorFingerprint({ errorCode: 'TS2307', filePath: 'app/api/alerts/route.ts', errorMessage: \"Module './AlertMap' not found\", techStack: ['typescript','nextjs'] });
+      if (f1 !== f2) { console.error('FAIL: same error pattern should match'); process.exit(1); }
+      // Different error → different fingerprint
+      const f3 = fp.getErrorFingerprint({ errorCode: 'TS2339', filePath: 'app/api/storms/route.ts', errorMessage: \"Property 'name' does not exist\", techStack: ['typescript','nextjs'] });
+      if (f1 === f3) { console.error('FAIL: different errors should differ'); process.exit(1); }
+      if (f1.length !== 32) { console.error('FAIL: fingerprint length should be 32'); process.exit(1); }
+      console.log('R1-004 PASS');
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Learning Engine — Error Fingerprinting" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/learning/fingerprint.ts to stub state.
+
+- id: r1-005
+  name: "Learning Engine — Five Learning Loops"
+  description: |
+    CONTEXT:
+    The five learning loops are the core intelligence of FORGE. They transform raw execution data into actionable knowledge. Each loop fires at specific hook events and reads/writes specific tables. The loops are implemented as pure functions that the hook system calls.
+
+    TASK:
+    Implement src/forge2/learning/loops.ts:
+
+    LOOP 1 — PROMPT EFFECTIVENESS SCORING (fires at PostToolUse):
+    1. `scorePromptExecution(execution: { templateHash: string, taskType: string, techStackTags: string[], firstPassSuccess: boolean, retryCount: number, tokensConsumed: number, gatePassRate: number, driftScore: number, projectName: string, buildId: string }, dbPath?: string): string` — Scores on four dimensions. Writes to prompt_scores. Returns the score record id.
+
+    LOOP 2 — FIX PATTERN INDEXING (fires at PostToolUse on error):
+    2. `captureError(error: { errorCode: string, filePath: string, errorMessage: string, errorCategory: string, techStack: string[] }, dbPath?: string): { fingerprint: string, isKnown: boolean, knownFix?: FixPattern }` — Stage 1 CAPTURE: Computes fingerprint. Checks if pattern exists. If exists, increments count and returns known fix. If new, creates entry.
+    3. `checkAutoElevation(fingerprint: string, dbPath?: string): GovernanceRule | null` — Stage 3 ELEVATE: If occurrence_count >= 3 AND a fix exists with success_rate > 0.5, generates a governance rule proposal. Returns the rule if created, null otherwise. Sets auto_governance_rule on the fix_pattern.
+
+    LOOP 3 — ARCHITECTURE DECISION WEIGHTING (fires at SessionEnd):
+    4. `updateDecisionWeights(buildId: string, dbPath?: string): void` — For each decision in the build, compute downstream error/retry rates from prompt_scores created after the decision. Updates decision_weights records.
+
+    LOOP 4 — CROSS-PROJECT KNOWLEDGE TRANSFER (fires at SessionStart):
+    5. `loadCrossProjectKnowledge(techStackTags: string[], projectName: string, dbPath?: string): { rules: GovernanceRule[], skills: SkillEntry[], fixPatterns: FixPattern[], outcomes: BuildOutcome[], evolutions: PendingEvolution[] }` — Loads all relevant knowledge for this tech stack: active governance rules (GLOBAL + PROJECT_SPECIFIC), relevant skills, high-frequency fix patterns (2+ occurrences), prior build outcomes, pending evolutions.
+
+    LOOP 5 — SELF-MODIFICATION WITH GUARDRAILS (fires at SessionEnd):
+    6. `analyzeForEvolutions(buildId: string, dbPath?: string): PendingEvolution[]` — Analyzes the completed run for improvement opportunities:
+       a. Gate thresholds: if a gate passes 100% over 20+ prompts, propose relaxation. If fails >30%, propose tightening.
+       b. Error patterns reaching 3+ occurrences: propose new RULE.
+       c. Low-performing templates <50% pass rate: propose TEMPLATE rewrite.
+       d. Complex fixes requiring 2+ retries: propose SKILL creation.
+       e. Hook timeouts >30% of executions: propose THRESHOLD adjustment.
+       Returns array of created evolution proposals. Each has confidence score 0.0-1.0.
+
+    7. `presentEvolutions(dbPath?: string): PendingEvolution[]` — Returns all PENDING evolutions for human review, ordered by confidence descending.
+
+    8. `applyEvolution(evolutionId: string, approved: boolean, reviewNote?: string, dbPath?: string): void` — Updates evolution status to APPROVED or REJECTED. Sets reviewed_at and review_note.
+
+    CRITICAL: FORGE evolves configuration and knowledge, NEVER its own source code. Loop 5 proposes changes to hooks.json thresholds, governance rules, prompt templates — never to the TypeScript modules themselves.
+
+    ACCEPTANCE CRITERIA:
+    - All 8 functions exported and properly typed
+    - scorePromptExecution writes a valid prompt_scores record
+    - captureError correctly identifies known vs new patterns
+    - checkAutoElevation creates governance rule at 3+ occurrences
+    - loadCrossProjectKnowledge returns all five data categories
+    - analyzeForEvolutions generates proposals with confidence scores
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/learning/loops.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const db = require('./dist/forge2/learning/database');
+      const loops = require('./dist/forge2/learning/loops');
+      const path = require('path');
+      const testDb = path.join(require('os').tmpdir(), 'forge_test_' + Date.now() + '.db');
+      db.initializeForgeMemory(testDb);
+      // Test Loop 1
+      const scoreId = loops.scorePromptExecution({
+        templateHash: 'abc123', taskType: 'CRUD', techStackTags: ['typescript'],
+        firstPassSuccess: true, retryCount: 0, tokensConsumed: 15000,
+        gatePassRate: 1.0, driftScore: 0.1, projectName: 'test', buildId: 'b1'
+      }, testDb);
+      if (!scoreId) { console.error('FAIL: score not saved'); process.exit(1); }
+      // Test Loop 2
+      const result = loops.captureError({
+        errorCode: 'TS2307', filePath: 'test.ts', errorMessage: 'Module not found',
+        errorCategory: 'COMPILE', techStack: ['typescript']
+      }, testDb);
+      if (!result.fingerprint) { console.error('FAIL: no fingerprint'); process.exit(1); }
+      // Test Loop 4
+      const knowledge = loops.loadCrossProjectKnowledge(['typescript'], 'test', testDb);
+      if (!Array.isArray(knowledge.rules)) { console.error('FAIL: rules not array'); process.exit(1); }
+      console.log('R1-005 PASS');
+      require('fs').unlinkSync(testDb);
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Learning Engine — Learning Loops" to COMPLETED, overall Learning Engine module to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/learning/loops.ts to stub state.
+
+- id: r1-006
+  name: "Cross-Machine Sync — Protocol and Lock Management"
+  description: |
+    CONTEXT:
+    FORGE runs on multiple machines simultaneously. Each has its own local forge_memory.db. Between runs, learning data syncs through a master copy on an 18TB external drive. The sync protocol is append-only with file locking to prevent concurrent writes. This module handles both sync and lock management.
+
+    TASK:
+    Implement src/forge2/sync/sync.ts and src/forge2/sync/lock.ts:
+
+    LOCK MANAGEMENT (lock.ts):
+    1. `acquireSyncLock(lockPath: string, machineId: string, maxWaitMs?: number, retryIntervalMs?: number): boolean` — Creates a lock file containing JSON { machine_id, acquired_at, pid }. If lock exists and is <2 minutes old, waits retryIntervalMs (default 5000) and retries. Max wait default 30000ms. If lock is >2 minutes old (stale), removes it and acquires. Returns true on success, false on timeout.
+    2. `releaseSyncLock(lockPath: string): void` — Removes lock file. Must always succeed (ignore errors if file doesn't exist).
+    3. `isLockStale(lockPath: string, staleMinutes?: number): boolean` — Returns true if lock file exists and is older than staleMinutes (default 2).
+
+    SYNC PROTOCOL (sync.ts):
+    4. `loadSyncConfig(projectPath: string): SyncConfig` — Reads ~/.forge/sync_config.json. Returns defaults if file doesn't exist: { master_path: '', lock_file: 'forge_sync.lock', max_wait_seconds: 30, retry_interval_seconds: 5 }.
+
+    5. `syncForgeMemory(direction: 'pull' | 'push', localDbPath: string, masterDbPath: string, machineId: string): { synced: number, tables: string[] }` — Core sync function.
+
+    PULL (SessionStart):
+    - Open read-only connection to master DB
+    - For each of the 14 tables: SELECT * WHERE machine_id != localMachineId AND created_at > lastSyncTimestamp
+    - INSERT OR IGNORE each record into local DB (prevents duplicates)
+    - Update last_sync_timestamp in forge_meta
+    - Return count of synced records
+
+    PUSH (SessionEnd):
+    - Acquire lock on master (via acquireSyncLock)
+    - For each table: SELECT * FROM local WHERE machine_id = localMachineId AND created_at > lastSyncTimestamp
+    - INSERT OR IGNORE each record into master DB
+    - Update last_sync_timestamp in both local and master forge_meta
+    - Release lock (in finally block — ALWAYS runs)
+    - Return count of synced records
+
+    6. `getLastSyncTimestamp(dbPath: string): string` — Reads 'last_sync_timestamp' from forge_meta. Returns '1970-01-01T00:00:00Z' if not set.
+    7. `setLastSyncTimestamp(dbPath: string, timestamp: string): void` — Writes/updates 'last_sync_timestamp' in forge_meta.
+
+    CRITICAL RULES:
+    - Lock MUST be released in a finally block. A crash during push must not leave a permanent lock.
+    - All operations are INSERT OR IGNORE. Never UPDATE existing records on master. Append-only.
+    - If master path doesn't exist or isn't accessible, log a warning and return { synced: 0, tables: [] }. Never fail a build because the external drive isn't mounted.
+    - Each record has a globally unique UUID id. No conflicts possible across machines.
+
+    ACCEPTANCE CRITERIA:
+    - acquireSyncLock creates lock file, detects stale locks, respects timeouts
+    - releaseSyncLock always succeeds even if file doesn't exist
+    - Pull correctly fetches records from master where machine_id differs
+    - Push correctly writes local records to master with lock protection
+    - Lock is always released even on error (finally block)
+    - Graceful degradation when master path is inaccessible
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/sync/sync.ts
+    src/forge2/sync/lock.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const lock = require('./dist/forge2/sync/lock');
+      const sync = require('./dist/forge2/sync/sync');
+      const db = require('./dist/forge2/learning/database');
+      const q = require('./dist/forge2/learning/queries');
+      const path = require('path');
+      const os = require('os');
+      const fs = require('fs');
+      const tmpDir = path.join(os.tmpdir(), 'forge_sync_test_' + Date.now());
+      fs.mkdirSync(tmpDir, { recursive: true });
+      const lockPath = path.join(tmpDir, 'test.lock');
+      // Test lock
+      const acquired = lock.acquireSyncLock(lockPath, 'test-machine', 5000);
+      if (!acquired) { console.error('FAIL: could not acquire lock'); process.exit(1); }
+      if (!fs.existsSync(lockPath)) { console.error('FAIL: lock file not created'); process.exit(1); }
+      lock.releaseSyncLock(lockPath);
+      if (fs.existsSync(lockPath)) { console.error('FAIL: lock not released'); process.exit(1); }
+      // Test graceful degradation
+      const result = sync.syncForgeMemory('pull', path.join(tmpDir, 'local.db'), '/nonexistent/master.db', 'test');
+      if (result.synced !== 0) { console.error('FAIL: should gracefully degrade'); process.exit(1); }
+      console.log('R1-006 PASS');
+      fs.rmSync(tmpDir, { recursive: true });
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Cross-Machine Sync" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert sync/ files to stub state.
+
+- id: r1-007
+  name: "Core Pipeline — Entry Point and Phase Routing"
+  description: |
+    CONTEXT:
+    The core pipeline controller is the main entry point for FORGE 2.0. It receives CLI commands and routes them to the correct phase module. It manages the 8-phase pipeline: RETROFIT(R), SCOUT(0), ARCHITECT(1), SCAFFOLD(2), COMPOSE(3), EXECUTE(4), SENTINEL(5), DEPLOY(6). Each phase has gate conditions that must pass before the next phase begins.
+
+    TASK:
+    Implement src/forge2/core/pipeline.ts:
+
+    1. `invokeForgePipeline(command: string, options: ForgeOptions): Promise<void>` — Main entry point. Parses command (retrofit, scout, architect, scaffold, compose, execute, sentinel, deploy) and routes to the appropriate phase handler. For this prompt, phase handlers are stubs that log "[PHASE] {name} — not yet implemented" and return. The routing logic and command parsing must be complete.
+
+    ForgeOptions interface:
+    ```typescript
+    interface ForgeOptions {
+      projectPath: string;
+      buildId?: string;
+      mode?: 'GREENFIELD' | 'RETROFIT';
+      phase?: string;
+      startFrom?: number;
+      skipDynamic?: boolean;
+      scopeA?: boolean;
+      resume?: boolean;
+      dryRun?: boolean;
+    }
+    ```
+
+    2. `validateProjectPath(projectPath: string): { valid: boolean, errors: string[] }` — Validates: path exists, is a directory, has .git (or initializes it), has package.json (for target projects, not FORGE itself).
+
+    3. `generateBuildId(projectName: string, mode: string): string` — Format: `forge-{projectName}-{mode}-{timestamp}` where timestamp is YYYYMMDD-HHmmss.
+
+    4. `getCurrentPhase(): string` — Returns the current phase from global state.
+    5. `setCurrentPhase(phase: string): void` — Sets current phase in global state.
+
+    PHASE ROUTING TABLE:
+    | Command | Phase | Module | Mode |
+    |---------|-------|--------|------|
+    | retrofit | R | ForgeRetrofit | RETROFIT only |
+    | scout | 0 | ForgeArchitect | GREENFIELD only |
+    | architect | 1 | ForgeArchitect | GREENFIELD only |
+    | scaffold | 2 | ForgeCore | Both |
+    | compose | 3 | ForgeComposer | Both |
+    | execute | 4 | ForgeCore | Both |
+    | sentinel | 5 | ForgeSentinel | Both |
+    | deploy | 6 | ForgeDeploy | Both |
+
+    Console output must use color coding: Green=success, Red=error, Yellow=warning, Cyan=info, Gray=debug. Use chalk or simple ANSI escape codes.
+
+    ACCEPTANCE CRITERIA:
+    - invokeForgePipeline routes all 8 commands correctly
+    - Unknown commands produce clear error messages
+    - validateProjectPath correctly checks path, directory, .git
+    - generateBuildId produces consistent format
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/core/pipeline.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-007 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Core Pipeline — Entry Point" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/core/pipeline.ts to stub state.
+
+- id: r1-008
+  name: "Core Pipeline — Gate Engine"
+  description: |
+    CONTEXT:
+    Gates are quality checks that run after every prompt execution. If a gate fails, the prompt is retried. Gates are configurable per-project and per-phase.
+
+    TASK:
+    Implement src/forge2/core/gates.ts:
+
+    1. `invokeGate(gate: GateConfig, context: GateContext): Promise<GateResult>` — Executes a single gate. Runs the gate's command via child_process.execSync. Captures stdout/stderr. Measures duration. Returns GateResult with passed, gate_name, output, duration_ms.
+
+    2. `invokeAllGates(gates: GateConfig[], context: GateContext): Promise<{ allPassed: boolean, results: GateResult[], failedGates: string[] }>` — Runs all gates sequentially. Returns aggregate results. Short-circuits on first blocking failure if gate.blocking is true.
+
+    3. `getDefaultGates(phase: string): GateConfig[]` — Returns default gate configuration for a phase:
+    - EXECUTE phase: tsc --noEmit (blocking, 30s timeout), eslint (blocking, 30s timeout)
+    - SCAFFOLD phase: tsc --noEmit only
+    - DEPLOY phase: tsc + eslint + build
+
+    GateConfig interface:
+    ```typescript
+    interface GateConfig {
+      name: string;
+      command: string;
+      blocking: boolean;
+      timeout_ms: number;
+      expected_exit_code: number; // usually 0
+      phase_applicable: string[];
+    }
+    ```
+
+    GateContext interface:
+    ```typescript
+    interface GateContext {
+      projectPath: string;
+      phase: string;
+      promptNumber: number;
+      buildId: string;
+    }
+    ```
+
+    4. `parseGateOutput(gateName: string, output: string): { errors: number, warnings: number, details: string[] }` — Parses tsc and eslint output to extract error/warning counts.
+
+    ACCEPTANCE CRITERIA:
+    - invokeGate correctly runs shell commands with timeout
+    - Timeout exceeded returns FAIL with timeout message
+    - invokeAllGates short-circuits on blocking failure
+    - getDefaultGates returns appropriate gates per phase
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/core/gates.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-008 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Core Pipeline — Gate Engine" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/core/gates.ts to stub state.
+
+- id: r1-009
+  name: "Core Pipeline — Retry Logic"
+  description: |
+    CONTEXT:
+    When a gate fails, FORGE retries the prompt with error context injected. The retry includes the error output from the failed gate so Claude Code can fix the issue. Max retries configurable (default 3). Backoff between retries.
+
+    TASK:
+    Implement src/forge2/core/retry.ts:
+
+    1. `invokeRetry(prompt: string, gateResults: GateResult[], context: RetryContext): Promise<RetryResult>` — Constructs a retry prompt by prepending the original prompt with: "PREVIOUS ATTEMPT FAILED. The following gate(s) failed:" followed by each failed gate's name and output. Executes via child_process (claude -p). Re-runs gates. Returns RetryResult { succeeded, attempts, final_output }.
+
+    2. `buildRetryPrompt(originalPrompt: string, failedGates: GateResult[]): string` — Constructs the retry prompt. Includes the original prompt plus error context from failed gates. Truncates gate output to 2000 chars per gate to avoid context overflow.
+
+    3. `shouldRetry(attempt: number, maxRetries: number, gateResults: GateResult[]): boolean` — Returns true if attempt < maxRetries AND at least one failed gate is retriable (not a permanent failure like missing dependency).
+
+    RetryContext interface:
+    ```typescript
+    interface RetryContext {
+      projectPath: string;
+      buildId: string;
+      promptId: string;
+      maxRetries: number; // default 3
+      backoffMs: number;  // default 5000
+    }
+    ```
+
+    ACCEPTANCE CRITERIA:
+    - buildRetryPrompt includes original prompt + error context
+    - Gate output truncated to 2000 chars per gate
+    - shouldRetry respects maxRetries limit
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/core/retry.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-009 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Core Pipeline — Retry Logic" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/core/retry.ts to stub state.
+
+- id: r1-010
+  name: "Core Pipeline — Git Snapshots and Structured Commits"
+  description: |
+    CONTEXT:
+    FORGE creates a git snapshot (tag) before every prompt execution. If the prompt fails and exhausts retries, FORGE can roll back to the snapshot. All commits use a structured format: FORGE-{project}-P{phase}-T{task}-{status}.
+
+    TASK:
+    Implement src/forge2/core/git.ts:
+
+    1. `createGitSnapshot(projectPath: string, promptId: string): string` — Creates git tag `FORGE-SNAPSHOT-{promptId}` at current HEAD. Returns the tag name. Handles case where tag already exists (delete and recreate).
+
+    2. `rollbackToSnapshot(projectPath: string, promptId: string): boolean` — Resets to the snapshot tag via `git reset --hard FORGE-SNAPSHOT-{promptId}`. Returns true if successful.
+
+    3. `createStructuredCommit(projectPath: string, commitInfo: { project: string, phase: string, task: string, status: string, message?: string }): string` — Stages all changes (git add -A). Creates commit with message format: `FORGE-{project}-P{phase}-T{task}-{status}` optionally followed by `: {message}`. Returns commit SHA.
+
+    4. `getLastForgeTag(projectPath: string): string | null` — Returns the most recent FORGE-SNAPSHOT-* tag, or null.
+
+    5. `getChangedFilesSinceCommit(projectPath: string, commitSha: string): string[]` — Returns list of files changed since the given commit via `git diff --name-only`.
+
+    6. `isGitRepo(projectPath: string): boolean` — Checks for .git directory.
+    7. `initGitRepo(projectPath: string): void` — Initializes git repo and creates initial commit.
+
+    All git operations use child_process.execSync with cwd set to projectPath. Errors are caught and logged, never silently swallowed.
+
+    ACCEPTANCE CRITERIA:
+    - createGitSnapshot creates a tag at HEAD
+    - rollbackToSnapshot resets working directory to snapshot state
+    - createStructuredCommit uses the exact format FORGE-{project}-P{phase}-T{task}-{status}
+    - All functions handle git errors gracefully (log and return error state)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/core/git.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-010 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Core Pipeline — Git Operations" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/core/git.ts to stub state.
+
+- id: r1-011
+  name: "Core Pipeline — Build Report Generation"
+  description: |
+    CONTEXT:
+    At the end of every run, FORGE generates a build report summarizing what happened. This report is both human-readable (markdown) and machine-parseable (JSON). It covers pass/fail per prompt, gate results, token usage, and learning engine activity.
+
+    TASK:
+    Implement src/forge2/core/report.ts:
+
+    1. `generateBuildReport(runData: BuildRunData): string` — Generates a markdown report with sections:
+    - Build Summary (project, build_id, mode, duration, end_reason)
+    - Prompt Results Table (id, name, status, retries, tokens)
+    - Gate Summary (total gates run, pass rate)
+    - Error Summary (unique errors, most frequent, known fixes applied)
+    - Token Usage (total, per prompt average, by task type)
+    - Learning Activity (errors registered, fixes applied, rules enforced, evolutions proposed)
+    - Next Steps (remaining prompts, blockers)
+
+    2. `generateBuildReportJson(runData: BuildRunData): object` — Same data as markdown but as structured JSON for machine consumption.
+
+    3. `saveBuildReport(projectPath: string, report: string, format: 'md' | 'json'): string` — Saves to .forge/reports/build-report-{buildId}.{format}. Creates directory if needed. Returns file path.
+
+    BuildRunData interface:
+    ```typescript
+    interface BuildRunData {
+      buildId: string;
+      projectName: string;
+      mode: 'GREENFIELD' | 'RETROFIT';
+      startTime: string;
+      endTime: string;
+      endReason: string;
+      prompts: Array<{ id: string, name: string, status: string, retries: number, tokens: number, gateResults: GateResult[] }>;
+      errorsRegistered: number;
+      fixesApplied: number;
+      rulesEnforced: number;
+      evolutionsProposed: number;
+    }
+    ```
+
+    ACCEPTANCE CRITERIA:
+    - generateBuildReport produces valid markdown with all sections
+    - generateBuildReportJson produces valid JSON
+    - saveBuildReport creates the file at the correct path
+    - Report includes accurate pass/fail counts
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/core/report.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-011 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Core Pipeline — Build Report" to COMPLETED, overall Core Pipeline module to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/core/report.ts to stub state.
+
+- id: r1-012
+  name: "Hook Lifecycle — hooks.json Parser and Schema Validation"
+  description: |
+    CONTEXT:
+    Hooks are the nervous system of FORGE. They are declaratively defined in .forge/hooks.json. The parser reads this file, validates the schema, and returns typed hook definitions. If the file is malformed, FORGE falls back to a hardcoded minimal set (tsc-check and gitleaks-scan only).
+
+    TASK:
+    Implement src/forge2/hooks/parser.ts:
+
+    1. `parseHooksConfig(projectPath: string): { hooks: HookDefinition[], errors: string[] }` — Reads .forge/hooks.json. Validates against schema. Returns typed hook definitions. If file doesn't exist, returns empty array (no error). If file is malformed JSON, returns empty array with error message.
+
+    2. `validateHookDefinition(hook: any): { valid: boolean, errors: string[] }` — Validates a single hook definition:
+    - name: required, string, unique
+    - event: required, must be one of HOOK_EVENTS
+    - action: required, string
+    - blocking: required, boolean
+    - timeout_seconds: required, integer, 5-600
+    - enabled: required, boolean
+    - on_failure: optional, must be BLOCK|REVERT|WARN
+    - priority: optional, integer 1-999, default 50
+    - conditions: optional, validates sub-fields (file_pattern, exclude_pattern as comma-separated globs, task_types as array of valid task types, min_prompt_number as non-negative integer, phases as array of valid phase names)
+
+    3. `getMinimalFallbackHooks(): HookDefinition[]` — Returns hardcoded minimal hooks for when hooks.json is invalid:
+    - tsc-check: PostToolUse, blocking, `npx tsc --noEmit`, priority 10, 30s timeout
+    - gitleaks-scan: PreCommit, blocking, `gitleaks detect`, priority 1, 30s timeout
+
+    4. `writeHooksConfig(projectPath: string, hooks: HookDefinition[]): void` — Writes hooks array to .forge/hooks.json with pretty formatting.
+
+    ACCEPTANCE CRITERIA:
+    - parseHooksConfig reads and validates hooks.json correctly
+    - Invalid hooks are rejected with specific error messages
+    - Malformed JSON falls back to minimal hooks
+    - Missing file returns empty array (not an error)
+    - All HookDefinition fields are validated against their constraints
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/hooks/parser.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-012 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Hook Lifecycle — Parser" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/hooks/parser.ts to stub state.
+
+- id: r1-013
+  name: "Hook Lifecycle — Execution Engine"
+  description: |
+    CONTEXT:
+    The hook execution engine is the single function that all FORGE modules call to fire hooks. No module implements its own hook logic. The engine loads hooks for the given event, filters by conditions, resolves templates, executes with timeout, handles blocking behavior, and logs to the learning database.
+
+    TASK:
+    Implement src/forge2/hooks/engine.ts:
+
+    1. `invokeHook(event: string, context: HookContext, dbPath?: string): Promise<{ allPassed: boolean, blockedBy?: string, results: HookResult[] }>` — Core function:
+    a. Load hooks via parseHooksConfig for context.project_path
+    b. Filter to hooks matching this event AND enabled=true
+    c. Sort by priority ascending (lower = first)
+    d. For each hook: check conditions, resolve templates, execute action, measure duration, log to hook_execution_log
+    e. If a hook fails AND hook.blocking is true: handle on_failure (BLOCK: halt, REVERT: git checkout file then halt, WARN: log and continue)
+    f. Return aggregate results
+
+    2. `executeHookAction(hook: HookDefinition, resolvedAction: string, context: HookContext): Promise<HookResult>` — Executes a hook action with timeout enforcement:
+    - Shell commands: execute via child_process.exec with timeout
+    - Script references (action === 'typescript'): call the named function from the script field
+    - Timeout exceeded: kill process, return TIMEOUT status
+    - Non-zero exit: return FAIL status
+    - Zero exit: return PASS status
+
+    3. Hook depth tracking: Maintain a depth counter. If depth > MAX_HOOK_DEPTH (2), suppress the hook with SKIP status and log warning. This prevents recursive hooks.
+
+    Console output per hook:
+    ```
+      [HOOK] hook-name PASS (42ms)     — Green
+      [HOOK] hook-name FAIL (1203ms)   — Red
+      [HOOK] hook-name TIMEOUT (30000ms) — Red
+      [HOOK] hook-name SKIP             — Yellow
+      [HOOK] Pipeline BLOCKED by hook-name — Red (on blocking failure)
+    ```
+
+    ACCEPTANCE CRITERIA:
+    - invokeHook loads, filters, sorts, and executes hooks correctly
+    - Blocking hooks halt the pipeline on failure
+    - REVERT on_failure checks out the affected file via git
+    - WARN on_failure logs but continues
+    - Timeout enforcement kills the process and returns TIMEOUT
+    - Hook depth > 2 is suppressed
+    - Every execution is logged to hook_execution_log
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/hooks/engine.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-013 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Hook Lifecycle — Execution Engine" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/hooks/engine.ts to stub state.
+
+- id: r1-014
+  name: "Hook Lifecycle — Conditions and Template Resolution"
+  description: |
+    CONTEXT:
+    Hook conditions determine whether a hook fires for a given context. Template variables in hook actions are replaced with runtime values. Both are evaluated before hook execution.
+
+    TASK:
+    Implement src/forge2/hooks/conditions.ts:
+
+    1. `testHookConditions(hook: HookDefinition, context: HookContext): boolean` — Evaluates ALL conditions (AND logic — every present condition must pass):
+    - file_pattern: Comma-separated globs. Hook fires only if context.file matches ANY glob. Uses minimatch or manual glob matching. Only evaluated for PostToolUse and PreCommit events.
+    - exclude_pattern: Comma-separated globs. Hook does NOT fire if context.file matches ANY glob.
+    - task_types: Array of task type strings. Hook fires only if context.task_type is in the array.
+    - min_prompt_number: Integer. Hook fires only if context.prompt_number >= value.
+    - phases: Array of phase strings. Hook fires only if context.phase is in the array.
+    - If conditions is null/undefined, hook always fires (no filtering).
+
+    2. `resolveHookTemplates(action: string, context: HookContext): string` — Replaces template variables:
+    - {{file}} → context.file (absolute path of affected file)
+    - {{files}} → context.files (space-separated list)
+    - {{project_path}} → context.project_path
+    - {{prompt_number}} → context.prompt_number
+    - {{build_id}} → context.build_id
+    - {{last_commit}} → context.last_commit
+    - {{task_type}} → context.task_type
+    - {{phase}} → context.phase
+    Undefined context values replaced with empty string (never leave {{var}} in output).
+
+    3. `matchGlob(pattern: string, filePath: string): boolean` — Simple glob matching supporting * and ** wildcards. * matches any segment, ** matches any number of segments. Example: *.ts matches foo.ts but not foo/bar.ts. **/*.ts matches any .ts file at any depth.
+
+    ACCEPTANCE CRITERIA:
+    - file_pattern correctly matches globs
+    - exclude_pattern correctly excludes
+    - Multiple conditions are AND'd
+    - Null conditions = always fire
+    - All template variables resolve correctly
+    - Undefined variables become empty strings
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/hooks/conditions.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const c = require('./dist/forge2/hooks/conditions');
+      // Test glob matching
+      if (!c.matchGlob('*.ts', 'file.ts')) { console.error('FAIL: basic glob'); process.exit(1); }
+      if (c.matchGlob('*.ts', 'file.tsx')) { console.error('FAIL: should not match tsx'); process.exit(1); }
+      // Test template resolution
+      const resolved = c.resolveHookTemplates('npx eslint {{file}}', { file: '/path/to/file.ts', project_path: '/proj' });
+      if (!resolved.includes('/path/to/file.ts')) { console.error('FAIL: template not resolved'); process.exit(1); }
+      console.log('R1-014 PASS');
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Hook Lifecycle — Conditions/Templates" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/hooks/conditions.ts to stub state.
+
+- id: r1-015
+  name: "Hook Lifecycle — PreCompact Context Preservation"
+  description: |
+    CONTEXT:
+    During long runs (40-50 prompts), Claude's context fills up and older content gets compacted. Critical state can be lost. The PreCompact hook fires at ~80% context capacity and saves critical context to the compact_snapshots table. When FORGE detects compaction occurred, it re-injects preserved state into the next prompt.
+
+    TASK:
+    Implement src/forge2/hooks/precompact.ts:
+
+    1. `invokePreCompactSave(context: PreCompactContext, dbPath?: string): string` — Saves critical state to compact_snapshots table. State includes:
+    - build_id, prompt_index
+    - Current phase
+    - Active unresolved errors (from fix_patterns where occurrence_count > 0 and fix_diff is null)
+    - Active governance rules for current tech stack
+    - Queue status (completed/total/percent)
+    - Pending git changes (git status --porcelain)
+    - Current acceptance criteria text
+
+    Returns the snapshot id.
+
+    PreCompactContext interface:
+    ```typescript
+    interface PreCompactContext {
+      buildId: string;
+      promptIndex: number;
+      phase: string;
+      projectPath: string;
+      techStackTags: string[];
+      acceptanceCriteria: string;
+      queueStatus: { total: number, completed: number, pending: number };
+    }
+    ```
+
+    2. `restoreCompactedContext(buildId: string, dbPath?: string): string | null` — Reads the most recent compact_snapshot for this build. Formats it as a context injection string that can be prepended to the next prompt. Returns null if no snapshot exists. Format:
+    ```
+    === FORGE CONTEXT RECOVERY ===
+    You are resuming after context compaction. Here is your preserved state:
+    Phase: {phase}
+    Prompt position: {prompt_index} of {total}
+    Active errors: {count} unresolved
+    {error details}
+    Active governance rules: {count}
+    {rule summaries}
+    Queue: {completed}/{total} ({percent}%)
+    Current acceptance criteria: {criteria}
+    === END RECOVERY ===
+    ```
+
+    3. `shouldPreCompact(promptIndex: number, totalPrompts: number): boolean` — Returns true if we're at ~80% through the run (promptIndex / totalPrompts >= 0.8) OR every 10th prompt after the 30th prompt. This is a heuristic — PreCompact is cheap so erring on the side of saving too often is fine.
+
+    ACCEPTANCE CRITERIA:
+    - invokePreCompactSave writes a valid compact_snapshot record
+    - restoreCompactedContext formats a readable context recovery block
+    - shouldPreCompact triggers at appropriate intervals
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/hooks/precompact.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-015 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Hook Lifecycle — PreCompact" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/hooks/precompact.ts to stub state.
+
+- id: r1-016
+  name: "Hook Lifecycle — Default 24-Hook Configuration"
+  description: |
+    CONTEXT:
+    FORGE ships with 24 default hooks covering all lifecycle events. These hooks are the nervous system — they connect the learning engine, sync, gates, and context preservation to the execution pipeline.
+
+    TASK:
+    Implement src/forge2/hooks/defaults.ts:
+
+    1. `generateDefaultHooksConfig(projectName: string): HookDefinition[]` — Returns the complete 24-hook default configuration:
+
+    SessionStart (Non-Blocking, Priority 1-3):
+    - sync-pull (P1): action='typescript', script='syncForgeMemory', Pull learning data from master
+    - load-knowledge (P2): action='typescript', script='loadCrossProjectKnowledge', Load governance rules, skills, fix patterns
+    - present-evolutions (P3): action='typescript', script='presentEvolutions', Show pending proposals
+
+    PreToolUse (Priority 10-20):
+    - governance-check (P10, Blocking): action='typescript', script='checkGovernanceRules', Inject matching rules into context
+    - fix-pattern-check (P20, Non-Blocking): action='typescript', script='checkFixPatterns', Inject known fixes
+
+    PostToolUse (Priority 10-99):
+    - tsc-check (P10, Blocking): action='npx tsc --noEmit', condition file_pattern='*.ts,*.tsx', 30s timeout
+    - eslint-check (P20, Blocking): action='npx eslint {{file}}', condition file_pattern='*.ts,*.tsx', exclude '*.config.*,*.d.ts', 30s timeout
+    - schema-drift-inline (P30, Blocking): action='typescript', script='checkSchemaDrift', condition task_types=['CRUD','INTEGRATION']
+    - score-prompt (P99, Non-Blocking): action='typescript', script='scorePromptExecution', Always last
+
+    PreCommit (Blocking, Priority 1-20):
+    - gitleaks-scan (P1): action='gitleaks detect --source={{project_path}} --report-format json', 60s timeout
+    - schema-drift-commit (P10): action='typescript', script='fullSchemaDriftCheck'
+    - governance-updated (P20): action='typescript', script='verifyGovernanceUpdated'
+
+    PreCompact (Non-Blocking, Priority 1):
+    - precompact-save (P1): action='typescript', script='invokePreCompactSave'
+
+    PreDeploy (Blocking, Priority 1-20):
+    - sentinel-ring3 (P1): action='typescript', script='invokeSentinelRing3', 600s timeout
+    - six-laws-check (P10): action='typescript', script='checkSixLaws'
+    - env-parity (P20): action='typescript', script='invokeEnvParityCheck'
+
+    PostDeploy (Non-Blocking, Priority 1-20):
+    - health-check (P1): action='curl -sf {{deploy_url}} > /dev/null', 30s timeout
+    - readme-update (P10): action='typescript', script='updateReadmeFromGovernance'
+    - deploy-summary (P20): action='typescript', script='logDeploySummary'
+
+    SessionEnd (Non-Blocking, Priority 1-40):
+    - sync-push (P1): action='typescript', script='syncForgeMemory'
+    - update-weights (P10): action='typescript', script='updateDecisionWeights'
+    - analyze-evolutions (P20): action='typescript', script='analyzeForEvolutions'
+    - generate-handoff (P30): action='typescript', script='exportSessionHandoff'
+    - git-push-end (P40): action='git add -A && git commit -m "FORGE-SESSION-END" && git push', 60s timeout
+
+    2. `writeDefaultHooksConfig(projectPath: string, projectName: string): void` — Generates and writes the default hooks to .forge/hooks.json.
+
+    ACCEPTANCE CRITERIA:
+    - generateDefaultHooksConfig returns exactly 24 hooks
+    - All hooks have valid event, priority, timeout, and blocking settings
+    - writeDefaultHooksConfig creates a valid .forge/hooks.json file
+    - The generated JSON parses correctly via parseHooksConfig (from R1-012)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/hooks/defaults.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    node -e "
+      const d = require('./dist/forge2/hooks/defaults');
+      const hooks = d.generateDefaultHooksConfig('test-project');
+      if (hooks.length !== 24) { console.error('FAIL: expected 24 hooks, got ' + hooks.length); process.exit(1); }
+      const events = new Set(hooks.map(h => h.event));
+      const required = ['SessionStart','PreToolUse','PostToolUse','PreCommit','PreCompact','PreDeploy','PostDeploy','SessionEnd'];
+      for (const e of required) {
+        if (!events.has(e)) { console.error('FAIL: missing event ' + e); process.exit(1); }
+      }
+      console.log('R1-016 PASS');
+    "
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Hook Lifecycle — Default Hooks" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/hooks/defaults.ts to stub state.
+
+- id: r1-017
+  name: "Hook Lifecycle — Hook Evolution Analysis"
+  description: |
+    CONTEXT:
+    The hook system evolves over time through the learning engine. At SessionEnd, hook performance is analyzed. Hooks that fail too often get timeout adjustments. Hooks that never fail get disable proposals. New hooks can be created from error pattern elevation.
+
+    TASK:
+    Implement src/forge2/hooks/evolution.ts:
+
+    1. `analyzeHookPerformance(buildId: string, dbPath?: string): PendingEvolution[]` — Queries hook_execution_log for this build. Generates evolution proposals for:
+    - Hooks failing >30% of executions → propose timeout increase or threshold adjustment
+    - Hooks averaging >10 seconds → propose moving to less frequent ring
+    - Hooks with zero failures over 100+ executions → propose disabling to reduce latency
+    - Error patterns at 3+ occurrences without a hook → propose new PreToolUse hook
+
+    Each proposal includes: evolution_type, proposed_change, change_detail (JSON with specific values), evidence (statistics from the build), estimated_impact, confidence score (0.0-1.0).
+
+    2. `getHookStats(buildId: string, dbPath?: string): Array<{ hookName: string, executions: number, passes: number, fails: number, timeouts: number, avgDurationMs: number }>` — Aggregated statistics per hook for the build.
+
+    ACCEPTANCE CRITERIA:
+    - analyzeHookPerformance generates appropriate proposals based on data
+    - Proposals have meaningful confidence scores
+    - getHookStats returns correct aggregations
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    src/forge2/hooks/evolution.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-017 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Hook Lifecycle — Evolution Analysis" to COMPLETED, overall Hook Lifecycle module to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert src/forge2/hooks/evolution.ts to stub state.
+
+- id: r1-018
+  name: "Integration — Wire Learning → Core → Hooks Lifecycle"
+  description: |
+    CONTEXT:
+    All individual modules are built (Learning Engine, Core Pipeline, Sync, Hooks). Now they need to be wired together into the complete run lifecycle. The run start sequence, per-prompt sequence, and run end sequence must connect all modules.
+
+    TASK:
+    Create src/forge2/lifecycle.ts — the integration layer that orchestrates all modules:
+
+    1. `invokeRunStart(options: ForgeOptions, dbPath?: string): Promise<{ buildId: string, sessionState: any, knowledge: any }>` — Run start sequence:
+    a. Validate project path
+    b. Generate build ID
+    c. Initialize learning database if needed
+    d. Check for crash recovery (stale lock file — stub for now, full impl in Run 2)
+    e. Create lock file
+    f. Fire SessionStart hooks (sync pull, load knowledge, present evolutions)
+    g. Check for previous session state (stub for now)
+    h. Return build ID, knowledge loaded
+
+    2. `invokePromptExecution(prompt: { id: string, name: string, description: string }, context: PromptExecutionContext, dbPath?: string): Promise<PromptExecutionResult>` — Per-prompt sequence:
+    a. Create git snapshot
+    b. Fire PreToolUse hooks (governance check, fix pattern check)
+    c. Execute prompt via child_process: `claude -p --dangerously-skip-permissions` with prompt.description as input
+    d. Fire PostToolUse hooks (tsc, eslint, score prompt)
+    e. If gates fail: invoke retry logic (up to maxRetries)
+    f. Create structured git commit
+    g. Return result (passed/failed, retries, output)
+
+    PromptExecutionContext interface:
+    ```typescript
+    interface PromptExecutionContext {
+      projectPath: string;
+      buildId: string;
+      phase: string;
+      taskType: string;
+      techStackTags: string[];
+      promptNumber: number;
+      totalPrompts: number;
+      maxRetries: number;
+    }
+    ```
+
+    3. `invokeRunEnd(buildId: string, runData: BuildRunData, options: ForgeOptions, dbPath?: string): Promise<void>` — Run end sequence:
+    a. Fire SessionEnd hooks (sync push, update weights, analyze evolutions, generate handoff)
+    b. Generate build report (md + json)
+    c. Remove lock file
+    d. Print run summary to console
+
+    4. `executeQueue(queuePath: string, options: ForgeOptions, dbPath?: string): Promise<BuildRunData>` — Main queue executor:
+    a. Parse queue.yaml via js-yaml
+    b. Call invokeRunStart
+    c. For each prompt in queue: call invokePromptExecution
+    d. Call invokeRunEnd
+    e. Return complete run data
+
+    CRITICAL: This is the glue that makes FORGE work. Every module call must be properly error-handled. A crash during any step must not leave orphaned lock files or unsaved state.
+
+    ACCEPTANCE CRITERIA:
+    - executeQueue reads queue.yaml, processes each prompt, and produces a build report
+    - invokeRunStart fires all SessionStart hooks in order
+    - invokePromptExecution executes prompts with pre/post hooks and retry logic
+    - invokeRunEnd fires all SessionEnd hooks and generates reports
+    - Lock file is always cleaned up (even on error)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/forge2/lifecycle.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-018 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Integration — Lifecycle Wiring" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, delete src/forge2/lifecycle.ts.
+
+- id: r1-019
+  name: "Testing — Vitest Test Suite for Learning Engine"
+  description: |
+    CONTEXT:
+    All core modules are built and wired. Now create comprehensive tests to verify the foundation works correctly. Tests use Vitest and operate against temporary SQLite databases.
+
+    TASK:
+    1. Install vitest as a dev dependency if not present.
+    2. Create vitest.config.ts at project root if not present.
+    3. Create test files:
+
+    tests/forge2/learning/database.test.ts:
+    - Test initializeForgeMemory creates all 14 tables
+    - Test idempotency (calling twice doesn't error)
+    - Test getMachineId returns consistent 16-char hex
+    - Test getConnection returns working database
+
+    tests/forge2/learning/queries.test.ts:
+    - Test saveToForgeMemory inserts with auto-generated id and machine_id
+    - Test getForgeMemory returns empty array for no matches
+    - Test getForgeMemory with WHERE clause filters correctly
+    - Test savePromptScore writes valid record
+    - Test getBestPromptTemplates aggregates correctly
+    - Test registerError creates new entry and increments existing
+    - Test getGovernanceRules filters by active + scope + tech stack
+
+    tests/forge2/learning/fingerprint.test.ts:
+    - Test same error in different files → same fingerprint
+    - Test different errors → different fingerprints
+    - Test fingerprint is 32 hex chars
+    - Test generalizeFilePath wildcards dynamic segments
+    - Test generalizeErrorMessage replaces identifiers
+
+    tests/forge2/hooks/conditions.test.ts:
+    - Test matchGlob with various patterns
+    - Test testHookConditions with file_pattern
+    - Test testHookConditions with exclude_pattern
+    - Test testHookConditions with null conditions (always fires)
+    - Test resolveHookTemplates replaces all variables
+    - Test resolveHookTemplates handles undefined values
+
+    Each test file must use a temporary database created in beforeEach and cleaned up in afterEach. No tests should share state.
+
+    ACCEPTANCE CRITERIA:
+    - All test files exist and contain real test cases (not empty describes)
+    - npx vitest run passes with 0 failures
+    - Each test file has at least 4 test cases
+    - Tests use temporary databases (no shared state)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    tests/forge2/learning/database.test.ts
+    tests/forge2/learning/queries.test.ts
+    tests/forge2/learning/fingerprint.test.ts
+    tests/forge2/hooks/conditions.test.ts
+    vitest.config.ts (if not exists)
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    npx vitest run --reporter=verbose 2>&1 | tail -20
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Testing — Learning Engine Tests" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, remove test files (not source files).
+
+- id: r1-020
+  name: "Testing — Vitest Test Suite for Core and Hooks"
+  description: |
+    CONTEXT:
+    Continue building the test suite for the remaining foundation modules.
+
+    TASK:
+    Create test files:
+
+    tests/forge2/core/gates.test.ts:
+    - Test invokeGate runs a command and returns result
+    - Test invokeGate handles timeout
+    - Test invokeAllGates short-circuits on blocking failure
+    - Test getDefaultGates returns appropriate gates per phase
+
+    tests/forge2/core/git.test.ts:
+    - Test createGitSnapshot creates a tag (use a temp git repo)
+    - Test rollbackToSnapshot resets to tag
+    - Test createStructuredCommit uses correct format
+    - Test isGitRepo detects .git directory
+
+    tests/forge2/hooks/parser.test.ts:
+    - Test parseHooksConfig reads valid file
+    - Test parseHooksConfig handles missing file
+    - Test parseHooksConfig handles malformed JSON
+    - Test validateHookDefinition rejects invalid event types
+    - Test validateHookDefinition rejects out-of-range timeouts
+
+    tests/forge2/hooks/defaults.test.ts:
+    - Test generateDefaultHooksConfig returns 24 hooks
+    - Test all required events are covered
+    - Test priorities are unique within each event
+    - Test all hooks have valid timeout_seconds
+
+    tests/forge2/sync/lock.test.ts:
+    - Test acquireSyncLock creates lock file
+    - Test acquireSyncLock detects existing lock
+    - Test releaseSyncLock removes file
+    - Test isLockStale with fresh and old locks
+
+    ACCEPTANCE CRITERIA:
+    - All test files exist with real test cases
+    - npx vitest run passes with 0 failures
+    - Each test file has at least 3 test cases
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    tests/forge2/core/gates.test.ts
+    tests/forge2/core/git.test.ts
+    tests/forge2/hooks/parser.test.ts
+    tests/forge2/hooks/defaults.test.ts
+    tests/forge2/sync/lock.test.ts
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    npx vitest run --reporter=verbose 2>&1 | tail -30
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "Testing — Core and Hooks Tests" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, remove test files.
+
+- id: r1-021
+  name: "CLI Integration — FORGE 2.0 Command Registration"
+  description: |
+    CONTEXT:
+    FORGE 2.0's modules need to be accessible via the existing FORGE CLI. The user runs commands like `forge execute`, `forge retrofit`, `forge scout`. These need to route to the new FORGE 2.0 modules.
+
+    TASK:
+    1. Audit the existing FORGE 1.0 CLI entry point. Find how commands are currently routed (look at the main entry file, package.json bin field, etc.).
+    2. Add FORGE 2.0 commands to the existing CLI without breaking FORGE 1.0 functionality:
+    - `forge execute` → executeQueue from lifecycle.ts
+    - `forge retrofit` → stub (logs "RETROFIT not yet implemented — Run 2")
+    - `forge scout` → stub (logs "SCOUT not yet implemented — Run 5")
+    - `forge architect` → stub (logs "ARCHITECT not yet implemented — Run 5")
+    - `forge compose` → stub (logs "COMPOSE not yet implemented — Run 4")
+    - `forge sentinel` → stub (logs "SENTINEL not yet implemented — Run 3")
+    - `forge deploy` → stub (logs "DEPLOY not yet implemented — Run 5")
+    3. Ensure `forge execute --project-path <path> --queue <queue.yaml>` reads the queue and executes it via the lifecycle module.
+    4. Add --dry-run flag that loads the queue and prints what would be executed without actually running prompts.
+
+    ACCEPTANCE CRITERIA:
+    - Existing FORGE 1.0 commands still work
+    - New FORGE 2.0 commands are registered and route correctly
+    - `forge execute --dry-run` prints the queue without executing
+    - Stub commands print clear "not yet implemented" messages with run target
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — MODIFY:
+    (Depends on existing CLI structure — audit first, then modify the appropriate entry point)
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    echo "R1-021 compile check passed"
+    ```
+
+    GOVERNANCE:
+    Update STATE_OF_THE_BUILD.md: Set "CLI Integration" to COMPLETED.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    On failure, revert CLI changes only (do not revert module files).
+
+- id: r1-022
+  name: "Governance — Full Codebase Audit and Document Update"
+  description: |
+    CONTEXT:
+    Run 1 is complete. All foundation modules are built: Learning Engine (database, queries, fingerprinting, learning loops), Cross-Machine Sync, Core Pipeline (entry point, gates, retry, git, reports), Hook Lifecycle (parser, engine, conditions, precompact, defaults, evolution), Lifecycle Integration, Tests, and CLI Integration.
+
+    TASK:
+    Perform a complete codebase audit and update ALL governance documents:
+
+    1. Run `find src/forge2 -name "*.ts" | sort` to list all source files.
+    2. Run `npx tsc --noEmit` to verify zero compile errors.
+    3. Run `npx vitest run` to verify all tests pass.
+    4. Count total lines of code: `find src/forge2 -name "*.ts" -exec wc -l {} + | tail -1`
+    5. Count total test files: `find tests/forge2 -name "*.test.ts" | wc -l`
+
+    6. Update STATE_OF_THE_BUILD.md:
+    - Set Run 1 status to COMPLETED
+    - Update all module statuses to their actual state
+    - Update completion tracking: Run 1: 22/22 prompts complete (100%)
+    - Note what's ready for Run 2
+
+    7. Update SESSION_STATE.md:
+    - Set Current Run Status to completed
+    - Set Phase to POST-BUILD
+    - Update all execution counts
+    - Set Next Action to "Begin Run 2: RETROFIT SCAN + Session Orchestration"
+    - Update Environment Status from actual checks
+
+    8. Create CHANGELOG-RUN1.md documenting what was built:
+    - Every module with its functions
+    - Test coverage summary
+    - Dependencies added
+    - Architecture decisions made (Node.js/TypeScript over PowerShell)
+
+    ACCEPTANCE CRITERIA:
+    - npx tsc --noEmit passes with 0 errors
+    - npx vitest run passes with 0 failures
+    - STATE_OF_THE_BUILD.md reflects actual codebase state
+    - SESSION_STATE.md reflects actual session state
+    - CHANGELOG-RUN1.md exists with complete run summary
+    - All module statuses are accurate (not assumed — verified from actual files)
+
+    FILE MANIFEST — MODIFY:
+    STATE_OF_THE_BUILD.md
+    SESSION_STATE.md
+    — CREATE:
+    CHANGELOG-RUN1.md
+
+    VERIFICATION:
+    ```bash
+    npx tsc --noEmit
+    npx vitest run
+    cat STATE_OF_THE_BUILD.md | head -20
+    test -f CHANGELOG-RUN1.md && echo "Changelog exists" || echo "FAIL: no changelog"
+    ```
+
+    GOVERNANCE:
+    This IS the governance update prompt. Verify everything from a live codebase audit.
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+    ROLLBACK:
+    Not applicable — this is a documentation-only prompt.

@@ -1,0 +1,192 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-12: LOAD & CONCURRENCY  (evidence-standard)
+# depends_on: pt-03, pt-09. Runs last among tests.
+#
+# BRANCH-ISOLATED: this phase creates and runs against a REAL
+# Supabase branch (SUPABASE_ACCESS_TOKEN is now provided in the
+# FORGE environment; branching is confirmed enabled on the
+# benavora project). Load is generated against the BRANCH copy,
+# never production - Faith Foundation's live data is never the
+# load target. The branch is created at the start and TORN DOWN
+# at the end.
+#
+# Evidence: load-run metrics, memory-over-time capture, pool/
+# limit behavior logs on disk in test-evidence/pt-12/. Prose
+# fails the gate. HALTS at end for review. ASCII only.
+# ============================================================
+
+prompts:
+
+  - id: pt12-001
+    phase: build
+    description: "Preflight + create the load-test branch"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. Confirm PT-00/03/09 artifacts. Create test-evidence\pt-12\.
+      2. Confirm SUPABASE_ACCESS_TOKEN is present in the environment and
+         branching works: run `supabase branches list --project-ref
+         vbjplpquqxxfbpazyalt`. Then CREATE a dedicated load-test branch
+         (supabase branches create, with data or seeded as appropriate).
+         Capture the branch ID and its connection details to
+         test-evidence\pt-12\branch.txt. CRITICAL: verify the load target
+         host is the BRANCH, not the production ref - assert this in the
+         verifier. If the branch cannot be created, HALT (do NOT load-test
+         production).
+      3. Seed the branch with a realistic data volume for load (or confirm
+         the branch copied prod data). Record the row counts.
+      4. Create scripts\audit\verify-pt12-001.mjs: fails unless branch.txt
+         shows a real branch ID whose host is NOT the production ref, and
+         records the seeded volume. HARD FAIL if the target is prod.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-12: load-test branch created + verified non-prod"
+      6. Run: node scripts/audit/verify-pt12-001.mjs
+    expected_outputs:
+      - test-evidence/pt-12/branch.txt
+      - scripts/audit/verify-pt12-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt12-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt12-002
+    phase: build
+    description: "Concurrent-user load simulation against the branch"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      Against the BRANCH only (per branch.txt):
+      1. Simulate realistic concurrent users hitting the core read+write
+         paths (dashboard load, discovery, pipeline updates, draft
+         generation). Ramp concurrency in steps; at each level capture
+         latency percentiles (p50/p95/p99), error rate, and throughput.
+      2. Record where latency/error-rate degrades unacceptably (the
+         breaking point). Write test-evidence\pt-12\load-results.json with
+         the per-concurrency-level metrics. A breaking point below a
+         reasonable target for the current infra tier is a finding.
+      3. Create scripts\audit\verify-pt12-002.mjs: fails unless
+         load-results.json records multiple concurrency levels each with
+         latency percentiles and error rate.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-12: concurrent-user load simulation"
+      5. Run: node scripts/audit/verify-pt12-002.mjs
+    expected_outputs:
+      - test-evidence/pt-12/load-results.json
+      - scripts/audit/verify-pt12-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt12-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt12-003
+    phase: build
+    description: "Sustained soak + memory-growth tracking (worker + Next server)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      Against the branch:
+      1. Run a sustained soak (steady load over an extended window) while
+         sampling memory of the Next server and the worker at intervals.
+         Assert memory is flat, not monotonically climbing (a climb = leak).
+      2. Capture the memory-over-time series to
+         test-evidence\pt-12\soak-memory.json. A leak is a finding (P1 -
+         it takes prod down over time).
+      3. Create scripts\audit\verify-pt12-003.mjs: fails unless
+         soak-memory.json records a time series for both processes with a
+         flat-vs-climbing verdict.
+      4. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-12: soak + memory-growth tracking"
+      5. Run: node scripts/audit/verify-pt12-003.mjs
+    expected_outputs:
+      - test-evidence/pt-12/soak-memory.json
+      - scripts/audit/verify-pt12-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt12-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt12-004
+    phase: build
+    description: "DB connection-pool + rate-limit behavior under contention"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      Against the branch:
+      1. Drive enough concurrency to stress the DB connection pool; capture
+         pool exhaustion behavior (does it queue gracefully, or error?).
+      2. Exercise the rate limiter under contention (ties to the known
+         rate-limiter finding from history); confirm it limits correctly
+         without false-blocking legitimate traffic.
+      3. Write test-evidence\pt-12\pool-ratelimit.json. Pool exhaustion
+         that errors instead of queueing, or a rate limiter that fails
+         open/closed incorrectly, is a finding.
+      4. Create scripts\audit\verify-pt12-004.mjs: fails unless the JSON
+         records pool behavior + rate-limit behavior under contention.
+      5. Governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-12: connection-pool + rate-limit under load"
+      6. Run: node scripts/audit/verify-pt12-004.mjs
+    expected_outputs:
+      - test-evidence/pt-12/pool-ratelimit.json
+      - scripts/audit/verify-pt12-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt12-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt12-005
+    phase: build
+    description: "Tear down the branch + PHASE 12 summary + register + HALT"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+      1. TEAR DOWN the load-test branch (supabase branches delete) - do not
+         leave it running/billing. Confirm deletion, capture to
+         test-evidence\pt-12\teardown.txt.
+      2. Write test-evidence\pt-12\PHASE-12-SUMMARY.md: breaking point,
+         latency percentiles at target load, memory verdict (leak/flat),
+         pool + rate-limit behavior. Every number cites its evidence file.
+      3. Confirm findings in WIRING_GAP_REGISTER.md (continue WGR-###).
+      4. Write test-evidence\pt-12\REVIEW-PACK.md: can the platform handle
+         realistic concurrent load; the breaking point; any leak; highest-
+         severity. Feeds PT-15 readiness.
+      5. Governance docs. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md
+         SESSION_STATE.md
+         Commit: "audit PT-12 COMPLETE: load + concurrency, branch torn down, review pack ready"; Push.
+      6. Create scripts\audit\verify-pt12-005.mjs: fails unless teardown.txt
+         confirms branch deletion AND summary + review pack exist non-empty
+         AND register grew.
+      7. Run: node scripts/audit/verify-pt12-005.mjs
+    expected_outputs:
+      - test-evidence/pt-12/teardown.txt
+      - test-evidence/pt-12/PHASE-12-SUMMARY.md
+      - test-evidence/pt-12/REVIEW-PACK.md
+      - scripts/audit/verify-pt12-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt12-005.mjs"
+    max_retries: 2
+    on_fail: halt

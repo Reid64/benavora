@@ -1,0 +1,591 @@
+# FORGE Enhancement Queue — Run 1: Learning Engine + Session Orchestration
+# Executed by FORGE 1.0 via: claude -p --dangerously-skip-permissions
+# Working directory: C:\Users\manag\Documents\forge-2
+# This queue ENHANCES the existing codebase. It does NOT replace or rebuild.
+# Build ID: forge2-enhance-run1
+
+- id: r1-001
+  name: "Codebase Audit and Enhancement Plan"
+  description: |
+    You are enhancing an existing Node.js/TypeScript CLI tool called FORGE located at C:\Users\manag\Documents\forge-2. Do NOT delete, replace, or rebuild any existing files. You are ADDING capabilities.
+
+    TASK:
+    1. Read and catalog every file in src/ (excluding node_modules):
+       - Run: find src -name "*.ts" | sort
+       - For each file, read the first 20 lines to understand its purpose
+    2. Read package.json to understand dependencies
+    3. Read tsconfig.json to understand compilation settings
+    4. Read src/cli/index.ts to understand how CLI commands are routed
+    5. Read src/memory/client.ts and src/memory/index.ts to understand the current memory layer
+    6. Read src/engine/hook-manager.ts to understand the current hook system
+    7. Read src/phases/phase3-executor.ts to understand the current execution engine
+
+    Create a file at .forge/ENHANCEMENT_AUDIT.md with:
+    - Complete file inventory (path, purpose, line count)
+    - Current capabilities (what works today)
+    - Enhancement gaps (what the specs require that doesn't exist yet)
+    - Dependency analysis (what new npm packages are needed)
+    - Risk areas (what existing code needs modification vs what's purely additive)
+
+    The key enhancements we will be adding across upcoming prompts:
+    a. Local SQLite learning engine (better-sqlite3) — operates alongside existing Supabase memory
+    b. Error fingerprinting algorithm
+    c. Five learning loops (prompt scoring, fix patterns, decision weighting, cross-project knowledge, self-modification)
+    d. Cross-machine sync protocol for SQLite
+    e. Enhanced hook system with 24 default hooks, conditions, templates, PreCompact
+    f. Session orchestration (state serialization, build fingerprinting, resumption, crash recovery)
+    g. RETROFIT pipeline (SCAN, DIAGNOSE, RECONCILE, QUEUE)
+    h. Adversarial review system
+    i. Sentinel 4-ring organization for existing tools
+
+    ACCEPTANCE CRITERIA:
+    - .forge/ENHANCEMENT_AUDIT.md exists with all sections filled from actual file reads
+    - No existing files were modified or deleted
+    - The audit reflects what ACTUALLY exists, not assumptions
+
+    FILE MANIFEST — CREATE:
+    .forge/ENHANCEMENT_AUDIT.md
+
+    VERIFICATION:
+    npx tsc --noEmit
+    test -f .forge/ENHANCEMENT_AUDIT.md && echo "Audit exists" || echo "FAIL"
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-002
+  name: "Install SQLite and Create Learning Database Module"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2. The existing memory layer uses Supabase (src/memory/). You are ADDING a local SQLite learning engine that operates alongside it. Do NOT modify or remove the existing Supabase memory layer.
+
+    TASK:
+    1. Install dependencies:
+       npm install better-sqlite3
+       npm install -D @types/better-sqlite3
+
+    2. Create src/learning/database.ts:
+       - getForgeDbPath(): string — Returns path to ~/.forge/forge_memory.db. Creates ~/.forge/ directory if needed.
+       - getConnection(dbPath?: string): Database — Returns better-sqlite3 Database instance. Sets WAL mode. Sets busy_timeout 5000ms.
+       - initializeForgeMemory(dbPath?: string): void — Creates ALL 14 tables below with IF NOT EXISTS. Creates all indexes. Seeds forge_meta. Must be idempotent.
+       - getMachineId(): string — SHA-256 of hostname + first MAC address. First 16 hex chars. Cached in forge_meta after first call.
+
+    3. The complete 14-table schema to create (execute every statement):
+
+    forge_meta: key TEXT PRIMARY KEY, value TEXT NOT NULL.
+    prompt_scores: id TEXT PK, prompt_template_hash TEXT, task_type TEXT CHECK IN (SCAFFOLD,CRUD,INTEGRATION,AI_PIPELINE,CONFIG,TEST,FIX), tech_stack_tags TEXT DEFAULT '[]', first_pass_success INTEGER CHECK IN (0,1), retry_count INTEGER DEFAULT 0, tokens_consumed INTEGER DEFAULT 0, gate_pass_rate REAL DEFAULT 0.0, drift_score REAL DEFAULT 0.0, project_name TEXT, build_id TEXT, machine_id TEXT, created_at TEXT DEFAULT datetime('now'). Indexes on task_type, template_hash, project, created_at.
+    fix_patterns: id TEXT PK, error_fingerprint TEXT UNIQUE, error_message TEXT, error_category TEXT CHECK IN (COMPILE,RUNTIME,TEST,LINT,SECURITY,SCHEMA,DEPLOY), file_path_pattern TEXT, fix_diff TEXT, fix_description TEXT, fix_files_modified TEXT DEFAULT '[]', tech_stack_tags TEXT DEFAULT '[]', occurrence_count INTEGER DEFAULT 1, success_rate REAL DEFAULT 0.0, times_fix_applied INTEGER DEFAULT 0, times_fix_succeeded INTEGER DEFAULT 0, auto_governance_rule TEXT, governance_rule_id TEXT, last_seen TEXT DEFAULT datetime('now'), machine_id TEXT, created_at TEXT DEFAULT datetime('now'). Indexes on fingerprint, category, stack, count.
+    decision_weights: id TEXT PK, decision_type TEXT, option_chosen TEXT, downstream_error_rate REAL DEFAULT 0.0, downstream_retry_rate REAL DEFAULT 0.0, downstream_prompts INTEGER DEFAULT 0, downstream_errors INTEGER DEFAULT 0, downstream_retries INTEGER DEFAULT 0, sample_size INTEGER DEFAULT 1, project_name TEXT, build_id TEXT, machine_id TEXT, created_at TEXT. Indexes on type+option, error_rate.
+    governance_rules: id TEXT PK, rule_text TEXT, rule_short_name TEXT, source TEXT CHECK IN (MANUAL,AUTO_ELEVATED,INSTINCT,RETROFIT), source_error_fingerprint TEXT, tech_stack_tags TEXT DEFAULT '[]', scope TEXT CHECK IN (GLOBAL,PROJECT_SPECIFIC), project_name TEXT, active INTEGER DEFAULT 1, enforcement_count INTEGER DEFAULT 0, last_enforced TEXT, machine_id TEXT, created_at TEXT. Indexes on active+scope, stack.
+    pending_evolutions: id TEXT PK, evolution_type TEXT CHECK IN (HOOK,TEMPLATE,RULE,THRESHOLD,CONFIG,GATE), proposed_change TEXT, change_detail TEXT, evidence TEXT, estimated_impact TEXT, confidence REAL CHECK 0.0-1.0, status TEXT DEFAULT 'PENDING' CHECK IN (PENDING,APPROVED,REJECTED,SUPERSEDED), reviewed_at TEXT, review_note TEXT, machine_id TEXT, created_at TEXT. Index on status.
+    build_outcomes: id TEXT PK, project_name TEXT, mode TEXT CHECK IN (GREENFIELD,RETROFIT), start_time TEXT, end_time TEXT, end_reason TEXT CHECK IN (COMPLETED,PAUSED,FAILED,INTERRUPTED) OR NULL, total_prompts_planned INTEGER DEFAULT 0, total_prompts_executed INTEGER DEFAULT 0, prompts_passed INTEGER DEFAULT 0, prompts_retried INTEGER DEFAULT 0, prompts_failed INTEGER DEFAULT 0, total_tokens INTEGER DEFAULT 0, architecture_decisions TEXT DEFAULT '[]', maturity_stage TEXT, first_pass_rate REAL, machine_id TEXT, created_at TEXT. Indexes on project, created_at.
+    skill_library: id TEXT PK, skill_name TEXT, content TEXT, tech_stack_tags TEXT DEFAULT '[]', source_error_fingerprint TEXT, source_build_id TEXT, trigger_context TEXT, usage_count INTEGER DEFAULT 0, effectiveness_rate REAL DEFAULT 0.0, times_injected INTEGER DEFAULT 0, times_prevented_error INTEGER DEFAULT 0, machine_id TEXT, created_at TEXT. Indexes on stack, fingerprint.
+    reconcile_decisions: id TEXT PK, project_name TEXT, feature_id TEXT, feature_name TEXT, decision TEXT CHECK IN (BUILD,DEFER,ABANDON,APPROVED,SKIPPED,FIX,IGNORE,INJECT,SKIP), category TEXT, severity TEXT, rationale TEXT, machine_id TEXT, created_at TEXT. Index on project+created_at.
+    scan_reports: id TEXT PK, project_name TEXT, scan_scope TEXT CHECK IN (A,B,C), critical_count INTEGER DEFAULT 0, warn_count INTEGER DEFAULT 0, info_count INTEGER DEFAULT 0, broken_imports INTEGER DEFAULT 0, dead_files INTEGER DEFAULT 0, schema_drift INTEGER DEFAULT 0, tsc_errors INTEGER DEFAULT 0, test_pass_rate REAL, report_json TEXT, machine_id TEXT, created_at TEXT. Index on project+created_at.
+    hook_execution_log: id TEXT PK, hook_name TEXT, event TEXT, status TEXT CHECK IN (PASS,FAIL,TIMEOUT,SKIP), duration_ms INTEGER, output TEXT, build_id TEXT, prompt_number INTEGER, machine_id TEXT, created_at TEXT. Indexes on build_id, hook_name+status, duration_ms.
+    compact_snapshots: id TEXT PK, build_id TEXT, prompt_index INTEGER, state_json TEXT, machine_id TEXT, created_at TEXT. Index on build_id+prompt_index.
+    build_fingerprints: id TEXT PK, build_id TEXT, prompt_number INTEGER, fingerprint TEXT, file_count INTEGER, total_size_kb INTEGER, machine_id TEXT, created_at TEXT. Index on build_id+prompt_number.
+    adversary_findings: id TEXT PK, build_id TEXT, phase TEXT, severity TEXT CHECK IN (BLOCKER,SIGNIFICANT,MINOR,DISMISSED), vector TEXT, issue TEXT, fix TEXT, resolution TEXT DEFAULT 'PENDING' CHECK IN (PENDING,FIXED,DISMISSED,DEFERRED), resolved_at TEXT, machine_id TEXT, created_at TEXT. Indexes on build_id, severity.
+
+    ACCEPTANCE CRITERIA:
+    - better-sqlite3 is in package.json dependencies
+    - src/learning/database.ts exports all 4 functions
+    - initializeForgeMemory() creates all 14 tables when called on fresh path
+    - Calling it twice does not error or lose data
+    - getMachineId() returns consistent 16-char hex
+    - npx tsc --noEmit passes with 0 errors
+    - No existing src/memory/ files were modified
+
+    FILE MANIFEST — CREATE:
+    src/learning/database.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+    node --loader ts-paths-esm-loader --import tsx -e "
+      import { initializeForgeMemory, getConnection, getMachineId } from './src/learning/database.js';
+      import path from 'path'; import os from 'os'; import fs from 'fs';
+      const testDb = path.join(os.tmpdir(), 'forge_test_' + Date.now() + '.db');
+      initializeForgeMemory(testDb);
+      const db = getConnection(testDb);
+      const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all();
+      console.log('Tables:', tables.length);
+      if (tables.length < 14) { console.error('FAIL: Expected 14+ tables, got ' + tables.length); process.exit(1); }
+      initializeForgeMemory(testDb);
+      console.log('Idempotency: PASS');
+      const id = getMachineId();
+      if (id.length !== 16) { console.error('FAIL: machine ID length'); process.exit(1); }
+      console.log('Machine ID:', id);
+      console.log('R1-002 PASS');
+      db.close(); fs.unlinkSync(testDb);
+    "
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-003
+  name: "Learning Engine — Query Layer"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2. The SQLite database module exists at src/learning/database.ts (created in R1-002). Now build the query layer that all other modules will use to read/write learning data.
+
+    TASK:
+    Create src/learning/queries.ts with these functions. Import types and functions from ./database.ts. Use the existing project conventions (ESM imports, .js extensions in import paths).
+
+    GENERIC:
+    1. generateId(): string — crypto.randomUUID()
+    2. saveToForgeMemory(table: string, data: Record<string, any>, dbPath?: string): string — Generic insert. Auto-generates UUID id, adds machine_id via getMachineId(), adds created_at as ISO 8601. Validates table name against whitelist. Uses parameterized queries ONLY (never string interpolation in SQL). Returns generated id.
+    3. getForgeMemory(table: string, opts?: { where?: string, params?: any[], orderBy?: string, limit?: number }, dbPath?: string): any[] — Generic SELECT. Returns empty array if no results (never null). Validates table name.
+    4. updateForgeMemory(table: string, id: string, data: Record<string, any>, dbPath?: string): boolean — Generic UPDATE by id.
+
+    PROMPT SCORES:
+    5. savePromptScore(score: object, dbPath?: string): string — Insert prompt execution score.
+    6. getBestPromptTemplates(taskType: string, techStackTags: string[], minSamples?: number, dbPath?: string): array — Aggregate by template hash, ordered by first-pass rate, min 3 samples, top 5.
+
+    FIX PATTERNS:
+    7. getFixPattern(fingerprint: string, dbPath?: string): object|null — Lookup by error fingerprint.
+    8. registerError(error: { errorCode, filePath, errorMessage, errorCategory, techStack }, dbPath?: string): string — Computes fingerprint. If exists, increments occurrence_count + updates last_seen. If new, creates entry.
+    9. registerFix(fingerprint: string, fix: { fixDiff?, fixDescription, filesModified }, dbPath?: string): void — Associates fix with fingerprint. Updates success stats.
+
+    GOVERNANCE RULES:
+    10. getGovernanceRules(techStackTags: string[], projectName?: string, dbPath?: string): array — Active rules matching tech stack (GLOBAL + PROJECT_SPECIFIC). Ordered by enforcement_count desc.
+    11. incrementGovernanceEnforcement(ruleId: string, dbPath?: string): void — Increments count, updates last_enforced.
+
+    DECISIONS & SKILLS:
+    12. getDecisionWeights(decisionType: string, minBuilds?: number, dbPath?: string): array — Aggregate weighted error rates, min 2 builds.
+    13. getRelevantSkills(techStackTags: string[], dbPath?: string): array — Skills matching stack, ordered by effectiveness.
+    14. getPendingEvolutions(dbPath?: string): array — All PENDING, ordered by confidence desc.
+
+    CRITICAL RULES:
+    - NEVER use string interpolation in SQL. Always parameterized queries.
+    - Table name validation via whitelist.
+    - All Get-* functions return empty arrays, never null.
+    - JSON fields stored as strings, parsed on read.
+
+    ACCEPTANCE CRITERIA:
+    - All 14 functions exported and working
+    - saveToForgeMemory auto-generates id and machine_id
+    - getForgeMemory returns empty array for no matches
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/learning/queries.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-004
+  name: "Learning Engine — Error Fingerprinting"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    TASK:
+    Create src/learning/fingerprint.ts — the error fingerprinting algorithm that creates deterministic identifiers for error patterns.
+
+    getErrorFingerprint(error: { errorCode: string, filePath: string, errorMessage: string, techStack: string[] }): string
+
+    Algorithm: SHA-256 hash of four pipe-separated components:
+    1. Error code — lowercase, trimmed (e.g., ts2307, no-unused-vars)
+    2. Generalized file path — replace entity-name path segments with * (app/api/storms/route.ts → app/api/*/route.ts). Keep framework dirs intact (app, api, components, src, lib, utils, types, hooks, middleware). Keep filenames intact.
+    3. Error message template — replace quoted strings and app-specific identifiers with * (Module './StormMap' not found → Module '*' not found). Keep structural words.
+    4. Tech stack context — sorted, comma-separated tags
+
+    Return first 32 hex characters of SHA-256 hash.
+
+    Also export:
+    - generalizeFilePath(filePath: string): string
+    - generalizeErrorMessage(message: string): string
+
+    ACCEPTANCE CRITERIA:
+    - Same error pattern in different files → same fingerprint
+    - Different errors → different fingerprints
+    - Fingerprint is exactly 32 hex chars
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/learning/fingerprint.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-005
+  name: "Learning Engine — Five Learning Loops"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    TASK:
+    Create src/learning/loops.ts — implements the five learning loops that make FORGE intelligent.
+
+    LOOP 1 — PROMPT EFFECTIVENESS SCORING (PostToolUse):
+    scorePromptExecution(execution: { templateHash, taskType, techStackTags, firstPassSuccess, retryCount, tokensConsumed, gatePassRate, driftScore, projectName, buildId }, dbPath?): string — Writes to prompt_scores. Returns score id.
+
+    LOOP 2 — FIX PATTERN INDEXING (PostToolUse on error):
+    captureError(error: { errorCode, filePath, errorMessage, errorCategory, techStack }, dbPath?): { fingerprint, isKnown, knownFix? } — Computes fingerprint via getErrorFingerprint. If exists, increments count. If new, creates entry.
+    checkAutoElevation(fingerprint: string, dbPath?): GovernanceRule|null — If occurrence_count >= 3 AND fix exists with success_rate > 0.5, create governance rule proposal.
+
+    LOOP 3 — ARCHITECTURE DECISION WEIGHTING (SessionEnd):
+    updateDecisionWeights(buildId: string, dbPath?): void — For each decision in build, compute downstream error/retry rates from prompt_scores.
+
+    LOOP 4 — CROSS-PROJECT KNOWLEDGE TRANSFER (SessionStart):
+    loadCrossProjectKnowledge(techStackTags: string[], projectName: string, dbPath?): { rules, skills, fixPatterns, outcomes, evolutions } — Loads all relevant knowledge for this tech stack.
+
+    LOOP 5 — SELF-MODIFICATION WITH GUARDRAILS (SessionEnd):
+    analyzeForEvolutions(buildId: string, dbPath?): PendingEvolution[] — Analyzes completed run. Proposes: threshold adjustments, new rules from 3+ error patterns, template rewrites for <50% pass rate, skill creation for complex fixes. Each with confidence 0.0-1.0.
+    presentEvolutions(dbPath?): PendingEvolution[] — Returns all PENDING, ordered by confidence.
+    applyEvolution(evolutionId: string, approved: boolean, reviewNote?: string, dbPath?): void — Updates status.
+
+    CRITICAL: FORGE evolves configuration and knowledge, NEVER its own source code.
+
+    Import from ./database.ts, ./queries.ts, ./fingerprint.ts using ESM .js import paths.
+
+    ACCEPTANCE CRITERIA:
+    - All 8 functions exported and typed
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/learning/loops.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-006
+  name: "Learning Engine — Cross-Machine Sync"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    TASK:
+    Create src/learning/sync.ts — handles syncing the local SQLite forge_memory.db with a master copy on an 18TB external drive. The protocol is append-only with file locking.
+
+    LOCK MANAGEMENT:
+    acquireSyncLock(lockPath: string, machineId: string, maxWaitMs?: number, retryIntervalMs?: number): boolean — Creates lock file with JSON { machine_id, acquired_at, pid }. If lock exists and < 2 min old, waits and retries. If > 2 min (stale), removes and acquires. Returns true on success.
+    releaseSyncLock(lockPath: string): void — Removes lock file. Always succeeds.
+
+    SYNC PROTOCOL:
+    loadSyncConfig(configPath?: string): SyncConfig — Reads ~/.forge/sync_config.json. Returns defaults if missing.
+    syncForgeMemory(direction: 'pull'|'push', localDbPath: string, masterDbPath: string, machineId: string): { synced: number, tables: string[] } — 
+      PULL: Open read-only connection to master. For each table, SELECT WHERE machine_id != local AND created_at > lastSync. INSERT OR IGNORE into local.
+      PUSH: Acquire lock. For each table, SELECT local WHERE machine_id = local AND created_at > lastSync. INSERT OR IGNORE into master. Release lock in finally block.
+    getLastSyncTimestamp(dbPath: string): string — From forge_meta. Returns epoch if not set.
+    setLastSyncTimestamp(dbPath: string, timestamp: string): void — Updates forge_meta.
+
+    CRITICAL: Lock MUST be released in finally block. All operations INSERT OR IGNORE (append-only). If master path inaccessible, log warning and return { synced: 0, tables: [] }. Never fail a build because external drive isn't mounted.
+
+    ACCEPTANCE CRITERIA:
+    - Lock management works correctly (create, detect stale, release)
+    - Graceful degradation when master path doesn't exist
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/learning/sync.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-007
+  name: "Enhanced Hook System — Conditions, Templates, and Default Configuration"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2. Read the existing src/engine/hook-manager.ts first to understand the current hook system. Then ENHANCE it — do not replace it.
+
+    TASK:
+    1. Read src/engine/hook-manager.ts completely to understand the current hook implementation.
+
+    2. Create src/learning/hooks-enhanced.ts (new file, does not replace hook-manager.ts):
+
+    testHookConditions(hook: HookDefinition, context: HookContext): boolean — Evaluates conditions (AND logic):
+    - file_pattern: comma-separated globs, fires if file matches any
+    - exclude_pattern: comma-separated globs, skips if file matches any
+    - task_types: fires only if context.task_type is in array
+    - min_prompt_number: fires only if context.prompt_number >= value
+    - phases: fires only if context.phase is in array
+    - null conditions = always fires
+
+    resolveHookTemplates(action: string, context: HookContext): string — Replaces {{file}}, {{files}}, {{project_path}}, {{prompt_number}}, {{build_id}}, {{last_commit}}, {{task_type}}, {{phase}} with context values. Undefined = empty string.
+
+    matchGlob(pattern: string, filePath: string): boolean — Simple glob matching (* and **).
+
+    generateDefaultHooksConfig(projectName: string): HookDefinition[] — Returns 24 default hooks:
+    SessionStart (P1-3, non-blocking): sync-pull, load-knowledge, present-evolutions
+    PreToolUse (P10-20): governance-check (blocking), fix-pattern-check (non-blocking)
+    PostToolUse (P10-99): tsc-check (blocking, *.ts/*.tsx), eslint-check (blocking), schema-drift-inline (blocking, CRUD/INTEGRATION only), score-prompt (non-blocking, always last)
+    PreCommit (P1-20, blocking): gitleaks-scan, schema-drift-commit, governance-updated
+    PreCompact (P1, non-blocking): precompact-save
+    PreDeploy (P1-20, blocking): sentinel-ring3, six-laws-check, env-parity
+    PostDeploy (P1-20, non-blocking): health-check, readme-update, deploy-summary
+    SessionEnd (P1-40, non-blocking): sync-push, update-weights, analyze-evolutions, generate-handoff, git-push-end
+
+    3. Create src/learning/precompact.ts:
+
+    invokePreCompactSave(context: { buildId, promptIndex, phase, projectPath, techStackTags, acceptanceCriteria, queueStatus }, dbPath?): string — Saves critical state to compact_snapshots table.
+    restoreCompactedContext(buildId: string, dbPath?): string|null — Reads most recent snapshot, formats as context recovery block.
+    shouldPreCompact(promptIndex: number, totalPrompts: number): boolean — True at 80% through run OR every 10th prompt after 30th.
+
+    Define HookDefinition and HookContext interfaces in the file (or add to existing types if src/types/ has a suitable file).
+
+    ACCEPTANCE CRITERIA:
+    - generateDefaultHooksConfig returns exactly 24 hooks
+    - All hook events are covered
+    - Condition evaluation works correctly
+    - Template resolution replaces all variables
+    - PreCompact save/restore works
+    - Existing hook-manager.ts is NOT modified
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/learning/hooks-enhanced.ts
+    src/learning/precompact.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-008
+  name: "Session Orchestration — State Serialization and Build Fingerprinting"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    TASK:
+    Create src/learning/session.ts — multi-run session management.
+
+    STATE SERIALIZATION (fires at every run end):
+    exportSessionState(params: { projectPath, buildId, lastPromptExecuted, endReason, runStats, queueStatus }, dbPath?): object — Serializes complete state to .forge/session_state.json AND writes summary to build_outcomes table. State includes: build identity, execution position, git state (branch, commit, dirty flag, last FORGE tag), build fingerprint, queue status, active blockers, environment snapshot (node version, platform), run stats (prompts executed/passed/failed, tokens, first-pass rate, duration), learning summary (errors registered, rules enforced, evolutions proposed), files modified this run.
+
+    BUILD FINGERPRINTING:
+    getBuildFingerprint(projectPath: string): string — SHA-256 hash of all project files (excluding node_modules, .next, .git, .forge/session_state, dist, build, coverage). For each file: relativePath|contentHash. Hash the composite. Returns full 64-char hex fingerprint.
+
+    SESSION RESUMPTION:
+    resumeForgeSession(projectPath: string, dbPath?): { canResume: boolean, state?: object, fingerprintMatch?: boolean } — Reads .forge/session_state.json if exists. Computes current fingerprint. Compares to stored fingerprint. Returns resume status.
+
+    CRASH RECOVERY:
+    testCrashRecovery(projectPath: string, dbPath?): { crashed: boolean, recoveryPoint?: object } — Checks for stale .forge/forge_running.lock file (>5 min old). If found, checks compact_snapshots for recovery point.
+    setForgeLock(projectPath: string, buildId: string): void — Creates lock file with { build_id, machine_id, started_at, pid }.
+    removeForgeLock(projectPath: string): void — Removes lock file.
+
+    HANDOFF DOCUMENT:
+    exportSessionHandoff(projectPath: string, sessionState: object): void — Generates .forge/SESSION_HANDOFF.md with sections: Build Summary, Completed This Run, Failed This Run, Active Blockers, Queue Status, Next Run Plan, Environment Notes, Learning Highlights.
+
+    ACCEPTANCE CRITERIA:
+    - exportSessionState writes both JSON file and DB record
+    - getBuildFingerprint produces consistent hash for unchanged project
+    - Crash recovery detects stale lock and finds recovery points
+    - Lock is always cleanable (removeForgeLock never throws)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    src/learning/session.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-009
+  name: "Wire Learning Engine into Existing Executor"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2. The learning engine modules exist (src/learning/). Now wire them into the existing execution pipeline.
+
+    TASK:
+    1. Read src/phases/phase3-executor.ts completely.
+    2. Read src/engine/hook-manager.ts completely.
+    3. Read src/engine/prompt-assembler.ts completely.
+    4. Read src/engine/git-manager.ts completely.
+
+    5. Create src/learning/integration.ts — the bridge between the new learning engine and the existing executor:
+
+    onRunStart(projectPath: string, buildId: string, techStackTags: string[], projectName: string): Promise<{ knowledge: object }> —
+      a. Initialize learning DB if needed
+      b. Check for crash recovery
+      c. Set forge lock
+      d. Sync pull (graceful if no master)
+      e. Load cross-project knowledge
+      f. Present pending evolutions
+      g. Check session resumption
+      Returns loaded knowledge.
+
+    onPromptComplete(result: { promptId, success, retryCount, tokensConsumed, gatePassRate, errorOutput?, buildId, projectName, taskType, techStackTags, templateHash }, dbPath?): void —
+      a. Score prompt execution (Loop 1)
+      b. If failed: capture error + check auto-elevation (Loop 2)
+      c. If fix applied: register fix
+
+    onRunEnd(buildId: string, projectPath: string, runStats: object, dbPath?): Promise<void> —
+      a. Export session state
+      b. Update decision weights (Loop 3)
+      c. Analyze for evolutions (Loop 5)
+      d. Export session handoff
+      e. Sync push (graceful if no master)
+      f. Remove forge lock (in finally block)
+
+    6. Modify src/phases/phase3-executor.ts MINIMALLY to call these integration points:
+      - At the start of execution: call onRunStart
+      - After each prompt completes: call onPromptComplete
+      - At the end of execution: call onRunEnd
+      
+    READ the existing executor code carefully. Find the right insertion points. Add the calls without changing the existing logic flow. If the executor doesn't have clear start/end hooks, add them in the least disruptive way possible.
+
+    ACCEPTANCE CRITERIA:
+    - src/learning/integration.ts exists with all 3 functions
+    - phase3-executor.ts calls the integration points
+    - Existing executor behavior is preserved (learning is additive, not replacing)
+    - If learning DB is unavailable, executor still works (graceful degradation)
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST:
+    CREATE: src/learning/integration.ts
+    MODIFY: src/phases/phase3-executor.ts (minimal changes only)
+
+    VERIFICATION:
+    npx tsc --noEmit
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-010
+  name: "Register Learning Commands in CLI"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    TASK:
+    1. Read src/cli/index.ts completely to understand the existing CLI command structure.
+    2. Read everything in src/cli/commands/ if it exists.
+
+    3. Add new CLI commands for the learning engine WITHOUT modifying existing commands:
+
+    forge learning init — Initializes ~/.forge/forge_memory.db with full schema. Prints table count and path.
+    forge learning status — Shows: DB path, size, table row counts, machine ID, last sync timestamp.
+    forge learning sync pull — Pulls from master (reads sync_config.json for master path).
+    forge learning sync push — Pushes to master.
+    forge learning evolutions — Lists pending evolutions with confidence scores.
+    forge learning rules — Lists active governance rules.
+
+    Use the existing CLI framework (Commander.js based on package.json). Follow the existing patterns for adding commands.
+
+    4. Add a learning init call at the start of the existing build/execute command flow (find it in the CLI) so the learning DB is automatically created on first run.
+
+    ACCEPTANCE CRITERIA:
+    - All 6 new commands are registered and functional
+    - Existing commands still work exactly as before
+    - forge learning init creates the database
+    - forge learning status shows real data
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST:
+    CREATE: src/cli/commands/learning.ts (or similar, following existing patterns)
+    MODIFY: src/cli/index.ts (add learning command group)
+
+    VERIFICATION:
+    npx tsc --noEmit
+    node dist/cli/index.js learning --help 2>&1 || echo "Check command registration"
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-011
+  name: "Tests for Learning Engine"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2.
+
+    TASK:
+    1. Check how existing tests work: read tests/memory.test.ts and package.json test script to understand the testing approach (node --test, vitest, or other).
+    2. Follow the same testing pattern for the new learning engine tests.
+
+    Create tests:
+
+    tests/learning-database.test.ts:
+    - initializeForgeMemory creates all 14 tables
+    - Idempotency (calling twice doesn't error)
+    - getMachineId returns consistent 16-char hex
+    - getConnection returns working database
+
+    tests/learning-queries.test.ts:
+    - saveToForgeMemory inserts with auto-generated id and machine_id
+    - getForgeMemory returns empty array for no matches
+    - getForgeMemory with WHERE filters correctly
+    - registerError creates new entry and increments existing
+    - getGovernanceRules filters by active + scope + tech stack
+
+    tests/learning-fingerprint.test.ts:
+    - Same error in different files → same fingerprint
+    - Different errors → different fingerprints
+    - Fingerprint is exactly 32 hex chars
+    - generalizeFilePath wildcards dynamic segments
+    - generalizeErrorMessage replaces identifiers
+
+    tests/learning-sync.test.ts:
+    - Lock creation and release
+    - Stale lock detection
+    - Graceful degradation when master path doesn't exist
+
+    Each test uses a temporary SQLite database created in setup and cleaned in teardown. No shared state between tests.
+
+    ACCEPTANCE CRITERIA:
+    - All test files exist with real test cases
+    - Tests pass when run with the project's test runner
+    - Each file has at least 3 test cases
+    - npx tsc --noEmit passes with 0 errors
+
+    FILE MANIFEST — CREATE:
+    tests/learning-database.test.ts
+    tests/learning-queries.test.ts
+    tests/learning-fingerprint.test.ts
+    tests/learning-sync.test.ts
+
+    VERIFICATION:
+    npx tsc --noEmit
+    npm test 2>&1 | tail -20
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.
+
+- id: r1-012
+  name: "Governance — Run 1 Final Audit"
+  description: |
+    You are enhancing FORGE at C:\Users\manag\Documents\forge-2. Run 1 is complete.
+
+    TASK:
+    1. Run a complete codebase audit:
+       - find src/learning -name "*.ts" | sort
+       - npx tsc --noEmit
+       - npm test (or whatever the test command is)
+       - Count lines: find src/learning -name "*.ts" -exec wc -l {} + | tail -1
+       - Count test files: find tests -name "learning*.test.ts" | wc -l
+
+    2. Update .forge/ENHANCEMENT_AUDIT.md (created in R1-001):
+       - Mark all learning engine modules as COMPLETED
+       - List all functions created with their file locations
+       - Note any issues or gaps discovered
+
+    3. Update STATE_OF_THE_BUILD.md:
+       - Set "Learning Engine" status to COMPLETED
+       - Set "Cross-Machine Sync" to COMPLETED
+       - Set "Hook Enhancements" to COMPLETED
+       - Set "Session Orchestration" to COMPLETED
+       - Set "CLI Learning Commands" to COMPLETED
+       - Set "Learning Engine Tests" to COMPLETED
+       - Update completion: Run 1: 12/12 (100%)
+       - Set Next: Run 2 — RETROFIT Pipeline
+
+    4. Update SESSION_STATE.md with actual execution data.
+
+    5. Create CHANGELOG-RUN1.md documenting:
+       - Every new file created
+       - Every existing file modified
+       - Every function added
+       - Dependencies added
+       - Architecture decisions (SQLite alongside Supabase, not replacing)
+
+    ACCEPTANCE CRITERIA:
+    - npx tsc --noEmit passes with 0 errors
+    - Tests pass
+    - All governance docs reflect actual codebase state (verified, not assumed)
+    - CHANGELOG-RUN1.md exists
+
+    FILE MANIFEST:
+    MODIFY: .forge/ENHANCEMENT_AUDIT.md, STATE_OF_THE_BUILD.md, SESSION_STATE.md
+    CREATE: CHANGELOG-RUN1.md
+
+    VERIFICATION:
+    npx tsc --noEmit
+    test -f CHANGELOG-RUN1.md && echo "Changelog exists" || echo "FAIL"
+    cat STATE_OF_THE_BUILD.md | head -20
+
+    Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from actual codebase audit.

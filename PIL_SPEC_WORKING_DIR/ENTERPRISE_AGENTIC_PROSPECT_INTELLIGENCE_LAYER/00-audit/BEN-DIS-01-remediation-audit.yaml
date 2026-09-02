@@ -1,0 +1,34 @@
+audit_id: PIL-AUDIT-BEN-DIS-01-REMEDIATION
+specification_id: PIL-AGENT-BEN-DIS-01
+specification_version: "2.0.0"
+agent_name: Individual Prospect Discovery Agent
+shared_contract: Discovery Agent Shared Contract
+shared_contract_version: "2.0.0"
+verdict: SPECIFICATION_REMEDIATED_PENDING_IMPLEMENTATION_EVIDENCE
+claims:
+  agent_specification_remediated: true
+  shared_discovery_contract_remediated: true
+  implementation_completed: false
+  tests_executed: false
+  production_ready: false
+  score_assigned: false
+quality_dimensions:
+  unique_individual_discovery_reasoning_boundary: PASS_SPECIFICATION
+  provisional_candidate_truth_boundary: PASS_SPECIFICATION
+  durable_hypothesis_source_plan_and_replanning_loop: PASS_SPECIFICATION
+  typed_goal_observation_hypothesis_candidate_and_handoff: PASS_SPECIFICATION
+  evidence_provenance_freshness_independence_and_contradiction: PASS_SPECIFICATION
+  identity_safety_dedupe_and_work_fingerprints: PASS_SPECIFICATION
+  deterministic_ranking_gates_and_sensitivity: PASS_SPECIFICATION
+  authority_delegation_depth_three_budgets_and_stopping: PASS_SPECIFICATION
+  persistence_events_recovery_security_and_tenancy: PASS_SPECIFICATION
+  gold_dataset_calibration_load_chaos_and_dr: PASS_SPECIFICATION
+blocking_evidence_remaining:
+  - G0_repository_and_source_capability_discovery
+  - G1_constitutional_conformance_in_code
+  - G2_runtime_contract_conformance
+  - G3_deterministic_gate_and_economic_execution
+  - G4_multi_cycle_hypothesis_replanning_handoff_traces
+  - G5_security_calibration_performance_recovery_and_independent_scorecard
+truthfulness_rule: "No readiness or 95-100 score may be claimed until executed G0-G5 evidence exists."
+next_remediation: BEN-DIS-02

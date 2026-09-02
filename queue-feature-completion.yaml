@@ -1,0 +1,123 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - FEATURE_REGISTRY_v2.md
+  - AUTOAPPLY_ARCHITECTURE_V2.md
+  - WORKER_ARCHITECTURE_v2.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: feat-001
+    phase: feature
+    description: "Wire CaptchaSolver into stealth browser flow"
+    prompt: |
+      Read src/lib/browser/captcha-solver.ts in full. Read src/lib/browser/stealth-browser.ts in full. Read src/lib/browser/form-filler-agent.ts in full.
+      Feature 63: CaptchaSolver must be fully wired into the AutoApply form-filler flow.
+      Find every place where a CAPTCHA could appear during form fill. Add captcha detection before each form submission attempt.
+      Import and instantiate CaptchaSolver in form-filler-agent.ts. On CAPTCHA detection call solver.solve(). On success continue form fill. On failure log and pause for human intervention.
+      Read TWOCAPTCHA_API_KEY from process.env. If missing log warning and skip — do not throw.
+      Wire into the stealth browser session lifecycle: detect on page load, detect on form submit, detect on redirect.
+      Add captcha_solved field to automation_sessions table update on completion.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(63): CaptchaSolver fully wired into stealth browser form-filler flow'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: feat-002
+    phase: feature
+    description: "Implement Follow-Up Sequences worker job"
+    prompt: |
+      Read src/lib/worker/process-followups.ts in full if it exists. Read WORKER_ARCHITECTURE_v2.md. Read supabase/migrations/ for follow_up_sequences schema.
+      Feature 74: Implement the process-followups worker job completely.
+      The job runs nightly at 2AM. It must:
+      1. Query follow_up_sequences where next_send_at <= now() and status='active'
+      2. For each sequence step due: generate personalized email content using Claude API
+      3. Queue the email via Resend API (read RESEND_API_KEY from env)
+      4. Update follow_up_sequences.next_send_at to next scheduled date
+      5. Update follow_up_sequences.current_step_index += 1
+      6. If current_step_index >= total_steps set status='completed'
+      7. Log each action to agent_decisions table
+      Wire into src/lib/worker/scheduler.ts at 2AM nightly slot.
+      Read RESEND_API_KEY from process.env. If missing log warning and skip sending.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(74): Follow-Up Sequences worker job fully implemented'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: feat-003
+    phase: feature
+    description: "Multi-Channel Outreach email and LinkedIn"
+    prompt: |
+      Read src/app/(dashboard)/outreach/page.tsx in full. Read SCHEMA_REGISTRY_v2.md for outreach tables. Read BEHAVIORAL_CONTRACTS.md outreach section.
+      Feature 77: Implement email channel fully. LinkedIn channel as UI-only with instructions (no API needed).
+      Email channel:
+      - Create src/app/api/outreach/send-email/route.ts
+      - Accepts: prospect_id, subject, body, from_name
+      - Uses Resend API to send. Reads RESEND_API_KEY from env.
+      - Logs to outreach_emails table: prospect_id, subject, sent_at, status
+      - Returns success/error
+      Add Send Email button to outreach contact cards on outreach page.
+      Email composer modal: subject line input + body textarea + send button.
+      LinkedIn channel UI: show LinkedIn URL if available on prospect. Button 'Open LinkedIn' that opens URL in new tab. Instructions panel explaining manual outreach process.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(77): multi-channel outreach email via Resend + LinkedIn UI'; git push; npx vercel deploy --prod
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: feat-004
+    phase: feature
+    description: "Grant Probability Engine batch scoring"
+    prompt: |
+      Read src/lib/intelligence/success-probability.ts in full. Read src/lib/intelligence/grant-probability-engine.ts if it exists. Read SCHEMA_REGISTRY_v2.md for opportunities table.
+      Feature 102-105: Implement batch probability scoring for all opportunities.
+      Create scripts/batch-score-opportunities.ts:
+      1. Fetch all opportunities for all organizations where probability_score is null
+      2. For each opportunity call the probability scoring engine
+      3. Update opportunities.probability_score with result
+      4. Update opportunities.probability_factors with JSON breakdown
+      5. Process in batches of 50 with 100ms delay between batches
+      6. Log progress every 50 records
+      Register as pnpm score:opportunities in package.json.
+      Also add probability_score display to opportunity cards in the opportunities page if not already present.
+      Ensure probability_score column exists in opportunities table — check migrations, add if missing.
+      Run pnpm tsc --noEmit. Fix all errors. git add -A; git commit -m 'feat(102-105): batch probability scoring for all opportunities'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: feat-005
+    phase: feature
+    description: "Update governance docs after feature completion"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md and FEATURE_REGISTRY_v2.md.
+      Update FEATURE_REGISTRY_v2.md: set Feature 63 to BUILT, Feature 74 to BUILT, Feature 77 to PARTIAL (email built, LinkedIn UI only), Features 102-105 to BUILT.
+      Update STATE_OF_THE_BUILD.md with current status.
+      Update SESSION_STATE.md.
+      git add -A; git commit -m 'governance: feature completion queue docs update'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

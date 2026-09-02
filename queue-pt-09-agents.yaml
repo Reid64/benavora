@@ -1,0 +1,224 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-09: AGENT ORCHESTRATION AUDIT  (evidence-standard)
+#
+# Phase 09 of the Benavora Enterprise Audit Program.
+# depends_on: pt-08-jobs-queues (agents run ON the job
+# machinery; testing agents before confirming the queue works
+# tests the wrong layer). Command-gate engine + ledger proven.
+#
+# QUESTION THIS PHASE ANSWERS: does each agent AG-01..AG-43
+# actually DO something - trigger fires, real rows written,
+# failures surfaced not swallowed? This settles every
+# "BUILT - UNVERIFIED" tier in the feature registry with real
+# per-agent row-delta evidence, not a status claim. This is the
+# phase most exposed to the .Handle false-pass damage: agents
+# previously marked working were gated by the blind checker.
+#
+# ENVIRONMENT:
+# - Reading the agent registry, trigger wiring, and past
+#   agent_runs rows: READ-ONLY prod - safe.
+# - TRIGGERING agents to observe row-writes: BRANCH / LOCAL, or
+#   a carefully-scoped trigger against a dedicated test org that
+#   is NOT Faith Foundation's live tenant. Agents that would
+#   send real email / make real external writes run in a
+#   dry-run/simulated mode or are recorded PENDING-SCOPE.
+#   NEVER fire an agent that mutates another tenant or sends
+#   real outbound comms against production.
+#
+# EVIDENCE STANDARD, per agent: table name, before-count,
+# after-count, a sample written row, the trigger invocation log,
+# and any surfaced error. "Wired" is not "works" - a call site
+# with zero rows written is a finding, not a pass. ASCII only.
+#
+# Explicitly re-tests the known-suspect agents: the ones blocked
+# on the rotated API key, the unwired learning aggregator, the
+# zero-row ROI optimizer, and the number-collision pairs.
+#
+# HALTS at its end for Reid's Phase-09 review.
+# ============================================================
+
+prompts:
+
+  - id: pt09-001
+    phase: build
+    description: "Agent inventory: registry vs code vs trigger wiring"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      1. Confirm PT-00 and PT-08 artifacts exist (PT-08's boot-inventory
+         and queue-semantics - agents need the job machinery confirmed).
+         If PT-08 outputs absent, HALT. Create test-evidence\pt-09\.
+      2. Build the authoritative agent inventory: enumerate AG-01 through
+         AG-43 (and any beyond 43) from the agent registry table AND from
+         the code (src/lib/agents or wherever they live). For each record:
+         agent id, name, what table(s) it writes, how it is triggered
+         (cron / queue / API / event), and whether that trigger is
+         actually wired (per PT-08's boot + cron reality).
+      3. Reconcile registry-vs-code-vs-trigger: agents in the registry
+         with no code, agents in code not in the registry, agents whose
+         trigger is not actually wired (per PT-08). Write
+         test-evidence\pt-09\agent-inventory.json.
+      4. Flag the known suspects explicitly for the deep test in 002/003:
+         the agents blocked on the rotated API key, the unwired learning
+         aggregator, the zero-row ROI optimizer, and the number-collision
+         pairs (two agents sharing a number). Record them as a
+         watch-list in the JSON.
+      5. Create scripts\audit\verify-pt09-001.mjs: exits non-zero unless
+         agent-inventory.json lists at least AG-01..AG-43, each with a
+         write-target, trigger type, and trigger-wired verdict, plus the
+         suspect watch-list.
+      6. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-09: agent inventory (registry vs code vs trigger)"
+      7. Run: node scripts/audit/verify-pt09-001.mjs
+    expected_outputs:
+      - test-evidence/pt-09/agent-inventory.json
+      - scripts/audit/verify-pt09-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt09-001.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt09-002
+    phase: build
+    description: "Per-agent execution proof, batch 1 (AG-01..AG-21)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Prove each agent actually writes real rows when triggered. Batch 1.
+      Branch/local or a dedicated NON-Faith test org. Agents that send
+      real outbound comms run dry-run/simulated or PENDING-SCOPE.
+
+      1. For each agent AG-01 through AG-21 (adjust to the real numbering
+         from pt09-001): record the write-target table's BEFORE count,
+         trigger the agent (via its real trigger path where safe, else a
+         direct invocation of its handler), then record the AFTER count
+         and capture a sample written row. Capture the trigger/run log
+         and any error surfaced.
+      2. Verdicts per agent: WORKS (rows written, matches intent),
+         WIRED-NO-OUTPUT (ran, zero rows - the dangerous class),
+         TRIGGER-BROKEN (never ran), ERROR-SWALLOWED (failed silently -
+         no rows, no surfaced error), PENDING-SCOPE (can't safely fire -
+         real comms/external writes). Write
+         test-evidence\pt-09\execution-batch1.json with the row-deltas.
+      3. WIRED-NO-OUTPUT and ERROR-SWALLOWED are register findings (P1 -
+         built but not functioning). Any agent previously marked
+         "BUILT" in the registry that comes back WIRED-NO-OUTPUT is
+         specifically flagged as a .Handle-false-pass casualty.
+      4. Create scripts\audit\verify-pt09-002.mjs: exits non-zero unless
+         execution-batch1.json records before/after counts + a verdict
+         for every agent in batch 1.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-09: per-agent execution proof batch 1 (AG-01..21)"
+      6. Run: node scripts/audit/verify-pt09-002.mjs
+    expected_outputs:
+      - test-evidence/pt-09/execution-batch1.json
+      - scripts/audit/verify-pt09-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt09-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt09-003
+    phase: build
+    description: "Per-agent execution proof, batch 2 (AG-22..AG-43) + the suspects"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Batch 2, same method, plus the explicit suspect deep-dive.
+
+      1. For each agent AG-22 through AG-43 (adjust to real numbering):
+         same before/trigger/after/sample-row/error capture and the same
+         verdict set as batch 1. Write
+         test-evidence\pt-09\execution-batch2.json.
+      2. SUSPECT DEEP-DIVE (from pt09-001's watch-list), each named and
+         resolved: the rotated-API-key agents (do they work post-
+         rotation or still fail auth?), the learning aggregator (is it
+         wired now or still orphaned?), the ROI optimizer (does it write
+         rows or still zero?), the number-collision pairs (are both
+         agents real and distinct, or is one a phantom?). Capture a
+         definitive verdict per suspect with evidence.
+      3. Same finding rules: WIRED-NO-OUTPUT / ERROR-SWALLOWED / TRIGGER-
+         BROKEN are P1 register rows; .Handle-casualties flagged.
+      4. Create scripts\audit\verify-pt09-003.mjs: exits non-zero unless
+         execution-batch2.json records before/after + verdict for every
+         batch-2 agent AND a resolved verdict for each named suspect.
+      5. Update governance docs. Scoped add: test-evidence/
+         scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-09: per-agent execution proof batch 2 + suspect deep-dive"
+      6. Run: node scripts/audit/verify-pt09-003.mjs
+    expected_outputs:
+      - test-evidence/pt-09/execution-batch2.json
+      - scripts/audit/verify-pt09-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt09-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt09-004
+    phase: build
+    description: "PHASE 09 summary + register update + HALT for review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate PT-09 and prepare the human review point.
+
+      1. Write test-evidence\pt-09\PHASE-09-SUMMARY.md: a full AG-01..43
+         table with each agent's verdict (WORKS / WIRED-NO-OUTPUT /
+         TRIGGER-BROKEN / ERROR-SWALLOWED / PENDING-SCOPE), the counts
+         per verdict, the suspect resolutions, and specifically how many
+         previously-"BUILT" agents turned out WIRED-NO-OUTPUT (the
+         .Handle-false-pass casualty count - the honest reckoning of
+         what the blind checker had been passing). Every verdict cites
+         its row-delta evidence.
+      2. Confirm every PT-09 finding is in WIRING_GAP_REGISTER.md with
+         evidence path and reproduction, continuing WGR-### numbering.
+      3. Write test-evidence\pt-09\REVIEW-PACK.md: the short read for
+         Reid - how many of the 43 agents genuinely work, how many are
+         built-but-dead, the suspect verdicts, and the honest statement
+         of how much the old "BUILT" registry can be trusted. This is
+         the phase that most directly answers "is the agentic layer real
+         or aspirational."
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-09
+         complete, agent truth established, awaiting Reid's review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-09 COMPLETE: agent orchestration audit, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt09-004.mjs: exits non-zero unless
+         PHASE-09-SUMMARY.md and REVIEW-PACK.md exist non-empty and the
+         register has grown.
+      7. Run: node scripts/audit/verify-pt09-004.mjs
+    expected_outputs:
+      - test-evidence/pt-09/PHASE-09-SUMMARY.md
+      - test-evidence/pt-09/REVIEW-PACK.md
+      - scripts/audit/verify-pt09-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt09-004.mjs"
+    max_retries: 2
+    on_fail: halt

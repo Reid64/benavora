@@ -1,0 +1,182 @@
+schema_version: "1.0.0"
+document_id: PIL-DATA-006
+normative: true
+storage_principles:
+  - tenant_id_is_required_on_every_record_and_index
+  - evidence_is_immutable_and_claims_are_versioned
+  - temporal_truth_uses_valid_time_and_system_time
+  - graph_edges_are_first_class_evidence_backed_records
+  - crm_state_is_not_canonical_research_truth
+  - deletions_use_policy_governed_tombstones_and_audit
+common:
+  identifier: {type: string, format: uuid}
+  timestamp: {type: string, format: date-time}
+  confidence: {type: number, minimum: 0, maximum: 1}
+entities:
+  ProspectEntity:
+    required: [entity_id, tenant_id, entity_type, canonical_name, status, created_at, updated_at, version]
+    properties:
+      entity_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      entity_type: {enum: [PERSON, COMPANY, FOUNDATION, NONPROFIT, GOVERNMENT, EDUCATIONAL_INSTITUTION, PROFESSIONAL_ASSOCIATION, COMMUNITY_ORGANIZATION, FUNDING_PROGRAM, LOCATION, CAUSE, CONTACT_POINT, OPPORTUNITY]}
+      canonical_name: {type: string, minLength: 1}
+      alternate_names: {type: array, items: {type: string}}
+      status: {enum: [PROVISIONAL, RESOLVED, AMBIGUOUS, MERGED, TOMBSTONED]}
+      resolution_cluster_id: {type: [string, "null"]}
+      sensitivity_class: {enum: [PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED]}
+      created_at: {$ref: '#/common/timestamp'}
+      updated_at: {$ref: '#/common/timestamp'}
+      version: {type: integer, minimum: 1}
+  PersonProfile:
+    required: [entity_id, tenant_id]
+    properties:
+      entity_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      display_name_claim_id: {$ref: '#/common/identifier'}
+      geography_claim_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      biography_claim_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      contact_point_entity_ids: {type: array, items: {$ref: '#/common/identifier'}}
+  OrganizationProfile:
+    required: [entity_id, tenant_id, organization_type]
+    properties:
+      entity_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      organization_type: {enum: [COMPANY, PRIVATE_FOUNDATION, FAMILY_FOUNDATION, CORPORATE_FOUNDATION, COMMUNITY_FOUNDATION, NONPROFIT, GOVERNMENT, EDUCATION, ASSOCIATION]}
+      identifier_claim_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      geography_claim_ids: {type: array, items: {$ref: '#/common/identifier'}}
+graph:
+  RelationshipEdge:
+    required: [edge_id, tenant_id, subject_entity_id, predicate, object_entity_id, status, evidence_refs, confidence, valid_from, system_from, version]
+    properties:
+      edge_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      subject_entity_id: {$ref: '#/common/identifier'}
+      predicate:
+        enum: [EMPLOYED_BY, FOUNDED, OWNS, OFFICER_OF, BOARD_MEMBER_OF, TRUSTEE_OF, ALUMNUS_OF, MEMBER_OF, DONATED_TO, GRANTED_TO, FUNDS_CAUSE, OPERATES_IN, CONNECTED_TO, HAS_CONTACT_POINT, ASSOCIATED_WITH_OPPORTUNITY, SUPERSEDES]
+      object_entity_id: {$ref: '#/common/identifier'}
+      attributes: {type: object}
+      status: {enum: [PROPOSED, VERIFIED, CORROBORATED, INFERRED, CONTRADICTED, STALE, SUPERSEDED, REJECTED]}
+      evidence_refs: {type: array, minItems: 1, items: {$ref: '#/common/identifier'}}
+      confidence: {$ref: '#/common/confidence'}
+      valid_from: {type: [string, "null"], format: date-time}
+      valid_to: {type: [string, "null"], format: date-time}
+      system_from: {$ref: '#/common/timestamp'}
+      system_to: {type: [string, "null"], format: date-time}
+      created_by_agent_id: {type: string}
+      research_run_id: {$ref: '#/common/identifier'}
+      version: {type: integer, minimum: 1}
+evidence:
+  SourceSnapshot:
+    required: [snapshot_id, tenant_id, canonical_url, content_hash, retrieval_method, retrieved_at, storage_ref, permissibility_decision_id]
+    properties:
+      snapshot_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      canonical_url: {type: string, format: uri}
+      content_hash: {type: string}
+      retrieval_method: {enum: [HTTP, BROWSER, API, FILE_UPLOAD, LICENSED_PROVIDER, CRM, INTERNAL]}
+      retrieved_at: {$ref: '#/common/timestamp'}
+      published_at: {type: [string, "null"], format: date-time}
+      storage_ref: {type: string}
+      mime_type: {type: string}
+      publisher: {type: [string, "null"]}
+      permissibility_decision_id: {$ref: '#/common/identifier'}
+      retention_class: {type: string}
+  EvidenceRecord:
+    required: [evidence_id, tenant_id, snapshot_id, locator, excerpt_hash, source_tier, independence_group, retrieved_at, agent_id, research_run_id]
+    properties:
+      evidence_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      snapshot_id: {$ref: '#/common/identifier'}
+      locator: {type: object, description: page_line_section_or_structured_path}
+      excerpt: {type: [string, "null"]}
+      excerpt_hash: {type: string}
+      source_tier: {enum: [PRIMARY_AUTHORITATIVE, PRIMARY_SELF_REPORTED, SECONDARY_REPUTABLE, AGGREGATOR, DISCOVERY_ONLY]}
+      independence_group: {type: string}
+      retrieved_at: {$ref: '#/common/timestamp'}
+      agent_id: {type: string}
+      research_run_id: {$ref: '#/common/identifier'}
+  Claim:
+    required: [claim_id, tenant_id, subject_entity_id, predicate, value, classification, evidence_refs, confidence, verification_status, freshness_status, contradiction_status, system_from, version]
+    properties:
+      claim_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      subject_entity_id: {$ref: '#/common/identifier'}
+      predicate: {type: string}
+      value: {}
+      classification: {enum: [VERIFIED_FACT, CORROBORATED_FACT, SINGLE_SOURCE_FACT, REASONED_INFERENCE, ESTIMATE, UNVERIFIED, CONTRADICTED, STALE]}
+      evidence_refs: {type: array, items: {$ref: '#/common/identifier'}}
+      derivation: {type: [object, "null"]}
+      confidence: {$ref: '#/common/confidence'}
+      verification_status: {enum: [UNREVIEWED, AGENT_VERIFIED, INDEPENDENTLY_VERIFIED, HUMAN_VERIFIED, REJECTED]}
+      freshness_status: {enum: [CURRENT, AGING, STALE, UNKNOWN]}
+      contradiction_status: {enum: [NONE, OPEN, RESOLVED, SUPERSEDED]}
+      valid_from: {type: [string, "null"], format: date-time}
+      valid_to: {type: [string, "null"], format: date-time}
+      system_from: {$ref: '#/common/timestamp'}
+      system_to: {type: [string, "null"], format: date-time}
+      supersedes_claim_id: {type: [string, "null"]}
+      version: {type: integer, minimum: 1}
+opportunity:
+  ProspectOpportunity:
+    required: [opportunity_id, tenant_id, prospect_entity_id, objective_id, classification, scores, evidence_refs, status, created_at, updated_at, version]
+    properties:
+      opportunity_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      prospect_entity_id: {$ref: '#/common/identifier'}
+      objective_id: {$ref: '#/common/identifier'}
+      classification: {enum: [TIER_1_PRIORITY, TIER_2_CULTIVATE, TIER_3_MONITOR, RESEARCH_MORE, LOW_PROBABILITY, INELIGIBLE, DISQUALIFIED]}
+      scores:
+        type: object
+        required: [affinity, capacity, propensity, relationship, timing, evidence_sufficiency]
+        properties:
+          affinity: {$ref: '#/common/confidence'}
+          capacity: {$ref: '#/common/confidence'}
+          propensity: {$ref: '#/common/confidence'}
+          relationship: {$ref: '#/common/confidence'}
+          timing: {$ref: '#/common/confidence'}
+          evidence_sufficiency: {$ref: '#/common/confidence'}
+      evidence_refs: {type: array, items: {$ref: '#/common/identifier'}}
+      open_gap_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      status: {enum: [PROVISIONAL, QUALIFIED, CRITIC_PENDING, APPROVED, CULTIVATION, MONITORING, CLOSED]}
+      created_at: {$ref: '#/common/timestamp'}
+      updated_at: {$ref: '#/common/timestamp'}
+      version: {type: integer, minimum: 1}
+research:
+  ResearchRun:
+    required: [research_run_id, tenant_id, goal_id, agent_id, status, policy_snapshot_id, budget_reservation_id, started_at, trace_id, version]
+    properties:
+      research_run_id: {$ref: '#/common/identifier'}
+      tenant_id: {$ref: '#/common/identifier'}
+      goal_id: {$ref: '#/common/identifier'}
+      task_id: {type: [string, "null"]}
+      agent_id: {type: string}
+      status: {enum: [CREATED, ACTIVE, WAITING, EVALUATING, REPLANNING, PAUSED, BLOCKED, SATISFIED, FAILED_RECOVERABLE, FAILED_TERMINAL, CANCELLED]}
+      policy_snapshot_id: {$ref: '#/common/identifier'}
+      budget_reservation_id: {$ref: '#/common/identifier'}
+      plan_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      evidence_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      decision_ids: {type: array, items: {$ref: '#/common/identifier'}}
+      started_at: {$ref: '#/common/timestamp'}
+      completed_at: {type: [string, "null"], format: date-time}
+      trace_id: {type: string}
+      version: {type: integer, minimum: 1}
+database_requirements:
+  - composite_tenant_primary_or_unique_keys
+  - foreign_keys_include_tenant_id
+  - row_level_security_or_equivalent_default_deny
+  - no_cross_tenant_global_secondary_indexes_on_identifiable_data
+  - optimistic_version_columns_on_mutable_aggregates
+  - append_only_evidence_audit_and_event_ledgers
+  - outbox_written_in_same_transaction_as_state_change
+  - partition_and_retention_policies_are_tested
+  - graph_traversal_has_tenant_depth_cost_and_time_limits
+required_tests:
+  - schema_validation_and_round_trip
+  - temporal_supersession_and_point_in_time_query
+  - claim_requires_evidence_unless_explicitly_unverified
+  - corroboration_requires_independent_source_groups
+  - cross_tenant_foreign_key_and_query_denial
+  - duplicate_idempotent_ingestion
+  - graph_cycle_depth_and_cost_limits
+  - retention_tombstone_and_legal_hold
+

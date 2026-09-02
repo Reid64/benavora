@@ -1,0 +1,89 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT_v2.md
+  - SCHEMA_REGISTRY_v2.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STATE_OF_THE_BUILD.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 3
+  governance_check_frequency: 5
+
+prompts:
+
+  - id: night-001
+    phase: infra
+    description: "Wire nonprofit scraper into Railway weekly scheduler"
+    prompt: |
+      Read src/lib/worker/scheduler.ts and scripts/run-nonprofit-scraper.ts in full.
+      Add a weekly job (Sunday 4AM CST, staggered after the existing foundation-enrichment-weekly job) that calls runNonprofitScraper().
+      Job name: nonprofit-enrichment-weekly. Gate behind ENABLE_SCRAPER env var like the existing foundation job.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'feat(worker): wire nonprofit scraper into weekly Railway scheduler'; git push
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-002
+    phase: bugfix
+    description: "Fix Sales Outreach New Campaign blank page stub"
+    prompt: |
+      Read src/app/(dashboard)/admin/sales-outreach/ in full, specifically the New Campaign flow.
+      The New Campaign button leads to a blank page. Investigate whether a form/component was ever built for this route
+      and is just not rendering, or whether it was never implemented at all.
+      If never implemented: build a minimal functional campaign-creation form (name, target segment, template selection,
+      send schedule) that writes to the campaigns table per SCHEMA_REGISTRY_v2.md. Do not build anything beyond a working
+      create flow — no analytics, no A/B testing, keep it minimal and functional.
+      Run pnpm tsc --noEmit. git add -A; git commit -m 'fix(sales-outreach): implement functional New Campaign form, was blank stub'; git push
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: continue
+
+  - id: night-003
+    phase: audit
+    description: "Systematic migration-vs-production audit"
+    prompt: |
+      Read every file in supabase/migrations/ in order. For each migration, extract every CREATE TABLE / ALTER TABLE /
+      ADD COLUMN statement. Using the Supabase Management API REST pattern (JavaScriptSerializer, service-role key)
+      confirm whether each table/column actually exists on production.
+      This mirrors the discovery that migration 052 was silently never applied — the goal is to find any other
+      silently-unapplied migrations before they cause a production bug like the AutoApply automation_level failure did.
+      Do NOT apply any missing migrations — diagnostic only. Report findings to MIGRATION_AUDIT.md: list every migration,
+      APPLIED or NOT APPLIED, and for NOT APPLIED entries, list every missing table/column and which live code paths
+      reference them (grep the codebase for each table/column name).
+      git add MIGRATION_AUDIT.md; git commit -m 'docs: full migration-vs-production audit'; git push
+    gates:
+      - type: file_exists
+        files: [MIGRATION_AUDIT.md]
+    max_retries: 2
+    on_fail: continue
+
+  - id: night-004
+    phase: governance
+    description: "Update governance docs with tonight's findings"
+    prompt: |
+      Read STATE_OF_THE_BUILD.md, SESSION_STATE.md, FEATURE_REGISTRY_v2.md, DEMO_READINESS_AUDIT.md, and
+      MIGRATION_AUDIT.md (if it exists from night-003).
+      Update all governance docs to reflect: worker outage resolution, stealth scraper build + IRS 990 fetch fix,
+      AutoApply automation_level fix, Sales Outreach New Campaign fix, nonprofit scraper scheduler wiring,
+      and migration audit findings. Consolidate into a clean "as of July 28 2026" state snapshot.
+      git add STATE_OF_THE_BUILD.md SESSION_STATE.md FEATURE_REGISTRY_v2.md; git commit -m 'governance: overnight session consolidation July 28 2026'; git push
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: continue

@@ -1,0 +1,114 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - FEATURE_REGISTRY_v2.md
+  - DESIGN_SYSTEM.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: landing-page-audit-001
+    phase: build
+    description: "Real audit of the live landing/marketing/pricing pages against competitive positioning gaps"
+    prompt: |
+      Reid believes much of the competitive-differentiation and premium-pricing-justification content he was asked about already exists on the real landing page - read the actual live pages in full before assuming anything is missing.
+
+      1. Find and read every real marketing/landing page in the repo (homepage, /pricing, /for-consultants, any features/about pages) in full.
+      2. Confirm real current pricing displayed matches: Starter $317/mo, Professional $717/mo, Enterprise $1,997/mo (per the live screenshot Reid shared) - if it doesn't match, note the discrepancy.
+      3. Check whether the page already makes any explicit or implicit case for premium pricing relative to comparable nonprofit grant-seeker tools (Instrumentl $179-$549/mo, Foundant GrantHub $95-$249/mo - real current market comparables) - e.g. does it name real differentiators (AI drafting, AutoApply browser automation, autonomous agents) that those tools don't have, or does it just list features without a comparative frame?
+      4. Write LANDING_PAGE_AUDIT_2026-08-15.md: what's genuinely already there, what's missing, and concrete copy/structure recommendations to make the premium-pricing case explicit rather than implicit (e.g. a comparison table, named-competitor callouts, or ROI framing) - do not rewrite the page in this prompt, audit and recommend only.
+    expected_outputs:
+      - LANDING_PAGE_AUDIT_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [LANDING_PAGE_AUDIT_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: css-override-investigation-001
+    phase: build
+    description: "Investigate the REAL cause of past UI-change difficulty - the globals.css !important override layer - before touching any governance rule"
+    prompt: |
+      Project history records: a globals.css compatibility layer (~40 CSS rules with !important) silently overrides every inline style and Tailwind class, and the only confirmed method to produce a visible UI change has been rewriting components from scratch with hardcoded style={{}} inline hex values. This is the real, evidence-based reason "The One UI Rule" (inline hex only, never Tailwind color classes or CSS variables) exists in DESIGN_SYSTEM.md/FEATURE_REGISTRY_v2.md - it is a workaround for this override layer, not an arbitrary preference.
+
+      Reid wants design flexibility restored. That requires fixing the actual override layer, not just deleting the workaround rule - deleting the rule alone would just reproduce the same "changes don't visibly take effect" problem that caused the rule to be written in the first place.
+
+      1. Read globals.css in full. Catalog every real !important rule: what selector, what property, what it overrides, and why it was likely added (check git blame/commit messages for context on each one where possible).
+      2. For each !important rule, determine: is it still serving a real, necessary purpose (e.g. overriding a third-party embed's own styles, a genuine cross-browser fix), or is it purely fighting against this codebase's own Tailwind/component styles (the actual problem)? Distinguish these two categories explicitly with real evidence, not a guess.
+      3. For the rules in the second category (fighting the app's own styles), determine whether they can be safely removed or rescoped (e.g. narrowed to a more specific selector, or converted to a normal non-!important rule with correct CSS specificity/ordering instead).
+      4. Write CSS_OVERRIDE_INVESTIGATION_2026-08-15.md with the full catalog, the category-2 rules identified as real candidates for removal/rescoping, and a concrete recommendation: can the inline-hex-only constraint be safely relaxed after fixing these specific rules, or does a real, unavoidable technical reason mean it should stay? Do not make the CSS changes in this prompt - investigate and recommend only, this is the evidence the next prompt acts on.
+    expected_outputs:
+      - CSS_OVERRIDE_INVESTIGATION_2026-08-15.md
+    gates:
+      - type: file_exists
+        files: [CSS_OVERRIDE_INVESTIGATION_2026-08-15.md]
+    max_retries: 3
+    on_fail: halt
+
+  - id: css-override-fix-001
+    phase: build
+    description: "Act on the investigation - fix real override conflicts if the investigation found safe candidates"
+    prompt: |
+      Read CSS_OVERRIDE_INVESTIGATION_2026-08-15.md in full.
+
+      If the investigation identified specific, real category-2 !important rules safe to remove/rescope: do it. Remove or rescope each identified rule, then real live test: pick 2-3 real components and confirm a normal Tailwind class or CSS-variable-based style change now actually renders visibly (take this seriously - this is the exact thing that was broken before, confirm it's genuinely fixed, not just that the build compiles).
+
+      If the investigation found the override layer serves real necessary purposes that can't be safely removed: do not force it. Update DESIGN_SYSTEM.md and FEATURE_REGISTRY_v2.md's "One UI Rule" section to reflect the real, evidence-based reason it exists (referencing this investigation), rather than leaving it as an unexplained hard rule - this at least gives a future session (human or AI) the real reasoning instead of an opaque constraint.
+
+      Either way, update DESIGN_SYSTEM.md/FEATURE_REGISTRY_v2.md to reflect the real current state honestly.
+    expected_outputs:
+      - DESIGN_SYSTEM.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: design-tooling-recommendation-001
+    phase: build
+    description: "Recommend and set up frontend design tooling appropriate to the real, now-understood CSS constraints"
+    prompt: |
+      Read CSS_OVERRIDE_INVESTIGATION_2026-08-15.md and css-override-fix-001's outcome before recommending anything - the right tooling choice depends on whether the inline-hex constraint was actually relaxed or still stands.
+
+      Recommend 1-2 concrete frontend design tools appropriate for this Next.js 14 + TypeScript + Tailwind stack, given the real current constraint state:
+      - If Tailwind/CSS-variable styling now genuinely works: shadcn/ui's component primitives become viable (already listed as available in this environment's tooling) - install and configure it as a real component base, not just a suggestion.
+      - Regardless of the CSS constraint outcome: set up Storybook (or an equivalent lightweight component-preview tool) so future design iteration can be previewed in isolation without needing a full app rebuild per change - this helps design velocity independent of the inline-hex-vs-Tailwind question.
+
+      Real live test: confirm whatever is installed actually runs (Storybook dev server starts, or a shadcn component renders correctly respecting whatever the real current styling constraint is).
+    expected_outputs:
+      - package.json
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: design-audit-verify-sync-001
+    phase: build
+    description: "Governance sync"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md summarizing the landing page audit findings, the real CSS override investigation outcome (fixed vs. confirmed-necessary), and what design tooling was set up.
+      3. Scoped git add, commit with message "docs: landing page audit; investigate and address the real globals.css override cause of past UI-change difficulty; set up design tooling", git push.
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

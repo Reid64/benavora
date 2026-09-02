@@ -1,0 +1,271 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - STATE_OF_THE_BUILD.md
+  - SESSION_STATE.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# PT-00: BASELINE, INSTRUMENTATION & SMOKE  (v2, spec-aligned)
+#
+# Phase 00 of the Benavora Enterprise Audit Program.
+# Establishes the ground truth every later phase measures
+# against, and stands up the evidence framework the whole
+# program depends on.
+#
+# THE EVIDENCE STANDARD (enforced by every gate here):
+# A check records PASS only when a machine-readable artifact
+# exists on disk with real captured content - command output,
+# a real DB query with its rows, a Playwright assertion, or an
+# HTTP capture. Prose claims of success FAIL the gate.
+#
+# READ-HEAVY and ADDITIVE. Creates test scaffolding; does not
+# modify production application code except the one build-config
+# safety fix in pt00-002 (cpus cap), which every later build
+# gate depends on.
+#
+# HALTS at its end for Reid's Phase-00 review.
+#
+# Conventions: flat prompts list, ASCII only, command gates,
+# scoped commits, governance sync at each prompt's end.
+# ============================================================
+
+prompts:
+
+  - id: pt00-001
+    phase: build
+    description: "Evidence framework + register scaffold + gate harness"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Stand up the audit's evidence infrastructure.
+
+      1. Create (do not delete anything existing):
+         test-evidence\pt-00\
+         test-evidence\_register\
+         scripts\audit\
+      2. Create test-evidence\_register\WIRING_GAP_REGISTER.md with a
+         header and an empty markdown table: ID | Layer | Severity |
+         Finding | Evidence Path | Reproduction | Scope Tag. Include the
+         P0/P1/P2/P3 legend and the four scope tags (CONFIRMED-BROKEN,
+         UNVERIFIED, PENDING-SCOPE, CONFIRMED-OK) per the audit program
+         spec.
+      3. Create scripts\audit\evidence-lib.mjs: helpers to assert a file
+         exists and is non-empty; assert a JSON file parses and has a
+         given key; append a finding row to the register; a timestamp
+         helper. ASCII only, Node 20 compatible.
+      4. Create scripts\audit\verify-pt00-001.mjs: exits non-zero unless
+         the register and evidence-lib.mjs exist non-empty and the
+         register contains the P0..P3 legend text.
+      5. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+      6. Scoped add ONLY: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-00: evidence framework + gap register scaffold"
+      7. Run: node scripts/audit/verify-pt00-001.mjs
+    expected_outputs:
+      - test-evidence/_register/WIRING_GAP_REGISTER.md
+      - scripts/audit/evidence-lib.mjs
+      - scripts/audit/verify-pt00-001.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt00-001.mjs"
+    max_retries: 2
+    on_fail: halt
+
+  - id: pt00-002
+    phase: build
+    description: "Build-config safety: confirm/restore the cpus cap (WGR-001)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Every later phase runs pnpm build gates. Tonight's stale-queue run
+      died on three consecutive 900s build timeouts - the memory-thrash
+      signature the cpus cap prevents. Confirm present; if not, fix here.
+
+      1. Read next.config.mjs. Determine whether the build worker count
+         is capped (cpus: 1 in experimental, or the current-version
+         equivalent).
+      2. If PRESENT: record to test-evidence\pt-00\build-config.txt the
+         exact line, confirmed present. No code change.
+      3. If ABSENT: add the cap, record before/after to build-config.txt,
+         append WGR-001 to the register (Layer: Baseline, Severity: P1,
+         Finding: "next.config build worker count uncapped - build-gate
+         memory-thrash timeouts", Scope: CONFIRMED-BROKEN, fixed).
+      4. Prove it: pnpm run build 2>&1 | Tee-Object
+         test-evidence\pt-00\build-proof.txt - confirm completion, no
+         900s timeout.
+      5. Create scripts\audit\verify-pt00-002.mjs: exits non-zero unless
+         build-config.txt exists AND build-proof.txt shows a completed
+         build (Next.js success marker, not a timeout).
+      6. Update governance docs. Scoped add: next.config.mjs (if changed)
+         test-evidence/ scripts/audit/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-00: build-config cpus cap confirmed/restored (WGR-001)"
+      7. Run: node scripts/audit/verify-pt00-002.mjs
+    expected_outputs:
+      - test-evidence/pt-00/build-config.txt
+      - test-evidence/pt-00/build-proof.txt
+      - scripts/audit/verify-pt00-002.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt00-002.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-003
+    phase: build
+    description: "Route manifest from a fresh build - the real shipped surface"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Build the authoritative route list the app ACTUALLY ships - not
+      from nav-items.ts or the blueprint (both documented stale). The
+      filesystem and build output are truth.
+
+      1. Walk src/app: every page.tsx and route.ts with URL paths;
+         handle (dashboard) groups and [id] segments correctly.
+      2. Write test-evidence\pt-00\route-manifest.json: array of
+         { path, type: "page"|"api", file, dynamic: bool }.
+      3. Cross-reference nav-items.ts: dead-nav (nav points to a route
+         that does not exist) and orphan-route (real route not in nav)
+         lists, both as keys in the JSON. Each dead-nav entry is a
+         register finding (Layer: Baseline, Severity: P2, Scope:
+         CONFIRMED-BROKEN).
+      4. Create scripts\audit\verify-pt00-003.mjs: exits non-zero unless
+         route-manifest.json parses, has a non-empty routes array, and
+         both cross-reference keys present.
+      5. Update governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-00: authoritative route manifest from fresh build"
+      6. Run: node scripts/audit/verify-pt00-003.mjs
+    expected_outputs:
+      - test-evidence/pt-00/route-manifest.json
+      - scripts/audit/verify-pt00-003.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt00-003.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-004
+    phase: build
+    description: "Environment-variable audit (names/presence only, no secrets)"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      What let the deploy-verifier silently no-op: env vars the code
+      needs but the environment lacks. Enumerate the truth. NEVER record
+      secret VALUES - names and presence only.
+
+      1. Grep the codebase for every process.env.* reference; build the
+         complete set of names the code reads.
+      2. Cross-check .env.local (names only): present/absent per var.
+      3. Mark which are production-required (VERCEL_TOKEN, VERCEL_PROJECT_ID
+         per DIRECTIVE-019, ANTHROPIC_API_KEY, SUPABASE keys, DATABASE_URL,
+         RESEND, SCRAPERAPI, etc.). Referenced-but-absent = finding
+         (P1 if it disables a safety check like deploy-verify, else P2).
+      4. Write test-evidence\pt-00\env-audit.json: { var, referenced_in,
+         present_in_env_local: bool, production_required: bool, status }.
+         Values must be booleans/status strings ONLY - never a secret.
+      5. Create scripts\audit\verify-pt00-004.mjs: exits non-zero unless
+         env-audit.json parses, is non-empty, and contains no field that
+         looks like a secret value (guard against accidental capture).
+      6. Update governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-00: env-var audit (names/presence only)"
+      7. Run: node scripts/audit/verify-pt00-004.mjs
+    expected_outputs:
+      - test-evidence/pt-00/env-audit.json
+      - scripts/audit/verify-pt00-004.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt00-004.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-005
+    phase: build
+    description: "Authenticated smoke suite across every real route"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Every route in the real manifest must return non-error to an
+      authenticated session. Broad and shallow - depth is PT-01/PT-02.
+
+      1. Local dev server; real Playwright session via admin-issued
+         magic link for info@faithfoundationsf.org (no password touched).
+      2. Every page route in route-manifest.json: navigate, record HTTP
+         status, rendered-without-error-boundary bool, hard-error/500/
+         white-screen bool.
+      3. Every API route: safe authenticated GET (or OPTIONS where GET is
+         inappropriate); record status.
+      4. Write test-evidence\pt-00\smoke-results.json: { path, type,
+         status, rendered_ok, error }. Every 500/white-screen is a
+         finding (P0 if a core user route, else P1).
+      5. Screenshot any failure into test-evidence\pt-00\smoke-failures\.
+      6. Create scripts\audit\verify-pt00-005.mjs: exits non-zero unless
+         smoke-results.json parses and covers EVERY path in
+         route-manifest.json (count match proves nothing skipped).
+      7. Update governance docs. Scoped add: test-evidence/ scripts/audit/
+         STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-00: authenticated smoke suite, all routes covered"
+      8. Run: node scripts/audit/verify-pt00-005.mjs
+    expected_outputs:
+      - test-evidence/pt-00/smoke-results.json
+      - scripts/audit/verify-pt00-005.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt00-005.mjs"
+    max_retries: 3
+    on_fail: halt
+
+  - id: pt00-006
+    phase: build
+    description: "PHASE 00 summary + HALT for Reid's baseline review"
+    prompt: |
+      Work in C:\Users\manag\Documents\benavora.
+
+      Consolidate the baseline and prepare the human review point.
+
+      1. Write test-evidence\pt-00\PHASE-00-SUMMARY.md: route count
+         (pages + APIs), dead-nav and orphan-route counts, env findings
+         by severity, smoke pass/fail counts, build-config disposition
+         (WGR-001). Every number must cite its evidence artifact.
+      2. Confirm WIRING_GAP_REGISTER.md contains every PT-00 finding with
+         real evidence paths.
+      3. Write test-evidence\pt-00\REVIEW-PACK.md: a short read-for-Reid
+         doc - what the baseline established, notable findings,
+         recommended go/no-go for PT-01. State plainly that PT-01 onward
+         is NOT yet authored and awaits his baseline review plus his
+         expectations list against BENAVORA_AUDIT_PROGRAM.md.
+      4. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md: PT-00
+         complete, baseline established, awaiting Reid's Phase-00 review.
+      5. Scoped add: test-evidence/ STATE_OF_THE_BUILD.md SESSION_STATE.md
+         Commit: "audit PT-00 COMPLETE: baseline established, review pack ready"
+         Push.
+      6. Create scripts\audit\verify-pt00-006.mjs: exits non-zero unless
+         PHASE-00-SUMMARY.md and REVIEW-PACK.md exist non-empty and the
+         register has at least the WGR-001 row.
+      7. Run: node scripts/audit/verify-pt00-006.mjs
+    expected_outputs:
+      - test-evidence/pt-00/PHASE-00-SUMMARY.md
+      - test-evidence/pt-00/REVIEW-PACK.md
+      - scripts/audit/verify-pt00-006.mjs
+    gates:
+      - type: command
+        run: "node scripts/audit/verify-pt00-006.mjs"
+    max_retries: 2
+    on_fail: halt

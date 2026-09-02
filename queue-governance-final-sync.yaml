@@ -1,0 +1,162 @@
+project: benavora
+governance:
+- BLUEPRINT_v2.md
+- PRD_v2.md
+- SCHEMA_REGISTRY_v2.md
+- AGENTS_v2.md
+- FEATURE_REGISTRY_v2.md
+- AUTONOMOUS_PLATFORM_VISION.md
+- BEHAVIORAL_CONTRACTS.md
+- WORKER_ARCHITECTURE_v2.md
+- STANDING_DIRECTIVES.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+prompts:
+
+- id: gov-final-001
+  name: Governance sync and complete schema registry update
+  prompt: |
+    First sync governance docs: $repo = 'C:\Users\manag\Documents\benavora'; $forge = 'C:\Users\manag\Documents\FORGE\projects\benavora'; Get-ChildItem $repo -Filter '*.md' | ForEach-Object { Copy-Item $_.FullName (Join-Path $forge $_.Name) -Force }
+
+    Read SCHEMA_REGISTRY_v2.md in FULL.
+    Read src/supabase/migrations/ directory listing. Count and list all migration files.
+
+    SCHEMA_REGISTRY_v2.md must document EVERY table that now exists in the database. Query the database for actual table list:
+    SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;
+
+    For any table in the database NOT documented in SCHEMA_REGISTRY_v2.md, add a full entry including:
+    - Table name and description
+    - All columns with types
+    - RLS policy description
+    - Which agent or feature created it
+    - Which agents read/write it
+
+    Tables added in recent sessions that may be undocumented:
+    - autonomous_triggers
+    - agent_queue
+    - agent_decisions
+    - org_autonomous_config
+    - fundability_scores
+    - fundability_deficiencies
+    - corporate_intent_signals
+    - community_need_signals
+    - platform_learning_patterns
+    - org_learning_contributions
+    - simulation_scenarios
+    - improvement_proposals
+    - agent_performance_metrics
+    - strategic_recommendations
+    - submission_variables
+    - roi_insights
+    - corporate_relationships
+    - outreach_campaigns
+    - outreach_prospects
+    - email_suppressions
+    - sending_domains
+
+    Save updated SCHEMA_REGISTRY_v2.md.
+    git add SCHEMA_REGISTRY_v2.md; git commit -m 'docs: SCHEMA_REGISTRY_v2 complete -- all tables documented including Phase 2-5 new tables'; git push.
+
+- id: gov-final-002
+  name: AGENTS_v2.md complete update with all built agents
+  prompt: |
+    Read AGENTS_v2.md in FULL.
+    Read src/lib/agents/ directory listing.
+    Read FEATURE_REGISTRY_v2.md in FULL.
+
+    Update AGENTS_v2.md:
+
+    1. For every agent file in src/lib/agents/, verify it has a corresponding spec in AGENTS_v2.md. List any missing.
+
+    2. Update status for all Phase 2-5 agents (AG-29 through AG-40):
+       - AG-29 FundabilityScorer: status BUILT (enterprise hardened)
+       - AG-30 DonorIntentMonitor: status BUILT (enterprise hardened)
+       - AG-35 CommunityNeedPredictor: status BUILT (enterprise hardened)
+       - AG-36 LearningNetworkAggregator: status BUILT (enterprise hardened)
+       - AG-37 SimulationAgent: status BUILT (enterprise hardened)
+       - AG-38 SelfImprovementAgent: status BUILT (enterprise hardened)
+       - AG-39 ROIOptimizer: status BUILT (enterprise hardened)
+       - AG-40 StrategicAdvisor: status BUILT (enterprise hardened)
+
+    3. For each BUILT agent, update the spec with actual implementation details:
+       - Actual line count
+       - Actual trigger source (what fires it)
+       - Actual chain targets (what it triggers next)
+       - Actual Claude API parameters used
+       - Actual database tables written
+
+    4. Add a new section: "Fully Agentic Agents" listing which agents implement the perception-decision-execution loop with self-calibration:
+       - AG-02 OpportunityDiscovery: strategy branching based on historical performance
+       - AG-03 ProbabilityScoring: self-calibrating against actual outcomes
+       - AG-05 DraftGeneration: 5-phase pipeline with compliance gate
+       - AG-06 RelationshipBuilder: multi-hop network traversal
+       - AG-07 DeadlinePrediction: multi-source with pattern learning
+       - Digest Agent: intelligent priority curation with adaptive learning
+
+    5. Update FEATURE_REGISTRY_v2.md features 217-228 to BUILT status where implemented.
+
+    Save both files.
+    git add AGENTS_v2.md FEATURE_REGISTRY_v2.md; git commit -m 'docs: AGENTS_v2 complete update -- all AG-29 through AG-40 marked BUILT, fully agentic section added'; git push.
+
+- id: gov-final-003
+  name: STATE_OF_THE_BUILD and SESSION_STATE final update and deploy
+  prompt: |
+    Read STATE_OF_THE_BUILD.md in FULL.
+    Read SESSION_STATE.md in FULL.
+    Read STANDING_DIRECTIVES.md in FULL.
+
+    Write a complete STATE_OF_THE_BUILD.md update for the July 19-20 2026 session:
+
+    ## Session July 19-20 2026 — Orchestrator Launch + Enterprise Hardening
+
+    ### Orchestrator Infrastructure (COMPLETE)
+    - forge-orchestrator.ps1 built and operational
+    - library-manifest.yaml managing 24+ queue files
+    - First full orchestrator run: 21 queues, 5h42m, all completed
+    - Stdout pipe fix applied: forge.ps1 output now streams to orchestrator log
+    - INSTRUCTIONAL_DOC_FOR_ANY_CHAT_ON_ORCHESTRATOR_LIBRARY_USE_WITH_FORGE.md created
+
+    ### Agents Built (COMPLETE — enterprise hardened)
+    - AG-29 FundabilityScorer: 612 lines, auto-fix engine, probability delta, chain trigger
+    - AG-30 DonorIntentMonitor: 524 lines, web search integration, weighted scoring
+    - AG-35 CommunityNeedPredictor: 410 lines, data source matrix, trend analysis
+    - AG-36 LearningNetworkAggregator: 905 lines, anonymization protocol, pattern extraction
+    - AG-37 SimulationAgent: 506 lines, multi-year financial model, historical calibration
+    - AG-38 SelfImprovementAgent: 777 lines, HARD LIMITS enforced, metrics engine
+    - AG-39 ROIOptimizer: 404 lines, variable tracking, correlation analysis
+    - AG-40 StrategicAdvisor: 760 lines, 10-source intelligence synthesis, 400-word advisor prompt
+
+    ### UI Pages Built
+    - /intelligence/strategic-advisor (581 lines)
+    - /intelligence/donor-intent (520 lines)
+    - /intelligence/community-need (539 lines)
+    - /reports/simulate (906 lines)
+    - /reports/roi (622 lines)
+    - /admin/improvements (610 lines)
+    - Autonomous orchestrator worker (1157 lines)
+
+    ### Data Infrastructure
+    - 551K+ nonprofits enriched from IRS BMF
+    - 990 XML enrichment script operational
+    - Foundation matcher intelligence engine built
+    - AutoApply portal adapter system built
+
+    ### Tonight's Queue (in progress)
+    - enterprise-enrich-agents (10 prompts): enterprise hardening of all Phase 2-5 agents
+    - full-agentic-upgrade (6 prompts): perception-decision-execution loop for 6 original agents
+    - Additional queues: UI audit, Digital Twin, Faith Foundation setup, sales outreach, billing, production hardening, AutoApply enterprise
+
+    ### What Remains
+    - GoDaddy DNS: benavora.com CNAME www -> cname.vercel-dns.com, A @ -> 76.76.21.21
+    - GitHub 2FA required by August 15 2026
+    - DATAOCEAN backup of enrichment-output/
+    - Real testimonials on marketing page (current ones are illustrative)
+    - Faith Foundation autonomous pipeline live test
+    - Consultant tier (post-25 customers)
+
+    Update SESSION_STATE.md with current session summary.
+
+    Run pnpm build. Fix all errors.
+    git add -A; git commit -m 'docs: STATE_OF_THE_BUILD and SESSION_STATE final update -- July 19-20 2026 session complete'; git push.
+    npx vercel deploy --prod.
+    Report the production URL.

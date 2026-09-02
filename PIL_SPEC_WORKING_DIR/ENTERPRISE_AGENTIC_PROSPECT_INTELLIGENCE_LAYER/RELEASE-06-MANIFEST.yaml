@@ -1,0 +1,19 @@
+release_id: PIL-RELEASE-06
+version: "1.0.0"
+title: "Recovery Architecture, BEN-SUP-06, and Discovery Agents 01-03"
+type: cumulative
+inherits: PIL-RELEASE-05
+canonical_fleet_count: 44
+new_files:
+  - 18-recovery-architecture/18-recovery-investigation-contracts.yaml
+  - 18-recovery-architecture/18b-discovery-agent-shared-contract.md
+  - 19-agents/supervisory/BEN-SUP-06-research-recovery-investigator.md
+  - 20-agents/discovery/BEN-DIS-01-individual-prospect-discovery.md
+  - 20-agents/discovery/BEN-DIS-02-major-donor-discovery.md
+  - 20-agents/discovery/BEN-DIS-03-foundation-discovery.md
+completed_agent_specs: [BEN-SUP-01, BEN-SUP-02, BEN-SUP-03, BEN-SUP-04, BEN-SUP-05, BEN-SUP-06, BEN-DIS-01, BEN-DIS-02, BEN-DIS-03]
+completed_count: 9
+remaining_count: 35
+truthful_status: {specification_complete_for_release_scope: true, implementation_claimed: false, production_score_preassigned: false}
+next_agents: [BEN-DIS-04, BEN-DIS-05, BEN-DIS-06, BEN-DIS-07, BEN-DIS-08]
+

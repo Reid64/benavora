@@ -6,12 +6,16 @@ import { getEvents } from "@/lib/pil/monitoring";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import type {
+  CapacityPropensityAssessment,
   EvidenceItem,
   EvidenceVerificationStatus,
+  FundingEligibilityAssessment,
   GraphEdge,
+  MissionAffinityAssessment,
   Prospect,
   ProspectOpportunity,
   ProspectOpportunityClassification,
+  ProspectOpportunityTimingStatus,
 } from "@/lib/pil/types";
 
 // BEN-QLF-04 -- Opportunity Qualification Agent
@@ -34,6 +38,33 @@ import type {
 // directly from pil_evidence/pil_graph_edges rather than delegating to
 // agents that don't exist -- once those land, their persisted scores should
 // replace the corresponding scoreDimension() calls below.
+//
+// BEN-QLF-01/02/03/05 have since landed (see their own files' headers).
+// BEN-QLF-05 reuses this file's relationship-strength and monitoring-timing
+// logic directly: scoreRelationshipStrength() and scoreTimingFromMonitoring()
+// were promoted from private class methods to standalone exported functions
+// (behavior unchanged) specifically so BEN-QLF-05 could import and call them
+// instead of re-deriving the same pil_graph_edges/getEvents() logic a second
+// time; RELATIONSHIP_STRENGTH_SCORE is exported for the same reason.
+//
+// This upgrade lands the hand-off wiring the paragraph above once promised:
+// missionAffinity/fundingEligibility/givingCapacity/philanthropicPropensity/
+// timingReadiness now each prefer a fresh persisted sibling assessment
+// (BEN-QLF-01/02/03/05's own tables) over this agent's own direct
+// scoreDimension() computation, falling back to the original direct logic
+// unchanged whenever no fresh sibling row exists -- the same graceful-
+// degradation shape BEN-KNW-01 already established for its own BEN-KNW-04
+// hand-off. relationshipStrength needed no new read (it already reads
+// pil_graph_edges.relationship_strength, which is exactly what BEN-REL-06
+// writes) -- only a new delegation when that dimension is still unscored.
+// Every dimension that fell back this run pushes one A2 delegation to the
+// sibling that could supply a fresher assessment next time (BEN-QLF-01/02/03/05,
+// BEN-REL-06), additive alongside the existing BEN-SUP-05 critic delegation
+// and the existing recommendedNextAgents advisory list for "research_more".
+// AgentRunner's own context.depth<=0 => 'escalated' backstop (agent-runner.ts)
+// is the sole guard against the confirmed BEN-QLF-04<->BEN-REL-06 mutual
+// delegation cycle (PIL_AGENT_DEPENDENCIES.yaml) -- no new cycle-guard code
+// is added here.
 //
 // Output contract: this agent writes the schema's real 7-value
 // classification enum to pil_prospect_opportunities.classification (spec's
@@ -63,7 +94,7 @@ import type {
 
 const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
-const VERIFICATION_WEIGHT: Record<EvidenceVerificationStatus, number> = {
+export const VERIFICATION_WEIGHT: Record<EvidenceVerificationStatus, number> = {
   verified_fact: 1,
   corroborated_fact: 0.9,
   single_source_fact: 0.7,
@@ -74,7 +105,7 @@ const VERIFICATION_WEIGHT: Record<EvidenceVerificationStatus, number> = {
   stale: 0.2,
 };
 
-const RELATIONSHIP_STRENGTH_SCORE: Record<string, number> = {
+export const RELATIONSHIP_STRENGTH_SCORE: Record<string, number> = {
   very_strong: 100,
   strong: 80,
   moderate: 55,
@@ -108,7 +139,7 @@ const DIMENSION_WEIGHTS: Record<QualificationDimension, number> = {
 // claim_type vocabulary actually written by the Discovery/Core-Intelligence
 // families (grepped from src/lib/pil/agents/{int,dis}/*.ts) mapped onto the
 // dimension each claim substantiates.
-const CLAIM_TYPES_BY_DIMENSION: Record<Exclude<QualificationDimension, "relationshipStrength" | "researchSufficiency">, string[]> = {
+export const CLAIM_TYPES_BY_DIMENSION: Record<Exclude<QualificationDimension, "relationshipStrength" | "researchSufficiency">, string[]> = {
   missionAffinity: [
     "cause_aligned_giving_announcement",
     "cause_statement_or_board_signal",
@@ -145,7 +176,7 @@ const NEXT_AGENTS_BY_DIMENSION: Record<QualificationDimension, string[]> = {
   researchSufficiency: [],
 };
 
-const INSTITUTIONAL_ENTITY_TYPES = new Set([
+export const INSTITUTIONAL_ENTITY_TYPES = new Set([
   "family_foundation",
   "private_foundation",
   "community_foundation",
@@ -157,6 +188,19 @@ const INSTITUTIONAL_ENTITY_TYPES = new Set([
 const RESEARCH_SUFFICIENCY_THRESHOLD = 40;
 const DISQUALIFY_SCORE_THRESHOLD = 20;
 const DEFAULT_HUMAN_REVIEW_SCORE_THRESHOLD = 80;
+const MISSION_AFFINITY_ASSESSMENT_FRESHNESS_DAYS = 30;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// BEN-QLF-05's own timing_status enum mapped to the 0-100 score scale every
+// other dimension here uses. monitor=70 is deliberately identical to
+// scoreTimingFromMonitoring()'s hardcoded actionable-event value so behavior
+// is continuous whichever code path produced the score.
+const TIMING_STATUS_SCORE: Record<ProspectOpportunityTimingStatus, number> = {
+  approach_now: 100,
+  monitor: 70,
+  cultivate_first: 40,
+  defer: 10,
+};
 
 export type QualificationDimensionScores = Record<QualificationDimension, number>;
 
@@ -174,12 +218,42 @@ export interface QualificationReport {
   confidence: number;
 }
 
-function scoreDimension(items: EvidenceItem[]): number {
+export function scoreDimension(items: EvidenceItem[]): number {
   if (items.length === 0) return 0;
   const weighted = items.map((i) => Math.max(0, Math.min(1, i.confidence)) * VERIFICATION_WEIGHT[i.verification_status]);
   const best = Math.max(...weighted);
   const avg = weighted.reduce((a, b) => a + b, 0) / weighted.length;
   return Math.round(Math.min(1, best * 0.6 + avg * 0.4) * 100);
+}
+
+// Standalone (module-level, not class-bound) so BEN-QLF-05 -- which needs
+// this exact relationship-strength derivation for its own relationshipMaturityScore
+// dimension -- can import and call it directly instead of re-deriving
+// graph-edge relationship strength a second time. Behavior is unchanged from
+// when this lived as a private OpportunityQualificationAgent method.
+export async function scoreRelationshipStrength(orgId: string, prospectId: string): Promise<number> {
+  const nodes = await getNodesByProspect(prospectId, orgId);
+  if (nodes.length === 0) return 0;
+  const nodeIds = nodes.map((n) => n.id);
+  const client = getPilClient();
+  const [{ data: asSource, error: sourceError }, { data: asTarget, error: targetError }] = await Promise.all([
+    client.from("pil_graph_edges").select("*").eq("organization_id", orgId).eq("is_current", true).in("source_node_id", nodeIds),
+    client.from("pil_graph_edges").select("*").eq("organization_id", orgId).eq("is_current", true).in("target_node_id", nodeIds),
+  ]);
+  if (sourceError) throw sourceError;
+  if (targetError) throw targetError;
+  const edges = [...((asSource ?? []) as GraphEdge[]), ...((asTarget ?? []) as GraphEdge[])];
+  if (edges.length === 0) return 0;
+  return Math.max(...edges.map((e) => (e.relationship_strength ? (RELATIONSHIP_STRENGTH_SCORE[e.relationship_strength] ?? 0) : 0)));
+}
+
+// Standalone for the same reason as scoreRelationshipStrength above -- BEN-QLF-05
+// reuses this exact getEvents()-based timing signal rather than reimplementing it.
+export async function scoreTimingFromMonitoring(orgId: string, prospectId: string): Promise<number> {
+  const events = await getEvents(orgId, prospectId);
+  const actionable = events.filter((e) => e.status === "new" || e.status === "reviewed");
+  if (actionable.length === 0) return 0;
+  return 70;
 }
 
 export class OpportunityQualificationAgent implements Agent {
@@ -192,6 +266,11 @@ export class OpportunityQualificationAgent implements Agent {
     if (!prospect) {
       return this.completed({}, `Prospect ${context.prospectId} not found`);
     }
+
+    // Fetched once, up front, so the final upsertOpportunity() write below
+    // doesn't re-query it -- also gives the timingReadiness hand-off below a
+    // pre-scoring look at any timing_status BEN-QLF-05 already wrote.
+    const existingOpportunity = await this.findExistingOpportunity(context.orgId, context.prospectId);
 
     const evidence = await getEvidence(context.prospectId, context.orgId);
     const evidenceByClaimType = new Map<string, EvidenceItem[]>();
@@ -207,10 +286,76 @@ export class OpportunityQualificationAgent implements Agent {
       dimensionScores[dimension] = scoreDimension(items);
     }
 
-    dimensionScores.relationshipStrength = await this.scoreRelationshipStrength(context.orgId, context.prospectId);
+    // --- Sibling hand-off overrides ---------------------------------------
+    // Graceful degradation, mirroring BEN-KNW-01's own BEN-KNW-04 hand-off:
+    // prefer a fresh sibling specialist's persisted assessment over this
+    // agent's own direct scoreDimension() fallback computed just above;
+    // otherwise leave that fallback value untouched.
+    const missionAffinityAssessment = await this.loadLatestAssessment<MissionAffinityAssessment>(
+      "pil_mission_affinity_assessments",
+      context.orgId,
+      context.prospectId,
+    );
+    let missionAffinityHandoffUsed = false;
+    if (missionAffinityAssessment) {
+      const ageDays = (Date.now() - Date.parse(missionAffinityAssessment.computed_at)) / MS_PER_DAY;
+      if (ageDays <= MISSION_AFFINITY_ASSESSMENT_FRESHNESS_DAYS) {
+        dimensionScores.missionAffinity = missionAffinityAssessment.overall_score;
+        missionAffinityHandoffUsed = true;
+      }
+    }
 
-    const monitoringBoost = await this.scoreTimingFromMonitoring(context.orgId, context.prospectId);
-    dimensionScores.timingReadiness = Math.max(dimensionScores.timingReadiness, monitoringBoost);
+    const fundingEligibilityAssessment = await this.loadLatestAssessment<FundingEligibilityAssessment>(
+      "pil_funding_eligibility_assessments",
+      context.orgId,
+      context.prospectId,
+    );
+    let fundingEligibilityHandoffUsed = false;
+    if (fundingEligibilityAssessment) {
+      dimensionScores.fundingEligibility = fundingEligibilityAssessment.eligible === true ? 100 : 0;
+      fundingEligibilityHandoffUsed = true;
+    }
+
+    const capacityPropensityAssessment = await this.loadLatestAssessment<CapacityPropensityAssessment>(
+      "pil_capacity_propensity_assessments",
+      context.orgId,
+      context.prospectId,
+    );
+    let capacityPropensityHandoffUsed = false;
+    if (capacityPropensityAssessment) {
+      // Two separate reads, never blended -- givingCapacity from the
+      // capacity_confidence field only, philanthropicPropensity from the
+      // propensity_score field only (BEN-QLF-03's own "without conflating
+      // them" mission constraint).
+      dimensionScores.givingCapacity = Math.round(Math.max(0, Math.min(1, capacityPropensityAssessment.capacity_confidence)) * 100);
+      dimensionScores.philanthropicPropensity = capacityPropensityAssessment.propensity_score;
+      capacityPropensityHandoffUsed = true;
+    }
+
+    dimensionScores.relationshipStrength = await scoreRelationshipStrength(context.orgId, context.prospectId);
+    // No new read needed here -- scoreRelationshipStrength() already reads
+    // pil_graph_edges.relationship_strength, which is exactly what BEN-REL-06
+    // writes. A 0 here means BEN-REL-06 hasn't scored this prospect's
+    // relationships yet (or none exist), the delegation trigger below.
+    const relationshipStrengthNeedsDelegation = dimensionScores.relationshipStrength === 0;
+
+    const events = await getEvents(context.orgId, context.prospectId);
+    const latestEventAt =
+      events.length === 0
+        ? null
+        : events.reduce((latest, e) => (Date.parse(e.detected_at) > Date.parse(latest) ? e.detected_at : latest), events[0]!.detected_at);
+    const timingStatusHandoffEligible =
+      existingOpportunity?.timing_status != null &&
+      (!latestEventAt || Date.parse(existingOpportunity.updated_at) > Date.parse(latestEventAt));
+
+    let timingReadinessHandoffUsed = false;
+    if (timingStatusHandoffEligible) {
+      dimensionScores.timingReadiness = TIMING_STATUS_SCORE[existingOpportunity!.timing_status!];
+      timingReadinessHandoffUsed = true;
+    } else {
+      const monitoringBoost = await scoreTimingFromMonitoring(context.orgId, context.prospectId);
+      dimensionScores.timingReadiness = Math.max(dimensionScores.timingReadiness, monitoringBoost);
+    }
 
     const scoredDimensions: QualificationDimension[] = [
       "missionAffinity",
@@ -232,7 +377,12 @@ export class OpportunityQualificationAgent implements Agent {
       ),
     );
 
-    const { classification, disqualificationReasons } = this.decideClassification(prospect, dimensionScores, overallScore);
+    const { classification, disqualificationReasons } = this.decideClassification(
+      prospect,
+      dimensionScores,
+      overallScore,
+      fundingEligibilityAssessment,
+    );
     const belowThresholdDimensions = scoredDimensions.filter((d) => dimensionScores[d] < RESEARCH_SUFFICIENCY_THRESHOLD);
     const recommendedNextAgents =
       classification === "research_more"
@@ -248,7 +398,7 @@ export class OpportunityQualificationAgent implements Agent {
 
     const confidence = evidence.length > 0 ? evidence.reduce((s, e) => s + e.confidence, 0) / evidence.length : 0;
 
-    const opportunity = await this.upsertOpportunity(context.orgId, context.prospectId, {
+    const opportunity = await this.upsertOpportunity(context.orgId, context.prospectId, existingOpportunity, {
       classification,
       mission_affinity_score: dimensionScores.missionAffinity / 100,
       confidence,
@@ -266,6 +416,54 @@ export class OpportunityQualificationAgent implements Agent {
         constraints: { targetAgentRunId: null, opportunityId: opportunity.id },
       });
       criticDelegated = true;
+    }
+
+    // --- Additive sibling hand-off delegations ------------------------------
+    // Distinct from the recommendedNextAgents advisory list below (that one
+    // fires only for "research_more"): these fire whenever this run fell back
+    // to direct scoring for a dimension because no fresh sibling assessment
+    // existed, regardless of classification outcome, so a future run benefits
+    // from a richer sibling assessment even on a run that already classified
+    // successfully via fallback.
+    if (!missionAffinityHandoffUsed) {
+      delegations.push({
+        childAgentCode: "BEN-QLF-01",
+        objective: `No fresh pil_mission_affinity_assessments row exists for prospect ${context.prospectId}; BEN-QLF-04 fell back to direct missionAffinity scoring this run.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, dimension: "missionAffinity" },
+      });
+    }
+    if (!fundingEligibilityHandoffUsed) {
+      delegations.push({
+        childAgentCode: "BEN-QLF-02",
+        objective: `No pil_funding_eligibility_assessments row exists for prospect ${context.prospectId}; BEN-QLF-04 fell back to direct fundingEligibility scoring this run.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, dimension: "fundingEligibility" },
+      });
+    }
+    if (!capacityPropensityHandoffUsed) {
+      delegations.push({
+        childAgentCode: "BEN-QLF-03",
+        objective: `No pil_capacity_propensity_assessments row exists for prospect ${context.prospectId}; BEN-QLF-04 fell back to direct givingCapacity/philanthropicPropensity scoring this run.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, dimension: "givingCapacity+philanthropicPropensity" },
+      });
+    }
+    if (!timingReadinessHandoffUsed) {
+      delegations.push({
+        childAgentCode: "BEN-QLF-05",
+        objective: `No fresh pil_prospect_opportunities.timing_status hand-off available for prospect ${context.prospectId}; BEN-QLF-04 fell back to direct timingReadiness scoring this run.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, dimension: "timingReadiness" },
+      });
+    }
+    if (relationshipStrengthNeedsDelegation) {
+      delegations.push({
+        childAgentCode: "BEN-REL-06",
+        objective: `Prospect ${context.prospectId} has no scored relationship_strength yet; BEN-QLF-04's relationshipStrength dimension is 0 until BEN-REL-06 runs.`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: context.prospectId, dimension: "relationshipStrength" },
+      });
     }
 
     const humanReviewThreshold =
@@ -332,6 +530,7 @@ export class OpportunityQualificationAgent implements Agent {
     prospect: Prospect,
     scores: QualificationDimensionScores,
     overallScore: number,
+    fundingEligibilityAssessment: FundingEligibilityAssessment | null,
   ): { classification: ProspectOpportunityClassification; disqualificationReasons: string[] } {
     const reasons: string[] = [];
 
@@ -340,6 +539,13 @@ export class OpportunityQualificationAgent implements Agent {
     }
     if (scores.fundingEligibility === 0 && INSTITUTIONAL_ENTITY_TYPES.has(prospect.entity_type)) {
       reasons.push("No documented funding-eligibility evidence for this institutional funder; treated as ineligible.");
+      // BEN-QLF-02 hand-off: append its own disqualifying_reasons alongside
+      // the generic message above so the report distinguishes a confirmed
+      // "eligible: false" from an "eligible: null" insufficient-evidence
+      // read -- both collapse to fundingEligibility===0 here.
+      if (fundingEligibilityAssessment && fundingEligibilityAssessment.disqualifying_reasons.length > 0) {
+        reasons.push(...fundingEligibilityAssessment.disqualifying_reasons);
+      }
     }
 
     if (scores.givingCapacity === 0) {
@@ -363,29 +569,6 @@ export class OpportunityQualificationAgent implements Agent {
     return { classification: "tier_1_priority", disqualificationReasons: [] };
   }
 
-  private async scoreRelationshipStrength(orgId: string, prospectId: string): Promise<number> {
-    const nodes = await getNodesByProspect(prospectId, orgId);
-    if (nodes.length === 0) return 0;
-    const nodeIds = nodes.map((n) => n.id);
-    const client = getPilClient();
-    const [{ data: asSource, error: sourceError }, { data: asTarget, error: targetError }] = await Promise.all([
-      client.from("pil_graph_edges").select("*").eq("organization_id", orgId).eq("is_current", true).in("source_node_id", nodeIds),
-      client.from("pil_graph_edges").select("*").eq("organization_id", orgId).eq("is_current", true).in("target_node_id", nodeIds),
-    ]);
-    if (sourceError) throw sourceError;
-    if (targetError) throw targetError;
-    const edges = [...((asSource ?? []) as GraphEdge[]), ...((asTarget ?? []) as GraphEdge[])];
-    if (edges.length === 0) return 0;
-    return Math.max(...edges.map((e) => (e.relationship_strength ? (RELATIONSHIP_STRENGTH_SCORE[e.relationship_strength] ?? 0) : 0)));
-  }
-
-  private async scoreTimingFromMonitoring(orgId: string, prospectId: string): Promise<number> {
-    const events = await getEvents(orgId, prospectId);
-    const actionable = events.filter((e) => e.status === "new" || e.status === "reviewed");
-    if (actionable.length === 0) return 0;
-    return 70;
-  }
-
   private async loadProspect(orgId: string, prospectId: string): Promise<Prospect | null> {
     const { data, error } = await getPilClient()
       .from("pil_prospects")
@@ -397,25 +580,51 @@ export class OpportunityQualificationAgent implements Agent {
     return (data as Prospect | null) ?? null;
   }
 
-  private async upsertOpportunity(
-    orgId: string,
-    prospectId: string,
-    fields: Partial<ProspectOpportunity>,
-  ): Promise<ProspectOpportunity> {
-    const client = getPilClient();
-    const { data: existing, error: findError } = await client
+  // existing is pre-fetched by findExistingOpportunity() at the top of
+  // execute() (also needed there for the timingReadiness hand-off check)
+  // rather than re-queried here, so this stays a single find + single write
+  // against pil_prospect_opportunities per run, same as before this upgrade.
+  private async findExistingOpportunity(orgId: string, prospectId: string): Promise<ProspectOpportunity | null> {
+    const { data, error } = await getPilClient()
       .from("pil_prospect_opportunities")
       .select("*")
       .eq("organization_id", orgId)
       .eq("prospect_id", prospectId)
       .maybeSingle();
-    if (findError) throw findError;
+    if (error) throw error;
+    return (data as ProspectOpportunity | null) ?? null;
+  }
+
+  // Shared by all three sibling hand-off reads (missionAffinity/
+  // fundingEligibility/givingCapacity+philanthropicPropensity) -- same
+  // "latest row for this prospect" query BEN-QLF-03/BEN-QLF-05 already use
+  // for their own cross-sibling reads.
+  private async loadLatestAssessment<T>(table: string, orgId: string, prospectId: string): Promise<T | null> {
+    const { data, error } = await getPilClient()
+      .from(table)
+      .select("*")
+      .eq("organization_id", orgId)
+      .eq("prospect_id", prospectId)
+      .order("computed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as T | null) ?? null;
+  }
+
+  private async upsertOpportunity(
+    orgId: string,
+    prospectId: string,
+    existing: ProspectOpportunity | null,
+    fields: Partial<ProspectOpportunity>,
+  ): Promise<ProspectOpportunity> {
+    const client = getPilClient();
 
     if (existing) {
       const { data, error } = await client
         .from("pil_prospect_opportunities")
         .update({ ...fields, updated_at: new Date().toISOString() })
-        .eq("id", (existing as ProspectOpportunity).id)
+        .eq("id", existing.id)
         .select("*")
         .single();
       if (error) throw error;

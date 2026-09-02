@@ -1,0 +1,327 @@
+project: forge-2
+governance:
+- BLUEPRINT.md
+- STATE_OF_THE_BUILD.md
+- SESSION_STATE.md
+- SCHEMA_REGISTRY.md
+- BEHAVIORAL_CONTRACTS.md
+prompts:
+- id: s5-schema
+  name: Add System 5 and Orchestrator tables to Build Memory
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\learning\database.ts in full to understand ALL_FORGE_TABLES and CURRENT_SCHEMA_VERSION. Add these four CREATE TABLE IF NOT EXISTS blocks inside initializeForgeMemory() after existing System 3 tables.
+    Table 1: sentinel_prime_runs (id TEXT PRIMARY KEY, build_run_id TEXT NOT NULL, prompt_id TEXT NOT NULL, prompt_index INTEGER NOT NULL, execution_monitor_result TEXT NOT NULL, decision_validator_result TEXT NOT NULL, governance_enforcer_result TEXT NOT NULL, composite_confidence REAL NOT NULL, halt_triggered INTEGER NOT NULL DEFAULT 0, halt_reason TEXT, out_of_scope_writes TEXT, contract_violations TEXT, intent_fulfillment_score REAL, gate_pass_score REAL, created_at TEXT NOT NULL).
+    Table 2: validation_events (id TEXT PRIMARY KEY, sentinel_run_id TEXT NOT NULL, event_type TEXT NOT NULL, severity TEXT NOT NULL, artifact TEXT, description TEXT NOT NULL, auto_resolved INTEGER NOT NULL DEFAULT 0, resolution TEXT, created_at TEXT NOT NULL).
+    Table 3: orchestrator_manifests (id TEXT PRIMARY KEY, project TEXT NOT NULL, manifest_path TEXT NOT NULL, version TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'idle', queues_total INTEGER NOT NULL DEFAULT 0, queues_complete INTEGER NOT NULL DEFAULT 0, queues_failed INTEGER NOT NULL DEFAULT 0, started_at TEXT, completed_at TEXT, created_at TEXT NOT NULL).
+    Table 4: orchestrator_queue_runs (id TEXT PRIMARY KEY, manifest_id TEXT NOT NULL, queue_id TEXT NOT NULL, queue_file TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', depends_on TEXT, priority INTEGER NOT NULL DEFAULT 1, prompt_count INTEGER, started_at TEXT, completed_at TEXT, sentinel_prime_checkpoint TEXT, error TEXT, created_at TEXT NOT NULL).
+    Add all four table names to ALL_FORGE_TABLES. Bump CURRENT_SCHEMA_VERSION to 2.5.0.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 TypeScript errors.
+    Commit: git add -A; git commit -m 'feat(db): System 5 and Orchestrator tables schema v2.5.0'
+  gates:
+  - type: compile
+
+- id: s5-types
+  name: Create System 5 Sentinel Prime type definitions
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\resurrection\types.ts in full as reference shape.
+    Create C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts exporting these exact interfaces and enums.
+    ObservationEventType enum: FILE_WRITE, FILE_DELETE, COMMAND_EXEC, STDOUT_CHUNK, GATE_RESULT, PROCESS_EXIT.
+    EventSeverity enum: INFO, WARN, CRITICAL, HALT.
+    ObservationEvent { id: string, buildRunId: string, promptId: string, promptIndex: number, eventType: ObservationEventType, severity: EventSeverity, artifact: string|null, description: string, rawData: Record<string,unknown>, timestamp: string }.
+    ExecutionMonitorResult { promptId: string, outOfScopeWrites: string[], unexpectedDeletions: string[], commandsExecuted: string[], stdoutChunks: number, exitCode: number|null, durationMs: number, passed: boolean, violations: ObservationEvent[] }.
+    ValidationResult { promptId: string, intentFulfillmentScore: number, gatePassed: boolean, intentActuallyFulfilled: boolean, promptSummary: string, outputSummary: string, gaps: string[], confidence: number }.
+    DriftReport { artifact: string, contractsCited: string[], violationsFound: string[], severity: EventSeverity, autoResolvable: boolean }.
+    GovernanceEnforcerResult { promptId: string, artifactsScanned: string[], driftReports: DriftReport[], contractViolations: string[], passed: boolean }.
+    ConfidenceScore { composite: number, executionScore: number, validationScore: number, governanceScore: number, haltRecommended: boolean }.
+    HaltDecision { shouldHalt: boolean, reason: string|null, autoRecoverable: boolean, recoveryAction: string|null }.
+    SentinelPrimeRunResult { id: string, buildRunId: string, promptId: string, promptIndex: number, executionResult: ExecutionMonitorResult, validationResult: ValidationResult, governanceResult: GovernanceEnforcerResult, confidenceScore: ConfidenceScore, haltDecision: HaltDecision, createdAt: string }.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(sentinel-prime): System 5 type definitions'
+  gates:
+  - type: compile
+
+- id: s5-execution-monitor
+  name: Build ExecutionMonitor — real-time subprocess observer
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts in full to understand subprocess spawning and stdout streaming.
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\sentinel-prime\execution-monitor.ts. Minimum 200 lines of real implementation.
+    Export class ExecutionMonitor with these methods:
+    start(buildRunId: string, promptId: string, promptIndex: number, projectPath: string): void — initializes session, records projectPath as the only allowed write scope.
+    observeStdoutChunk(chunk: string): void — scans for file write patterns (Writing to, Creating, Deleting, git rm), extracts file paths, emits ObservationEvent severity CRITICAL for any path outside projectPath.
+    observeCommand(command: string): void — records every shell command, flags rm -rf and paths outside projectPath as HALT severity.
+    observeFileWrite(filePath: string): void — validates path is under projectPath, emits HALT if outside.
+    finish(exitCode: number): ExecutionMonitorResult — closes session, compiles all ObservationEvents, sets passed=false if any CRITICAL or HALT events found.
+    Export createExecutionMonitor(): ExecutionMonitor factory function.
+    Export executionMonitorSingleton as Map<string, ExecutionMonitor> keyed by buildRunId for cross-module access.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(sentinel-prime): ExecutionMonitor real-time subprocess observer'
+  gates:
+  - type: compile
+
+- id: s5-decision-validator
+  name: Build DecisionValidator — independent critic pass after every gate
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\engine\claude-runner.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts lines 1-100.
+    Create C:\Users\manag\Documents\forge-2\src\sentinel-prime\decision-validator.ts. Minimum 250 lines of real implementation.
+    Export class DecisionValidator with method validate(promptEntry: {id: string, prompt: string, prompt_type: string}, projectPath: string, gatesPassed: boolean, gitDiff: string): Promise<ValidationResult>.
+    Implementation:
+    1) Build critic system prompt: You are a ruthless code review critic. You do not build. You only evaluate. You are given a build prompt and its git diff. Score 0.0-1.0 whether the diff actually fulfills the prompt intent. Return JSON only with no preamble containing intentFulfillmentScore as number, gaps as string array, confidence as number, summary as string.
+    2) Build user message containing full prompt text and full gitDiff.
+    3) Call runClaude from claude-runner.ts — zero API cost, uses Claude Code CLI.
+    4) Parse JSON response. Handle parse errors with fallback intentFulfillmentScore=0.5 and note parse failure in gaps.
+    5) intentActuallyFulfilled=true only when intentFulfillmentScore>=0.75.
+    6) Return full ValidationResult. Gate pass with intentFulfillmentScore<0.75 logs WARN but does not auto-halt.
+    Export createDecisionValidator(): DecisionValidator.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(sentinel-prime): DecisionValidator independent critic pass via CLI'
+  gates:
+  - type: compile
+
+- id: s5-governance-enforcer
+  name: Build GovernanceEnforcer — post-prompt contract compliance scanner
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\resurrection\governance-gaps.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\sentinel-prime\governance-enforcer.ts. Minimum 250 lines of real implementation.
+    Export class GovernanceEnforcer with method enforce(projectPath: string, promptId: string, modifiedFiles: string[]): Promise<GovernanceEnforcerResult>.
+    Implementation:
+    1) Read BEHAVIORAL_CONTRACTS.md from projectPath. Parse all Contract entries by scanning for lines matching Contract followed by number or letter-number patterns. Extract contract ID and full body text.
+    2) For each modified TypeScript file in modifiedFiles read contents. Match contracts to files by keyword overlap. Check for contradictions: never write during active Phase 3 — scan for unguarded build_runs writes. Never auto-approve — scan for auto-approve patterns. Never self-modifies — scan for fs.writeFile on src/ paths. Cost must be zero — scan for fetch calls to api.anthropic.com.
+    3) Each contradiction is a DriftReport with severity CRITICAL and autoResolvable=false. Missing governance doc update is DriftReport severity WARN autoResolvable=true.
+    4) Compile into GovernanceEnforcerResult. passed=false if any CRITICAL DriftReport exists.
+    Export createGovernanceEnforcer(): GovernanceEnforcer.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(sentinel-prime): GovernanceEnforcer post-prompt contract scanner'
+  gates:
+  - type: compile
+
+- id: s5-confidence-and-persist
+  name: Build ConfidenceScorer and DB persistence layer
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\memory\builds.ts in full as DB persistence reference.
+    Create C:\Users\manag\Documents\forge-2\src\sentinel-prime\confidence-scorer.ts.
+    Export SENTINEL_WEIGHTS = { execution: 0.35, validation: 0.40, governance: 0.25 }.
+    Export function scoreConfidence(executionResult: ExecutionMonitorResult, validationResult: ValidationResult, governanceResult: GovernanceEnforcerResult): ConfidenceScore.
+    Formula: executionScore = executionResult.passed ? 1.0 : Math.max(0, 1.0 - (executionResult.violations.length * 0.25)) clamped 0-1. validationScore = validationResult.intentFulfillmentScore clamped 0-1. governanceScore = governanceResult.passed ? 1.0 : Math.max(0, 1.0 - (governanceResult.contractViolations.length * 0.30)) clamped 0-1. composite = (executionScore * 0.35) + (validationScore * 0.40) + (governanceScore * 0.25) clamped 0-1.
+    haltRecommended = composite < 0.4 OR any violation.severity === EventSeverity.HALT OR governanceResult.contractViolations.length > 0.
+    Export function decideHalt(score: ConfidenceScore, executionResult: ExecutionMonitorResult, governanceResult: GovernanceEnforcerResult): HaltDecision.
+    autoRecoverable=true only when composite>=0.3 and no HALT severity violations and no contract violations.
+    Export function persistSentinelRun(result: SentinelPrimeRunResult): void using better-sqlite3 prepared statements inserting into sentinel_prime_runs and all ObservationEvents into validation_events.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(sentinel-prime): ConfidenceScorer formula and DB persistence'
+  gates:
+  - type: compile
+
+- id: s5-orchestrator-wire
+  name: Build SentinelPrime orchestrator and wire into phase3-executor
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\execution-monitor.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\decision-validator.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\governance-enforcer.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\confidence-scorer.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\sentinel-prime\index.ts.
+    Export class SentinelPrime with method runFullObservation(params: { buildRunId: string, promptEntry: {id: string, prompt: string, prompt_type: string}, promptIndex: number, projectPath: string, gatesPassed: boolean, modifiedFiles: string[], gitDiff: string }): Promise<SentinelPrimeRunResult>.
+    Orchestration sequence: 1) ExecutionMonitor finish() from singleton. 2) DecisionValidator validate(). 3) GovernanceEnforcer enforce(). 4) scoreConfidence(). 5) decideHalt(). 6) persistSentinelRun(). 7) Return SentinelPrimeRunResult.
+    In phase3-executor.ts after the existing Sentinel gate block for each prompt: import SentinelPrime. Get git diff via git diff main..HEAD. Call runFullObservation. Print [SENTINEL PRIME] Confidence: {composite.toFixed(2)} at INFO level via renderProgress. If haltDecision.shouldHalt===true and autoRecoverable===false: renderProgress FAIL level [SENTINEL PRIME] HALT then throw to abort run. If shouldHalt===true and autoRecoverable===true: renderProgress WARN and continue. Start ExecutionMonitor singleton at prompt start before runClaudeImpl.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(sentinel-prime): SentinelPrime wired into Phase 3 executor'
+  gates:
+  - type: compile
+
+- id: orchestrator-types
+  name: Create native FORGE 2.0 Orchestrator type definitions
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\sentinel-prime\types.ts as reference shape.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts exporting these exact interfaces and enums.
+    QueueStatus enum: PENDING, RUNNING, COMPLETE, FAILED, PLANNED, SKIPPED.
+    ManifestStatus enum: IDLE, RUNNING, COMPLETE, FAILED, PAUSED.
+    QueueEntry { id: string, file: string, description: string, status: QueueStatus, dependsOn: string[], promptCount: number, estimatedHours: number, priority: number, startedAt: string|null, completedAt: string|null, error: string|null, sentinelCheckpoint: SentinelPrimeRunResult|null }.
+    LibraryManifest { project: string, version: string, description: string, created: string, queues: QueueEntry[] }.
+    OrchestratorOptions { project: string, libraryPath: string, projectPath: string, dryRun: boolean, skipTo: string|null, only: string|null, resetStatus: boolean, governanceSyncPath: string }.
+    OrchestratorResult { manifestId: string, project: string, queuesRun: number, queuesComplete: number, queuesFailed: number, totalDurationMs: number, startedAt: string, completedAt: string }.
+    QueueTransitionEvent { fromQueueId: string|null, toQueueId: string, reason: string, sentinelPassed: boolean, confidenceScore: number }.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): native FORGE 2.0 orchestrator type definitions'
+  gates:
+  - type: compile
+
+- id: orchestrator-manifest-resolver
+  name: Build ManifestResolver and dependency engine
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\memory\builds.ts in full as DB reference.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\manifest-resolver.ts. Minimum 200 lines.
+    Export class ManifestResolver with:
+    load(manifestPath: string): LibraryManifest — reads and parses library-manifest.yaml using js-yaml, validates required fields, throws descriptive error if malformed.
+    save(manifestPath: string, manifest: LibraryManifest): void — writes updated manifest back to disk.
+    getRunnable(manifest: LibraryManifest): QueueEntry[] — returns all PENDING queues whose dependsOn are all COMPLETE sorted by priority ascending.
+    markRunning(manifest: LibraryManifest, queueId: string, manifestPath: string): void — sets status RUNNING, sets startedAt, saves manifest, upserts orchestrator_queue_runs DB row.
+    markComplete(manifest: LibraryManifest, queueId: string, manifestPath: string): void — sets COMPLETE, sets completedAt, saves, updates DB.
+    markFailed(manifest: LibraryManifest, queueId: string, error: string, manifestPath: string): void — sets FAILED, records error, saves, updates DB.
+    validateNoCycles(manifest: LibraryManifest): void — detects circular dependencies, throws with descriptive message.
+    Export createManifestResolver(): ManifestResolver.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): ManifestResolver with dependency resolution and cycle detection'
+  gates:
+  - type: compile
+
+- id: orchestrator-governance-sync
+  name: Build GovernanceSync — DIRECTIVE-016 native implementation
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\governance-sync.ts.
+    Export interface SyncResult { filesSynced: string[], filesSkipped: string[], errors: string[] }.
+    Export function syncGovernanceDocs(projectRepoPath: string, forgeProjectPath: string): SyncResult.
+    Implementation: read all *.md files from projectRepoPath root using fs.readdirSync filtered to .md extension. Copy each to forgeProjectPath using fs.copyFileSync. Track synced, skipped, and errors. Never throw — collect errors and return. Log each synced file as [yyyy-MM-dd HH:mm:ss] [INFO] [GOVERNANCE] Synced {filename}.
+    Export function syncBeforeQueueRun(options: OrchestratorOptions): SyncResult.
+    Export function verifyGovernancePresent(forgeProjectPath: string, requiredDocs: string[]): string[] returning names of missing docs.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): GovernanceSync DIRECTIVE-016 native'
+  gates:
+  - type: compile
+
+- id: orchestrator-queue-runner
+  name: Build QueueRunner — executes individual queue files within orchestrator
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\manifest-resolver.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\governance-sync.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\phases\phase3-executor.ts lines 1-80.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\queue-runner.ts. Minimum 250 lines.
+    Export class QueueRunner with method run(queueEntry: QueueEntry, options: OrchestratorOptions): Promise<{success: boolean, error: string|null, sentinelResult: SentinelPrimeRunResult|null}>.
+    Implementation:
+    1) Call syncBeforeQueueRun to enforce DIRECTIVE-016 before every queue.
+    2) Resolve queue file path from options.libraryPath joined with options.project joined with queueEntry.file.
+    3) Copy queue file to options.projectPath as queue.yaml.
+    4) Spawn FORGE 2.0 CLI subprocess: node C:\Users\manag\Documents\forge-2\dist\cli\index.js build {options.projectPath} --use-existing-queue --skip-design --autonomous-recovery --accept-blockers. Stream stdout in real time to process.stdout with [ORCHESTRATOR] prefix.
+    5) On process exit code 0 mark success. Non-zero mark failed.
+    6) After completion read last sentinel_prime_runs row for this build run from DB, attach as sentinelResult.
+    7) If sentinelResult exists and haltDecision.shouldHalt and not autoRecoverable return success=false with halt reason.
+    Export createQueueRunner(): QueueRunner.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): QueueRunner spawns FORGE 2.0 CLI with real-time streaming'
+  gates:
+  - type: compile
+
+- id: orchestrator-engine
+  name: Build OrchestratorEngine — master dependency loop
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\manifest-resolver.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\queue-runner.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\governance-sync.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\engine.ts. Minimum 300 lines.
+    Export class OrchestratorEngine with method run(options: OrchestratorOptions): Promise<OrchestratorResult>.
+    Implementation:
+    1) Load manifest via ManifestResolver. validateNoCycles. Insert orchestrator_manifests DB row status RUNNING.
+    2) If dryRun: print full plan showing queue order, dependencies, estimated hours, total then return.
+    3) If only: filter to single queue, skip dependency check.
+    4) If skipTo: mark all prior queues SKIPPED.
+    5) Main loop: while getRunnable() returns entries, take highest priority. Call QueueRunner.run(). On success markComplete, log [ORCHESTRATOR] QUEUE COMPLETE: {id} ({duration}ms). On failure markFailed, log [ORCHESTRATOR] QUEUE FAILED: {id} then error. Mark all dependents of failed queue SKIPPED with reason logged. Emit QueueTransitionEvent after each queue.
+    6) When no runnable remain log any PENDING queues blocked by failed dependencies.
+    7) Update orchestrator_manifests DB row COMPLETE or FAILED. Return OrchestratorResult.
+    Catch heap errors, save manifest state, exit with resume instructions.
+    Export createOrchestratorEngine(): OrchestratorEngine.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): OrchestratorEngine master loop with dependency resolution'
+  gates:
+  - type: compile
+
+- id: orchestrator-library-manager
+  name: Build LibraryManager — queue file management and scaffolding
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\library-manager.ts.
+    Export class LibraryManager with these methods:
+    getLibraryPath(baseDir: string, project: string): string — returns baseDir/library/project/.
+    ensureLibraryExists(libraryPath: string): void — creates directory if missing.
+    listQueues(libraryPath: string): string[] — returns all queue-*.yaml files in the library.
+    scaffoldManifest(libraryPath: string, project: string): void — creates starter library-manifest.yaml if none exists.
+    addQueueToManifest(manifestPath: string, entry: Omit<QueueEntry, 'startedAt'|'completedAt'|'error'|'sentinelCheckpoint'>): void — appends new queue entry.
+    getQueueFilePath(libraryPath: string, queueFile: string): string — resolves and validates file exists.
+    validateQueueYaml(queueFilePath: string): string[] — parses queue YAML, returns list of errors including missing project key, missing prompts array, prompts missing id or gates.
+    Default library base path: C:\Users\manag\Documents\FORGE — reads FORGE_LIBRARY_PATH env var if set.
+    Export createLibraryManager(): LibraryManager.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): LibraryManager queue file management and scaffolding'
+  gates:
+  - type: compile
+
+- id: orchestrator-cli
+  name: Register forge orchestrate and forge library CLI commands
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\cli\index.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\engine.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\manifest-resolver.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\library-manager.ts in full.
+    Add these commands to src\cli\index.ts:
+    1) forge orchestrate <project> with options --library-path defaulting to C:\Users\manag\Documents\FORGE, --project-path for governance sync repo, --dry-run, --skip-to <queue-id>, --only <queue-id>, --reset. Creates OrchestratorEngine and calls run(). Prints [ORCHESTRATOR] banner showing project, queues found, estimated total hours.
+    2) forge library list <project> — lists all queue files with manifest status.
+    3) forge library add <project> <queue-file> — validates then calls addQueueToManifest.
+    4) forge library validate <project> — runs validateQueueYaml on all queue files, reports errors.
+    5) forge library scaffold <project> — calls scaffoldManifest.
+    6) forge sentinel report --build-run-id <id> — reads sentinel_prime_runs, prints full diagnostic in FORGE 1.0 log format.
+    7) forge sentinel history --project <path> --limit <n> — lists last N runs with confidence scores.
+    8) forge sentinel threshold --set <value> — writes halt threshold to Build Memory config.
+    All output in [yyyy-MM-dd HH:mm:ss] [LEVEL] format. No chalk, no raw console.log.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(cli): forge orchestrate forge library forge sentinel commands'
+  gates:
+  - type: compile
+
+- id: orchestrator-ps1
+  name: Generate forge-2-orchestrator.ps1 — native FORGE 2.0 launch script
+  prompt: |
+    Read C:\Users\manag\Documents\FORGE\forge-orchestrator.ps1 in full to understand the exact structure, manifest parsing, queue loop, logging format, and status update pattern.
+    Create C:\Users\manag\Documents\FORGE\forge-2-orchestrator.ps1 as a complete faithful port with these critical differences:
+    1) All forge.ps1 invocations replaced with: node C:\Users\manag\Documents\forge-2\dist\cli\index.js build {projectPath} --use-existing-queue --skip-design --autonomous-recovery --accept-blockers where projectPath is C:\Users\manag\Documents\{project}.
+    2) Library path defaults to C:\Users\manag\Documents\FORGE\library\{project}\ same as forge-orchestrator.ps1.
+    3) Manifest path is C:\Users\manag\Documents\FORGE\library\{project}\library-manifest.yaml.
+    4) Queue deployment copies queue file to C:\Users\manag\Documents\{project}\queue.yaml — the target project repo root — NOT to FORGE\projects\{project}\queue.yaml. FORGE 2.0 reads queue.yaml from the project repo directly via --use-existing-queue.
+    5) All log output uses identical format: [yyyy-MM-dd HH:mm:ss] [LEVEL] message.
+    6) Accepts same parameters: -project, -dryRun, -skipTo, -only.
+    7) Governance sync before each queue: copies all *.md from C:\Users\manag\Documents\{project}\ to C:\Users\manag\Documents\FORGE\projects\{project}\ implementing DIRECTIVE-016.
+    After writing confirm file exists: Get-Content C:\Users\manag\Documents\FORGE\forge-2-orchestrator.ps1 | Measure-Object -Line
+    Do NOT run pnpm run build — this is a PS1 file not TypeScript.
+    Commit: git -C C:\Users\manag\Documents\forge-2 add -A; git -C C:\Users\manag\Documents\forge-2 commit -m 'feat(orchestrator): forge-2-orchestrator.ps1 native FORGE 2.0 launch script'
+  gates:
+  - type: compile
+
+- id: orchestrator-index
+  name: Create orchestrator index and wire System 4 bus
+  prompt: |
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\engine.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\manifest-resolver.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\queue-runner.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\library-manager.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\governance-sync.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\orchestrator\types.ts in full.
+    Read C:\Users\manag\Documents\forge-2\src\integration\bus.ts in full.
+    Create C:\Users\manag\Documents\forge-2\src\orchestrator\index.ts re-exporting createOrchestratorEngine, createManifestResolver, createQueueRunner, createLibraryManager, syncGovernanceDocs from all orchestrator modules.
+    In src\integration\bus.ts: import SentinelPrime from sentinel-prime/index.ts. In onSentinelFailure() after existing System 1-3 calls: retrieve most recent sentinel_prime_runs row for promptId from DB. If haltDecision.shouldHalt and not autoRecoverable: append BLOCKER entry to STATE_OF_THE_BUILD.md with sentinel run id, composite confidence, halt reason, timestamp. If autoRecoverable: insert retry prompt_execution row with status pending and retry_count incremented.
+    Export onSentinelPrimeHalt(sentinelRunId: string, projectPath: string): Promise<void> reads sentinel run, formats diagnostic, appends to SESSION_STATE.md.
+    In phase3-executor.ts at halt throw site call onSentinelPrimeHalt before throwing.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'feat(orchestrator): index exports and System 4 bus Sentinel Prime integration'
+  gates:
+  - type: compile
+
+- id: s5-governance-update
+  name: Update all governance docs to reflect System 5 and Orchestrator completion
+  prompt: |
+    In C:\Users\manag\Documents\forge-2 update these governance documents fully without truncation:
+    1) STATE_OF_THE_BUILD.md — add System 5 Sentinel Prime section all prompts DONE with commit hashes. Add Native Orchestrator section all prompts DONE with commit hashes. Schema version 2.5.0. Mark Systems 1-5 plus Native Orchestrator Complete.
+    2) SESSION_STATE.md — update last session summary listing all new files in src/sentinel-prime/ and src/orchestrator/ and forge-2-orchestrator.ps1.
+    3) AGENTS.md — add five System 5 agents: ExecutionMonitor(src/sentinel-prime/execution-monitor.ts), DecisionValidator(src/sentinel-prime/decision-validator.ts), GovernanceEnforcer(src/sentinel-prime/governance-enforcer.ts), ConfidenceScorer(src/sentinel-prime/confidence-scorer.ts), OrchestratorEngine(src/orchestrator/engine.ts).
+    4) BEHAVIORAL_CONTRACTS.md — add SP-1: Sentinel Prime runs after every Phase 3 prompt. SP-2: Composite below 0.4 triggers halt. SP-3: Out-of-scope file write triggers HALT severity. SP-4: DecisionValidator uses Claude Code CLI never Anthropic API. SP-5: GovernanceEnforcer violations never auto-approved. ORC-1: GovernanceSync runs before every queue execution. ORC-2: Dependency cycles detected and rejected at manifest load. ORC-3: Manifest state persisted to Build Memory DB not only YAML.
+    5) FORGE_HANDOFF.md — add complete section listing all sentinel-prime/ and orchestrator/ files, all new CLI commands, and forge-2-orchestrator.ps1 launch instructions.
+    Run pnpm run build in C:\Users\manag\Documents\forge-2 confirm 0 errors.
+    Commit: git add -A; git commit -m 'chore: governance docs Systems 5 and Native Orchestrator complete'
+  gates:
+  - type: compile

@@ -1,0 +1,132 @@
+schema_version: "1.0.0"
+document_id: PIL-PLAN-010
+platform_scope: domain_configurable_prospect_intelligence_core
+domain_rule: "Core contracts contain no Benavora-specific dependency; fundraising behavior is supplied by a versioned Domain Pack."
+policy_precedence: [GLOBAL, DOMAIN, TENANT, GOAL, TASK]
+invariants:
+  - directed_acyclic_graph_required_except_explicit_bounded_iteration_nodes
+  - every_node_has_typed_inputs_outputs_success_stop_and_escalation
+  - child_authority_is_never_greater_than_parent_authority
+  - all_cost_time_token_tool_and_fanout_budgets_are_reserved_before_dispatch
+  - no_node_consumes_unverified_cross_tenant_or_unreferenced_context
+  - deterministic_services_are_tools_not_agents
+  - plans_are_immutable_versions_and_replanning_supersedes
+  - joins_have_explicit_semantics_and_deadlines
+  - recursion_depth_maximum_is_three_unless_stricter_policy_applies
+contracts:
+  ExecutionPlan:
+    required: [plan_id, tenant_id, domain_pack_id, goal_id, strategy_id, version, status, nodes, edges, joins, budgets, critical_path, success_criteria, stop_conditions, policy_snapshot_id, created_at]
+    properties:
+      plan_id: {type: string, format: uuid}
+      tenant_id: {type: string, format: uuid}
+      domain_pack_id: {type: string}
+      goal_id: {type: string, format: uuid}
+      strategy_id: {type: string, format: uuid}
+      version: {type: integer, minimum: 1}
+      supersedes_plan_id: {type: [string, "null"]}
+      status: {enum: [DRAFT, VALIDATING, AUTHORIZED, ACTIVE, REPLANNING, PAUSED, SATISFIED, FAILED, CANCELLED, SUPERSEDED]}
+      nodes: {type: array, minItems: 1, items: {$ref: '#/contracts/PlanNode'}}
+      edges: {type: array, items: {$ref: '#/contracts/DependencyEdge'}}
+      joins: {type: array, items: {$ref: '#/contracts/JoinDefinition'}}
+      budgets: {$ref: '#/contracts/PlanBudget'}
+      critical_path: {type: array, items: {type: string}}
+      success_criteria: {type: array, minItems: 1, items: {type: string}}
+      stop_conditions: {type: array, minItems: 1, items: {type: string}}
+      assumptions: {type: array, items: {type: string}}
+      risk_register: {type: array, items: {$ref: '#/contracts/PlanRisk'}}
+      policy_snapshot_id: {type: string, format: uuid}
+      created_at: {type: string, format: date-time}
+  PlanNode:
+    required: [node_id, node_type, objective, responsible_capability, dependencies, input_refs, output_contract, authorization, budget, success_criteria, stop_conditions, escalation_conditions, retry_class, idempotency_scope]
+    properties:
+      node_id: {type: string}
+      node_type: {enum: [AGENT_TASK, DETERMINISTIC_TOOL, POLICY_GATE, HUMAN_GATE, JOIN, TIMER, CRITIC_GATE, TERMINATION]}
+      objective: {type: string, minLength: 10}
+      responsible_capability: {type: string}
+      agent_id: {type: [string, "null"]}
+      tool_capability_id: {type: [string, "null"]}
+      dependencies: {type: array, items: {type: string}}
+      input_refs: {type: array, items: {type: string}}
+      output_contract: {type: string}
+      authorization: {$ref: '#/contracts/AuthorizationRequirement'}
+      budget: {$ref: '#/contracts/NodeBudget'}
+      success_criteria: {type: array, minItems: 1, items: {type: string}}
+      stop_conditions: {type: array, minItems: 1, items: {type: string}}
+      escalation_conditions: {type: array, minItems: 1, items: {type: string}}
+      retry_class: {enum: [NONE, TRANSIENT_BOUNDED, RATE_LIMIT_TIMER, RECOVERY_INVESTIGATION]}
+      idempotency_scope: {type: string}
+      deadline: {type: [string, "null"], format: date-time}
+      optional: {type: boolean, default: false}
+      information_gain_hypothesis: {type: [string, "null"]}
+  DependencyEdge:
+    required: [from_node, to_node, condition, data_refs]
+    properties:
+      from_node: {type: string}
+      to_node: {type: string}
+      condition: {enum: [ON_SUCCESS, ON_FAILURE, ON_PARTIAL, ON_POLICY_ALLOW, ON_HUMAN_APPROVAL, ALWAYS]}
+      data_refs: {type: array, items: {type: string}}
+  JoinDefinition:
+    required: [join_id, input_nodes, mode, deadline_behavior]
+    properties:
+      join_id: {type: string}
+      input_nodes: {type: array, minItems: 1, items: {type: string}}
+      mode: {enum: [ALL_REQUIRED, QUORUM, FIRST_SUFFICIENT, DEADLINE_BEST_EFFORT]}
+      quorum: {type: [integer, "null"], minimum: 1}
+      sufficiency_contract: {type: [string, "null"]}
+      deadline_behavior: {enum: [FAIL, PARTIAL_EVALUATE, ESCALATE, CANCEL_OPTIONAL]}
+  AuthorizationRequirement:
+    required: [max_autonomy, allowed_data_classes, prohibited_data_classes, allowed_tools, human_gate]
+    properties:
+      max_autonomy: {enum: [A0, A1, A2, A3, A4]}
+      allowed_data_classes: {type: array, items: {type: string}}
+      prohibited_data_classes: {type: array, minItems: 1, items: {type: string}}
+      allowed_tools: {type: array, items: {type: string}}
+      human_gate: {enum: [NONE, H1_APPROVAL, H2_EXECUTION]}
+  PlanBudget:
+    required: [monetary_minor_units, currency, wall_clock_ms, tokens, tool_calls, concurrent_nodes, delegated_tasks]
+    properties:
+      monetary_minor_units: {type: integer, minimum: 0}
+      currency: {type: string, pattern: '^[A-Z]{3}$'}
+      wall_clock_ms: {type: integer, minimum: 1}
+      tokens: {type: integer, minimum: 1}
+      tool_calls: {type: integer, minimum: 0}
+      concurrent_nodes: {type: integer, minimum: 1}
+      delegated_tasks: {type: integer, minimum: 0}
+  NodeBudget:
+    allOf: [{$ref: '#/contracts/PlanBudget'}]
+  PlanRisk:
+    required: [risk_id, category, likelihood, impact, mitigation, owner_node]
+    properties:
+      risk_id: {type: string}
+      category: {enum: [POLICY, PRIVACY, SECURITY, EVIDENCE, IDENTITY, COST, PROVIDER, DEADLINE, REDUNDANCY, RECOVERY]}
+      likelihood: {type: number, minimum: 0, maximum: 1}
+      impact: {type: integer, minimum: 1, maximum: 5}
+      mitigation: {type: string}
+      owner_node: {type: string}
+validation_algorithm:
+  ordered_checks:
+    - schema_and_referential_integrity
+    - tenant_domain_goal_and_policy_snapshot_consistency
+    - graph_acyclicity_and_iteration_bounds
+    - authority_intersection_and_prohibited_data
+    - registered_agent_tool_and_output_contracts
+    - input_availability_and_dependency_completeness
+    - budget_sum_reservation_and_concurrency
+    - join_deadline_and_partial_result_semantics
+    - critic_independence_for_consequential_outputs
+    - redundancy_and_equivalent_work_fingerprints
+    - recovery_idempotency_and_compensation
+    - success_stop_escalation_and_terminal_reachability
+required_tests:
+  - generated_dags_are_acyclic
+  - bounded_iteration_always_terminates
+  - every_node_is_reachable_and_can_reach_terminal_state
+  - child_budgets_do_not_exceed_parent
+  - parallel_reservations_do_not_overcommit
+  - duplicate_work_fingerprints_are_suppressed_or_justified
+  - critic_is_not_originating_agent_or_shared_context_clone
+  - optional_node_failure_respects_join_semantics
+  - cancellation_propagates_and_releases_budget
+  - replanning_preserves_completed_evidence_and_supersedes_plan
+  - domain_pack_cannot_override_global_security_or_privacy_policy
+

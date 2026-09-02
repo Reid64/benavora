@@ -1,0 +1,64 @@
+name: Database Backup (S3)
+
+# Off-provider backup: dumps prod Postgres and uploads it to
+# s3://benavora-prod-backups, independent of Supabase PITR. See
+# scripts/backup-database.ts and infra/aws/backup-bucket/README.md.
+#
+# Single 2 AM UTC cron, not two separate crons for "daily" and "weekly" —
+# running pg_dump twice back-to-back at the same time would just double the
+# load on prod for no benefit. Instead the job checks the UTC day-of-week and
+# runs the weekly-tagged variant on Mondays; every other day runs the plain
+# daily variant. Bucket versioning + the 90-day noncurrent-version lifecycle
+# rule (provisioned in infra/aws/backup-bucket) is what actually enforces
+# retention — this workflow only decides which S3 object tag today's dump
+# gets.
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: backup-database
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # required for aws-actions/configure-aws-credentials OIDC
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install postgresql-client (pg_dump)
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Assume AWS backup role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BACKUP_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Determine schedule tag
+        id: schedule
+        run: |
+          if [ "$(date -u +%u)" = "1" ]; then
+            echo "npm_script=backup:database:weekly" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm_script=backup:database" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: pnpm run ${{ steps.schedule.outputs.npm_script }}
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}

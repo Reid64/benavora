@@ -1,0 +1,47 @@
+project: afs-website
+governance: [CLAUDE.md, SCHEMA.md, SPEC_NOTIFICATIONS.md, SPEC_EMAIL_TEMPLATES.md]
+settings: {build_model: claude-sonnet-4-6-20250514}
+prompts:
+  - id: notif-001
+    phase: investigate
+    description: "Audit which order-status email triggers are wired vs stubbed"
+    max_retries: 2
+    on_fail: halt
+    prompt: |
+      Read lib/resend/client.ts, lib/resend/send.ts, lib/resend/templates/base.ts,
+      and every route under app/api/orders/[id]/**. These transitions should
+      each send a customer email via Resend: quote request received, job
+      approved/in production, order ready, dispatched/on the way, invoice
+      attached, delivered confirmation. Determine exactly which of these
+      actually call lib/resend/send.ts today and which are silent no-ops.
+
+      Do not change code. Write NOTIFICATION_AUDIT.md at the project root
+      listing each transition, whether it's wired, and if not, exactly what
+      function needs to call what, citing real file/line.
+    gates:
+      - type: file_exists
+        files:
+          - NOTIFICATION_AUDIT.md
+
+  - id: notif-002
+    phase: implement
+    description: "Wire the missing email triggers per NOTIFICATION_AUDIT.md"
+    max_retries: 3
+    on_fail: halt
+    prompt: |
+      Read NOTIFICATION_AUDIT.md in full. Implement exactly the gaps it
+      lists -- wire each missing transition to send via lib/resend/send.ts,
+      reusing existing templates in lib/resend/templates/ where they exist,
+      building a new one matching the existing style/pattern if they don't.
+
+      Do not touch SMS/Twilio in this prompt -- Twilio credentials are not
+      configured (per .env.example), skip anything requiring them and note
+      it explicitly rather than building against an unconfigured service.
+
+      Run pnpm tsc --noEmit and pnpm run build, both must pass.
+      git add -A && git commit -m "feat: wire missing order-status email notifications"
+      git push origin main
+      Update STATE_OF_THE_BUILD.md and SESSION_STATE.md.
+    gates:
+      - type: compile
+      - type: build

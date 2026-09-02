@@ -1,0 +1,110 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - CSS_OVERRIDE_INVESTIGATION_2026-08-15.md
+  - governance/DESIGN_SYSTEM.md
+  - FEATURE_REGISTRY_v2.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  - id: css-plumbing-verify-001
+    phase: build
+    description: "Confirm or apply the single-source-of-truth CSS fix from the investigation - do not skip even if queue-63 may have partially run"
+    prompt: |
+      Check git log for any commit matching "collapse duplicate CSS color definitions" - if CSS_OVERRIDE_INVESTIGATION_2026-08-15.md's fix (steps 1-4: dead code cleanup, body !important drop, single source of truth in tailwind.config.ts, dropping !important from the premium-block rules family by family) was already applied, confirm it's genuinely in place by reading the current globals.css and tailwind.config.ts. If it was NOT applied yet, apply it now following the investigation's exact ordered method (Section 4) - do not skip the migration step, per the document's own explicit warning about reproducing the 2026-07-16 regression.
+
+      Real verification either way: Playwright screenshot of /dashboard, confirm it renders correctly, and confirm a real Tailwind class or CSS-variable-based style change now actually takes visible effect (the original test of whether the blocker is genuinely resolved).
+    expected_outputs:
+      - src/app/globals.css
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: real-logo-palette-001
+    phase: build
+    description: "Replace the old navy/teal/plum brand values with the real logo-derived palette, enforce always-white nav text"
+    prompt: |
+      The prior brand palette (navy #1A2744-ish, teal #00B4D8, plum #7A3B5C) was based on old, unused, dead-code color definitions - NOT the real logo. Reid uploaded the actual logo: a blue gradient "b" mark (deep blue ~#1D4ED8 at top fading to sky blue ~#0284C7/#38BDF8), a violet paper-airplane and heart accent (~#7C3AED to #A855F7), and bright teal-cyan leaf petals (~#22D3EE). This prompt replaces the brand token values with these real, verified colors.
+
+      1. In tailwind.config.ts's theme.extend.colors (the single source of truth established in the prior prompt), define the real palette: primary blue scale anchored around #1D4ED8 (deep) through #0284C7 (sky), a violet accent at #7C3AED, a blue-violet blend at #4C51C6, a teal-blue blend at #0E7490, and a fixed bright teal highlight at #22D3EE for primary CTAs/buttons. Remove the old navy/plum values entirely - they do not belong to this brand.
+      2. Enforce as a hard, non-conditional rule: every nav item, sidebar item, and header menu item uses solid white (#FFFFFF) text, regardless of which background accent is applied. Find the real sidebar/header/nav components and confirm this is true - not a default that could be overridden accidentally by a future page-specific style.
+      3. Update governance/DESIGN_SYSTEM.md to document these as the real, current brand values, replacing the old navy/teal/plum documentation, and to state the always-white-nav-text rule explicitly.
+      4. Real verification: Playwright screenshot of the sidebar/header with the new deep blue applied, confirm text is genuinely solid white and legible.
+    expected_outputs:
+      - tailwind.config.ts
+      - governance/DESIGN_SYSTEM.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: section-accent-variance-001
+    phase: build
+    description: "Apply section-based accent variance across the real app - shared sidebar, different signature accent per logical page group"
+    prompt: |
+      Reid wants variance across the app's dozens of pages, not one flat color everywhere - but grouped by logical section, not randomly per-page, so users build a mental map of which color means which part of the app.
+
+      1. Read src/components/layout/nav-items.ts (the real nav tree) in full to identify the real logical groupings of pages already implied by the nav structure.
+      2. Assign one signature accent per logical section, using only the 6 real palette colors from the prior prompt - a sensible mapping, e.g.: Dashboard/Home -> deep blue (#1D4ED8), Research & Discovery -> sky blue (#0284C7), Applications & Pipeline -> teal-blue (#0E7490), Intelligence & Reports -> violet (#7C3AED), Donor Discovery/Outreach -> blue-violet blend (#4C51C6), Admin/Settings -> mid blue (#2563EB) - adjust this mapping if the real nav grouping suggests a more sensible fit, state your final mapping clearly in DESIGN_SYSTEM.md.
+      3. The sidebar/header shell itself stays ONE consistent color across the whole app (deep blue, the primary/anchor color) - only each page's own header bar, key stat/metric accents, and primary visual elements shift to that section's signature accent. Do not recolor the shared shell per section - that would break the "one shared foundation" principle, only the page content area's accents vary.
+      4. Real live test: Playwright screenshots of at least one real page from each of the 6 logical sections, confirm the correct signature accent is genuinely applied to each, confirm the shared sidebar/header remains the consistent deep blue across all of them, confirm nav text is still solid white everywhere.
+    expected_outputs:
+      - governance/DESIGN_SYSTEM.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: palette-final-regression-001
+    phase: build
+    description: "Comprehensive final visual pass - same investor-facing rigor as before"
+    prompt: |
+      Reid has explicitly stated this UI will be shown to a significant investor - treat this verification accordingly, same standard as the original CSS fix queue.
+
+      1. Run a fresh Playwright pass across every major real page (dashboard, opportunities, applications, funders, foundations, knowledge-base, autoapply, draft-generator, intelligence/*, reports/*, settings, command-center, and the new /how-it-works page if it exists). Screenshot every one.
+      2. Visually review every screenshot: correct section accent applied, consistent deep-blue sidebar/header, solid white nav text throughout, no missing colors or broken layouts.
+      3. Fix anything found wrong before proceeding - do not report this as complete with a known visual defect present.
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: palette-verify-sync-001
+    phase: build
+    description: "Governance sync"
+    prompt: |
+      1. Run pnpm run build and pnpm tsc --noEmit, fix any errors.
+      2. Update FEATURE_REGISTRY_v2.md's "One UI Rule" entry to reflect the real, current state: single source of truth established, real logo-derived palette in place, section-based accent variance documented, always-white nav text enforced.
+      3. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md with a full summary - explicit, unmissable language about whether the final regression check found and fixed anything or came back clean, since Reid needs this precisely before an investor sees the app.
+      4. Scoped git add, commit with message "feat: replace placeholder navy/teal/plum brand palette with real logo-derived colors (blue/violet/teal), enforce white nav text, apply section-based accent variance across the app", git push.
+    expected_outputs:
+      - FEATURE_REGISTRY_v2.md
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

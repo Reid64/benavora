@@ -1,0 +1,149 @@
+prompts:
+  - id: n2-001
+    phase: verify
+    description: "Verify Phase 1 artifacts + migrations applied"
+    prompt: |
+      Verify these exist: src/lib/donor-discovery/crawler-core.ts (fetchCompliant, DomainRateLimiter), src/lib/donor-discovery/adapters/google-places.ts, src/lib/donor-discovery/directory.ts, worker/dd-request-processor.ts, DONOR_DISCOVERY_ARCHITECTURE.md, and migrations 067-071 in supabase/migrations/.
+      If ANY are missing, write the list to STATE_OF_THE_BUILD.md under "## BLOCKED: Night Queue 2" and exit nonzero to halt the pipeline. Otherwise state all present and proceed.
+    gates:
+      - type: compile
+    max_retries: 1
+    on_fail: halt
+
+  - id: n2-002
+    phase: build
+    description: "Taxonomy seed script (skipped by prior run): full NAICS 2022 + civic branch"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 1A-1C and migration 067 for the exact donor_discovery_taxonomy schema.
+      Create scripts/seed-dd-taxonomy.ts (add package.json script seed:dd-taxonomy running it via tsx). Follow the conventions of scripts/seed-beta-users.ts exactly: @ts-nocheck first line, supabase admin client with ws transport for realtime.
+      The script: 1) downloads the official US Census 2022 NAICS 6-digit code list from census.gov (prefer CSV/TXT; parse robustly), 2) upserts every 6-digit code as kind='naics' with parent linkage from 2-digit sector and 4-digit industry group, 3) upserts civic branch entries: land_bank, community_foundation, corporate_foundation, municipal_surplus, trade_association as kind='civic', 4) idempotent on (kind, code), 5) exits with a clear error if the Census download fails — NEVER fabricate a partial NAICS list.
+      Do not run it — create only.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-003
+    phase: build
+    description: "Shared web enrichment engine (foundations AND DD prospects)"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 2B. Create src/lib/enrichment/web-extractor.ts as a SHARED engine:
+      - extractFromWebsite(url, schema: 'foundation' | 'donor_prospect'): uses crawler-core fetchCompliant to fetch the homepage plus up to 4 likely subpages (about, grants/giving/apply, contact — discovered from nav links), concatenates cleaned text (strip scripts/styles, cap 30k chars), calls Claude (model claude-sonnet-4-6) with a strict JSON-only extraction prompt per schema.
+      - foundation schema fields: giving_focus_areas[], application_process, application_url, accepts_unsolicited bool|null, contact_email, contact_phone, contact_address, key_people[{name,title}], geographic_focus.
+      - donor_prospect schema fields per architecture 2B: has_giving_program, has_donation_form, donation_form_url, csr_page_url, giving_focus_areas, decision_contacts, service_area.
+      - Robust JSON parsing (strip code fences), returns {ok, data, error}, never throws, no module-load side effects, worker-safe.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-004
+    phase: build
+    description: "990-derived foundation enrichment script (all 133K, cheap)"
+    prompt: |
+      Search src/lib for the existing IRS 990 ingestion utilities (irs990) and reuse their parsing.
+      First: create a new migration adding to foundation_directory any missing columns: enrichment jsonb, enriched_990_at timestamptz, enriched_web_at timestamptz, website_discovered_via text.
+      Then create scripts/enrich-foundations-990.ts (pnpm script enrich:990, same script conventions as seed-beta-users.ts):
+      - Streams the IRS 990 XML index for the current year, matches filers to foundation_directory by EIN, extracts: total_assets, total_giving, grant_count, typical grant range where grant schedules exist, phone, address, website_url, fiscal_year.
+      - Batch upsert 500/batch, checkpoint file for resume, progress log every 1000 records, completion summary including count that gained website_url.
+      - After each checkpoint batch appends raw rows to ./enrichment-output/990-extract.csv and the completion message reminds to back up ./enrichment-output/ to the DATAOCEAN drive.
+      Do not run — create only.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-005
+    phase: build
+    description: "Website discovery + prioritized web enrichment runner"
+    prompt: |
+      1) Create src/lib/enrichment/website-discovery.ts: for foundations with no website_url, query the existing SearXNG integration (find it in src/lib) with "<name> foundation <city> <state>", take top organic result excluding aggregator domains (guidestar, propublica, causeiq, charitynavigator, instrumentl, linkedin, facebook), verify fuzzy name match (similarity > 0.5) in title/body, return {url, confidence}.
+      2) Create scripts/enrich-foundations-web.ts (pnpm script enrich:web): selects foundation_directory rows with website_url and no web enrichment, ordered total_assets desc NULLS LAST, optional --ntee filter and --limit N (default 500). Concurrency 8 via a simple semaphore (no new packages). Each task: discovery fallback if needed, web-extractor foundation schema, merge into enrichment jsonb (never overwrite non-null with null), set enriched_web_at. Checkpoint/resume, Claude-call counter, per-batch CSV append to ./enrichment-output/web-extract.csv.
+      3) Foundations dashboard page: add enrichment coverage stats (N of total enriched: 990 / web) via cheap count queries, using existing design tokens.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-006
+    phase: build
+    description: "Onboarding soft-gate + banner + Settings resume"
+    prompt: |
+      Find the onboarding hard-gate (redirect when organizations.onboarding_completed=false — check dashboard layout and middleware).
+      1) New migration: organizations.onboarding_progress jsonb default '{}' storing {completed_steps: string[], last_step: string}. Wire the existing 7-step wizard to persist each completed step immediately (save-and-continue).
+      2) Wizard remains default landing after first login BUT add a visible "Explore the platform first" skip link (session flag, routes to /dashboard).
+      3) While incomplete, all dashboard pages show a dismissible-per-session banner "Organization setup is X of 7 steps complete — Resume setup" deep-linking to last_step. Warning Badge tokens.
+      4) Settings: new "Organization Setup" section (follow settings/layout.tsx tab conventions): 7-step checklist with Badge states, progress bar, Resume button to first incomplete step; all-complete state links each step for review.
+      5) NAV ITEM: add a self-retiring "Onboarding" entry near the top of the sidebar nav (src/components/layout/nav-items.ts + sidebar renderer) rendered ONLY while onboarding_completed=false; label shows progress ("Onboarding - 3/7"), links to the wizard at last_step, and disappears permanently once complete.
+      6) Playwright spec: skip works, banner resumes correctly, Settings section reflects progress, nav item present when incomplete and absent when complete.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-007
+    phase: build
+    description: "DD Phase 2: prospect enrichment stage in worker"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md 2B. In worker/dd-request-processor.ts replace the enrichment stub: after enumeration, for each linked directory record with a website and no enrichment (or enriched_at > 180 days old), run web-extractor donor_prospect schema (concurrency 5), merge into donor_discovery_directory.enrichment, set enriched_at, update request status through 'enriching' with counts. Per-site failures must not fail the request — record in a request-level error log jsonb.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-008
+    phase: build
+    description: "DD Phase 2: foundation linkage + scoring engine"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md 2C-2D.
+      1) src/lib/donor-discovery/foundation-linkage.ts: find related corporate foundation in foundation_directory by name heuristics ("<company> foundation/charitable/fund", similarity > 0.55), boost confidence on domain match. Store linked_foundation_id + linkage_confidence on the directory record (add columns via migration if 067 lacks them). Wire into worker enrichment stage.
+      2) src/lib/donor-discovery/scoring.ts: deterministic scoreProspect(directoryRecord, requestContext) -> {score 0-100, rationale}: giving program +25, donation form +20, in-kind signals +15, linked foundation +15*confidence, geo match +15, size-appropriate +10. Weights org-overridable via organizations jsonb with defaults. Rationale sentence lists fired signals. Wire as worker scoring stage, write score+rationale to donor_discovery_prospects, advance request to 'complete'. Vitest for weight math and rationale.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-009
+    phase: build
+    description: "PHASE 3: Donor Discovery nav item + Overview + New Discovery wizard"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 4. Add "Donor Discovery" to the main dashboard nav (src/components/layout/nav-items.ts — it may already reference it from the overnight run; verify and complete) between Opportunities and AutoApply-adjacent placement per the doc. Icon hue: emerald.
+      Create src/app/(dashboard)/donor-discovery/page.tsx (Overview): active requests with live progress (status + counts from the requests API), prospect funnel by pipeline_stage, top-scored new prospects list. Use PageHeader, Card with sunken headers, Badge variants, emerald icon chips — match the current design system exactly.
+      Create src/app/(dashboard)/donor-discovery/new/page.tsx (New Discovery wizard): step 1 searchable taxonomy picker (query donor_discovery_taxonomy, tree by sector, multi-select), step 2 geography (radius around a point with address geocode via Places, OR state multi-select, OR national), step 3 review + launch (POST /api/donor-discovery/requests). Empty-taxonomy state must instruct running pnpm seed:dd-taxonomy.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-010
+    phase: build
+    description: "PHASE 3: Prospects table + prospect detail + AutoApply handoff"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 4 and 7.
+      Create src/app/(dashboard)/donor-discovery/prospects/page.tsx: filterable table (taxonomy, request, min score, pipeline_stage) using the shared Table conventions; columns: name, category badges, geography, score with rationale tooltip, stage Badge, actions. Bulk stage advance.
+      Create src/app/(dashboard)/donor-discovery/prospects/[id]/page.tsx: enrichment record display, score rationale, contacts, linked foundation (if any), stage controls, and when enrichment.has_donation_form is true a "Queue in AutoApply" primary button that creates a funders record + AutoApply queue item with the donation_form_url via existing APIs (find and reuse the existing add-to-queue endpoint; do not duplicate logic).
+      Playwright smoke spec for the three DD pages rendering for beta1@benavora-test.com.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: n2-011
+    phase: governance
+    description: "Full verify, governance rewrite, commit, push"
+    prompt: |
+      Run pnpm vitest run (all pass, fix your own regressions), pnpm tsc --noEmit, pnpm run build, and npx -p typescript tsc -p worker/tsconfig.json --noEmit (Railway gate) — all four must be clean.
+      Update STATE_OF_THE_BUILD.md: "Donor Discovery Phases 2+3 complete (engine + dashboard)", "Foundation Enrichment Pipeline built — NOT YET RUN", "Onboarding soft-gate live". List Reid's morning actions in order: apply any new migrations via the Management API pattern, pnpm seed:dd-taxonomy, pnpm enrich:990, pnpm enrich:web --limit 2000, back up ./enrichment-output/ to DATAOCEAN, launch a discovery request from the new UI as smoke test.
+      Update SESSION_STATE.md. git add -A, commit -m "feat: dd phase 2+3, foundation enrichment pipeline, onboarding soft-gate", push origin main.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 2
+    on_fail: halt
