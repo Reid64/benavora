@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner, Modal, Select } from "@/components/ui";
-import { InstructionalWidget } from "@/components/InstructionalWidget";
 import {
   daysInStage,
   loadPipelineApplications,
@@ -183,16 +182,7 @@ export default function ApplicationsPage() {
   const showEmpty = !loading && !error && filtered.length === 0;
 
   return (
-    <div style={{ minHeight: "100vh", padding: "24px" }}>
-      <InstructionalWidget
-        pageTitle="Applications"
-        steps={[
-          { number: 1, title: "Track your pipeline", description: "Applications move through discovery, drafting, submitted, and awarded stages." },
-          { number: 2, title: "Filter by stage family", description: "Use the tabs to focus on drafting work or submitted follow-ups." },
-          { number: 3, title: "Open an application", description: "Click any card to see documents, deadlines, and drafting progress." },
-          { number: 4, title: "Watch for gaps", description: "The Gap Analysis link flags missing requirements before you submit." },
-        ]}
-      />
+    <div style={{ minHeight: "100vh", paddingTop: "24px", paddingBottom: "24px", paddingLeft: "20px", paddingRight: "20px", maxWidth: "1200px", margin: "0 auto" }}>
       {/* Header */}
       <div
         style={{

@@ -14,7 +14,9 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: ButtonSize;
   /** Show a spinner and disable interaction. */
   isLoading?: boolean;
-  /** Stretch to fill the available width. */
+  /** @deprecated Full-width stretching was removed — buttons are now capped at
+   * 180px (primary/danger) or 160px (secondary/ghost). Kept as a no-op prop
+   * so existing callers don't need to be touched. */
   fullWidth?: boolean;
 };
 
@@ -27,12 +29,12 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
  * on the plain page background or a white card it has too little affordance.
  */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-[#3D6B50] hover:bg-[#005F92] text-white shadow-sm focus-visible:ring-[#3D6B50]",
+  primary: "bg-[#3D6B50] hover:bg-[#2C4E3B] text-white shadow-sm focus-visible:ring-[#3D6B50] max-w-[180px]",
   secondary:
-    "bg-surface border border-slate-200 text-slate-700 hover:border-[#3D6B50] hover:text-[#3D6B50] focus-visible:ring-[#3D6B50]",
+    "bg-surface border border-slate-200 text-slate-700 hover:border-[#3D6B50] hover:text-[#3D6B50] focus-visible:ring-[#3D6B50] max-w-[160px]",
   danger:
-    "bg-[#EF4444] hover:bg-[#B91C1C] text-white shadow-sm focus-visible:ring-[#EF4444]",
-  ghost: "text-primary hover:bg-primary/10 focus-visible:ring-primary",
+    "bg-[#EF4444] hover:bg-[#B91C1C] text-white shadow-sm focus-visible:ring-[#EF4444] max-w-[180px]",
+  ghost: "text-primary hover:bg-primary/10 focus-visible:ring-primary max-w-[160px]",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -50,7 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     variant = "primary",
     size = "md",
     isLoading = false,
-    fullWidth = false,
+    fullWidth: _fullWidth = false,
     disabled,
     className,
     children,
@@ -68,7 +70,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         "inline-flex items-center justify-center rounded-lg font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
-        fullWidth && "w-full",
         className,
       )}
       {...props}

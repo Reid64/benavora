@@ -17,7 +17,6 @@ import {
 
 import { Badge, Button, EmptyState, LoadingSpinner, Textarea } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
-import { InstructionalWidget } from "@/components/InstructionalWidget";
 
 // Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Rust. Secondary accent: Bronze.
@@ -203,16 +202,7 @@ export default function EmailPage() {
   ];
 
   return (
-    <div className="flex h-full flex-col">
-      <InstructionalWidget
-        pageTitle="Engagement"
-        steps={[
-          { number: 1, title: "Read your inbox", description: "Emails linked to funders and contacts show here, with thread context." },
-          { number: 2, title: "Search or filter threads", description: "Find a conversation by subject, sender, or linked funder." },
-          { number: 3, title: "Reply with AI assist", description: "Draft a reply and let Assist suggest language before you send." },
-          { number: 4, title: "Check relationship health", description: "Funder & Contact Monitoring flags relationships that need attention." },
-        ]}
-      />
+    <div className="flex h-full flex-col" style={{ paddingLeft: "20px", paddingRight: "20px", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
       <div className="mb-4 flex items-center gap-3">
         <Mail className="h-6 w-6" style={{ color: FRAME_RUST }} aria-hidden />
         <div>

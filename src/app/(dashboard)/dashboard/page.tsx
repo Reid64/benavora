@@ -15,7 +15,6 @@ import {
 import { FlipCards, type FlipCardData } from "@/components/dashboard/FlipCards";
 import { AiTriggerPanel, type AiTrigger } from "@/components/dashboard/AiTriggerPanel";
 import { ScraperStatusCard } from "@/components/dashboard/ScraperStatusCard";
-import { InstructionalWidget } from "@/components/InstructionalWidget";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
 export const dynamic = "force-dynamic";
@@ -277,7 +276,7 @@ export default async function DashboardPage() {
 
   if (!profile?.organization_id) {
     return (
-      <div style={{ backgroundColor: STONE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+      <div style={{ backgroundColor: STONE, minHeight: "100vh", paddingTop: "24px", paddingBottom: "24px", paddingLeft: "20px", paddingRight: "20px", maxWidth: "1200px", margin: "0 auto", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
         <div
           style={{
             borderRadius: "12px",
@@ -822,16 +821,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div style={{ backgroundColor: STONE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
-      <InstructionalWidget
-        pageTitle="Dashboard"
-        steps={[
-          { number: 1, title: "Check your KPIs", description: "The top row shows funding raised, active applications, and win rate at a glance." },
-          { number: 2, title: "Review AI triggers", description: "Suggested actions from your agents — approve or dismiss each one." },
-          { number: 3, title: "Track live activity", description: "Recent decisions and automation runs update in real time below." },
-          { number: 4, title: "Jump to a section", description: "Use the sidebar to dive into Prospects, Opportunities, or Applications." },
-        ]}
-      />
+    <div style={{ backgroundColor: STONE, minHeight: "100vh", paddingTop: "24px", paddingBottom: "24px", paddingLeft: "20px", paddingRight: "20px", maxWidth: "1200px", margin: "0 auto", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       <style>{`
         @keyframes pulseGlow {
           0% { box-shadow: 0 0 0 0 rgba(0,212,255,0.5); }
@@ -1262,7 +1252,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Bottom row — 4 columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginTop: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "24px", marginTop: "16px" }}>
         <Panel title="Recent Activity" accent={SKY}>
           {agentDecisions.length === 0 ? (
             <p style={{ fontSize: "12px", color: MUTED, margin: 0 }}>No autonomous activity in the last 24h.</p>

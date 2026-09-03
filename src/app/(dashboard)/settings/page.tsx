@@ -35,7 +35,6 @@ import {
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -108,16 +107,7 @@ export default function SettingsPage() {
   const [active, setActive] = useState<SectionId>("organization");
 
   return (
-    <div style={{ minHeight: "100vh" }} className="p-6">
-      <InstructionalWidget
-        pageTitle="Settings"
-        steps={[
-          { number: 1, title: "Manage your organization", description: "Update your org name, branding, and default preferences here." },
-          { number: 2, title: "Invite your team", description: "Add teammates and set their role — owner, admin, writer, or viewer." },
-          { number: 3, title: "Watch plan usage", description: "Track how much of your plan's AI and automation quota you've used." },
-          { number: 4, title: "Review feature flags", description: "See which platform phases are enabled for your organization." },
-        ]}
-      />
+    <div style={{ minHeight: "100vh", paddingLeft: "20px", paddingRight: "20px", maxWidth: "1200px", margin: "0 auto" }} className="p-6">
       <PageHeader
         accent={FRAME_NAVY}
         title="Settings"

@@ -14,7 +14,6 @@ import {
 
 import { Badge, EmptyState, LoadingSpinner } from "@/components/ui";
 import { ProvenBadge } from "@/components/knowledge-base/ProvenBadge";
-import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { createClient } from "@/lib/supabase/client";
 import { STANDARD_ANSWER_CATEGORY } from "@/lib/utils/constants";
 import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
@@ -172,16 +171,7 @@ export default function KnowledgeBaseOverviewPage() {
   }, []);
 
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.canvas, padding: 24 }}>
-      <InstructionalWidget
-        pageTitle="Resources"
-        steps={[
-          { number: 1, title: "Complete your profile", description: "The completeness bar tracks how much of your org profile is filled in." },
-          { number: 2, title: "Review proven narratives", description: "Story fragments marked as proven can be reused in application drafts." },
-          { number: 3, title: "Search the knowledge base", description: "Find standard answers and past narrative content by keyword." },
-          { number: 4, title: "Browse the nonprofit directory", description: "Look up peer nonprofits for context on similar funding asks." },
-        ]}
-      />
+    <div style={{ minHeight: "100vh", background: COLORS.canvas, paddingTop: 24, paddingBottom: 24, paddingLeft: 20, paddingRight: 20, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: COLORS.text, margin: 0 }}>Knowledge Base</h1>
         <p style={{ fontSize: 14, color: COLORS.textMuted, marginTop: 6, maxWidth: 640 }}>
@@ -337,7 +327,7 @@ export default function KnowledgeBaseOverviewPage() {
             </div>
 
             {/* Metrics */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 24 }}>
               <MetricCard icon={BookText} label="Narratives" value={summary?.narrativeCount ?? 0} />
               <MetricCard icon={HelpCircle} label="Standard answers" value={summary?.answerCount ?? 0} />
               <MetricCard icon={Award} label="Proven narratives" value={summary?.provenCount ?? 0} />

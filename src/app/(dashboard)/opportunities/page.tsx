@@ -11,7 +11,6 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
-import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { OPPORTUNITY_STATUSES } from "@/lib/utils/constants";
 import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
@@ -401,16 +400,7 @@ export default function OpportunitiesPage() {
 
   return (
     <ErrorBoundary>
-      <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
-        <InstructionalWidget
-          pageTitle="Opportunities"
-          steps={[
-            { number: 1, title: "Browse matched opportunities", description: "Grants and funders matched to your organization's profile." },
-            { number: 2, title: "Filter by source or status", description: "Narrow the list to foundations, government, or corporate funders." },
-            { number: 3, title: "Check the probability score", description: "Each opportunity shows an AI-estimated fit and win likelihood." },
-            { number: 4, title: "Start a draft", description: "Open an opportunity and generate an application draft in one click." },
-          ]}
-        />
+      <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", paddingTop: "32px", paddingBottom: "32px", paddingLeft: "20px", paddingRight: "20px", maxWidth: "1200px", margin: "0 auto" }}>
         {/* Header */}
         <div
           style={{
@@ -540,7 +530,7 @@ export default function OpportunitiesPage() {
             )}
 
             {landBankOpportunities.length > 0 ? (
-              <div style={{ marginTop: "16px", display: "grid", gap: "10px" }}>
+              <div style={{ marginTop: "16px", display: "grid", gap: "24px" }}>
                 {landBankOpportunities.map((opp) => (
                   <Link
                     key={opp.id}
@@ -698,7 +688,7 @@ export default function OpportunitiesPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(4, 1fr)",
-                gap: "16px",
+                gap: "24px",
                 marginBottom: "24px",
               }}
             >
@@ -710,7 +700,7 @@ export default function OpportunitiesPage() {
 
             {/* Opportunity cards */}
             {loading ? (
-              <div style={{ display: "grid", gap: "12px" }}>
+              <div style={{ display: "grid", gap: "24px" }}>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <LoadingCard key={i} height={92} borderRadius={12} />
                 ))}
