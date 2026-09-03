@@ -121,7 +121,6 @@ type AlertRow = {
 type BoardMemberRow = { id: string; bio: string | null };
 type ProgramRow = { id: string; description: string | null };
 type FoundationRow = { id: string; name: string; asset_amount: number | null };
-type IntelligenceProposalRow = { funder_type: string | null; created_at: string };
 
 type OrgProfileRow = {
   name: string;
@@ -320,8 +319,6 @@ export default async function DashboardPage() {
     taxDocumentCountRes,
     foundationTotalRes,
     topFoundationsRes,
-    intelligenceLibraryCountRes,
-    intelligenceLibraryTypesRes,
     donorDiscoveryCountRes,
     automationSessions24hRes,
     oppByCategoryRes,
@@ -401,8 +398,6 @@ export default async function DashboardPage() {
       .select("id, name, asset_amount")
       .order("asset_amount", { ascending: false, nullsFirst: false })
       .limit(3),
-    supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
-    supabase.from("intelligence_funded_proposals").select("funder_type, created_at"),
     supabase
       .from("donor_discovery_prospects")
       .select("id", { count: "exact", head: true })
@@ -445,8 +440,6 @@ export default async function DashboardPage() {
   const taxDocumentCount = taxDocumentCountRes.count ?? 0;
   const foundationTotal = foundationTotalRes.count ?? 0;
   const topFoundations = (topFoundationsRes.data ?? []) as FoundationRow[];
-  const intelligenceLibraryCount = intelligenceLibraryCountRes.count ?? 0;
-  const intelligenceLibraryRows = (intelligenceLibraryTypesRes.data ?? []) as IntelligenceProposalRow[];
   const donorDiscoveryCount = donorDiscoveryCountRes.count ?? 0;
   const automationSessions24hCount = automationSessions24hRes.count ?? 0;
   const oppByCategory = (oppByCategoryRes.data ?? []) as { source_type: string | null }[];
@@ -519,15 +512,6 @@ export default async function DashboardPage() {
     return days >= 0 && days <= 7;
   });
   const nextFourDeadlines = deadlines.slice(0, 4);
-
-  const funderTypeCounts = new Map<string, number>();
-  let lastImportDate: string | null = null;
-  for (const row of intelligenceLibraryRows) {
-    const key = row.funder_type ?? "Unclassified";
-    funderTypeCounts.set(key, (funderTypeCounts.get(key) ?? 0) + 1);
-    if (!lastImportDate || row.created_at > lastImportDate) lastImportDate = row.created_at;
-  }
-  const topFunderTypes = [...funderTypeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
 
   const sourceTypeCounts = new Map<string, number>();
   for (const row of oppSourceTypes) {
