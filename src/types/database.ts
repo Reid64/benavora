@@ -2657,6 +2657,8 @@ export interface Database {
           confirmation_data: Json | null;
           documents_attached: string[] | null;
           variant_id: string | null;
+          confirmation_email_received: boolean;
+          confirmation_received_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -2684,6 +2686,8 @@ export interface Database {
           confirmation_data?: Json | null;
           documents_attached?: string[] | null;
           variant_id?: string | null;
+          confirmation_email_received?: boolean;
+          confirmation_received_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -2711,6 +2715,8 @@ export interface Database {
           confirmation_data?: Json | null;
           documents_attached?: string[] | null;
           variant_id?: string | null;
+          confirmation_email_received?: boolean;
+          confirmation_received_at?: string | null;
           created_at?: string;
         };
         Relationships: [];

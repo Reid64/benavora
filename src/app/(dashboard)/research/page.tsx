@@ -9,6 +9,7 @@ import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { RunHistory, type AgentRunRecord } from "@/components/research/RunHistory";
 import {
   RESEARCH_RESOURCES,
   RESOURCE_CATEGORIES,
@@ -33,6 +34,7 @@ interface AgentRunRow {
   completed_at: string | null;
   duration_ms: number | null;
   items_found: number | null;
+  items_processed: number | null;
   error_message: string | null;
 }
 
@@ -79,6 +81,29 @@ const RESEARCH_AGENT_TYPES: AgentType[] = [
 ];
 
 const POLL_INTERVAL_MS = 30_000;
+
+/**
+ * Research lanes that can actually be triggered on demand, one-to-one with the
+ * two POST /api/agents/research flows (agentType and sources). state_portal,
+ * propublica_mining, and custom_api_research have no manual-trigger support in
+ * that route (scheduler-only, see src/lib/agents/scheduler.ts) so they're
+ * intentionally left out here rather than wired to a request that would 400.
+ */
+const AGENT_TYPE_LANES: { key: string; label: string; body: { agentType: string } }[] = [
+  { key: "corporate_research", label: "Corporate Giving", body: { agentType: "corporate_research" } },
+  { key: "foundation_research", label: "Foundation Grants", body: { agentType: "foundation_research" } },
+  { key: "government_research", label: "Government Grants", body: { agentType: "government_research" } },
+  { key: "local_sponsorship", label: "Local Sponsorship", body: { agentType: "local_sponsorship" } },
+];
+
+const SOURCE_LANES: { key: string; label: string; body: { sources: string[] } }[] = [
+  { key: "grants_gov", label: "Grants.gov", body: { sources: ["grants_gov"] } },
+  { key: "sam_gov", label: "SAM.gov", body: { sources: ["sam_gov"] } },
+  { key: "simpler_grants", label: "Simpler Grants", body: { sources: ["simpler_grants"] } },
+  { key: "hud", label: "HUD", body: { sources: ["hud"] } },
+  { key: "tdhca", label: "TDHCA", body: { sources: ["tdhca"] } },
+  { key: "corporate", label: "Corporate Directory", body: { sources: ["corporate"] } },
+];
 
 function sourceBadgeProps(source: string | null, sourceType: OppSourceType | null): { label: string; variant: BadgeVariant } {
   let label = "Unknown";
@@ -548,7 +573,7 @@ interface FundingSourcePollingRow {
   active: boolean | null;
 }
 
-function FundingSourceDirectorySection() {
+function FundingSourceDirectorySection({ onPolled }: { onPolled: () => Promise<void> }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [pollingByName, setPollingByName] = useState<Record<string, boolean>>({});
@@ -617,6 +642,7 @@ function FundingSourceDirectorySection() {
       setPollError("Could not reach the sources poll agent. Please try again.");
     }
     setPolling(false);
+    await onPolled();
   }
 
   return (
@@ -880,6 +906,225 @@ function Spinner({ className = "" }: { className?: string }) {
   );
 }
 
+function LaneButton({
+  label,
+  disabled,
+  isRunning,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  isRunning: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: isRunning ? "#2E6B66" : "#FFFFFF",
+        color: isRunning ? "#FFFFFF" : "#0F172A",
+        border: "1px solid #E2E8F0",
+        borderRadius: 8,
+        padding: "6px 14px",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled && !isRunning ? 0.5 : 1,
+      }}
+    >
+      {isRunning && <Spinner className="h-3 w-3" />}
+      {label}
+    </button>
+  );
+}
+
+/**
+ * On-demand triggers for POST /api/agents/research, one button per lane the
+ * route actually supports (AGENT_TYPE_LANES = agentType flow, SOURCE_LANES =
+ * sources flow) plus "Run All" for each flow. Also renders the run history
+ * (RunHistory, previously built but never wired into this page) from the
+ * agent_runs rows the page already polls.
+ */
+function ResearchAgentLaunchpad({
+  agentRuns,
+  runningLane,
+  runMessage,
+  runError,
+  onRun,
+}: {
+  agentRuns: AgentRunRow[];
+  runningLane: string | null;
+  runMessage: string | null;
+  runError: string | null;
+  onRun: (key: string, body: { agentType: string } | { sources: string[] }) => void;
+}) {
+  const anyRunning = runningLane !== null;
+  const runHistoryRows: AgentRunRecord[] = agentRuns.map((r) => ({
+    id: r.id,
+    agent_type: r.agent_type,
+    status: r.status,
+    items_found: r.items_found,
+    items_processed: r.items_processed,
+    duration_ms: r.duration_ms,
+    error_message: r.error_message,
+    created_at: r.started_at ?? r.completed_at,
+  }));
+
+  return (
+    <section style={{ marginTop: 8 }}>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: "#0F172A", margin: 0 }}>
+          Run Research Agents
+        </h2>
+        <p style={{ fontSize: 13, color: "#64748B", marginTop: 4 }}>
+          Trigger a research lane on demand. New discoveries appear in the list
+          below once the run completes.
+        </p>
+      </div>
+
+      {runMessage && (
+        <div
+          role="status"
+          style={{
+            marginBottom: 12,
+            fontSize: 12,
+            color: "#15803D",
+            backgroundColor: "#DCFCE7",
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          {runMessage}
+        </div>
+      )}
+      {runError && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 12,
+            fontSize: 12,
+            color: "#B91C1C",
+            backgroundColor: "#FEE2E2",
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          {runError}
+        </div>
+      )}
+
+      <div
+        style={{
+          backgroundColor: "#F8F5EE",
+          borderRadius: 12,
+          boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+          padding: 16,
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "#94A3B8",
+              margin: 0,
+            }}
+          >
+            AI Research Agents
+          </p>
+          <LaneButton
+            label="Run All 4"
+            disabled={anyRunning}
+            isRunning={runningLane === "all"}
+            onClick={() => onRun("all", { agentType: "all" })}
+          />
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {AGENT_TYPE_LANES.map((lane) => (
+            <LaneButton
+              key={lane.key}
+              label={lane.label}
+              disabled={anyRunning}
+              isRunning={runningLane === lane.key}
+              onClick={() => onRun(lane.key, lane.body)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: "#F8F5EE",
+          borderRadius: 12,
+          boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+          padding: 16,
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "#94A3B8",
+              margin: 0,
+            }}
+          >
+            Federal &amp; Specialty Sources
+          </p>
+          <LaneButton
+            label="Run All 6"
+            disabled={anyRunning}
+            isRunning={runningLane === "all-sources"}
+            onClick={() => onRun("all-sources", { sources: ["all"] })}
+          />
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {SOURCE_LANES.map((lane) => (
+            <LaneButton
+              key={lane.key}
+              label={lane.label}
+              disabled={anyRunning}
+              isRunning={runningLane === lane.key}
+              onClick={() => onRun(lane.key, lane.body)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <RunHistory runs={runHistoryRows} isLoading={false} />
+    </section>
+  );
+}
+
 export default function ResearchPage() {
   const router = useRouter();
   const [view, setView] = useState<"research" | "config">("research");
@@ -894,6 +1139,11 @@ export default function ResearchPage() {
   const [historicalAwards, setHistoricalAwards] = useState<HistoricalAwardRow[]>([]);
   const [pullingAwards, setPullingAwards] = useState(false);
   const [awardsError, setAwardsError] = useState<string | null>(null);
+
+  // Manual research-agent triggers (POST /api/agents/research).
+  const [runningLane, setRunningLane] = useState<string | null>(null);
+  const [runMessage, setRunMessage] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const searchedOpportunities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -914,7 +1164,7 @@ export default function ResearchPage() {
       supabase
         .from("agent_runs")
         .select(
-          "id, agent_type, status, started_at, completed_at, duration_ms, items_found, error_message",
+          "id, agent_type, status, started_at, completed_at, duration_ms, items_found, items_processed, error_message",
         )
         .in("agent_type", RESEARCH_AGENT_TYPES)
         .order("started_at", { ascending: false, nullsFirst: false })
@@ -1005,6 +1255,32 @@ export default function ResearchPage() {
     await load();
   }
 
+  async function handleRunLane(
+    key: string,
+    body: { agentType: string } | { sources: string[] },
+  ) {
+    setRunningLane(key);
+    setRunMessage(null);
+    setRunError(null);
+    try {
+      const res = await fetch("/api/agents/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setRunError(payload.error ?? "Research run failed. Please try again.");
+      } else {
+        setRunMessage("Research run complete. Results are below.");
+      }
+    } catch {
+      setRunError("Could not reach the research agent. Please try again.");
+    }
+    setRunningLane(null);
+    await load();
+  }
+
   return (
     <div style={{ backgroundColor: "#F0EBE0", display: "flex", flexDirection: "column", gap: "32px" }}>
       {/* Header */}
@@ -1052,7 +1328,15 @@ export default function ResearchPage() {
         <>
       <ResourcesSection />
 
-      <FundingSourceDirectorySection />
+      <ResearchAgentLaunchpad
+        agentRuns={agentRuns}
+        runningLane={runningLane}
+        runMessage={runMessage}
+        runError={runError}
+        onRun={handleRunLane}
+      />
+
+      <FundingSourceDirectorySection onPolled={load} />
 
       {/* DISCOVERED OPPORTUNITIES */}
       <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>

@@ -18,6 +18,7 @@ import {
   BaseAgent,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
+import { fetchWithRetry } from "@/lib/agents/research/http-retry";
 import type { AgentType } from "@/types/agents";
 
 const HUD_URL =
@@ -104,14 +105,18 @@ export class HudMonitorAgent extends BaseAgent<HudMonitorInput, HudMonitorResult
     // Fetch HUD page HTML
     let html: string;
     try {
-      const response = await fetch(HUD_URL, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; Benavora/1.0; grant-research-bot)",
-          Accept: "text/html,application/xhtml+xml",
-        },
-        signal: AbortSignal.timeout(25_000),
-      });
+      const response = await fetchWithRetry(
+        () =>
+          fetch(HUD_URL, {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (compatible; Benavora/1.0; grant-research-bot)",
+              Accept: "text/html,application/xhtml+xml",
+            },
+            signal: AbortSignal.timeout(25_000),
+          }),
+        { attempts: 3 },
+      );
       if (!response.ok) {
         throw new AgentError(
           `HUD page returned HTTP ${response.status}.`,

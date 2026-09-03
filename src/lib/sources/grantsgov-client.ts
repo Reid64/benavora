@@ -6,6 +6,7 @@
 // Callers (route handlers, worker jobs) own persistence and dedup.
 
 import { decodeHtmlEntities } from "@/lib/utils/formatters";
+import { fetchWithRetry } from "@/lib/agents/research/http-retry";
 
 const GRANTS_GOV_SEARCH_URL = "https://api.grants.gov/v1/api/search2";
 
@@ -96,17 +97,21 @@ export async function searchGrantsGovOpportunities(
 
   let response: Response;
   try {
-    response = await fetch(GRANTS_GOV_SEARCH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        keyword,
-        oppStatuses: "posted",
-        rows: DEFAULT_ROWS,
-        startRecordNum: 0,
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
+    response = await fetchWithRetry(
+      () =>
+        fetch(GRANTS_GOV_SEARCH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyword,
+            oppStatuses: "posted",
+            rows: DEFAULT_ROWS,
+            startRecordNum: 0,
+          }),
+          signal: AbortSignal.timeout(30_000),
+        }),
+      { attempts: 3 },
+    );
   } catch {
     return [];
   }

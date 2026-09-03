@@ -25,8 +25,12 @@
 // cycle (logged once) rather than crashing the worker.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { gmail_v1, google } from 'googleapis';
 import Anthropic from '@anthropic-ai/sdk';
+
+import { CredentialManager } from './credential-manager';
+import type { Database } from '@/types/database';
 
 // --- Config -----------------------------------------------------------------
 
@@ -52,6 +56,9 @@ const SOURCE = 'gmail-confirmation-monitor';
 
 interface MatchCandidate {
   submissionId: string;
+  organizationId: string;
+  funderId: string;
+  portalUrl: string | null;
   portalDomain: string | null;
   normalizedOrgName: string;
 }
@@ -254,24 +261,41 @@ function findMatches(
     .map((c) => c.submissionId);
 }
 
-// --- Confirmation-number extraction (single Claude call, §10A step 4) ----------
+// --- Confirmation-detail extraction (single Claude call, §10A step 4) ----------
 
-async function extractConfirmationNumber(emailText: string): Promise<string | null> {
+interface ExtractedConfirmation {
+  confirmationNumber: string | null;
+  summary: string | null;
+  loginCredentials: { username: string; password: string } | null;
+}
+
+const EMPTY_EXTRACTION: ExtractedConfirmation = {
+  confirmationNumber: null,
+  summary: null,
+  loginCredentials: null,
+};
+
+async function extractConfirmationDetails(emailText: string): Promise<ExtractedConfirmation> {
   const apiKey = process.env['ANTHROPIC_API_KEY'];
-  if (!apiKey) return null;
+  if (!apiKey) return EMPTY_EXTRACTION;
 
   try {
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 128,
+      max_tokens: 256,
       messages: [
         {
           role: 'user',
-          content: `Extract any confirmation number, reference ID, or tracking number from this email. Return null if none is present.
+          content: `This is a grant-application confirmation email. Extract the following. Return null for anything not present.
+
+- confirmation_number: any confirmation number, reference ID, or tracking number
+- summary: one short sentence summarizing the confirmation (status, next steps, deadlines mentioned)
+- login_username: a portal login username or email explicitly given for future access, if present
+- login_password: a portal login password or temporary password explicitly given, if present
 
 Respond with JSON only, no markdown, no explanation:
-{"confirmation_number": "<value or null>"}
+{"confirmation_number": "<value or null>", "summary": "<value or null>", "login_username": "<value or null>", "login_password": "<value or null>"}
 
 Email:
 ${emailText.slice(0, 6000)}`,
@@ -281,14 +305,29 @@ ${emailText.slice(0, 6000)}`,
 
     const raw = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    const parsed = JSON.parse(jsonMatch[0]) as { confirmation_number?: string | null };
-    return parsed.confirmation_number ?? null;
+    if (!jsonMatch) return EMPTY_EXTRACTION;
+    const parsed = JSON.parse(jsonMatch[0]) as {
+      confirmation_number?: string | null;
+      summary?: string | null;
+      login_username?: string | null;
+      login_password?: string | null;
+    };
+
+    const loginCredentials =
+      parsed.login_username && parsed.login_password
+        ? { username: parsed.login_username, password: parsed.login_password }
+        : null;
+
+    return {
+      confirmationNumber: parsed.confirmation_number ?? null,
+      summary: parsed.summary ?? null,
+      loginCredentials,
+    };
   } catch (err) {
     // Extraction failure never blocks the match itself (§10A step 4) — the
     // definitive signal is confirmation_email_received, not the number.
-    console.error(`[${SOURCE}] Confirmation-number extraction failed:`, describeError(err));
-    return null;
+    console.error(`[${SOURCE}] Confirmation-detail extraction failed:`, describeError(err));
+    return EMPTY_EXTRACTION;
   }
 }
 
@@ -313,6 +352,8 @@ async function loadCandidates(supabase: SupabaseClient): Promise<MatchCandidate[
 
   type CandidateRow = {
     id: string;
+    organization_id: string;
+    funder_id: string;
     funders: { giving_portal_url: string | null } | { giving_portal_url: string | null }[] | null;
     organizations: { name: string } | { name: string }[] | null;
   };
@@ -321,9 +362,17 @@ async function loadCandidates(supabase: SupabaseClient): Promise<MatchCandidate[
     .map((row) => {
       const funder = Array.isArray(row.funders) ? row.funders[0] : row.funders;
       const org = Array.isArray(row.organizations) ? row.organizations[0] : row.organizations;
-      const portalDomain = domainFromPortalUrl(funder?.giving_portal_url ?? null);
+      const portalUrl = funder?.giving_portal_url ?? null;
+      const portalDomain = domainFromPortalUrl(portalUrl);
       const normalizedOrgName = org?.name ? normalizeOrgName(org.name) : '';
-      return { submissionId: row.id, portalDomain, normalizedOrgName };
+      return {
+        submissionId: row.id,
+        organizationId: row.organization_id,
+        funderId: row.funder_id,
+        portalUrl,
+        portalDomain,
+        normalizedOrgName,
+      };
     })
     .filter((c) => c.portalDomain !== null);
 }
@@ -457,17 +506,50 @@ async function doGmailWork(supabase: SupabaseClient, gmail: any): Promise<CycleR
 
     // Exactly one match.
     const submissionId = matchedIds[0] as string;
-    const confirmationNumber = await extractConfirmationNumber(`${subject}\n\n${bodyText}`);
+    const candidate = candidates.find((c) => c.submissionId === submissionId);
+    const { confirmationNumber, summary, loginCredentials } = await extractConfirmationDetails(
+      `${subject}\n\n${bodyText}`,
+    );
 
     const update: Record<string, unknown> = {
       confirmation_email_received: true,
       confirmation_received_at: new Date().toISOString(),
+      confirmation_data: {
+        source: 'email',
+        gmail_message_id: messageId,
+        from: fromHeader,
+        subject,
+        received_at: receivedAt,
+        summary,
+        credentials_extracted: loginCredentials !== null,
+      },
     };
     if (confirmationNumber !== null) {
       update['confirmation_number'] = confirmationNumber;
     }
 
     await supabase.from('autoapply_submissions').update(update).eq('id', submissionId);
+
+    if (loginCredentials && candidate?.portalUrl) {
+      try {
+        // Same AES-256-GCM store already used for autoapply's own portal
+        // logins (funder_credentials) — reused here rather than inventing a
+        // second credential store for the same secret shape.
+        const credentialManager = new CredentialManager(
+          supabase as unknown as ReturnType<typeof createClient<Database>>,
+        );
+        await credentialManager.storeCredentials({
+          organizationId: candidate.organizationId,
+          funderId: candidate.funderId,
+          portalUrl: candidate.portalUrl,
+          username: loginCredentials.username,
+          password: loginCredentials.password,
+        });
+      } catch (err) {
+        console.error(`[${SOURCE}] Failed to store extracted login credentials:`, describeError(err));
+      }
+    }
+
     await supabase.from('autoapply_confirmation_processed_messages').insert({
       gmail_message_id: messageId,
       match_status: 'matched',

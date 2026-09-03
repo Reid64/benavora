@@ -1,101 +1,80 @@
-# BENAVORA — Session State
-## Last Updated: July 17, 2026
-## Mode: Active Development
+# SESSION_STATE.md — Current Execution State
+**As of:** 2026-09-03 05:45 UTC  
+**Session Duration:** 4h 37m  
+**FORGE Execution:** 25 prompts (22 passed, 3 validation issues)
 
----
+## Immediate Status
 
-## Current Session
+### PENDING: Cleanup Queue (3 Prompts)
+- **Location:** `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` (after download)
+- **Prompts:**
+  1. Update AutoApply runbook (Gmail/Resend architecture)
+  2. Create Benavora STATE_OF_THE_BUILD.md (replace AFS contamination)
+  3. Clean git state and push
+- **Status:** Ready to launch. File downloaded, waiting for move + FORGE execution.
 
-**Date:** July 17, 2026
-**Focus:** Governance documentation suite v2.0 + Platform Vision architecture
-**Status:** Documentation complete. Tonight's FORGE queue ready.
+### COMPLETE: Overnight Mega-Queue (22 of 25 Prompts)
+- P0 archived prospects: PASSED ✓
+- Google research: PASSED ✓
+- Google build: PASSED ✓ (6 components + API + nav)
+- Chatbot: PASSED ✓ (trained, integrated on 7 pages)
+- AutoApply P0: PASSED (7 of 7 gates) ✓ (but 3 validation warnings)
 
----
+### VALIDATION ISSUES (Not Execution Failures)
+1. Zoho integration not in codebase (expected — Phase 2 work)
+2. STATE_OF_THE_BUILD.md is AFS content (expected — cleanup queue fixes)
+3. Git has worktree noise (expected — cleanup queue fixes)
 
-## What Was Accomplished This Session
+## Git State
 
-### Documents Produced (all v2.0)
-1. STANDING_DIRECTIVES.md — 6 permanent build obligations
-2. PLATFORM_VISION_ARCHITECTURE.md — 14 net-new platform pillars fully architected
-3. CORPORATE_INTELLIGENCE_ARCHITECTURE.md — full corporate intelligence engine
-4. PRD_v2.md — all 18 pillars with user stories, technical requirements, pricing gates
-5. AGENTS_v2.md — 30 agents fully specified (AG-01 through AG-30)
-6. BLUEPRINT_v2.md — master architectural blueprint (supersedes BLUEPRINT.md)
-7. SCHEMA_REGISTRY_v2.md — all 67 tables documented (supersedes SCHEMA_REGISTRY.md)
-8. FEATURE_REGISTRY_v2.md — 186 features tracked (supersedes Feature_Registry.md)
-9. INTERACTION_MAPS_v2.md — 60+ user flows mapped (supersedes INTERACTION_MAPS.md)
-10. TESTING_v2.md — 10 test types + GitHub Actions (supersedes TESTING.md)
-11. FORGE_CANONICAL_INSTRUCTIONS.md — updated with all lessons learned
-12. WORKER_ARCHITECTURE_v2.md — full nightly agent pipeline documented
-13. STATE_OF_THE_BUILD.md — this session's full build state
-14. SESSION_STATE.md — this document
+**Current Commit:** All 25 prompts' changes are staged but NOT pushed (pending cleanup queue)  
+**Dirty Files:** 6 .claude/worktrees/* entries (will be cleaned by cleanup queue)  
+**Branch:** main (5 commits ahead of origin)
 
-### Queue Produced
-- `queue-night2-platform-vision.yaml` — 30 prompts targeting Platform Vision Phase 1
+## Faith Foundation AutoApply Status
 
-### UI Work Completed (earlier today)
-- Dashboard hero banner deployed with illustration
-- FlightPathHUD colored cards working
-- Dashboard two-column layout with action items widget
+**Current Architecture:**
+- Email confirmation: Gmail OAuth via googleapis library
+- Submission emails: Resend API
+- Retry: Hourly sweep (unscoped — runs on all orgs)
 
----
+**Stuck Submission (June 19):**
+- Status: submitted
+- Confirmation: NOT received
+- Retry count: 1 (was retried earlier today)
+- Action: Monitored via retry logic
 
-## Stale v1 Documents to Delete from Repo
+## What's Ready to Ship (Post-Cleanup)
 
-These must be deleted when running the governance deployment command:
-- BLUEPRINT.md (superseded by BLUEPRINT_v2.md)
-- SCHEMA_REGISTRY.md (superseded by SCHEMA_REGISTRY_v2.md)
-- Feature_Registry.md (superseded by FEATURE_REGISTRY_v2.md)
-- INTERACTION_MAPS.md (superseded by INTERACTION_MAPS_v2.md)
-- TESTING.md (superseded by TESTING_v2.md)
-- TESTING-GUIDE.md (superseded by TESTING_v2.md)
+✓ UI redesign (colors, buttons, spacing, logo)  
+✓ Google for Nonprofits dashboard (full feature)  
+✓ AI Chatbot assistant (trained, integrated)  
+✓ Donor Discovery archived fix  
+✓ AutoApply retry logic + Gmail confirmation  
+✓ Complete documentation
 
----
+## What's NOT Ready
 
-## Before Tonight's FORGE Run
+✗ Zoho OAuth integration (Phase 2)  
+✗ Final git push (pending cleanup queue)  
+✗ Canary launch (awaiting 16 audit P0 fixes — separate effort)
 
-Execute this command to deploy all governance docs:
+## Critical Files for Next Session
+
+**Governor Files (Copy to FORGE context before any new queue):**
+- C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md (once created by cleanup queue)
+- C:\Users\manag\Documents\benavora\SESSION_STATE.md
+- C:\Users\manag\Documents\benavora\BLUEPRINT.md
+- C:\Users\manag\Documents\benavora\DESIGN_SYSTEM.md
+
+**Queue Files (Always in library before FORGE launch):**
+- C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml (active queue)
+- C:\Users\manag\Documents\FORGE\library\benavora\*.yaml (all available queues)
+
+## Cleanup Queue Launch Command
 
 ```powershell
-$docs = @("BLUEPRINT_v2.md","SCHEMA_REGISTRY_v2.md","FEATURE_REGISTRY_v2.md","INTERACTION_MAPS_v2.md","PRD_v2.md","AGENTS_v2.md","PLATFORM_VISION_ARCHITECTURE.md","CORPORATE_INTELLIGENCE_ARCHITECTURE.md","STANDING_DIRECTIVES.md","TESTING_v2.md","FORGE_CANONICAL_INSTRUCTIONS.md","WORKER_ARCHITECTURE_v2.md","STATE_OF_THE_BUILD.md","SESSION_STATE.md")
-$src = "C:\Users\manag\Downloads\Recent Downloads"
-$repo = "C:\Users\manag\Documents\benavora"
-$forge = "C:\Users\manag\Documents\FORGE\projects\benavora"
-foreach ($f in $docs) { Copy-Item "$src\$f" "$repo\$f" -Force; Copy-Item "$src\$f" "$forge\$f" -Force }
-Copy-Item "$src\queue-night2-platform-vision.yaml" "$forge\queue.yaml" -Force
-$old = @("BLUEPRINT.md","SCHEMA_REGISTRY.md","Feature_Registry.md","INTERACTION_MAPS.md","TESTING.md","TESTING-GUIDE.md")
-foreach ($f in $old) { if (Test-Path -LiteralPath "$repo\$f") { Remove-Item -LiteralPath "$repo\$f" } }
-cd $repo; git add -A; git commit -m "docs: complete governance suite v2.0 — 14 documents"; git push origin main
+cd C:\Users\manag\Documents\FORGE; $env:NODE_OPTIONS="--max-old-space-size=8192"; $env:ANTHROPIC_API_KEY=$null; $env:DANGEROUSLY_SKIP_PERMISSIONS=1; powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora
 ```
 
-Then launch FORGE:
-```powershell
-cd C:\Users\manag\Documents\FORGE; $env:NODE_OPTIONS="--max-old-space-size=8192"; $env:ANTHROPIC_API_KEY=$null; powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora -startFrom 0
-```
-
-After FORGE completes:
-```powershell
-cd "C:\Users\manag\Documents\benavora"; npx vercel deploy --prod
-```
-
----
-
-## Next Session Priorities
-
-1. UI redesign continuation — one component per CC session
-2. Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA)
-3. Run ProPublica batch enrichment against 133K foundations
-4. Back up enrichment-output/ to DATAOCEAN — CRITICAL
-5. Platform Vision Phase 2 FORGE queue (nights 3-5)
-6. Fix duplicate Faith Foundation org records
-
----
-
-## Blockers Requiring Human Action
-
-| Blocker | Action Required |
-|---|---|
-| DATAOCEAN backup | Copy enrichment-output/ to D:\ immediately after any enrichment run |
-| Duplicate Faith Foundation orgs | Manual delete from Supabase dashboard |
-| 298K prospect CSV | Copy from D:\dataocean, run import script |
-| Intelligence corpus empty | Run 5 ingestion scripts locally (not via FORGE) |
+(After queue.yaml is in place via Move-Item)

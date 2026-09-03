@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
 import { DemoSlot } from "@/components/marketing/PageTemplates";
+import { NeuralFleetVisualization } from "@/components/marketing/NeuralFleetVisualization";
 import { mk, mkRadius } from "@/lib/marketing/theme";
 import { PLATFORM, SOLUTIONS } from "@/lib/marketing/nav";
 
@@ -96,6 +97,8 @@ export default function Page() {
           }
         `}</style>
       </Section>
+
+      <NeuralFleetVisualization />
 
       <Section tone="paper">
         <Display2>Three doors</Display2>

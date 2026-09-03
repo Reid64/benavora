@@ -38,6 +38,13 @@ const nextConfig = {
     // finishing. Dropping to a single worker minimizes one build's peak
     // memory footprint so it can still complete under host contention.
     cpus: 1,
+    // Further reduces webpack's own peak heap usage (separate from the
+    // static-generation worker count above) by trading some compile speed
+    // for lower memory. Needed on top of cpus: 1 — under 6-worktree
+    // contention, free system memory was observed as low as ~2.7GB of 16GB,
+    // and even single-worker builds were timing out from GC/swap thrashing
+    // rather than a single build's own CPU cost.
+    webpackMemoryOptimizations: true,
   },
   // Supabase Storage / external images are configured here as features are built.
   images: {

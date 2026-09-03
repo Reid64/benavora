@@ -36,6 +36,7 @@ import {
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
+import { fetchWithRetry } from "@/lib/agents/research/http-retry";
 import type { AgentType } from "@/types/agents";
 
 const SAM_GOV_URL =
@@ -220,11 +221,15 @@ export class SamGovResearchAgent extends BaseAgent<SamGovInput, SamGovResult> {
         if (input.postedTo) params.set("postedTo", input.postedTo);
 
         try {
-          const response = await fetch(`${SAM_GOV_URL}?${params.toString()}`, {
-            method: "GET",
-            headers: { Accept: "application/json" },
-            signal: AbortSignal.timeout(30_000),
-          });
+          const response = await fetchWithRetry(
+            () =>
+              fetch(`${SAM_GOV_URL}?${params.toString()}`, {
+                method: "GET",
+                headers: { Accept: "application/json" },
+                signal: AbortSignal.timeout(30_000),
+              }),
+            { attempts: 3 },
+          );
 
           if (response.status === 403 || response.status === 401) {
             throw new AgentError(
