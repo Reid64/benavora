@@ -1,0 +1,93 @@
+{
+  "sections": [
+    {
+      "name": "Google for Nonprofits Application",
+      "content": "Google for Nonprofits is a program that bundles nonprofit-specific discounts and tools — Google Workspace for Nonprofits, Google Ad Grants, the YouTube Nonprofit Program, Google Maps Platform credits, and Gemini AI tools — for eligible registered charitable organizations in 180+ countries. Applications are reviewed by Goodstack, Google's third-party identity and eligibility verification partner. Google's program page states most reviews take 2–14 working days, while a linked Google support article states verification specifically is typically reviewed within 3–5 business days; treat 3–5 business days as the common case and 2–14 working days as the outer bound including slower edge cases. Approval grants access to the Google for Nonprofits dashboard, but each product must be activated individually — approval does not automatically enroll an organization in every offering.",
+      "steps": [
+        "Confirm eligibility for your organization type and country before applying — requirements vary by country and are listed via the country selector on google.com/nonprofits.",
+        "Go to google.com/nonprofits and click \"Get started\" to begin the account request.",
+        "Complete the account request form with the organization's legal name, registration/charity number, country, mission, and contact info.",
+        "Wait for Goodstack to verify the organization's legal/programmatic status and the requester's affiliation with it; Goodstack may request additional documentation by email.",
+        "Monitor the application email address, including spam/junk folders, for messages from verifications@mail.goodstack.org.",
+        "Receive a decision — typically within 3–5 business days, with 2–14 working days as the outer bound.",
+        "If rejected, request a re-review through Goodstack rather than starting a new application from scratch.",
+        "Once approved, individually activate each desired product (Ad Grants, Workspace, YouTube Nonprofit Program, Maps Platform credits, Gemini, etc.) inside the Google for Nonprofits dashboard.",
+        "Use Google's onboarding guides, product documentation, and Google Skills training courses to roll out each activated product."
+      ],
+      "tips": [
+        "Eligible organizations must be a registered charitable/nonprofit organization in good standing, meet country-specific requirements, pass Goodstack verification, and agree to the Google for Nonprofits Additional Terms of Service.",
+        "Government entities, hospitals/healthcare organizations, and schools/academic institutions/universities are explicitly NOT eligible — though a charitable foundation affiliated with a hospital, or a fundraising arm of a school, can still qualify separately.",
+        "Schools and universities themselves should use Google for Education instead of Google for Nonprofits.",
+        "Expect to provide legal registration/charity documentation and proof of your affiliation with the organization; the authoritative, country-specific document checklist lives on Goodstack's help center, not Google's site.",
+        "Ad Grants provides in-kind Google Search advertising; the commonly cited $10,000/month figure is general industry knowledge and should be reconfirmed on the dedicated Ad Grants page before quoting it externally.",
+        "Check account status anytime via support.google.com/nonprofits/answer/1614637.",
+        "Getting-verified instructions: support.google.com/nonprofits/answer/12016036."
+      ]
+    },
+    {
+      "name": "Business Profile Setup",
+      "content": "A nonprofit's Google Business Profile (GBP) is separate from, but complementary to, the Google for Nonprofits program. A nonprofit does not need to be accepted into Google for Nonprofits to create and verify a Business Profile — the two are independent applications, though linking them later unlocks a Donate button on the listing.",
+      "steps": [
+        "Sign in with a Google Account tied to the organization's domain (e.g. info@yournonprofit.org) rather than a personal account, so ownership can transfer cleanly if staff change.",
+        "Go to business.google.com and click \"Manage now\", or search for the organization in Google Maps and select \"Add your business\".",
+        "Search for an existing listing first — many nonprofits already have an auto-generated or unclaimed listing; claim it instead of creating a duplicate.",
+        "Enter the organization's name exactly as used on your website and official materials, with no keyword-stuffing.",
+        "Choose the most specific accurate business category (e.g. \"Non-profit organization,\" \"Food bank,\" \"Homeless shelter,\" \"Charity\").",
+        "Add location details: a full street address if the org serves visitors at a physical location, or select \"I deliver goods and services to my customers\" and define a service area if there is no public-facing office.",
+        "Add contact information: phone number and website URL.",
+        "Set hours of operation, including special hours for holidays.",
+        "Add a business description (750 characters max) covering the mission, who is served, and what makes the organization distinct.",
+        "Verify the profile via phone, email, text, video, or postcard — verification is required before the profile is publicly visible on Search and Maps.",
+        "Optionally link to Google for Nonprofits once approved (a separate application: check eligibility → apply → Goodstack verification, typically 2–14 business days → activate products → use resources) to add a Donate button.",
+        "Add profile managers/owners under Business Profile settings so more than one staff member can manage the listing without sharing a single login.",
+        "Enable messaging so site visitors and searchers can contact the organization directly from the profile.",
+        "Turn on the Donate button, which requires both Google for Nonprofits approval and a supported payment processor."
+      ],
+      "tips": [
+        "Claiming an existing auto-generated listing instead of creating a new one avoids fragmenting reviews and hurting local ranking.",
+        "Keep Name, Address, Phone (NAP) identical across the Business Profile, website footer, donation pages, and directory listings like GuideStar/Candid and GreatNonprofits.",
+        "The Donate button and Google for Nonprofits acceptance are optional add-ons — don't wait on Google for Nonprofits approval to set up and verify the base Business Profile."
+      ]
+    },
+    {
+      "name": "Optimization Tips",
+      "content": "Google's local ranking is driven by three factors — relevance, distance, and prominence. For nonprofits, relevance comes from profile completeness (category, description keywords, attributes, services, Q&A); distance comes from an accurate address or defined service area; and prominence comes from a mix of off-profile signals (press mentions, backlinks, directory citations) and on-profile engagement (reviews, response rate, post frequency, photo freshness). Profiles with photos generate meaningfully more direction requests and website clicks than photo-less profiles, and Google's built-in Performance (formerly Insights) view tracks discovery source, customer actions, photo views, search queries, and messaging/review metrics to help identify where to focus effort.",
+      "steps": [
+        "Complete every profile field — description, hours, category, attributes — since incomplete profiles rank worse and convert fewer visitors.",
+        "Upload at least one new photo per week (events, programs, team/volunteers, facility interior/exterior) with descriptive file names and no watermarks or heavy text overlays.",
+        "Post to the Updates feed at least weekly, using \"Event\" posts with start/end dates for time-bound fundraisers and always including a call-to-action button.",
+        "Respond to every review, positive and negative, ideally within 24–48 hours, and ask donors/volunteers/participants for reviews via a shareable review link.",
+        "Seed the Q&A section proactively with common donor/beneficiary questions rather than leaving it for the public to populate.",
+        "Refresh hours immediately around holidays and special events.",
+        "Review the Performance/Insights dashboard regularly and correlate spikes in views or direction requests with specific campaigns.",
+        "Build and maintain citations in nonprofit-specific directories (Candid/GuideStar, GreatNonprofits, Charity Navigator, local United Way) with identical NAP data."
+      ],
+      "tips": [
+        "Use one primary category plus relevant secondary categories to widen the searches the profile can surface for without diluting relevance.",
+        "Add nonprofit-specific attributes where available (e.g. \"Identifies as women-led,\" accessibility attributes) since they influence filtered search results.",
+        "Write the business description around mission and impact keywords (who you serve, what problem you solve, geographic area) rather than generic mission-statement language.",
+        "Never offer incentives for reviews — this violates Google's review policies and can trigger profile suspension.",
+        "Flag policy-violating reviews through the official \"Report\" flow rather than trying to have them removed informally.",
+        "Maintain a single canonical listing per physical location; mark duplicate or outdated listings closed/merged.",
+        "Treating the profile as \"set and forget\" is a common mistake — local ranking rewards ongoing activity over a one-time setup."
+      ]
+    },
+    {
+      "name": "FAQ",
+      "content": "Common questions nonprofits ask when navigating Google for Nonprofits and Google Business Profile setup, drawn from Google's own help center documentation and program pages.",
+      "steps": [],
+      "tips": [
+        "Q: Is Google Business Profile the same as Google for Nonprofits? A: No — they are separate programs with separate applications. A nonprofit can and should set up its Business Profile immediately rather than waiting on Google for Nonprofits acceptance.",
+        "Q: Do I need to be accepted into Google for Nonprofits before creating a Business Profile? A: No, a Business Profile can be created and verified independently; Google for Nonprofits approval is only needed to unlock the Donate button and other nonprofit-specific features.",
+        "Q: How long does Google for Nonprofits verification take? A: Typically 3–5 business days per Google's support article on the verification step, though the main program page states a broader range of 2–14 working days.",
+        "Q: What organizations are NOT eligible for Google for Nonprofits? A: Government entities, hospitals/healthcare organizations (though an affiliated charitable foundation can still qualify), and schools/academic institutions/universities (though a school's fundraising arm can still qualify; the institution itself should use Google for Education).",
+        "Q: Who verifies Google for Nonprofits applications? A: Goodstack, Google's third-party identity and eligibility verification partner. Watch for emails from verifications@mail.goodstack.org, including spam/junk folders.",
+        "Q: What happens if my Google for Nonprofits application is rejected? A: You can request a re-review through Goodstack rather than starting a brand-new application.",
+        "Q: Does Google for Nonprofits approval automatically activate every product? A: No — each product (Ad Grants, Workspace, YouTube Nonprofit Program, Maps Platform credits, Gemini) must be individually activated in the dashboard after approval.",
+        "Q: What are the three main local ranking factors for a Google Business Profile? A: Relevance, distance, and prominence.",
+        "Q: Can nonprofits offer incentives for reviews? A: No — offering incentives for reviews violates Google's policies and can trigger profile suspension.",
+        "Q: What's the most common Business Profile mistake nonprofits make? A: Leaving hours (especially holiday hours) stale, followed by inconsistent NAP data across the website, profile, and directories."
+      ]
+    }
+  ]
+}

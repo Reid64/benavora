@@ -138,6 +138,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Knowledge Search", href: "/intelligence/knowledge" },
       { label: "Nonprofit Directory", href: "/nonprofits" },
       { label: "Templates", href: "/email/templates" },
+      { label: "Google for Nonprofits", href: "/google-nonprofit" },
     ],
   },
 ];
