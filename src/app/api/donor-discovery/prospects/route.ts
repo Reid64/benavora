@@ -124,6 +124,11 @@ export async function GET(request: Request) {
   }
   if (stageParam !== null) {
     query = query.eq("pipeline_stage", stageParam);
+  } else {
+    // No explicit stage filter — this is the default "top prospects" ranking
+    // view, so archived prospects (soft-excluded from the pipeline) shouldn't
+    // surface here. Callers that want archived rows pass stage=archived.
+    query = query.neq("pipeline_stage", "archived");
   }
   if (minScore !== null) {
     query = query.gte("score", minScore);
