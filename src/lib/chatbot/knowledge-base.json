@@ -1,0 +1,370 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-09-03",
+  "description": "Knowledge base for the Benavora in-app assistant. Grounded in the live codebase as of 2026-09-03, cross-checked against governance/BLUEPRINT.md, PRD_v2.md, governance/DESIGN_SYSTEM.md, governance/BEHAVIORAL_CONTRACTS.md, and governance/Feature_Registry.md. Where a governance doc's stated status (e.g. Tier 6 'PLANNED') conflicts with what is actually implemented in code, the answers below reflect the real, current implementation and flag the discrepancy.",
+  "sections": {
+    "donor_discovery": {
+      "title": "Donor Discovery",
+      "summary": "Benavora's system for finding, scoring, and pipelining corporate and foundation donation prospects. There are three separate, non-overlapping 'prospect' systems in the codebase; the Donor Discovery pipeline described here is the primary, actively maintained one used from the dashboard.",
+      "workflow_steps": [
+        "1. INTAKE (Requests path) — a user submits a search on /donor-discovery/new specifying taxonomy (NAICS/NTEE codes) and geography (radius-based or state/national). This creates a donor_discovery_requests row with status='queued'; a background worker (worker/dd-request-processor.ts) later enumerates, enriches, and scores prospects asynchronously.",
+        "2. INTAKE (Discover path) — alternatively, a user runs /donor-discovery/discover for a single NAICS code + radius + keywords. This calls the Google Places API synchronously, shows a live preview, and on 'Launch' persists results immediately and marks the request complete — bypassing the worker entirely.",
+        "3. DIRECTORY DEDUPE — every discovered company is upserted into the shared, cross-org donor_discovery_directory table via a fuzzy match (domain match first, then trigram name-similarity within 25km), so the same company is never duplicated across organizations.",
+        "4. PROSPECT CREATION — for the requesting org, a donor_discovery_prospects row is created (or reused) linking that org to the directory record, with its own pipeline_stage, score, notes, and assignment — idempotent per org+directory pair.",
+        "5. SCORING — a scoring engine evaluates each prospect on 7 weighted signals (giving program presence, donation form, in-kind giving history, foundation linkage, geographic match, company-size match, CSR page) and calls Claude Haiku for a short plain-English rationale. Per-org scoring weights are configurable.",
+        "6. ENRICHMENT — an enrichment agent can re-crawl a company's web presence to refresh its profile, after which all orgs' prospects linked to that directory record are automatically rescored.",
+        "7. REVIEW & ACTION — users work the list at /donor-discovery/prospects (filter, search, bulk stage-move) and the detail page /donor-discovery/prospects/[id] (change pipeline stage, assign to a teammate, add notes, or queue the prospect into AutoApply)."
+      ],
+      "data_sources": [
+        "Google Places Text Search — Donor Discovery's own adapter maps NAICS codes to Places categories correctly and builds a proper query.",
+        "IRS Business Master File (BMF) — fallback source for prospects that don't have a discoverable website."
+      ],
+      "known_limitations": [
+        "A separate, older 'corporate prospect acquisition' feature (the corporate_prospects table) exists alongside Donor Discovery and is NOT the same system — it has no organization_id (shared cross-org, service-role access only) and its own migration file notes it was 'never shipped to prod' / 'not confirmed applied to production'.",
+        "That separate corporate_prospects acquisition path has a real bug: its Google Places query builder (acquireFromGooglePlaces) ignores the hand-written search phrases defined per category and only ever searches '<NAICS label> near <location>'.",
+        "A third, unrelated 'prospects' table backs the internal /admin/sales-outreach tool (Benavora's own outbound sales CRM) — it has nothing to do with donor/customer prospecting and should never be confused with donor_discovery_prospects.",
+        "There is also a third, dormant Google Places adapter (google-places-adapter.ts) that is cache-first and budget-aware but is not wired into the live worker path."
+      ],
+      "qa": [
+        {
+          "question": "What is Donor Discovery?",
+          "answer": "Donor Discovery is Benavora's tool for finding corporate and foundation giving prospects in your service area. You give it a target (an industry/category and a location) and it searches, deduplicates against a shared national directory, scores each company on how likely it is to give, and drops qualified prospects into a pipeline you can work — assign, note, move through stages, and eventually queue for AutoApply outreach."
+        },
+        {
+          "question": "What's the difference between the 'New Search' and 'Discover' pages in Donor Discovery?",
+          "answer": "'New Search' (/donor-discovery/new) is the standard path: you pick industry/NTEE categories and a geography, and it queues a request that a background worker processes over time — best for broad, unattended searches. 'Discover' (/donor-discovery/discover) is a faster, synchronous path for a single NAICS code and radius: it queries Google Places live, shows you a preview immediately, and you choose whether to launch (save) the results on the spot."
+        },
+        {
+          "question": "How are donor prospects scored?",
+          "answer": "Each prospect is scored on seven weighted signals — evidence of an existing giving program, a donation form on their site, in-kind giving history, foundation linkage, geographic fit, company-size fit, and a CSR/community page — and a short AI-generated rationale explains the score in plain English. You can adjust the weighting of these signals for your organization in settings."
+        },
+        {
+          "question": "Why do I see the same company across multiple organizations' prospect lists?",
+          "answer": "The underlying company directory (donor_discovery_directory) is shared across all organizations on the platform by design — it's a compounding, deduplicated dataset. Each organization's relationship to that company (pipeline stage, score, notes, assignment) is kept in a separate, org-scoped record, so your notes and stage are private to you even though the underlying company record is shared."
+        },
+        {
+          "question": "I heard corporate prospect discovery ignores my search keywords — is that true?",
+          "answer": "That applies to a separate, older acquisition tool (not the main Donor Discovery flow you use from the dashboard). In that older path, the Google Places query only uses the industry category name and location, and does not incorporate custom search phrases even though they're defined in the code. The primary Donor Discovery search (via /donor-discovery/new or /donor-discovery/discover) does not have this issue."
+        },
+        {
+          "question": "Can I move a prospect through a pipeline like I do with grant applications?",
+          "answer": "Yes. Each prospect has a pipeline_stage you can change from the list view (bulk move) or the detail page (single move), and you can assign prospects to teammates and log notes as you work them."
+        },
+        {
+          "question": "What happens when I click 'Queue in AutoApply' on a prospect?",
+          "answer": "It hands the prospect off to the AutoApply submission pipeline so an outreach/application attempt can be scheduled and, depending on your automation settings for that funder, either auto-submitted or routed to a human for review before it goes out."
+        }
+      ]
+    },
+    "autoapply": {
+      "title": "AutoApply",
+      "summary": "Benavora's browser-automation pipeline that fills out and submits funder portal forms on your behalf. There are two related but distinct pipelines under the AutoApply umbrella: a mature, self-driving pipeline (submission_queue, run by the Railway worker) and a separate, human-supervised single-application pipeline (automation_sessions/automation_queue). The two are bridged when a queue item has an automation_session_id.",
+      "workflow_steps": [
+        "1. DEQUEUE — the background worker claims the next pending submission_queue item with a race-safe SELECT-then-UPDATE.",
+        "2. SAFETY CHECKS — checks for platform-level pauses, org/domain blocks, usage caps, and whether a conflicting manual automation session is already running for the same target.",
+        "3. TIMING & PERSONALIZATION — computes an optimal send-timing score, selects an A/B messaging variant, and asks Claude to personalize the pitch and (where relevant) optimize the ask amount.",
+        "4. CHANNEL SPLIT — if the funder has no portal URL, the item is submitted as a personalized email instead of browser automation. Otherwise it proceeds to portal automation.",
+        "5. RISK ASSESSMENT — a 0-100 risk score determines whether the submission runs fully automated, with light assistance, or is routed straight to a human.",
+        "6. BROWSER SESSION — a stealth headless browser session logs in (or registers) if needed and loads the target form.",
+        "7. CHALLENGE CHECK — before any field is filled, the pipeline checks for CAPTCHAs or verification-challenge language on the page. If detected, the run pauses unconditionally for a human — there is no automatic solving at this checkpoint.",
+        "8. FILL & SUBMIT — an AI form-filling agent maps and fills fields and submits the form.",
+        "9. CONFIRMATION — the pipeline captures a confirmation screenshot/number, records the result, and fires any configured completion notification/webhook."
+      ],
+      "automation_levels": [
+        "Per-funder automation_level (full_auto / assisted / manual_only), set on the funder in /autoapply/automation-settings — feeds the risk engine used by the main submission_queue pipeline.",
+        "Per-item automation_level on the separate automation_queue pipeline (supervised / semi_autonomous / autonomous) — governs only the human-supervised single-application flow. 'autonomous' submits without pausing; 'semi_autonomous' auto-submits only if every mapped field has ≥90% confidence and there are no unmapped required fields; otherwise it pauses for human approval."
+      ],
+      "captcha_policy": "Every CAPTCHA or verification-challenge detection at the pre-fill checkpoint pauses the run unconditionally for human review, regardless of whether a CAPTCHA-solving API key is configured — there is no auto-solve path at this stage. A known residual gap exists deeper in the pipeline: the mid-fill challenge check inside the form-filling agent (used by the human-supervised pipeline) will still attempt to auto-solve a CAPTCHA encountered while filling fields, if a solver key is configured. This is scoped to that one code path and does not affect the main pre-fill gate.",
+      "human_review_queue": "Paused or ambiguous submissions land at /autoapply/review-queue ('Needs Attention' in the nav), which has two tabs: CAPTCHA/verification-paused submissions, and ambiguous inbox-confirmation matches. From there you can Resume a paused run, Skip it with a reason, Reassign it to a teammate, or Resolve an ambiguous match.",
+      "known_limitations": [
+        "The separate human-supervised browser-automation trigger (used for one-off, single-application runs outside the main worker pipeline) currently fails immediately in production because the serverless environment it runs in doesn't have a browser binary available — the main automated pipeline (Railway worker) is unaffected by this and works normally.",
+        "The AutoApply session-recordings page can fail to load recordings due to a data-relationship mismatch in that query.",
+        "/admin/autoapply-ops is an aggregate metrics/charts dashboard (worker status, queue depth, success-rate trends, cost) — it does not show a per-submission job list. A true per-job list exists at /autoapply/queue, but that belongs to a newer, related prospect-intelligence submission system, not the admin ops page."
+      ],
+      "qa": [
+        {
+          "question": "What is AutoApply?",
+          "answer": "AutoApply is Benavora's browser-automation engine for submitting applications and outreach on your behalf. It logs into funder portals, fills out forms using your organization's data, and either submits automatically or pauses for your approval, depending on the automation level you've set and how risky the system judges that particular submission to be."
+        },
+        {
+          "question": "Will AutoApply ever submit something without my approval?",
+          "answer": "Only if you've explicitly set that funder (or that queue item) to a fully autonomous automation level. By default, and any time the system detects a CAPTCHA, verification challenge, or elevated risk, it pauses and waits for a human to review and resume it from the Needs Attention queue."
+        },
+        {
+          "question": "What happens when AutoApply hits a CAPTCHA?",
+          "answer": "The run stops immediately, takes a screenshot, and marks the item as paused for verification — it never attempts to auto-solve a CAPTCHA at that point, even if a solving service is configured. You resolve the challenge yourself and click Resume in the Needs Attention queue to let it continue from a fresh attempt."
+        },
+        {
+          "question": "Where do I go to handle a stuck AutoApply submission?",
+          "answer": "The 'Needs Attention' page (/autoapply/review-queue) lists every paused-for-verification submission and any ambiguous email confirmations that need a human decision. From there you can resume, skip with a reason, or reassign the item."
+        },
+        {
+          "question": "What's the difference between 'full auto', 'assisted', and 'manual only' for a funder?",
+          "answer": "These are per-funder settings that control how much AutoApply is trusted to act on its own for that specific funder: 'full auto' allows the risk engine to submit without a pause when the risk score is low, 'assisted' means a human checks in on submissions to that funder, and 'manual only' means AutoApply will never submit to that funder automatically."
+        },
+        {
+          "question": "Does AutoApply work for funders without an online portal?",
+          "answer": "Yes — if a funder has no portal URL on file, AutoApply automatically falls back to sending a personalized outreach email instead of attempting browser automation."
+        },
+        {
+          "question": "Can I see a list of every individual AutoApply submission and its status?",
+          "answer": "Use the 'Ready to Submit' (/autoapply/queue) page for a per-item view of what's queued and ready. The AutoApply Ops admin dashboard, by contrast, shows aggregate metrics like queue depth and success-rate trends rather than an individual job list."
+        }
+      ]
+    },
+    "draft_generation": {
+      "title": "Draft Generator",
+      "summary": "Benavora's AI application-writing tool. A 4-step wizard (Select Opportunity → Customize → Generate → Review & Export) that produces grant application narratives, budgets, and other template types using your organization's Knowledge Base, proven past narratives, and funder-specific intelligence.",
+      "workflow_steps": [
+        "1. SELECT OPPORTUNITY — search or pick the opportunity to draft for; each candidate shows a personalized match score. All four wizard steps are always clickable — there's no forced linear gating, so you can jump ahead or back freely.",
+        "2. CUSTOMIZE — choose the template type (narrative, budget narrative, letter of support, etc.) and any custom instructions.",
+        "3. GENERATE — the system assembles a large prompt from your Knowledge Base profile, relevant KB entries for that template type, your top proven narratives for that funding category, funder intelligence, and (for narratives) research-library excerpts and a scoring rubric, then calls Claude to produce the draft and computes a confidence score.",
+        "4. REVIEW & EXPORT — review the generated draft, optionally run the Humanizer pass to make the writing sound more natural, re-check confidence, and save/export."
+      ],
+      "confidence_scoring": "Confidence is a heuristic formula, not a calibrated AI score: it starts high (around 92) when you have Knowledge Base content and proven narratives, and is reduced for missing proven narratives, thin Knowledge Base content, and unresolved '[NEEDS INPUT]' placeholders in the draft. The threshold is 70 — drafts scoring below that show a visible warning banner telling you to review the content carefully before relying on it.",
+      "humanizer": "The Humanizer is a separate, optional second pass (not part of initial generation) that rewrites the draft for a more natural, human voice — removing robotic phrasing and AI-typical patterns — while staying grounded in your Knowledge Base facts. It saves a new version rather than overwriting the original, so you always have the pre-humanized version in history.",
+      "pipeline_relationship": "Drafts you create yourself through the wizard attach directly to an application record and don't require separate approval. Drafts generated autonomously by the system overnight (without you initiating them) are always flagged pending_review and cannot advance past the drafting stage until a user with writer role or higher reviews and clears them from the autonomous review queue.",
+      "known_limitations": [
+        "The Organizational Digital Twin (your structured org profile used elsewhere in the platform) is not currently used by the manual Draft Generator wizard — it's used only by the separate, autonomous overnight drafting agent. The manual wizard instead pulls directly from your Knowledge Base entries and org profile fields.",
+        "Confidence scoring is a simple heuristic based on content counts and gap markers, not a model-calibrated probability — treat it as a rough completeness signal, not a guarantee of grant-readiness."
+      ],
+      "qa": [
+        {
+          "question": "How does the Draft Generator write my application?",
+          "answer": "It pulls from your Knowledge Base (mission, programs, financials, reusable narrative blocks), your best-performing past narratives for similar funders, and any available funder-specific research, then asks Claude to synthesize all of that into a draft tailored to the selected opportunity and template type."
+        },
+        {
+          "question": "What does the confidence score on my draft mean?",
+          "answer": "It's a rough completeness signal — how much solid Knowledge Base and proven-narrative material the draft was built from, minus a penalty for each unresolved gap it had to flag with '[NEEDS INPUT]'. A score below 70 triggers a warning banner asking you to review the draft carefully rather than submit it as-is."
+        },
+        {
+          "question": "What does 'Humanize' do to my draft?",
+          "answer": "It runs a second AI pass focused purely on voice — removing stiff or robotic phrasing and varying sentence rhythm — while staying anchored to the facts already in your Knowledge Base. It creates a new saved version rather than overwriting your original draft, so nothing is lost."
+        },
+        {
+          "question": "Do I have to complete the wizard steps in order?",
+          "answer": "No — all four steps (Select Opportunity, Customize, Generate, Review & Export) are clickable at any time. Back/Next are just a convenience; you can jump directly to any step."
+        },
+        {
+          "question": "Why doesn't my draft reflect the details in my Organizational Digital Twin?",
+          "answer": "The manual Draft Generator wizard currently draws from your Knowledge Base entries and organization profile, not the Digital Twin. The Digital Twin is used by the separate, autonomous overnight drafting process instead — this is a known architectural split, not a bug you need to work around by re-entering data."
+        },
+        {
+          "question": "Why is a draft sitting in 'pending review' and I can't move it forward?",
+          "answer": "Drafts the system generates on its own overnight are always marked pending review as a safety gate — they can't advance in the pipeline until someone with writer permissions or higher reviews and approves them from the autonomous drafts review page. Drafts you create yourself through the wizard don't have this restriction."
+        }
+      ]
+    },
+    "opportunity_matching": {
+      "title": "Opportunity Matching & Scoring",
+      "summary": "How Benavora decides which grant/funding opportunities are worth your time, and how it ranks them. Combines an eligibility check, a probability-of-success score, and a personalized relevance score, so opportunities are never shown as a flat alphabetical list.",
+      "workflow_steps": [
+        "1. DISCOVERY — opportunities are ingested from live data sources (Grants.gov, SAM.gov, Federal Register) and enrichment sources (ProPublica 990 data), plus a static directory of state funding-agency portals.",
+        "2. ELIGIBILITY SCORING — an AI agent scores every new opportunity 0-100 against your mission, geography, tax status, budget, and program alignment, and produces a recommendation: 'apply' at 70+, 'skip' below 40, otherwise 'review'.",
+        "3. SUCCESS PROBABILITY — a second score combines eligibility, funder giving history, your track record with that funder category, deadline proximity, and estimated competition into a single percentage shown as a badge (green 70+, amber 40-69, red under 40) on every opportunity.",
+        "4. PERSONALIZED MATCH FEED — a separate feed ranks open opportunities by how well they match your organization's mission, program focus, and geography, blended with the probability score, so your highest-fit opportunities surface first.",
+        "5. FUNDER MATCHING — a semantic-style matching tool scores and ranks funders in the directory against your mission/program/geography with a plain-English reason for each match."
+      ],
+      "known_limitations": [
+        "'Semantic Funder Matching' is currently implemented as keyword/token overlap (with a bonus for matching state) rather than true AI embeddings-based semantic search — it will still miss matches where your mission and a funder's stated priorities use very different words for the same concept. Governance documentation is inconsistent about whether this feature is 'planned' or 'built'; it is in fact built and live, just simpler than the name implies.",
+        "State grant portal coverage is currently a static directory of state agency URLs, not a live, automated poller — new opportunities from state portals are not yet auto-ingested the way federal sources are.",
+        "The application-level success probability score previously had a database bug that could prevent it from updating correctly; this has since been fixed with a proper uniqueness constraint on the underlying table."
+      ],
+      "qa": [
+        {
+          "question": "How does Benavora decide which opportunities are a good fit for us?",
+          "answer": "Every new opportunity is first scored for basic eligibility (mission, geography, tax status, budget, and program fit) on a 0-100 scale with an apply/review/skip recommendation, then given a probability-of-success percentage that factors in your track record and the funder's giving history and competition. Opportunities are sorted by that probability by default, not alphabetically or by date."
+        },
+        {
+          "question": "What do the colored probability badges mean?",
+          "answer": "Green means 70% or higher — a strong probability of success. Amber means 40-69% — worth a look but not a sure thing. Red means below 40% — likely a long shot. Gray means the opportunity hasn't been scored yet."
+        },
+        {
+          "question": "What's the difference between 'Opportunities' and 'Matched for My Prospects'?",
+          "answer": "'Opportunities' (/opportunities) is the full catalog of everything Benavora has discovered, ranked by success probability. 'Matched for My Prospects' (/intelligence/match-feed) is a narrower, personalized feed that ranks open opportunities specifically by how closely they align with your organization's own mission, programs, and geography."
+        },
+        {
+          "question": "Is 'Semantic Funder Matching' true AI semantic search?",
+          "answer": "It's currently a keyword/term-overlap matcher with a geography bonus, not embeddings-based semantic search — so it's good at catching close phrasing matches but can still miss funders who describe similar priorities in very different language. It's a real, working feature, just simpler under the hood than the name suggests."
+        },
+        {
+          "question": "Where do Benavora's opportunities actually come from?",
+          "answer": "Federal opportunities come from live connections to Grants.gov, SAM.gov, and the Federal Register. Foundation and giving-history data comes from ProPublica's IRS 990 filings. State-level grant portals are currently represented as a reference directory of state agency links rather than an automated live feed."
+        },
+        {
+          "question": "Why does an application's success probability sometimes look stale?",
+          "answer": "It's recalculated whenever your eligibility score changes, new giving history is found, an outcome is recorded for that funder category, or the deadline approaches — if it looks out of date, it typically means none of those trigger events have happened recently rather than a broken score."
+        }
+      ]
+    },
+    "dashboard_pages": {
+      "title": "Dashboard Pages",
+      "summary": "Benavora's dashboard is organized into seven logical sections in the left-hand navigation: Dashboard, Prospects & Analysis, Opportunities, Applications, Engagement, Resources, and Admin & Settings (the last split into a Settings sub-menu and an owner-only Platform admin menu). This section lists every page reachable from the main navigation and what it's for.",
+      "sections": {
+        "Dashboard": [
+          { "name": "Dashboard (Home)", "route": "/dashboard", "description": "Main landing page: org KPI scorecard, funding pipeline overview, quick-access cards for Knowledge Base/Deadlines/Funder Research/AutoApply, an AI-generated action queue, top opportunities, and alerts." },
+          { "name": "Activity", "route": "/activity", "description": "Org-wide feed of recent activity — agent runs, generated drafts, discovered opportunities, and alerts — visible to all roles, distinct from the admin-only Audit Log." },
+          { "name": "Strategic Recommendations", "route": "/intelligence/strategic-advisor", "description": "AI-generated, prioritized recommendations (apply, postpone, expand, pivot, etc.) synthesized from every other agent's output, with mark-done/dismiss/snooze actions." }
+        ],
+        "Prospects & Analysis": [
+          { "name": "My Prospects", "route": "/intelligence/pil/prospects", "description": "Lists every active research prospect for the org with type/status filters and a link into each one's research dossier." },
+          { "name": "Analysis Results", "route": "/intelligence/pil/research", "description": "Live monitor of research runs in progress or completed, with status, depth, and step-by-step research logs." },
+          { "name": "Run New Analysis", "route": "/intelligence/pil/discover", "description": "Natural-language research tool — describe who or what to investigate and the AI builds and runs a structured research plan." },
+          { "name": "Pending Review", "route": "/intelligence/pil/review-queue", "description": "Human review queue for research findings awaiting an approve/reject decision (identity matches, capacity estimates, etc.)." },
+          { "name": "Giving Signals", "route": "/intelligence/donor-intent", "description": "Surfaces news, hiring, and expansion signals suggesting a corporate prospect may be about to make a giving decision, with recommended actions and deadlines." },
+          { "name": "Community Needs", "route": "/intelligence/community-need", "description": "Predicts rising local service demand from census, housing, employment, and disaster data, matched against your funders/opportunities/programs." },
+          { "name": "Disaster Response", "route": "/intelligence/disaster", "description": "Live FEMA disaster declarations matched against emergency-funding programs, with a one-click 'Deploy Response' action." }
+        ],
+        "Opportunities": [
+          { "name": "Find Opportunities", "route": "/opportunities/new", "description": "Form for manually adding a new grant, donation, or sponsorship opportunity to track." },
+          { "name": "All Opportunities", "route": "/opportunities", "description": "Main opportunities table with probability scores, funder names, and status filters, sorted by success probability by default." },
+          { "name": "Matched for My Prospects", "route": "/intelligence/match-feed", "description": "Personalized feed ranking open opportunities by fit with your organization's mission, programs, and geography." },
+          { "name": "Funder Matches", "route": "/intelligence/matches", "description": "AI-ranked list of funders scored against your mission/program/geographic alignment, with a reason given for each match." },
+          { "name": "Competitor Insights", "route": "/intelligence/competitors", "description": "Read-only competitor dashboard showing who else gets funded by your target funders, based on public IRS giving history (Enterprise/Consultant tiers only)." },
+          { "name": "Foundations", "route": "/foundations", "description": "Searchable directory of foundations (state, NTEE category, asset size) with an option to enroll a foundation in reputation monitoring." },
+          { "name": "Funders", "route": "/funders", "description": "Your organization's own funder roster with contact counts, open opportunities, and relationship scores." }
+        ],
+        "Applications": [
+          { "name": "Draft Applications", "route": "/draft-generator", "description": "The AI application-drafting wizard — builds narratives, budgets, and other application content from your Knowledge Base." },
+          { "name": "Ready to Submit", "route": "/autoapply/queue", "description": "Per-item view of prospects/applications ready for AutoApply submission, with blockers, suggested ask amount, and submission strategy." },
+          { "name": "Needs Attention", "route": "/autoapply/review-queue", "description": "Human review queue for AutoApply runs paused on a CAPTCHA/verification challenge or an ambiguous confirmation email." },
+          { "name": "Submitted & Tracking", "route": "/applications", "description": "Kanban pipeline board of every application across its full lifecycle, from discovery through award or denial." },
+          { "name": "Gap Analysis", "route": "/intelligence/gap-analysis", "description": "Portfolio-wide analysis of narrative completeness and geographic-eligibility mismatches across your open opportunities." },
+          { "name": "Documents", "route": "/documents", "description": "Document repository for uploading and linking supporting files (tax documents, budgets, etc.) to applications." },
+          { "name": "Deadlines", "route": "/deadlines", "description": "Calendar, week, and list views of application and compliance deadlines, color-coded by urgency." }
+        ],
+        "Engagement": [
+          { "name": "Email Campaigns", "route": "/email/campaigns", "description": "Manage automated multi-step outreach email sequences with configurable send conditions." },
+          { "name": "Outreach", "route": "/outreach", "description": "Cold-outreach contact list with giving-likelihood scores and an on-demand 'scan new company' action." },
+          { "name": "Relationship Management", "route": "/contacts", "description": "Master contact list linked to funders, with search." },
+          { "name": "Recommendations", "route": "/intelligence/recommendations", "description": "AI-ranked funder recommendations by geography/program/award-size fit, with a one-click add to your funders list." },
+          { "name": "Funder & Contact Monitoring", "route": "/intelligence/reputation", "description": "Reputation-intelligence alerts for monitored funders and contacts, plus an on-demand search sweep on any named entity." },
+          { "name": "Relationship Network", "route": "/intelligence/relationship-graph", "description": "Visualizes the connection graph between corporate and foundation entities, with top-connected-node and cluster analytics." },
+          { "name": "Donation Marketplace", "route": "/marketplace", "description": "Browse and request listed in-kind or monetary donations from corporate donors, with a request/approve workflow." },
+          { "name": "Email Inbox", "route": "/email", "description": "Gmail-linked inbox for threads tied to funders and contacts, with reply support." }
+        ],
+        "Resources": [
+          { "name": "Knowledge Base", "route": "/knowledge-base", "description": "Hub for your organization's knowledge base — completeness score, org profile, and proven narratives." },
+          { "name": "Organization Profile", "route": "/intelligence/twin", "description": "Your Organizational Digital Twin — a structured, section-by-section completeness diagnostic of your org profile, with an auto-populate-gaps action." },
+          { "name": "Knowledge Search", "route": "/intelligence/knowledge", "description": "Free-text Q&A over aggregated funding-pattern knowledge (e.g. 'what narrative elements most often win HRSA grants?')." },
+          { "name": "Nonprofit Directory", "route": "/nonprofits", "description": "Searchable directory over the national IRS nonprofit dataset, filterable by state and name." },
+          { "name": "Templates", "route": "/email/templates", "description": "Editor for reusable outreach email templates with variable placeholders and live preview." },
+          { "name": "Google for Nonprofits", "route": "/google-nonprofit", "description": "Hub for the Google for Nonprofits application, Google Business Profile setup wizard, and related resources, with an embedded chatbot assistant." }
+        ],
+        "Admin & Settings — Settings": [
+          { "name": "Settings", "route": "/settings", "description": "Org settings hub: user/team management, role assignment, and organization info." },
+          { "name": "Compliance", "route": "/compliance", "description": "Tracks compliance requirements and recurring compliance events with due-date urgency." },
+          { "name": "Financials", "route": "/financials", "description": "Financial dashboard: funding by category, receivables, active grants, and budget-vs-actual reconciliation." },
+          { "name": "Reports", "route": "/reports", "description": "Report-generation hub for board reports, forecasts, funding summaries, and impact/ROI reports." },
+          { "name": "Alerts", "route": "/alerts", "description": "Central alerts inbox with read/unread, urgent, and snoozed filters." },
+          { "name": "Outcomes & Analytics", "route": "/outcomes", "description": "Records grant outcomes (awarded/partial/denied) with award-rate and dollar-outcome analytics." }
+        ],
+        "Admin & Settings — Platform (owner/admin only)": [
+          { "name": "Command Center", "route": "/command-center", "description": "Owner-only cross-tenant platform overview with live snapshot stats." },
+          { "name": "Organizations", "route": "/admin/orgs", "description": "Owner-only list of every organization on the platform with tier and activity." },
+          { "name": "System Health", "route": "/admin/system", "description": "Owner-only live view of background worker heartbeats and running agents." },
+          { "name": "Import", "route": "/import", "description": "CSV import wizard for bulk-loading funders." },
+          { "name": "Sales Outreach", "route": "/admin/sales-outreach", "description": "Owner-only tool for Benavora's own outbound sales campaigns — not a customer-facing feature." },
+          { "name": "AutoApply Ops", "route": "/admin/autoapply-ops", "description": "Owner-only aggregate operations dashboard for the AutoApply engine (queue depth, success-rate trends, cost)." },
+          { "name": "Monitor", "route": "/admin/monitor", "description": "Owner-only live monitor of automation queue runs with a recent-failures list." },
+          { "name": "Improvements", "route": "/admin/improvements", "description": "Review UI for AI-proposed platform improvements, with approve/reject actions." },
+          { "name": "Audit Log", "route": "/admin/audit-log", "description": "Owner/admin audit trail with filtering and CSV export." }
+        ]
+      },
+      "qa": [
+        {
+          "question": "How is the dashboard navigation organized?",
+          "answer": "Into seven logical sections: Dashboard (your home overview), Prospects & Analysis (research and signal-detection tools), Opportunities (grants/funding you could pursue), Applications (drafting and tracking submissions), Engagement (outreach and relationship tools), Resources (knowledge base and reference data), and Admin & Settings (org configuration plus owner-only platform administration)."
+        },
+        {
+          "question": "Where do I go to see everything in my funding pipeline at a glance?",
+          "answer": "Start on the main Dashboard (/dashboard) for the top-level overview, then use 'Submitted & Tracking' (/applications) for the full kanban pipeline board across every stage from discovery to award or denial."
+        },
+        {
+          "question": "What's the difference between 'Outcomes & Analytics' and 'Financials'?",
+          "answer": "'Outcomes & Analytics' (/outcomes) records and analyzes the results of applications — awarded, partial, or denied, and your award rate. 'Financials' (/financials) tracks the money itself once awarded — receivables, active grants, and budget-vs-actual reconciliation."
+        },
+        {
+          "question": "Which dashboard pages are only visible to owners or admins?",
+          "answer": "The Platform admin section — Command Center, Organizations, System Health, Import, Sales Outreach, AutoApply Ops, Monitor, Improvements, and Audit Log — is gated to the owner role. Regular org users won't see these in their navigation."
+        },
+        {
+          "question": "Where can I review AI-flagged prospects or research before acting on them?",
+          "answer": "'Pending Review' (/intelligence/pil/review-queue) under Prospects & Analysis holds AI research findings awaiting a human approve/reject decision, separate from AutoApply's own 'Needs Attention' queue for paused submissions."
+        }
+      ]
+    }
+  },
+  "page_guides": {
+    "dashboard": {
+      "title": "Dashboard Page Guide",
+      "summary": "The main Dashboard landing page.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is your main Dashboard — it shows your org's KPI scorecard, funding pipeline overview, quick-access cards for Knowledge Base, Deadlines, Funder Research, and AutoApply, an AI-generated action queue, your top opportunities, and any active alerts, all at a glance. For the full application pipeline, use 'Submitted & Tracking' under Applications."
+        }
+      ]
+    },
+    "opportunities": {
+      "title": "Opportunities Page Guide",
+      "summary": "The main Opportunities catalog page.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is the Opportunities page — the full catalog of every grant, donation, and sponsorship opportunity Benavora has discovered, sorted by success probability by default rather than alphabetically or by date. Each opportunity shows a colored probability badge (green 70%+, amber 40-69%, red under 40%) that blends eligibility, funder giving history, and competition. Use the filters to narrow by status or funder, and click into an opportunity to see its full eligibility breakdown, add it to a pipeline, or start a draft."
+        }
+      ]
+    },
+    "prospects": {
+      "title": "Prospects & Analysis Page Guide",
+      "summary": "The My Prospects research page under Prospects & Analysis.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is 'My Prospects' under Prospects & Analysis — it lists every active research prospect for your organization with type and status filters, and links into each one's full research dossier. Use 'Run New Analysis' to start new AI-driven research on a person or company, and check 'Pending Review' for AI findings that need your approve/reject decision before they're acted on."
+        }
+      ]
+    },
+    "applications": {
+      "title": "Applications Page Guide",
+      "summary": "The Submitted & Tracking application pipeline page.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is 'Submitted & Tracking' — a kanban pipeline board of every application across its full lifecycle, from discovery through award or denial. Move an application's card as its stage changes, and use Draft Applications, Ready to Submit, or Needs Attention for the earlier drafting and AutoApply-submission stages that feed into this board."
+        }
+      ]
+    },
+    "engagement": {
+      "title": "Engagement Page Guide",
+      "summary": "The Email Inbox page under Engagement.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is your Email Inbox under Engagement — a Gmail-linked inbox for threads tied to your funders and contacts, with reply support. Other Engagement tools include Email Campaigns for automated outreach sequences, Outreach for cold-contact giving-likelihood scoring, and Relationship Management for your master contact list."
+        }
+      ]
+    },
+    "resources": {
+      "title": "Resources Page Guide",
+      "summary": "The Knowledge Base hub page under Resources.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is the Knowledge Base — the hub for your organization's knowledge base, showing a completeness score, your org profile, and your proven past narratives. A more complete Knowledge Base improves every AI feature that draws on it, especially the Draft Generator, so it's worth keeping current."
+        }
+      ]
+    },
+    "settings": {
+      "title": "Settings Page Guide",
+      "summary": "The org Settings hub page.",
+      "qa": [
+        {
+          "question": "How do I use this page?",
+          "answer": "This is Settings — your org settings hub for user and team management, role assignment, and organization info. Related admin pages include Compliance, Financials, Reports, Alerts, and Outcomes & Analytics."
+        }
+      ]
+    }
+  }
+}

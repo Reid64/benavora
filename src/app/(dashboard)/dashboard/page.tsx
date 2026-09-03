@@ -15,6 +15,7 @@ import {
 import { FlipCards, type FlipCardData } from "@/components/dashboard/FlipCards";
 import { AiTriggerPanel, type AiTrigger } from "@/components/dashboard/AiTriggerPanel";
 import { ScraperStatusCard } from "@/components/dashboard/ScraperStatusCard";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
 export const dynamic = "force-dynamic";
@@ -1357,6 +1358,8 @@ export default async function DashboardPage() {
         ))}
       </div>
       </div>
+
+      <ChatbotAssistant pageContext="dashboard" />
     </div>
   );
 }

@@ -4,19 +4,36 @@ import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 
 import { useAssist } from "@/components/marketing/useAssist";
+import { useChatbotEngine, type PageContext } from "@/lib/chatbot/useChatbotEngine";
 
 const NAVY = "#2C4E3B";
 const GOLD = "#C49A4F";
 
+const KNOWLEDGE_BASE_PAGE_CONTEXTS = new Set<PageContext>([
+  "dashboard",
+  "opportunities",
+  "prospects",
+  "applications",
+  "engagement",
+  "resources",
+  "settings",
+]);
+
+function isKnowledgeBasePageContext(pageContext: string): pageContext is PageContext {
+  return (KNOWLEDGE_BASE_PAGE_CONTEXTS as Set<string>).has(pageContext);
+}
+
 export type ChatbotAssistantProps = {
   /**
-   * Identifies the page this widget is embedded on (e.g. "google-nonprofit").
-   * The in-app Assist API (/api/assist) has no server-side page-context
-   * parameter, so this only customizes the widget's title/placeholder copy —
-   * it's the same authenticated assistant backend used by the global
+   * Identifies the page this widget is embedded on. For the 7 known dashboard
+   * page contexts (dashboard, opportunities, prospects, applications,
+   * engagement, resources, settings), answers come instantly from the local,
+   * page-scoped knowledge base (useChatbotEngine) — no network call. Any
+   * other value (e.g. "google-nonprofit") falls back to the live, authenticated
+   * Assist API (/api/assist) — the same backend used by the global
    * AppAssistPanel in the dashboard header (src/components/assist/AppAssistPanel.tsx).
    */
-  pageContext: string;
+  pageContext: PageContext | "google-nonprofit";
 };
 
 function formatPageContext(pageContext: string): string {
@@ -27,13 +44,24 @@ function formatPageContext(pageContext: string): string {
     .join(" ");
 }
 
+type LocalMessage = { role: "user" | "assistant"; content: string };
+
 export function ChatbotAssistant({ pageContext }: ChatbotAssistantProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const { messages, send, loading, error, toolsUsed } = useAssist({ endpoint: "/api/assist" });
   const listRef = useRef<HTMLDivElement>(null);
 
   const label = formatPageContext(pageContext);
+  const useLocalEngine = isKnowledgeBasePageContext(pageContext);
+
+  const { getResponse } = useChatbotEngine(useLocalEngine ? pageContext : undefined);
+  const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
+  const remote = useAssist({ endpoint: "/api/assist" });
+
+  const messages = useLocalEngine ? localMessages : remote.messages;
+  const loading = useLocalEngine ? false : remote.loading;
+  const error = useLocalEngine ? null : remote.error;
+  const toolsUsed = useLocalEngine ? [] : remote.toolsUsed;
 
   useEffect(() => {
     if (listRef.current) {
@@ -45,7 +73,12 @@ export function ChatbotAssistant({ pageContext }: ChatbotAssistantProps) {
     const question = input.trim();
     if (!question) return;
     setInput("");
-    void send(question);
+    if (useLocalEngine) {
+      const answer = getResponse(question);
+      setLocalMessages((prev) => [...prev, { role: "user", content: question }, { role: "assistant", content: answer }]);
+    } else {
+      void remote.send(question);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -78,7 +111,7 @@ export function ChatbotAssistant({ pageContext }: ChatbotAssistantProps) {
             <div>
               <p className="text-sm font-bold text-white">{label} Assistant</p>
               <p className="text-xs" style={{ color: GOLD }}>
-                Ask about your application or profile
+                {useLocalEngine ? "Ask about this page" : "Ask about your application or profile"}
               </p>
             </div>
             <button
@@ -94,8 +127,9 @@ export function ChatbotAssistant({ pageContext }: ChatbotAssistantProps) {
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
             {messages.length === 0 && (
               <p className="text-xs leading-relaxed text-slate-500">
-                Ask about eligibility, the Google for Nonprofits application, Business Profile
-                setup, or verification.
+                {useLocalEngine
+                  ? `Try "How do I use this page?" or ask about ${label}.`
+                  : "Ask about eligibility, the Google for Nonprofits application, Business Profile setup, or verification."}
               </p>
             )}
             {messages.map((m, i) => (

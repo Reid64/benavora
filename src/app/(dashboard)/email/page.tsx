@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Badge, Button, EmptyState, LoadingSpinner, Textarea } from "@/components/ui";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 import { createClient } from "@/lib/supabase/client";
 
 // Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
@@ -643,6 +644,8 @@ export default function EmailPage() {
           </div>
         </aside>
       </div>
+
+      <ChatbotAssistant pageContext="engagement" />
     </div>
   );
 }

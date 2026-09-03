@@ -34,6 +34,7 @@ import {
   Select,
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
@@ -198,6 +199,8 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <ChatbotAssistant pageContext="settings" />
     </div>
   );
 }

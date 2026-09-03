@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Badge, EmptyState, LoadingSpinner } from "@/components/ui";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 import { ProvenBadge } from "@/components/knowledge-base/ProvenBadge";
 import { createClient } from "@/lib/supabase/client";
 import { STANDARD_ANSWER_CATEGORY } from "@/lib/utils/constants";
@@ -442,6 +443,8 @@ export default function KnowledgeBaseOverviewPage() {
           </div>
         </div>
       )}
+
+      <ChatbotAssistant pageContext="resources" />
     </div>
   );
 }

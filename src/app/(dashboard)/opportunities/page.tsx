@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, Home, Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
 import { OPPORTUNITY_STATUSES } from "@/lib/utils/constants";
@@ -930,6 +931,8 @@ export default function OpportunitiesPage() {
           />
         )}
       </div>
+
+      <ChatbotAssistant pageContext="opportunities" />
     </ErrorBoundary>
   );
 }

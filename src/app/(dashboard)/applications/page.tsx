@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner, Modal, Select } from "@/components/ui";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 import {
   daysInStage,
   loadPipelineApplications,
@@ -390,6 +391,8 @@ export default function ApplicationsPage() {
           )}
         </div>
       </Modal>
+
+      <ChatbotAssistant pageContext="applications" />
     </div>
   );
 }

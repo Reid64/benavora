@@ -20,6 +20,7 @@ import Link from "next/link";
 import { ArrowUpRight, Search, Users } from "lucide-react";
 
 import { Button, EmptyState, Input, Select, Table } from "@/components/ui";
+import { ChatbotAssistant } from "@/components/ChatbotAssistant";
 import type { TableColumn } from "@/components/ui";
 import { StartResearchModal } from "@/components/pil/StartResearchModal";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
@@ -292,6 +293,8 @@ export default function PilProspectsPage() {
           {toast}
         </div>
       )}
+
+      <ChatbotAssistant pageContext="prospects" />
     </div>
   );
 }
