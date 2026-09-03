@@ -70,7 +70,7 @@ const CARDS: Card[] = [
       "Grant discovery (SAM.gov, Grants.gov, Foundation search)",
       "Eligibility & probability scoring",
       "AI draft generation (5 drafts/month)",
-      "Digital Twin (basic)",
+      "Organization Profile (basic)",
       "AutoApply (5 sessions/month)",
       "Email support",
     ],
@@ -105,8 +105,8 @@ const CARDS: Card[] = [
     features: [
       "Everything in Professional, plus:",
       "Fully Autonomous Mode (30 AI agents running nightly)",
-      "Strategic Advisor (proactive weekly recommendations)",
-      "Digital Twin auto-population",
+      "Strategic Recommendations (proactive weekly insights)",
+      "Organization Profile auto-population",
       "Community Need Prediction",
       "Global Learning Network access",
       "White-glove onboarding (2 hours with team)",
@@ -119,12 +119,11 @@ const CARDS: Card[] = [
 ];
 
 const FAQS: [string, string][] = [
-  ["How long does setup take?", "Digital Twin setup takes about 15 minutes. Your first matched opportunities typically appear within 24 hours, once the nightly discovery run completes."],
+  ["How long does setup take?", "Organization profile setup takes about 15 minutes. Your first matched opportunities typically appear within 24 hours, once the nightly discovery run completes."],
   ["Do I need technical skills?", "No. Benavora is designed for nonprofit staff, not developers — every workflow is a guided form, not a config file."],
   ["Is my data secure?", "Yes. Every organization's data is isolated with Postgres row-level security and encrypted at rest, following SOC 2-aligned practices."],
   ["Can I cancel anytime?", "Yes. No long-term contracts. Cancel from your billing page anytime and your access continues through the end of the current billing period."],
   ["Does AutoApply work on all portals?", "AutoApply has dedicated adapters for CyberGrants and Benevity, plus AI-driven form analysis for generic corporate giving portals. New named adapters are added as more portals get mapped."],
-  ["What's in the Intelligence Library?", "113 real awarded grant narratives spanning major NTEE categories, used to ground your AI-generated drafts in language that has actually won funding."],
 ];
 
 export default function PricingPageClient() {

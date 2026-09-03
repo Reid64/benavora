@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           style={{ flexShrink: 0, marginTop: "2px" }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B" }}>
             Something went wrong
           </div>
           {process.env.NODE_ENV === "development" && (

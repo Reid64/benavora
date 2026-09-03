@@ -125,7 +125,7 @@ export function ConnectionCard({
               fontSize: "11px",
               fontWeight: 700,
               color: "#FFFFFF",
-              backgroundColor: "#1A2B3C",
+              backgroundColor: "#2C4E3B",
               borderRadius: "999px",
               padding: "3px 10px",
               textTransform: "uppercase",

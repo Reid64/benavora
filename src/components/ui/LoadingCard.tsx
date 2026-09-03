@@ -18,7 +18,7 @@ export function LoadingCard({ height = 120, width = "100%", borderRadius = 14 }:
         height: `${height}px`,
         width,
         borderRadius: `${borderRadius}px`,
-        background: "linear-gradient(90deg, #1A2B3C 0%, #243550 50%, #1A2B3C 100%)",
+        background: "linear-gradient(90deg, #2C4E3B 0%, #243550 50%, #2C4E3B 100%)",
         backgroundSize: "200% 100%",
         animation: "loading-card-shimmer 1.5s ease-in-out infinite",
       }}

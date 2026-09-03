@@ -141,7 +141,7 @@ function resourceAccentColor(category: string): string {
   if (c.includes("foundation") || c.includes("funder")) return "#7A5980";
   if (c.includes("health")) return "#2E6B66";
   if (c.includes("federal") || c.includes("registry")) return "#4F6D8F";
-  return "#1A2B3C";
+  return "#2C4E3B";
 }
 
 function freshnessLabel(freshness: ResourceDefinition["dataFreshness"]): string {
@@ -1006,7 +1006,7 @@ export default function ResearchPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", display: "flex", flexDirection: "column", gap: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", display: "flex", flexDirection: "column", gap: "32px" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
@@ -1353,7 +1353,7 @@ export default function ResearchPage() {
           >
             <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ backgroundColor: "#1A2B3C" }}>
+                <tr style={{ backgroundColor: "#2C4E3B" }}>
                   {["Recipient", "Amount", "Agency", "Date", "Description"].map(
                     (col) => (
                       <th

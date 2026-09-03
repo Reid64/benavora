@@ -31,7 +31,7 @@ import type { Tables } from "@/types/database";
 // Frame: Rust. Secondary accent: Bronze. Template-variable chip styling
 // (the `<code>` pills) is preserved as-is, only its literal-white background
 // swapped for the section's ivory token.
-const FRAME_RUST = "#A3492F";
+const FRAME_RUST = "#B85C3C";
 const CARD_BG = "#F8F5EE";
 
 type Template = Tables<"email_templates">;

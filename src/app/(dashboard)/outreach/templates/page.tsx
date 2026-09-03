@@ -13,7 +13,7 @@ import type { Tables } from "@/types/database";
 
 // Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Rust. Secondary accent: Bronze.
-const FRAME_RUST = "#A3492F";
+const FRAME_RUST = "#B85C3C";
 const ACCENT_BRONZE = "#A4712C";
 const CARD_BG = "#F8F5EE";
 
@@ -249,7 +249,7 @@ function TabButton({
       style={
         active
           ? { backgroundColor: FRAME_RUST, color: CARD_BG }
-          : { border: "1px solid rgba(16,27,45,0.18)", backgroundColor: CARD_BG, color: "#475569" }
+          : { border: "1px solid rgba(44,78,59,0.18)", backgroundColor: CARD_BG, color: "#475569" }
       }
       className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition"
     >
@@ -452,7 +452,7 @@ function VariantPanel({
     padding: "4px 10px",
     fontSize: 12,
     fontWeight: 600,
-    border: "1px solid rgba(16,27,45,0.18)",
+    border: "1px solid rgba(44,78,59,0.18)",
     background: CARD_BG,
     color: "#475569",
     cursor: "pointer",

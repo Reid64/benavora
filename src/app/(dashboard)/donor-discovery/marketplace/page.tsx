@@ -240,7 +240,7 @@ export default function CorporateMarketplacePage() {
                 className="rounded-full border px-3 py-1 text-xs font-medium transition"
                 style={
                   active
-                    ? { backgroundColor: "#0077B6", borderColor: "#0077B6", color: "#FFFFFF" }
+                    ? { backgroundColor: "#3D6B50", borderColor: "#3D6B50", color: "#FFFFFF" }
                     : { backgroundColor: "#FFFFFF", borderColor: "#E2E8F0", color: "#64748B" }
                 }
               >
@@ -295,7 +295,7 @@ export default function CorporateMarketplacePage() {
                     {p.industry && (
                       <span
                         className="rounded-full px-2 py-0.5 text-xs font-medium"
-                        style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
+                        style={{ backgroundColor: "#3D6B501A", color: "#3D6B50" }}
                       >
                         {p.industry}
                       </span>
@@ -330,7 +330,7 @@ export default function CorporateMarketplacePage() {
                     <Link
                       href={`/donor-discovery/outreach/prospects/${p.id}`}
                       className="flex-1 rounded-lg border px-3 py-1.5 text-center text-xs font-medium transition hover:bg-slate-50"
-                      style={{ borderColor: "#E2E8F0", color: "#0077B6" }}
+                      style={{ borderColor: "#E2E8F0", color: "#3D6B50" }}
                     >
                       View Giving DNA
                     </Link>

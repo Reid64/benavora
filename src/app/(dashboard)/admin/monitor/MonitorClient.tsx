@@ -7,10 +7,10 @@ import { useProfile } from "@/lib/hooks/useProfile";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
+const FRAME_NAVY = "#2C4E3B";
+const ACCENT_GOLD = "#C49A4F";
 const CARD_BG = "#F8F5EE";
-const BORDER = "rgba(16,27,45,0.15)";
+const BORDER = "rgba(44,78,59,0.15)";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
@@ -80,7 +80,7 @@ function StatCard({
   return (
     <div
       className="overflow-hidden rounded-[14px]"
-      style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
+      style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(44,78,59,0.22)", padding: "3px" }}
     >
       <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
         <p className="text-3xl font-extrabold" style={{ color }}>
@@ -273,7 +273,7 @@ export default function MonitorClient() {
 
       <div
         className="overflow-hidden rounded-xl"
-        style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
+        style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(44,78,59,0.22)", padding: "3px" }}
       >
       <div className="overflow-hidden rounded-[10px]" style={{ backgroundColor: CARD_BG }}>
         <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>

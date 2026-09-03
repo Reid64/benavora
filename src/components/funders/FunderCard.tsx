@@ -18,7 +18,7 @@ const FUNDER_TYPE_BADGES: {
 }[] = [
   {
     label: "Government",
-    className: "bg-[#DBEAFE] text-[#1D4ED8]",
+    className: "bg-[#DBEAFE] text-[#3D6B50]",
     test: (category) => category.includes("government"),
   },
   {

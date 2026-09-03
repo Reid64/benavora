@@ -22,13 +22,14 @@ import { ArrowUpRight, Search, Users } from "lucide-react";
 import { Button, EmptyState, Input, Select, Table } from "@/components/ui";
 import type { TableColumn } from "@/components/ui";
 import { StartResearchModal } from "@/components/pil/StartResearchModal";
+import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Prospect, ProspectEntityType } from "@/lib/pil/types";
 
-const NAVY = "#101B2D";
-const GOLD = "#B88A2E";
-const PLUM = "#5B21B6";
-const CANVAS = "#D8D3C8";
+const NAVY = "#2C4E3B";
+const GOLD = "#C49A4F";
+const PLUM = "#C49A4F";
+const CANVAS = "#F0EBE0";
 const TEXT_SECONDARY = "#64748B";
 
 const ENTITY_TYPES: ProspectEntityType[] = [
@@ -206,6 +207,15 @@ export default function PilProspectsPage() {
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: CANVAS }}>
+      <InstructionalWidget
+        pageTitle="Prospects & Analysis"
+        steps={[
+          { number: 1, title: "Review your prospects", description: "Individuals and foundations identified as potential donors or funders." },
+          { number: 2, title: "Filter by entity type", description: "Narrow to family foundations, executives, board members, and more." },
+          { number: 3, title: "Run new analysis", description: "Start research on a new prospect to build their giving profile." },
+          { number: 4, title: "Open a dossier", description: "Click a prospect to see confidence score, research depth, and evidence." },
+        ]}
+      />
       <div className="mb-8" style={{ borderLeft: `4px solid ${PLUM}`, paddingLeft: "1rem" }}>
         <h1 className="text-2xl font-bold tracking-tight" style={{ color: NAVY }}>
           Prospects

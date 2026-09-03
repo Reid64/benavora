@@ -10,7 +10,7 @@ export type PageHeaderProps = {
   actions?: ReactNode;
   /**
    * Section signature accent (hex) — colors the title's left border bar and
-   * the title text itself. Defaults to the app-wide primary (#0077B6) for
+   * the title text itself. Defaults to the app-wide primary (#3D6B50) for
    * any page that doesn't pass one, so this is purely additive. See
    * governance/DESIGN_SYSTEM.md "Section Accent Colors" for the canonical
    * per-nav-section mapping this is meant to be driven from. The shared
@@ -27,7 +27,7 @@ type StyleableElement = ReactElement<{
 }>;
 
 const PRIMARY_ACTION_CLASSES =
-  "bg-[#0077B6] hover:bg-[#005F92] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors inline-flex items-center gap-2";
+  "bg-[#3D6B50] hover:bg-[#005F92] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors inline-flex items-center gap-2";
 
 function isStyleableElement(node: ReactNode): node is StyleableElement {
   return isValidElement(node);
@@ -57,7 +57,7 @@ function withEnforcedPrimaryStyle(node: ReactNode): ReactNode {
  * left-accented title block with the page title and optional subtitle, and
  * a right-hand actions slot. Fixed shape across the app.
  */
-export function PageHeader({ title, description, actions, accent = "#0077B6" }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, accent = "#3D6B50" }: PageHeaderProps) {
   return (
     <div className="mb-8">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">

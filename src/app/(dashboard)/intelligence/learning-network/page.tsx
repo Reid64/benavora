@@ -131,7 +131,7 @@ export default function LearningNetworkPage() {
             <StatCard
               label="Total Patterns"
               value={(stats?.totalPatterns ?? 0).toLocaleString()}
-              accent="#0077B6"
+              accent="#3D6B50"
             />
             <StatCard
               label="Patterns Applied to Your Drafts"
@@ -141,7 +141,7 @@ export default function LearningNetworkPage() {
             <StatCard
               label="Your Contributions"
               value={(stats?.yourContributions ?? 0).toLocaleString()}
-              accent="#00B4D8"
+              accent="#C49A4F"
             />
             <StatCard
               label="Network Effect Score"
@@ -159,7 +159,7 @@ export default function LearningNetworkPage() {
           ) : (
             <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
               <div className="flex items-center gap-2 border-b border-border px-5 py-4">
-                <Sparkles className="h-4 w-4 text-[#0077B6]" aria-hidden />
+                <Sparkles className="h-4 w-4 text-[#3D6B50]" aria-hidden />
                 <h2 className="text-base font-semibold text-slate-900">
                   Cross-Org Patterns
                 </h2>

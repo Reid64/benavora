@@ -11,7 +11,6 @@ import {
   navItemsForRole,
   PLATFORM_NAV_ITEMS,
   PROGRAMS_NAV_ITEMS,
-  RESOURCES_NAV_ITEMS,
   SETTINGS_NAV_ITEM,
 } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
@@ -78,9 +77,9 @@ function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
     fontWeight: active ? 600 : 500,
     textDecoration: "none",
     backgroundColor: active
-      ? "rgba(201,163,78,0.22)"
+      ? "rgba(196,154,79,0.22)"
       : hovered
-        ? "rgba(201,163,78,0.10)"
+        ? "rgba(196,154,79,0.10)"
         : "transparent",
     marginBottom: "1px",
     transition: "all 0.15s",
@@ -101,7 +100,7 @@ function badgeLabel(count: number): string {
 const BADGE_STYLE: CSSProperties = {
   marginLeft: "auto",
   flexShrink: 0,
-  backgroundColor: "#A3492F",
+  backgroundColor: "#B85C3C",
   color: "#FFFFFF",
   fontSize: "11px",
   fontWeight: 600,
@@ -194,9 +193,9 @@ function ChildNavLink({
         textDecoration: "none",
         color: "#FFFFFF",
         backgroundColor: active
-          ? "rgba(201,163,78,0.22)"
+          ? "rgba(196,154,79,0.22)"
           : hovered
-            ? "rgba(201,163,78,0.10)"
+            ? "rgba(196,154,79,0.10)"
             : "transparent",
       }}
       onMouseEnter={() => setHovered(true)}
@@ -210,7 +209,7 @@ function ChildNavLink({
             width: "4px",
             height: "4px",
             borderRadius: "50%",
-            backgroundColor: "#C9A34E",
+            backgroundColor: "#C49A4F",
             marginRight: "8px",
             flexShrink: 0,
           }}
@@ -307,6 +306,9 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
     setHrefs(resolved);
   }, [pathname, role, onboardingCompleted]);
 
+  // Shared by both top-level rows and indented child rows — a page's badge
+  // count doesn't depend on how deep it's nested in the current section
+  // layout, so one map covers both NavLink and ChildNavLink lookups.
   const badgeByHref: Record<string, number> = {
     "/alerts": navCounts.alerts,
     // Applications badge is AI drafts awaiting human review (pending_review),
@@ -318,6 +320,9 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
     // /intelligence/donor-intent's badge — reused here for the
     // donor-discovery drilldown's Intent Signals link.
     "/donor-discovery/intent-signals": navCounts.donorIntent,
+    "/intelligence/strategic-advisor": navCounts.strategicRecommendations,
+    "/intelligence/donor-intent": navCounts.donorIntent,
+    "/intelligence/community-need": navCounts.communityNeed,
   };
 
   // Donor Discovery's drilldown links each get their own icon, matched by
@@ -325,14 +330,6 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
   const donorDiscoveryIconByHref: Record<string, LucideIcon> = {
     "/donor-discovery/prospects": Telescope,
     "/donor-discovery/intent-signals": Radar,
-  };
-
-  // Child (sub-nav) badges — separate map since NavChild has no badge field
-  // of its own.
-  const childBadgeByHref: Record<string, number> = {
-    "/intelligence/strategic-advisor": navCounts.strategicRecommendations,
-    "/intelligence/donor-intent": navCounts.donorIntent,
-    "/intelligence/community-need": navCounts.communityNeed,
   };
 
   // Platform admin section badges — separate map, same reasoning as above.
@@ -363,7 +360,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
         style={{
           width: "240px",
           minHeight: "100vh",
-          backgroundColor: "#101B2D",
+          backgroundColor: "#2C4E3B",
           display: "flex",
           flexDirection: "column",
           borderRight: "1px solid rgba(255,255,255,0.06)",
@@ -449,7 +446,6 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
                     icon={ItemIcon}
                     active={active}
                     badge={badge}
-                    id={href === "/intelligence-library" ? "tour-nav-intelligence-library" : undefined}
                     onClick={onClose}
                     iconColor={iconColor}
                   />
@@ -457,7 +453,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
                     <div style={{ marginLeft: "23px", marginTop: "2px" }}>
                       {children.map((child) => {
                         const childActive = pathname === child.href;
-                        const childBadge = childBadgeByHref[child.href] ?? 0;
+                        const childBadge = badgeByHref[child.href] ?? 0;
                         return (
                           <ChildNavLink
                             key={child.href}
@@ -499,19 +495,6 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
             </div>
           )}
 
-          {/* Resources section — shared public reference directories */}
-          <div style={{ marginTop: "8px" }}>
-            <p style={SECTION_LABEL_STYLE}>Resources</p>
-            <div>
-              {RESOURCES_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
-                const active = isActive(href);
-                return (
-                  <NavLink key={href} href={href} label={label} icon={ItemIcon} active={active} onClick={onClose} />
-                );
-              })}
-            </div>
-          </div>
-
           {/* Platform admin section */}
           {isPlatformAdmin && (
             <div style={{ marginTop: "8px" }}>
@@ -547,6 +530,24 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
             id="tour-nav-settings"
             onClick={onClose}
           />
+          {isActive(SETTINGS_NAV_ITEM.href) && SETTINGS_NAV_ITEM.children && SETTINGS_NAV_ITEM.children.length > 0 && (
+            <div style={{ marginLeft: "23px", marginTop: "2px" }}>
+              {SETTINGS_NAV_ITEM.children.map((child) => {
+                const childActive = pathname === child.href;
+                const childBadge = badgeByHref[child.href] ?? 0;
+                return (
+                  <ChildNavLink
+                    key={child.href}
+                    href={child.href}
+                    label={child.label}
+                    active={childActive}
+                    badge={childBadge}
+                    onClick={onClose}
+                  />
+                );
+              })}
+            </div>
+          )}
           <p style={{ margin: 0, marginTop: "10px", fontSize: "12px", fontWeight: 600, color: "rgba(248,250,252,0.8)" }}>
             {orgName}
           </p>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner, Modal, Select } from "@/components/ui";
+import { InstructionalWidget } from "@/components/InstructionalWidget";
 import {
   daysInStage,
   loadPipelineApplications,
@@ -66,10 +67,10 @@ const FAMILY_ORDER: Family[] = ["discovery", "drafting", "submitted", "awarded",
 // (neutral data callouts, distinct secondary actions). Never used for the
 // per-family pipeline-stage colors above, which are real semantic status
 // colors and must not change.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const ACCENT_TEAL = "#2E6B66";
 const CARD_BG = "#F8F5EE";
-const CARD_BORDER = "rgba(16,27,45,0.18)";
+const CARD_BORDER = "rgba(44,78,59,0.18)";
 const ON_FRAME_TEXT = "#F8F5EE";
 
 function probabilityColor(score: number): string {
@@ -183,6 +184,15 @@ export default function ApplicationsPage() {
 
   return (
     <div style={{ minHeight: "100vh", padding: "24px" }}>
+      <InstructionalWidget
+        pageTitle="Applications"
+        steps={[
+          { number: 1, title: "Track your pipeline", description: "Applications move through discovery, drafting, submitted, and awarded stages." },
+          { number: 2, title: "Filter by stage family", description: "Use the tabs to focus on drafting work or submitted follow-ups." },
+          { number: 3, title: "Open an application", description: "Click any card to see documents, deadlines, and drafting progress." },
+          { number: 4, title: "Watch for gaps", description: "The Gap Analysis link flags missing requirements before you submit." },
+        ]}
+      />
       {/* Header */}
       <div
         style={{
@@ -224,7 +234,7 @@ export default function ApplicationsPage() {
             fontWeight: 600,
             color: ON_FRAME_TEXT,
             textDecoration: "none",
-            boxShadow: "0 2px 8px rgba(16,27,45,0.25)",
+            boxShadow: "0 2px 8px rgba(44,78,59,0.25)",
           }}
         >
           <RefreshCw style={{ height: "16px", width: "16px" }} aria-hidden />
@@ -256,8 +266,8 @@ export default function ApplicationsPage() {
                 fontWeight: 700,
                 cursor: "pointer",
                 boxShadow: active
-                  ? "0 2px 8px rgba(16,27,45,0.3)"
-                  : "0 1px 3px rgba(16,27,45,0.08)",
+                  ? "0 2px 8px rgba(44,78,59,0.3)"
+                  : "0 1px 3px rgba(44,78,59,0.08)",
               }}
             >
               <span
@@ -281,7 +291,7 @@ export default function ApplicationsPage() {
                   borderRadius: "999px",
                   fontSize: "12px",
                   fontWeight: 800,
-                  backgroundColor: active ? "rgba(248,245,238,0.22)" : "rgba(16,27,45,0.08)",
+                  backgroundColor: active ? "rgba(248,245,238,0.22)" : "rgba(44,78,59,0.08)",
                   color: active ? ON_FRAME_TEXT : FRAME_NAVY,
                 }}
               >
@@ -424,7 +434,7 @@ function ApplicationRow({
         backgroundColor: FRAME_NAVY,
         padding: "5px",
         cursor: "pointer",
-        boxShadow: "0 4px 20px rgba(16,27,45,0.28)",
+        boxShadow: "0 4px 20px rgba(44,78,59,0.28)",
       }}
     >
       <div
@@ -436,7 +446,7 @@ function ApplicationRow({
           gap: "16px",
           borderRadius: "10px",
           backgroundColor: CARD_BG,
-          boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)",
+          boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)",
           padding: "16px 20px 16px 24px",
           overflow: "hidden",
         }}

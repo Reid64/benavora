@@ -121,7 +121,7 @@ const ACTIVE_STATUSES: DdRequestStatus[] = ["queued", "enumerating", "enriching"
 
 const STATUS_BADGE_CLASS: Record<DdRequestStatus, string> = {
   queued: "bg-slate-100 text-slate-600",
-  enumerating: "bg-[#DBEAFE] text-[#1D4ED8]",
+  enumerating: "bg-[#DBEAFE] text-[#3D6B50]",
   enriching: "bg-[#FEF3C7] text-[#92400E]",
   scoring: "bg-[#EDE9FE] text-[#6D28D9]",
   complete: "bg-[#DCFCE7] text-[#15803D]",
@@ -150,10 +150,10 @@ const CTA_TEAL_BG = "#A4712C";
 const CTA_TEAL_TEXT = "#F8F5EE";
 // "Discover Prospects" is the page's primary action — Royal Violet, distinct
 // from every other bronze/action color on the page.
-const DISCOVER_BG = "#5B21B6";
+const DISCOVER_BG = "#C49A4F";
 // Rust — the top-prospects action color (Featured Prospect + Top Prospects
 // list buttons).
-const RUST = "#A3492F";
+const RUST = "#B85C3C";
 // The six action colors, one per funnel stage, in FUNNEL_STAGES order
 // (new, reviewing, contacted, applied, received, rejected).
 const FUNNEL_STAGE_COLORS: Record<DdFunnelStage, string> = {
@@ -161,7 +161,7 @@ const FUNNEL_STAGE_COLORS: Record<DdFunnelStage, string> = {
   reviewing: "#7A5980",
   contacted: "#4F6D8F",
   applied: "#C17817",
-  received: "#A3492F",
+  received: "#B85C3C",
   rejected: "#5C6935",
 };
 
@@ -446,7 +446,7 @@ export default function DonorDiscoveryPage() {
   ];
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#D8D3C8", padding: "24px", borderRadius: "16px" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#F0EBE0", padding: "24px", borderRadius: "16px" }}>
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
@@ -505,7 +505,7 @@ export default function DonorDiscoveryPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DarkStatCard label="Active Requests" value={loading ? "—" : String(activeRequestsCount)} accent="#4F6D8F" />
         <DarkStatCard label="Avg Score" value={loading || avgScore == null ? "—" : String(avgScore)} accent="#C17817" />
-        <DarkStatCard label="New & Reviewing" value={loading ? "—" : String(highValueCount)} accent="#A3492F" />
+        <DarkStatCard label="New & Reviewing" value={loading ? "—" : String(highValueCount)} accent="#B85C3C" />
         <DarkStatCard label="Contacted This Month" value={loading ? "—" : String(contactedThisMonth)} accent="#5C6935" />
       </div>
 
@@ -561,7 +561,7 @@ export default function DonorDiscoveryPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div style={{ backgroundColor: "#101B2D", borderRadius: "12px", padding: "20px", color: "white" }}>
+        <div style={{ backgroundColor: "#2C4E3B", borderRadius: "12px", padding: "20px", color: "white" }}>
           <p
             style={{
               fontSize: "11px",
@@ -578,7 +578,7 @@ export default function DonorDiscoveryPage() {
             <p style={{ fontSize: "13px", color: "#8BA8C8" }}>Loading signals…</p>
           ) : recentSignals.length === 0 ? (
             <p style={{ fontSize: "13px", color: "#8BA8C8" }}>
-              No intent signals detected yet — the Donor Intent Agent surfaces these as it runs.
+              No intent signals detected yet — new signals appear here automatically as they're detected.
             </p>
           ) : (
             <div className="space-y-2.5">
@@ -627,7 +627,7 @@ export default function DonorDiscoveryPage() {
             borderRadius: "12px",
             padding: "20px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-            border: "2px solid rgba(16,27,45,0.15)",
+            border: "2px solid rgba(44,78,59,0.15)",
           }}
         >
           <p
@@ -713,7 +713,7 @@ export default function DonorDiscoveryPage() {
         style={{
           backgroundColor: "#F8F5EE",
           border: "1px solid rgba(164,113,44,0.35)",
-          boxShadow: "0 4px 16px rgba(16,27,45,0.10)",
+          boxShadow: "0 4px 16px rgba(44,78,59,0.10)",
         }}
       >
         {loading ? (
@@ -773,7 +773,7 @@ export default function DonorDiscoveryPage() {
 
                   <p className="mt-2 text-xs text-text-muted">{formatGeography(req.geography)}</p>
 
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#D9D3C5]">
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#C9BFA8]">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#D4A94D] to-[#A4712C] transition-all"
                       style={{ width: `${STATUS_PROGRESS_PCT[req.status]}%` }}
@@ -795,7 +795,7 @@ export default function DonorDiscoveryPage() {
         style={{
           backgroundColor: "#F8F5EE",
           border: "1px solid rgba(164,113,44,0.35)",
-          boxShadow: "0 4px 16px rgba(16,27,45,0.10)",
+          boxShadow: "0 4px 16px rgba(44,78,59,0.10)",
         }}
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -837,7 +837,7 @@ export default function DonorDiscoveryPage() {
         style={{
           backgroundColor: "#F8F5EE",
           border: "1px solid rgba(164,113,44,0.35)",
-          boxShadow: "0 4px 16px rgba(16,27,45,0.10)",
+          boxShadow: "0 4px 16px rgba(44,78,59,0.10)",
         }}
       >
         {loading ? (

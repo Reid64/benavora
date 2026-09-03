@@ -353,7 +353,7 @@ export default function ReportsPage() {
   })();
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#D8D3C8] p-6">
+    <div className="min-h-screen space-y-6 bg-[#F0EBE0] p-6">
       <PageHeader
         title="Board Reports"
         description="Generate a PDF board report with AI-written executive summary, pipeline status, financials, and recommendations."

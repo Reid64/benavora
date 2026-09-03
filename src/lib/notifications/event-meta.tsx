@@ -51,7 +51,7 @@ export const NOTIFICATION_EVENT_META: Record<NotificationEventType, Notification
   strategic_recommendation: { label: "Strategic Recommendation", icon: Star, color: "#C9A84C" },
   community_need_signal: { label: "Community Need Signal", icon: BarChart3, color: "#F97316" },
   improvement_proposal: { label: "Agent Improvement Proposal", icon: Lightbulb, color: "#10B981" },
-  onboarding_welcome: { label: "Welcome to Benavora", icon: Sparkles, color: "#0077B6" },
+  onboarding_welcome: { label: "Welcome to Benavora", icon: Sparkles, color: "#3D6B50" },
 };
 
 /** Event types treated as "urgent" priority by the notification bell's filter. */

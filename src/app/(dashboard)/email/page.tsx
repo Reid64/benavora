@@ -17,10 +17,11 @@ import {
 
 import { Badge, Button, EmptyState, LoadingSpinner, Textarea } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { InstructionalWidget } from "@/components/InstructionalWidget";
 
 // Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Rust. Secondary accent: Bronze.
-const FRAME_RUST = "#A3492F";
+const FRAME_RUST = "#B85C3C";
 const ACCENT_BRONZE = "#A4712C";
 const CARD_BG = "#F8F5EE";
 const CARD_SHADOW = "0 4px 20px rgba(163,73,47,0.22)";
@@ -203,6 +204,15 @@ export default function EmailPage() {
 
   return (
     <div className="flex h-full flex-col">
+      <InstructionalWidget
+        pageTitle="Engagement"
+        steps={[
+          { number: 1, title: "Read your inbox", description: "Emails linked to funders and contacts show here, with thread context." },
+          { number: 2, title: "Search or filter threads", description: "Find a conversation by subject, sender, or linked funder." },
+          { number: 3, title: "Reply with AI assist", description: "Draft a reply and let Assist suggest language before you send." },
+          { number: 4, title: "Check relationship health", description: "Funder & Contact Monitoring flags relationships that need attention." },
+        ]}
+      />
       <div className="mb-4 flex items-center gap-3">
         <Mail className="h-6 w-6" style={{ color: FRAME_RUST }} aria-hidden />
         <div>
@@ -615,7 +625,7 @@ export default function EmailPage() {
                     <ol className="relative space-y-3 border-l border-navy-200 pl-4">
                       {messages.map((msg) => (
                         <li key={msg.id} className="relative">
-                          <span className="absolute -left-[1.125rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-teal-400" />
+                          <span className="absolute -left-[1.125rem] top-1 h-2.5 w-2.5 rounded-full border border-white bg-teal-400" />
                           <p className="text-xs font-medium text-navy-700">
                             {msg.from_name ?? msg.from_email ?? "Unknown"}
                           </p>

@@ -182,7 +182,7 @@ export default async function OrgDetailPage({
       {/* Hero */}
       <div
         style={{
-          backgroundColor: "#1A2B3C",
+          backgroundColor: "#2C4E3B",
           borderRadius: "20px",
           padding: "28px 40px",
           marginBottom: "24px",

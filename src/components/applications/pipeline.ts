@@ -60,7 +60,7 @@ export const STAGE_COLOR: Record<PipelineStage, BadgeColor> = {
  */
 const STAGE_PILL_CLASSES: Record<PipelineStage, string> = {
   discovered:
-    "bg-[#DBEAFE] text-[#1D4ED8] px-3 py-1 rounded-full text-xs font-semibold",
+    "bg-[#DBEAFE] text-[#3D6B50] px-3 py-1 rounded-full text-xs font-semibold",
   eligibility_review:
     "bg-[#FEF3C7] text-[#92400E] px-3 py-1 rounded-full text-xs font-semibold",
   qualified:
@@ -92,7 +92,7 @@ export function stagePillClassName(stage: PipelineStage): string {
 
 /** Inline-style equivalent of STAGE_PILL_CLASSES, guaranteed to render regardless of utility-class overrides. */
 const STAGE_PILL_STYLE: Record<PipelineStage, CSSProperties> = {
-  discovered: { backgroundColor: "#DBEAFE", color: "#1D4ED8" },
+  discovered: { backgroundColor: "#DBEAFE", color: "#3D6B50" },
   eligibility_review: { backgroundColor: "#FEF3C7", color: "#92400E" },
   qualified: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
   drafting: { backgroundColor: "#EDE9FE", color: "#6D28D9" },

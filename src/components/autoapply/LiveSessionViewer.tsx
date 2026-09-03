@@ -8,8 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 // applies only to the OUTER "Live Session Viewer" panel (frame + header) —
 // the monitor mockup inside (bezel/screen/stand) is a deliberate dark
 // skeuomorphic illustration and is left as-is, same as the fullscreen mode.
-const FRAME_GOLD = "#B88A2E";
-const FRAME_NAVY = "#101B2D";
+const FRAME_GOLD = "#C49A4F";
+const FRAME_NAVY = "#2C4E3B";
 const CARD_BG = "#F8F5EE";
 
 type ConnectionState = "connecting" | "connected" | "live" | "offline";

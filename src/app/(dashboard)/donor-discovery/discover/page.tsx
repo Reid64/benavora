@@ -74,7 +74,7 @@ const CATEGORY_ACCENTS: Record<string, string> = {
   financial: "#0EA5E9",
   food: "#F59E0B",
   real_estate: "#8B5CF6",
-  professional: "#0077B6",
+  professional: "#3D6B50",
   staffing: "#EC4899",
   retail: "#6366F1",
   healthcare: "#14B8A6",
@@ -82,7 +82,7 @@ const CATEGORY_ACCENTS: Record<string, string> = {
   personal_care: "#A855F7",
   logistics: "#84CC16",
 };
-const DEFAULT_CATEGORY_ACCENT = "#0077B6";
+const DEFAULT_CATEGORY_ACCENT = "#3D6B50";
 
 const RADIUS_OPTIONS = [10, 25, 50, 100] as const;
 
@@ -421,9 +421,9 @@ export default function DiscoverPage() {
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                     done
-                      ? "bg-[#00B4D8] text-white"
+                      ? "bg-[#C49A4F] text-white"
                       : active
-                        ? "bg-[#0077B6] text-white"
+                        ? "bg-[#3D6B50] text-white"
                         : "bg-slate-100 text-slate-400",
                   )}
                 >
@@ -434,7 +434,7 @@ export default function DiscoverPage() {
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={cn("mx-3 h-0.5 flex-1", done ? "bg-[#00B4D8]" : "bg-slate-200")} aria-hidden />
+                <div className={cn("mx-3 h-0.5 flex-1", done ? "bg-[#C49A4F]" : "bg-slate-200")} aria-hidden />
               )}
             </div>
           );
@@ -522,7 +522,7 @@ export default function DiscoverPage() {
           <div className="space-y-5">
             <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <span
-                style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
+                style={{ backgroundColor: "#3D6B501A", color: "#3D6B50" }}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
               >
                 <MapPin className="h-4.5 w-4.5" aria-hidden />
@@ -561,8 +561,8 @@ export default function DiscoverPage() {
                     className={cn(
                       "rounded-lg border px-4 py-2 text-sm font-semibold transition",
                       radiusMiles === mi
-                        ? "border-[#0077B6] bg-[#0077B6] text-white"
-                        : "border-slate-200 bg-surface text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
+                        ? "border-[#3D6B50] bg-[#3D6B50] text-white"
+                        : "border-slate-200 bg-surface text-slate-600 hover:border-[#3D6B50] hover:text-[#3D6B50]",
                     )}
                   >
                     {mi} mi
@@ -628,7 +628,7 @@ export default function DiscoverPage() {
                 {prospects.map((p) => (
                   <div
                     key={p.placeId}
-                    className="rounded-xl border border-slate-200 bg-surface p-4 hover:border-[#00B4D8] transition-colors"
+                    className="rounded-xl border border-slate-200 bg-surface p-4 hover:border-[#C49A4F] transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="min-w-0 truncate text-sm font-semibold text-slate-900">{p.name}</p>
@@ -727,7 +727,7 @@ export default function DiscoverPage() {
                         checked={selectedProspectIds.has(p.id)}
                         onChange={() => toggleProspectSelected(p.id)}
                         aria-label={`Select ${name}`}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]/30"
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[#3D6B50] focus:ring-[#3D6B50]/30"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
@@ -740,7 +740,7 @@ export default function DiscoverPage() {
                               type="button"
                               onClick={() => void handleRowAction(p.id, "autoapply")}
                               disabled={isBusy}
-                              className="rounded-lg bg-[#0077B6] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#005F92] disabled:opacity-60"
+                              className="rounded-lg bg-[#3D6B50] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#005F92] disabled:opacity-60"
                             >
                               Add to AutoApply Queue
                             </button>
@@ -749,7 +749,7 @@ export default function DiscoverPage() {
                             type="button"
                             onClick={() => void handleRowAction(p.id, "email")}
                             disabled={isBusy}
-                            className="rounded-lg bg-[#00B4D8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0093AC] disabled:opacity-60"
+                            className="rounded-lg bg-[#C49A4F] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0093AC] disabled:opacity-60"
                           >
                             Add to Email Campaign
                           </button>
@@ -761,7 +761,7 @@ export default function DiscoverPage() {
                           </Link>
                           <Link
                             href={`/donor-discovery/prospects/${p.id}`}
-                            className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#0077B6] hover:text-[#0077B6]"
+                            className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#3D6B50] hover:text-[#3D6B50]"
                           >
                             View Details
                           </Link>
@@ -786,7 +786,7 @@ export default function DiscoverPage() {
                     type="button"
                     onClick={() => void handleBatchRoute("autoapply")}
                     disabled={batchAutoApplyLoading || batchEmailLoading}
-                    className="rounded-lg bg-[#0077B6] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#005F92] disabled:opacity-60"
+                    className="rounded-lg bg-[#3D6B50] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#005F92] disabled:opacity-60"
                   >
                     {batchAutoApplyLoading
                       ? "Sending…"
@@ -796,7 +796,7 @@ export default function DiscoverPage() {
                     type="button"
                     onClick={() => void handleBatchRoute("email")}
                     disabled={batchAutoApplyLoading || batchEmailLoading}
-                    className="rounded-lg bg-[#00B4D8] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#0093AC] disabled:opacity-60"
+                    className="rounded-lg bg-[#C49A4F] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#0093AC] disabled:opacity-60"
                   >
                     {batchEmailLoading
                       ? "Adding…"

@@ -224,7 +224,7 @@ export default function CompetitorsPage() {
   // Feature not yet loaded
   if (featureEnabled === null && loading) {
     return (
-      <div className="min-h-screen p-6" style={{ backgroundColor: "#D8D3C8" }}>
+      <div className="min-h-screen p-6" style={{ backgroundColor: "#F0EBE0" }}>
         <div className="flex items-center justify-center py-24 text-sm text-navy-400">
           Loading…
         </div>
@@ -235,9 +235,9 @@ export default function CompetitorsPage() {
   // Feature disabled — locked state (§27: hidden from non-Enterprise tiers)
   if (featureEnabled === false) {
     return (
-      <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: "#D8D3C8" }}>
+      <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: "#F0EBE0" }}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#101B2D" }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#2C4E3B" }}>
             Competitor Intelligence
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -259,11 +259,11 @@ export default function CompetitorsPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#D8D3C8" }}>
+    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#F0EBE0" }}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#101B2D" }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#2C4E3B" }}>
             Competitor Intelligence
           </h1>
           <p className="mt-1 text-sm text-navy-500">

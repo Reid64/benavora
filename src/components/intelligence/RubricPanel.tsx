@@ -36,7 +36,7 @@ export function RubricPanel({ rubric, rubricInferred = false, dark = false }: Ru
       style={
         dark
           ? { backgroundColor: "#1E293B", borderRadius: "12px", padding: "20px", border: "1px solid rgba(255,255,255,0.08)", marginTop: "12px", overflow: "hidden" }
-          : { backgroundColor: "#2E6B66", borderRadius: "14px", padding: "14px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }
+          : { backgroundColor: "#2E6B66", borderRadius: "14px", padding: "14px", boxShadow: "0 2px 8px rgba(44,78,59,0.2)" }
       }
     >
       <button
@@ -61,7 +61,7 @@ export function RubricPanel({ rubric, rubricInferred = false, dark = false }: Ru
       {expanded && (
         <div
           className={dark ? "pt-3" : "rounded-lg p-5"}
-          style={dark ? undefined : { backgroundColor: "#F8F5EE", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}
+          style={dark ? undefined : { backgroundColor: "#F8F5EE", marginTop: "12px", boxShadow: "0 1px 3px rgba(44,78,59,0.25)" }}
         >
           {!hasRubric ? (
             <p className={dark ? undefined : "text-sm text-navy-500"} style={dark ? { fontSize: "14px", color: "rgba(248,250,252,0.5)" } : undefined}>

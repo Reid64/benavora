@@ -481,13 +481,13 @@ export default function RoiInsightsPage() {
   }, []);
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100%", padding: "32px" }}>
       <div style={{ marginBottom: "28px", borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
         <h1
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#101B2D",
+            color: "#2C4E3B",
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -557,7 +557,7 @@ export default function RoiInsightsPage() {
           </div>
 
           <div style={{ marginBottom: "28px" }}>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", marginBottom: "16px" }}>
               Insights
             </h2>
             {insights.length === 0 ? (
@@ -577,7 +577,7 @@ export default function RoiInsightsPage() {
           </div>
 
           <div>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", marginBottom: "16px" }}>
               Submission Patterns
             </h2>
             <div

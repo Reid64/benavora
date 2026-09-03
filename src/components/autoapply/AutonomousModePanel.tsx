@@ -58,7 +58,7 @@ const cardValueStyle: CSSProperties = {
 
 const infoCardStyle: CSSProperties = {
   backgroundColor: "#F7F5F1",
-  border: "1px solid #D9D3C5",
+  border: "1px solid #C9BFA8",
   borderRadius: "10px",
   padding: "12px 14px",
 };
@@ -253,7 +253,7 @@ export function AutonomousModePanel() {
               >
                 Max Nightly Submissions
               </label>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "#0077B6" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#3D6B50" }}>
                 {sliderValue}
               </span>
             </div>
@@ -268,7 +268,7 @@ export function AutonomousModePanel() {
               onChange={(e) => setSliderValue(Number(e.target.value))}
               onMouseUp={() => void handleSliderCommit(sliderValue)}
               onTouchEnd={() => void handleSliderCommit(sliderValue)}
-              style={{ width: "100%", marginTop: "8px", accentColor: "#0077B6" }}
+              style={{ width: "100%", marginTop: "8px", accentColor: "#3D6B50" }}
             />
             <div className="flex items-center justify-between" style={{ marginTop: "2px" }}>
               <span style={{ fontSize: "11px", color: "#94A3B8" }}>10</span>

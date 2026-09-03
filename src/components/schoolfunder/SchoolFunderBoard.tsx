@@ -69,7 +69,7 @@ const inputStyle: CSSProperties = {
 
 function statusColor(status: string): string {
   if (status === "active") return GREEN;
-  if (status === "graduated") return "#0077B6";
+  if (status === "graduated") return "#3D6B50";
   if (status === "inactive") return "#94A3B8";
   return "#64748B";
 }
@@ -444,7 +444,7 @@ export function SchoolFunderBoard({ initialStudents, initialDonations, canWrite 
                           onClick={() => setExpandedStudentId(expanded ? null : s.id)}
                           style={{
                             fontSize: "12px",
-                            color: "#0077B6",
+                            color: "#3D6B50",
                             background: "none",
                             border: "none",
                             cursor: "pointer",

@@ -107,7 +107,7 @@ function renderBlock(block: Block): ReactNode {
       );
     case "quote":
       return (
-        <blockquote className="border-l-2 border-teal-300 pl-3 italic text-navy-600">
+        <blockquote className="border-l border-teal-300 pl-3 italic text-navy-600">
           {block.lines.map((line, i) => (
             <p key={i}>{renderInline(line)}</p>
           ))}

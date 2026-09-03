@@ -79,8 +79,8 @@ const CATEGORY_COLORS: Record<RecommendationCategory, string> = {
   hire: "#8B5CF6",
   expand: "#4F6D8F",
   pivot: "#F59E0B",
-  partnership: "#00B4D8",
-  board: "#1A2B3C",
+  partnership: "#C49A4F",
+  board: "#2C4E3B",
   technology: "#0EA5E9",
   compliance: "#DC2626",
 };
@@ -193,7 +193,7 @@ export default function StrategicAdvisorPage() {
   const showEmpty = !loading && recommendations.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -210,12 +210,12 @@ export default function StrategicAdvisorPage() {
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#101B2D",
+              color: "#2C4E3B",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
           >
-            AI Strategic Advisor
+            Strategic Recommendations
           </h1>
           <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>
             Proactive intelligence — recommendations you did not ask for but need to hear.
@@ -309,7 +309,7 @@ export default function StrategicAdvisorPage() {
           }}
         >
           <TrendingUp size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
             No strategic recommendations yet.
           </p>
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
@@ -443,7 +443,7 @@ function RecommendationCard({
           </span>
         </div>
 
-        <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1A2B3C", margin: "0 0 8px" }}>
+        <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#2C4E3B", margin: "0 0 8px" }}>
           {rec.title}
         </h3>
 

@@ -48,7 +48,7 @@ export interface GraphEdge {
 // Row #82 "Path Finder" (FEATURE_REGISTRY_v2.md) — distinct from
 // STRENGTH_COLOR (direct/one_hop/two_hop, relationship-graph-shared.tsx)
 // and from the verified/unverified edge colors below (#10B981/#94A3B8) and
-// the #0077B6 selection highlight, so a computed path never visually
+// the #3D6B50 selection highlight, so a computed path never visually
 // collides with the introduction-strength color coding already on this
 // page. Magenta isn't used anywhere else in this component or
 // relationship-graph-shared.tsx.
@@ -60,8 +60,8 @@ const MARGIN = 44;
 const ITERATIONS = 220;
 
 const NODE_TYPE_COLOR: Record<string, string> = {
-  person: "#1A2B3C",
-  funder: "#0077B6",
+  person: "#2C4E3B",
+  funder: "#3D6B50",
   foundation: "#0EA5E9",
   business: "#F59E0B",
   nonprofit: "#10B981",
@@ -283,7 +283,7 @@ export default function RelationshipGraphViz({
         }}
       >
         <Network size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
-        <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+        <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
           No graph to display yet.
         </p>
         <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
@@ -322,7 +322,7 @@ export default function RelationshipGraphViz({
             style={{
               fontSize: "12px",
               fontWeight: 600,
-              color: "#1A2B3C",
+              color: "#2C4E3B",
               border: "1px solid #E2E8F0",
               borderRadius: "7px",
               padding: "6px 8px",
@@ -343,7 +343,7 @@ export default function RelationshipGraphViz({
             style={{
               fontSize: "12px",
               fontWeight: 600,
-              color: "#1A2B3C",
+              color: "#2C4E3B",
               border: "1px solid #E2E8F0",
               borderRadius: "7px",
               padding: "6px 8px",
@@ -449,7 +449,7 @@ export default function RelationshipGraphViz({
                   onPath
                     ? PATH_COLOR
                     : isSelected || isTouchingSelectedNode
-                      ? "#0077B6"
+                      ? "#3D6B50"
                       : baseColor
                 }
                 strokeWidth={onPath ? strokeWidth + 2.5 : isSelected ? strokeWidth + 1.5 : strokeWidth}
@@ -653,7 +653,7 @@ export default function RelationshipGraphViz({
                     marginBottom: "8px",
                     cursor: "pointer",
                     fontSize: "12px",
-                    color: "#1A2B3C",
+                    color: "#2C4E3B",
                     fontWeight: 600,
                   }}
                 >

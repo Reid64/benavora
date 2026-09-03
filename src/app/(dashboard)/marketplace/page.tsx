@@ -19,7 +19,7 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 // Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Deep Navy. Secondary accent: Teal. The status tone maps below are
 // real meaning-carrying badges (listing/match lifecycle state), not touched.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const ACCENT_TEAL = "#2E6B66";
 const CARD_BG = "#F8F5EE";
 
@@ -40,8 +40,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const LISTING_STATUS_TONE: Record<string, { bg: string; color: string }> = {
   active: { bg: "#F0FDF4", color: "#16A34A" },
-  matched: { bg: "#EFF6FF", color: "#0077B6" },
-  fulfilled: { bg: "#F5F3FF", color: "#7C3AED" },
+  matched: { bg: "#EFF6FF", color: "#3D6B50" },
+  fulfilled: { bg: "#F5F3FF", color: "#B85C3C" },
   expired: { bg: "#F1F5F9", color: "#64748B" },
   cancelled: { bg: "#FEF2F2", color: "#B91C1C" },
 };
@@ -112,7 +112,7 @@ function formatDate(value: string | null): string {
 const frameStyle: React.CSSProperties = {
   backgroundColor: FRAME_NAVY,
   borderRadius: "16px",
-  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+  boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
   padding: "4px",
 };
 
@@ -144,7 +144,7 @@ const badgeStyle = (bg: string, color: string): React.CSSProperties => ({
 const buttonStyle = (variant: "primary" | "secondary" | "danger" = "primary"): React.CSSProperties => {
   const tones = {
     primary: { bg: ACCENT_TEAL, color: CARD_BG, border: "none" },
-    secondary: { bg: "rgba(16,27,45,0.06)", color: FRAME_NAVY, border: "1px solid rgba(16,27,45,0.18)" },
+    secondary: { bg: "rgba(44,78,59,0.06)", color: FRAME_NAVY, border: "1px solid rgba(44,78,59,0.18)" },
     danger: { bg: "#FEF2F2", color: "#B91C1C", border: "none" },
   }[variant];
   return {
@@ -164,7 +164,7 @@ const inputStyle: React.CSSProperties = {
   fontSize: "14px",
   padding: "8px 12px",
   borderRadius: "8px",
-  border: "1px solid rgba(16,27,45,0.18)",
+  border: "1px solid rgba(44,78,59,0.18)",
   color: FRAME_NAVY,
   backgroundColor: CARD_BG,
 };
@@ -541,7 +541,7 @@ export default function MarketplacePage() {
                         borderRadius: "12px",
                         border: "1px solid #E2E8F0",
                         padding: "14px",
-                        backgroundColor: "rgba(16,27,45,0.04)",
+                        backgroundColor: "rgba(44,78,59,0.04)",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "8px" }}>

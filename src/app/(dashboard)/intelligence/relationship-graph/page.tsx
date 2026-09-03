@@ -244,7 +244,7 @@ export default function RelationshipGraphPage() {
   const showEmpty = !loading && connections.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -261,12 +261,12 @@ export default function RelationshipGraphPage() {
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#101B2D",
+              color: "#2C4E3B",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
           >
-            Relationship Intelligence Graph
+            Relationship Network
           </h1>
           <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>
             Discover hidden connections between your board and funders.
@@ -346,7 +346,7 @@ export default function RelationshipGraphPage() {
         <StatTile
           label="Total Connections"
           value={String(totalConnections)}
-          color="#1A2B3C"
+          color="#2C4E3B"
         />
         <StatTile
           label="Direct Introductions"
@@ -427,7 +427,7 @@ export default function RelationshipGraphPage() {
           }}
         >
           <Network size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
             No connections discovered yet.
           </p>
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
@@ -464,7 +464,7 @@ export default function RelationshipGraphPage() {
           style={{
             fontSize: "18px",
             fontWeight: 800,
-            color: "#101B2D",
+            color: "#2C4E3B",
             letterSpacing: "-0.01em",
             margin: "0 0 18px",
           }}
@@ -517,7 +517,7 @@ export default function RelationshipGraphPage() {
               <StatTile
                 label="Total Nodes"
                 value={String(analytics.totalNodes)}
-                color="#1A2B3C"
+                color="#2C4E3B"
               />
               <StatTile
                 label="Total Edges"
@@ -540,7 +540,7 @@ export default function RelationshipGraphPage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                color: "#1A2B3C",
+                color: "#2C4E3B",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
                 margin: "0 0 12px",
@@ -652,7 +652,7 @@ export default function RelationshipGraphPage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                color: "#1A2B3C",
+                color: "#2C4E3B",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
                 margin: "0 0 12px",

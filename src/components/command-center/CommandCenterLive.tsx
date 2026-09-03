@@ -73,8 +73,8 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 // Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Deep Navy. Secondary accent: Rich Gold. Real semantic/live-status
 // colors (agentStatusColor, LiveIndicator) are never touched by this system.
-const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
+const FRAME_NAVY = "#2C4E3B";
+const ACCENT_GOLD = "#C49A4F";
 const CARD_BG = "#F8F5EE";
 
 function agentStatusColor(status: string): string {
@@ -94,7 +94,7 @@ function statCardStyle(tv: boolean) {
   return {
     backgroundColor: FRAME_NAVY,
     borderRadius: tv ? "20px" : "16px",
-    boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+    boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
     padding: "3px",
   };
 }
@@ -115,7 +115,7 @@ function panelStyle(tv: boolean) {
   return {
     backgroundColor: FRAME_NAVY,
     borderRadius: tv ? "20px" : "16px",
-    boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+    boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
     padding: "3px",
     display: "flex",
     flexDirection: "column" as const,
@@ -637,7 +637,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                 label="Website Enriched"
                 numerator={foundationWebCount}
                 denominator={foundationTotal}
-                color="#00B4D8"
+                color="#C49A4F"
                 tv={tv}
               />
             </div>
@@ -736,7 +736,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
             style={{
               backgroundColor: FRAME_NAVY,
               borderRadius: tv ? "20px" : "16px",
-              boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+              boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
               padding: "3px",
             }}
           >
@@ -873,7 +873,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
       <div
         ref={fullscreenTargetRef}
         style={{
-          backgroundColor: tv ? "#D8D3C8" : "transparent",
+          backgroundColor: tv ? "#F0EBE0" : "transparent",
           padding: tv ? "36px" : 0,
         }}
       >

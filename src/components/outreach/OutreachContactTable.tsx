@@ -21,7 +21,7 @@ import type { Enums, Tables } from "@/types/database";
 // Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // This component is only used by /outreach, so it's safe to apply the
 // section's Rust frame / Bronze accent directly.
-const FRAME_RUST = "#A3492F";
+const FRAME_RUST = "#B85C3C";
 const ACCENT_BRONZE = "#A4712C";
 
 type FunderCategory = Enums<"funder_category">;

@@ -63,7 +63,7 @@ export function FoundationCard({
       className="bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md transition-all cursor-pointer card-depth"
       style={{
         borderLeft: `4px solid ${accentColor}`,
-        boxShadow: "0 4px 12px rgba(16,27,45,0.10)",
+        boxShadow: "0 4px 12px rgba(44,78,59,0.10)",
       }}
     >
       <div className="flex items-start justify-between gap-3">
@@ -84,7 +84,7 @@ export function FoundationCard({
         href={`/foundations/${foundation.id}`}
         onClick={(event) => event.stopPropagation()}
         className="mt-2 block truncate text-base font-semibold text-slate-900 hover:underline"
-        style={{ color: "#101B2D" }}
+        style={{ color: "#2C4E3B" }}
       >
         {foundation.name}
       </Link>

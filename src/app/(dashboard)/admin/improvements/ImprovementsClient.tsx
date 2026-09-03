@@ -12,8 +12,8 @@
 // Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
 // Deep Navy. Secondary accent: Rich Gold. Real semantic colors (risk level,
 // success rate, Approve/Reject) are never touched by this system.
-const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
+const FRAME_NAVY = "#2C4E3B";
+const ACCENT_GOLD = "#C49A4F";
 const CARD_BG = "#F8F5EE";
 
 import { useCallback, useEffect, useState } from "react";
@@ -93,7 +93,7 @@ function pct(value: number | null, digits = 0): string {
 const statFrameStyle: CSSProperties = {
   backgroundColor: FRAME_NAVY,
   borderRadius: "16px",
-  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+  boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
   padding: "3px",
 };
 
@@ -238,7 +238,7 @@ export default function ImprovementsClient() {
           }}
         >
           <ShieldAlert size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
             Admins only
           </p>
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
@@ -308,12 +308,12 @@ export default function ImprovementsClient() {
           backgroundColor: FRAME_NAVY,
           borderRadius: "16px",
           marginBottom: "24px",
-          boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+          boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
           padding: "3px",
         }}
       >
       <div style={{ backgroundColor: CARD_BG, borderRadius: "13px", padding: "24px" }}>
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: "0 0 4px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", margin: "0 0 4px" }}>
           Agent Performance
         </h2>
         <p style={{ fontSize: "12px", color: "#64748B", margin: "0 0 16px" }}>
@@ -448,7 +448,7 @@ export default function ImprovementsClient() {
           }}
         >
           <Sparkles size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
             No proposals match this filter.
           </p>
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
@@ -489,7 +489,7 @@ function ProposalCard({
         backgroundColor: FRAME_NAVY,
         borderRadius: "15px",
         marginBottom: "12px",
-        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
         padding: "3px",
       }}
     >
@@ -537,7 +537,7 @@ function ProposalCard({
         )}
       </div>
 
-      <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: "0 0 8px" }}>
+      <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", margin: "0 0 8px" }}>
         {proposal.title}
       </h3>
 

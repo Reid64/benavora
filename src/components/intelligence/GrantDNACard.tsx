@@ -114,7 +114,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
     // Export side rail (the analytical/scoring counterpart to Sources
     // Used's Gold and Section scores' Bronze). All body content sits in the
     // Ivory panel below, which visibly lifts off this frame via its shadow.
-    <div className="rounded-xl" style={{ backgroundColor: "#4F6D8F", padding: "14px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }}>
+    <div className="rounded-xl" style={{ backgroundColor: "#4F6D8F", padding: "14px", boxShadow: "0 2px 8px rgba(44,78,59,0.2)" }}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4" style={{ color: "#F8F5EE" }} aria-hidden />
@@ -134,7 +134,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
         )}
       </div>
 
-      <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: "#F8F5EE", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}>
+      <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: "#F8F5EE", marginTop: "12px", boxShadow: "0 1px 3px rgba(44,78,59,0.25)" }}>
         {/* Composite score + percentile */}
         <div className="flex items-center gap-4">
           <div

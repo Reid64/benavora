@@ -118,7 +118,7 @@ function batchStatusStyle(status: BatchStatus): { pill: { backgroundColor: strin
     case "pending":
       return { pill: { backgroundColor: "#F1F5F9", color: "#64748B" }, label: "Pending" };
     case "generating":
-      return { pill: { backgroundColor: "#0077B61A", color: "#0077B6" }, label: "Generating…" };
+      return { pill: { backgroundColor: "#3D6B501A", color: "#3D6B50" }, label: "Generating…" };
     case "success":
       return { pill: { backgroundColor: "#DCFCE7", color: "#15803D" }, label: "Ready to review" };
     case "queued":
@@ -560,7 +560,7 @@ export default function CorporateOutreachPage() {
                       <div
                         key={p.id}
                         className="flex items-start gap-3 rounded-lg border px-3 py-2.5 transition hover:bg-slate-50"
-                        style={{ borderColor: checked ? "#0077B6" : "#E2E8F0", backgroundColor: checked ? "#EFF8FF" : "#FFFFFF" }}
+                        style={{ borderColor: checked ? "#3D6B50" : "#E2E8F0", backgroundColor: checked ? "#EFF8FF" : "#FFFFFF" }}
                       >
                         <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
                           <input
@@ -568,7 +568,7 @@ export default function CorporateOutreachPage() {
                             checked={checked}
                             onChange={() => toggleProspect(p.id)}
                             className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
-                            style={{ accentColor: "#0077B6" }}
+                            style={{ accentColor: "#3D6B50" }}
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
@@ -584,7 +584,7 @@ export default function CorporateOutreachPage() {
                             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                               {p.industry && (
                                 <span
-                                  style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
+                                  style={{ backgroundColor: "#3D6B501A", color: "#3D6B50" }}
                                   className="rounded-full px-2 py-0.5 font-medium"
                                 >
                                   {p.industry}
@@ -602,7 +602,7 @@ export default function CorporateOutreachPage() {
                         <Link
                           href={`/donor-discovery/outreach/prospects/${p.id}`}
                           className="mt-0.5 shrink-0 text-xs font-medium hover:underline"
-                          style={{ color: "#0077B6" }}
+                          style={{ color: "#3D6B50" }}
                           title="View Corporate Giving DNA profile"
                         >
                           Profile

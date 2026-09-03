@@ -38,7 +38,7 @@ import type { Tables } from "@/types/database";
 // Frame: Rust. Secondary accent: Bronze. Applied to this page's own sequence
 // list; the creation wizard's modal-internal Cards are left as the shared
 // component's default treatment (transient dialog content, not the page surface).
-const FRAME_RUST = "#A3492F";
+const FRAME_RUST = "#B85C3C";
 const ACCENT_BRONZE = "#A4712C";
 const CARD_BG = "#F8F5EE";
 

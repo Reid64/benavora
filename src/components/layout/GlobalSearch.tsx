@@ -277,8 +277,8 @@ export function GlobalSearch({ role }: GlobalSearchProps) {
                         onMouseEnter={() => setActiveIndex(i)}
                         className="block w-full px-4 py-2.5 text-left"
                         style={{
-                          backgroundColor: i === activeIndex ? "rgba(0,180,216,0.12)" : "transparent",
-                          borderLeft: i === activeIndex ? "2px solid #00B4D8" : "2px solid transparent",
+                          backgroundColor: i === activeIndex ? "rgba(196,154,79,0.12)" : "transparent",
+                          borderLeft: i === activeIndex ? "2px solid #C49A4F" : "2px solid transparent",
                           cursor: "pointer",
                         }}
                       >

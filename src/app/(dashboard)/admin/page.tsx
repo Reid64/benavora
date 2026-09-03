@@ -69,7 +69,7 @@ const sectionHeaderStyle = {
   color: "#FFFFFF",
   textTransform: "uppercase" as const,
   letterSpacing: "0.05em",
-  backgroundColor: "#1A2B3C",
+  backgroundColor: "#2C4E3B",
   padding: "14px 20px",
   margin: 0,
 };
@@ -241,7 +241,7 @@ export default async function PlatformAdminPage() {
       {/* Header */}
       <div
         style={{
-          backgroundColor: "#1A2B3C",
+          backgroundColor: "#2C4E3B",
           borderRadius: "20px",
           padding: "28px 40px",
           marginBottom: "24px",
@@ -273,7 +273,7 @@ export default async function PlatformAdminPage() {
           marginBottom: "24px",
         }}
       >
-        <StatCard label="Total Organizations" value={totalOrganizations} color="#0077B6" />
+        <StatCard label="Total Organizations" value={totalOrganizations} color="#3D6B50" />
         <StatCard label="Total Users" value={totalUsers} color="#6B48CC" />
         <StatCard label="Active Subscriptions" value={activeSubscriptions} color="#10B981" />
         <StatCard label="Total Opportunities" value={totalOpportunities} color="#F59E0B" />
@@ -315,7 +315,7 @@ export default async function PlatformAdminPage() {
                     <td style={tdStyle}>
                       <Link
                         href={`/admin/orgs/${org.id}`}
-                        style={{ color: "#0077B6", fontWeight: 600, textDecoration: "none" }}
+                        style={{ color: "#3D6B50", fontWeight: 600, textDecoration: "none" }}
                       >
                         {org.name}
                       </Link>

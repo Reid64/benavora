@@ -11,7 +11,7 @@ export const mk = {
   tint: "#E8EDE6",
   heroText: "#F7F5EF",
   heroMuted: "#B9C8B8",
-  wordmarkGold: "#B88A2E",
+  wordmarkGold: "#C49A4F",
 } as const;
 export type MkColor = keyof typeof mk;
 export const mkFont = { display: "var(--mk-display)", body: "var(--mk-body)" } as const;

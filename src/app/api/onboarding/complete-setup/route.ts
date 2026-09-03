@@ -118,7 +118,6 @@ export async function POST() {
       email_to: emailTo,
       extra_links: [
         { label: "View your first opportunity matches", href: `${base}/opportunities` },
-        { label: "Explore the Intelligence Library", href: `${base}/intelligence-library` },
         { label: "Schedule a demo", href: "https://calendly.com" },
       ],
     });

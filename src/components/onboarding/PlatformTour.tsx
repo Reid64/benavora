@@ -34,7 +34,7 @@ const TOUR_STEPS: TourStep[] = [
     title: "Your Grant Pipeline",
     description:
       "The FlightPath HUD tracks every stage of your funding journey — Onboard, Research, Opportunities, Grant Narratives, AutoApply, and Donor Discovery. Click any stage to jump straight there.",
-    color: "#0077B6",
+    color: "#3D6B50",
   },
   {
     anchorId: "tour-tab-opportunities",
@@ -42,13 +42,6 @@ const TOUR_STEPS: TourStep[] = [
     description:
       "Every grant and funding match we find lives here, ranked by an AI-computed win probability. New matches unlock automatically overnight as agents run.",
     color: "#0096C7",
-  },
-  {
-    anchorId: "tour-nav-intelligence-library",
-    title: "Intelligence Library",
-    description:
-      "Search thousands of funded proposals, budget justification templates, and reviewer scoring rubrics — real examples that strengthen every application you write.",
-    color: "#00B4D8",
   },
   {
     anchorId: "tour-tab-draft-generator",
@@ -68,8 +61,8 @@ const TOUR_STEPS: TourStep[] = [
     anchorId: "tour-nav-settings",
     title: "Settings — Agents",
     description:
-      "Turn on autonomous agents and set your confidence threshold from Settings > Agent Marketplace — you control exactly how much Benavora does on its own.",
-    color: "#1A2B3C",
+      "Turn on autonomous agents and set your confidence threshold from Settings > Agents — you control exactly how much Benavora does on its own.",
+    color: "#2C4E3B",
   },
 ];
 

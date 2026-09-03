@@ -83,7 +83,7 @@ export function AutonomousQueueSection() {
         className="flex items-center justify-between gap-4 flex-wrap"
         style={{
           backgroundColor: "#F7F5F1",
-          border: "1px solid #D9D3C5",
+          border: "1px solid #C9BFA8",
           borderRadius: "12px",
           padding: "16px 20px",
         }}
@@ -96,7 +96,7 @@ export function AutonomousQueueSection() {
         </div>
         <Link
           href="/autoapply/controls"
-          style={{ fontSize: "12px", fontWeight: 700, color: "#0077B6" }}
+          style={{ fontSize: "12px", fontWeight: 700, color: "#3D6B50" }}
           className="hover:underline"
         >
           Configure Autonomous Mode
@@ -125,7 +125,7 @@ export function AutonomousQueueSection() {
           </div>
           <Link
             href="/autoapply/controls"
-            style={{ fontSize: "12px", fontWeight: 700, color: "#0077B6" }}
+            style={{ fontSize: "12px", fontWeight: 700, color: "#3D6B50" }}
             className="hover:underline"
           >
             Manage Settings
@@ -136,7 +136,7 @@ export function AutonomousQueueSection() {
           <div
             style={{
               backgroundColor: "#F7F5F1",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #C9BFA8",
               borderRadius: "10px",
               padding: "12px 14px",
             }}
@@ -159,7 +159,7 @@ export function AutonomousQueueSection() {
           <div
             style={{
               backgroundColor: "#F7F5F1",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #C9BFA8",
               borderRadius: "10px",
               padding: "12px 14px",
             }}
@@ -182,7 +182,7 @@ export function AutonomousQueueSection() {
           <div
             style={{
               backgroundColor: "#F7F5F1",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #C9BFA8",
               borderRadius: "10px",
               padding: "12px 14px",
             }}

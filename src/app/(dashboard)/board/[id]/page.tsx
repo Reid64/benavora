@@ -115,7 +115,7 @@ const cardStyle: CSSProperties = {
 const sectionLabelStyle: CSSProperties = {
   fontSize: "11px",
   fontWeight: 700,
-  color: "#0077B6",
+  color: "#3D6B50",
   textTransform: "uppercase",
   letterSpacing: "0.06em",
   margin: "0 0 10px 0",
@@ -153,7 +153,7 @@ export default function BoardMemberDetailPage({
   }, [load]);
 
   return (
-    <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
       <div style={{ maxWidth: "860px", margin: "0 auto" }}>
         <Link
           href="/knowledge-base/profile"
@@ -218,7 +218,7 @@ function MemberHeader({ member }: { member: Tables<"board_members"> }) {
           width: "56px",
           height: "56px",
           borderRadius: "50%",
-          background: "linear-gradient(135deg,#0077B6,#00B4D8)",
+          background: "linear-gradient(135deg,#3D6B50,#C49A4F)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -249,7 +249,7 @@ function MemberHeader({ member }: { member: Tables<"board_members"> }) {
           )}
         </div>
         {member.title && (
-          <p style={{ fontSize: "14px", color: "#0077B6", fontWeight: 600, margin: "4px 0 0" }}>
+          <p style={{ fontSize: "14px", color: "#3D6B50", fontWeight: 600, margin: "4px 0 0" }}>
             {member.title}
           </p>
         )}

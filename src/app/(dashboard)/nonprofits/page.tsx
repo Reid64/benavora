@@ -63,7 +63,7 @@ const chipStyle: CSSProperties = {
   borderRadius: "8px",
   padding: "6px 14px",
   fontSize: "12px",
-  color: "#101B2D",
+  color: "#2C4E3B",
   fontWeight: 600,
   marginRight: "8px",
 };
@@ -139,23 +139,23 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
   }
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       {/* Header */}
       <div
         style={{
           backgroundColor: "#F8F5EE",
           borderRadius: "14px",
           boxShadow: "0 4px 20px rgba(164,113,44,0.22)",
-          border: "1px solid rgba(16,27,45,0.12)",
+          border: "1px solid rgba(44,78,59,0.12)",
           borderLeft: `4px solid ${SECTION_ACCENT}`,
           padding: "20px 24px",
           marginBottom: "16px",
         }}
       >
-        <div style={{ fontSize: "22px", fontWeight: 900, color: "#101B2D", letterSpacing: "-0.02em" }}>
+        <div style={{ fontSize: "22px", fontWeight: 900, color: "#2C4E3B", letterSpacing: "-0.02em" }}>
           Nonprofit Directory
         </div>
-        <div style={{ fontSize: "13px", color: "rgba(16,27,45,0.6)", marginTop: "4px" }}>
+        <div style={{ fontSize: "13px", color: "rgba(44,78,59,0.6)", marginTop: "4px" }}>
           {(totalCount ?? 0).toLocaleString()} 501(c)(3) organizations on file
         </div>
 
@@ -177,9 +177,9 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             style={{
               padding: "10px 16px",
               borderRadius: "10px",
-              border: "1px solid rgba(16,27,45,0.15)",
-              backgroundColor: "rgba(16,27,45,0.06)",
-              color: "#101B2D",
+              border: "1px solid rgba(44,78,59,0.15)",
+              backgroundColor: "rgba(44,78,59,0.06)",
+              color: "#2C4E3B",
               fontSize: "14px",
               width: "320px",
               outline: "none",
@@ -191,9 +191,9 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             style={{
               padding: "10px 14px",
               borderRadius: "10px",
-              border: "1px solid rgba(16,27,45,0.15)",
+              border: "1px solid rgba(44,78,59,0.15)",
               backgroundColor: "#F8F5EE",
-              color: "#101B2D",
+              color: "#2C4E3B",
               fontSize: "13px",
             }}
           >
@@ -220,7 +220,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             Search
           </button>
           {hasFilter && (
-            <Link href="/nonprofits" style={{ fontSize: "13px", color: "rgba(16,27,45,0.5)", textDecoration: "underline" }}>
+            <Link href="/nonprofits" style={{ fontSize: "13px", color: "rgba(44,78,59,0.5)", textDecoration: "underline" }}>
               Clear
             </Link>
           )}
@@ -228,7 +228,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
       </div>
 
       {/* Results table */}
-      <div style={{ backgroundColor: "#F8F5EE", borderRadius: "14px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", border: "1px solid rgba(16,27,45,0.12)", overflow: "hidden" }}>
+      <div style={{ backgroundColor: "#F8F5EE", borderRadius: "14px", boxShadow: "0 4px 20px rgba(164,113,44,0.22)", border: "1px solid rgba(44,78,59,0.12)", overflow: "hidden" }}>
         <div
           style={{
             backgroundColor: "rgba(164,113,44,0.10)",
@@ -248,7 +248,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
         </div>
 
         {nonprofits.length === 0 ? (
-          <div style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "rgba(16,27,45,0.5)" }}>
+          <div style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "rgba(44,78,59,0.5)" }}>
             No nonprofits match your filters.
           </div>
         ) : (
@@ -256,21 +256,21 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
             <div
               key={row.id}
               style={{
-                backgroundColor: i % 2 === 0 ? "transparent" : "rgba(16,27,45,0.02)",
+                backgroundColor: i % 2 === 0 ? "transparent" : "rgba(44,78,59,0.02)",
                 padding: "12px 20px",
                 display: "grid",
                 gridTemplateColumns: TABLE_GRID_COLUMNS,
                 alignItems: "center",
-                borderBottom: "1px solid rgba(16,27,45,0.04)",
+                borderBottom: "1px solid rgba(44,78,59,0.04)",
               }}
             >
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "#101B2D" }}>{row.name}</span>
-              <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.5)", fontFamily: "monospace" }}>{row.ein}</span>
-              <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.7)" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#2C4E3B" }}>{row.name}</span>
+              <span style={{ fontSize: "12px", color: "rgba(44,78,59,0.5)", fontFamily: "monospace" }}>{row.ein}</span>
+              <span style={{ fontSize: "12px", color: "rgba(44,78,59,0.7)" }}>
                 {row.city && row.state ? `${row.city}, ${row.state}` : (row.city ?? row.state ?? "—")}
               </span>
-              <span style={{ fontSize: "11px", color: "rgba(16,27,45,0.5)" }}>{row.ntee_code ?? "—"}</span>
-              <span style={{ fontSize: "12px", color: "#101B2D", fontWeight: 600 }}>{formatRevenue(row.revenue_amount)}</span>
+              <span style={{ fontSize: "11px", color: "rgba(44,78,59,0.5)" }}>{row.ntee_code ?? "—"}</span>
+              <span style={{ fontSize: "12px", color: "#2C4E3B", fontWeight: 600 }}>{formatRevenue(row.revenue_amount)}</span>
               {row.website ? (
                 <a
                   href={row.website.startsWith("http") ? row.website : `https://${row.website}`}
@@ -281,9 +281,9 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
                   {row.website}
                 </a>
               ) : (
-                <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.5)" }}>—</span>
+                <span style={{ fontSize: "12px", color: "rgba(44,78,59,0.5)" }}>—</span>
               )}
-              <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.7)" }}>{row.officer_name ?? "—"}</span>
+              <span style={{ fontSize: "12px", color: "rgba(44,78,59,0.7)" }}>{row.officer_name ?? "—"}</span>
             </div>
           ))
         )}
@@ -292,7 +292,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
         <div
           style={{
             padding: "14px 20px",
-            borderTop: "1px solid rgba(16,27,45,0.08)",
+            borderTop: "1px solid rgba(44,78,59,0.08)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -303,9 +303,9 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
               ← Previous
             </Link>
           ) : (
-            <span style={{ fontSize: "13px", color: "rgba(16,27,45,0.3)" }}>← Previous</span>
+            <span style={{ fontSize: "13px", color: "rgba(44,78,59,0.3)" }}>← Previous</span>
           )}
-          <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.6)" }}>
+          <span style={{ fontSize: "12px", color: "rgba(44,78,59,0.6)" }}>
             Page {pageParam} of {totalPages.toLocaleString()} — {resultCount.toLocaleString()} results
           </span>
           {pageParam < totalPages ? (
@@ -313,7 +313,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
               Next →
             </Link>
           ) : (
-            <span style={{ fontSize: "13px", color: "rgba(16,27,45,0.3)" }}>Next →</span>
+            <span style={{ fontSize: "13px", color: "rgba(44,78,59,0.3)" }}>Next →</span>
           )}
         </div>
       </div>

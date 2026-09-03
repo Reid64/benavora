@@ -33,11 +33,11 @@ import type {
 // never received the v2 rollout - same real gap as AutoApply's. scoreColor
 // below is real semantic (completeness thresholds), untouched.
 const SECTION_FRAME = "#7A5980";
-const CANVAS = "#D8D3C8";
+const CANVAS = "#F0EBE0";
 const HEADER_CARD_BG = "#F8F5EE";
-const HEADER_BORDER = "rgba(16,27,45,0.15)";
+const HEADER_BORDER = "rgba(44,78,59,0.15)";
 const SECTION_CARD_BG = "#F8F5EE";
-const SECTION_BAR_TRACK = "rgba(16,27,45,0.1)";
+const SECTION_BAR_TRACK = "rgba(44,78,59,0.1)";
 const TEXT_MUTED = "#64748B";
 const GREEN = "#10B981";
 const AMBER = "#F59E0B";
@@ -142,7 +142,7 @@ function CompletenessCircle({ score }: { score: number }) {
           height: size,
           borderRadius: "50%",
           border: `6px solid ${color}`,
-          backgroundColor: "#101B2D",
+          backgroundColor: "#2C4E3B",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -216,7 +216,7 @@ function SectionGridCard({
             style={{
               fontSize: "14px",
               fontWeight: 700,
-              color: "#101B2D",
+              color: "#2C4E3B",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -397,7 +397,7 @@ export default function DigitalTwinPage() {
   return (
     <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: CANVAS }}>
       <PageHeader
-        title="Digital Twin"
+        title="Organization Profile"
         description={
           orgName
             ? `A structured, continuously learning profile of ${orgName} the AI reads before drafting any proposal.`
@@ -573,7 +573,7 @@ export default function DigitalTwinPage() {
                 {report.blocking_agents.map((agentId) => {
                   const info = BLOCKING_AGENT_INFO[agentId] ?? {
                     name: humanizeField(agentId),
-                    reason: "Digital Twin data incomplete.",
+                    reason: "Organization profile data incomplete.",
                   };
                   return (
                     <div
@@ -595,7 +595,7 @@ export default function DigitalTwinPage() {
                           aria-hidden
                         />
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#101B2D", margin: 0 }}>
+                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#2C4E3B", margin: 0 }}>
                             {info.name}
                           </p>
                           <p style={{ fontSize: "11px", color: AMBER, margin: "2px 0 0 0" }}>

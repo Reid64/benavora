@@ -62,11 +62,11 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#D8D3C8" }}>
+    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#F0EBE0" }}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div style={{ borderLeft: "4px solid #7A5980", paddingLeft: "1rem" }}>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#101B2D" }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#2C4E3B" }}>
             Semantic Funder Matches
           </h1>
           <p className="mt-1 text-sm text-navy-500">

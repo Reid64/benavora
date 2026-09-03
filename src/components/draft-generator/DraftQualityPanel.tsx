@@ -6,13 +6,13 @@
 // src/lib/intelligence/narrative-humanizer.ts) and lets a reviewer
 // re-humanize, edit, or re-score a draft in place. Mirrors the dark-card
 // score-panel convention already shipped on /intelligence/twin (colors:
-// card #0D1526, bar track #1A2B3C, muted label #8BA8C8, thresholds 80/60).
+// card #0D1526, bar track #2C4E3B, muted label #8BA8C8, thresholds 80/60).
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 const CARD_BG = "#0D1526";
-const BAR_TRACK = "#1A2B3C";
+const BAR_TRACK = "#2C4E3B";
 const TEXT_MUTED = "#8BA8C8";
 const GREEN = "#10B981";
 const AMBER = "#F59E0B";
@@ -175,7 +175,7 @@ function PanelButton({
         display: "flex",
         alignItems: "center",
         gap: "6px",
-        backgroundColor: variant === "primary" ? "#0077B6" : "#1A2B3C",
+        backgroundColor: variant === "primary" ? "#3D6B50" : "#2C4E3B",
         color: "#FFFFFF",
         fontSize: "12px",
         fontWeight: 600,
@@ -400,7 +400,7 @@ export function DraftQualityPanel({
                 width: "100%",
                 minHeight: "400px",
                 backgroundColor: "#FFFFFF",
-                color: "#1A2B3C",
+                color: "#2C4E3B",
                 fontSize: "13px",
                 lineHeight: 1.6,
                 borderRadius: "8px",

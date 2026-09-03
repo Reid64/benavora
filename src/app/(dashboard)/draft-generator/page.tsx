@@ -90,7 +90,7 @@ const WIZARD_STEPS: { n: WizardStep; label: string }[] = [
 /** Shown alongside step content (not just tucked at the rail's bottom) on
  * the three sparser steps, so the available space is used purposefully. */
 const INTELLIGENCE_TIPS = [
-  "Visit Intelligence Library to import winning grant narratives that boost your confidence score.",
+  "Import winning grant narratives to boost your confidence score.",
   "Narratives matched to your NTEE category increase AI accuracy by up to 40%.",
   "Humanize your draft before submitting — scores above 80 pass most AI detection filters.",
   "Complete your Knowledge Base org profile to eliminate [NEEDS INPUT] gaps in generated drafts.",
@@ -103,15 +103,15 @@ const INTELLIGENCE_TIPS = [
 // is light, so every other text/button color is real navy, gold, bronze, or
 // near-black. Real status colors (confidence bands, errors) are the only
 // colors kept outside this system. ---
-const STONE = "#D8D3C8";
-const NAVY = "#101B2D";
+const STONE = "#F0EBE0";
+const NAVY = "#2C4E3B";
 /** Primary button fill (Next, Generate, Export, etc.) — paired with
  * NEAR_BLACK text. Distinct from GOLD, which is reserved for icons/badges/
  * accents and the dark rail, never for a large button fill. */
-const RICH_GOLD = "#B88A2E";
+const RICH_GOLD = "#C49A4F";
 /** Icon/badge/small-accent gold, and the navy rail's own accents — not used
  * as a button fill or as text on a light surface (fails contrast there). */
-const GOLD = "#C9A34E";
+const GOLD = "#C49A4F";
 /** Secondary-button border/text, card borders, and accent text/icons on
  * light surfaces (readable — unlike raw GOLD, which fails contrast on
  * Stone/Ivory). */
@@ -123,7 +123,7 @@ const CARD_BG = "#F8F5EE";
 const CARD_BORDER = "rgba(164,113,44,0.3)";
 const TEXT_PRIMARY = "#0B0B0B";
 const TEXT_SECONDARY = "#6B6558";
-const GOLD_TINT_BG = "rgba(201,163,78,0.14)";
+const GOLD_TINT_BG = "rgba(196,154,79,0.14)";
 const BRONZE_TINT_BG = "rgba(164,113,44,0.1)";
 /** A warm stone tint for form-field fills (search/select inputs) — clearly
  * darker than the ivory card exception, so nested fields stay distinct from
@@ -132,7 +132,7 @@ const STONE_FIELD_BG = "#E4D9C2";
 /** Text sitting directly on the Stone page background (header, byline) —
  * real navy, never white/light, since the page background is light. */
 const TEXT_ON_STONE = NAVY;
-const TEXT_ON_STONE_MUTED = "rgba(16,27,45,0.68)";
+const TEXT_ON_STONE_MUTED = "rgba(44,78,59,0.68)";
 /** Text on the wizard rail's own navy surface — that one panel stays dark by
  * design, so it keeps light text. Not used anywhere on the Stone page
  * background itself. */
@@ -334,7 +334,7 @@ const TEAL_ACCENT = "#2E6B66"; // Score Draft
 const PLUM_ACCENT = "#7A5980"; // Humanize
 const SLATE_BLUE_ACCENT = "#4F6D8F"; // Rescore
 const AMBER_ACCENT = "#C17817"; // Copy to clipboard
-const RUST_ACCENT = "#A3492F"; // Download .txt
+const RUST_ACCENT = "#B85C3C"; // Download .txt
 const OLIVE_ACCENT = "#5C6935"; // Download PDF
 const ON_ACCENT_LIGHT_TEXT = "#F8F5EE";
 const ON_ACCENT_DARK_TEXT = "#0B0B0B";
@@ -352,7 +352,7 @@ function accentButtonStyle(fill: string, textColor: string, disabled: boolean) {
     fontSize: "12px",
     fontWeight: 600 as const,
     cursor: disabled ? "not-allowed" : "pointer",
-    boxShadow: disabled ? "none" : "0 2px 6px rgba(16,27,45,0.3)",
+    boxShadow: disabled ? "none" : "0 2px 6px rgba(44,78,59,0.3)",
     opacity: disabled ? 0.45 : 1,
   };
 }
@@ -362,7 +362,7 @@ const cardStyle = {
   borderRadius: "14px",
   padding: "20px",
   border: `1px solid ${CARD_BORDER}`,
-  boxShadow: "0 1px 3px rgba(16,27,45,0.08)",
+  boxShadow: "0 1px 3px rgba(44,78,59,0.08)",
 };
 
 const selectFieldStyle = {
@@ -395,7 +395,7 @@ function frameStyle(fill: string) {
     backgroundColor: fill,
     borderRadius: "14px",
     padding: "20px",
-    boxShadow: "0 2px 10px rgba(16,27,45,0.18)",
+    boxShadow: "0 2px 10px rgba(44,78,59,0.18)",
   };
 }
 
@@ -432,12 +432,12 @@ function IvoryCard({
   frameTextColor?: string;
 }) {
   return (
-    <div style={{ backgroundColor: frameColor, borderRadius: "14px", padding: "16px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }}>
+    <div style={{ backgroundColor: frameColor, borderRadius: "14px", padding: "16px", boxShadow: "0 2px 8px rgba(44,78,59,0.2)" }}>
       <h3 style={{ fontSize: "15px", fontWeight: 700, color: frameTextColor, margin: 0 }}>{title}</h3>
       {description && (
         <p style={{ fontSize: "12px", color: frameTextColor, opacity: 0.82, marginTop: "4px", marginBottom: 0 }}>{description}</p>
       )}
-      <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", padding: "16px", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}>
+      <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", padding: "16px", marginTop: "12px", boxShadow: "0 1px 3px rgba(44,78,59,0.25)" }}>
         {children}
       </div>
     </div>
@@ -1268,7 +1268,7 @@ export default function DraftGeneratorPage() {
                 backgroundColor: NAVY,
                 borderRadius: "14px",
                 padding: "20px",
-                border: "1px solid rgba(201,163,78,0.2)",
+                border: "1px solid rgba(196,154,79,0.2)",
                 boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
               }}
             >
@@ -1310,8 +1310,8 @@ export default function DraftGeneratorPage() {
                         status === "active"
                           ? GOLD
                           : status === "done"
-                            ? "rgba(201,163,78,0.16)"
-                            : "rgba(201,163,78,0.06)",
+                            ? "rgba(196,154,79,0.16)"
+                            : "rgba(196,154,79,0.06)",
                     }}
                   >
                     <span
@@ -1327,7 +1327,7 @@ export default function DraftGeneratorPage() {
                         fontWeight: 700,
                         backgroundColor:
                           status === "active" ? NEAR_BLACK : status === "done" ? GOLD : "transparent",
-                        border: status === "pending" ? `1.5px solid rgba(201,163,78,0.35)` : "none",
+                        border: status === "pending" ? `1.5px solid rgba(196,154,79,0.35)` : "none",
                         color: status === "active" ? GOLD : status === "done" ? NEAR_BLACK : TEXT_ON_DARK_MUTED,
                       }}
                     >
@@ -1371,7 +1371,7 @@ export default function DraftGeneratorPage() {
                         placeholder="Search opportunities by name…"
                         disabled={!editable}
                         aria-label="Search opportunities"
-                        style={{ ...selectFieldStyle, backgroundColor: CARD_BG, boxShadow: "0 1px 2px rgba(16,27,45,0.15)", paddingLeft: "38px", cursor: "text" }}
+                        style={{ ...selectFieldStyle, backgroundColor: CARD_BG, boxShadow: "0 1px 2px rgba(44,78,59,0.15)", paddingLeft: "38px", cursor: "text" }}
                       />
                     </div>
                     <div
@@ -1381,7 +1381,7 @@ export default function DraftGeneratorPage() {
                         maxHeight: "260px",
                         overflowY: "auto",
                         borderRadius: "10px",
-                        boxShadow: "0 2px 6px rgba(16,27,45,0.18)",
+                        boxShadow: "0 2px 6px rgba(44,78,59,0.18)",
                       }}
                     >
                       {filteredOpportunities.length === 0 ? (
@@ -1436,8 +1436,8 @@ export default function DraftGeneratorPage() {
                           padding: "12px 14px",
                           borderRadius: "10px",
                           backgroundColor: CARD_BG,
-                          boxShadow: "0 1px 3px rgba(16,27,45,0.15)",
-                          border: selectedMatchScore ? "1px solid rgba(201,163,78,0.5)" : "none",
+                          boxShadow: "0 1px 3px rgba(44,78,59,0.15)",
+                          border: selectedMatchScore ? "1px solid rgba(196,154,79,0.5)" : "none",
                         }}
                       >
                         {matchScoresLoading ? (
@@ -1453,7 +1453,7 @@ export default function DraftGeneratorPage() {
                             <p style={{ fontSize: "12px", color: TEXT_SECONDARY, marginTop: "4px" }}>
                               {selectedMatchScore.probabilityBlended
                                 ? "Blended from your mission/program fit and your win-probability score for this opportunity."
-                                : "Based on mission and program fit against your Digital Twin — no win-probability score yet for this opportunity."}
+                                : "Based on mission and program fit against your organization profile — no win-probability score yet for this opportunity."}
                             </p>
                           </>
                         ) : (
@@ -1494,7 +1494,7 @@ export default function DraftGeneratorPage() {
                             placeholder="Select a program..."
                             disabled={!editable}
                             aria-label="Program"
-                            style={{ ...selectFieldStyle, backgroundColor: CARD_BG, boxShadow: "0 1px 2px rgba(16,27,45,0.15)" }}
+                            style={{ ...selectFieldStyle, backgroundColor: CARD_BG, boxShadow: "0 1px 2px rgba(44,78,59,0.15)" }}
                           />
                           {programs.length === 0 && !loading && (
                             <p className="text-sm" style={{ color: TEXT_ON_FRAME_MUTED }}>
@@ -1557,7 +1557,7 @@ export default function DraftGeneratorPage() {
                             padding: "12px 14px",
                             borderRadius: "10px",
                             backgroundColor: GOLD_TINT_BG,
-                            border: "1px solid rgba(201,163,78,0.35)",
+                            border: "1px solid rgba(196,154,79,0.35)",
                             textAlign: "left",
                           }}
                         >
@@ -1834,7 +1834,7 @@ export default function DraftGeneratorPage() {
                       style={{
                         backgroundColor: GOLD,
                         borderRadius: "14px",
-                        boxShadow: "0 2px 8px rgba(16,27,45,0.2)",
+                        boxShadow: "0 2px 8px rgba(44,78,59,0.2)",
                         padding: "16px",
                       }}
                     >
@@ -1842,7 +1842,7 @@ export default function DraftGeneratorPage() {
                         <ShieldCheck className="h-5 w-5" style={{ color: NEAR_BLACK }} aria-hidden />
                         <h3 style={{ fontSize: "16px", fontWeight: 800, color: NEAR_BLACK, margin: 0 }}>Sources used</h3>
                       </div>
-                      <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", padding: "16px", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}>
+                      <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", padding: "16px", marginTop: "12px", boxShadow: "0 1px 3px rgba(44,78,59,0.25)" }}>
                         <p style={{ fontSize: "11px", color: TEXT_SECONDARY, marginBottom: "12px" }}>
                           Every fact in this draft traces back to one of these — nothing was invented.
                         </p>
@@ -1861,12 +1861,12 @@ export default function DraftGeneratorPage() {
                           }}
                         />
                       ) : (
-                        <div className="rounded-xl" style={{ backgroundColor: SLATE_BLUE_ACCENT, padding: "14px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }}>
+                        <div className="rounded-xl" style={{ backgroundColor: SLATE_BLUE_ACCENT, padding: "14px", boxShadow: "0 2px 8px rgba(44,78,59,0.2)" }}>
                           <div className="mb-3 flex items-center gap-2">
                             <Dna className="h-4 w-4 animate-spin" style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
                             <h3 style={{ fontSize: "16px", fontWeight: 700, color: ON_ACCENT_LIGHT_TEXT }}>Grant DNA Score</h3>
                           </div>
-                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: CARD_BG, boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }} />
+                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: CARD_BG, boxShadow: "0 1px 3px rgba(44,78,59,0.25)" }} />
                         </div>
                       )
                     )}
@@ -1921,7 +1921,7 @@ export default function DraftGeneratorPage() {
                     {logicModel && (
                       <IvoryCard
                         title="Program logic model"
-                        description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
+                        description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from your organization's proven narrative history when a template matches, otherwise generated for this opportunity."
                         frameColor={PLUM_ACCENT}
                         frameTextColor={ON_ACCENT_LIGHT_TEXT}
                       >
@@ -2000,11 +2000,11 @@ export default function DraftGeneratorPage() {
           {/* Stats strip — moved below the wizard, shrunk to a slim single row.
               Bronze tray with each metric as its own Ivory chip lifted off it. */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", backgroundColor: BRONZE, borderRadius: "12px", padding: "10px" }}>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(44,78,59,0.2)" }}>
               <span style={statNumberStyle}>{stats ? stats.totalDrafts : "—"}</span>
               <span style={statLabelStyle}>Total Drafts</span>
             </div>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(44,78,59,0.2)" }}>
               <span style={statNumberStyle}>{stats ? stats.aiPending : "—"}</span>
               <span style={statLabelStyle}>AI Drafts Pending</span>
               <span
@@ -2021,11 +2021,11 @@ export default function DraftGeneratorPage() {
                 AI
               </span>
             </div>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(44,78,59,0.2)" }}>
               <span style={statNumberStyle}>{stats ? stats.draftsThisMonth : "—"}</span>
               <span style={statLabelStyle}>Drafts This Month</span>
             </div>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(44,78,59,0.2)" }}>
               <span style={statNumberStyle}>
                 {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
               </span>
@@ -2038,10 +2038,10 @@ export default function DraftGeneratorPage() {
               backgroundColor: RICH_GOLD,
               borderRadius: "14px",
               padding: "12px",
-              boxShadow: "0 2px 10px rgba(16,27,45,0.2)",
+              boxShadow: "0 2px 10px rgba(44,78,59,0.2)",
             }}
           >
-            <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(16,27,45,0.15)" }}>
+            <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(44,78,59,0.15)" }}>
               {/* Navy header strip — a deliberate accent, not a dominant fill. */}
               <div
                 role="row"

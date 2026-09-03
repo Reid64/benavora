@@ -16,13 +16,13 @@ import { PageHeader } from "@/components/layout/PageHeader";
 // Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
 // DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold. 2026-08-18: confirmed
 // via live getComputedStyle audit this page never received the v2 rollout.
-const CANVAS = "#D8D3C8";
+const CANVAS = "#F0EBE0";
 const CARD = "#F8F5EE";
-const BORDER = "rgba(16,27,45,0.15)";
-const TEXT_PRIMARY = "#101B2D";
+const BORDER = "rgba(44,78,59,0.15)";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#B88A2E";
+const ACCENT = "#C49A4F";
 const SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
 
 const POLL_MS = 30_000;
@@ -46,7 +46,7 @@ const TYPE_ICON: Record<ActivityType, LucideIcon> = {
 };
 
 const TYPE_COLOR: Record<ActivityType, string> = {
-  agent_run: "#0077B6",
+  agent_run: "#3D6B50",
   draft: "#6B48CC",
   opportunity: "#0EA5E9",
   alert: "#F59E0B",

@@ -295,7 +295,7 @@ export default function QueueControlsPage() {
 
       {/* Platform Kill Switch */}
       <div
-        className={`rounded-lg border-2 px-6 py-5 ${
+        className={`rounded-lg border px-6 py-5 ${
           isPlatformPaused
             ? "border-red-400 bg-red-50"
             : "border-red-200 bg-surface shadow-sm"

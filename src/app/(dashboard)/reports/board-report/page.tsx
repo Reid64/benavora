@@ -19,7 +19,7 @@ import type { BoardReportPageData } from "@/lib/reports/board-report-page";
 // Board Report — auto-generated, printable board-ready funding report at
 // /reports/board-report, backed by GET /api/reports/board-report/detail and
 // POST /api/reports/board-report/executive-summary. Inline style={{}} with
-// hardcoded hex only per BLUEPRINT_v2.md §7.5. Canvas #D8D3C8 (Soft Stone)
+// hardcoded hex only per BLUEPRINT_v2.md §7.5. Canvas #F0EBE0 (Soft Stone)
 // per the v2 design system; frame accent Plum #7A5980 (Intelligence &
 // Reports section). URGENCY_COLORS and the probability-score badge
 // thresholds below are real semantic data and are preserved untouched.
@@ -60,7 +60,7 @@ const cardStyle: CSSProperties = {
 const sectionTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
-  color: "#101B2D",
+  color: "#2C4E3B",
   margin: 0,
 };
 
@@ -163,7 +163,7 @@ export default function BoardReportPage() {
   }, [data]);
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100%", padding: "32px" }}>
       {/* Controls — hidden on print */}
       <div
         className="print:hidden"
@@ -177,7 +177,7 @@ export default function BoardReportPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#101B2D", letterSpacing: "-0.02em", margin: 0, borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#2C4E3B", letterSpacing: "-0.02em", margin: 0, borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
             Board Report
           </h1>
           <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>
@@ -490,7 +490,7 @@ export default function BoardReportPage() {
             <h2 style={{ ...sectionTitleStyle, marginBottom: "14px" }}>Recommended Board Actions</h2>
             {data.recommendedActions.length === 0 ? (
               <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>
-                No immediate or urgent recommendations from the Strategic Advisor at this time.
+                No immediate or urgent recommendations at this time.
               </p>
             ) : (
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "10px" }}>

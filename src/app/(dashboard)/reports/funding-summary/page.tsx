@@ -79,10 +79,10 @@ interface TrendsResponse {
 type TrendGrouping = "sourceType" | "category";
 
 const GROUP_PALETTE = [
-  "#0077B6",
+  "#3D6B50",
   "#6B48CC",
   "#F59E0B",
-  "#00B4D8",
+  "#C49A4F",
   "#10B981",
   "#EF4444",
   "#EC4899",
@@ -241,10 +241,10 @@ const PERIOD_OPTIONS: { key: Period; label: string }[] = [
 ];
 
 const SOURCE_COLORS: Record<string, string> = {
-  federal: "#0077B6",
+  federal: "#3D6B50",
   foundation: "#6B48CC",
   corporate: "#F59E0B",
-  state_local: "#00B4D8",
+  state_local: "#C49A4F",
   land_bank: "#10B981",
 };
 
@@ -360,7 +360,7 @@ function TrendLineChart({ trend }: { trend: TrendPoint[] }) {
   }
 
   const series: { key: "found" | "submitted" | "awarded"; label: string; color: string }[] = [
-    { key: "found", label: "Opportunities Found", color: "#0077B6" },
+    { key: "found", label: "Opportunities Found", color: "#3D6B50" },
     { key: "submitted", label: "Applications Submitted", color: "#6B48CC" },
     { key: "awarded", label: "Awards", color: "#10B981" },
   ];
@@ -560,7 +560,7 @@ export default function FundingSummaryReportPage() {
                   fontSize: "13px",
                   fontWeight: 700,
                   cursor: "pointer",
-                  backgroundColor: period === opt.key ? "#0077B6" : "transparent",
+                  backgroundColor: period === opt.key ? "#3D6B50" : "transparent",
                   color: period === opt.key ? "#FFFFFF" : "#64748B",
                 }}
               >
@@ -597,7 +597,7 @@ export default function FundingSummaryReportPage() {
               padding: "10px 16px",
               borderRadius: "8px",
               border: "none",
-              backgroundColor: "#0077B6",
+              backgroundColor: "#3D6B50",
               color: "#FFFFFF",
               fontSize: "13px",
               fontWeight: 700,
@@ -613,7 +613,7 @@ export default function FundingSummaryReportPage() {
 
       {loading && (
         <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: "10px" }}>
-          <Loader2 size={16} className="animate-spin" color="#0077B6" />
+          <Loader2 size={16} className="animate-spin" color="#3D6B50" />
           <span style={{ fontSize: "14px", color: "#64748B" }}>Loading funding summary...</span>
         </div>
       )}
@@ -638,7 +638,7 @@ export default function FundingSummaryReportPage() {
             <MetricCard
               label="Total Opportunities Tracked"
               value={data.summary.totalOpportunitiesTracked.toLocaleString()}
-              accent="#0077B6"
+              accent="#3D6B50"
             />
             <MetricCard
               label="Total Applied"
@@ -663,7 +663,7 @@ export default function FundingSummaryReportPage() {
               label="Pipeline Value"
               value={formatCurrency(data.summary.pipelineValue)}
               sub="active applications"
-              accent="#00B4D8"
+              accent="#C49A4F"
             />
           </div>
 
@@ -769,7 +769,7 @@ export default function FundingSummaryReportPage() {
                         fontSize: "12px",
                         fontWeight: 700,
                         cursor: "pointer",
-                        backgroundColor: trendGrouping === g ? "#0077B6" : "transparent",
+                        backgroundColor: trendGrouping === g ? "#3D6B50" : "transparent",
                         color: trendGrouping === g ? "#FFFFFF" : "#64748B",
                       }}
                     >
@@ -782,7 +782,7 @@ export default function FundingSummaryReportPage() {
 
             {trendsLoading && (
               <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "20px 0" }}>
-                <Loader2 size={16} className="animate-spin" color="#0077B6" />
+                <Loader2 size={16} className="animate-spin" color="#3D6B50" />
                 <span style={{ fontSize: "13px", color: "#64748B" }}>Loading opportunity trend...</span>
               </div>
             )}
@@ -834,7 +834,7 @@ export default function FundingSummaryReportPage() {
           {/* Top funders */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <FileText size={16} color="#0077B6" />
+              <FileText size={16} color="#3D6B50" />
               <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", margin: 0 }}>Top Funders</h2>
             </div>
             {data.topFunders.length === 0 ? (

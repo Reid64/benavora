@@ -27,9 +27,9 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
  * on the plain page background or a white card it has too little affordance.
  */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-[#0077B6] hover:bg-[#005F92] text-white shadow-sm focus-visible:ring-[#0077B6]",
+  primary: "bg-[#3D6B50] hover:bg-[#005F92] text-white shadow-sm focus-visible:ring-[#3D6B50]",
   secondary:
-    "bg-surface border border-slate-200 text-slate-700 hover:border-[#0077B6] hover:text-[#0077B6] focus-visible:ring-[#0077B6]",
+    "bg-surface border border-slate-200 text-slate-700 hover:border-[#3D6B50] hover:text-[#3D6B50] focus-visible:ring-[#3D6B50]",
   danger:
     "bg-[#EF4444] hover:bg-[#B91C1C] text-white shadow-sm focus-visible:ring-[#EF4444]",
   ghost: "text-primary hover:bg-primary/10 focus-visible:ring-primary",

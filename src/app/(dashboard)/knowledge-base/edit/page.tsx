@@ -57,11 +57,11 @@ import type { Tables } from "@/types/database";
 const CANVAS = "#D6E4F0";
 const CARD_BG = "#FFFFFF";
 const BORDER = "#C3D3E2";
-const NAV_BG = "#1A2B3C";
+const NAV_BG = "#2C4E3B";
 const NAV_BORDER = "#2A3F55";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_MUTED = "#64748B";
-const ACCENT = "#0077B6";
+const ACCENT = "#3D6B50";
 const ACCENT_SOFT = "#CAF0F8";
 const GREEN = "#10B981";
 const AMBER = "#F59E0B";
@@ -520,7 +520,7 @@ function AIAssistButton({
           alignItems: "center",
           gap: "6px",
           backgroundColor: "#EDE9FE",
-          color: "#5B21B6",
+          color: "#C49A4F",
           border: "none",
           borderRadius: "8px",
           padding: "6px 12px",
@@ -614,7 +614,7 @@ function TwinProgressBar({ score }: { score: number }) {
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "10px" }}>
         <span style={{ fontSize: "14px", fontWeight: 700, color: TEXT_PRIMARY }}>
-          Your Digital Twin: {score}% Complete
+          Your Organization Profile: {score}% Complete
         </span>
         <span style={{ fontSize: "12px", fontWeight: 700, color }}>{score}%</span>
       </div>
@@ -855,7 +855,7 @@ export default function KnowledgeBaseEditPage() {
       <div style={{ padding: "24px 24px 0 24px" }}>
         <PageHeader
           title="Knowledge Base Editor"
-          description="Every field here feeds AI drafting, probability scoring, and your Digital Twin. Fill it out completely — every save recalculates your Twin's completeness score."
+          description="Every field here feeds AI drafting, probability scoring, and your organization profile. Fill it out completely — every save recalculates your profile's completeness score."
         />
         <div style={{ margin: "16px 0" }}>
           <KnowledgeBaseNav />
@@ -866,7 +866,7 @@ export default function KnowledgeBaseEditPage() {
             style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, color: ACCENT, textDecoration: "none" }}
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            View Digital Twin ({state.twinCompletenessScore}% complete)
+            View Organization Profile ({state.twinCompletenessScore}% complete)
             <ExternalLink className="h-3 w-3" aria-hidden />
           </Link>
         </div>
@@ -2471,7 +2471,7 @@ function PartnershipsSection({
           color: TEXT_MUTED,
         }}
       >
-        Partnership <em>narratives</em> your Digital Twin scores are separate free-text entries — manage those on{" "}
+        Partnership <em>narratives</em> your organization profile scores are separate free-text entries — manage those on{" "}
         <Link href="/knowledge-base/narratives?category=partnerships" style={{ color: ACCENT, fontWeight: 600 }}>
           Narratives → Partnerships
         </Link>

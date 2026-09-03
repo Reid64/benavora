@@ -96,7 +96,7 @@ const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
 };
 
 const RESOURCE_TYPE_COLOR: Record<ResourceType, string> = {
-  funder: "#7C3AED",
+  funder: "#B85C3C",
   opportunity: "#4F6D8F",
   program: "#16A34A",
 };
@@ -153,7 +153,7 @@ function ResourcesPanel({ signalId }: { signalId: string }) {
           padding: "8px 14px",
           fontSize: "12px",
           fontWeight: 700,
-          color: "#1A2B3C",
+          color: "#2C4E3B",
           cursor: "pointer",
         }}
       >
@@ -225,7 +225,7 @@ function ResourcesPanel({ signalId }: { signalId: string }) {
                         style={{
                           fontSize: "13px",
                           fontWeight: 700,
-                          color: "#1A2B3C",
+                          color: "#2C4E3B",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
@@ -424,7 +424,7 @@ export default function CommunityNeedPage() {
   const showEmpty = !loading && signals.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -441,7 +441,7 @@ export default function CommunityNeedPage() {
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#101B2D",
+              color: "#2C4E3B",
               letterSpacing: "-0.02em",
               margin: 0,
             }}
@@ -519,7 +519,7 @@ export default function CommunityNeedPage() {
           marginBottom: "28px",
         }}
       >
-        <StatTile label="Total Signals" value={String(signals.length)} color="#1A2B3C" />
+        <StatTile label="Total Signals" value={String(signals.length)} color="#2C4E3B" />
         <StatTile label="Critical" value={String(criticalCount)} color="#DC2626" />
         <StatTile label="High" value={String(highCount)} color="#F59E0B" />
         <StatTile
@@ -555,7 +555,7 @@ export default function CommunityNeedPage() {
           }}
         >
           <AlertTriangle size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
             No signals yet.
           </p>
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
@@ -604,7 +604,7 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
               fontSize: "11px",
               fontWeight: 700,
               color: "#FFFFFF",
-              backgroundColor: "#1A2B3C",
+              backgroundColor: "#2C4E3B",
               borderRadius: "999px",
               padding: "3px 12px",
               textTransform: "uppercase",
@@ -641,7 +641,7 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
           <TrendBadge trend={signal.trend_direction} />
         </div>
 
-        <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: "0 0 8px" }}>
+        <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", margin: "0 0 8px" }}>
           {signal.signal_category}
         </h3>
 

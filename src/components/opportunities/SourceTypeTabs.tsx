@@ -97,8 +97,8 @@ function TabButton({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm transition",
         active
-          ? "bg-[#0077B6] font-semibold text-white"
-          : "border border-slate-200 bg-surface font-medium text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
+          ? "bg-[#3D6B50] font-semibold text-white"
+          : "border border-slate-200 bg-surface font-medium text-slate-600 hover:border-[#3D6B50] hover:text-[#3D6B50]",
       )}
     >
       {dotClass && (

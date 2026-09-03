@@ -5,8 +5,8 @@
 // morning-digest.ts, urgent-alert.ts, and welcome.ts don't each re-implement
 // the same boilerplate shell.
 
-const NAVY = "#1A2B3C";
-const OCEAN_BLUE = "#0077B6";
+const NAVY = "#2C4E3B";
+const OCEAN_BLUE = "#3D6B50";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const BORDER = "#E2E8F0";

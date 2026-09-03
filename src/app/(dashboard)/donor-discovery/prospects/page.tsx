@@ -744,7 +744,7 @@ export default function DonorDiscoveryProspectsPage() {
   return (
     <div
       className="-m-4 min-h-full space-y-6 p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8"
-      style={{ backgroundColor: "#D8D3C8" }}
+      style={{ backgroundColor: "#F0EBE0" }}
     >
       <Link
         href="/donor-discovery"
@@ -902,7 +902,7 @@ export default function DonorDiscoveryProspectsPage() {
 
       {editable && selectedIds.size > 0 && (
         <div
-          style={{ backgroundColor: "#1A2B3C" }}
+          style={{ backgroundColor: "#2C4E3B" }}
           className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl px-6 py-3 shadow-xl"
         >
           <span className="text-sm font-medium text-white">

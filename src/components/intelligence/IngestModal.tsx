@@ -180,7 +180,7 @@ export function IngestModal({ isOpen, onClose, onSuccess }: Props) {
             type="button"
             onClick={() => switchTab(t)}
             disabled={loading}
-            className={`-mb-px mr-6 border-b-2 pb-2.5 text-sm font-medium transition ${
+            className={`-mb-px mr-6 border-b pb-2.5 text-sm font-medium transition ${
               tab === t
                 ? "border-teal-500 text-teal-600"
                 : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700"

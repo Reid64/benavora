@@ -14,6 +14,7 @@ import {
 
 import { Badge, EmptyState, LoadingSpinner } from "@/components/ui";
 import { ProvenBadge } from "@/components/knowledge-base/ProvenBadge";
+import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { createClient } from "@/lib/supabase/client";
 import { STANDARD_ANSWER_CATEGORY } from "@/lib/utils/constants";
 import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
@@ -43,13 +44,13 @@ import type { Tables } from "@/types/database";
 // their existing bracket-hex Tailwind implementation, unchanged here.
 
 const COLORS = {
-  canvas: "#D8D3C8",
+  canvas: "#F0EBE0",
   card: "#F8F5EE",
-  cardBorder: "rgba(16,27,45,0.15)",
-  text: "#101B2D",
+  cardBorder: "rgba(44,78,59,0.15)",
+  text: "#2C4E3B",
   textMuted: "#64748B",
-  primary: "#B88A2E",
-  accent: "#101B2D",
+  primary: "#C49A4F",
+  accent: "#2C4E3B",
 };
 
 // Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
@@ -57,10 +58,10 @@ const COLORS = {
 // available for distinct action buttons. 2026-08-18: confirmed via live
 // getComputedStyle audit this page never received the v2 rollout - same
 // real gap as AutoApply's.
-const SECTION_ACCENT = "#B88A2E";
+const SECTION_ACCENT = "#C49A4F";
 const SECTION_ACCENT_TINT = "rgba(184,138,46,0.1)";
 
-const CTA_TEAL_BG = "#B88A2E";
+const CTA_TEAL_BG = "#C49A4F";
 const CTA_TEAL_TEXT = "#F8F5EE";
 
 const CARD_SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
@@ -172,6 +173,15 @@ export default function KnowledgeBaseOverviewPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.canvas, padding: 24 }}>
+      <InstructionalWidget
+        pageTitle="Resources"
+        steps={[
+          { number: 1, title: "Complete your profile", description: "The completeness bar tracks how much of your org profile is filled in." },
+          { number: 2, title: "Review proven narratives", description: "Story fragments marked as proven can be reused in application drafts." },
+          { number: 3, title: "Search the knowledge base", description: "Find standard answers and past narrative content by keyword." },
+          { number: 4, title: "Browse the nonprofit directory", description: "Look up peer nonprofits for context on similar funding asks." },
+        ]}
+      />
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: COLORS.text, margin: 0 }}>Knowledge Base</h1>
         <p style={{ fontSize: 14, color: COLORS.textMuted, marginTop: 6, maxWidth: 640 }}>
@@ -259,7 +269,7 @@ export default function KnowledgeBaseOverviewPage() {
             {/* Organization profile hero */}
             <div
               style={{
-                background: "linear-gradient(135deg,#B88A2E,#101B2D)",
+                background: "linear-gradient(135deg,#C49A4F,#2C4E3B)",
                 borderRadius: 12,
                 padding: 24,
                 color: "#F8F5EE",

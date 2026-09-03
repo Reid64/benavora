@@ -57,7 +57,7 @@ export function StepIndicator({
                     isDone
                       ? "bg-teal-500 text-white shadow-sm shadow-teal-900/20"
                       : isActive
-                        ? "border-2 border-teal-500 bg-surface text-teal-600"
+                        ? "border border-teal-500 bg-surface text-teal-600"
                         : "border border-navy-200 bg-surface text-navy-400",
                     reachable && !isActive && "hover:border-teal-400",
                     !reachable && "cursor-not-allowed",

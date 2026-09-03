@@ -1,15 +1,16 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Benavora brand theme.
+ * Benavora brand theme — warm nonprofit palette (supersedes the prior
+ * blue-logo system; see governance/DESIGN_SYSTEM.md).
  *
  * Canonical layered palette (agrees with the CSS custom properties in
  * src/app/globals.css — both files read from the same values, never restate
  * a literal hex twice):
- *  - background #EEF2F7 / surface #FFFFFF / surface-raised #F8FAFC / surface-sunken #F1F5F9
- *  - sidebar #1A2B3C, sidebar-active rgba(0,180,216,0.12), sidebar-hover #243B55
- *  - primary #0077B6 (cta), accent #00B4D8
- *  - text #0F172A, text-muted #475569, border #E2E8F0
+ *  - background #F0EBE0 (warm ivory) / surface #F9F6EF / surface-raised #FCFAF5 / surface-sunken #EAE3D5
+ *  - sidebar #2C4E3B (dark forest), sidebar-active rgba(196,154,79,0.18), sidebar-hover #3D6B50
+ *  - primary/cta forest green #3D6B50, accent gold #C49A4F, secondary accent terracotta #B85C3C
+ *  - text #2A2E28, heading forest green #3D6B50, text-muted #8B8370, border #C9BFA8
  *  - semantic pairs: success/warning/error/info, each a light bg tint + a
  *    700-level text of the same hue (see <Badge>)
  *
@@ -116,9 +117,9 @@ const config: Config = {
           DEFAULT: "var(--color-accent)",
           hover: "var(--color-secondary-hover)",
           blue: "#3b82f6",
-          indigo: "#0077B6",
-          teal: "#00B4D8",
-          purple: "#0077B6",
+          indigo: "#3D6B50",
+          teal: "#C49A4F",
+          purple: "#3D6B50",
           foreground: "#ffffff",
         },
         cta: {
@@ -132,20 +133,20 @@ const config: Config = {
         warning: "#f59e0b",
         info: "#3b82f6",
 
-        // ── Real brand palette (2026-08-15) — sourced from the actual uploaded
-        // logo, not the old navy/teal/plum values below (those were derived
-        // from unused, dead-code color definitions and do not belong to this
-        // brand — see governance/DESIGN_SYSTEM.md). Logo elements: a blue-
-        // gradient "b" mark (deep → sky), a violet paper-airplane/heart
-        // accent, and bright teal-cyan leaf petals.
+        // ── Real brand palette (warm nonprofit pass, 2026-09-02) — supersedes
+        // the 2026-08-15 blue-logo palette (deep/sky/violet/indigo/teal/
+        // highlight were all blue-family hexes derived from the old logo).
+        // The logo itself is being redesigned to match this palette; these
+        // are now the single source of truth for section accents — see
+        // governance/DESIGN_SYSTEM.md.
         brand: {
-          deep: "#1D4ED8", // "b" mark gradient — top
-          sky: "#0284C7", // "b" mark gradient — bottom
-          DEFAULT: "#1D4ED8",
-          violet: "#7C3AED", // paper-airplane / heart accent
-          indigo: "#4C51C6", // blue-violet blend
-          teal: "#0E7490", // teal-blue blend
-          highlight: "#22D3EE", // fixed bright teal (leaf petals) — primary CTAs/buttons
+          deep: "#3D6B50", // forest green — primary brand color
+          sky: "#5C8B6E", // lighter forest green tint
+          DEFAULT: "#3D6B50",
+          violet: "#B85C3C", // terracotta accent
+          indigo: "#8B5E3C", // warm umber accent
+          teal: "#7A8B5C", // sage/olive accent
+          highlight: "#C49A4F", // gold — primary CTAs/buttons, sidebar/header active-nav accent
         },
 
         // ── Legacy navy scale (pages still reference these) ───────────────────
@@ -159,34 +160,35 @@ const config: Config = {
         // scale. Needs a scoped, file-by-file migration before removal, not a
         // one-shot delete — do not remove without that migration.
         navy: {
-          50: "#f4f6fa",
-          100: "#e6ebf3",
-          200: "#c5d0e2",
-          300: "#9aabca",
-          400: "#6a81ab",
-          500: "#47608c",
-          600: "#344b73",
-          700: "#28395a",
-          800: "#202f4a",
-          900: "#1a2744",
-          950: "#111a30",
+          50: "#f6f4ee",
+          100: "#eae5d8",
+          200: "#d3c9ae",
+          300: "#b3a37e",
+          400: "#8f8562",
+          500: "#6d6a4c",
+          600: "#54573f",
+          700: "#3f4633",
+          800: "#33392c",
+          900: "#2c4e3b",
+          950: "#1e3527",
         },
 
-        // ── Legacy teal scale — now a cyan ramp anchored on secondary #00B4D8 ──
-        // 50/200/300/600/700 match globals.css's former compat-layer values exactly
-        // (see CSS_OVERRIDE_INVESTIGATION_2026-08-15.md); other shades unchanged.
+        // ── Legacy teal scale — now a gold ramp anchored on secondary #C49A4F ──
+        // 50/200/300/500 match globals.css's former compat-layer values exactly
+        // (see CSS_OVERRIDE_INVESTIGATION_2026-08-15.md); other shades recolored
+        // to the same gold family for the 2026-09-02 warm-palette pass.
         teal: {
-          50: "rgba(0, 180, 216, 0.08)",
-          100: "#d0f4fb",
-          200: "rgba(0, 180, 216, 0.3)",
-          300: "rgba(0, 180, 216, 0.5)",
-          400: "#33c2e0",
-          500: "#00b4d8",
-          600: "#0089a8",
-          700: "#006e87",
-          800: "#045a6d",
-          900: "#0a4a59",
-          950: "#042e38",
+          50: "rgba(196, 154, 79, 0.08)",
+          100: "#f5e9d3",
+          200: "rgba(196, 154, 79, 0.3)",
+          300: "rgba(196, 154, 79, 0.5)",
+          400: "#d3ae6b",
+          500: "#c49a4f",
+          600: "#a67f3d",
+          700: "#8a6830",
+          800: "#6e5326",
+          900: "#574020",
+          950: "#3a2b16",
         },
 
         // ── Alert/status tint families — 50/200(/300)/500-900 subset matches the
@@ -227,8 +229,8 @@ const config: Config = {
           700: "#047857",
         },
         blue: {
-          50: "rgba(0, 119, 182, 0.08)",
-          200: "rgba(0, 119, 182, 0.25)",
+          50: "rgba(61, 107, 80, 0.08)",
+          200: "rgba(61, 107, 80, 0.25)",
           700: "var(--color-primary)",
           800: "var(--color-primary)",
         },
@@ -272,25 +274,25 @@ const config: Config = {
 
       backgroundImage: {
         "gradient-brand":
-          "linear-gradient(135deg, #00B4D8 0%, #0077B6 100%)",
-        "gradient-accent": "linear-gradient(135deg, #00B4D8 0%, #0077B6 100%)",
+          "linear-gradient(135deg, #C49A4F 0%, #3D6B50 100%)",
+        "gradient-accent": "linear-gradient(135deg, #C49A4F 0%, #3D6B50 100%)",
         "gradient-purple":
-          "linear-gradient(135deg, #0077B6 0%, #005F92 100%)",
+          "linear-gradient(135deg, #3D6B50 0%, #2C4E3B 100%)",
         "gradient-cta":
-          "linear-gradient(135deg, #00B4D8 0%, #0077B6 100%)",
+          "linear-gradient(135deg, #C49A4F 0%, #3D6B50 100%)",
         "glow-radial":
-          "radial-gradient(60% 60% at 50% 0%, rgba(0,180,216,0.15) 0%, rgba(15,17,23,0) 70%)",
+          "radial-gradient(60% 60% at 50% 0%, rgba(196,154,79,0.15) 0%, rgba(15,17,23,0) 70%)",
       },
 
       boxShadow: {
         card: "0 4px 20px -8px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(255,255,255,0.03)",
         "card-hover":
           "0 8px 30px -10px rgba(0,0,0,0.7), inset 0 1px 0 0 rgba(255,255,255,0.05)",
-        glow: "0 0 0 1px rgba(0,119,182,0.3), 0 0 20px -4px rgba(0,119,182,0.35)",
+        glow: "0 0 0 1px rgba(61,107,80,0.3), 0 0 20px -4px rgba(61,107,80,0.35)",
         "glow-accent":
-          "0 0 0 1px rgba(0,180,216,0.3), 0 0 20px -4px rgba(0,180,216,0.35)",
+          "0 0 0 1px rgba(196,154,79,0.3), 0 0 20px -4px rgba(196,154,79,0.35)",
         "glow-blue":
-          "0 0 0 1px rgba(0,180,216,0.3), 0 0 20px -4px rgba(0,180,216,0.35)",
+          "0 0 0 1px rgba(196,154,79,0.3), 0 0 20px -4px rgba(196,154,79,0.35)",
       },
     },
   },

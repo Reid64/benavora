@@ -131,7 +131,7 @@ export default function KnowledgeEnginePage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#D8D3C8] p-6">
+    <div className="min-h-screen space-y-6 bg-[#F0EBE0] p-6">
       <PageHeader
         title="Funding Knowledge Engine"
         description="Ask any question about what gets funded, why, and how to improve your odds."

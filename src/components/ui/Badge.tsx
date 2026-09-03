@@ -55,7 +55,7 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   error: "bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]",
   info: "bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]",
   neutral: "bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]",
-  primary: "bg-[#0077B6] text-white",
+  primary: "bg-[#3D6B50] text-white",
 };
 
 const DOT_CLASSES: Record<BadgeVariant, string> = {

@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { Button, Modal, Select } from "@/components/ui";
 
-const PLUM = "#5B21B6";
+const PLUM = "#C49A4F";
 
 const DEPTH_OPTIONS = [
   { value: "shallow", label: "Shallow" },
@@ -83,7 +83,7 @@ export function StartResearchModal({ prospectId, prospectName, onClose }: StartR
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             rows={3}
-            className="block w-full rounded-lg border border-slate-200 bg-surface px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-[#5B21B6] focus:ring-2 focus:ring-[#5B21B6]/10"
+            className="block w-full rounded-lg border border-slate-200 bg-surface px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-[#C49A4F] focus:ring-2 focus:ring-[#C49A4F]/10"
           />
         </div>
         <Select label="Depth" options={DEPTH_OPTIONS} value={depth} onChange={(e) => setDepth(e.target.value)} />

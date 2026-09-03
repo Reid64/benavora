@@ -35,8 +35,8 @@ import { useProfile } from "@/lib/hooks/useProfile";
 // Card was removed 2026-08-18, see CSS_OVERRIDE_INVESTIGATION_2026-08-18-
 // REMOVAL.md). Real worker Online/Offline and queue-depth indicators below
 // are left untouched.
-const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
+const FRAME_NAVY = "#2C4E3B";
+const ACCENT_GOLD = "#C49A4F";
 
 function Framed({ children }: { children: ReactNode }) {
   return (
@@ -44,7 +44,7 @@ function Framed({ children }: { children: ReactNode }) {
       style={{
         backgroundColor: FRAME_NAVY,
         borderRadius: "15px",
-        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
         padding: "3px",
         height: "100%",
         display: "flex",
@@ -338,7 +338,7 @@ export default function AutoApplyOpsPage() {
             }
           >
             {isOnline && (
-              <span className="w-2 h-2 rounded-full bg-[#0077B6] animate-pulse shrink-0" aria-hidden />
+              <span className="w-2 h-2 rounded-full bg-[#3D6B50] animate-pulse shrink-0" aria-hidden />
             )}
             <Server
               className={`h-8 w-8 ${isOnline ? "text-teal-400" : "text-red-400"}`}

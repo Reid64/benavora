@@ -291,7 +291,7 @@ export function ApplicationsTable({
                 className={cn(
                   "rounded-md px-3 py-1.5 text-sm font-medium transition",
                   groupFilter === g
-                    ? "bg-[#0077B6] text-white"
+                    ? "bg-[#3D6B50] text-white"
                     : "text-slate-600 hover:bg-slate-50",
                 )}
               >
@@ -310,7 +310,7 @@ export function ApplicationsTable({
             <select
               value={bulkTargetStage}
               onChange={(e) => setBulkTargetStage(e.target.value as PipelineStage | "")}
-              className="rounded border border-slate-200 bg-surface px-2 py-1 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
+              className="rounded border border-slate-200 bg-surface px-2 py-1 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6B50]"
             >
               <option value="">Move to stage…</option>
               {(Object.keys(STAGE_LABEL) as PipelineStage[]).map((s) => (
@@ -357,7 +357,7 @@ export function ApplicationsTable({
             type="checkbox"
             checked={allSelected}
             onChange={toggleAll}
-            className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]"
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#3D6B50] focus:ring-[#3D6B50]"
             aria-label="Select all"
           />
           <SortHeader label="Opportunity" sortKey="opportunityName" {...sortProps} active={sortKey === "opportunityName"} className="min-w-0 flex-1" />
@@ -388,7 +388,7 @@ export function ApplicationsTable({
                 checked={selected.has(app.id)}
                 onChange={() => toggleRow(app.id)}
                 onClick={(e) => e.stopPropagation()}
-                className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]"
+                className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#3D6B50] focus:ring-[#3D6B50]"
                 aria-label={`Select ${app.opportunityName ?? "application"}`}
               />
 
@@ -434,7 +434,7 @@ export function ApplicationsTable({
                   <button
                     type="button"
                     onClick={() => onClone(app)}
-                    className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#0077B6]"
+                    className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#3D6B50]"
                     aria-label="Clone application to a new opportunity"
                   >
                     <Copy className="h-3.5 w-3.5" aria-hidden />
@@ -444,7 +444,7 @@ export function ApplicationsTable({
                 <button
                   type="button"
                   onClick={() => router.push(`/applications/${app.id}`)}
-                  className="inline-flex items-center gap-1 text-xs text-[#0077B6] transition hover:text-[#005F92]"
+                  className="inline-flex items-center gap-1 text-xs text-[#3D6B50] transition hover:text-[#005F92]"
                   aria-label="Open application"
                 >
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />

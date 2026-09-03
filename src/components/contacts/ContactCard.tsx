@@ -28,7 +28,7 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           onClick();
         }
       }}
-      style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", border: "1px solid rgba(16,27,45,0.12)" }}
+      style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", border: "1px solid rgba(44,78,59,0.12)" }}
       className="p-5 hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">

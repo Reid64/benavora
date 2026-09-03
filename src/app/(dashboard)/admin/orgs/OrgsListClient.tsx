@@ -11,7 +11,7 @@ import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 // or as a border/outline — its contrast as small text on ivory is too low).
 // Impersonate is safety-sensitive and stays a distinct warning amber, never
 // blended into the section's navy/gold treatment.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const CARD_BG = "#F8F5EE";
 const IMPERSONATE_WARNING = "#C2410C";
 
@@ -28,7 +28,7 @@ export type OrgListRow = {
 const frameStyle = {
   backgroundColor: FRAME_NAVY,
   borderRadius: "16px",
-  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+  boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
   padding: "3px",
 } as const;
 

@@ -26,7 +26,7 @@ export function contactInitials(name: string): string {
 
 /** Premium fintech-toned palette used to color avatar circles by first letter. */
 const AVATAR_PALETTE = [
-  "#0077B6",
+  "#3D6B50",
   "#6B48CC",
   "#0F766E",
   "#B45309",
@@ -40,7 +40,7 @@ const AVATAR_PALETTE = [
   "#DB2777",
   "#4338CA",
   "#059669",
-  "#7C3AED",
+  "#B85C3C",
   "#0EA5E9",
 ];
 

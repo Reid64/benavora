@@ -11,13 +11,13 @@ import { ArrowLeft, ArrowUpRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui";
 import { humanizeEnum } from "@/lib/utils/formatters";
 
-const NAVY = "#101B2D";
-const GOLD = "#B88A2E";
-const PLUM = "#5B21B6";
-const CANVAS = "#D8D3C8";
+const NAVY = "#2C4E3B";
+const GOLD = "#C49A4F";
+const PLUM = "#C49A4F";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
 const TEXT_SECONDARY = "#64748B";
-const BORDER = "#D9D3C5";
+const BORDER = "#C9BFA8";
 
 interface DiscoveryResearchPlan {
   intent: string;
@@ -121,7 +121,7 @@ export default function PilDiscoverPage() {
           onChange={(e) => setQuery(e.target.value)}
           rows={5}
           placeholder="e.g. Find family foundations in the Pacific Northwest that have funded housing nonprofits in the last two years and have board members with a healthcare background."
-          className="block w-full rounded-lg border border-slate-200 bg-surface px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-[#5B21B6] focus:ring-2 focus:ring-[#5B21B6]/10"
+          className="block w-full rounded-lg border border-slate-200 bg-surface px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-[#C49A4F] focus:ring-2 focus:ring-[#C49A4F]/10"
         />
         <div className="mt-3 flex items-center gap-3">
           <Button onClick={() => void handleSubmit()} isLoading={submitting} style={{ backgroundColor: PLUM }}>

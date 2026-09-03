@@ -106,7 +106,7 @@ const tabBarStyle = {
   display: "flex",
   gap: "4px",
   padding: "8px 12px 0",
-  backgroundColor: "#1A2B3C",
+  backgroundColor: "#2C4E3B",
 } as const;
 
 function tabButtonStyle(active: boolean) {
@@ -114,7 +114,7 @@ function tabButtonStyle(active: boolean) {
     padding: "10px 18px",
     fontSize: "13px",
     fontWeight: 700,
-    color: active ? "#1A2B3C" : "rgba(255,255,255,0.65)",
+    color: active ? "#2C4E3B" : "rgba(255,255,255,0.65)",
     backgroundColor: active ? "#FFFFFF" : "transparent",
     border: "none",
     borderRadius: "10px 10px 0 0",
@@ -345,7 +345,7 @@ function IntelligenceTab({
               style={{
                 width: `${kbCompleteness.percent}%`,
                 height: "100%",
-                backgroundColor: "#0077B6",
+                backgroundColor: "#3D6B50",
                 borderRadius: "999px",
               }}
             />
@@ -390,7 +390,7 @@ function IntelligenceTab({
               <BooleanPill value={autonomousConfig.auto_draft_enabled} />
             </div>
             <div style={toggleRowStyle()}>
-              <span>Auto Reputation</span>
+              <span>Auto Monitoring</span>
               <BooleanPill value={autonomousConfig.auto_reputation_enabled} />
             </div>
             <div style={toggleRowStyle()}>
@@ -518,7 +518,7 @@ function AdminActionsPanel({
           color: "#FFFFFF",
           textTransform: "uppercase",
           letterSpacing: "0.05em",
-          backgroundColor: "#1A2B3C",
+          backgroundColor: "#2C4E3B",
           padding: "14px 20px",
         }}
       >
@@ -529,7 +529,7 @@ function AdminActionsPanel({
           type="button"
           onClick={() => void runAction("run_pipeline")}
           disabled={pending !== null}
-          style={actionButtonStyle(pending === "run_pipeline", "#0077B6")}
+          style={actionButtonStyle(pending === "run_pipeline", "#3D6B50")}
         >
           {pending === "run_pipeline" ? "Queuing..." : "Run Pipeline for Org"}
         </button>

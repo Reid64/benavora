@@ -51,7 +51,7 @@ function FlipBackButton({ accentHex, onFlipBack }: { accentHex: string; onFlipBa
         fontWeight: 700,
         letterSpacing: "0.02em",
         cursor: "pointer",
-        boxShadow: "0 2px 6px rgba(16,27,45,0.25)",
+        boxShadow: "0 2px 6px rgba(44,78,59,0.25)",
         zIndex: 2,
       }}
     >
@@ -100,7 +100,7 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                   flexDirection: "column",
                   background: tintedBody,
                   border: `1.5px solid ${card.borderColor}`,
-                  boxShadow: "0 4px 14px rgba(16,27,45,0.12)",
+                  boxShadow: "0 4px 14px rgba(44,78,59,0.12)",
                   overflow: "hidden",
                 }}
               >
@@ -119,7 +119,7 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                   {card.label}
                 </div>
                 <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", flex: 1 }}>
-                  <div style={{ fontSize: "28px", fontWeight: 800, color: "#101B2D", lineHeight: 1 }}>{card.value}</div>
+                  <div style={{ fontSize: "28px", fontWeight: 800, color: "#2C4E3B", lineHeight: 1 }}>{card.value}</div>
                   <div style={{ fontSize: "11px", color: "#475569", marginTop: "auto" }}>{card.sub}</div>
                 </div>
               </div>
@@ -136,7 +136,7 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                   flexDirection: "column",
                   background: tintedBody,
                   border: `1.5px solid ${card.borderColor}`,
-                  boxShadow: "0 4px 14px rgba(16,27,45,0.12)",
+                  boxShadow: "0 4px 14px rgba(44,78,59,0.12)",
                   transform: "rotateY(180deg)",
                   overflow: "hidden",
                 }}
@@ -163,7 +163,7 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                     style={{
                       fontSize: "11px",
                       fontWeight: 700,
-                      color: "#101B2D",
+                      color: "#2C4E3B",
                       textDecoration: "none",
                       marginTop: "8px",
                       flexShrink: 0,

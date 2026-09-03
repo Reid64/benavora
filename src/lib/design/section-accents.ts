@@ -1,70 +1,87 @@
 /**
  * Signature accent color per logical nav section — see
  * governance/DESIGN_SYSTEM.md "Section Accent Colors" for the full mapping,
- * rationale, and live-verification evidence. All six values are drawn from
- * the real brand palette (tailwind.config.ts `theme.extend.colors.brand`) —
- * nothing here is a new color.
+ * rationale, and live-verification evidence. All seven values are drawn from
+ * the warm nonprofit brand palette (forest green / gold / terracotta / warm
+ * neutrals) that superseded the prior blue-logo palette on 2026-09-02.
  *
- * The shared sidebar/header shell never changes — it stays the deep-blue
- * gradient everywhere. Only a page's own PageHeader accent, key stat/metric
- * cards, and primary visual elements should be colored from this map.
+ * The shared sidebar/header shell never changes — it stays the dark-forest
+ * (#2C4E3B) rail everywhere. Only a page's own PageHeader accent, key
+ * stat/metric cards, and primary visual elements should be colored from this
+ * map.
+ *
+ * Keys/routes match the 6 top-level NAV_ITEMS sections in nav-items.ts
+ * (Dashboard, Prospects & Analysis, Opportunities, Applications, Engagement,
+ * Resources) plus Settings/Platform admin as a 7th group.
  */
 export const SECTION_ACCENTS = {
-  dashboard: "#1D4ED8", // brand.deep — Dashboard/Home
-  research: "#0284C7", // brand.sky — Research & Discovery
-  pipeline: "#0E7490", // brand.teal — Applications & Pipeline
-  intelligence: "#7C3AED", // brand.violet — Intelligence & Reports
-  outreach: "#4C51C6", // brand.indigo — Donor Discovery & Outreach
-  admin: "#22D3EE", // brand.highlight — Admin & Settings
+  dashboard: "#3D6B50", // forest green — Dashboard / Home
+  prospects: "#C49A4F", // gold — Prospects & Analysis
+  opportunities: "#B85C3C", // terracotta — Opportunities
+  applications: "#7A8B5C", // sage/olive — Applications
+  engagement: "#8B5E3C", // warm umber — Engagement
+  resources: "#2C4E3B", // deep forest — Resources
+  admin: "#A4712C", // bronze — Admin & Settings
 } as const;
 
 export type SectionKey = keyof typeof SECTION_ACCENTS;
 
 /**
  * Route-prefix → section. Order matters — first match wins, so more
- * specific prefixes are listed before shorter/overlapping ones.
+ * specific prefixes are listed before shorter/overlapping ones. Mirrors the
+ * grouping in nav-items.ts's NAV_ITEMS/SETTINGS_NAV_ITEM/PLATFORM_NAV_ITEMS.
  */
 const ROUTE_SECTIONS: Array<[prefix: string, section: SectionKey]> = [
   // Dashboard / Home
   ["/dashboard", "dashboard"],
-  ["/alerts", "dashboard"],
   ["/activity", "dashboard"],
+  ["/intelligence/strategic-advisor", "dashboard"],
 
-  // Research & Discovery
-  ["/research", "research"],
-  ["/opportunities", "research"],
-  ["/foundations", "research"],
-  ["/nonprofits", "research"],
+  // Prospects & Analysis
+  ["/intelligence/pil", "prospects"],
+  ["/intelligence/donor-intent", "prospects"],
+  ["/intelligence/community-need", "prospects"],
+  ["/intelligence/disaster", "prospects"],
 
-  // Applications & Pipeline
-  ["/applications", "pipeline"],
-  ["/autoapply", "pipeline"],
-  ["/draft-generator", "pipeline"],
-  ["/documents", "pipeline"],
-  ["/deadlines", "pipeline"],
-  ["/compliance", "pipeline"],
-  ["/financials", "pipeline"],
-  ["/funders", "pipeline"],
-  ["/contacts", "pipeline"],
-  ["/renewals", "pipeline"],
+  // Opportunities
+  ["/opportunities", "opportunities"],
+  ["/intelligence/match-feed", "opportunities"],
+  ["/intelligence/matches", "opportunities"],
+  ["/intelligence/competitors", "opportunities"],
+  ["/foundations", "opportunities"],
+  ["/funders", "opportunities"],
 
-  // Intelligence & Reports
-  ["/intelligence", "intelligence"],
-  ["/reports", "intelligence"],
-  ["/outcomes", "intelligence"],
-  ["/knowledge-base", "intelligence"],
-  ["/intelligence-library", "intelligence"],
-  ["/agents", "intelligence"],
+  // Applications
+  ["/draft-generator", "applications"],
+  ["/autoapply", "applications"],
+  ["/applications", "applications"],
+  ["/intelligence/gap-analysis", "applications"],
+  ["/documents", "applications"],
+  ["/deadlines", "applications"],
 
-  // Donor Discovery & Outreach
-  ["/donor-discovery", "outreach"],
-  ["/email", "outreach"],
-  ["/outreach", "outreach"],
-  ["/marketplace", "outreach"],
+  // Engagement
+  ["/email", "engagement"],
+  ["/outreach", "engagement"],
+  ["/contacts", "engagement"],
+  ["/intelligence/recommendations", "engagement"],
+  ["/intelligence/reputation", "engagement"],
+  ["/intelligence/relationship-graph", "engagement"],
+  ["/marketplace", "engagement"],
+
+  // Resources
+  ["/knowledge-base", "resources"],
+  ["/intelligence/twin", "resources"],
+  ["/intelligence/knowledge", "resources"],
+  ["/nonprofits", "resources"],
 
   // Admin & Settings
-  ["/admin", "admin"],
   ["/settings", "admin"],
+  ["/compliance", "admin"],
+  ["/financials", "admin"],
+  ["/reports", "admin"],
+  ["/outcomes", "admin"],
+  ["/alerts", "admin"],
+  ["/admin", "admin"],
   ["/command-center", "admin"],
   ["/import", "admin"],
 ];

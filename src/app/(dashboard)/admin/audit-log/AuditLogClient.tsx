@@ -64,13 +64,13 @@ const AUDIT_ACTIONS = [
 // inline-style overrides on Card was removed 2026-08-18, see
 // CSS_OVERRIDE_INVESTIGATION_2026-08-18-REMOVAL.md). ACTION_BADGE below is a
 // real action-type distinction (shared Badge component) and is never touched.
-const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
+const FRAME_NAVY = "#2C4E3B";
+const ACCENT_GOLD = "#C49A4F";
 const CARD_BG = "#F8F5EE";
 
 function FramedCard({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: "0 4px 20px rgba(44,78,59,0.22)", padding: "3px" }}>
       <div className={className ?? "p-5"} style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}>
         {children}
       </div>

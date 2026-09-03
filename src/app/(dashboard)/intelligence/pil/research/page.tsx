@@ -18,13 +18,13 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 import type { Prospect, ResearchRun, ResearchRunStep } from "@/lib/pil/types";
 
-const NAVY = "#101B2D";
-const GOLD = "#B88A2E";
-const PLUM = "#5B21B6";
-const CANVAS = "#D8D3C8";
+const NAVY = "#2C4E3B";
+const GOLD = "#C49A4F";
+const PLUM = "#C49A4F";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
 const TEXT_SECONDARY = "#64748B";
-const BORDER = "#D9D3C5";
+const BORDER = "#C9BFA8";
 
 const POLL_MS = 10_000;
 

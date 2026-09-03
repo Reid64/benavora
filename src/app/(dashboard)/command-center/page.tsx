@@ -58,7 +58,7 @@ export default async function CommandCenterPage() {
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#101B2D",
+            color: "#2C4E3B",
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -73,14 +73,14 @@ export default async function CommandCenterPage() {
       {/* Admin Quick Actions */}
       <div
         style={{
-          backgroundColor: "#B88A2E",
+          backgroundColor: "#C49A4F",
           borderRadius: "16px",
           padding: "24px",
           marginTop: "20px",
           boxShadow: "0 4px 16px rgba(184,138,46,0.3)",
         }}
       >
-        <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
+        <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", marginBottom: "16px" }}>
           Admin Quick Actions
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
@@ -91,10 +91,10 @@ export default async function CommandCenterPage() {
               style={{
                 display: "block",
                 padding: "12px 16px",
-                backgroundColor: "rgba(16,27,45,0.15)",
-                border: "1px solid rgba(16,27,45,0.25)",
+                backgroundColor: "rgba(44,78,59,0.15)",
+                border: "1px solid rgba(44,78,59,0.25)",
                 borderRadius: "8px",
-                color: "#101B2D",
+                color: "#2C4E3B",
                 fontSize: "13px",
                 fontWeight: 600,
                 textAlign: "center",

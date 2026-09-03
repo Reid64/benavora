@@ -423,7 +423,7 @@ function Stage1Animation({ active }: { active: boolean }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <IconCheckSm color={B.teal} />
               <span style={{ fontFamily: display, fontSize: 14, fontWeight: 700, color: B.textPrimary }}>
-                Digital Twin Built
+                Organization Profile Built
               </span>
             </div>
             {[
@@ -1094,11 +1094,11 @@ function Stage8Animation({ active }: { active: boolean }) {
 const STAGES = [
   {
     n: 1,
-    title: "Onboarding & Digital Twin",
+    title: "Onboarding & Organization Profile",
     color: B.teal,
     claim: "You tell us who you are once. We build a living profile of your organization that every other system below reads from.",
     detail:
-      "Real 7-step onboarding wizard. On completion, a real Organizational Digital Twin is built and persisted — mission, board, focus areas, service area — with a live completeness score. It also rebuilds every time you update your Knowledge Base, so it stays current, not a one-time onboarding artifact.",
+      "Real 7-step onboarding wizard. On completion, a real organization profile is built and persisted — mission, board, focus areas, service area — with a live completeness score. It also rebuilds every time you update your Knowledge Base, so it stays current, not a one-time onboarding artifact.",
     Animation: Stage1Animation,
   },
   {

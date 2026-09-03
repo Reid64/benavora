@@ -208,7 +208,7 @@ export function DraftsHistoryPanel({
                       backgroundColor: "#F8F5EE",
                       borderRadius: "10px",
                       padding: "12px 14px",
-                      boxShadow: isActive ? "0 2px 8px rgba(13,148,136,0.3)" : "0 1px 3px rgba(16,27,45,0.2)",
+                      boxShadow: isActive ? "0 2px 8px rgba(13,148,136,0.3)" : "0 1px 3px rgba(44,78,59,0.2)",
                       border: isActive ? "1.5px solid #0D9488" : "1px solid rgba(164,113,44,0.25)",
                     }
               }

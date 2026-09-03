@@ -24,13 +24,13 @@ import type {
   ResearchRunStep,
 } from "@/lib/pil/types";
 
-const NAVY = "#101B2D";
-const GOLD = "#B88A2E";
-const PLUM = "#5B21B6";
-const CANVAS = "#D8D3C8";
+const NAVY = "#2C4E3B";
+const GOLD = "#C49A4F";
+const PLUM = "#C49A4F";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
 const TEXT_SECONDARY = "#64748B";
-const BORDER = "#D9D3C5";
+const BORDER = "#C9BFA8";
 
 type TabKey = "overview" | "evidence" | "graph" | "research" | "actions";
 
@@ -433,7 +433,7 @@ export default function PilProspectDossierPage({ params }: { params: { id: strin
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_SECONDARY }}>
-                Research Runs
+                Analysis History
               </p>
               <p className="mt-1 text-sm font-medium" style={{ color: NAVY }}>
                 {researchRuns.length}

@@ -111,13 +111,13 @@ type AnalyticsData = {
 // (not a color-override workaround; globals.css's forced `bg-white` !important
 // that used to block inline-style overrides on Card was removed 2026-08-18,
 // see CSS_OVERRIDE_INVESTIGATION_2026-08-18-REMOVAL.md).
-const FRAME_NAVY = "#101B2D";
-const ACCENT_GOLD = "#B88A2E";
+const FRAME_NAVY = "#2C4E3B";
+const ACCENT_GOLD = "#C49A4F";
 const CARD_BG = "#F8F5EE";
 
 function FramedCard({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: "0 4px 20px rgba(44,78,59,0.22)", padding: "3px" }}>
       <div
         className={className ?? "p-5"}
         style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}
@@ -724,7 +724,7 @@ function DomainsTab() {
 // semantic color family, just keyed by prospect status instead of stage.
 const PROSPECT_STATUS_PILL: Record<string, string> = {
   pending: "bg-[#F1F5F9] text-[#64748B] px-3 py-1 rounded-full text-xs font-semibold",
-  contacted: "bg-[#DBEAFE] text-[#1D4ED8] px-3 py-1 rounded-full text-xs font-semibold",
+  contacted: "bg-[#DBEAFE] text-[#3D6B50] px-3 py-1 rounded-full text-xs font-semibold",
   replied: "bg-[#DCFCE7] text-[#15803D] px-3 py-1 rounded-full text-xs font-semibold",
   bounced: "bg-[#FEE2E2] text-[#B91C1C] px-3 py-1 rounded-full text-xs font-semibold",
   suppressed: "bg-[#FEF3C7] text-[#92400E] px-3 py-1 rounded-full text-xs font-semibold",
@@ -1530,7 +1530,7 @@ export default function SalesOutreachClient() {
                   ? { borderColor: FRAME_NAVY, color: FRAME_NAVY }
                   : undefined
               }
-              className={`whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`whitespace-nowrap border-b px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? ""
                   : "border-transparent text-navy-500 hover:text-navy-700 hover:border-navy-200"

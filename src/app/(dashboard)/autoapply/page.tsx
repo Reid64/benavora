@@ -42,7 +42,7 @@ const SuccessAnalytics = dynamic(
         style={{
           backgroundColor: "#F7F5F1",
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          border: "1px solid #D9D3C5",
+          border: "1px solid #C9BFA8",
         }}
       >
         Loading analytics…
@@ -57,8 +57,8 @@ const SuccessAnalytics = dynamic(
 // assumed). Distinct actions draw from the proven accent family. Real
 // status colors (Worker Online/Stale/Offline in WorkerStatus.tsx, the
 // Active/Idle session-state pill, per-row queue status dots) are untouched.
-const FRAME_GOLD = "#B88A2E";
-const FRAME_NAVY = "#101B2D";
+const FRAME_GOLD = "#C49A4F";
+const FRAME_NAVY = "#2C4E3B";
 const CARD_BG = "#F8F5EE";
 const ACCENT_TEAL = "#2E6B66";
 const ACCENT_AMBER = "#C17817";
@@ -464,8 +464,8 @@ export default function AutoApplyPage() {
           ) : (
             <span
               style={{
-                backgroundColor: "rgba(16,27,45,0.06)",
-                border: "1px solid rgba(16,27,45,0.15)",
+                backgroundColor: "rgba(44,78,59,0.06)",
+                border: "1px solid rgba(44,78,59,0.15)",
                 borderRadius: "20px",
                 padding: "8px 20px",
                 color: "#64748B",
@@ -611,7 +611,7 @@ export default function AutoApplyPage() {
             <div
               style={{
                 padding: "16px 20px",
-                borderBottom: "1px solid rgba(16,27,45,0.1)",
+                borderBottom: "1px solid rgba(44,78,59,0.1)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -648,7 +648,7 @@ export default function AutoApplyPage() {
                     key={item.id}
                     style={{
                       padding: "12px 20px",
-                      borderBottom: "1px solid rgba(16,27,45,0.06)",
+                      borderBottom: "1px solid rgba(44,78,59,0.06)",
                       display: "flex",
                       alignItems: "center",
                       gap: "12px",
@@ -721,9 +721,9 @@ export default function AutoApplyPage() {
                 type="button"
                 style={{
                   width: "100%",
-                  backgroundColor: "rgba(16,27,45,0.05)",
+                  backgroundColor: "rgba(44,78,59,0.05)",
                   color: FRAME_NAVY,
-                  border: "1px solid rgba(16,27,45,0.18)",
+                  border: "1px solid rgba(44,78,59,0.18)",
                   borderRadius: "10px",
                   padding: "12px",
                   fontSize: "14px",

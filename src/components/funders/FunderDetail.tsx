@@ -381,7 +381,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
                 onClick={() => setTab(t.key)}
                 aria-current={active ? "page" : undefined}
                 className={
-                  "whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition " +
+                  "whitespace-nowrap border-b px-1 py-3 text-sm font-medium transition " +
                   (active
                     ? "border-teal-600 text-teal-600"
                     : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700")

@@ -80,7 +80,7 @@ export default function ContactsPage() {
   const showEmpty = !loading && !error && contacts.length === 0;
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh" }} className="space-y-6 p-6">
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Contacts"
         accent={SECTION_ACCENT}
@@ -111,7 +111,7 @@ export default function ContactsPage() {
 
       {showEmpty ? (
         <div
-          style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", border: "1px solid rgba(16,27,45,0.12)" }}
+          style={{ backgroundColor: "#F8F5EE", borderRadius: "16px", boxShadow: "0 4px 20px rgba(164,113,44,0.18)", border: "1px solid rgba(44,78,59,0.12)" }}
           className="p-10"
         >
           <EmptyState

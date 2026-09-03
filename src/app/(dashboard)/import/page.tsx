@@ -37,13 +37,13 @@ const COLORS = {
   card: "#F8F5EE",
   border: "#E2E8F0",
   borderStrong: "#CBD5E1",
-  sunken: "rgba(16,27,45,0.04)",
+  sunken: "rgba(44,78,59,0.04)",
   text: "#0F172A",
   textMuted: "#475569",
   textSubtle: "#94A3B8",
-  primary: "#101B2D",
+  primary: "#2C4E3B",
   primaryHover: "#1B2C47",
-  accentGold: "#B88A2E",
+  accentGold: "#C49A4F",
   successBg: "#DCFCE7",
   successText: "#15803D",
   errorBg: "#FEE2E2",
@@ -121,7 +121,7 @@ function Card({ children }: { children: React.ReactNode }) {
       style={{
         background: COLORS.primary,
         borderRadius: 15,
-        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
         padding: 3,
       }}
     >

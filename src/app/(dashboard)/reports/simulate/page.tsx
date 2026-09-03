@@ -69,7 +69,7 @@ const SCENARIOS: ScenarioConfig[] = [
   { key: "geographic_expansion", label: "Geographic Expansion", color: "#C17817", icon: MapPin },
   { key: "new_program", label: "New Program", color: "#7A5980", icon: Sparkles },
   { key: "budget_increase", label: "Budget Increase", color: "#2E6B66", icon: TrendingUp },
-  { key: "partnership", label: "Partnership", color: "#A3492F", icon: Handshake },
+  { key: "partnership", label: "Partnership", color: "#B85C3C", icon: Handshake },
 ];
 
 const SECTOR_OPTIONS = ["corporate", "legal", "finance", "nonprofit"];
@@ -222,13 +222,13 @@ export default function SimulatorPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100%", padding: "32px" }}>
       <div style={{ marginBottom: "28px", borderLeft: "4px solid #7A5980", paddingLeft: "16px" }}>
         <h1
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#101B2D",
+            color: "#2C4E3B",
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -250,7 +250,7 @@ export default function SimulatorPage() {
           marginBottom: "28px",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", marginBottom: "16px" }}>
           Scenario Builder
         </h2>
 
@@ -537,7 +537,7 @@ export default function SimulatorPage() {
           boxShadow: "0 4px 20px rgba(122,89,128,0.18)",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", marginBottom: "16px" }}>
           Past Simulations
         </h2>
         {loadingPast ? (
@@ -673,7 +673,7 @@ function ResultsPanel({ result }: { result: SimulationScenario }) {
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#101B2D", margin: 0 }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
           {result.scenario_name}
         </h2>
         <span

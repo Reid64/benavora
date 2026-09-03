@@ -12,7 +12,7 @@ import type { Tables } from "@/types/database";
 
 // Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Rust. Secondary accent: Bronze.
-const FRAME_RUST = "#A3492F";
+const FRAME_RUST = "#B85C3C";
 const ACCENT_BRONZE = "#A4712C";
 const CARD_BG = "#F8F5EE";
 

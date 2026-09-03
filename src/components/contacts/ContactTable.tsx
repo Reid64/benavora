@@ -94,7 +94,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             onChange={(event) => setParams({ q: event.target.value || null })}
             placeholder="Search contacts..."
             aria-label="Search contacts"
-            style={{ border: "1px solid rgba(16,27,45,0.15)", backgroundColor: "#F8F5EE", color: "#334155" }}
+            style={{ border: "1px solid rgba(44,78,59,0.15)", backgroundColor: "#F8F5EE", color: "#334155" }}
             className="w-full rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#A4712C] focus:ring-2 focus:ring-[#A4712C]/10"
           />
         </div>
@@ -163,7 +163,7 @@ function ViewToggle({
 }) {
   return (
     <div
-      style={{ border: "1px solid rgba(16,27,45,0.15)", backgroundColor: "#F8F5EE" }}
+      style={{ border: "1px solid rgba(44,78,59,0.15)", backgroundColor: "#F8F5EE" }}
       className="inline-flex shrink-0 rounded-lg p-0.5 shadow-sm"
     >
       <button

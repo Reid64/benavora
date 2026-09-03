@@ -34,10 +34,10 @@ import type { Enums, Tables } from "@/types/database";
 // Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Deep Navy. Secondary accent: Teal. Real semantic status colors
 // (RESULT_COLOR badges below) are never touched by this system.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const ACCENT_TEAL = "#2E6B66";
 const CARD_BG = "#F8F5EE";
-const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
+const SHADOW = "0 4px 20px rgba(44,78,59,0.22)";
 
 type OutcomeResult = Enums<"outcome_result">;
 
@@ -108,11 +108,11 @@ function OutcomeMetricCard({
         <div className={styles.iconBg}>
           <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
         </div>
-        <p style={{ color: "rgba(16,27,45,0.55)" }} className="text-xs font-semibold uppercase tracking-wide">
+        <p style={{ color: "rgba(44,78,59,0.55)" }} className="text-xs font-semibold uppercase tracking-wide">
           {label}
         </p>
         <p style={{ color: FRAME_NAVY }} className="mt-2 text-3xl font-bold">{value}</p>
-        {hint && <p style={{ color: "rgba(16,27,45,0.55)" }} className="mt-1 text-xs">{hint}</p>}
+        {hint && <p style={{ color: "rgba(44,78,59,0.55)" }} className="mt-1 text-xs">{hint}</p>}
       </div>
     </div>
   );
@@ -131,7 +131,7 @@ function OutcomeBreakdownBar({ outcomes }: { outcomes: RecordedOutcome[] }) {
   const segments: { count: number; color: string; label: string }[] = [
     { count: awarded, color: "bg-[#2E6B66]", label: `Awarded (${awarded})` },
     { count: partial, color: "bg-[#F59E0B]", label: `Partial (${partial})` },
-    { count: denied, color: "bg-[#101B2D]", label: `Denied (${denied})` },
+    { count: denied, color: "bg-[#2C4E3B]", label: `Denied (${denied})` },
   ];
 
   return (
@@ -173,12 +173,12 @@ function SectionPanel({
   return (
     <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
       <div style={{ backgroundColor: CARD_BG, borderRadius: "13px" }} className="overflow-hidden">
-        <div style={{ borderBottom: "1px solid rgba(16,27,45,0.1)" }} className="px-5 py-4">
+        <div style={{ borderBottom: "1px solid rgba(44,78,59,0.1)" }} className="px-5 py-4">
           <h3 style={{ color: FRAME_NAVY }} className="text-base font-semibold">
             {title}
           </h3>
           {description && (
-            <p style={{ color: "rgba(16,27,45,0.55)" }} className="mt-0.5 text-sm">
+            <p style={{ color: "rgba(44,78,59,0.55)" }} className="mt-0.5 text-sm">
               {description}
             </p>
           )}
@@ -392,7 +392,7 @@ export default function OutcomesPage() {
               }
             >
               {eligible.length > 0 ? (
-                <ul style={{ borderColor: "rgba(16,27,45,0.1)" }} className="divide-y">
+                <ul style={{ borderColor: "rgba(44,78,59,0.1)" }} className="divide-y">
                   {eligible.map((app) => (
                     <li
                       key={app.id}
@@ -402,7 +402,7 @@ export default function OutcomesPage() {
                         <div style={{ color: FRAME_NAVY }} className="truncate text-sm font-medium">
                           {app.label}
                         </div>
-                        <div style={{ color: "rgba(16,27,45,0.55)" }} className="text-xs">
+                        <div style={{ color: "rgba(44,78,59,0.55)" }} className="text-xs">
                           Requested {formatCurrency(app.requestedAmount)}
                           {app.funderCategory
                             ? ` · ${humanizeEnum(app.funderCategory)}`
@@ -426,7 +426,7 @@ export default function OutcomesPage() {
                   ))}
                 </ul>
               ) : (
-                <p style={{ color: "rgba(16,27,45,0.55)" }} className="text-sm">
+                <p style={{ color: "rgba(44,78,59,0.55)" }} className="text-sm">
                   Move an application to the submitted, awarded, or denied stage
                   to record its outcome.
                 </p>

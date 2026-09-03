@@ -1,23 +1,10 @@
 import {
-  Activity,
-  BarChart3,
-  Bell,
-  BookOpen,
-  Bot,
   Brain,
   Building,
-  Building2,
-  Calendar,
-  DollarSign,
-  FileBarChart2,
-  FolderOpen,
-  Gift,
   HeartPulse,
   KanbanSquare,
-  Landmark,
-  Library,
+  LayoutDashboard,
   Lightbulb,
-  Mail,
   Megaphone,
   MonitorDot,
   Radar,
@@ -25,10 +12,9 @@ import {
   Send,
   Settings,
   Shield,
-  ShieldCheck,
+  Bot,
   Target,
   Upload,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,84 +51,94 @@ export type NavOptions = {
 };
 
 /**
- * Primary sidebar navigation items in display order.
+ * Primary sidebar navigation - 6 top-level sections plus Settings (rendered
+ * separately at the bottom of the rail). Every real page previously reachable
+ * from the sidebar's flat item list is folded into the section it fits best,
+ * so nothing that used to be reachable becomes a dead end - see the nav
+ * redesign notes for the full old-item -> new-section mapping.
  * Dashboard, Research, Opportunities, AutoApply, Draft Generator, and Donor
- * Discovery live in the top header bar - they are intentionally absent here.
+ * Discovery also live in the top header bar - see the PERMANENT comment in
+ * Header.tsx before touching that list.
  */
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Alerts", href: "/alerts", icon: Bell },
-  { label: "Activity", href: "/activity", icon: Activity },
-  { label: "Funders", href: "/funders", icon: Building2 },
-  { label: "Foundations", href: "/foundations", icon: Library },
-  { label: "Contacts", href: "/contacts", icon: Users },
-  { label: "Applications", href: "/applications", icon: KanbanSquare },
-  { label: "Documents", href: "/documents", icon: FolderOpen },
-  { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },
-  { label: "Intelligence Library", href: "/intelligence-library", icon: BookOpen },
-  { label: "Agent Marketplace", href: "/agents/marketplace", icon: Bot },
-  { label: "Deadlines", href: "/deadlines", icon: Calendar },
-  { label: "Compliance", href: "/compliance", icon: ShieldCheck },
-  { label: "Outcomes & Analytics", href: "/outcomes", icon: BarChart3 },
-  { label: "Financials", href: "/financials", icon: DollarSign },
-  { label: "Marketplace", href: "/marketplace", icon: Gift },
   {
-    label: "Reports",
-    href: "/reports",
-    icon: FileBarChart2,
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
     children: [
-      { label: "Simulator", href: "/reports/simulate" },
-      { label: "ROI Insights", href: "/reports/roi" },
-      { label: "Funding Forecast", href: "/reports/forecast" },
+      { label: "Activity", href: "/activity" },
+      { label: "Strategic Recommendations", href: "/intelligence/strategic-advisor" },
     ],
   },
   {
-    label: "Intelligence",
-    href: "/intelligence",
+    label: "Prospects & Analysis",
+    href: "/intelligence/pil/prospects",
+    icon: ScanSearch,
+    // Gold #C49A4F - this section's accent per governance/DESIGN_SYSTEM.md.
+    iconColor: (active) => (active ? "#FFFFFF" : "#C49A4F"),
+    children: [
+      { label: "My Prospects", href: "/intelligence/pil/prospects" },
+      { label: "Analysis Results", href: "/intelligence/pil/research" },
+      { label: "Run New Analysis", href: "/intelligence/pil/discover" },
+      { label: "Pending Review", href: "/intelligence/pil/review-queue" },
+      { label: "Giving Signals", href: "/intelligence/donor-intent" },
+      { label: "Community Needs", href: "/intelligence/community-need" },
+      { label: "Disaster Response", href: "/intelligence/disaster" },
+    ],
+  },
+  {
+    label: "Opportunities",
+    href: "/opportunities",
     icon: Target,
     children: [
-      { label: "Digital Twin", href: "/intelligence/twin" },
-      { label: "Match Feed", href: "/intelligence/match-feed" },
-      { label: "Knowledge Engine", href: "/intelligence/knowledge" },
-      { label: "Recommendations", href: "/intelligence/recommendations" },
-      { label: "Gap Analyzer", href: "/intelligence/gap-analysis" },
-      { label: "Competitors", href: "/intelligence/competitors" },
-      { label: "Semantic Matches", href: "/intelligence/matches" },
-      { label: "Reputation", href: "/intelligence/reputation" },
-      { label: "Disaster Response", href: "/intelligence/disaster" },
-      { label: "Community Need", href: "/intelligence/community-need" },
-      { label: "Donor Intent", href: "/intelligence/donor-intent" },
-      { label: "Relationship Graph", href: "/intelligence/relationship-graph" },
-      { label: "Strategic Advisor", href: "/intelligence/strategic-advisor" },
+      { label: "Find Opportunities", href: "/opportunities/new" },
+      { label: "All Opportunities", href: "/opportunities" },
+      { label: "Matched for My Prospects", href: "/intelligence/match-feed" },
+      { label: "Funder Matches", href: "/intelligence/matches" },
+      { label: "Competitor Insights", href: "/intelligence/competitors" },
+      { label: "Foundations", href: "/foundations" },
+      { label: "Funders", href: "/funders" },
     ],
   },
   {
-    label: "Prospect Intelligence",
-    href: "/intelligence/pil",
-    icon: ScanSearch,
-    // Plum #5B21B6 - this section's accent per governance/DESIGN_SYSTEM.md.
-    iconColor: (active) => (active ? "#FFFFFF" : "#5B21B6"),
+    label: "Applications",
+    href: "/applications",
+    icon: KanbanSquare,
     children: [
-      { label: "Prospects", href: "/intelligence/pil/prospects" },
-      { label: "Research Runs", href: "/intelligence/pil/research" },
-      { label: "Review Queue", href: "/intelligence/pil/review-queue" },
-      { label: "Agents", href: "/intelligence/pil/agents" },
-      { label: "Discover", href: "/intelligence/pil/discover" },
+      { label: "Draft Applications", href: "/draft-generator" },
+      { label: "Ready to Submit", href: "/autoapply/queue" },
+      { label: "Needs Attention", href: "/autoapply/review-queue" },
+      { label: "Submitted & Tracking", href: "/applications" },
+      { label: "Gap Analysis", href: "/intelligence/gap-analysis" },
+      { label: "Documents", href: "/documents" },
+      { label: "Deadlines", href: "/deadlines" },
     ],
   },
   {
-    label: "Email",
+    label: "Engagement",
     href: "/email",
-    icon: Mail,
+    icon: Send,
     children: [
-      { label: "Campaigns", href: "/email/campaigns" },
+      { label: "Email Campaigns", href: "/email/campaigns" },
+      { label: "Outreach", href: "/outreach" },
+      { label: "Relationship Management", href: "/contacts" },
+      { label: "Recommendations", href: "/intelligence/recommendations" },
+      { label: "Funder & Contact Monitoring", href: "/intelligence/reputation" },
+      { label: "Relationship Network", href: "/intelligence/relationship-graph" },
+      { label: "Donation Marketplace", href: "/marketplace" },
+    ],
+  },
+  {
+    label: "Resources",
+    href: "/knowledge-base",
+    icon: Brain,
+    children: [
+      { label: "Knowledge Base", href: "/knowledge-base" },
+      { label: "Organization Profile", href: "/intelligence/twin" },
+      { label: "Knowledge Search", href: "/intelligence/knowledge" },
+      { label: "Nonprofit Directory", href: "/nonprofits" },
       { label: "Templates", href: "/email/templates" },
     ],
-  },
-  {
-    label: "Outreach",
-    href: "/outreach",
-    icon: Send,
-    children: [{ label: "Templates", href: "/outreach/templates" }],
   },
 ];
 
@@ -171,18 +167,22 @@ export const DONOR_DISCOVERY_NAV_ITEMS: NavChild[] = [
 export const PROGRAMS_NAV_ITEMS: NavItem[] = [];
 
 /**
- * Resources - shared public reference directories (no organization_id
- * scoping), shown in their own sidebar section alongside Programs.
+ * Settings - rendered at the bottom of the sidebar, separated from main nav.
+ * Carries the smaller admin/config pages that don't fit one of the 6 primary
+ * sections above (Compliance, Financials, Reports, Alerts, Outcomes &
+ * Analytics), shown as children when Settings is the active section.
  */
-export const RESOURCES_NAV_ITEMS: NavItem[] = [
-  { label: "Nonprofit Directory", href: "/nonprofits", icon: Landmark },
-];
-
-/** Settings rendered at the bottom of the sidebar, separated from main nav. */
 export const SETTINGS_NAV_ITEM: NavItem = {
   label: "Settings",
   href: "/settings",
   icon: Settings,
+  children: [
+    { label: "Compliance", href: "/compliance" },
+    { label: "Financials", href: "/financials" },
+    { label: "Reports", href: "/reports" },
+    { label: "Alerts", href: "/alerts" },
+    { label: "Outcomes & Analytics", href: "/outcomes" },
+  ],
 };
 
 /** Platform admin section - shown only to owner/admin roles. */

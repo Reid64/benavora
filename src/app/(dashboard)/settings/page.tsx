@@ -35,6 +35,7 @@ import {
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -53,11 +54,11 @@ type OrgUser = Pick<
 // Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
 // Deep Navy. Secondary accent: Rich Gold. Danger Zone's own red styling
 // (nav highlight + DangerZoneSection) is never touched by this system.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const CARD = "#F8F5EE";
 const ACCENT = FRAME_NAVY;
 const TOGGLE_BLUE = "#0EA5E9";
-const BORDER = "rgba(16,27,45,0.15)";
+const BORDER = "rgba(44,78,59,0.15)";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
@@ -108,6 +109,15 @@ export default function SettingsPage() {
 
   return (
     <div style={{ minHeight: "100vh" }} className="p-6">
+      <InstructionalWidget
+        pageTitle="Settings"
+        steps={[
+          { number: 1, title: "Manage your organization", description: "Update your org name, branding, and default preferences here." },
+          { number: 2, title: "Invite your team", description: "Add teammates and set their role — owner, admin, writer, or viewer." },
+          { number: 3, title: "Watch plan usage", description: "Track how much of your plan's AI and automation quota you've used." },
+          { number: 4, title: "Review feature flags", description: "See which platform phases are enabled for your organization." },
+        ]}
+      />
       <PageHeader
         accent={FRAME_NAVY}
         title="Settings"
@@ -115,7 +125,7 @@ export default function SettingsPage() {
       />
 
       {profileLoading ? (
-        <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
+        <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: "0 4px 20px rgba(44,78,59,0.22)", padding: "3px" }}>
         <div
           style={{ backgroundColor: CARD, borderRadius: "13px" }}
           className="p-10"
@@ -130,7 +140,7 @@ export default function SettingsPage() {
             style={{
               backgroundColor: FRAME_NAVY,
               borderRadius: "16px",
-              boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+              boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
               width: "220px",
               flexShrink: 0,
               padding: "3px",
@@ -177,7 +187,7 @@ export default function SettingsPage() {
             style={{
               backgroundColor: FRAME_NAVY,
               borderRadius: "16px",
-              boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+              boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
               padding: "3px",
             }}
             className="min-w-0 flex-1 overflow-hidden"
@@ -225,7 +235,7 @@ function SettingsSection({
   return (
     <div>
       <div
-        style={{ backgroundColor: "rgba(16,27,45,0.04)", borderBottom: `1px solid ${BORDER}` }}
+        style={{ backgroundColor: "rgba(44,78,59,0.04)", borderBottom: `1px solid ${BORDER}` }}
         className="px-6 py-4 flex items-center gap-3"
       >
         <div
@@ -779,7 +789,7 @@ function PendingInvites({
   if (invites.length === 0) return null;
 
   return (
-    <div style={{ border: "1px solid #E2E8F0", backgroundColor: "rgba(16,27,45,0.04)" }} className="rounded-lg p-4">
+    <div style={{ border: "1px solid #E2E8F0", backgroundColor: "rgba(44,78,59,0.04)" }} className="rounded-lg p-4">
       <div className="flex items-center gap-2">
         <Clock className="h-4 w-4" style={{ color: TEXT_SECONDARY }} aria-hidden />
         <h4 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">

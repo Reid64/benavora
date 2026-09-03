@@ -17,7 +17,7 @@ export function EmptyStateCard({ icon, title, description, actionLabel, onAction
   return (
     <div
       style={{
-        backgroundColor: "#1A2B3C",
+        backgroundColor: "#2C4E3B",
         borderRadius: "14px",
         padding: "56px 24px",
         textAlign: "center",
@@ -46,7 +46,7 @@ export function EmptyStateCard({ icon, title, description, actionLabel, onAction
           onClick={onAction}
           style={{
             marginTop: "24px",
-            backgroundColor: "#0077B6",
+            backgroundColor: "#3D6B50",
             color: "#FFFFFF",
             fontSize: "13px",
             fontWeight: 700,

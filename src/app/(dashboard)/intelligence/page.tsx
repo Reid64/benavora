@@ -43,11 +43,11 @@ import {
 // modules), now drawn from the proven v2 accent family instead of the old
 // blue/purple/cyan set.
 const SECTION_FRAME = "#7A5980";
-const CANVAS = "#D8D3C8";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
-const TEXT_PRIMARY = "#101B2D";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
-const TRACK_BG = "rgba(16,27,45,0.08)";
+const TRACK_BG = "rgba(44,78,59,0.08)";
 const BADGE_NEUTRAL_BG = "#F1F5F9";
 const BADGE_NEUTRAL_TEXT = "#64748B";
 const BADGE_ALERT_BG = "#FEE2E2";
@@ -77,7 +77,7 @@ const MODULES: ModuleDef[] = [
   },
   {
     key: "matches",
-    title: "Semantic Funder Matches",
+    title: "Funder Matches",
     description: "AI-ranked funders aligned to your mission, programs, and past outcomes.",
     href: "/intelligence/matches",
     icon: Sparkles,
@@ -95,7 +95,7 @@ const MODULES: ModuleDef[] = [
   },
   {
     key: "twin",
-    title: "Organizational Digital Twin",
+    title: "Organization Profile",
     description: "The AI model of your mission, programs, financials, and proven narrative patterns.",
     href: "/intelligence/twin",
     icon: Fingerprint,
@@ -104,7 +104,7 @@ const MODULES: ModuleDef[] = [
   },
   {
     key: "reputation",
-    title: "Reputation Intelligence",
+    title: "Funder & Contact Monitoring",
     description: "Monitors funders and donors for legal, leadership, and financial risk signals.",
     href: "/intelligence/reputation",
     icon: ShieldAlert,
@@ -140,7 +140,7 @@ const MODULES: ModuleDef[] = [
   },
   {
     key: "strategic-advisor",
-    title: "Strategic Advisor",
+    title: "Strategic Recommendations",
     description: "A single prioritized action list synthesized from every agent in the roster.",
     href: "/intelligence/strategic-advisor",
     icon: Compass,
@@ -153,7 +153,7 @@ const MODULES: ModuleDef[] = [
     description: "Census, housing, and employment signals forecasting service demand before it hits.",
     href: "/intelligence/community-need",
     icon: MapPin,
-    color: "#A3492F",
+    color: "#B85C3C",
     statKind: "badge",
   },
   {

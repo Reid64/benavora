@@ -294,7 +294,7 @@ export default function FundersImportPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
             }}
-            className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
+            className={`border border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
               dragOver
                 ? "border-blue-400 bg-blue-50"
                 : "border-border hover:border-text-muted"
@@ -528,7 +528,7 @@ export default function FundersImportPage() {
     return (
       <div className="max-w-2xl mx-auto py-24 px-4 text-center">
         <div
-          className="h-10 w-10 rounded-full border-2 border-border border-t-blue-400 animate-spin mx-auto mb-5"
+          className="h-10 w-10 rounded-full border border-border border-t-blue-400 animate-spin mx-auto mb-5"
           aria-hidden="true"
         />
         <p className="text-text text-lg font-medium">Importing funders&hellip;</p>

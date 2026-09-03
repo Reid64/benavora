@@ -50,7 +50,7 @@ export function DocumentUploader({
   organizationId,
   uploadedBy,
   onUploaded,
-  accentColor = "#0077B6",
+  accentColor = "#3D6B50",
 }: DocumentUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -219,7 +219,7 @@ export function DocumentUploader({
           }
         }}
         className={[
-          "flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3 transition",
+          "flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-4 py-3 transition",
           isDragging
             ? "border-teal-400 bg-teal-50"
             : "border-navy-300 bg-navy-50/50 hover:border-navy-400",

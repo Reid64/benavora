@@ -139,7 +139,7 @@ export function FundabilityPanel({ opportunityId }: { opportunityId: string }) {
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
-            backgroundColor: analyzing ? "#94A3B8" : "#0077B6",
+            backgroundColor: analyzing ? "#94A3B8" : "#3D6B50",
             color: "#FFFFFF",
             border: "none",
             borderRadius: "8px",

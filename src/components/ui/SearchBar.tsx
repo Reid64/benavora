@@ -58,13 +58,13 @@ export function SearchBar({
         onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="block w-full rounded-lg border border-slate-200 bg-surface py-2.5 pl-9 pr-9 text-sm text-slate-700 placeholder-slate-400 outline-none transition-colors focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 [&::-webkit-search-cancel-button]:hidden"
+        className="block w-full rounded-lg border border-slate-200 bg-surface py-2.5 pl-9 pr-9 text-sm text-slate-700 placeholder-slate-400 outline-none transition-colors focus:border-[#3D6B50] focus:ring-2 focus:ring-[#3D6B50]/10 [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
           type="button"
           onClick={() => setValue("")}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6B50]"
           aria-label="Clear search"
         >
           <X className="h-4 w-4" aria-hidden />

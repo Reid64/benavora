@@ -37,7 +37,7 @@ export function AutoSaveIndicator({
     >
       {isSaving ? (
         <>
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0077B6]" aria-hidden />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-[#3D6B50]" aria-hidden />
           <span>Saving…</span>
         </>
       ) : error ? (

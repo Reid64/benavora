@@ -10,8 +10,8 @@ import { useAssist } from "@/components/marketing/useAssist";
 // hex per the app-wide "One UI Rule" (globals.css !important overrides both
 // Tailwind color classes and CSS vars).
 
-const NAVY = "#101B2D";
-const GOLD = "#B88A2E";
+const NAVY = "#2C4E3B";
+const GOLD = "#C49A4F";
 const PANEL_WIDTH = 420;
 
 export interface AppAssistPanelProps {
@@ -143,7 +143,7 @@ export function AppAssistPanel({ open, onClose }: AppAssistPanelProps) {
         {error ? <div style={{ fontSize: 13, color: "#B3261E", marginTop: 8 }}>{error}</div> : null}
       </div>
 
-      <div style={{ padding: 16, borderTop: `1px solid #D9D3C5`, flexShrink: 0 }}>
+      <div style={{ padding: 16, borderTop: `1px solid #C9BFA8`, flexShrink: 0 }}>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -153,7 +153,7 @@ export function AppAssistPanel({ open, onClose }: AppAssistPanelProps) {
           style={{
             width: "100%",
             resize: "none",
-            border: `1px solid #D9D3C5`,
+            border: `1px solid #C9BFA8`,
             borderRadius: 8,
             padding: 8,
             fontSize: 14,

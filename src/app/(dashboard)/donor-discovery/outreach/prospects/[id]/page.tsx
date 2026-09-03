@@ -122,7 +122,7 @@ function OwnershipFlag({ label, value }: { label: string; value: boolean | null 
   return (
     <span
       className="rounded-full px-2 py-0.5 text-xs font-medium"
-      style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
+      style={{ backgroundColor: "#3D6B501A", color: "#3D6B50" }}
     >
       {label}
     </span>
@@ -309,7 +309,7 @@ function GivingDnaCard({
               <ul className="mt-1.5 space-y-1.5">
                 {profile.outreach_angles.map((angle, i) => (
                   <li key={i} className="flex gap-2 text-sm text-slate-700">
-                    <span aria-hidden style={{ color: "#0077B6" }}>
+                    <span aria-hidden style={{ color: "#3D6B50" }}>
                       •
                     </span>
                     {angle}
@@ -418,7 +418,7 @@ function ProspectProfile({
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 hover:underline"
-                  style={{ color: "#0077B6" }}
+                  style={{ color: "#3D6B50" }}
                 >
                   {prospect.website}
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />

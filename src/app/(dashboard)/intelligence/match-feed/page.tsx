@@ -18,10 +18,10 @@ import { formatCurrency, formatRelative } from "@/lib/utils/formatters";
 // Blue. 2026-08-18: confirmed via live getComputedStyle audit this page
 // never received the v2 rollout - same real gap as AutoApply's.
 const SECTION_FRAME = "#7A5980";
-const CANVAS = "#D8D3C8";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
-const BORDER = "rgba(16,27,45,0.15)";
-const TEXT_PRIMARY = "#101B2D";
+const BORDER = "rgba(44,78,59,0.15)";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
 const ACCENT = "#7A5980";
@@ -95,8 +95,8 @@ function PersonalizationBanner({
 
   const message =
     level === "none"
-      ? "Personalization is unavailable — your organization has no Digital Twin yet. Build one to unlock real matching."
-      : `Personalization is limited — your Digital Twin is only ${completeness}% complete. Rankings below rely mostly on neutral defaults until it's filled in further.`;
+      ? "Personalization is unavailable — your organization has no profile yet. Build one to unlock real matching."
+      : `Personalization is limited — your organization profile is only ${completeness}% complete. Rankings below rely mostly on neutral defaults until it's filled in further.`;
 
   return (
     <div
@@ -123,7 +123,7 @@ function PersonalizationBanner({
           whiteSpace: "nowrap",
         }}
       >
-        Improve Digital Twin
+        Improve Organization Profile
       </Link>
     </div>
   );
@@ -284,12 +284,12 @@ export default function MatchFeedPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkles size={20} color={ACCENT} />
               <h1 style={{ fontSize: 24, fontWeight: 800, color: TEXT_PRIMARY, margin: 0 }}>
-                Personalized Match Feed
+                Matched Opportunities
               </h1>
             </div>
             <p style={{ fontSize: 13, color: TEXT_SECONDARY, marginTop: 4, maxWidth: 560 }}>
-              Your open opportunities ranked by how well each one aligns with your Organizational
-              Digital Twin's mission, programs, and service areas — blended with the probability
+              Your open opportunities ranked by how well each one aligns with your organization
+              profile's mission, programs, and service areas — blended with the probability
               engine's win-likelihood score where one has been computed.
             </p>
           </div>

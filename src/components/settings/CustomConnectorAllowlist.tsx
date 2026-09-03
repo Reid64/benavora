@@ -114,7 +114,7 @@ export function CustomConnectorAllowlist({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Shield size={18} color="#0077B6" />
+          <Shield size={18} color="#3D6B50" />
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#0F172A" }}>
               Allowed Domains
@@ -126,7 +126,7 @@ export function CustomConnectorAllowlist({
             </div>
           </div>
         </div>
-        <span style={{ fontSize: 12, color: "#0077B6", fontWeight: 600 }}>
+        <span style={{ fontSize: 12, color: "#3D6B50", fontWeight: 600 }}>
           {expanded ? "Hide" : "Manage"}
         </span>
       </button>
@@ -154,7 +154,7 @@ export function CustomConnectorAllowlist({
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Globe size={14} color="#00B4D8" />
+                  <Globe size={14} color="#C49A4F" />
                   <span style={{ fontSize: 13, fontWeight: 500, color: "#0F172A" }}>
                     {d.domain}
                   </span>
@@ -227,7 +227,7 @@ export function CustomConnectorAllowlist({
                   fontSize: 13,
                   fontWeight: 600,
                   color: "#FFFFFF",
-                  background: submitting ? "#94A3B8" : "linear-gradient(135deg,#0077B6,#00B4D8)",
+                  background: submitting ? "#94A3B8" : "linear-gradient(135deg,#3D6B50,#C49A4F)",
                   border: "none",
                   borderRadius: 8,
                   cursor: submitting ? "default" : "pointer",

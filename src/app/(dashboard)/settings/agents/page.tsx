@@ -75,7 +75,7 @@ const TOGGLE_ROWS: { key: BooleanConfigKey; label: string }[] = [
   { key: "auto_research_enabled", label: "Opportunity Discovery" },
   { key: "auto_score_enabled", label: "Probability Scoring" },
   { key: "auto_draft_enabled", label: "Draft Generation" },
-  { key: "auto_reputation_enabled", label: "Reputation Intelligence" },
+  { key: "auto_reputation_enabled", label: "Funder & Contact Monitoring" },
   { key: "auto_relationship_enabled", label: "Relationship Builder" },
   { key: "auto_deadline_prediction_enabled", label: "Deadline Prediction" },
   { key: "auto_followup_enabled", label: "Follow-Up Scheduling" },
@@ -245,7 +245,7 @@ function AutonomyCard({
 }) {
   return (
     <div style={cardStyle}>
-      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
         Autonomous Agent Settings
       </h1>
       <p style={{ fontSize: "13px", color: "#6B7280", margin: "6px 0 0 0" }}>
@@ -692,7 +692,7 @@ function DecisionLogCard() {
   return (
     <div style={cardStyle}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
           Autonomous Decision Log
         </h2>
         <button
@@ -704,7 +704,7 @@ function DecisionLogCard() {
             padding: "8px 14px",
             borderRadius: "999px",
             border: "1px solid #D1D5DB",
-            backgroundColor: requiresReviewOnly ? "#1A2B3C" : "#FFFFFF",
+            backgroundColor: requiresReviewOnly ? "#2C4E3B" : "#FFFFFF",
             color: requiresReviewOnly ? "#FFFFFF" : "#334155",
             cursor: "pointer",
           }}
@@ -903,9 +903,9 @@ function DecisionLogCard() {
             style={{
               fontSize: "13px",
               fontWeight: 600,
-              color: "#0077B6",
+              color: "#3D6B50",
               backgroundColor: "#FFFFFF",
-              border: "1px solid #0077B6",
+              border: "1px solid #3D6B50",
               borderRadius: "8px",
               padding: "8px 20px",
               cursor: loadingMore ? "wait" : "pointer",

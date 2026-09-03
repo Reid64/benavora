@@ -141,7 +141,7 @@ export default function MatchFoundationsPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
       <PageHeader
         title="Funder Matching"
         description="Describe your mission and find foundations whose focus areas share the most keyword overlap."
@@ -243,7 +243,7 @@ export default function MatchFoundationsPage() {
                       </div>
                       <span
                         style={{
-                          backgroundColor: "#0077B6",
+                          backgroundColor: "#3D6B50",
                           color: "#FFFFFF",
                           borderRadius: "20px",
                           padding: "4px 12px",
@@ -275,7 +275,7 @@ export default function MatchFoundationsPage() {
             height: "fit-content",
           }}
         >
-          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.15em", color: "#C49A4F", textTransform: "uppercase" }}>
             AI Funder Match
           </div>
           <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", marginTop: "8px", marginBottom: "20px" }}>
@@ -330,7 +330,7 @@ export default function MatchFoundationsPage() {
               type="submit"
               disabled={loading || !mission.trim()}
               style={{
-                background: "linear-gradient(135deg,#0077B6,#00B4D8)",
+                background: "linear-gradient(135deg,#3D6B50,#C49A4F)",
                 color: "#FFFFFF",
                 border: "none",
                 borderRadius: "10px",

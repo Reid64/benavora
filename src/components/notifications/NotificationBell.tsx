@@ -187,7 +187,7 @@ export function NotificationBell() {
                 onClick={markAllRead}
                 disabled={busyId === "all"}
                 style={{
-                  color: "#00B4D8",
+                  color: "#C49A4F",
                   fontSize: "12px",
                   fontWeight: 600,
                   background: "none",
@@ -268,7 +268,7 @@ export function NotificationBell() {
                         width: "8px",
                         height: "8px",
                         borderRadius: "50%",
-                        backgroundColor: "#00B4D8",
+                        backgroundColor: "#C49A4F",
                         flexShrink: 0,
                         marginTop: "6px",
                       }}
@@ -287,7 +287,7 @@ export function NotificationBell() {
               display: "block",
               padding: "12px 16px",
               textAlign: "center",
-              color: "#00B4D8",
+              color: "#C49A4F",
               fontSize: "12px",
               fontWeight: 600,
               borderTop: "1px solid rgba(255,255,255,0.1)",

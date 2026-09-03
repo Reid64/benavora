@@ -389,7 +389,7 @@ function SignalCard({
                 fontWeight: 700,
                 padding: "8px 16px",
                 borderRadius: "8px",
-                border: "1px solid #243B55",
+                border: "1px solid #3D6B50",
                 textDecoration: "none",
               }}
             >
@@ -411,7 +411,7 @@ function SignalCard({
                   fontWeight: 700,
                   padding: "8px 16px",
                   borderRadius: "8px",
-                  border: "1px solid #243B55",
+                  border: "1px solid #3D6B50",
                   textDecoration: "none",
                 }}
               >
@@ -530,7 +530,7 @@ export default function IntentSignalsPage() {
   const canRun = canEdit(profile?.role);
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px", borderRadius: "16px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px", borderRadius: "16px" }}>
       <Link
         href="/donor-discovery"
         className="inline-flex items-center gap-1.5 text-sm text-navy-500 transition hover:text-navy-700"

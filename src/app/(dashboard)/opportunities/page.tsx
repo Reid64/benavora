@@ -11,6 +11,7 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
+import { InstructionalWidget } from "@/components/InstructionalWidget";
 import { OPPORTUNITY_STATUSES } from "@/lib/utils/constants";
 import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
@@ -55,7 +56,7 @@ const FACTOR_LABELS: Record<string, string> = {
   eligibility_score: "Eligibility Fit",
   category_win_rate: "Category Win Rate",
   deadline_proximity: "Deadline Proximity",
-  twin_completeness: "Digital Twin Completeness",
+  twin_completeness: "Organization Profile Completeness",
 };
 
 const CONFIDENCE_TONE: Record<string, string> = {
@@ -104,8 +105,8 @@ const SOURCE_LABEL: Record<SourceBucket, string> = {
 // spec's 4-color list; it keeps the teal already used for the Land Bank
 // Spotlight section below so the two don't send conflicting color signals.
 const CATEGORY_ACCENT: Record<SourceBucket, string> = {
-  federal: "#0077B6",
-  foundation: "#7C3AED",
+  federal: "#3D6B50",
+  foundation: "#B85C3C",
   corporate: "#0EA5E9",
   state: "#10B981",
   land_bank: "#0F766E",
@@ -390,7 +391,7 @@ export default function OpportunitiesPage() {
   const chipStyle = (active: boolean): CSSProperties => ({
     backgroundColor: active ? CTA_TEAL_BG : "#F8F5EE",
     color: active ? "#FFFFFF" : "#64748B",
-    border: active ? `1px solid ${CTA_TEAL_BG}` : "1px solid rgba(16,27,45,0.15)",
+    border: active ? `1px solid ${CTA_TEAL_BG}` : "1px solid rgba(44,78,59,0.15)",
     borderRadius: "20px",
     padding: "6px 16px",
     fontSize: "13px",
@@ -400,7 +401,16 @@ export default function OpportunitiesPage() {
 
   return (
     <ErrorBoundary>
-      <div style={{ backgroundColor: "#D8D3C8", minHeight: "100vh", padding: "32px" }}>
+      <div style={{ backgroundColor: "#F0EBE0", minHeight: "100vh", padding: "32px" }}>
+        <InstructionalWidget
+          pageTitle="Opportunities"
+          steps={[
+            { number: 1, title: "Browse matched opportunities", description: "Grants and funders matched to your organization's profile." },
+            { number: 2, title: "Filter by source or status", description: "Narrow the list to foundations, government, or corporate funders." },
+            { number: 3, title: "Check the probability score", description: "Each opportunity shows an AI-estimated fit and win likelihood." },
+            { number: 4, title: "Start a draft", description: "Open an opportunity and generate an application draft in one click." },
+          ]}
+        />
         {/* Header */}
         <div
           style={{
@@ -630,7 +640,7 @@ export default function OpportunitiesPage() {
                     style={{
                       padding: "8px 12px 8px 30px",
                       borderRadius: "8px",
-                      border: "1px solid rgba(16,27,45,0.15)",
+                      border: "1px solid rgba(44,78,59,0.15)",
                       fontSize: "13px",
                       color: "#0F172A",
                       backgroundColor: "#F8F5EE",
@@ -645,7 +655,7 @@ export default function OpportunitiesPage() {
                   onChange={(e) => setStatusFilter(e.target.value as "all" | OpportunityStatus)}
                   style={{
                     borderRadius: "8px",
-                    border: "1px solid rgba(16,27,45,0.15)",
+                    border: "1px solid rgba(44,78,59,0.15)",
                     padding: "8px 12px",
                     fontSize: "13px",
                     fontWeight: 600,
@@ -666,7 +676,7 @@ export default function OpportunitiesPage() {
                   onChange={(e) => setSort(e.target.value as SortOption)}
                   style={{
                     borderRadius: "8px",
-                    border: "1px solid rgba(16,27,45,0.15)",
+                    border: "1px solid rgba(44,78,59,0.15)",
                     padding: "8px 12px",
                     fontSize: "13px",
                     fontWeight: 600,
@@ -692,7 +702,7 @@ export default function OpportunitiesPage() {
                 marginBottom: "24px",
               }}
             >
-              <StatCard label="Open Opportunities" value={String(stats.open)} accent="#101B2D" />
+              <StatCard label="Open Opportunities" value={String(stats.open)} accent="#2C4E3B" />
               <StatCard label="High Probability >70%" value={String(stats.highProbability)} accent="#2E6B66" />
               <StatCard label="Closing This Week" value={String(stats.closingThisWeek)} accent="#7A5980" />
               <StatCard label="Total Potential" value={formatCurrency(stats.totalValue)} accent="#4F6D8F" />
@@ -869,7 +879,7 @@ export default function OpportunitiesPage() {
                             style={{
                               backgroundColor: "#F8F5EE",
                               color: "#64748B",
-                              border: "1px solid rgba(16,27,45,0.15)",
+                              border: "1px solid rgba(44,78,59,0.15)",
                               borderRadius: "8px",
                               padding: "6px 14px",
                               fontSize: "12px",
@@ -889,7 +899,7 @@ export default function OpportunitiesPage() {
                               gap: "4px",
                               backgroundColor: "#F8F5EE",
                               color: "#4F6D8F",
-                              border: "1px solid rgba(16,27,45,0.15)",
+                              border: "1px solid rgba(44,78,59,0.15)",
                               borderRadius: "8px",
                               padding: "6px 14px",
                               fontSize: "12px",
@@ -951,7 +961,7 @@ function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
           padding: "14px 16px",
           borderRadius: "8px",
           backgroundColor: "#F8F5EE",
-          border: "1px solid rgba(16,27,45,0.15)",
+          border: "1px solid rgba(44,78,59,0.15)",
           fontSize: "12px",
           color: "#64748B",
         }}
@@ -973,7 +983,7 @@ function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
         marginTop: "14px",
         padding: "18px 20px",
         borderRadius: "10px",
-        backgroundColor: "#1A2B3C",
+        backgroundColor: "#2C4E3B",
       }}
     >
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "14px" }}>

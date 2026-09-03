@@ -236,7 +236,7 @@ function LegendDot({
   return (
     <span className="flex items-center gap-1.5">
       {dashed ? (
-        <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-red-400" />
+        <span className="inline-block h-0.5 w-4 border-t border-dashed border-red-400" />
       ) : (
         <span className={`inline-block h-2.5 w-2.5 rounded-sm ${color}`} />
       )}
@@ -543,7 +543,7 @@ export default function UsagePage() {
                 <CostRow label="CAPTCHA Solving" amount={usage?.captcha_cost ?? 0} />
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-navy-200">
+                <tr className="border-t border-navy-200">
                   <td className="pt-3 text-sm font-semibold text-navy-900">
                     Total
                   </td>

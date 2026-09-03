@@ -65,7 +65,7 @@ function headerTabStyle(active: boolean, hovered: boolean): CSSProperties {
     textDecoration: "none",
     padding: "4px 0",
     borderBottom: active
-      ? "2px solid #C9A34E"
+      ? "2px solid #C49A4F"
       : hovered
         ? "2px solid rgba(255,255,255,0.5)"
         : "2px solid transparent",
@@ -217,7 +217,7 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
         position: "sticky",
         top: 0,
         zIndex: 30,
-        backgroundColor: "#101B2D",
+        backgroundColor: "#2C4E3B",
         height: "56px",
         display: "flex",
         alignItems: "center",
@@ -279,8 +279,8 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
             onClick={() => setAssistOpen(true)}
             aria-label="Open Benavora Assist"
             style={{
-              backgroundColor: "#B88A2E",
-              color: "#101B2D",
+              backgroundColor: "#C49A4F",
+              color: "#2C4E3B",
               border: "none",
               borderRadius: 8,
               padding: "6px 14px",
@@ -303,7 +303,7 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
             <button
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
+              className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6B50]"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label="Organization menu"
@@ -316,11 +316,11 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
                 <img
                   src={orgLogoUrl}
                   alt={orgName || "Organization"}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#C9A34E] ring-offset-2 ring-offset-[#101B2D]"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#C49A4F] ring-offset-2 ring-offset-[#2C4E3B]"
                 />
               ) : (
                 <span
-                  className="w-9 h-9 rounded-full bg-[#C9A34E] text-[#0B0B0B] flex items-center justify-center text-sm font-bold ring-2 ring-[#C9A34E] ring-offset-2 ring-offset-[#101B2D]"
+                  className="w-9 h-9 rounded-full bg-[#C49A4F] text-[#0B0B0B] flex items-center justify-center text-sm font-bold ring-2 ring-[#C49A4F] ring-offset-2 ring-offset-[#2C4E3B]"
                   aria-hidden
                 >
                   {initials}

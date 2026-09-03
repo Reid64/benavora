@@ -114,7 +114,7 @@ function KanbanCard({
       }}
       className={cn(
         "rounded-lg border border-border bg-surface p-2.5 text-left shadow-sm transition-shadow",
-        "hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]",
+        "hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6B50]",
         draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
       )}
     >

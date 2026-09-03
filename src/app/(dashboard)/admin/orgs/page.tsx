@@ -94,12 +94,12 @@ export default async function AdminOrgsPage() {
           contrast against the dark panel. */}
       <div
         style={{
-          backgroundColor: "#101B2D",
+          backgroundColor: "#2C4E3B",
           borderRadius: "20px",
           padding: "28px 40px",
           marginBottom: "24px",
-          boxShadow: "0 8px 32px rgba(16,27,45,0.3)",
-          borderBottom: "4px solid #B88A2E",
+          boxShadow: "0 8px 32px rgba(44,78,59,0.3)",
+          borderBottom: "4px solid #C49A4F",
         }}
       >
         <h1

@@ -27,10 +27,10 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 // never received the v2 rollout - same real gap as AutoApply's.
 // SEVERITY_COLORS below is real semantic severity data — explicitly
 // preserved untouched, per this task's own instruction.
-const CANVAS = "#D8D3C8";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
-const BORDER = "rgba(16,27,45,0.15)";
-const TEXT_PRIMARY = "#101B2D";
+const BORDER = "rgba(44,78,59,0.15)";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
 const ERROR_BG = "#FEE2E2";
@@ -238,7 +238,7 @@ export default function ReputationIntelligencePage() {
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setCheckError((payload as { error?: string }).error ?? "Reputation check failed.");
+        setCheckError((payload as { error?: string }).error ?? "Monitoring check failed.");
         return;
       }
 
@@ -297,7 +297,7 @@ export default function ReputationIntelligencePage() {
     <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: CANVAS }}>
       <div style={{ borderLeft: `4px solid ${ACCENT}`, paddingLeft: "1rem" }}>
         <h1 className="text-2xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>
-          Reputation Intelligence
+          Funder & Contact Monitoring
         </h1>
         <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
           Monitor your funders and donors for reputation risks before investing time in applications.

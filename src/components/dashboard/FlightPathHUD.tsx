@@ -239,7 +239,7 @@ export function FlightPathHUD({ stageCounts, activeStage }: FlightPathHUDProps) 
                   style={{
                     fontSize: "15px",
                     fontWeight: 700,
-                    color: "#1A2B3C",
+                    color: "#2C4E3B",
                   }}
                 >
                   {stage.label}

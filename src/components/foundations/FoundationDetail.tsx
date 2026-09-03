@@ -148,7 +148,7 @@ export function FoundationDetail({ foundationId }: { foundationId: string }) {
                   href={foundation.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-[#0077B6] hover:underline"
+                  className="text-[#3D6B50] hover:underline"
                 >
                   {foundation.website}
                 </a>

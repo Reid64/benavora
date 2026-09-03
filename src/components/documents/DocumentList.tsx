@@ -21,7 +21,7 @@ import type { Tables, TablesInsert } from "@/types/database";
 // Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // This component is only used by /documents, so it's safe to apply the
 // section's Navy frame / Teal accent directly.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const ACCENT_TEAL = "#2E6B66";
 const CARD_BG = "#F8F5EE";
 
@@ -92,7 +92,7 @@ const FILE_ICON: Record<FileKind, { icon: typeof FileText; wrapperClass: string 
   pdf: { icon: FileText, wrapperClass: "bg-[#FEE2E2] text-[#DC2626]" },
   docx: { icon: FileText, wrapperClass: "bg-[#DBEAFE] text-[#2563EB]" },
   xlsx: { icon: FileSpreadsheet, wrapperClass: "bg-[#DCFCE7] text-[#16A34A]" },
-  other: { icon: File, wrapperClass: "bg-[rgba(16,27,45,0.08)] text-[#101B2D]" },
+  other: { icon: File, wrapperClass: "bg-[rgba(44,78,59,0.08)] text-[#2C4E3B]" },
 };
 
 /** Color-coded file-type icon wrapper (Elevated Slate design system): PDF red, DOCX blue, XLSX green. */
@@ -281,7 +281,7 @@ export function DocumentList({
                   backgroundColor: FRAME_NAVY,
                   borderRadius: "14px",
                   padding: "4px",
-                  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+                  boxShadow: "0 4px 20px rgba(44,78,59,0.22)",
                 }}
               >
               <div

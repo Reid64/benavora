@@ -63,16 +63,16 @@ interface ReconciliationRow {
 // Frame: Deep Navy. Secondary accent: Teal. Real semantic status colors
 // (GREEN/AMBER/RED below) are never touched by this system.
 const CARD = "#F8F5EE";
-const TEXT_PRIMARY = "#101B2D";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const NAVY = "#101B2D";
+const NAVY = "#2C4E3B";
 const ACCENT = "#2E6B66";
 const SLATE_BLUE = "#4F6D8F";
 const GREEN = "#15803D";
 const AMBER = "#B45309";
 const RED = "#B91C1C";
-const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
+const SHADOW = "0 4px 20px rgba(44,78,59,0.22)";
 
 export default function FinancialsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);

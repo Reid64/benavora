@@ -42,8 +42,8 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   captcha_blocked: { label: "CAPTCHA Blocked", color: "#EF4444", background: "#FEF2F2" },
   site_error: { label: "Site Error", color: "#EF4444", background: "#FEF2F2" },
   failed: { label: "Failed", color: "#6B7280", background: "#F9FAFB" },
-  queued: { label: "Queued", color: "#0077B6", background: "#EFF8FC" },
-  in_progress: { label: "In Progress", color: "#0077B6", background: "#EFF8FC" },
+  queued: { label: "Queued", color: "#3D6B50", background: "#EFF8FC" },
+  in_progress: { label: "In Progress", color: "#3D6B50", background: "#EFF8FC" },
 };
 
 function statusStyle(status: string): StatusStyle {
@@ -213,7 +213,7 @@ export default function AutoApplyTestResultsPage() {
             onClick={() => void handleRunTest()}
             disabled={running}
             style={{
-              backgroundColor: running ? "#94A3B8" : "#0077B6",
+              backgroundColor: running ? "#94A3B8" : "#3D6B50",
               color: "#FFFFFF",
               border: "none",
               borderRadius: "10px",

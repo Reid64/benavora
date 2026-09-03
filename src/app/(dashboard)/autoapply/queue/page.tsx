@@ -308,9 +308,8 @@ export default function AutoApplyDossierQueuePage() {
       <div>
         <h1 className="text-2xl font-bold text-navy-900">AutoApply Queue</h1>
         <p className="mt-1 text-sm text-navy-500">
-          Prospect intelligence context for each queued application, straight from BEN-APP-01
-          (application profile), BEN-APP-02 (priority score), and BEN-APP-03 (submission
-          decision) — reviewed here before anything goes out.
+          Full application profile, priority score, and submission context for each queued
+          application — reviewed here before anything goes out.
         </p>
       </div>
 
@@ -330,7 +329,7 @@ export default function AutoApplyDossierQueuePage() {
             <EmptyState
               icon={Sparkles}
               title="Nothing queued yet"
-              description="Once BEN-APP-03 reviews a priority-ranked batch, queued applications with full dossier context will appear here."
+              description="Once a priority-ranked batch is reviewed, queued applications with full dossier context will appear here."
             />
           </div>
         </Card>
@@ -738,7 +737,7 @@ export default function AutoApplyDossierQueuePage() {
         }
       >
         <p className="text-sm text-navy-600">
-          Removes this item from the automation queue. It stays in BEN-APP-03&apos;s decision history and can be
+          Removes this item from the automation queue. It stays in the decision history and can be
           re-queued by a future run.
         </p>
       </Modal>

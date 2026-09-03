@@ -34,15 +34,15 @@ interface DisplayCategory {
   dot: string;
 }
 
-const CANVAS = "#D8D3C8";
+const CANVAS = "#F0EBE0";
 const CARD = "#F8F5EE";
-const TEXT_PRIMARY = "#101B2D";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
 // Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md /
 // DESIGN_SYSTEM_V2_ASSIGNMENT.md. Frame: Rich Gold. 2026-08-18: confirmed
 // via live getComputedStyle audit this page never received the v2 rollout.
-const ACCENT = "#B88A2E";
+const ACCENT = "#C49A4F";
 const SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
 
 const DISPLAY_CATEGORIES: DisplayCategory[] = [
@@ -53,7 +53,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "Application deadlines, follow-up dates, and reporting deadlines approaching or overdue.",
     types: ["deadline_due"],
-    dot: "#0077B6",
+    dot: "#3D6B50",
   },
   {
     key: "opportunity",
@@ -474,7 +474,7 @@ function AlertRow({
           {snoozeOpen && (
             <div
               role="menu"
-              style={{ border: "1px solid rgba(16,27,45,0.15)", backgroundColor: CARD, boxShadow: "0 8px 24px rgba(184,138,46,0.25)" }}
+              style={{ border: "1px solid rgba(44,78,59,0.15)", backgroundColor: CARD, boxShadow: "0 8px 24px rgba(184,138,46,0.25)" }}
               className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg py-1"
             >
               {SNOOZE_OPTIONS.map((opt) => (

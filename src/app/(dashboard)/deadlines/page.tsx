@@ -59,9 +59,9 @@ function urgencyBucket(band: UrgencyBand): UrgencyBucket {
 // Soft Stone background is set globally by DashboardShell - not overridden here.
 const CARD = "#FFFFFF";
 const PANEL_IVORY = "#F8F5EE";
-const FRAME = "#101B2D";
+const FRAME = "#2C4E3B";
 const FRAME_ACCENT = "#2E6B66";
-const TEXT_PRIMARY = "#101B2D";
+const TEXT_PRIMARY = "#2C4E3B";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
 const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";

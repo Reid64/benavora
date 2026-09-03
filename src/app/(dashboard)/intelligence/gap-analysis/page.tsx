@@ -87,7 +87,7 @@ export default function GapAnalysisPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Gap Analyzer"
+        title="Gap Analysis"
         description="Narrative completeness and geographic fit checked against your open opportunity portfolio, with a concrete next action per gap."
       />
 

@@ -19,7 +19,7 @@ import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 // tokens for this page's colors.
 const CANVAS = "#D6E4F0";
 const CARD = "#FFFFFF";
-const ACCENT = "#0077B6";
+const ACCENT = "#3D6B50";
 const BORDER = "#DCE6ED";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";

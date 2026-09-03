@@ -82,7 +82,7 @@ function IntelligenceUsedSection({ analysis }: { analysis: IntelligencePatternAn
       </span>
       <span style={{ fontSize: "12px", color: "#3730A3" }}>
         {analysis.reference_narrative_count} reference narrative
-        {analysis.reference_narrative_count === 1 ? "" : "s"} from the Intelligence Library
+        {analysis.reference_narrative_count === 1 ? "" : "s"} from your proven narrative history
         {analysis.funder_types_matched.length > 0
           ? ` · funder types matched: ${analysis.funder_types_matched.join(", ")}`
           : ""}
@@ -188,7 +188,7 @@ export default async function AutonomousDraftReviewPage() {
   return (
     <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
       <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#1A2B3C", margin: 0 }}>
+        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#2C4E3B", margin: 0 }}>
           AI-Generated Drafts Awaiting Review
         </h1>
         <p style={{ fontSize: "13px", color: "#6B7280", marginTop: "6px" }}>
@@ -207,13 +207,13 @@ export default async function AutonomousDraftReviewPage() {
             textAlign: "center",
           }}
         >
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "#2C4E3B", margin: 0 }}>
             No autonomous drafts pending review.
           </p>
           <p style={{ fontSize: "13px", color: "#6B7280", marginTop: "8px" }}>
             Your AI pipeline will generate drafts overnight for high-probability
             opportunities once you enable agents in{" "}
-            <Link href="/settings/agents" style={{ color: "#0077B6", fontWeight: 600 }}>
+            <Link href="/settings/agents" style={{ color: "#3D6B50", fontWeight: 600 }}>
               Settings
             </Link>
             .
@@ -245,7 +245,7 @@ export default async function AutonomousDraftReviewPage() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                  <span style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C" }}>
+                  <span style={{ fontSize: "16px", fontWeight: 700, color: "#2C4E3B" }}>
                     {opportunity?.name ?? "Unknown opportunity"}
                   </span>
                   {app.twin_powered && (
@@ -341,7 +341,7 @@ export default async function AutonomousDraftReviewPage() {
                 <Link
                   href={`/draft-generator/${app.id}`}
                   style={{
-                    backgroundColor: "#1A2B3C",
+                    backgroundColor: "#2C4E3B",
                     color: "#FFFFFF",
                     fontSize: "13px",
                     fontWeight: 600,

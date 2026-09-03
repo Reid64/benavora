@@ -9,7 +9,7 @@
 // to list runs or report in-flight agent state at all.
 //
 // Colors per governance/DESIGN_SYSTEM.md's PIL section assignment: Navy
-// #101B2D, Gold #B88A2E, Plum #5B21B6. Inline hex only, no Tailwind color
+// #2C4E3B, Gold #C49A4F, Plum #C49A4F. Inline hex only, no Tailwind color
 // classes.
 
 import { useEffect, useState } from "react";
@@ -20,10 +20,10 @@ import { Bot, DollarSign, ScanSearch, ShieldQuestion, Users } from "lucide-react
 import { formatCurrency } from "@/lib/utils/formatters";
 import type { AgentDefinition, CostBudget, HumanReviewItem, Prospect, ResearchRun } from "@/lib/pil/types";
 
-const NAVY = "#101B2D";
-const GOLD = "#B88A2E";
-const PLUM = "#5B21B6";
-const CANVAS = "#D8D3C8";
+const NAVY = "#2C4E3B";
+const GOLD = "#C49A4F";
+const PLUM = "#C49A4F";
+const CANVAS = "#F0EBE0";
 const CARD_BG = "#F8F5EE";
 const TEXT_SECONDARY = "#64748B";
 
@@ -89,7 +89,7 @@ export default function PilHubPage() {
       setStats([
         {
           key: "research",
-          label: "Active Research Runs",
+          label: "Active Analyses",
           value: String(activeRuns),
           description: "Planning or running right now",
           href: "/intelligence/pil/research",
@@ -127,7 +127,7 @@ export default function PilHubPage() {
         },
         {
           key: "review-queue",
-          label: "Human Review Queue Depth",
+          label: "Items Pending Review",
           value: String(reviewDepth),
           description: "Pending human review items",
           href: "/intelligence/pil/review-queue",

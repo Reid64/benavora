@@ -49,7 +49,7 @@ const sectionTitleStyle: CSSProperties = {
   margin: 0,
 };
 
-const PARTNER_INITIAL_COLORS = ["#0077B6", "#6B48CC", "#10B981", "#F59E0B", "#00B4D8", "#EF4444"];
+const PARTNER_INITIAL_COLORS = ["#3D6B50", "#6B48CC", "#10B981", "#F59E0B", "#C49A4F", "#EF4444"];
 
 function initialAvatarColor(name: string): string {
   const sum = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -179,7 +179,7 @@ export default function ImpactReportPage() {
             padding: "10px 16px",
             borderRadius: "8px",
             border: "none",
-            backgroundColor: "#0077B6",
+            backgroundColor: "#3D6B50",
             color: "#FFFFFF",
             fontSize: "13px",
             fontWeight: 700,
@@ -194,7 +194,7 @@ export default function ImpactReportPage() {
 
       {loading && (
         <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: "10px" }}>
-          <Loader2 size={16} className="animate-spin" color="#0077B6" />
+          <Loader2 size={16} className="animate-spin" color="#3D6B50" />
           <span style={{ fontSize: "14px", color: "#64748B" }}>Loading impact report...</span>
         </div>
       )}
@@ -216,7 +216,7 @@ export default function ImpactReportPage() {
           </div>
 
           {/* AI-enhanced narrative, when generated, replaces the manual sections for reading/printing */}
-          <div className="print:hidden" style={{ ...cardStyle, background: "linear-gradient(135deg, #1A2B3C 0%, #0077B6 100%)" }}>
+          <div className="print:hidden" style={{ ...cardStyle, background: "linear-gradient(135deg, #2C4E3B 0%, #3D6B50 100%)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <Sparkles size={18} color="#FFFFFF" />
@@ -238,7 +238,7 @@ export default function ImpactReportPage() {
                   borderRadius: "8px",
                   border: "none",
                   backgroundColor: "#FFFFFF",
-                  color: "#1A2B3C",
+                  color: "#2C4E3B",
                   fontSize: "13px",
                   fontWeight: 700,
                   cursor: enhancing ? "not-allowed" : "pointer",
@@ -273,7 +273,7 @@ export default function ImpactReportPage() {
           {/* 1. Mission Statement */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-              <Compass size={16} color="#0077B6" />
+              <Compass size={16} color="#3D6B50" />
               <h2 style={sectionTitleStyle}>Mission</h2>
             </div>
             {data.organization.missionStatement ? (
@@ -314,7 +314,7 @@ export default function ImpactReportPage() {
                     )}
                     <div style={{ display: "flex", gap: "14px", marginTop: "10px", flexWrap: "wrap" }}>
                       {p.beneficiariesServed !== null && (
-                        <span style={{ fontSize: "12px", color: "#0077B6", fontWeight: 700 }}>
+                        <span style={{ fontSize: "12px", color: "#3D6B50", fontWeight: 700 }}>
                           {p.beneficiariesServed.toLocaleString()} served
                         </span>
                       )}
@@ -343,7 +343,7 @@ export default function ImpactReportPage() {
                 <p style={{ fontSize: "12px", color: "#64748B", margin: "2px 0 0" }}>Annual Operating Budget</p>
               </div>
               <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "#F0F9FF" }}>
-                <p style={{ fontSize: "20px", fontWeight: 800, color: "#0077B6", margin: 0 }}>
+                <p style={{ fontSize: "20px", fontWeight: 800, color: "#3D6B50", margin: 0 }}>
                   {formatCurrency(data.financial.totalAwarded)}
                 </p>
                 <p style={{ fontSize: "12px", color: "#64748B", margin: "2px 0 0" }}>
@@ -474,7 +474,7 @@ export default function ImpactReportPage() {
                     padding: "9px 16px",
                     borderRadius: "8px",
                     border: "none",
-                    backgroundColor: "#0077B6",
+                    backgroundColor: "#3D6B50",
                     color: "#FFFFFF",
                     fontSize: "13px",
                     fontWeight: 700,
@@ -492,7 +492,7 @@ export default function ImpactReportPage() {
           {/* 6. Partners and Funders */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
-              <Building2 size={16} color="#00B4D8" />
+              <Building2 size={16} color="#C49A4F" />
               <h2 style={sectionTitleStyle}>Partners &amp; Funders</h2>
             </div>
             {data.partners.length === 0 ? (
@@ -551,7 +551,7 @@ export default function ImpactReportPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {data.lookingAhead.map((g) => (
-                  <div key={g.id} style={{ padding: "12px 14px", borderRadius: "10px", backgroundColor: "#F0F9FF", borderLeft: "4px solid #0077B6" }}>
+                  <div key={g.id} style={{ padding: "12px 14px", borderRadius: "10px", backgroundColor: "#F0F9FF", borderLeft: "4px solid #3D6B50" }}>
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A", margin: 0 }}>{g.title}</p>
                     <p style={{ fontSize: "12px", color: "#475569", margin: "4px 0 0", lineHeight: 1.6 }}>{g.content}</p>
                   </div>

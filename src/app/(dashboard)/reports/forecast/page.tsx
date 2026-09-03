@@ -347,7 +347,7 @@ export default function FundingForecastPage() {
   const hasAny = forecasts.length > 0;
 
   return (
-    <div style={{ backgroundColor: "#D8D3C8", minHeight: "100%", padding: "32px" }}>
+    <div style={{ backgroundColor: "#F0EBE0", minHeight: "100%", padding: "32px" }}>
       <div
         style={{
           display: "flex",
@@ -363,7 +363,7 @@ export default function FundingForecastPage() {
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#101B2D",
+              color: "#2C4E3B",
               letterSpacing: "-0.02em",
               margin: 0,
               borderLeft: "4px solid #7A5980",

@@ -49,18 +49,18 @@ export function AiTriggerPanel({ triggers }: { triggers: AiTrigger[] }) {
           <div
             key={trigger.key}
             style={{
-              backgroundColor: "rgba(16,27,45,0.04)",
-              border: "1px solid rgba(16,27,45,0.08)",
+              backgroundColor: "rgba(44,78,59,0.04)",
+              border: "1px solid rgba(44,78,59,0.08)",
               borderLeft: `2px solid ${trigger.borderColor}`,
               borderRadius: "10px",
               padding: "12px 14px",
               marginBottom: "8px",
             }}
           >
-            <div style={{ fontSize: "13px", fontWeight: 700, color: "#101B2D", marginBottom: "4px", letterSpacing: "-0.01em" }}>
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "#2C4E3B", marginBottom: "4px", letterSpacing: "-0.01em" }}>
               {trigger.title}
             </div>
-            <div style={{ fontSize: "11px", color: "rgba(16,27,45,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
+            <div style={{ fontSize: "11px", color: "rgba(44,78,59,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
               {trigger.sub}
             </div>
             <div style={{ fontSize: "12px", fontWeight: 700, color: trigger.borderColor, marginBottom: "8px" }}>{trigger.yieldText}</div>
@@ -70,7 +70,7 @@ export function AiTriggerPanel({ triggers }: { triggers: AiTrigger[] }) {
                 onClick={() => run(trigger)}
                 disabled={st === "loading"}
                 style={{
-                  background: "linear-gradient(135deg,#B88A2E,#D4A94D)",
+                  background: "linear-gradient(135deg,#C49A4F,#D4A94D)",
                   color: "#F8F5EE",
                   border: "none",
                   borderRadius: "6px",
@@ -88,7 +88,7 @@ export function AiTriggerPanel({ triggers }: { triggers: AiTrigger[] }) {
                 href={trigger.action.href}
                 style={{
                   display: "inline-block",
-                  background: "linear-gradient(135deg,#B88A2E,#D4A94D)",
+                  background: "linear-gradient(135deg,#C49A4F,#D4A94D)",
                   color: "#F8F5EE",
                   borderRadius: "6px",
                   padding: "6px 12px",

@@ -55,7 +55,7 @@ function buildHtml(params: {
     .map((s) => {
       const name = s.funder_name ?? "Unknown funder";
       const action = failureAction(s.error_message);
-      return `<li style="margin-bottom:6px"><strong>${name}</strong><br><span style="color:#6b7280;font-size:13px">${s.error_message ?? "Unknown error"}</span><br><span style="color:#1d4ed8;font-size:13px">Action: ${action}</span></li>`;
+      return `<li style="margin-bottom:6px"><strong>${name}</strong><br><span style="color:#6b7280;font-size:13px">${s.error_message ?? "Unknown error"}</span><br><span style="color:#3d6b50;font-size:13px">Action: ${action}</span></li>`;
     })
     .join("\n");
 
@@ -94,7 +94,7 @@ function buildHtml(params: {
   <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
 
   <p style="font-size:14px;color:#6b7280">
-    <a href="${appUrl}/autoapply" style="color:#1d4ed8">View full details in the AutoApply dashboard →</a>
+    <a href="${appUrl}/autoapply" style="color:#3d6b50">View full details in the AutoApply dashboard →</a>
   </p>
 
 </body>

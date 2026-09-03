@@ -45,18 +45,18 @@ const RECURRENCE_OPTIONS = [
 // Frame: Deep Navy (cards/panels). Secondary accent: Teal (links, outline
 // buttons). Real semantic status colors (GREEN/AMBER/RED below) are never
 // touched by this system.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const ACCENT_TEAL = "#2E6B66";
 const CARD = "#F8F5EE";
-const CARD_BORDER = "rgba(16,27,45,0.18)";
+const CARD_BORDER = "rgba(44,78,59,0.18)";
 const ON_FRAME_TEXT = "#F8F5EE";
 const TEXT_PRIMARY = FRAME_NAVY;
-const TEXT_MUTED = "rgba(16,27,45,0.55)";
+const TEXT_MUTED = "rgba(44,78,59,0.55)";
 const ACCENT = ACCENT_TEAL;
 const GREEN = "#15803D";
 const AMBER = "#B45309";
 const RED = "#B91C1C";
-const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
+const SHADOW = "0 4px 20px rgba(44,78,59,0.22)";
 
 const EVENT_TYPE_TINT: Record<ComplianceEvent["event_type"], { bg: string; text: string }> = {
   report: { bg: "#E0F2FE", text: "#0369A1" },
@@ -250,7 +250,7 @@ export default function CompliancePage() {
                   border: "none",
                   backgroundColor: ACCENT_TEAL,
                   color: ON_FRAME_TEXT,
-                  boxShadow: "0 2px 8px rgba(16,27,45,0.25)",
+                  boxShadow: "0 2px 8px rgba(44,78,59,0.25)",
                 }}
               >
                 <CalendarClock className="h-4 w-4" aria-hidden />
@@ -278,7 +278,7 @@ export default function CompliancePage() {
         ) : showEventsEmpty ? (
           <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
             <div
-              style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+              style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)" }}
               className="p-10"
             >
               <EmptyState
@@ -308,10 +308,10 @@ export default function CompliancePage() {
                 style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}
               >
               <div
-                style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+                style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)" }}
                 className="overflow-hidden"
               >
-                <div style={{ borderBottom: "1px solid rgba(16,27,45,0.1)" }} className="px-6 py-4">
+                <div style={{ borderBottom: "1px solid rgba(44,78,59,0.1)" }} className="px-6 py-4">
                   <h2 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
                     {group.label}
                   </h2>
@@ -433,7 +433,7 @@ export default function CompliancePage() {
         ) : showEmpty ? (
           <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
             <div
-              style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+              style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)" }}
               className="p-10"
             >
               <EmptyState
@@ -463,10 +463,10 @@ export default function CompliancePage() {
                 style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}
               >
               <div
-                style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+                style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)" }}
                 className="overflow-hidden"
               >
-                <div style={{ borderBottom: "1px solid rgba(16,27,45,0.1)" }} className="px-6 py-4">
+                <div style={{ borderBottom: "1px solid rgba(44,78,59,0.1)" }} className="px-6 py-4">
                   <h3 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
                     {group.label}
                   </h3>
@@ -578,7 +578,7 @@ function ScoreBadge({ score }: { score: number }) {
   return (
     <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
     <div
-      style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+      style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)" }}
       className="flex items-center gap-4 px-5 py-4"
     >
       <div

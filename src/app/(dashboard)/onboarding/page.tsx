@@ -143,10 +143,10 @@ const STORAGE_BUCKET = "documents";
 
 // Premium input style shared by every form field in the onboarding wizard.
 const PREMIUM_INPUT_CLASS =
-  "bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
+  "bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#3D6B50] focus:ring-2 focus:ring-[#3D6B50]/10 outline-none";
 // Same treatment for <select> elements, keeping room on the right for the chevron icon.
 const PREMIUM_SELECT_CLASS =
-  "bg-surface border border-slate-200 rounded-lg pl-4 pr-9 py-2.5 text-sm text-slate-700 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
+  "bg-surface border border-slate-200 rounded-lg pl-4 pr-9 py-2.5 text-sm text-slate-700 focus:border-[#3D6B50] focus:ring-2 focus:ring-[#3D6B50]/10 outline-none";
 
 // Session cookie (no Max-Age) read by middleware to let a user browse the
 // dashboard before finishing the wizard. Cleared automatically when the
@@ -181,17 +181,17 @@ function StepIndicator({ step }: { step: number }) {
                 <div
                   className={
                     done
-                      ? "w-8 h-8 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold"
+                      ? "w-8 h-8 rounded-full bg-[#3D6B50] text-white flex items-center justify-center text-sm font-bold"
                       : active
-                        ? "w-8 h-8 rounded-full border-2 border-[#0077B6] text-[#0077B6] flex items-center justify-center text-sm font-bold"
-                        : "w-8 h-8 rounded-full border-2 border-slate-200 text-slate-400 flex items-center justify-center text-sm"
+                        ? "w-8 h-8 rounded-full border border-[#3D6B50] text-[#3D6B50] flex items-center justify-center text-sm font-bold"
+                        : "w-8 h-8 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center text-sm"
                   }
                 >
                   {done ? <Check className="h-4 w-4" /> : s.id}
                 </div>
                 <span
                   className={`text-[10px] font-medium hidden lg:block whitespace-nowrap ${
-                    active ? "text-slate-900" : done ? "text-[#0077B6]" : "text-slate-400"
+                    active ? "text-slate-900" : done ? "text-[#3D6B50]" : "text-slate-400"
                   }`}
                 >
                   {s.title}
@@ -200,7 +200,7 @@ function StepIndicator({ step }: { step: number }) {
               {idx < STEPS.length - 1 && (
                 <div
                   className={`flex-1 h-0.5 mx-1 ${
-                    step > s.id ? "bg-[#0077B6]" : "bg-slate-200"
+                    step > s.id ? "bg-[#3D6B50]" : "bg-slate-200"
                   }`}
                 />
               )}
@@ -345,7 +345,7 @@ function Step2({
       </div>
 
       {programs.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+        <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center">
           <FolderOpen className="mx-auto h-8 w-8 text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">No programs added yet.</p>
           <p className="text-xs text-slate-400 mt-1">
@@ -573,7 +573,7 @@ function Step4({
       </div>
 
       {members.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+        <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center">
           <Users className="mx-auto h-8 w-8 text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">No board members added yet.</p>
           <p className="text-xs text-slate-400 mt-1">Add at least one to continue.</p>
@@ -692,7 +692,7 @@ function Step5({
                 </p>
               </div>
               {slot.uploaded && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#0077B6]">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#3D6B50]">
                   <Check className="h-3.5 w-3.5" />
                   Uploaded
                 </span>
@@ -725,7 +725,7 @@ function Step5({
                     handleFile(slot.key, e.target.files?.[0] ?? null)
                   }
                 />
-                <span className="inline-flex items-center gap-1.5 text-sm text-[#0077B6] hover:text-[#005F92] font-medium">
+                <span className="inline-flex items-center gap-1.5 text-sm text-[#3D6B50] hover:text-[#005F92] font-medium">
                   <Upload className="h-4 w-4" />
                   Choose file
                 </span>
@@ -855,8 +855,8 @@ function Step6({
                   onClick={() => toggleCategory(cat)}
                   className={`px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors border ${
                     selected
-                      ? "bg-[#EFF6FF] border-[#0077B6] text-[#0077B6]"
-                      : "bg-surface border-slate-200 text-slate-600 hover:border-[#0077B6]/40"
+                      ? "bg-[#EFF6FF] border-[#3D6B50] text-[#3D6B50]"
+                      : "bg-surface border-slate-200 text-slate-600 hover:border-[#3D6B50]/40"
                   }`}
                 >
                   {humanizeEnum(cat)}
@@ -1560,7 +1560,7 @@ function OnboardingPageInner() {
                 type="submit"
                 isLoading={saving}
                 disabled={saving}
-                className="bg-[#0077B6] hover:bg-[#005F92] text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md"
+                className="bg-[#3D6B50] hover:bg-[#005F92] text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md"
               >
                 Save &amp; Continue
                 <ChevronRight className="h-4 w-4" />

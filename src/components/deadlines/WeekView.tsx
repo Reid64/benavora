@@ -70,7 +70,7 @@ export function WeekView({
           DraftsHistoryPanel.tsx). */}
       <div
         className="rounded-xl shadow-sm border border-border transition-shadow hover:shadow-md"
-        style={{ backgroundColor: "#F8F5EE", border: "2px solid #101B2D", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+        style={{ backgroundColor: "#F8F5EE", border: "2px solid #2C4E3B", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
       >
         <div className="flex items-center justify-between border-b border-navy-200 px-5 py-4">
           <h2 className="text-base font-semibold text-navy-900">{weekLabel}</h2>

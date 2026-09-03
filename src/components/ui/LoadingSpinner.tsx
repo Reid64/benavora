@@ -40,7 +40,7 @@ export function LoadingSpinner({
       )}
     >
       <Loader2
-        className={cn("animate-spin text-[#0077B6]", SIZE_CLASSES[size])}
+        className={cn("animate-spin text-[#3D6B50]", SIZE_CLASSES[size])}
         aria-hidden
       />
       {label && <span className="text-sm">{label}</span>}

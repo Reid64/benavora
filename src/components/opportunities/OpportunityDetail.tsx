@@ -333,7 +333,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
               {funder ? (
                 <Link
                   href={`/funders/${funder.id}`}
-                  style={{ color: "#0077B6", fontWeight: 600, textDecoration: "none" }}
+                  style={{ color: "#3D6B50", fontWeight: 600, textDecoration: "none" }}
                 >
                   {funder.name}
                 </Link>
@@ -433,12 +433,12 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
                 aria-current={active ? "page" : undefined}
                 style={{
                   whiteSpace: "nowrap",
-                  borderBottom: active ? "2px solid #0077B6" : "2px solid transparent",
+                  borderBottom: active ? "2px solid #3D6B50" : "2px solid transparent",
                   marginBottom: "-1px",
                   padding: "12px 2px",
                   fontSize: "14px",
                   fontWeight: 600,
-                  color: active ? "#0077B6" : "#64748B",
+                  color: active ? "#3D6B50" : "#64748B",
                   background: "none",
                   cursor: "pointer",
                 }}
@@ -565,8 +565,8 @@ const ACTION_VARIANT_STYLE: Record<
   ActionVariant,
   { background: string; color: string; border?: string }
 > = {
-  primary: { background: "#0077B6", color: "#FFFFFF" },
-  secondary: { background: "#FFFFFF", color: "#1A2B3C", border: "1px solid #B8C9D9" },
+  primary: { background: "#3D6B50", color: "#FFFFFF" },
+  secondary: { background: "#FFFFFF", color: "#2C4E3B", border: "1px solid #B8C9D9" },
   danger: { background: "#EF4444", color: "#FFFFFF" },
 };
 

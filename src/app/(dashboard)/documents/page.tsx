@@ -16,10 +16,10 @@ import type { Tables } from "@/types/database";
 
 // Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
 // Frame: Deep Navy. Secondary accent: Teal.
-const FRAME_NAVY = "#101B2D";
+const FRAME_NAVY = "#2C4E3B";
 const ACCENT_TEAL = "#2E6B66";
 const CARD_BG = "#F8F5EE";
-const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
+const SHADOW = "0 4px 20px rgba(44,78,59,0.22)";
 
 /**
  * Document repository (BLUEPRINT §4.6, Behavioral Contracts §7). Reads are
@@ -121,7 +121,7 @@ export default function DocumentsPage() {
       {editable && profile && (
         <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: SHADOW, padding: "4px" }}>
           <div
-            style={{ backgroundColor: CARD_BG, borderRadius: "11px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+            style={{ backgroundColor: CARD_BG, borderRadius: "11px", boxShadow: "inset 0 1px 2px rgba(44,78,59,0.06)" }}
             className="p-5"
           >
             <DocumentUploader
