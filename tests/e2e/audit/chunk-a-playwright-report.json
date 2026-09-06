@@ -1,0 +1,277 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\manag\\Documents\\benavora\\playwright.audit.config.ts",
+    "rootDir": "C:/Users/manag/Documents/benavora",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/manag/Documents/benavora/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "audit",
+        "name": "audit",
+        "testDir": "C:/Users/manag/Documents/benavora",
+        "testIgnore": [
+          "**/.claude/**",
+          "**/node_modules/**"
+        ],
+        "testMatch": [
+          "tests/e2e/audit/**/*.spec.ts"
+        ],
+        "timeout": 1500000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "tests/e2e/audit/chunk-a-playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.60.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "tests\\e2e\\audit\\chunk-a-dashboard-research-opportunities.spec.ts",
+      "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Audit Chunk A — Dashboard + Research + Opportunities",
+          "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+          "line": 434,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Dashboard — interactive elements",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 1500000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "audit",
+                  "projectName": "audit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0fdbc9a806f09fa2d867-1602f902fd3bae5b3f5b",
+              "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+              "line": 438,
+              "column": 3
+            },
+            {
+              "title": "Research — Research tab interactive elements",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 1500000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "audit",
+                  "projectName": "audit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0fdbc9a806f09fa2d867-695336779bea8bedc1c4",
+              "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+              "line": 1014,
+              "column": 3
+            },
+            {
+              "title": "Research — Federal/Specialty Sources, Funding Directory, Discovered Opportunities, Historical Awards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 1500000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "audit",
+                  "projectName": "audit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0fdbc9a806f09fa2d867-e7dc74367e688e821d4b",
+              "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+              "line": 1084,
+              "column": 3
+            },
+            {
+              "title": "Research — Search Configuration tab (smoke)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 1500000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "audit",
+                  "projectName": "audit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0fdbc9a806f09fa2d867-3706b2559355a2bbc580",
+              "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+              "line": 1207,
+              "column": 3
+            },
+            {
+              "title": "Research/match — interactive elements",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 1500000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "audit",
+                  "projectName": "audit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0fdbc9a806f09fa2d867-fda0225b774b6e8276b9",
+              "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+              "line": 1223,
+              "column": 3
+            }
+          ],
+          "suites": [
+            {
+              "title": "Opportunities (disposable-record lifecycle)",
+              "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+              "line": 594,
+              "column": 17,
+              "specs": [
+                {
+                  "title": "Opportunities/new — create disposable test record",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 1500000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "audit",
+                      "projectName": "audit",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "0fdbc9a806f09fa2d867-cd2f86487e9a23ba3911",
+                  "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+                  "line": 598,
+                  "column": 3
+                },
+                {
+                  "title": "Opportunities/:id — interactive elements",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 1500000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "audit",
+                      "projectName": "audit",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "0fdbc9a806f09fa2d867-59470a80c9ccea3aebc8",
+                  "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+                  "line": 767,
+                  "column": 3
+                },
+                {
+                  "title": "Opportunities — list page interactive elements",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 1500000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "audit",
+                      "projectName": "audit",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "0fdbc9a806f09fa2d867-7540c83fe2e1c3109ed3",
+                  "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+                  "line": 877,
+                  "column": 3
+                },
+                {
+                  "title": "Opportunities/:id — cleanup (real Delete flow, disposable record only)",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 1500000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "audit",
+                      "projectName": "audit",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "0fdbc9a806f09fa2d867-29f98465d446af27dc9c",
+                  "file": "tests/e2e/audit/chunk-a-dashboard-research-opportunities.spec.ts",
+                  "line": 991,
+                  "column": 3
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-04T07:55:46.843Z",
+    "duration": 1773.37,
+    "expected": 0,
+    "skipped": 9,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

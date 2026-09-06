@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-09-04T08:02:02.897Z",
+  "total": 6,
+  "pass": 4,
+  "fail": 2,
+  "blocked": 0,
+  "disposableOpportunityId": "",
+  "results": [
+    {
+      "page": "/research (Search Configuration tab)",
+      "element": "Tab \"Search Configuration\"",
+      "expected": "switches to the embedded SearchConfiguration component",
+      "status": "PASS",
+      "detail": "SearchConfiguration content rendered (deep field-level testing deferred to a future Settings/Search-Profiles audit chunk, per this chunk's scope)",
+      "at": "2026-09-04T08:01:49.064Z"
+    },
+    {
+      "page": "/research/match",
+      "element": "Textarea (mission statement)",
+      "expected": "accepts required text",
+      "status": "PASS",
+      "detail": "filled mission text",
+      "at": "2026-09-04T08:01:51.854Z"
+    },
+    {
+      "page": "/research/match",
+      "element": "Input \"Min grant ($)\"",
+      "expected": "accepts a number",
+      "status": "FAIL",
+      "detail": "Neither a labeled control nor caption text matching /min grant/i was found on the page at all",
+      "screenshot": "tests/e2e/audit/screenshots/chunk-a/research-match__input-min-grant.png",
+      "at": "2026-09-04T08:01:52.028Z"
+    },
+    {
+      "page": "/research/match",
+      "element": "Input \"Max grant ($)\"",
+      "expected": "accepts a number",
+      "status": "FAIL",
+      "detail": "Neither a labeled control nor caption text matching /max grant/i was found on the page at all",
+      "screenshot": "tests/e2e/audit/screenshots/chunk-a/research-match__input-max-grant.png",
+      "at": "2026-09-04T08:01:52.148Z"
+    },
+    {
+      "page": "/research/match",
+      "element": "Select \"State\"",
+      "expected": "accepts a selection",
+      "status": "PASS",
+      "detail": "selected Texas (or fallback index 1)",
+      "at": "2026-09-04T08:02:02.216Z"
+    },
+    {
+      "page": "/research/match",
+      "element": "Button \"Run Match\"",
+      "expected": "fires POST /api/match/foundations and returns real (possibly empty) results, not a stub",
+      "status": "PASS",
+      "detail": "POST https://www.benavora.com/api/match/foundations -> 200 within 15000ms, body {\"results\":[{\"id\":\"e7f26900-1476-4061-9d13-6fce5f1f9f2b\",\"name\":\"LIBELLE FUND\",\"ein\":\"826429867\",\"asset_amount\":1346619,\"state\":\"AL\",\"score\":0.15,\"matchReasons\":[\"Located in your target state (AL)\"]},",
+      "at": "2026-09-04T08:02:02.800Z"
+    }
+  ]
+}

@@ -1,0 +1,386 @@
+[
+  {
+    "route": "/",
+    "slug": "home",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/home__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/home__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/demo",
+    "slug": "demo",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/demo__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/demo__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/for-consultants",
+    "slug": "for-consultants",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/for-consultants__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/for-consultants__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/how-it-works",
+    "slug": "how-it-works",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/how-it-works__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/how-it-works__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/autoapply",
+    "slug": "platform_autoapply",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_autoapply__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_autoapply__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/discovery",
+    "slug": "platform_discovery",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_discovery__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_discovery__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/draft-generator",
+    "slug": "platform_draft-generator",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_draft-generator__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_draft-generator__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/prospect-intelligence",
+    "slug": "platform_prospect-intelligence",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_prospect-intelligence__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_prospect-intelligence__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/pricing",
+    "slug": "pricing",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/pricing__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/pricing__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/privacy",
+    "slug": "privacy",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/privacy__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/privacy__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/scan",
+    "slug": "scan",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/scan__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/scan__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/security",
+    "slug": "security",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/security__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/security__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/ai-grant-writing-software",
+    "slug": "solutions_ai-grant-writing-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_ai-grant-writing-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_ai-grant-writing-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/autonomous-fundraising-platform",
+    "slug": "solutions_autonomous-fundraising-platform",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_autonomous-fundraising-platform__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_autonomous-fundraising-platform__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/corporate-donation-application-software",
+    "slug": "solutions_corporate-donation-application-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_corporate-donation-application-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_corporate-donation-application-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/corporate-giving-database",
+    "slug": "solutions_corporate-giving-database",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_corporate-giving-database__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_corporate-giving-database__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/donor-prospecting-intelligence",
+    "slug": "solutions_donor-prospecting-intelligence",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_donor-prospecting-intelligence__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_donor-prospecting-intelligence__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/funding-operations-software",
+    "slug": "solutions_funding-operations-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_funding-operations-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_funding-operations-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/funding-pipeline-software",
+    "slug": "solutions_funding-pipeline-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_funding-pipeline-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_funding-pipeline-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/grant-application-automation",
+    "slug": "solutions_grant-application-automation",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-application-automation__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-application-automation__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/grant-deadline-tracking",
+    "slug": "solutions_grant-deadline-tracking",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-deadline-tracking__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-deadline-tracking__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/grant-discovery-software",
+    "slug": "solutions_grant-discovery-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-discovery-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-discovery-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/grant-matching-software",
+    "slug": "solutions_grant-matching-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-matching-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_grant-matching-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/human-in-the-loop-ai",
+    "slug": "solutions_human-in-the-loop-ai",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_human-in-the-loop-ai__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_human-in-the-loop-ai__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/nonprofit-funding-software",
+    "slug": "solutions_nonprofit-funding-software",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_nonprofit-funding-software__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_nonprofit-funding-software__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/nonprofit-outreach-automation",
+    "slug": "solutions_nonprofit-outreach-automation",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_nonprofit-outreach-automation__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_nonprofit-outreach-automation__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/nonprofit-prospect-research",
+    "slug": "solutions_nonprofit-prospect-research",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_nonprofit-prospect-research__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_nonprofit-prospect-research__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/terms",
+    "slug": "terms",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/terms__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/terms__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/tour",
+    "slug": "tour",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/tour__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/tour__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/agents",
+    "slug": "agents",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/agents__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/agents__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/company",
+    "slug": "company",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/company__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/company__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform",
+    "slug": "platform",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/ai-grant-writer",
+    "slug": "platform_ai-grant-writer",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_ai-grant-writer__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_ai-grant-writer__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/analytics",
+    "slug": "platform_analytics",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_analytics__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_analytics__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/funding-intelligence",
+    "slug": "platform_funding-intelligence",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_funding-intelligence__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_funding-intelligence__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/opportunity-discovery",
+    "slug": "platform_opportunity-discovery",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_opportunity-discovery__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_opportunity-discovery__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/platform/pipeline-crm",
+    "slug": "platform_pipeline-crm",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_pipeline-crm__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/platform_pipeline-crm__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/resources",
+    "slug": "resources",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/resources__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/resources__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions",
+    "slug": "solutions",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/community-development",
+    "slug": "solutions_community-development",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_community-development__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_community-development__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/education",
+    "slug": "solutions_education",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_education__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_education__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/faith-based",
+    "slug": "solutions_faith-based",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_faith-based__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_faith-based__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/housing",
+    "slug": "solutions_housing",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_housing__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_housing__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/human-services",
+    "slug": "solutions_human-services",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_human-services__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_human-services__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/solutions/veterans",
+    "slug": "solutions_veterans",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_veterans__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/solutions_veterans__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/trust",
+    "slug": "trust",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/trust__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/trust__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/why-benavora",
+    "slug": "why-benavora",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/why-benavora__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/why-benavora__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/login",
+    "slug": "login",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/login__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/login__mobile-390.png",
+    "status": 200,
+    "error": null
+  }
+]

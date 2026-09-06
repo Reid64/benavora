@@ -1,0 +1,15 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const errors = [];
+page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
+page.on("pageerror", (err) => errors.push("PAGEERROR: " + err.message));
+await page.goto("http://localhost:3100/", { waitUntil: "load", timeout: 60000 });
+await page.waitForTimeout(3000);
+const bodyText = await page.evaluate(() => document.body.innerText);
+console.log("Has 'Transparent pricing' text:", bodyText.includes("Transparent pricing"));
+console.log("Has 'award-fee' text:", bodyText.includes("award-fee"));
+console.log("Has 'still being finalized' (old placeholder) text:", bodyText.includes("still being finalized"));
+console.log("Has 'cost-title' heading text search 'What will it cost':", bodyText.includes("What will it cost"));
+console.log("Console/page errors:", JSON.stringify(errors, null, 2));
+await browser.close();

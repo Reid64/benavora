@@ -1,0 +1,216 @@
+{
+  "body": {
+    "__text": "\n\nFund more. Do more. Change more.Built for the people moving good forward.Find ",
+    "background-color": "rgb(34, 38, 36)"
+  },
+  "brandbarWrap": {
+    "__text": "Fund more. Do more. Change more.",
+    "padding-top": "24px",
+    "padding-bottom": "0px"
+  },
+  "brand": {
+    "__text": "",
+    "width": "270px",
+    "height": "66px",
+    "mix-blend-mode": "lighten"
+  },
+  "brandTagline": {
+    "__text": "Fund more. Do more. Change more.",
+    "color": "rgb(167, 188, 159)",
+    "font-size": "13px"
+  },
+  "taglineSpan2": {
+    "__text": "Do more.",
+    "color": "rgb(239, 179, 68)"
+  },
+  "heroEyebrow": {
+    "__text": "Built for the people moving good forward.",
+    "color": "rgb(206, 213, 208)",
+    "font-size": "14px",
+    "letter-spacing": "normal",
+    "text-transform": "none"
+  },
+  "heroH1": {
+    "__text": "Find the right funders.Move your mission forward.",
+    "color": "rgb(240, 242, 238)",
+    "font-size": "64px",
+    "font-weight": "550",
+    "letter-spacing": "-2.88px",
+    "line-height": "71.68px"
+  },
+  "heroH1Span": {
+    "__text": "Move your mission forward.",
+    "color": "rgb(240, 242, 238)"
+  },
+  "lede": {
+    "__text": "Spend less time searching, rewriting, and filling out forms. Discover aligned fu",
+    "color": "rgb(189, 196, 190)",
+    "font-size": "17px",
+    "line-height": "30.6px",
+    "max-width": "710px"
+  },
+  "link": {
+    "__text": "Explore your fundraising toolkit ↓",
+    "color": "rgb(245, 247, 242)",
+    "background-color": "rgb(64, 91, 73)",
+    "border-color": "rgb(119, 146, 126)",
+    "border-radius": "8px",
+    "padding": "15px 25px",
+    "font-weight": "600",
+    "font-size": "14px"
+  },
+  "autonomyIntro": {
+    "__text": "48 specialized agents. One coordinated system.Autonomous intelligence.Purposeful",
+    "text-align": "center",
+    "padding-top": "38px",
+    "padding-bottom": "18px"
+  },
+  "autonomyH2": {
+    "__text": "Autonomous intelligence.Purposeful action.",
+    "color": "rgb(240, 242, 238)",
+    "font-size": "40px",
+    "font-weight": "500",
+    "letter-spacing": "-1.2px"
+  },
+  "autonomyP": {
+    "__text": "Benavora brings together 48 specialized AI agents to discover aligned funders, e",
+    "color": "rgb(189, 196, 190)",
+    "max-width": "760px",
+    "font-size": "16px"
+  },
+  "fleetBg": {
+    "__text": "\n  \n    #benavora-neural-fleet{--background:#000;--foreground:#f8fafc;--card:#0b",
+    "background-color": "rgb(34, 38, 36)"
+  },
+  "stageBg": {
+    "__text": "\n    \n    \n      Benavora autonomous prospect intelligence neural fleet\n      Fo",
+    "background-color": "rgb(34, 38, 36)"
+  },
+  "brainPhoto": {
+    "__text": "",
+    "opacity": "1",
+    "mix-blend-mode": "normal",
+    "filter": "none",
+    "background-size": "contain",
+    "max-width": "74%",
+    "mask-image": "radial-gradient(rgb(0, 0, 0) 53%, rgba(0, 0, 0, 0.867) 72%, rgba(0, 0, 0, 0) 99%)"
+  },
+  "aurora": {
+    "__text": "",
+    "display": "none"
+  },
+  "grid": {
+    "__text": "",
+    "display": "none"
+  },
+  "benefits": {
+    "__text": "More than answers.Forward progress.Agents plan, execute, evaluate results, and a",
+    "display": "grid",
+    "grid-template-columns": "328px 328px 328px",
+    "gap": "36px"
+  },
+  "benefitH3": {
+    "__text": "More than answers.Forward progress.",
+    "color": "rgb(242, 245, 239)",
+    "font-size": "26px",
+    "font-weight": "600"
+  },
+  "benefitP": {
+    "__text": "Agents plan, execute, evaluate results, and adapt their next steps.",
+    "color": "rgb(199, 206, 200)",
+    "font-size": "15px"
+  },
+  "toolkitEyebrow": {
+    "__text": "Your fundraising toolkit",
+    "color": "rgb(185, 203, 189)",
+    "font-size": "18px",
+    "font-weight": "600",
+    "letter-spacing": "normal"
+  },
+  "toolkitH2": {
+    "__text": "More time for the mission.More intelligence behind every move.",
+    "color": "rgb(240, 242, 238)",
+    "font-size": "48px",
+    "font-weight": "600"
+  },
+  "toolkitIntro": {
+    "__text": "Less repetitive work. More relevant opportunities. Connected tools to help you r",
+    "color": "rgb(189, 196, 190)",
+    "font-size": "16px",
+    "max-width": "680px"
+  },
+  "grid6": {
+    "__text": "AI Grant StudioYour mission. Your voice.Draft stronger applications with your or",
+    "display": "grid",
+    "grid-template-columns": "151px 151px 151px 151px 151px 151px",
+    "gap": "0px 30px"
+  },
+  "wideFeature": {
+    "__text": "AI Grant StudioYour mission. Your voice.Draft stronger applications with your or",
+    "background-color": "rgb(53, 75, 61)",
+    "border": "1px solid rgb(114, 137, 119)",
+    "border-radius": "12px",
+    "padding": "32px"
+  },
+  "wideTag": {
+    "__text": "AI Grant Studio",
+    "color": "rgb(242, 245, 239)",
+    "font-size": "32px",
+    "font-weight": "650"
+  },
+  "wideBenefit": {
+    "__text": "Your mission. Your voice.",
+    "color": "rgb(237, 243, 233)",
+    "font-size": "21px",
+    "font-weight": "500"
+  },
+  "plainFeature": {
+    "__text": "Funding Fit & Success ScoringFind your strongest opportunities.Focus your effort",
+    "background-color": "rgba(0, 0, 0, 0)",
+    "border": "",
+    "border-top": "2px solid rgb(141, 163, 147)",
+    "padding": "28px 0px"
+  },
+  "plainTag": {
+    "__text": "Funding Fit & Success Scoring",
+    "color": "rgb(242, 245, 239)",
+    "font-size": "25px",
+    "font-weight": "650"
+  },
+  "plainBenefit": {
+    "__text": "Find your strongest opportunities.",
+    "color": "rgb(196, 210, 198)",
+    "font-size": "18px"
+  },
+  "featureBody": {
+    "__text": "Draft stronger applications with your organization’s information and a library o",
+    "color": "rgb(224, 232, 223)",
+    "font-size": "15px",
+    "line-height": "27px"
+  },
+  "featureSummary": {
+    "__text": "Explore AI Grant Studio",
+    "color": "rgb(237, 244, 233)",
+    "font-size": "12px"
+  },
+  "end": {
+    "__text": "Multiply your team’s capacity—not its workload.Discover opportunity. Tell your s",
+    "text-align": "center",
+    "border-top": "1px solid rgb(72, 81, 74)",
+    "margin-top": "48px",
+    "padding-top": "48px"
+  },
+  "endH3": {
+    "__text": "Multiply your team’s capacity—not its workload.",
+    "color": "rgb(240, 242, 238)",
+    "font-size": "28px",
+    "font-weight": "500"
+  },
+  "endP": {
+    "__text": "Discover opportunity. Tell your story. Take the next step with confidence.",
+    "color": "rgb(189, 196, 190)"
+  },
+  "allFeatureCount": 8,
+  "wideFeatureCount": 1,
+  "nodeCount": 9
+}

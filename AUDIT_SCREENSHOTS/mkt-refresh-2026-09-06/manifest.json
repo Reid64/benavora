@@ -1,0 +1,26 @@
+[
+  {
+    "route": "/",
+    "slug": "home",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-refresh-2026-09-06/home__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-refresh-2026-09-06/home__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/pricing",
+    "slug": "pricing",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-refresh-2026-09-06/pricing__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-refresh-2026-09-06/pricing__mobile-390.png",
+    "status": 200,
+    "error": null
+  },
+  {
+    "route": "/for-consultants",
+    "slug": "for-consultants",
+    "desktop": "AUDIT_SCREENSHOTS/mkt-refresh-2026-09-06/for-consultants__desktop-1440.png",
+    "mobile": "AUDIT_SCREENSHOTS/mkt-refresh-2026-09-06/for-consultants__mobile-390.png",
+    "status": 500,
+    "error": null
+  }
+]

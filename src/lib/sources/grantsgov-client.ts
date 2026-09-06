@@ -82,18 +82,50 @@ function mapHit(hit: RawOppHit): GrantsGovNormalizedOpportunity | null {
   };
 }
 
+export interface GrantsGovSearchOptions {
+  /**
+   * Grants.gov agency codes (e.g. "ED" for Department of Education) to
+   * restrict the search to. Multiple codes are OR'd together — verified
+   * live against `api.grants.gov/v1/api/search2` 2026-09-06, which expects
+   * this as a single pipe-delimited string, not a JSON array.
+   */
+  agencies?: string[];
+  /**
+   * Grants.gov funding category codes (e.g. "ED", "ELT") to restrict the
+   * search to. Same pipe-delimited-string convention as `agencies`.
+   */
+  fundingCategories?: string[];
+}
+
 /**
  * Searches the public Grants.gov v2 opportunity search API for `searchTerm`
  * and returns opportunities mapped toward the `opportunities` table shape.
  * Returns an empty array on any HTTP or parse failure (non-fatal — callers
  * typically loop over several search terms and should not abort the whole
  * poll because one keyword's request failed).
+ *
+ * `options` is additive and optional — omitting it sends exactly the same
+ * request body as before, so existing callers are unaffected.
  */
 export async function searchGrantsGovOpportunities(
   searchTerm: string,
+  options?: GrantsGovSearchOptions,
 ): Promise<GrantsGovNormalizedOpportunity[]> {
   const keyword = searchTerm.trim();
   if (!keyword) return [];
+
+  const requestBody: Record<string, unknown> = {
+    keyword,
+    oppStatuses: "posted",
+    rows: DEFAULT_ROWS,
+    startRecordNum: 0,
+  };
+  if (options?.agencies?.length) {
+    requestBody.agencies = options.agencies.join("|");
+  }
+  if (options?.fundingCategories?.length) {
+    requestBody.fundingCategories = options.fundingCategories.join("|");
+  }
 
   let response: Response;
   try {
@@ -102,12 +134,7 @@ export async function searchGrantsGovOpportunities(
         fetch(GRANTS_GOV_SEARCH_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            keyword,
-            oppStatuses: "posted",
-            rows: DEFAULT_ROWS,
-            startRecordNum: 0,
-          }),
+          body: JSON.stringify(requestBody),
           signal: AbortSignal.timeout(30_000),
         }),
       { attempts: 3 },

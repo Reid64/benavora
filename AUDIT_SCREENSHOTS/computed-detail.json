@@ -1,0 +1,88 @@
+{
+  "fleetVars": {
+    "background": "#222624",
+    "card": "#202320",
+    "border": "#3b403b",
+    "mutedFg": "#b9b8b1",
+    "primary": "#222722",
+    "primaryFg": "#f4f0e8"
+  },
+  "node0": {
+    "__text": "Mission Control6Govern · coordinate · assure",
+    "background-color": "rgb(34, 38, 34)",
+    "background-image": "none",
+    "border-color": "color(srgb 0.226078 0.396039 0.438902)",
+    "box-shadow": "rgba(0, 0, 0, 0.094) 0px 5px 18px 0px",
+    "border-radius": "18px"
+  },
+  "nodeName": {
+    "__text": "Mission Control",
+    "color": "rgb(244, 240, 232)",
+    "font-weight": "500",
+    "font-size": "13.3333px"
+  },
+  "nodeRole": {
+    "__text": "Govern · coordinate · assure",
+    "color": "rgb(185, 184, 177)",
+    "font-size": "12px"
+  },
+  "nodeCount": {
+    "__text": "6",
+    "background-color": "color(srgb 0.141176 0.212941 0.22)",
+    "border-color": "color(srgb 0.211765 0.788235 1 / 0.4)",
+    "color": "rgb(244, 240, 232)"
+  },
+  "core": {
+    "__text": "\n      48Agentic mindsOne intelligence\n    ",
+    "background-color": "rgba(0, 0, 0, 0)",
+    "background-image": "radial-gradient(circle at 38% 30%, color(srgb 0.222549 0.294118 0.344118), rgb(34, 39, 34) 64%)",
+    "border-color": "color(srgb 0.42902 0.610588 0.769412)",
+    "box-shadow": "color(srgb 0.513726 0.764706 1 / 0.04) 0px 0px 0px 12px, color(srgb 0.513726 0.764706 1 / 0.03) 0px 0px 0px 30px, color(srgb 0.513726 0.764706 1 / 0.32) 0px 0px 70px 0px",
+    "width": "190px",
+    "height": "190px"
+  },
+  "core44": {
+    "__text": "48",
+    "color": "rgb(244, 240, 232)",
+    "font-size": "53.2px",
+    "font-weight": "500"
+  },
+  "coreLabel": {
+    "__text": "Agentic minds",
+    "color": "rgb(244, 240, 232)",
+    "font-size": "12px",
+    "letter-spacing": "1.92px"
+  },
+  "coreSub": {
+    "__text": "One intelligence",
+    "color": "color(srgb 0.956863 0.941176 0.909804 / 0.68)"
+  },
+  "detail": {
+    "__text": "\n    48 agents · 9 specialist divisions\n    Explore the inte",
+    "color": "rgb(244, 240, 232)",
+    "max-width": "780px"
+  },
+  "signal": {
+    "__text": "48 agents · 9 specialist divisions",
+    "color": "rgb(185, 184, 177)",
+    "letter-spacing": "0.42px",
+    "text-transform": "none"
+  },
+  "detailStrong": {
+    "__text": "Explore the intelligence behind your next opportunity.",
+    "color": "rgb(226, 232, 227)"
+  },
+  "detailSpan": {
+    "__text": "Select a division to discover its specialists. Select Auto A",
+    "color": "rgb(185, 184, 177)"
+  },
+  "brainPhotoEl": {
+    "width": "602px",
+    "height": "602px",
+    "position": "absolute",
+    "left": "560px",
+    "top": "364px",
+    "transform": "matrix(1, 0, 0, 1, -301, -301)",
+    "backgroundImage": "url(\"data:image/webp;base64,UklGRmz6AABXRUJQVlA4IGD6AAAQwwOd..."
+  }
+}

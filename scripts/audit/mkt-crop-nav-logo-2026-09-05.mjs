@@ -1,0 +1,10 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto("http://localhost:3100/", { waitUntil: "networkidle", timeout: 45000 });
+await page.waitForTimeout(1000);
+const nav = await page.$("nav, header");
+const box = await nav.boundingBox();
+await page.screenshot({ path: "AUDIT_SCREENSHOTS/mkt-full-audit-2026-09-05/home__nav-logo-crop.png", clip: { x: box.x, y: box.y, width: Math.min(400, box.width), height: box.height } });
+console.log("saved", box);
+await browser.close();
