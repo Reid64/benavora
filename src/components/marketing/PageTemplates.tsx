@@ -61,7 +61,7 @@ function CtaBand({ title }: { title: string }) {
   return (
     <Section tone="forest">
       <div style={{ textAlign: "center" }}>
-        <Display1 tone="forest">{title}</Display1>
+        <Display2 tone="forest">{title}</Display2>
         <div
           style={{
             display: "flex",

@@ -113,8 +113,8 @@ const CARDS: Card[] = [
       "Dedicated success manager",
       "SLA guarantee",
     ],
-    cta: "Contact Sales",
-    href: "mailto:sales@benavora.com",
+    cta: "See how Benavora would fund your mission",
+    href: "/demo",
   },
 ];
 

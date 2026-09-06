@@ -196,6 +196,10 @@ const NEURONS: { left: string; top: string; fire: string; pulse: string; delay: 
   { left: "40.4%", top: "26.4%", fire: "#ff9f43", pulse: "3.2s", delay: "-.4s" },
 ];
 
+/** Fired by other marketing components (e.g. the toolkit's Auto Apply card) to
+ * open a division's inventory from outside this component's own DOM. */
+export const OPEN_DIVISION_EVENT = "benavora:open-division";
+
 export function NeuralFleetVisualization() {
   const [selected, setSelected] = useState<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -264,6 +268,19 @@ export function NeuralFleetVisualization() {
     setIsOpen(true);
   };
 
+  // Lets the toolkit's Auto Apply card (a separate component, further down the
+  // page) open this section's Auto Apply node instead of only linking to it.
+  useEffect(() => {
+    const onOpenDivision = (e: Event) => {
+      const index = (e as CustomEvent<{ index: number }>).detail?.index;
+      if (typeof index !== "number" || !FAMILIES[index]) return;
+      stageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      handleSelect(index);
+    };
+    window.addEventListener(OPEN_DIVISION_EVENT, onOpenDivision);
+    return () => window.removeEventListener(OPEN_DIVISION_EVENT, onOpenDivision);
+  }, []);
+
   const handleRootKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     if (!isOpen) return;
     if (e.key === "Escape") {
@@ -315,10 +332,31 @@ export function NeuralFleetVisualization() {
               Forty-eight autonomous agents organized in nine specialist divisions exchange
               intelligence continuously through a central reasoning core.
             </desc>
+            <defs>
+              <linearGradient id="bnf-swirl-silver" x1="0" y1="0" x2="1" y2="1">
+                <stop stopColor="#9cbebc" stopOpacity="0" />
+                <stop offset="0.45" stopColor="#b9d8d3" />
+                <stop offset="1" stopColor="#96abbc" stopOpacity="0.15" />
+              </linearGradient>
+              <linearGradient id="bnf-swirl-lilac">
+                <stop stopColor="#b1aec8" stopOpacity="0.08" />
+                <stop offset="0.55" stopColor="#c8c2da" />
+                <stop offset="1" stopColor="#9caac6" stopOpacity="0" />
+              </linearGradient>
+            </defs>
             <g aria-hidden="true" transform="translate(560 350)">
               <ellipse className="bnf-arc a" rx={240} ry={150} />
               <ellipse className="bnf-arc b" rx={275} ry={177} transform="rotate(24)" />
               <ellipse className="bnf-arc c" rx={310} ry={205} transform="rotate(-17)" />
+              <g className="bnf-swirl swirl-one">
+                <path d="M-302 55 C-346 -84 -211 -230 -12 -238 C173 -246 319 -153 322 -28 C324 93 183 176 33 149 C-67 131 -115 63 -71 4" />
+              </g>
+              <g className="bnf-swirl swirl-two">
+                <path d="M281 -125 C366 34 246 235 30 250 C-146 262 -314 158 -318 31 C-322 -80 -208 -160 -99 -133 C-21 -114 16 -54 -18 -7" />
+              </g>
+              <g className="bnf-swirl swirl-three">
+                <path d="M-258 -177 C-83 -291 157 -251 264 -104 C348 12 284 191 135 215 C18 234 -73 167 -54 90" />
+              </g>
             </g>
             <g aria-hidden="true">
               {FAMILIES.map((f, i) => (
@@ -339,6 +377,11 @@ export function NeuralFleetVisualization() {
               ))}
             </g>
           </svg>
+          <div
+            className="bnf-brain-photo"
+            aria-hidden="true"
+            style={{ backgroundImage: "url(/marketing/brain-network.webp)" }}
+          />
           <div className="bnf-firefield" aria-hidden="true">
             {NEURONS.map((n, i) => (
               <span
@@ -456,20 +499,21 @@ export function NeuralFleetVisualization() {
       </div>
       <style jsx>{`
         .bnf-fleet {
-          --background: #000;
-          --foreground: #f8fafc;
-          --card: #0b0d14;
-          --muted-foreground: #aeb7c8;
-          --border: #283044;
+          --background: #222624;
+          --foreground: #f4f0e8;
+          --card: #202320;
+          --muted-foreground: #b9b8b1;
+          --border: #3b403b;
           position: relative;
           isolation: isolate;
           color: var(--foreground);
-          background: #000;
+          background: var(--background);
           padding: 56px 24px 64px;
           overflow: hidden;
         }
         .bnf-stage {
           position: relative;
+          width: 100%;
           max-width: 1120px;
           margin: auto;
           aspect-ratio: 16 / 10;
@@ -514,6 +558,48 @@ export function NeuralFleetVisualization() {
           stroke-dasharray: 28 42;
           animation: bnfSpin 27s linear infinite;
         }
+        .bnf-swirl {
+          transform-box: view-box;
+          transform-origin: 0px 0px;
+          fill: none;
+          stroke: url(#bnf-swirl-silver);
+          stroke-width: 2.3;
+          stroke-linecap: round;
+          opacity: 0.85;
+          animation: bnfSwirl 32s linear infinite;
+        }
+        .swirl-two {
+          stroke: url(#bnf-swirl-lilac);
+          stroke-width: 1.8;
+          opacity: 0.75;
+          animation-direction: reverse;
+          animation-duration: 43s;
+        }
+        .swirl-three {
+          stroke: url(#bnf-swirl-silver);
+          stroke-width: 1.1;
+          opacity: 0.55;
+          animation-duration: 57s;
+        }
+        .bnf-brain-photo {
+          position: absolute;
+          left: 50%;
+          top: 52%;
+          height: 86%;
+          width: auto;
+          aspect-ratio: 1;
+          max-width: 74%;
+          transform: translate(-50%, -50%);
+          background-color: var(--background);
+          background-image: url(/marketing/brain-network.webp);
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+          mask-image: radial-gradient(ellipse at center, #000 53%, rgba(0, 0, 0, 0.867) 72%, transparent 99%);
+          -webkit-mask-image: radial-gradient(ellipse at center, #000 53%, rgba(0, 0, 0, 0.867) 72%, transparent 99%);
+          z-index: 1;
+          pointer-events: none;
+        }
         .bnf-wire {
           fill: none;
           stroke: var(--wire, #36c9ff);
@@ -541,6 +627,7 @@ export function NeuralFleetVisualization() {
           top: 52%;
           height: 86%;
           aspect-ratio: 1;
+          max-width: 74%;
           transform: translate(-50%, -50%);
           clip-path: polygon(
             11% 39%, 12% 27%, 18% 17%, 29% 9%, 43% 4%, 60% 4%, 74% 9%, 84% 19%, 88% 32%, 86% 43%,
@@ -580,17 +667,18 @@ export function NeuralFleetVisualization() {
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 168px;
-          height: 168px;
+          width: 190px;
+          height: 190px;
           border-radius: 50%;
           transform: translate(-50%, -50%);
           display: grid;
           place-items: center;
           text-align: center;
-          background: radial-gradient(circle at 32% 28%, #1c2436, #05070c 72%);
-          border: 1px solid color-mix(in srgb, #36c9ff 34%, transparent);
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(54, 201, 255, 0.12);
-          z-index: 6;
+          background: radial-gradient(circle at 38% 30%, color-mix(in srgb, #36c9ff 25%, var(--card)), #222722 64%);
+          border: 1px solid color-mix(in srgb, #36c9ff 70%, var(--border));
+          box-shadow: 0 0 0 12px color-mix(in srgb, #36c9ff 4%, transparent), 0 0 0 30px color-mix(in srgb, #36c9ff 3%, transparent),
+            0 0 70px color-mix(in srgb, #36c9ff 32%, transparent);
+          z-index: 4;
           transition: opacity 0.3s, transform 0.3s;
         }
         .bnf-core::before {
@@ -609,7 +697,7 @@ export function NeuralFleetVisualization() {
         .bnf-core-number {
           display: block;
           color: var(--foreground);
-          font-size: 52px;
+          font-size: 53px;
           font-weight: 500;
           letter-spacing: -0.07em;
         }
@@ -623,7 +711,7 @@ export function NeuralFleetVisualization() {
         }
         .bnf-core-sub {
           display: block;
-          color: color-mix(in srgb, #fff 68%, transparent);
+          color: color-mix(in srgb, var(--foreground) 68%, transparent);
           font-size: 12px;
           margin-top: 7px;
         }
@@ -640,10 +728,10 @@ export function NeuralFleetVisualization() {
           transform: translate(-50%, -50%);
           text-align: left;
           color: var(--foreground);
-          background: linear-gradient(135deg, color-mix(in srgb, var(--node) 15%, var(--card)), color-mix(in srgb, var(--card) 94%, transparent));
-          border: 1px solid color-mix(in srgb, var(--node) 40%, var(--border));
+          background: #222622;
+          border: 1px solid color-mix(in srgb, var(--node) 27%, var(--border));
           border-radius: 18px;
-          box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), inset 0 1px 0 color-mix(in srgb, var(--node) 20%, transparent);
+          box-shadow: 0 5px 18px rgba(0, 0, 0, 0.094);
           z-index: 5;
           cursor: pointer;
           font: inherit;
@@ -657,14 +745,14 @@ export function NeuralFleetVisualization() {
           width: 46px;
           height: 2px;
           background: var(--node);
-          box-shadow: 0 0 12px var(--node);
+          opacity: 0.85;
         }
         .bnf-node:hover,
         .bnf-node[aria-pressed="true"] {
           transform: translate(-50%, -50%) scale(1.075);
           border-color: var(--node);
-          background: linear-gradient(135deg, color-mix(in srgb, var(--node) 24%, var(--card)), var(--card));
-          box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 28px color-mix(in srgb, var(--node) 24%, transparent);
+          background: #2b302b;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.149);
           z-index: 7;
         }
         .bnf-node:focus-visible {
@@ -688,7 +776,7 @@ export function NeuralFleetVisualization() {
           height: 28px;
           border-radius: 9px;
           color: var(--foreground);
-          background: color-mix(in srgb, var(--node) 22%, transparent);
+          background: color-mix(in srgb, var(--node) 10%, #222622);
           border: 1px solid color-mix(in srgb, var(--node) 40%, transparent);
           font-weight: 500;
           font-size: 13px;
@@ -703,7 +791,7 @@ export function NeuralFleetVisualization() {
           display: block;
           font-size: 10px;
           letter-spacing: 0.04em;
-          color: #91f28c;
+          color: #c9d5cc;
           margin-top: 5px;
         }
         .n0 {
@@ -743,16 +831,17 @@ export function NeuralFleetVisualization() {
           top: 10%;
         }
         .bnf-detail {
-          max-width: 850px;
+          max-width: 780px;
           min-height: 68px;
-          margin: 24px auto 0;
+          margin: 16px auto 0;
           text-align: center;
           padding: 0 16px;
           font-size: 14px;
-          line-height: 1.6;
+          line-height: 1.65;
         }
         .bnf-detail strong {
           font-weight: 500;
+          color: #e2e8e3;
         }
         .bnf-detail span {
           color: var(--muted-foreground);
@@ -763,17 +852,15 @@ export function NeuralFleetVisualization() {
           gap: 8px;
           margin-bottom: 8px;
           color: var(--muted-foreground);
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+          letter-spacing: 0.035em;
+          text-transform: none;
           font-size: 11px;
         }
         .bnf-signal i {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #36c9ff;
-          box-shadow: 0 0 12px #36c9ff;
-          animation: bnfBeat 1.8s ease-in-out infinite;
+          background: #b6c4bc;
         }
         .bnf-backdrop {
           position: absolute;
@@ -903,6 +990,14 @@ export function NeuralFleetVisualization() {
         @keyframes bnfSpinBack {
           to {
             transform: rotate(-360deg);
+          }
+        }
+        @keyframes bnfSwirl {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
           }
         }
         @keyframes bnfSheen {

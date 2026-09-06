@@ -89,6 +89,19 @@ const ORG_PER_BUCKET_RE = /^org-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-
 //     knowledge" for the anon key — see SCHEMA_REGISTRY_v2.md).
 const SERVICE_ROLE_ONLY_BUCKETS = new Set(["knowledge-host"]);
 
+// Buckets with an anon-only INSERT policy by design — the only writer is an
+// unauthenticated public API route (no session, no organization_id), so a
+// signed-in authenticated user (this suite's userA/userB) being blocked from
+// writing here is the correct, intended state, not the NO_INSERT_POLICY
+// defect this suite was built to catch.
+//   - demo-proposal-uploads (added 2026-09-05, migration 175): the only
+//     writer is POST /api/public/demo/prepare (src/app/api/public/demo/
+//     prepare/route.ts), called by an anonymous /demo visitor with no
+//     session. The bucket's only storage.objects policy is `FOR INSERT TO
+//     anon` — there is deliberately no `authenticated` policy, since a real
+//     end-user session is never the actor for this bucket.
+const ANON_ONLY_INSERT_BUCKETS = new Set(["demo-proposal-uploads"]);
+
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -465,6 +478,16 @@ async function testSyntheticOrgPerBucketPair(clients: TestClients, tag: string):
             status: "SKIPPED",
             detail:
               "service-role-only bucket by design (no authenticated-user write path exists) — see SERVICE_ROLE_ONLY_BUCKETS",
+          });
+          continue;
+        }
+        if (ANON_ONLY_INSERT_BUCKETS.has(bucket.name)) {
+          results.push({
+            bucket: bucket.name,
+            category: "shared path-scoped",
+            status: "SKIPPED",
+            detail:
+              "anon-only public intake bucket by design (no authenticated-user write path exists) — see ANON_ONLY_INSERT_BUCKETS",
           });
           continue;
         }

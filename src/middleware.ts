@@ -60,8 +60,11 @@ const PUBLIC_PATHS = [
   "/platform",
   "/platform/funding-intelligence",
   "/platform/opportunity-discovery",
+  "/platform/discovery",
   "/platform/ai-grant-writer",
+  "/platform/draft-generator",
   "/platform/autoapply",
+  "/platform/prospect-intelligence",
   "/platform/pipeline-crm",
   "/platform/analytics",
   "/agents",
@@ -72,11 +75,28 @@ const PUBLIC_PATHS = [
   "/solutions/veterans",
   "/solutions/education",
   "/solutions/community-development",
+  "/solutions/nonprofit-funding-software",
+  "/solutions/grant-discovery-software",
+  "/solutions/grant-matching-software",
+  "/solutions/ai-grant-writing-software",
+  "/solutions/grant-application-automation",
+  "/solutions/funding-pipeline-software",
+  "/solutions/corporate-giving-database",
+  "/solutions/corporate-donation-application-software",
+  "/solutions/nonprofit-prospect-research",
+  "/solutions/donor-prospecting-intelligence",
+  "/solutions/nonprofit-outreach-automation",
+  "/solutions/grant-deadline-tracking",
+  "/solutions/human-in-the-loop-ai",
+  "/solutions/autonomous-fundraising-platform",
+  "/solutions/funding-operations-software",
   "/why-benavora",
   "/trust",
   "/company",
   "/resources",
   "/demo",
+  "/tour",
+  "/scan",
 ];
 
 // Session cookie (no Max-Age) set by the onboarding wizard's "Explore the
@@ -135,6 +155,16 @@ function isPublicPath(pathname: string): boolean {
   // session. Rate-limited per-client-key inside answerPublic() itself, not
   // by a session or secret.
   if (pathname === "/api/public/assist") return true;
+  // Funding Potential Scan intake (/scan): anonymous visitors submit this
+  // with no session. RLS enforces anon INSERT-only on the underlying table
+  // (migration 172), not this allowlist.
+  if (pathname === "/api/public/scan") return true;
+  // Tailored demo intake and optional post-booking preparation step (/demo):
+  // anonymous visitors submit both with no session. RLS enforces anon
+  // INSERT-only on the underlying tables (migrations 174/175), not this
+  // allowlist.
+  if (pathname === "/api/public/demo") return true;
+  if (pathname === "/api/public/demo/prepare") return true;
   // Uptime monitoring hits this every 60s with no session (task WGR-health).
   // Returns only status enums, never raw error text, since the body is public.
   if (pathname === "/api/health") return true;
@@ -187,6 +217,18 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // The marketing landing page is the one exception to "public routes never
+  // block signed-in users": a signed-in visitor hitting the bare root should
+  // land on their dashboard, not the logged-out marketing pitch. Scoped to
+  // exactly "/" - every other public marketing route (/pricing, /demo,
+  // /platform, etc.) stays visitable while signed in, unaffected below.
+  if (request.nextUrl.pathname === "/" && user) {
+    const dashboardUrl = request.nextUrl.clone();
+    dashboardUrl.pathname = "/dashboard";
+    dashboardUrl.search = "";
+    return NextResponse.redirect(dashboardUrl);
+  }
 
   // Public routes never block, even for signed-in users.
   if (isPublic) return response;

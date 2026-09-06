@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Fraunces, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { AssistWidget } from "@/components/marketing/AssistWidget";
@@ -19,18 +19,21 @@ import { mk } from "@/lib/marketing/theme";
 // gets the shared chrome like every other marketing page.
 // See test-evidence/marketing/mkt-001-inventory.md and mkt-003-before.md.
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "600"],
+// Self-hosted (public/fonts) so builds don't depend on reaching fonts.googleapis.com.
+const fraunces = localFont({
+  src: [
+    { path: "../../../public/fonts/fraunces-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../../public/fonts/fraunces-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--mk-display",
   display: "swap",
 });
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const inter = localFont({
+  src: "../../../public/fonts/inter-latin-wght-normal.woff2",
   variable: "--mk-body",
   display: "swap",
+  weight: "100 900",
 });
 
 export default function MarketingLayout({

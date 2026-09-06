@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { compileMDX } from "next-mdx-remote/rsc";
 import { listPages, getPage } from "@/lib/marketing/content";
+import { marketingMetadata } from "@/lib/marketing/seo";
 import {
   PlatformTemplate,
   SolutionTemplate,
@@ -21,10 +22,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const page = getPage(params.slug);
   if (!page) return {};
-  return {
-    title: page.meta.title,
-    description: page.meta.description,
-  };
+  return marketingMetadata(`/${params.slug.join("/")}`, page.meta.title, page.meta.description);
 }
 
 export default async function MarketingContentPage({

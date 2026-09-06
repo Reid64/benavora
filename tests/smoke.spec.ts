@@ -11,9 +11,7 @@ test("landing page renders the Benavora hero", async ({ page }) => {
   // The redesigned hero leads with the tagline as the page's H1; the nav's
   // brand mark is now an image logo (no separate text wordmark) named via alt text.
   await expect(
-    page.getByRole("heading", { level: 1, name: /Win More Grants/ }),
+    page.getByRole("heading", { level: 1, name: /Find the right funders\./ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("navigation").getByAltText("Benavora"),
-  ).toBeVisible();
+  await expect(page.getByRole("banner").getByAltText("Benavora")).toBeVisible();
 });

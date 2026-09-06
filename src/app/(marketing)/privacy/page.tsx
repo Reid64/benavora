@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { marketingMetadata } from "@/lib/marketing/seo";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy - Benavora",
-  description:
-    "How Benavora collects, processes, stores, and protects your data.",
-};
+export const metadata: Metadata = marketingMetadata(
+  "/privacy",
+  "Privacy Policy",
+  "How Benavora collects, processes, stores, and protects your data."
+);
 
 function Section({
   title,

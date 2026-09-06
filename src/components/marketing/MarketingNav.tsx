@@ -117,6 +117,7 @@ export function MarketingNav() {
           justifyContent: "space-between",
           position: "relative",
         }}
+        onMouseLeave={() => setOpenGroup(null)}
       >
         <Link href="/" aria-label="Benavora home" style={{ display: "flex", alignItems: "center" }}>
           <Logo size={36} showWordmark />
@@ -128,13 +129,11 @@ export function MarketingNav() {
         >
           {MEGA_GROUPS.map((group) => {
             const active = isActive(pathname, group.href);
-            const open = openGroup === group.label;
             return (
               <div
                 key={group.label}
-                style={{ position: "relative", height: 64, display: "flex", alignItems: "center" }}
+                style={{ height: 64, display: "flex", alignItems: "center" }}
                 onMouseEnter={() => setOpenGroup(group.label)}
-                onMouseLeave={() => setOpenGroup((prev) => (prev === group.label ? null : prev))}
               >
                 <button
                   type="button"
@@ -151,7 +150,6 @@ export function MarketingNav() {
                 >
                   {group.label}
                 </button>
-                <MegaMenu group={group} open={open} />
               </div>
             );
           })}
@@ -175,6 +173,16 @@ export function MarketingNav() {
             );
           })}
         </nav>
+
+        {/* Rendered here, not inside each per-group wrapper above: the wrapper is
+            only as wide as its trigger button, so a MegaMenu positioned
+            `left:0; right:0` inside it would resolve its containing block to
+            that narrow button width instead of the full nav row. This div
+            (maxWidth 1200, position: relative) is the containing block that
+            gives the menu its intended full width. */}
+        {MEGA_GROUPS.map((group) => (
+          <MegaMenu key={group.label} group={group} open={openGroup === group.label} />
+        ))}
 
         <div className="mk-desktop-actions" style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Link href="/login" style={{ fontSize: 14, color: mk.forest, textDecoration: "none" }}>
@@ -223,6 +231,13 @@ export function MarketingNav() {
         <div
           className="mk-mobile-panel"
           style={{
+            position: "fixed",
+            top: 64,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
             background: mk.surface,
             borderTop: `1px solid ${mk.line}`,
             padding: 16,

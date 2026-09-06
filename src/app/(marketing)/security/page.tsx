@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
 import { Badge as UIBadge } from "@/components/ui/Badge";
+import { marketingMetadata } from "@/lib/marketing/seo";
 
-export const metadata: Metadata = {
-  title: "Security - Benavora",
-  description:
-    "How Benavora protects your grant data with AES-256 encryption, row-level security, TLS 1.3, and SOC 2-compliant infrastructure.",
-};
+export const metadata: Metadata = marketingMetadata(
+  "/security",
+  "Security",
+  "How Benavora protects your grant data with AES-256 encryption, row-level security, TLS 1.3, and SOC 2-compliant infrastructure."
+);
 
 function Section({
   title,

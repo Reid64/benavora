@@ -15,6 +15,21 @@ export const SOLUTIONS: NavGroup = { label: "Solutions", href: "/solutions", ite
   { label: "Veterans Organizations", href: "/solutions/veterans" },
   { label: "Education", href: "/solutions/education" },
   { label: "Community Development", href: "/solutions/community-development" },
+  { label: "Nonprofit Funding Software", href: "/solutions/nonprofit-funding-software" },
+  { label: "Grant Discovery Software", href: "/solutions/grant-discovery-software" },
+  { label: "Grant Matching Software", href: "/solutions/grant-matching-software" },
+  { label: "AI Grant Writing Software", href: "/solutions/ai-grant-writing-software" },
+  { label: "Grant Application Automation", href: "/solutions/grant-application-automation" },
+  { label: "Nonprofit Funding Pipeline Software", href: "/solutions/funding-pipeline-software" },
+  { label: "Corporate Giving Database", href: "/solutions/corporate-giving-database" },
+  { label: "Corporate Donation Application Software", href: "/solutions/corporate-donation-application-software" },
+  { label: "Nonprofit Prospect Research", href: "/solutions/nonprofit-prospect-research" },
+  { label: "Donor Prospecting Intelligence", href: "/solutions/donor-prospecting-intelligence" },
+  { label: "Nonprofit Outreach Automation", href: "/solutions/nonprofit-outreach-automation" },
+  { label: "Grant Deadline Tracking", href: "/solutions/grant-deadline-tracking" },
+  { label: "Human-in-the-Loop AI", href: "/solutions/human-in-the-loop-ai" },
+  { label: "Autonomous Fundraising Platform", href: "/solutions/autonomous-fundraising-platform" },
+  { label: "Funding Operations Software", href: "/solutions/funding-operations-software" },
 ]};
 export const RESOURCES: NavGroup = { label: "Resources", href: "/resources", items: [
   { label: "Library", href: "/resources" },
@@ -38,4 +53,4 @@ export const FOOTER_COLUMNS: { heading: string; links: NavLink[] }[] = [
     { label: "Security", href: "/security" },
   ]},
 ];
-export const ALL_MARKETING_ROUTES: string[] = ["/","/platform",...PLATFORM.items.map(i=>i.href),"/how-it-works","/agents","/solutions",...SOLUTIONS.items.map(i=>i.href),"/why-benavora","/trust","/pricing","/company","/resources","/demo"];
+export const ALL_MARKETING_ROUTES: string[] = ["/","/platform",...PLATFORM.items.map(i=>i.href),"/platform/prospect-intelligence","/how-it-works","/agents","/solutions",...SOLUTIONS.items.map(i=>i.href),"/why-benavora","/trust","/pricing","/company","/resources","/demo","/tour","/scan"];

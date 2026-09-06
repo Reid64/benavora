@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * 20. The login page uses the dark theme (globals.css, login/page.tsx). Runs in
- * the unauthenticated "public" project — no session required.
+ * 20. The login page pairs a light Soft Stone app shell with a dark brand
+ * hero panel (aside, bg-navy-900) — light app + dark hero by design, not a
+ * dark page canvas. Runs in the unauthenticated "public" project — no
+ * session required.
  */
 test("login page uses the dark theme", async ({ page }) => {
   await page.goto("/login");
@@ -12,12 +14,13 @@ test("login page uses the dark theme", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
-  // The deep #0f1117 canvas applies on the public login route too.
-  const bodyBg = await page.evaluate(
-    () => getComputedStyle(document.body).backgroundColor,
+  // The brand panel's gradient headline is part of the dark hero (bg-navy-900,
+  // #2c4e3b) — only visible at lg+ viewport widths, so the desktop project's
+  // viewport is required for this locator to render.
+  const heroHeading = page.getByRole("heading", { name: /Fund More\./ });
+  await expect(heroHeading).toBeVisible();
+  const asideBg = await heroHeading.evaluate(
+    (el) => getComputedStyle(el.closest("aside")!).backgroundColor,
   );
-  expect(bodyBg).toBe("rgb(15, 17, 23)");
-
-  // The brand panel's gradient headline is part of the dark hero.
-  await expect(page.getByText("Fund More.").first()).toBeVisible();
+  expect(asideBg).toBe("rgb(44, 78, 59)");
 });
