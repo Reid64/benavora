@@ -36,6 +36,7 @@ export type PageMeta = {
   description: string;
   eyebrow?: string;
   hero?: string;
+  heroImage?: string;
   capabilities?: CapabilityItem[];
   problems?: ProblemPair[];
   steps?: StepItem[];

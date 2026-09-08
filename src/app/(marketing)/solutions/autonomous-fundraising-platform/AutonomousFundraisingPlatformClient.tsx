@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -15,7 +15,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, padding: 20 }}>
+    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, boxShadow: mkElevation[1], padding: 20 }}>
       {children}
     </div>
   );
@@ -85,8 +85,8 @@ export default function AutonomousFundraisingPlatformClient() {
       <Section tone="tint">
         <Display2>The actual command center</Display2>
         <p style={{ color: mk.ink, fontSize: 15, marginTop: 12, maxWidth: 680 }}>
-          Not a mockup — the live Dashboard for a real organization account, captured from a running instance
-          of the application.
+          Not a mockup — the live Autonomous Agent Settings screen for a real organization account, captured
+          from a running instance of the application.
         </p>
         <div
           style={{
@@ -98,8 +98,8 @@ export default function AutonomousFundraisingPlatformClient() {
           }}
         >
           <Image
-            src="/marketing/platform-corporate-marketplace-live.png"
-            alt="The live platform, showing corporate-giving opportunities alongside the grant pipeline"
+            src="/marketing/platform-autonomy-settings-live.png"
+            alt="The live platform's Autonomous Agent Settings screen, showing nine independent autonomy switches, each off by default"
             width={1440}
             height={900}
             priority
@@ -186,6 +186,7 @@ export default function AutonomousFundraisingPlatformClient() {
             background: mk.surface,
             border: `1px solid ${mk.line}`,
             borderRadius: mkRadius.shot,
+            boxShadow: mkElevation[2],
             padding: 32,
           }}
         >

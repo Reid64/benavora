@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -16,7 +16,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, padding: 20 }}>
+    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, boxShadow: mkElevation[1], padding: 20 }}>
       {children}
     </div>
   );
@@ -149,6 +149,7 @@ export default function NonprofitFundingSoftwareClient() {
                 background: mk.surface,
                 border: `1px solid ${mk.line}`,
                 borderRadius: mkRadius.card,
+                boxShadow: mkElevation[1],
                 padding: 20,
                 textDecoration: "none",
               }}
@@ -166,7 +167,7 @@ export default function NonprofitFundingSoftwareClient() {
           The four capabilities behind this pipeline each have their own dedicated page, since &ldquo;finding a
           grant&rdquo; and &ldquo;submitting one&rdquo; are genuinely different problems with different evidence.
         </p>
-        <div style={{ marginTop: 24, display: "grid", gap: 1, background: mk.line, borderRadius: mkRadius.card, overflow: "hidden" }}>
+        <div style={{ marginTop: 24, display: "grid", gap: 1, background: mk.line, borderRadius: mkRadius.card, boxShadow: mkElevation[1], overflow: "hidden" }}>
           {ROUTE_TABLE.map((r) => (
             <Link
               key={r.href}
@@ -244,6 +245,7 @@ export default function NonprofitFundingSoftwareClient() {
             background: mk.surface,
             border: `1px solid ${mk.line}`,
             borderRadius: mkRadius.shot,
+            boxShadow: mkElevation[2],
             padding: 32,
           }}
         >

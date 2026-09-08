@@ -1,3 +1,6 @@
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
+
 // "What does it replace" — names the specific manual workaround each platform
 // capability removes, on the same dark forest canvas as the surrounding
 // homepage sections (bm- prefixed classes, #222624 background, #3b403b
@@ -35,7 +38,17 @@ const REPLACEMENTS: { was: string; nowTag: string; nowBody: string }[] = [
 
 export function WhatItReplaces() {
   return (
-    <section className="bm-replaces" aria-labelledby="replaces-title">
+    <section
+      className="bm-replaces"
+      aria-labelledby="replaces-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="corner-roots"
+        color="#3b403b"
+        opacity={0.09}
+        style={{ right: 0, bottom: 0, width: 200, height: 200, transform: "scale(-1, -1)" }}
+      />
       <p className="bm-eyebrow">What does it replace</p>
       <h2 id="replaces-title">
         The manual workarounds your team built
@@ -58,13 +71,13 @@ export function WhatItReplaces() {
           </li>
         ))}
       </ul>
+      <SectionDividerDef variant="blob" fill="#222624" />
       <style jsx>{`
         .bm-replaces {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 72px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {

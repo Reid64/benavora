@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // "Can I trust it?" — a short teaser only. The full Trust and Governance
 // content lives at /trust (content/marketing/trust.mdx, rendered through
@@ -26,7 +28,17 @@ import Link from "next/link";
 //   and missing portal credentials always pause for one.
 export function CanITrustIt() {
   return (
-    <section className="bm-trustit" aria-labelledby="trustit-title">
+    <section
+      className="bm-trustit"
+      aria-labelledby="trustit-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="corner-roots"
+        color="#efb344"
+        opacity={0.06}
+        style={{ right: 0, top: 0, width: 190, height: 190, transform: "scaleX(-1)" }}
+      />
       <p className="bm-eyebrow">Can I trust it?</p>
       <h2 id="trustit-title">
         Every source is named.
@@ -62,13 +74,14 @@ export function CanITrustIt() {
         </Link>
       </div>
 
+      <SectionDividerDef variant="arc" fill="#222624" />
+
       <style jsx>{`
         .bm-trustit {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 72px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {

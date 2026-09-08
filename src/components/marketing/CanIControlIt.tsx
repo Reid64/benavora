@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // "Can I control it" — answers the automation-trust objection with AutoApply's
 // real risk-gated control model, not a generic "human in the loop" claim.
@@ -74,7 +76,17 @@ const CONTROLS: { mechanism: string; how: string; means: string }[] = [
 
 export function CanIControlIt() {
   return (
-    <section className="bm-control" aria-labelledby="control-title">
+    <section
+      className="bm-control"
+      aria-labelledby="control-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="branches"
+        color="#3b403b"
+        opacity={0.08}
+        style={{ right: -20, bottom: -15, width: 220, height: 220 }}
+      />
       <p className="bm-eyebrow">Can I control it?</p>
       <h2 id="control-title">
         It knows which decisions
@@ -128,13 +140,14 @@ export function CanIControlIt() {
         </Link>
       </div>
 
+      <SectionDividerDef variant="diagonal" fill="#222624" />
+
       <style jsx>{`
         .bm-control {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 72px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {

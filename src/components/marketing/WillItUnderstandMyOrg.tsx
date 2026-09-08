@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // "Will it understand my organization?" — answers the personalization
 // objection with the real first-login setup flow (OnboardingWizard,
@@ -57,7 +59,17 @@ const STEPS: { step: string; captures: string; enables: string }[] = [
 
 export function WillItUnderstandMyOrg() {
   return (
-    <section className="bm-understand" aria-labelledby="understand-title">
+    <section
+      className="bm-understand"
+      aria-labelledby="understand-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="roots"
+        color="#efb344"
+        opacity={0.08}
+        style={{ left: -20, top: -10, width: 210, height: 210 }}
+      />
       <p className="bm-eyebrow">Will it understand my organization?</p>
       <h2 id="understand-title">
         It learns your organization the way
@@ -110,13 +122,14 @@ export function WillItUnderstandMyOrg() {
         </Link>
       </div>
 
+      <SectionDividerDef variant="wave" fill="#222624" />
+
       <style jsx>{`
         .bm-understand {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 72px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {

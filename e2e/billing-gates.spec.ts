@@ -127,7 +127,7 @@ test("competitor intelligence is gated behind an upgrade prompt for non-Enterpri
   // Non-Enterprise users see an upgrade prompt instead of the data table.
   await expect(
     page
-      .getByText(/Enterprise and Consultant plans only/i)
+      .getByText(/Enterprise plan only/i)
       .or(page.getByText(/Upgrade/i))
       .first(),
   ).toBeVisible({ timeout: 15_000 });
@@ -156,7 +156,7 @@ test("billing page renders the current plan and usage meters", async ({
 
   // The active tier name appears in the current-plan card. Accept any valid tier.
   const tierLabel = page.getByText(
-    /Free|Starter|Professional|Enterprise|Consultant/i,
+    /Free|Starter|Professional|Enterprise/i,
   );
   await expect(tierLabel.first()).toBeVisible();
 

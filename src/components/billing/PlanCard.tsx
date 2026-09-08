@@ -18,17 +18,15 @@ const ORDER: Record<SubscriptionTier, number> = {
   starter: 1,
   professional: 2,
   enterprise: 3,
-  consultant: 4,
 };
 
-/** Plan accent colors (task spec: Starter/Professional/Enterprise; free and
- * consultant extended to match so every real tier in SUBSCRIPTION_TIERS has one). */
+/** Plan accent colors (task spec: Starter/Professional/Enterprise; free
+ * extended to match so every real tier in SUBSCRIPTION_TIERS has one). */
 export const PLAN_COLORS: Record<SubscriptionTier, string> = {
   free: "#64748B",
   starter: "#0EA5E9",
   professional: "#8B5CF6",
   enterprise: "#10B981",
-  consultant: "#F59E0B",
 };
 
 const TEXT_PRIMARY = "#0F172A";

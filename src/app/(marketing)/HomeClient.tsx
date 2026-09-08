@@ -7,6 +7,7 @@ import { NeuralFleetVisualization } from "@/components/marketing/NeuralFleetVisu
 import { HowItWorksLifecycle } from "@/components/marketing/HowItWorksLifecycle";
 import { FundraisingToolkit } from "@/components/marketing/FundraisingToolkit";
 import { CanISeeIt } from "@/components/marketing/CanISeeIt";
+import { DashboardPreview } from "@/components/marketing/DashboardPreview";
 import { CanIControlIt } from "@/components/marketing/CanIControlIt";
 import { CanITrustIt } from "@/components/marketing/CanITrustIt";
 import { DoesItWorkForOrgsLikeMine } from "@/components/marketing/DoesItWorkForOrgsLikeMine";
@@ -15,7 +16,7 @@ import { WhatItReplaces } from "@/components/marketing/WhatItReplaces";
 import { ManualVsBenavora } from "@/components/marketing/ManualVsBenavora";
 import { WillItUnderstandMyOrg } from "@/components/marketing/WillItUnderstandMyOrg";
 import { Logo } from "@/components/layout/Logo";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 import { PLATFORM, SOLUTIONS } from "@/lib/marketing/nav";
 
 const LIFECYCLE_STEPS = [
@@ -431,6 +432,18 @@ export default function HomeClient() {
 
       <CanISeeIt />
 
+      <Section tone="paper" id="try-it">
+        <Display2>Try it yourself</Display2>
+        <p style={{ color: mk.muted, fontSize: 15, lineHeight: 1.6, marginTop: 12, maxWidth: 640 }}>
+          Click around a live, interactive preview of the Opportunities dashboard below — filter by funding source,
+          expand a score breakdown, see how a recommendation is built. It runs entirely in your browser on seeded
+          sample data.
+        </p>
+        <div style={{ marginTop: 28 }}>
+          <DashboardPreview />
+        </div>
+      </Section>
+
       <WhatWillItCost />
 
       <FundraisingToolkit />
@@ -453,6 +466,7 @@ export default function HomeClient() {
                 border: `1px solid ${mk.line}`,
                 borderTop: `4px solid ${door.border}`,
                 borderRadius: mkRadius.card,
+                boxShadow: mkElevation[2],
                 padding: 24,
               }}
             >
@@ -528,6 +542,7 @@ export default function HomeClient() {
                 background: mk.paper,
                 border: `1px solid ${mk.line}`,
                 borderRadius: mkRadius.card,
+                boxShadow: mkElevation[1],
                 padding: 22,
                 textDecoration: "none",
               }}
@@ -560,6 +575,7 @@ export default function HomeClient() {
                 background: mk.surface,
                 border: `1px solid ${mk.line}`,
                 borderRadius: mkRadius.card,
+                boxShadow: mkElevation[1],
                 padding: "18px 20px",
                 color: mk.forest,
                 fontWeight: 600,
@@ -617,6 +633,7 @@ export default function HomeClient() {
                 background: "rgba(255, 255, 255, 0.06)",
                 border: "1px solid rgba(255, 255, 255, 0.14)",
                 borderRadius: mkRadius.card,
+                boxShadow: "0 1px 0 rgba(255,255,255,0.12) inset, 0 12px 28px -12px rgba(0,0,0,0.45)",
                 padding: 24,
                 display: "flex",
                 flexDirection: "column",

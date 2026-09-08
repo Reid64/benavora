@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { PRICING_PLANS } from "@/lib/utils/pricing-plans";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
+import { mkElevationDark } from "@/lib/marketing/theme";
 
 // Same dark brand tokens as the landing page pricing section
 // (src/app/(marketing)/MarketingPageClient.tsx) for visual consistency.
@@ -26,7 +29,12 @@ const B = {
 };
 
 const sans = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-const display = "'Plus Jakarta Sans', 'Inter', sans-serif";
+// Headline serif: the site's self-hosted Fraunces (same family Display1/
+// Display2 use elsewhere — see src/app/(marketing)/layout.tsx and
+// src/components/marketing/Section.tsx) instead of the previous
+// 'Plus Jakarta Sans' pull, so pricing gets a genuine serif/sans pairing
+// like the rest of the marketing site rather than two sans-serif weights.
+const display = "var(--mk-display), Georgia, serif";
 
 const IconCheck = ({ color = B.blue }: { color?: string }) => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
@@ -131,7 +139,14 @@ export default function PricingPageClient() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div style={{ backgroundColor: B.bg, color: B.textPrimary, fontFamily: sans }}>
+    <div
+      style={{
+        position: "relative",
+        color: B.textPrimary,
+        fontFamily: sans,
+        ...mkGrainBackground(B.bg, true),
+      }}
+    >
       <style
         // dangerouslySetInnerHTML (not a JSX text child) so the raw CSS string is
         // never routed through React's text-node SSR/CSR diffing — a plain
@@ -142,7 +157,7 @@ export default function PricingPageClient() {
         // same way in HowItWorksClient.tsx).
         dangerouslySetInnerHTML={{
           __html: `
-        @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap");
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
         .pp-tc { transition: all 200ms ease; }
         .pp-card-hover { transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; }
         .pp-card-hover:hover { transform: translateY(-4px); }
@@ -153,7 +168,19 @@ export default function PricingPageClient() {
       />
 
       {/* Header */}
-      <section style={{ maxWidth: 900, margin: "0 auto", padding: "88px 24px 48px", textAlign: "center" }}>
+      <section style={{ position: "relative", maxWidth: 900, margin: "0 auto", padding: "88px 24px 48px", textAlign: "center" }}>
+        <BotanicalMotif
+          variant="branches"
+          color={B.blue}
+          opacity={0.1}
+          style={{ left: -60, top: -10, width: 260, height: 260 }}
+        />
+        <BotanicalMotif
+          variant="roots"
+          color={B.purple}
+          opacity={0.08}
+          style={{ right: -50, top: 40, width: 220, height: 220, transform: "scaleX(-1)" }}
+        />
         <h1
           style={{
             fontFamily: display,
@@ -204,10 +231,18 @@ export default function PricingPageClient() {
             </button>
           ))}
         </div>
+        <SectionDividerDef variant="diagonal" fill={B.bg} />
       </section>
 
       {/* Cards */}
-      <section style={{ maxWidth: 1220, margin: "0 auto", padding: "0 24px 100px" }}>
+      <section
+        style={{
+          position: "relative",
+          background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${B.bgRaised} 0%, transparent 70%)`,
+          padding: "56px 0 100px",
+        }}
+      >
+        <div style={{ maxWidth: 1220, margin: "0 auto", padding: "0 24px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           {CARDS.map((card) => {
             const plan = PRICING_PLANS[card.id];
@@ -225,7 +260,9 @@ export default function PricingPageClient() {
                   overflow: "hidden",
                   background: hl ? `linear-gradient(160deg, ${B.bgHighlight} 0%, ${B.bgRaised} 100%)` : B.bgCard,
                   border: hl ? `1px solid ${B.border}` : `1px solid ${B.borderFaint}`,
-                  boxShadow: hl ? "0 0 60px rgba(14,165,233,0.12), 0 0 100px rgba(139,92,246,0.08)" : "none",
+                  boxShadow: hl
+                    ? `0 0 60px rgba(14,165,233,0.12), 0 0 100px rgba(139,92,246,0.08), ${mkElevationDark[3]}`
+                    : mkElevationDark[1],
                 }}
               >
                 <div
@@ -349,10 +386,12 @@ export default function PricingPageClient() {
             );
           })}
         </div>
+        </div>
+        <SectionDividerDef variant="arc" fill={B.bgRaised} />
       </section>
 
       {/* FAQ */}
-      <section style={{ maxWidth: 760, margin: "0 auto", padding: "0 24px 100px" }}>
+      <section style={{ position: "relative", maxWidth: 760, margin: "0 auto", padding: "0 24px 100px" }}>
         <h2
           style={{
             fontFamily: display,

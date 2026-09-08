@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-import { searchGrantsGovOpportunities } from "./grantsgov-client";
+import {
+  searchGrantsGovOpportunities,
+  discoverAgencySubCodes,
+  getAgencyCodesWithFallback,
+  AGENCY_CODE_CACHE_TTL_MS,
+  __resetAgencyCodeCacheForTests,
+} from "./grantsgov-client";
 
 function jsonResponse(body: unknown, init: { ok?: boolean; status?: number } = {}): Response {
   return {
@@ -18,6 +24,7 @@ const SAMPLE_HIT = {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  __resetAgencyCodeCacheForTests();
 });
 
 describe("searchGrantsGovOpportunities — request shape", () => {
@@ -154,5 +161,129 @@ describe("searchGrantsGovOpportunities — existing behavior unchanged", () => {
     const result = await searchGrantsGovOpportunities("housing");
     expect(result).toHaveLength(1);
     expect(result[0]?.externalId).toBe("355824");
+  });
+});
+
+const HHS_FACET = {
+  label: "Department of Health and Human Services",
+  value: "HHS",
+  count: 251,
+  subAgencyOptions: [
+    { label: "National Institutes of Health", value: "HHS-NIH11", count: 213 },
+    { label: "Centers for Disease Control-GHC", value: "HHS-CDC-GHC", count: 11 },
+  ],
+};
+
+const ED_FACET_NO_SUBAGENCIES = {
+  label: "Department of Education",
+  value: "ED",
+  count: 2,
+  subAgencyOptions: [],
+};
+
+describe("discoverAgencySubCodes — live agency facet discovery", () => {
+  it("sends an unfiltered, empty-keyword request so the facet covers every current agency", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ data: { agencies: [HHS_FACET] } }));
+
+    await discoverAgencySubCodes("HHS");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({
+      keyword: "",
+      oppStatuses: "posted|forecasted",
+      rows: 1,
+      startRecordNum: 0,
+    });
+    expect(body.agencies).toBeUndefined();
+  });
+
+  it("returns the parent's sub-agency codes when it has any", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ data: { agencies: [HHS_FACET] } }),
+    );
+
+    const codes = await discoverAgencySubCodes("HHS");
+
+    expect(codes).toEqual(["HHS-NIH11", "HHS-CDC-GHC"]);
+  });
+
+  it("returns the parent code itself when the facet entry has no sub-agencies", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ data: { agencies: [ED_FACET_NO_SUBAGENCIES] } }),
+    );
+
+    const codes = await discoverAgencySubCodes("ED");
+
+    expect(codes).toEqual(["ED"]);
+  });
+
+  it("returns [] when the parent has no facet entry at all (zero current postings)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ data: { agencies: [] } }));
+
+    const codes = await discoverAgencySubCodes("HHS");
+
+    expect(codes).toEqual([]);
+  });
+
+  it("returns [] on a non-ok HTTP response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({}, { ok: false, status: 500 }));
+    expect(await discoverAgencySubCodes("HHS")).toEqual([]);
+  });
+
+  it("returns [] when fetch throws", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
+    expect(await discoverAgencySubCodes("HHS")).toEqual([]);
+  });
+});
+
+describe("getAgencyCodesWithFallback — cached discovery with dated-snapshot fallback", () => {
+  it("returns live-discovered codes, not the fallback, when discovery succeeds", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ data: { agencies: [HHS_FACET] } }),
+    );
+
+    const codes = await getAgencyCodesWithFallback("HHS", ["HHS-STALE-FALLBACK"]);
+
+    expect(codes).toEqual(["HHS-NIH11", "HHS-CDC-GHC"]);
+  });
+
+  it("falls back to the caller-supplied snapshot when discovery returns nothing", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ data: { agencies: [] } }));
+
+    const codes = await getAgencyCodesWithFallback("HHS", ["HHS-STALE-FALLBACK"]);
+
+    expect(codes).toEqual(["HHS-STALE-FALLBACK"]);
+  });
+
+  it("serves subsequent calls from cache within the TTL without hitting the network again", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ data: { agencies: [HHS_FACET] } }));
+
+    const first = await getAgencyCodesWithFallback("HHS", ["HHS-STALE-FALLBACK"]);
+    const second = await getAgencyCodesWithFallback("HHS", ["HHS-STALE-FALLBACK"]);
+
+    expect(first).toEqual(second);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-discovers after the cache TTL has elapsed", async () => {
+    const nowSpy = vi.spyOn(Date, "now");
+    let now = 1_000_000;
+    nowSpy.mockImplementation(() => now);
+
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ data: { agencies: [HHS_FACET] } }));
+
+    await getAgencyCodesWithFallback("HHS", ["HHS-STALE-FALLBACK"]);
+    now += AGENCY_CODE_CACHE_TTL_MS + 1;
+    await getAgencyCodesWithFallback("HHS", ["HHS-STALE-FALLBACK"]);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });

@@ -2,7 +2,7 @@
 
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -14,7 +14,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, padding: 20 }}>
+    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, boxShadow: mkElevation[1], padding: 20 }}>
       {children}
     </div>
   );
@@ -123,7 +123,7 @@ export default function HumanInTheLoopAiClient() {
           settings, every one off until an owner or admin turns it on. A writer or viewer account cannot
           change any of them.
         </p>
-        <div style={{ marginTop: 24, display: "grid", gap: 1, background: mk.line, borderRadius: mkRadius.card, overflow: "hidden" }}>
+        <div style={{ marginTop: 24, display: "grid", gap: 1, background: mk.line, borderRadius: mkRadius.card, boxShadow: mkElevation[1], overflow: "hidden" }}>
           {AUTONOMY_ROWS.map((r) => (
             <div
               key={r.label}
@@ -213,6 +213,7 @@ export default function HumanInTheLoopAiClient() {
             background: mk.surface,
             border: `1px solid ${mk.line}`,
             borderRadius: mkRadius.shot,
+            boxShadow: mkElevation[2],
             padding: 32,
           }}
         >

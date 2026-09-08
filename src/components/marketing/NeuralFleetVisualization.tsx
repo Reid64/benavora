@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // A style object that also carries CSS custom properties (--node, --wire, etc).
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
@@ -200,6 +202,11 @@ const NEURONS: { left: string; top: string; fire: string; pulse: string; delay: 
  * open a division's inventory from outside this component's own DOM. */
 export const OPEN_DIVISION_EVENT = "benavora:open-division";
 
+/** Fired whenever a division node is selected (by direct click or via
+ * OPEN_DIVISION_EVENT) so the lifecycle flow diagram further down the page can
+ * animate its six-stage sequence in that division's accent color. */
+export const LIFECYCLE_FLOW_EVENT = "benavora:lifecycle-flow";
+
 export function NeuralFleetVisualization() {
   const [selected, setSelected] = useState<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -266,6 +273,12 @@ export function NeuralFleetVisualization() {
   const handleSelect = (i: number) => {
     setSelected(i);
     setIsOpen(true);
+    const family = FAMILIES[i];
+    if (family) {
+      window.dispatchEvent(
+        new CustomEvent(LIFECYCLE_FLOW_EVENT, { detail: { index: i, name: family.name, color: COLORS[i] } })
+      );
+    }
   };
 
   // Lets the toolkit's Auto Apply card (a separate component, further down the
@@ -317,7 +330,14 @@ export function NeuralFleetVisualization() {
       aria-label="Interactive map of Benavora's 48-agent prospect intelligence fleet"
       className="bnf-fleet"
       onKeyDown={handleRootKeyDown}
+      style={mkGrainBackground("#222624", true)}
     >
+      <BotanicalMotif
+        variant="corner-roots"
+        color="#3b403b"
+        opacity={0.06}
+        style={{ left: 0, bottom: 0, width: 200, height: 200, transform: "scaleY(-1)" }}
+      />
       <div className="bnf-stage" ref={stageRef} onPointerMove={handlePointerMove} onPointerLeave={handlePointerLeave}>
         <div className="bnf-parallax" ref={parallaxRef}>
           <svg
@@ -344,7 +364,7 @@ export function NeuralFleetVisualization() {
                 <stop offset="1" stopColor="#9caac6" stopOpacity="0" />
               </linearGradient>
             </defs>
-            <g aria-hidden="true" transform="translate(560 350)">
+            <g aria-hidden="true" transform="translate(560 350)" fill="none">
               <ellipse className="bnf-arc a" rx={240} ry={150} />
               <ellipse className="bnf-arc b" rx={275} ry={177} transform="rotate(24)" />
               <ellipse className="bnf-arc c" rx={310} ry={205} transform="rotate(-17)" />
@@ -358,7 +378,7 @@ export function NeuralFleetVisualization() {
                 <path d="M-258 -177 C-83 -291 157 -251 264 -104 C348 12 284 191 135 215 C18 234 -73 167 -54 90" />
               </g>
             </g>
-            <g aria-hidden="true">
+            <g aria-hidden="true" fill="none">
               {FAMILIES.map((f, i) => (
                 <path
                   key={`echo-${f.name}`}
@@ -497,6 +517,7 @@ export function NeuralFleetVisualization() {
           </>
         )}
       </div>
+      <SectionDividerDef variant="wave" fill="#222624" />
       <style jsx>{`
         .bnf-fleet {
           --background: #222624;
@@ -507,7 +528,6 @@ export function NeuralFleetVisualization() {
           position: relative;
           isolation: isolate;
           color: var(--foreground);
-          background: var(--background);
           padding: 56px 24px 64px;
           overflow: hidden;
         }
@@ -590,7 +610,6 @@ export function NeuralFleetVisualization() {
           aspect-ratio: 1;
           max-width: 74%;
           transform: translate(-50%, -50%);
-          background-color: var(--background);
           background-image: url(/marketing/brain-network.webp);
           background-size: contain;
           background-repeat: no-repeat;
@@ -731,7 +750,8 @@ export function NeuralFleetVisualization() {
           background: #222622;
           border: 1px solid color-mix(in srgb, var(--node) 27%, var(--border));
           border-radius: 18px;
-          box-shadow: 0 5px 18px rgba(0, 0, 0, 0.094);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 16px -6px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
           z-index: 5;
           cursor: pointer;
           font: inherit;
@@ -892,7 +912,8 @@ export function NeuralFleetVisualization() {
           background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 15%, var(--card)), var(--card) 46%);
           border: 1px solid color-mix(in srgb, var(--panel) 58%, var(--border));
           border-radius: 26px;
-          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7), 0 0 48px color-mix(in srgb, var(--panel) 18%, transparent);
+          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7), 0 0 48px color-mix(in srgb, var(--panel) 18%, transparent),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
           transition: opacity 0.34s, transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         .bnf-inventory.is-open {

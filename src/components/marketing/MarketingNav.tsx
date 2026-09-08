@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/layout/Logo";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 import { PLATFORM, SOLUTIONS, RESOURCES, TOP_LINKS, type NavGroup } from "@/lib/marketing/nav";
 
 const MEGA_GROUPS: NavGroup[] = [PLATFORM, SOLUTIONS, RESOURCES];
@@ -26,7 +26,7 @@ function MegaMenu({ group, open }: { group: NavGroup; open: boolean }) {
         background: mk.surface,
         border: `1px solid ${mk.line}`,
         borderTop: "none",
-        boxShadow: "0 12px 24px rgba(0,0,0,0.08)",
+        boxShadow: mkElevation[3],
         zIndex: 50,
       }}
     >
@@ -103,6 +103,7 @@ export function MarketingNav() {
         zIndex: 100,
         background: mk.paper,
         borderBottom: `1px solid ${mk.line}`,
+        boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 10px -6px rgba(31,58,46,0.18)",
         height: 64,
       }}
     >

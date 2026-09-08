@@ -2,6 +2,8 @@
 
 import type { CSSProperties, SyntheticEvent } from "react";
 import { OPEN_DIVISION_EVENT } from "@/components/marketing/NeuralFleetVisualization";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 type ToneVars = CSSProperties & { "--tone": string };
 
@@ -123,7 +125,11 @@ function handleAutoApplyToggle(e: SyntheticEvent<HTMLDetailsElement>) {
 export function FundraisingToolkit() {
   return (
     <>
-      <section className="bm-autonomy-benefits" aria-label="How autonomous fundraising works">
+      <section
+        className="bm-autonomy-benefits"
+        aria-label="How autonomous fundraising works"
+        style={mkGrainBackground("#222624", true)}
+      >
         {PROOF_POINTS.map((p) => (
           <article key={p.heading.join(" ")}>
             <h3>
@@ -136,7 +142,17 @@ export function FundraisingToolkit() {
         ))}
       </section>
 
-      <section id="fundraising-toolkit" className="bm-toolkit">
+      <section
+        id="fundraising-toolkit"
+        className="bm-toolkit"
+        style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+      >
+        <BotanicalMotif
+          variant="roots"
+          color="#efb344"
+          opacity={0.08}
+          style={{ right: -20, top: -10, width: 230, height: 230 }}
+        />
         <div className="bm-eyebrow">Your fundraising toolkit</div>
         <h2>
           More time for the mission.
@@ -167,6 +183,7 @@ export function FundraisingToolkit() {
             Explore the 48-agent network <span aria-hidden="true">&uarr;</span>
           </a>
         </div>
+        <SectionDividerDef variant="arc" fill="#222624" />
       </section>
 
       <style jsx>{`
@@ -177,7 +194,6 @@ export function FundraisingToolkit() {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 36px;
-          background: #222624;
         }
         .bm-autonomy-benefits article {
           border-top: 2px solid #708778;
@@ -201,7 +217,6 @@ export function FundraisingToolkit() {
           max-width: 1120px;
           margin: 0 auto;
           padding: 90px 32px 76px;
-          background: #222624;
         }
         .bm-eyebrow {
           font-size: 18px;
@@ -242,7 +257,8 @@ export function FundraisingToolkit() {
           border-top: 1px solid #728977;
           border-radius: 12px;
           padding: 32px;
-          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 16px 32px -10px rgba(0, 0, 0, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
         .bm-feature h3.bm-tag {
           font-size: 25px;

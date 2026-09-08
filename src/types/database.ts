@@ -345,6 +345,8 @@ export interface Database {
           source_type:
             | Database["public"]["Enums"]["opportunity_source_type"]
             | null;
+          mission_relevance_score: number | null;
+          mission_relevance_scored_at: string | null;
           discovered_at: string;
           created_at: string;
           updated_at: string;
@@ -378,6 +380,8 @@ export interface Database {
           source_type?:
             | Database["public"]["Enums"]["opportunity_source_type"]
             | null;
+          mission_relevance_score?: number | null;
+          mission_relevance_scored_at?: string | null;
           discovered_at?: string;
           created_at?: string;
           updated_at?: string;
@@ -411,6 +415,8 @@ export interface Database {
           source_type?:
             | Database["public"]["Enums"]["opportunity_source_type"]
             | null;
+          mission_relevance_score?: number | null;
+          mission_relevance_scored_at?: string | null;
           discovered_at?: string;
           created_at?: string;
           updated_at?: string;

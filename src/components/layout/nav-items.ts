@@ -84,6 +84,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Giving Signals", href: "/intelligence/donor-intent" },
       { label: "Community Needs", href: "/intelligence/community-need" },
       { label: "Disaster Response", href: "/intelligence/disaster" },
+      { label: "990 Funding Pattern Explorer", href: "/intelligence/990-funding-pattern-explorer" },
     ],
   },
   {

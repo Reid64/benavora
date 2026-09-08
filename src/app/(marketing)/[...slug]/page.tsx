@@ -8,6 +8,7 @@ import {
   SolutionTemplate,
   SingleTemplate,
 } from "@/components/marketing/PageTemplates";
+import { EvidenceChainDemo } from "@/components/marketing/EvidenceChainDemo";
 
 export const dynamicParams = false;
 
@@ -38,6 +39,7 @@ export default async function MarketingContentPage({
   const { content } = await compileMDX({
     source: page.content,
     options: { parseFrontmatter: false },
+    components: { EvidenceChainDemo },
   });
 
   const related = (page.meta.related ?? []).map((href) => {

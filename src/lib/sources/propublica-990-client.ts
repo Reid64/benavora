@@ -1,13 +1,32 @@
 // ProPublica Nonprofit Explorer organization-detail client — thin fetch +
 // extract layer over the free, no-auth /organizations/{ein}.json endpoint.
 //
-// Two exports live here:
+// Three exports live here:
 //  - fetchProPublicaFinancials — narrow, returns only the two financial
 //    fields src/app/api/sources/propublica/route.ts needs. Kept as-is.
 //  - enrichFoundationFromProPublica — broader profile (org identity fields
 //    + the latest filing's revenue/assets/expenses/period) used by
 //    scripts/enrich-propublica-batch.ts's foundation_directory.enrichment
 //    batch job. Callers own persistence and rate limiting for both.
+//  - fetchLatestFilingGivingSignal — the actual "money given out" line items
+//    (contrpdpbks / distribamt), used to verify a candidate foundation has
+//    REAL recent grantmaking activity — revenue/asset size alone describes
+//    wealth, not giving. Unlike the other two exports, this one goes through
+//    fetchWithRetry (http-retry.ts) — exponential backoff on 429/5xx only,
+//    never on a 4xx — since a transient ProPublica hiccup on this specific
+//    path would otherwise silently drop a real foundation from a run instead
+//    of just missing one enrichment field.
+//
+// None of these three endpoints expose grantee/recipient-level data — the
+// live /organizations/{ein}.json response only carries aggregate 990-PF
+// filing totals (contrpdpbks, distribamt, grscontrgifts, totrevenue, etc.),
+// never an itemized list of organizations a foundation paid out to. Verified
+// live against this exact endpoint for EIN 36-4336415 (Michael & Susan Dell
+// Foundation) and EIN 20-5639919 (Wal-mart Foundation) on 2026-09-07 — see
+// src/app/(dashboard)/intelligence/990-funding-pattern-explorer/page.tsx's
+// header comment for the full account of what that means for this tool.
+
+import { fetchWithRetry } from "@/lib/agents/research/http-retry";
 
 const API_BASE = "https://projects.propublica.org/nonprofits/api/v2";
 
@@ -164,5 +183,105 @@ export async function enrichFoundationFromProPublica(
     totassetsend: filing ? toNumberOrNull(filing.totassetsend) : null,
     totfuncexpns: filing ? toNumberOrNull(filing.totfuncexpns) : null,
     fiscal_period: filing ? (filing.fiscal_period ?? filing.tax_prd_yr ?? null) : null,
+  };
+}
+
+// ── fetchLatestFilingGivingSignal ───────────────────────────────────────────
+
+export interface ProPublicaGivingSignal {
+  ein: string;
+  /** The filing's tax year (tax_prd_yr), for a recency check. */
+  taxYear: number | null;
+  /** 0 = 990, 1 = 990-EZ, 2 = 990-PF. */
+  formType: number | null;
+  /** 990-PF "Contributions, gifts, grants, etc. paid" (contrpdpbks) — the
+   * actual dollar amount this foundation distributed, not its revenue or
+   * asset size. */
+  contributionsPaidPerBooks: number | null;
+  /** 990-PF qualifying distributions (distribamt) — a secondary giving
+   * signal used when contrpdpbks is unavailable. */
+  qualifyingDistributions: number | null;
+  totalFunctionalExpenses: number | null;
+}
+
+interface RawGivingFiling {
+  tax_prd_yr?: number | null;
+  formtype?: number | null;
+  contrpdpbks?: number | null;
+  distribamt?: number | null;
+  totfuncexpns?: number | null;
+}
+
+interface RawOrganizationDetailGiving {
+  filings_with_data?: RawGivingFiling[];
+}
+
+/** Most recent filing by tax_prd_yr — filings_with_data isn't documented as
+ * pre-sorted (mirrors the same defensive sort in propublica-adapter.ts). */
+function latestGivingFiling(filings: RawGivingFiling[] | undefined): RawGivingFiling | null {
+  if (!filings || filings.length === 0) return null;
+  return [...filings].sort((a, b) => (b.tax_prd_yr ?? 0) - (a.tax_prd_yr ?? 0))[0] ?? null;
+}
+
+/**
+ * Fetches the most recent filing's grant/contribution distribution fields
+ * from ProPublica's /organizations/{ein}.json — the line items that actually
+ * describe money given out (contrpdpbks / distribamt), as opposed to
+ * revenue or asset totals, which describe wealth, not giving activity.
+ * Returns null on any HTTP error, 404 (no ProPublica record for this EIN),
+ * or parse failure — non-fatal; callers must skip the candidate rather than
+ * assume or fabricate a giving amount.
+ *
+ * Rate limiting is the caller's responsibility (350ms between calls per
+ * scripts/enrich-propublica-batch.ts) — this function makes exactly one
+ * fetch and returns.
+ */
+export async function fetchLatestFilingGivingSignal(
+  ein: string,
+): Promise<ProPublicaGivingSignal | null> {
+  const cleanEin = ein.replace(/\D/g, "");
+  if (!cleanEin) return null;
+
+  let response: Response;
+  try {
+    response = await fetchWithRetry(
+      () =>
+        fetch(`${API_BASE}/organizations/${cleanEin}.json`, {
+          signal: AbortSignal.timeout(30_000),
+        }),
+      { attempts: 3, baseDelayMs: 500 },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) return null;
+
+  let body: RawOrganizationDetailGiving;
+  try {
+    body = (await response.json()) as RawOrganizationDetailGiving;
+  } catch {
+    return null;
+  }
+
+  const filing = latestGivingFiling(body.filings_with_data);
+  if (!filing) {
+    return {
+      ein: cleanEin,
+      taxYear: null,
+      formType: null,
+      contributionsPaidPerBooks: null,
+      qualifyingDistributions: null,
+      totalFunctionalExpenses: null,
+    };
+  }
+
+  return {
+    ein: cleanEin,
+    taxYear: toNumberOrNull(filing.tax_prd_yr),
+    formType: toNumberOrNull(filing.formtype),
+    contributionsPaidPerBooks: toNumberOrNull(filing.contrpdpbks),
+    qualifyingDistributions: toNumberOrNull(filing.distribamt),
+    totalFunctionalExpenses: toNumberOrNull(filing.totfuncexpns),
   };
 }

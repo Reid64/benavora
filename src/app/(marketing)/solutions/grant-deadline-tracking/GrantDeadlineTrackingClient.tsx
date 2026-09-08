@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -15,7 +15,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, padding: 20 }}>
+    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, boxShadow: mkElevation[1], padding: 20 }}>
       {children}
     </div>
   );
@@ -133,7 +133,7 @@ export default function GrantDeadlineTrackingClient() {
         </p>
         <div style={{ display: "grid", gap: 12, marginTop: 24, maxWidth: 760 }}>
           {URGENCY_TIERS.map((t) => (
-            <div key={t.label} style={{ display: "flex", gap: 16, alignItems: "flex-start", background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, padding: "16px 20px" }}>
+            <div key={t.label} style={{ display: "flex", gap: 16, alignItems: "flex-start", background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, boxShadow: mkElevation[1], padding: "16px 20px" }}>
               <div style={{ width: 10, height: 10, borderRadius: 999, background: t.color, marginTop: 6, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: mk.forest }}>{t.label}</div>
@@ -187,6 +187,7 @@ export default function GrantDeadlineTrackingClient() {
             background: mk.surface,
             border: `1px solid ${mk.line}`,
             borderRadius: mkRadius.shot,
+            boxShadow: mkElevation[2],
             padding: 32,
           }}
         >

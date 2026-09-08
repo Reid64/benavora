@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -15,7 +15,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, padding: 20 }}>
+    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.card, boxShadow: mkElevation[1], padding: 20 }}>
       {children}
     </div>
   );
@@ -42,7 +42,7 @@ function DossierAnimation() {
   }, []);
 
   return (
-    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.shot, padding: 32 }}>
+    <div style={{ background: mk.surface, border: `1px solid ${mk.line}`, borderRadius: mkRadius.shot, boxShadow: mkElevation[2], padding: 32 }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: mk.muted, letterSpacing: 0.4 }}>
         ANIMATED SEQUENCE — ONE PROSPECT&rsquo;S DOSSIER, NOT A SCREEN RECORDING
       </div>
@@ -190,6 +190,7 @@ export default function DonorProspectingIntelligenceClient() {
             background: mk.surface,
             border: `1px solid ${mk.line}`,
             borderRadius: mkRadius.shot,
+            boxShadow: mkElevation[2],
             padding: 32,
           }}
         >

@@ -2,7 +2,7 @@
 
 // Competitor Intelligence Dashboard (AGENTS.md Agent 24, BEHAVIORAL_CONTRACTS §27).
 // Read-only view of competitors grouped by funder, derived from 990-PF giving history.
-// Enterprise and Consultant tiers only. No export of competitor contact information.
+// Enterprise tier only. No export of competitor contact information.
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Lock, Target, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
@@ -247,11 +247,11 @@ export default function CompetitorsPage() {
         <div className="flex flex-col items-center justify-center rounded-xl border border-navy-200 bg-navy-50 py-20 text-center">
           <Lock className="mb-4 h-10 w-10 text-navy-300" />
           <p className="text-lg font-semibold text-navy-700">
-            Enterprise and Consultant plans only
+            Enterprise plan only
           </p>
           <p className="mt-2 max-w-sm text-sm text-navy-500">
-            Competitor intelligence is available on Enterprise ($499/mo) and Consultant ($799/mo)
-            plans. Upgrade in Billing to unlock this feature.
+            Competitor intelligence is available on the Enterprise ($499/mo)
+            plan. Upgrade in Billing to unlock this feature.
           </p>
         </div>
       </div>

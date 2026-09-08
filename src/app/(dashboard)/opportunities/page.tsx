@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ChatbotAssistant } from "@/components/ChatbotAssistant";
+import { CorporateGivingHeatmap } from "@/components/opportunities/CorporateGivingHeatmap";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
 import { OPPORTUNITY_STATUSES } from "@/lib/utils/constants";
@@ -212,9 +213,24 @@ function probabilityTone(score: number | null | undefined): { color: string; lab
   return { color: "#EF4444", label: `${Math.round(score)}%` };
 }
 
+interface OpportunitiesApiResponse {
+  opportunities: (Tables<"opportunities"> & { mission_relevance_score: number | null })[];
+  relevanceFilterActive: boolean;
+  minRelevance: number;
+  includeUnscored: boolean;
+  totalBeforeFilter: number;
+  totalAfterFilter: number;
+  pendingScoreCount: number;
+}
+
 /**
- * Opportunity list (BLUEPRINT §4.4). Reads are RLS-scoped to the organization,
- * so no organization_id filter is needed client-side.
+ * Opportunity list (BLUEPRINT §4.4). Reads are RLS-scoped to the organization
+ * (no cross-org leak), but org-scoping alone is not mission relevance — the
+ * actual filtering (KB relevance against this org's search profile +
+ * knowledge base) now happens server-side in /api/opportunities
+ * (src/lib/opportunities/relevance.ts), not here. `relevanceMode` is the
+ * visible safety-net override on top of that default filter, not a
+ * replacement for it.
  */
 export default function OpportunitiesPage() {
   const router = useRouter();
@@ -226,6 +242,8 @@ export default function OpportunitiesPage() {
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [relevanceMode, setRelevanceMode] = useState<"relevant" | "all">("relevant");
+  const [relevanceMeta, setRelevanceMeta] = useState<Omit<OpportunitiesApiResponse, "opportunities"> | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterChip, setFilterChip] = useState<FilterChip>("all");
@@ -238,9 +256,14 @@ export default function OpportunitiesPage() {
     setError(null);
 
     const supabase = createClient();
+    const params = new URLSearchParams();
+    if (relevanceMode === "all") {
+      params.set("minRelevance", "0");
+      params.set("includeUnscored", "true");
+    }
 
     const [oppsRes, fundersRes, probabilityRes] = await Promise.all([
-      supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000),
+      fetch(`/api/opportunities?${params.toString()}`),
       supabase.from("funders").select("id, name"),
       // opportunity_probability_scores (migration 093) - Grant Probability Engine
       // (computeGrantProbability(), src/lib/intelligence/grant-probability-engine.ts).
@@ -254,11 +277,15 @@ export default function OpportunitiesPage() {
         ),
     ]);
 
-    if (oppsRes.error) {
+    if (!oppsRes.ok) {
       setError("Could not load opportunities.");
       setLoading(false);
       return;
     }
+
+    const oppsBody = (await oppsRes.json()) as OpportunitiesApiResponse;
+    const { opportunities: oppsData, ...meta } = oppsBody;
+    setRelevanceMeta(meta);
 
     const funderNames = new Map<string, string>();
     for (const f of fundersRes.data ?? []) {
@@ -270,7 +297,7 @@ export default function OpportunitiesPage() {
       probabilityByOpp.set(p.opportunity_id, p);
     }
 
-    const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
+    const rows: OpportunityRow[] = (oppsData ?? []).map((opp) => ({
       ...opp,
       funderName: opp.funder_id ? (funderNames.get(opp.funder_id) ?? null) : null,
       probabilityScore: probabilityByOpp.get(opp.id)?.overall_score ?? null,
@@ -279,7 +306,7 @@ export default function OpportunitiesPage() {
 
     setOpportunities(rows);
     setLoading(false);
-  }, []);
+  }, [relevanceMode]);
 
   useEffect(() => {
     loadOpportunities().catch(() => {
@@ -588,6 +615,50 @@ export default function OpportunitiesPage() {
           </div>
         )}
 
+        {relevanceMeta && !relevanceMeta.relevanceFilterActive && (
+          <div
+            role="status"
+            style={{
+              backgroundColor: "#FEF3C7",
+              border: "1px solid #FDE68A",
+              borderRadius: "8px",
+              padding: "12px 16px",
+              fontSize: "13px",
+              color: "#92400E",
+              marginBottom: "20px",
+            }}
+          >
+            Automatic relevance filtering is unavailable for your organization right now (no active
+            search profile or knowledge base to match against) — every opportunity below is shown
+            unfiltered.{" "}
+            <Link href="/search-profiles" style={{ color: "#92400E", fontWeight: 700 }}>
+              Set up a search profile
+            </Link>{" "}
+            to enable it.
+          </div>
+        )}
+
+        {relevanceMeta && relevanceMeta.relevanceFilterActive && relevanceMeta.pendingScoreCount > 0 && (
+          <div
+            role="status"
+            style={{
+              backgroundColor: "#EFF6FF",
+              border: "1px solid #BFDBFE",
+              borderRadius: "8px",
+              padding: "10px 16px",
+              fontSize: "13px",
+              color: "#1E40AF",
+              marginBottom: "20px",
+            }}
+          >
+            Still scoring {relevanceMeta.pendingScoreCount} more opportunit
+            {relevanceMeta.pendingScoreCount === 1 ? "y" : "ies"} for relevance to your mission —
+            reload in a moment to see them factored in.
+          </div>
+        )}
+
+        <CorporateGivingHeatmap organizationId={profile?.organization_id} />
+
         {!showEmpty && (
           <>
             {/* Filter pills + search/sort */}
@@ -601,7 +672,7 @@ export default function OpportunitiesPage() {
                 marginBottom: "24px",
               }}
             >
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
                 {FILTER_CHIPS.map((chip) => (
                   <button
                     key={chip.value}
@@ -612,6 +683,23 @@ export default function OpportunitiesPage() {
                     {chip.label}
                   </button>
                 ))}
+                <span style={{ width: "1px", height: "20px", backgroundColor: "rgba(44,78,59,0.15)", margin: "0 4px" }} />
+                <button
+                  type="button"
+                  onClick={() => setRelevanceMode("relevant")}
+                  title="Only show opportunities that meet a real relevance threshold against your organization's configured mission"
+                  style={chipStyle(relevanceMode === "relevant")}
+                >
+                  Relevant to Us
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRelevanceMode("all")}
+                  title="Safety net: show every opportunity in your organization's table, including unscored and low-relevance ones"
+                  style={chipStyle(relevanceMode === "all")}
+                >
+                  Show All
+                </button>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -830,6 +918,14 @@ export default function OpportunitiesPage() {
                             <span style={{ fontSize: "12px", color: "#94A3B8" }}>
                               Eligibility {Math.round(opp.eligibility_score)}%
                             </span>
+                          )}
+
+                          {opp.mission_relevance_score != null ? (
+                            <span style={{ fontSize: "12px", color: "#94A3B8" }}>
+                              Relevance {Math.round(opp.mission_relevance_score)}%
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "#CBD5E1" }}>Relevance not yet scored</span>
                           )}
                         </div>
 

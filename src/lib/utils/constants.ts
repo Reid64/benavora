@@ -227,7 +227,6 @@ export const SUBSCRIPTION_TIERS = [
   "starter",
   "professional",
   "enterprise",
-  "consultant",
 ] as const;
 
 export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
@@ -284,14 +283,6 @@ export const TIER_LIMITS: Record<
     search_profiles: 100,
     email_sends_per_day: 200,
     api_calls_per_day: 20000,
-  },
-  consultant: {
-    agent_runs_per_day: 5000,
-    storage_mb: 50000,
-    users: 200,
-    search_profiles: 500,
-    email_sends_per_day: 500,
-    api_calls_per_day: 100000,
   },
 };
 
@@ -381,22 +372,6 @@ export const TIER_PLANS: Record<
       "Browser automation",
       "200 outreach emails/day",
       "Priority support",
-    ],
-  },
-  consultant: {
-    name: "Consultant",
-    monthlyPrice: 799,
-    priceEnvVar: "STRIPE_CONSULTANT_PRICE_ID",
-    tagline: "For consultants managing multiple nonprofits",
-    features: [
-      "5,000 agent runs/day",
-      "50 GB storage",
-      "200 users",
-      "500 search profiles",
-      "White-label reports",
-      "500 outreach emails/day",
-      "Dedicated account manager",
-      "API access",
     ],
   },
 };

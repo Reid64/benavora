@@ -211,3 +211,58 @@ $ echo $?
 ```
 
 **VERIFIED — exits 0, zero errors**, confirmed via a separate redirected run (`pnpm tsc --noEmit > out.txt 2>&1; echo $?` → `0`, `out.txt` is 0 lines) to rule out a pipeline-masked exit code.
+
+---
+
+## 8. 2026-09-07 re-check — four additional candidates for women/minority-owned-business grants (§7a); one genuine new source found, three confirmed BLOCKED
+
+A follow-up task flagged §7a's BLOCKED conclusion as resting on an incomplete search (only WBENC, NMSDC, MBDA.gov, and Grants.gov's own taxonomy were checked) and asked for four specific additional real candidates to be live-checked before the BLOCKED status could be trusted: Hello Alice, IFundWomen, SBA's 8(a)/HUBZone programs, and USDA's minority/socially-disadvantaged-farmer programs. All four were checked live this session.
+
+### 8a. Hello Alice — BLOCKED, bot-walled site-wide, no API found
+
+- `https://www.helloalice.com/business-grants`, `https://www.helloalice.com/small-business-grants-and-funding`, `https://app.helloalice.com/grants`, and even `https://www.helloalice.com/robots.txt` — **every path returns HTTP 429** with response header `X-Vercel-Mitigated: challenge` (a Vercel bot-challenge wall, the same category of block as MBDA.gov's Cloudflare challenge in §7a). **VERIFIED**, live `curl` with response headers, this session.
+- `https://support.helloalice.com` (a separate Zendesk domain) — **HTTP 403** with `Cf-Mitigated: challenge` (Cloudflare bot wall). **VERIFIED**, live headers.
+- A live web search for `Hello Alice API grants developer data feed` surfaced only user-facing FAQ/support pages and `app.helloalice.com/grants` — described everywhere as a login-gated account feature ("view your grant application in my Hello Alice account"), i.e. an internal application-matching portal, not a public dataset. **VERIFIED**, this session — no API/developer documentation exists anywhere indexed.
+- **Conclusion: BLOCKED.** Same structural pattern as WBENC's WBENCLink2.0 — a gated, login-only system, and additionally bot-walled against any automated access at all.
+
+### 8b. IFundWomen — BLOCKED, bot-walled, and its "database" is an internal application funnel
+
+- `https://ifundwomen.com/grants` redirects to `https://www.ifundwomen.com/grants/apply-for-grants`, which returns **HTTP 403** with `Cf-Mitigated: challenge`. **VERIFIED**, live headers, this session.
+- A live web search found IFundWomen markets a "Universal Grant Application Database": businesses submit one application, and IFundWomen internally matches them against partner grant criteria and notifies them of matches. This is an **application-intake funnel**, not a publicly browsable or queryable list of open opportunities or past winners. **VERIFIED**, this session — no public API or dataset was found anywhere.
+- **Conclusion: BLOCKED.** Same structural pattern as §8a/WBENC.
+
+### 8c. SBA 8(a) Business Development / HUBZone — BLOCKED, and root-caused: these are contracting programs, not grant programs
+
+- `https://www.sba.gov/federal-contracting/contracting-assistance-programs/8a-business-development-program` (live-fetched) describes only certification eligibility and sole-source **contracting** access; the only structured-data tool it links is the Procurement Data Hub (`datahub.certify.sba.gov`), which shows aggregate contracting-trend charts, not individual opportunities. **VERIFIED**, live fetch this session.
+- `https://www.sba.gov/certifications/#hubzone` (live-fetched, HTTP 200) — same certification-program content; the page's own "Grants" nav link points to `sba.gov/loans/additional-funding-opportunities/grants/`, a generic SBA grants page (Women's Business Center training grants, etc.) with **no mention of 8(a) or HUBZone** anywhere in its content. **VERIFIED**, live fetch this session.
+- Cross-checked independently against `api.grants.gov/v1/api/search2`: `{agencies:"SBA"}` returns exactly **one** live posted opportunity ("SBA WBC Modernization Initiative FY26 - Georgia", CFDA 59.043) — a Women's Business Center program, unrelated to 8(a)/HUBZone. **VERIFIED**, live query this session.
+- **Root cause, not just absence: 8(a) and HUBZone are federal *contracting* set-aside/certification programs.** They confer eligibility for sole-source or set-aside **contracts**, tracked through SAM.gov procurement — they do not themselves disburse grants. There is no grant feed to find because these specific programs do not fund via grants at all.
+- **Conclusion: BLOCKED — categorical mismatch, not a missed source.**
+
+### 8d. USDA minority/socially-disadvantaged farmer & rancher grants — genuinely new real option found; minimal implementation built
+
+- NIFA's own funding-opportunities page (`nifa.usda.gov/grants/funding-opportunities`) is server-rendered Drupal HTML with no backing JSON/API (confirmed via fetch — no `fetch()`/XHR calls, no RSS/CSV links). But its program filter dropdown lists the real program name: **"Outreach and Assistance for Socially Disadvantaged and Veteran Farmers and Ranchers (2501) Program"** — confirming this is a real, currently-administered NIFA program family, not a fabricated one. **VERIFIED**, this session.
+- Live-querying `api.grants.gov/v1/api/search2` with `{agencies:"USDA-NIFA"}` (the real sub-agency code, confirmed via the live `agencies` facet) surfaces a **currently posted** NOFO for the veteran half of that program family: *"Outreach and Assistance for Veteran Farmers and Ranchers Program"* (id `363816`, opportunity number `USDA-NIFA-ICGP-012261`, assistance listing 10.443, posted 2026-09-04, closes 2026-09-10, $23.8M estimated total funding, 36 awards). **VERIFIED**, live `search2` + `fetchOpportunity` calls this session.
+- Generic multi-word keyword phrases are noisy here, in the same way §7a's "minority owned business" keyword search was: `{keyword:"veteran farmers ranchers", agencies:"USDA-NIFA"}` returns 15 of NIFA's 20 total live postings (unrelated programs like citrus-disease research and tribal-college scholarships also match, apparently via generic/templated eligibility boilerplate). **But** narrow, distinctive phrases are precise: `{keyword:"socially disadvantaged", agencies:"USDA-NIFA"}` and `{keyword:"2501", agencies:"USDA-NIFA"}` each return **exactly the one on-topic hit above and nothing else** — live-verified this session by contrast against a nonsense-keyword control (0 hits) and against the same phrases with no agency restriction (47 and 3 hits respectively, dominated by unrelated NSF/DOD/DOS/HHS programs — proving the agency restriction is what makes the phrase precise). `{keyword:"minority", agencies:"USDA-NIFA"}` returns 0 hits today — the socially-disadvantaged-specific half of the NOFO is not independently posted this cycle, only the veteran half is.
+- **This is a genuinely new, real, structured option** — the same live, agency-scoped Grants.gov `search2` mechanism already established for `environmental-climate-grants.ts` (§7b), applied to the one real sub-agency (USDA-NIFA) that administers this program family, using search terms live-verified not to produce false positives. Per the task's instruction, this session added:
+  - `src/lib/agents/minority-farmer-grants.ts` — `searchMinorityFarmerGrants()`, exporting `MINORITY_FARMER_AGENCY_CODES` (`["USDA-NIFA"]`) and using the two live-verified-precise default search terms (`"socially disadvantaged"`, `"2501"`).
+  - `src/lib/agents/minority-farmer-grants.test.ts` — 5 unit tests (mocking `searchGrantsGovOpportunities`), covering: correct agency/term params for both default terms, the agency-code scope, custom search-term passthrough, cross-term dedup, and empty-result handling. **All 5 pass** (`pnpm vitest run src/lib/agents/minority-farmer-grants.test.ts`, this session).
+  - This is a **new, standalone module**, not wired into any route, cron, or the `opportunities` table — same minimal scope as §7b's `environmental-climate-grants.ts`, for the same reason (no agent number in this codebase's registries corresponds to this category).
+  - The socially-disadvantaged-specific half of the 2501 program is not live-postable today (0 hits) — this module will surface it automatically the moment USDA posts it, via the same live query, with no code change needed.
+
+### 8e. Overall conclusion for women/minority-owned-business/farmer grants
+
+**BLOCKED remains accurate for the ownership/certification-focused half of this category** (Hello Alice, IFundWomen, WBENC, NMSDC, MBDA.gov, SBA 8(a)/HUBZone — seven sources now checked, all confirmed either gated/bot-walled with no public API, or categorically not a grant program). **A genuinely new real structured source was found and implemented for the USDA farmer/rancher-specific half of this category** (§8d) — this is not a contradiction of the ownership-focused BLOCKED finding, since USDA's 2501 program is a distinct federal program family from business-ownership certification bodies.
+
+### 8f. Acceptance criterion — `pnpm tsc --noEmit`
+
+Run this session, after writing `minority-farmer-grants.ts`/`.test.ts`:
+
+```
+$ pnpm tsc --noEmit > out.txt 2>&1; echo $?
+0
+$ wc -l out.txt
+0 out.txt
+```
+
+**VERIFIED — exits 0, zero errors**, confirmed via a redirected run to rule out a pipeline-masked exit code.

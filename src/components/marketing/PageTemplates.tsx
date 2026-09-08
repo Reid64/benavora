@@ -1,11 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Section, Display1, Display2 } from "@/components/marketing/Section";
 import { CtaPrimary, CtaGhost } from "@/components/marketing/Cta";
 import { AssistInline } from "@/components/marketing/AssistInline";
-import { mk, mkRadius } from "@/lib/marketing/theme";
+import { PhotoCredit } from "@/components/marketing/PhotoCredit";
+import { mk, mkElevation, mkRadius } from "@/lib/marketing/theme";
+import { IMAGE_CREDITS } from "@/lib/marketing/image-credits";
 import type { MarketingPage, DemoKind } from "@/lib/marketing/content";
 
 const DEMO_LABEL: Record<DemoKind, string> = {
@@ -25,6 +28,7 @@ export function DemoSlot({ kind }: { kind?: DemoKind }) {
         background: mk.surface,
         border: `1px solid ${mk.line}`,
         borderRadius: mkRadius.shot,
+        boxShadow: mkElevation[2],
         padding: 32,
         textAlign: "center",
       }}
@@ -133,6 +137,7 @@ export function PlatformTemplate({
                   background: mk.surface,
                   border: `1px solid ${mk.line}`,
                   borderRadius: mkRadius.card,
+                  boxShadow: mkElevation[1],
                   padding: 20,
                 }}
               >
@@ -221,6 +226,7 @@ export function PlatformTemplate({
                   background: mk.surface,
                   border: `1px solid ${mk.line}`,
                   borderRadius: mkRadius.card,
+                  boxShadow: mkElevation[1],
                   padding: 18,
                   color: mk.forest,
                   fontWeight: 600,
@@ -256,19 +262,64 @@ export function PlatformTemplate({
 
 export function SolutionTemplate({ page, children }: { page: MarketingPage; children: ReactNode }) {
   const { meta } = page;
+  const credit = meta.heroImage ? IMAGE_CREDITS[meta.heroImage] : undefined;
   return (
     <>
       <Section tone="forest">
-        <Eyebrow tone="forest">{meta.eyebrow ?? "Solutions for"}</Eyebrow>
-        <Display1 tone="forest">{meta.title}</Display1>
-        {meta.hero ? (
-          <p style={{ color: mk.heroMuted, fontSize: 18, marginTop: 16, maxWidth: 640 }}>
-            {meta.hero}
-          </p>
-        ) : null}
-        <div style={{ marginTop: 28 }}>
-          <CtaPrimary href="/demo">Book demo</CtaPrimary>
+        <div
+          className="mk-solution-hero"
+          style={{
+            display: "grid",
+            gridTemplateColumns: credit ? "1.1fr 0.9fr" : "1fr",
+            gap: 48,
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <Eyebrow tone="forest">{meta.eyebrow ?? "Solutions for"}</Eyebrow>
+            <Display1 tone="forest">{meta.title}</Display1>
+            {meta.hero ? (
+              <p style={{ color: mk.heroMuted, fontSize: 18, marginTop: 16, maxWidth: 640 }}>
+                {meta.hero}
+              </p>
+            ) : null}
+            <div style={{ marginTop: 28 }}>
+              <CtaPrimary href="/demo">Book demo</CtaPrimary>
+            </div>
+          </div>
+          {credit ? (
+            <div>
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  aspectRatio: "4 / 3",
+                  borderRadius: mkRadius.shot,
+                  overflow: "hidden",
+                  border: `1px solid rgba(247,245,239,0.18)`,
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.18), 0 24px 48px -16px rgba(0,0,0,0.35)",
+                }}
+              >
+                <Image
+                  src={`/marketing/${meta.heroImage}`}
+                  alt={meta.hero ?? meta.title}
+                  fill
+                  sizes="(max-width: 900px) 100vw, 45vw"
+                  style={{ objectFit: "cover" }}
+                  priority
+                />
+              </div>
+              <PhotoCredit credit={credit} onDark />
+            </div>
+          ) : null}
         </div>
+        <style jsx>{`
+          @media (max-width: 900px) {
+            .mk-solution-hero {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
       </Section>
 
       {meta.problems?.length ? (
@@ -289,6 +340,7 @@ export function SolutionTemplate({ page, children }: { page: MarketingPage; chil
                   background: mk.surface,
                   border: `1px solid ${mk.line}`,
                   borderRadius: mkRadius.card,
+                  boxShadow: mkElevation[1],
                   padding: 20,
                 }}
               >
@@ -321,6 +373,7 @@ export function SolutionTemplate({ page, children }: { page: MarketingPage; chil
                     background: mk.surface,
                     border: `1px solid ${mk.line}`,
                     borderRadius: mkRadius.card,
+                    boxShadow: mkElevation[1],
                     padding: 18,
                     textDecoration: "none",
                   }}
@@ -335,6 +388,7 @@ export function SolutionTemplate({ page, children }: { page: MarketingPage; chil
                     background: mk.surface,
                     border: `1px solid ${mk.line}`,
                     borderRadius: mkRadius.card,
+                    boxShadow: mkElevation[1],
                     padding: 18,
                   }}
                 >

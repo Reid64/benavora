@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // "Does it work for organizations like mine?" — deliberately answered with an
 // honest single-pilot status instead of fabricated case studies, a logo wall,
@@ -27,7 +29,17 @@ import Link from "next/link";
 //   number is stated here because none has been measured.
 export function DoesItWorkForOrgsLikeMine() {
   return (
-    <section className="bm-fitcheck" aria-labelledby="fitcheck-title">
+    <section
+      className="bm-fitcheck"
+      aria-labelledby="fitcheck-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="roots"
+        color="#3b403b"
+        opacity={0.07}
+        style={{ left: -25, bottom: -15, width: 210, height: 210 }}
+      />
       <p className="bm-eyebrow">Does it work for organizations like mine?</p>
       <h2 id="fitcheck-title">
         One real pilot running today.
@@ -78,13 +90,14 @@ export function DoesItWorkForOrgsLikeMine() {
         </Link>
       </div>
 
+      <SectionDividerDef variant="blob" fill="#222624" />
+
       <style jsx>{`
         .bm-fitcheck {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 72px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {
@@ -118,6 +131,8 @@ export function DoesItWorkForOrgsLikeMine() {
           border-top: 3px solid #efb344;
           border-radius: 12px;
           padding: 28px 32px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 16px 32px -10px rgba(0, 0, 0, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
         .bm-pilot-badge {
           display: inline-block;

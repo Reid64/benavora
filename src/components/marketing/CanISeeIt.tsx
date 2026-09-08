@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ProductTour } from "@/components/marketing/ProductTour";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // "Can I see it" — a compact preview of the self-guided /tour, auto-cycling
 // through three real, live screenshots of the product (not illustrations or
@@ -10,7 +12,17 @@ import { ProductTour } from "@/components/marketing/ProductTour";
 // and test-evidence/marketing/tour-candidates/ for how they were captured.
 export function CanISeeIt() {
   return (
-    <section className="bm-seeit" aria-labelledby="seeit-title">
+    <section
+      className="bm-seeit"
+      aria-labelledby="seeit-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="branches"
+        color="#efb344"
+        opacity={0.08}
+        style={{ left: -20, top: -10, width: 210, height: 210 }}
+      />
       <div className="bm-eyebrow">Can I see it?</div>
       <h2 id="seeit-title">
         This is the real product.
@@ -57,13 +69,14 @@ export function CanISeeIt() {
         </Link>
       </div>
 
+      <SectionDividerDef variant="wave" fill="#222624" />
+
       <style jsx>{`
         .bm-seeit {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 80px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {

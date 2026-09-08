@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
 
 // "What will it cost and how fast can I start?" — a structural placeholder
 // only. Final pricing has not been published for this section; tier names
@@ -40,7 +42,17 @@ const TIERS: { name: string; blurb: string; cta: string; href: string }[] = [
 
 export function WhatWillItCost() {
   return (
-    <section className="bm-cost" aria-labelledby="cost-title">
+    <section
+      className="bm-cost"
+      aria-labelledby="cost-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="corner-roots"
+        color="#3b403b"
+        opacity={0.09}
+        style={{ right: 0, bottom: 0, width: 200, height: 200, transform: "scale(-1, -1)" }}
+      />
       <p className="bm-eyebrow">What will it cost and how fast can I start?</p>
       <h2 id="cost-title">
         Pricing is still being finalized.
@@ -95,13 +107,14 @@ export function WhatWillItCost() {
         </Link>
       </div>
 
+      <SectionDividerDef variant="diagonal" fill="#222624" />
+
       <style jsx>{`
         .bm-cost {
           max-width: 1120px;
           margin: 0 auto;
           text-align: center;
           padding: 64px 32px 80px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {
@@ -141,6 +154,8 @@ export function WhatWillItCost() {
           padding: 24px 22px;
           display: flex;
           flex-direction: column;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 16px -6px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }
         .bm-cost-name {
           font-size: 13px;

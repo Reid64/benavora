@@ -37,7 +37,6 @@ const MONTHLY_ONLY_LIMITS: Record<
   starter:      { opportunities: 50,  applications: 20,  ai_drafts: 10  },
   professional: { opportunities: 200, applications: 100, ai_drafts: 50  },
   enterprise:   { opportunities: -1,  applications: -1,  ai_drafts: 200 },
-  consultant:   { opportunities: -1,  applications: -1,  ai_drafts: -1  },
 };
 
 export const RESOURCE_LIMITS: Record<

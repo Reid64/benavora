@@ -2,7 +2,7 @@
 //
 // Accepts { funderId } in the request body, authenticates the user, derives
 // organization_id from the session profile (never from the body), checks that
-// feature.competitor_intel is enabled (Enterprise/Consultant tiers only per
+// feature.competitor_intel is enabled (Enterprise tier only per
 // BEHAVIORAL_CONTRACTS §27), then runs CompetitorIntelAgent.
 //
 // Requires writer role or above (Contracts §16).
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Enterprise/Consultant only — BEHAVIORAL_CONTRACTS §27
+  // Enterprise only — BEHAVIORAL_CONTRACTS §27
   const { data: flagRow } = await supabase
     .from("platform_config")
     .select("value")
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     .maybeSingle();
   if ((flagRow?.value as string | undefined) !== "true") {
     return jsonError(
-      "Competitor intelligence is available on Enterprise and Consultant plans only.",
+      "Competitor intelligence is available on the Enterprise plan only.",
       "feature_disabled",
       403,
     );

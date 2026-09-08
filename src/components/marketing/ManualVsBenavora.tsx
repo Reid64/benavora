@@ -1,3 +1,6 @@
+import { BotanicalMotif } from "@/components/marketing/BotanicalMotif";
+import { mkGrainBackground, SectionDividerDef } from "@/lib/marketing/texture";
+
 // "Manual vs. Benavora" — the flagship side-by-side transformation contrast.
 // Same dark forest canvas as the surrounding homepage sections (bm- prefixed
 // classes, #222624 background, #3b403b divider — see page.tsx bm-identity/
@@ -70,7 +73,17 @@ const ROWS: { was: string; becomes: string; detail: string }[] = [
 
 export function ManualVsBenavora() {
   return (
-    <section className="bm-contrast" aria-labelledby="contrast-title">
+    <section
+      className="bm-contrast"
+      aria-labelledby="contrast-title"
+      style={{ position: "relative", ...mkGrainBackground("#222624", true) }}
+    >
+      <BotanicalMotif
+        variant="branches"
+        color="#efb344"
+        opacity={0.09}
+        style={{ left: -20, bottom: -20, width: 220, height: 220 }}
+      />
       <p className="bm-eyebrow">The manual way, and the Benavora way</p>
       <h2 id="contrast-title">
         Six things fundraising teams do by hand.
@@ -95,12 +108,12 @@ export function ManualVsBenavora() {
           </li>
         ))}
       </ol>
+      <SectionDividerDef variant="arc" fill="#222624" />
       <style jsx>{`
         .bm-contrast {
           max-width: 1120px;
           margin: 0 auto;
           padding: 64px 32px 72px;
-          background: #222624;
           border-top: 1px solid #3b403b;
         }
         .bm-eyebrow {
@@ -160,6 +173,8 @@ export function ManualVsBenavora() {
         }
         .bm-row--alt {
           background: rgba(255, 255, 255, 0.015);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 16px -6px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }
         .bm-row::before {
           content: "";
