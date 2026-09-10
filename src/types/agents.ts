@@ -120,7 +120,13 @@ export type AgentType =
   // AGENTS_v2.md AG-22). Computes PS-01..PS-10 propensity scores into
   // corporate_prospects.scores jsonb. Migration 109 adds this to the DB
   // agent_type enum.
-  | "ag22_propensity_scoring";
+  | "ag22_propensity_scoring"
+  // Grant Probability Scoring Agent (PLATFORM_VISION_ARCHITECTURE.md Pillar 5,
+  // AGENTS_v2.md AG-15). agentId is literally "ag-15-probability" (not renamed
+  // to the more conventional ag15_* form) because opportunity-discovery-agent.ts
+  // chains into this agent via queueChainedAgent using that exact literal.
+  // Migration 178 adds this to the DB agent_type enum.
+  | "ag-15-probability";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

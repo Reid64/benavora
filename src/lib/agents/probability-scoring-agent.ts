@@ -39,13 +39,10 @@
 //     timestamp) and is never overwritten — i.e. it already IS an
 //     append-only score history for this exact purpose. loadScoreTrend()
 //     below reads it back out to detect improving/declining/stable trends.
-//   - agent_type enum: "ag-15-probability" (this agent's id, unchanged from
-//     before this upgrade) is still not a value in the agent_type enum —
-//     see AGENTS_v2.md §1.2. startRun() will fail on this until a future
-//     migration adds it, matching the prior AG-02 (opportunity-discovery-
-//     agent.ts) "full agentic upgrade" session's own precedent of shipping
-//     the agent-code upgrade without also touching the schema in the same
-//     pass. Flagged here, not silently worked around.
+//   - agent_type enum: "ag-15-probability" is now a value in the agent_type
+//     enum (migration 178) and in the AgentType TS union (src/types/agents.ts)
+//     — previously flagged here as missing per AGENTS_v2.md §1.2, which made
+//     every startRun() on this agent fail before any scoring logic executed.
 //
 // agentId is "ag-15-probability" to match the id OpportunityDiscoveryAgent
 // (src/lib/agents/opportunity-discovery-agent.ts) already uses when it
