@@ -177,3 +177,70 @@ These contracts are hard rules enforced during every FORGE build. Violation of a
 ### MUST NOT DO
 - Must NOT apply migrations containing DROP TABLE or DROP COLUMN without explicit human approval.
 - Must NOT deploy if Ring 3 Sentinel has not passed.
+
+---
+
+## Contract: Relationship Scoring (Benavora product, not FORGE)
+
+Note on numbering: several agent source files (e.g.
+`src/lib/agents/funder-relationship.ts`,
+`src/lib/agents/relationship-builder-agent.ts`) cite this document as
+"BEHAVIORAL_CONTRACTS.md §25/§26" for product conventions. This file has no
+`§NN` numbering scheme and, until this section, contained no content about
+the Benavora SaaS product at all — every other section above governs FORGE,
+the separate PowerShell build tool. Those citations reference sections that
+were never written here (see project memory
+`benavora-governance-docs-missing-v1-sections`). This section is added at
+the literal location those citations point to, without inventing a fake
+numbering scheme to match them.
+
+### Canonical formula
+
+The single source of truth for a funder's relationship score is
+`scoreFromEvents()` / `computeRelationshipScore()` in
+`src/lib/intelligence/relationship-scorer.ts`, computed from the
+`funder_relationship_events` table (migration 091):
+
+- **Event weights** (`event_type` is a fixed 6-value CHECK constraint):
+  `award` +30, `response` +20, `meeting` +15, `application` +10,
+  `outreach` +5, `rejection` -10. Any other value scores 0.
+- **Score**: the sum of every recorded event's weight for that funder,
+  clamped to the 0-100 range. No time decay is applied to the score itself.
+- **Momentum**: `rising` if the weighted sum of events in the last 90 days
+  exceeds the weighted sum of events in the prior 90-180 day window,
+  `declining` if less, `stable` if equal. Events older than 180 days count
+  toward the score but not toward either momentum window.
+
+### MUST DO
+- Any agent or route that reports a funder's relationship score MUST call
+  `computeRelationshipScore()` (or `scoreFromEvents()` for an
+  already-fetched event list) rather than re-implementing scoring logic.
+- Any agent that records a funder interaction with a scoring effect MUST
+  insert a row into `funder_relationship_events` using one of the six
+  canonical `event_type` values, then recompute via the canonical function.
+- Any write to `funder_relationship_scores` MUST set the same score value
+  under both of that table's live column families (`relationship_score` and
+  `score`) so no reader can observe two different scores for one funder.
+
+### MUST NOT DO
+- Must NOT derive a relationship score from `relationship_memory`, a
+  decay/delta model, or any other input than `funder_relationship_events`.
+- Must NOT add a new `event_type` value without a corresponding migration
+  updating the CHECK constraint and this section's weight table.
+
+### History
+Before this contract, three agents touched "relationship" data with three
+different formulas: `funder-relationship.ts` (Agent 23) ran a decay-based
+delta model independent of any event log; `relationship-builder-agent.ts`
+(AG-19) derived a score from `relationship_memory` recency/volume/award
+signals; and the canonical scorer above (already the read path for
+`/api/funders/[id]/relationship` and `/api/funders/relationship-scores`) was
+never called by either agent. Both agents wrote overlapping but
+never-reconciled columns on the same `funder_relationship_scores` row
+(migration 139), so the Funders list/detail pages and the funder's
+relationship tab could show different scores for the same funder. Both
+agents are now consolidated onto the canonical formula.
+`relationship-graph-builder-agent.ts` (AG-32) was audited as part of this
+consolidation and does not compute a relationship score at all — it builds
+the `pig_nodes`/`pig_edges` warm-introduction graph, an unrelated feature
+sharing only the word "relationship."

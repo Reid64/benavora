@@ -1,16 +1,42 @@
 // Funder Relationship Agent - AGENTS.md Agent 23.
 //
-// Deterministic scoring — no Claude call required. Each event fires a fixed
-// delta against the funder's current relationship_score. Time decay reduces
-// the score by 5% for every 90 days of no interaction (floor 0). Trend is
-// derived from the net of the last 3 recorded event deltas. Score is clamped
-// to 0-100. Results are stored in funder_relationship_scores.
+// CONSOLIDATED onto the canonical event-sourced formula in
+// src/lib/intelligence/relationship-scorer.ts (see BEHAVIORAL_CONTRACTS.md's
+// "Relationship Scoring" contract). This agent used to run its own
+// decay-based delta model entirely independent of that scorer, which meant
+// the same funder could show a different relationship score on the Funders
+// list/detail pages (this agent's write) than on the funder's dedicated
+// relationship tab (src/app/api/funders/[id]/relationship, which has always
+// called the canonical scorer directly). Every call now: (1) records the
+// interaction as a row in funder_relationship_events, mapped onto that
+// table's fixed 6-value vocabulary (EVENT_TO_CANONICAL_TYPE below — 'award'/
+// 'application'/'response'/'outreach'/'meeting'/'rejection', per migration
+// 091's CHECK constraint), then (2) calls computeRelationshipScore() to get
+// the same score/momentum every other reader of that funder's relationship
+// data sees. `note_added` has no canonical equivalent (it carries no
+// relationship signal) and is intentionally not logged as an event — it
+// still updates this table's own bookkeeping columns (recent_events/
+// total_interactions) but never touches the score.
+//
+// Results are written to funder_relationship_scores under BOTH of that
+// table's live column families (see migration 139's header comment: the
+// table was extended twice, live, with two never-reconciled column sets --
+// relationship_score/trend/recent_events/is_stale/total_interactions/
+// successful_applications/last_interaction_at, read by the Funders UI, and
+// score/events/last_updated_at, written by RelationshipBuilderAgent/AG-19).
+// Writing the identical canonical value into both eliminates the case where
+// the two agents' rows disagree for the same funder.
 
 import {
   AgentError,
   BaseAgent,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
+import {
+  computeRelationshipScore,
+  type FunderRelationshipEventType,
+  type RelationshipMomentum,
+} from "@/lib/intelligence/relationship-scorer";
 import type { AgentType } from "@/types/agents";
 
 // --- event catalogue ---------------------------------------------------------
@@ -26,17 +52,34 @@ export type FunderRelationshipEvent =
   | "renewal_submitted"
   | "note_added";
 
-const EVENT_DELTAS: Record<FunderRelationshipEvent, number> = {
-  cold_outreach_sent: 5,
-  response_received: 15,
-  application_submitted: 10,
-  awarded: 25,
-  denied_with_feedback: 5,
-  denied_no_feedback: -5,
-  three_plus_consecutive_denials: -15,
-  renewal_submitted: 10,
-  note_added: 2,
+/** Maps this agent's 9-value event vocabulary onto the canonical scorer's
+ * fixed 6-value funder_relationship_events.event_type CHECK constraint.
+ * `null` means "record the interaction for bookkeeping only, no scored
+ * event" — there is no canonical equivalent for a free-text note. */
+const EVENT_TO_CANONICAL_TYPE: Record<
+  FunderRelationshipEvent,
+  FunderRelationshipEventType | null
+> = {
+  cold_outreach_sent: "outreach",
+  response_received: "response",
+  application_submitted: "application",
+  awarded: "award",
+  denied_with_feedback: "rejection",
+  denied_no_feedback: "rejection",
+  three_plus_consecutive_denials: "rejection",
+  renewal_submitted: "application",
+  note_added: null,
 };
+
+/** Maps the canonical scorer's rising/stable/declining onto this table's
+ * existing rising/falling/neutral trend vocabulary — same mapping
+ * RelationshipBuilderAgent uses for the same reason (see its
+ * momentumToTrend). */
+function momentumToTrend(momentum: RelationshipMomentum): FunderRelationshipResult["trend"] {
+  if (momentum === "rising") return "rising";
+  if (momentum === "declining") return "falling";
+  return "neutral";
+}
 
 // --- input / result ----------------------------------------------------------
 
@@ -58,15 +101,13 @@ export interface FunderRelationshipResult {
 
 // --- agent -------------------------------------------------------------------
 
-const DECAY_PERIOD_DAYS = 90;
-const DECAY_RATE = 0.05;
 const STALE_DAYS = 180;
 const RECENT_EVENTS_KEEP = 10;
-const TREND_WINDOW = 3;
 
 interface StoredEvent {
   event: string;
-  delta: number;
+  canonicalEventType: FunderRelationshipEventType | null;
+  at: string;
 }
 
 export class FunderRelationshipAgent extends BaseAgent<
@@ -80,8 +121,6 @@ export class FunderRelationshipAgent extends BaseAgent<
   ): Promise<AgentExecution<FunderRelationshipResult>> {
     const { funderId, event } = input;
 
-    const delta = EVENT_DELTAS[event];
-
     // Verify funder belongs to this org.
     const { data: funder, error: funderError } = await this.client
       .from("funders")
@@ -94,7 +133,8 @@ export class FunderRelationshipAgent extends BaseAgent<
       throw new AgentError("Funder not found.", "not_found", 404);
     }
 
-    // Load existing score row (may not exist yet).
+    // Load existing row for bookkeeping fields only — the score itself no
+    // longer derives from the previous row (see canonical scorer above).
     const { data: existing } = await this.client
       .from("funder_relationship_scores")
       .select(
@@ -113,22 +153,39 @@ export class FunderRelationshipAgent extends BaseAgent<
     const prevInteractions = (existing?.total_interactions as number | null) ?? 0;
     const prevSuccessful = (existing?.successful_applications as number | null) ?? 0;
 
-    // Apply time decay: -5% per 90 days of no interaction.
-    const decayedScore = applyDecay(previousScore, lastInteractionAt);
-
-    // Apply event delta and clamp.
-    const rawNewScore = decayedScore + delta;
-    const newScore = Math.max(0, Math.min(100, Math.round(rawNewScore)));
-
-    // Update event history (rolling window).
     const nowIso = new Date().toISOString();
-    const newEvent: StoredEvent = { event, delta };
+    const canonicalEventType = EVENT_TO_CANONICAL_TYPE[event];
+
+    if (canonicalEventType) {
+      const { error: eventInsertError } = await this.client
+        .from("funder_relationship_events")
+        .insert({
+          organization_id: this.organizationId,
+          funder_id: funderId,
+          event_type: canonicalEventType,
+          event_date: nowIso,
+          notes: event,
+        });
+
+      if (eventInsertError) {
+        throw new AgentError(
+          "Failed to record relationship event.",
+          "write_failed",
+        );
+      }
+    }
+
+    const { score: newScore, momentum } = await computeRelationshipScore(
+      funderId,
+      this.organizationId,
+      this.client,
+    );
+    const trend = momentumToTrend(momentum);
+
+    // Update event history (rolling window) and staleness/interaction
+    // bookkeeping — unaffected by which formula produced the score.
+    const newEvent: StoredEvent = { event, canonicalEventType, at: nowIso };
     const updatedEvents = [...storedEvents, newEvent].slice(-RECENT_EVENTS_KEEP);
-
-    // Compute trend from last 3 events.
-    const trend = computeTrend(updatedEvents);
-
-    // Stale: score 0 AND no interaction in 180 days.
     const isStale = computeIsStale(newScore, nowIso, lastInteractionAt);
 
     const newInteractions = prevInteractions + 1;
@@ -140,6 +197,7 @@ export class FunderRelationshipAgent extends BaseAgent<
         {
           organization_id: this.organizationId,
           funder_id: funderId,
+          // Canonical column family (Funders list/detail UI).
           relationship_score: newScore,
           trend,
           recent_events: updatedEvents,
@@ -148,6 +206,11 @@ export class FunderRelationshipAgent extends BaseAgent<
           successful_applications: newSuccessful,
           last_interaction_at: nowIso,
           updated_at: nowIso,
+          // AG-19's column family — kept in sync so no reader of this table
+          // can see two different scores for the same funder.
+          score: newScore,
+          events: { trend, momentum },
+          last_updated_at: nowIso,
         },
         { onConflict: "organization_id,funder_id" },
       );
@@ -177,25 +240,8 @@ export class FunderRelationshipAgent extends BaseAgent<
 
 // --- helpers -----------------------------------------------------------------
 
-function applyDecay(score: number, lastInteractionAt: string | null): number {
-  if (score === 0 || !lastInteractionAt) return score;
-  const daysSince =
-    (Date.now() - new Date(lastInteractionAt).getTime()) / 86_400_000;
-  const periods = Math.floor(daysSince / DECAY_PERIOD_DAYS);
-  if (periods === 0) return score;
-  const decayed = score * Math.pow(1 - DECAY_RATE, periods);
-  return Math.max(0, decayed);
-}
-
-function computeTrend(events: StoredEvent[]): RelationshipTrend {
-  const window = events.slice(-TREND_WINDOW);
-  if (window.length < TREND_WINDOW) return "neutral";
-  const net = window.reduce((sum, e) => sum + e.delta, 0);
-  if (net > 0) return "rising";
-  if (net < 0) return "falling";
-  return "neutral";
-}
-
+/** Stale: score 0 AND no interaction in 180 days (as of the interaction this
+ * call is about to record). */
 function computeIsStale(
   score: number,
   nowIso: string,

@@ -1,32 +1,30 @@
 // Relationship Builder Agent — PLATFORM_VISION_ARCHITECTURE.md Pillar 4
 // (Autonomous Relationship Builder), AGENTS_v2.md AG-19.
 //
-// Phase A (unchanged from the prior version of this file): nightly, per-funder
-// pass that recomputes a deterministic relationship score from
-// relationship_memory recency/volume + award history, derives momentum
-// against the previous score, then (above the auto-draft threshold, reused
-// here as the relationship-recommendation floor) asks Claude for one
-// specific engagement recommendation and logs the decision (migration 080
-// infrastructure: agent_runs, agent_decisions, org_autonomous_config).
+// Phase A: nightly, per-funder pass that scores the funder relationship, then
+// (above the auto-draft threshold, reused here as the relationship-
+// recommendation floor) asks Claude for one specific engagement
+// recommendation and logs the decision (migration 080 infrastructure:
+// agent_runs, agent_decisions, org_autonomous_config).
 //
-// funder_relationship_scores predates this agent (BEHAVIORAL_CONTRACTS.md
-// §26, src/lib/agents/funder-relationship.ts — Agent 23's event-delta
-// scorer) and has no local migration file; it was created directly against
-// prod. CORRECTED 2026-08-07 (live-verified via psql/DATABASE_URL, not
-// assumed from other code): the previous version of this comment claimed
-// relationship_score/trend/updated_at, copied from funder-relationship.ts's
-// and FunderDetail.tsx's own (also wrong, unfixed here — separate,
-// wider-blast-radius finding, see AGENT_VERIFICATION_LOG.md) assumptions.
-// The table's real live columns are organization_id/funder_id/score/events
-// (jsonb)/last_updated_at/created_at — matching neither this file's old
-// comment nor SCHEMA_REGISTRY_v2.md's org_id/score/momentum/
-// last_calculated_at guess. This agent upserts score + last_updated_at, and
-// stashes {trend, momentum} inside the jsonb events column rather than a
-// dedicated trend column, since none exists. Note this table is NOT the
-// same one the live /funders/[id]/relationship UI route reads — that route
-// (src/lib/intelligence/relationship-scorer.ts) computes its score
-// on-the-fly from funder_relationship_events, a different table entirely.
-// funder_relationship_scores has no other confirmed-working reader today.
+// CONSOLIDATED onto the canonical event-sourced formula in
+// src/lib/intelligence/relationship-scorer.ts (see BEHAVIORAL_CONTRACTS.md's
+// "Relationship Scoring" contract). This phase used to compute its own score
+// from relationship_memory recency/volume + award history — a completely
+// different input and formula than both the canonical scorer (event-sourced
+// over funder_relationship_events, read by the live /funders/[id]/
+// relationship UI route) and funder-relationship.ts's Agent 23 (also now
+// consolidated onto the same canonical scorer). relationship_memory is still
+// fetched here, but only as narrative context for the Claude recommendation
+// prompt below — it no longer feeds the score itself.
+//
+// funder_relationship_scores predates this agent and has no local migration
+// file for its current shape; it was extended directly against prod twice
+// (migration 139's header documents both column families). This agent
+// upserts both: relationship_score/trend (Funder Relationship Agent's/the
+// Funders UI's family) and score/events (this agent's own original family),
+// writing the identical canonical value into both so no reader of this table
+// can see two different scores for the same funder.
 //
 // relationship_memory and relationship_recommendations (migration 076) do
 // use org_id, matching both SCHEMA_REGISTRY_v2.md and the reputation agent
@@ -108,7 +106,6 @@
 //     threshold-only gating is unchanged.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { differenceInCalendarDays } from "date-fns";
 
 import {
   AutonomousAgent,
@@ -119,20 +116,22 @@ import {
   callClaudeWithWebSearch,
   DEFAULT_MODEL,
 } from "@/lib/ai/claude";
+import {
+  computeRelationshipScore,
+  type RelationshipMomentum,
+} from "@/lib/intelligence/relationship-scorer";
 
 // Matches AutonomousAgent's own TriggerSource exactly (autonomous-base.ts) —
 // must include "event" since worker/autonomous-orchestrator.ts's
 // feature.relationship_builder_v2 queue path calls run("event").
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 
-type Momentum = "rising" | "declining" | "stable";
+type Momentum = RelationshipMomentum;
 type StoredTrend = "rising" | "falling" | "neutral";
 type HopCount = 1 | 2 | 3;
 
 const RECENT_MEMORY_LIMIT = 10;
 const MEMORY_FOR_PROMPT = 5;
-const NINETY_DAY_BONUS_CAP = 20;
-const NINETY_DAY_BONUS_PER_MEMORY = 5;
 
 // Phase B tuning — mirrors the sampling/bounding conventions already
 // established by AG-18 (REPUTATION_SAMPLE_SIZE=5) and AG-32
@@ -163,10 +162,6 @@ interface MemoryRow {
   content: string;
   signal_date: string | null;
   created_at: string;
-}
-
-interface ExistingScoreRow {
-  score: number | null;
 }
 
 interface RecommendationResult {
@@ -206,58 +201,6 @@ interface RankedIntroductionPath extends IntroductionPathResult {
   opportunityValue: number;
   priorityScore: number;
   matchedOfficerName: string | null;
-}
-
-function memoryDate(m: MemoryRow): Date {
-  return new Date(m.signal_date ?? m.created_at);
-}
-
-/**
- * Deterministic score per AGENTS_v2.md AG-19: base 50, recency/volume
- * bonuses from relationship_memory, an award bonus, and staleness
- * penalties. The two staleness tiers are treated as tiered (not additive)
- * to mirror the elif structure of the recency bonus directly above them —
- * a funder silent 400 days takes the -20 penalty, not -30.
- */
-function computeRelationshipScore(
-  memories: MemoryRow[],
-  hasAwardedOutcome: boolean,
-): number {
-  let score = 50;
-
-  const daysSinceContact = memories[0]
-    ? differenceInCalendarDays(new Date(), memoryDate(memories[0]))
-    : Infinity;
-
-  if (daysSinceContact <= 14) {
-    score += 15;
-  } else if (daysSinceContact <= 30) {
-    score += 10;
-  }
-
-  const recentCount = memories.filter(
-    (m) => differenceInCalendarDays(new Date(), memoryDate(m)) <= 90,
-  ).length;
-  score += Math.min(
-    recentCount * NINETY_DAY_BONUS_PER_MEMORY,
-    NINETY_DAY_BONUS_CAP,
-  );
-
-  if (hasAwardedOutcome) score += 10;
-
-  if (daysSinceContact >= 365) {
-    score -= 20;
-  } else if (daysSinceContact >= 180) {
-    score -= 10;
-  }
-
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function computeMomentum(newScore: number, previousScore: number): Momentum {
-  if (newScore > previousScore + 5) return "rising";
-  if (newScore < previousScore - 5) return "declining";
-  return "stable";
 }
 
 /** Maps this agent's rising/declining/stable onto the trend column's
@@ -730,98 +673,33 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
         fundersAnalyzed++;
 
         try {
-          const [memoriesRes, existingScoreRes, opportunityIdsRes] =
-            await Promise.all([
-              this.supabase
-                .from("relationship_memory")
-                .select("memory_type, content, signal_date, created_at")
-                .eq("org_id", this.orgId)
-                .eq("entity_id", funder.id)
-                .eq("entity_type", "funder")
-                .order("created_at", { ascending: false })
-                .limit(RECENT_MEMORY_LIMIT),
-              this.supabase
-                .from("funder_relationship_scores")
-                .select("score")
-                .eq("organization_id", this.orgId)
-                .eq("funder_id", funder.id)
-                .maybeSingle(),
-              this.supabase
-                .from("opportunities")
-                .select("id")
-                .eq("organization_id", this.orgId)
-                .eq("funder_id", funder.id),
-            ]);
+          const { data: memoryRows, error: memoriesError } = await this.supabase
+            .from("relationship_memory")
+            .select("memory_type, content, signal_date, created_at")
+            .eq("org_id", this.orgId)
+            .eq("entity_id", funder.id)
+            .eq("entity_type", "funder")
+            .order("created_at", { ascending: false })
+            .limit(RECENT_MEMORY_LIMIT);
 
-          if (memoriesRes.error) {
+          if (memoriesError) {
             throw new Error(
-              `Failed to load relationship memory: ${memoriesRes.error.message}`,
-            );
-          }
-          if (opportunityIdsRes.error) {
-            throw new Error(
-              `Failed to load opportunities: ${opportunityIdsRes.error.message}`,
+              `Failed to load relationship memory: ${memoriesError.message}`,
             );
           }
 
-          // applications has no funder_id column of its own (confirmed live,
-          // 2026-08-07 — the prior .eq("funder_id", ...) directly against
-          // applications was a real bug, not the migration-127 table gap
-          // this file's own header documents) — funder linkage is derived
-          // via applications.opportunity_id -> opportunities.funder_id.
-          const memories = (memoriesRes.data ?? []) as MemoryRow[];
-          const opportunityIds = (opportunityIdsRes.data ?? []).map(
-            (o) => (o as { id: string }).id,
+          // relationship_memory is narrative context for the Claude
+          // recommendation prompt below only — the score itself comes from
+          // the canonical event-sourced scorer (see file header).
+          const memories = (memoryRows ?? []) as MemoryRow[];
+
+          const { score: newScore, momentum } = await computeRelationshipScore(
+            funder.id,
+            this.orgId,
+            this.supabase,
           );
 
-          let applicationIds: string[] = [];
-          if (opportunityIds.length > 0) {
-            const { data: applicationRows, error: applicationsError } =
-              await this.supabase
-                .from("applications")
-                .select("id")
-                .eq("organization_id", this.orgId)
-                .in("opportunity_id", opportunityIds);
-
-            if (applicationsError) {
-              throw new Error(
-                `Failed to load applications: ${applicationsError.message}`,
-              );
-            }
-            applicationIds = (applicationRows ?? []).map(
-              (a) => (a as { id: string }).id,
-            );
-          }
-
-          let hasAwardedOutcome = false;
-          if (applicationIds.length > 0) {
-            const { data: awardedRows, error: outcomesError } =
-              await this.supabase
-                .from("outcomes")
-                .select("id")
-                .eq("organization_id", this.orgId)
-                .eq("result", "awarded")
-                .in("application_id", applicationIds)
-                .limit(1);
-
-            if (outcomesError) {
-              throw new Error(
-                `Failed to load outcomes: ${outcomesError.message}`,
-              );
-            }
-            hasAwardedOutcome = (awardedRows ?? []).length > 0;
-          }
-
-          const existingScore = existingScoreRes.data as
-            | ExistingScoreRow
-            | null;
-          const previousScore = existingScore?.score ?? null;
-
-          const newScore = computeRelationshipScore(
-            memories,
-            hasAwardedOutcome,
-          );
-          const momentum = computeMomentum(newScore, previousScore ?? newScore);
+          const trend = momentumToTrend(momentum);
 
           const { error: upsertError } = await this.supabase
             .from("funder_relationship_scores")
@@ -829,9 +707,15 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
               {
                 organization_id: this.orgId,
                 funder_id: funder.id,
+                // This agent's own original column family.
                 score: newScore,
-                events: { trend: momentumToTrend(momentum), momentum },
+                events: { trend, momentum },
                 last_updated_at: new Date().toISOString(),
+                // Funder Relationship Agent's/the Funders UI's column
+                // family — kept in sync so no reader of this table can see
+                // two different scores for the same funder.
+                relationship_score: newScore,
+                trend,
               },
               { onConflict: "organization_id,funder_id" },
             );

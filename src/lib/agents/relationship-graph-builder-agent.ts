@@ -1,6 +1,15 @@
 // Relationship Graph Builder Agent — AUTONOMOUS_PLATFORM_VISION.md Phase 3
 // ("Corporate Relationship Graph"), AGENTS_v2.md AG-32.
 //
+// Not part of the relationship-scoring consolidation (see
+// BEHAVIORAL_CONTRACTS.md's "Relationship Scoring" contract, funder-
+// relationship.ts/Agent 23, and relationship-builder-agent.ts/AG-19's Phase
+// A) — this agent never computes a funder relationship score and never reads
+// or writes funder_relationship_scores or funder_relationship_events. It
+// only discovers and writes pig_nodes/pig_edges graph connections (edge
+// `weight` below is introduction confidence, not a relationship score).
+//
+
 // Per AGENTS_v2.md §1.4 and AUTONOMOUS_PLATFORM_VISION.md §7's own Phase 3
 // blueprint table, this feature has "no new agent number" — it is an
 // extension of AG-23 (Relationship Mapper), and it "extends pig_nodes and
