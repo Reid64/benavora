@@ -360,6 +360,129 @@ export async function refreshPriorityRanking(
   return { scanned: ranked.length, updated };
 }
 
+export interface AG22BatchInput {
+  /** Explicit prospect ids to (re)score. When omitted, queries the next unscored batch. */
+  prospectIds?: string[];
+  /** Max prospects to process this run. Clamped to {@link MAX_BATCH_LIMIT}. */
+  limit?: number;
+}
+
+export interface AG22BatchItemResult {
+  prospectId: string;
+  status: "scored" | "skipped" | "failed";
+  error?: string;
+}
+
+export interface AG22BatchResult {
+  scanned: number;
+  scored: number;
+  skipped: number;
+  failed: number;
+  results: AG22BatchItemResult[];
+}
+
+const DEFAULT_BATCH_LIMIT = 10;
+const MAX_BATCH_LIMIT = 25;
+/** Concurrent single-prospect runs per chunk. Each is up to 9 sequential Claude
+ * calls (270s ceiling) -- running several prospects concurrently keeps a
+ * multi-prospect batch inside the route's 300s maxDuration. */
+const BATCH_CONCURRENCY = 5;
+
+/**
+ * Orchestrates PropensityScoringAgent across many prospects in one call.
+ * corporate_prospects is a shared, cross-org table with no organization_id
+ * (file header, SCHEMA_REGISTRY_v2.md §4.4) -- this wrapper does not add
+ * per-org filtering to it, by the same design as the single-prospect agent
+ * above. `organizationId` here is only the audit-trail value on the agent_runs
+ * row this wrapper (and each per-prospect run it spawns) logs to.
+ */
+export class PropensityBatchScorer extends BaseAgent<AG22BatchInput, AG22BatchResult> {
+  readonly agentType: AgentType = "ag22_propensity_scoring";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 280_000 });
+  }
+
+  protected async execute(
+    input: AG22BatchInput,
+  ): Promise<AgentExecution<AG22BatchResult>> {
+    const limit = Math.min(
+      Math.max(input.limit ?? DEFAULT_BATCH_LIMIT, 1),
+      MAX_BATCH_LIMIT,
+    );
+
+    let candidateIds: string[];
+    if (input.prospectIds && input.prospectIds.length > 0) {
+      candidateIds = input.prospectIds.slice(0, limit);
+    } else {
+      const { data, error } = await this.client
+        .from("corporate_prospects")
+        .select("id")
+        .not("enrichment_completed_at", "is", null)
+        .is("scores_computed_at", null)
+        .order("enrichment_completed_at", { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        throw new AgentError(
+          `Failed to query unscored prospects: ${error.message}`,
+          "query_failed",
+        );
+      }
+      candidateIds = (data ?? []).map((row) => row.id as string);
+    }
+
+    const results: AG22BatchItemResult[] = [];
+    let scored = 0;
+    let skipped = 0;
+    let failed = 0;
+    let tokensUsed = 0;
+
+    for (let i = 0; i < candidateIds.length; i += BATCH_CONCURRENCY) {
+      const chunk = candidateIds.slice(i, i + BATCH_CONCURRENCY);
+      const settled = await Promise.allSettled(
+        chunk.map((prospectId) =>
+          new PropensityScoringAgent({
+            client: this.client,
+            organizationId: this.organizationId,
+            triggeredBy: this.triggeredBy,
+          }).run({ prospectId }),
+        ),
+      );
+
+      settled.forEach((outcome, idx) => {
+        const prospectId = chunk[idx]!;
+        if (outcome.status === "fulfilled") {
+          tokensUsed += outcome.value.tokensUsed;
+          if (outcome.value.data.skipped) {
+            skipped++;
+            results.push({ prospectId, status: "skipped" });
+          } else {
+            scored++;
+            results.push({ prospectId, status: "scored" });
+          }
+        } else {
+          failed++;
+          const err = outcome.reason;
+          results.push({
+            prospectId,
+            status: "failed",
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+    }
+
+    return {
+      data: { scanned: candidateIds.length, scored, skipped, failed, results },
+      outputSummary: `Batch propensity scoring: ${candidateIds.length} candidate(s) scanned, ${scored} scored, ${skipped} skipped, ${failed} failed.`,
+      itemsFound: candidateIds.length,
+      itemsProcessed: scored,
+      tokensUsed,
+    };
+  }
+}
+
 export class PropensityScoringAgent extends BaseAgent<AG22Input, AG22Result> {
   readonly agentType: AgentType = "ag22_propensity_scoring";
 
