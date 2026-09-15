@@ -160,7 +160,20 @@ export class ChiefProspectIntelligenceOrchestrator implements Agent {
     const gapClosed = gapFamilies.length === 0 && requiredFamilies.every((f) => completedFamilies.has(f));
     const objectiveSatisfied = gapClosed && !blockedByCriticVerdict && !blockedByUnresolvedRecovery;
 
-    const status: AgentRunStatus = blockedByCriticVerdict ? "blocked" : objectiveSatisfied ? "completed" : "running";
+    // p5.2b (2026-09-15): was `... : objectiveSatisfied ? "completed" : "running"` --
+    // "running" is the in-progress placeholder AgentRunner.createRun() itself
+    // inserts; it is never a valid AgentResult a runner returns (confirmed
+    // live: this made every non-satisfied evaluation pass leave its own
+    // pil_agent_runs row stuck at status='running' forever). Whether the
+    // broader multi-cycle objective is satisfied is tracked separately (in
+    // `conclusions.objectiveSatisfied`, read by callers/pil_research_runs) --
+    // THIS run's own unit of work (plan, evaluate, dispatch) is complete
+    // either way once it reaches here without being blocked. Also folds in
+    // `blockedByUnresolvedRecovery`, which previously fell through to the
+    // same "running" bug despite the comment above treating it as an
+    // equal-precedence blocking condition to blockedByCriticVerdict.
+    const status: AgentRunStatus =
+      blockedByCriticVerdict || blockedByUnresolvedRecovery ? "blocked" : "completed";
 
     const conclusions: Record<string, unknown> = {
       plan,

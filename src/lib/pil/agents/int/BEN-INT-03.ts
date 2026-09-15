@@ -1,6 +1,7 @@
 import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
+  extractEntityName,
   getProspectById,
   hostnameOf,
   MAX_DELEGATIONS_PER_RUN,
@@ -83,7 +84,7 @@ export class BusinessOwnershipIntelligenceAgent implements Agent {
     if (ownerSearch.success) {
       const results = ((ownerSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
       for (const item of results.slice(0, 3)) {
-        mentions.push({ companyName: item.title, sourceUrl: item.url, sourceTitle: item.title, fromEdgar: false });
+        mentions.push({ companyName: extractEntityName(item.title).name, sourceUrl: item.url, sourceTitle: item.title, fromEdgar: false });
       }
     }
 
@@ -97,7 +98,7 @@ export class BusinessOwnershipIntelligenceAgent implements Agent {
     if (edgarSearch.success) {
       const results = ((edgarSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
       for (const item of results.slice(0, 3)) {
-        mentions.push({ companyName: item.title, sourceUrl: item.url, sourceTitle: item.title, fromEdgar: true });
+        mentions.push({ companyName: extractEntityName(item.title).name, sourceUrl: item.url, sourceTitle: item.title, fromEdgar: true });
       }
     }
 

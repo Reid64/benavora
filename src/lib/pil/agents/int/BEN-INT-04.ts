@@ -1,6 +1,7 @@
 import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
+  extractEntityName,
   getProspectById,
   hostnameOf,
   MAX_DELEGATIONS_PER_RUN,
@@ -88,7 +89,7 @@ export class EducationAlumniIntelligenceAgent implements Agent {
     if (eduSearch.success) {
       const results = ((eduSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
       for (const item of results.slice(0, 3)) {
-        mentions.push({ institutionName: item.title, sourceUrl: item.url, sourceTitle: item.title, excerpt: null });
+        mentions.push({ institutionName: extractEntityName(item.title).name, sourceUrl: item.url, sourceTitle: item.title, excerpt: null });
       }
     }
 

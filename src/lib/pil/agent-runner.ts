@@ -75,9 +75,29 @@ export class AgentRunner {
       throw new PolicyViolationError(`Agent ${context.agentCode} is not active`);
     }
 
+    // p5.2b (2026-09-15): was hardcoded to "execute_reversible" (min A3),
+    // which per PROSPECT_INTELLIGENCE_ARCHITECTURE.md §2's own table is the
+    // tier for "execute pre-authorized, low-risk, REVERSIBLE operations"
+    // (its own examples: BEN-SUP-04 pausing a goal, BEN-KNW-01 applying an
+    // accepted twin update) — not the generic act of an agent doing its own
+    // per-family work. §2's A2 ("Prepare & Queue") tier is "write evidence,
+    // create dossiers/briefs, draft rows, delegate" — exactly what the
+    // large majority of the 51 registered agents' `default_autonomy_level`
+    // was set to, and exactly what most of them actually do (write
+    // pil_evidence, propose scores, delegate). The blanket "execute_reversible"
+    // check meant every A2-ceilinged agent (40 of 51, confirmed live) threw
+    // "ceilinged at A2, requires A3" before ever reaching its own logic.
+    // "write_evidence" (A1) is used here instead of "prepare_queue" (A2) so
+    // this floor doesn't ALSO newly block BEN-OPS-01 (deliberately A1 —
+    // its whole mission is "propose," per its own Human boundary, and it's
+    // correctly barred from ever reaching A2/"prepare_queue" work). This is
+    // a floor check only: any agent needing a genuinely higher-consequence
+    // action should still gate that specific action via a dedicated,
+    // narrower check (enforceAutonomyLevel), not by raising this blanket
+    // per-run gate again.
     const policyDecision = await checkAgentAuthorization(
       context.agentCode,
-      "execute_reversible",
+      "write_evidence",
       "agent_research_execution",
       context.orgId,
     );

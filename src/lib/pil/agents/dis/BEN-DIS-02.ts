@@ -48,6 +48,12 @@ import type { EvidenceItem } from "@/lib/pil/types";
 const DEFAULT_CAPACITY_THRESHOLD_COMPENSATION_USD = 150_000;
 const DISCOVERY_ENTRYPOINT_FOR_DEEP_CAPACITY = "BEN-INT-08";
 const CRITIC_REVIEW_AGENT = "BEN-SUP-05";
+// p5.2b (2026-09-15): every sibling DIS agent bounds its delegation fan-out
+// (e.g. BEN-DIS-05's MAX_DELEGATION_CANDIDATES) -- this agent didn't, and
+// AgentRunner.delegate() runs children synchronously/inline, so a run that
+// flagged many donors would block on N cascading child runs. Same cap value
+// as BEN-DIS-05's own MAX_DELEGATION_CANDIDATES for consistency.
+const MAX_DELEGATION_CANDIDATES = 5;
 
 const ORGANIZATION_NAME_PATTERN = /\b(foundation|inc|incorporated|corp|corporation|llc|l\.l\.c\.|trust|fund)\b/i;
 
@@ -273,7 +279,8 @@ export class MajorDonorDiscoveryAgent implements Agent {
 
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
-    const delegations: DelegationRequest[] = flagged.map((f) => ({
+    const delegationCandidates = flagged.slice(0, MAX_DELEGATION_CANDIDATES);
+    const delegations: DelegationRequest[] = delegationCandidates.map((f) => ({
       childAgentCode: DISCOVERY_ENTRYPOINT_FOR_DEEP_CAPACITY,
       objective: `Assess wealth and philanthropic capacity for prospect ${f.prospectId} (${f.displayName})`,
       maxAutonomy: "A2" as const,

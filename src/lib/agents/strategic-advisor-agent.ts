@@ -755,8 +755,8 @@ export class StrategicAdvisorAgent extends AutonomousAgent {
     const { count } = await this.supabase
       .from("board_members")
       .select("id", { count: "exact", head: true })
-      .eq("org_id", this.orgId)
-      .eq("active", true);
+      .eq("organization_id", this.orgId)
+      .eq("is_active", true);
     return count ?? 0;
   }
 

@@ -163,7 +163,11 @@ describe("BEN-SUP-03 Cross-Agent Research Planner", () => {
     ]);
     const decisions = result.conclusions.decisions as Array<{ action: string; stage: number }>;
     expect(decisions.some((d) => d.action === "dispatch_stage" && d.stage === 1)).toBe(true);
-    expect(result.status).toBe("running");
+    // p5.2b (2026-09-15): was "running" -- that was the createRun() in-progress
+    // placeholder leaking out as a bogus terminal AgentResult (fixed in
+    // BEN-SUP-03.ts). This run's own unit of work (dispatch stage 1) is
+    // complete; overall multi-stage progress lives elsewhere.
+    expect(result.status).toBe("completed");
     expect(vi.mocked(logAction).mock.calls.some((c) => (c[0] as { action: string }).action === "planner.dispatch_stage")).toBe(true);
   });
 
@@ -416,7 +420,9 @@ describe("BEN-SUP-01 Chief Prospect Intelligence Orchestrator", () => {
 
     expect(vi.mocked(createResearchRun)).toHaveBeenCalledTimes(3);
     expect(vi.mocked(advanceRunState)).toHaveBeenCalledTimes(3);
-    expect(result.status).toBe("running");
+    // p5.2b (2026-09-15): was "running" -- fixed in BEN-SUP-01.ts, see the
+    // other status-assertion fix above in this file for the full rationale.
+    expect(result.status).toBe("completed");
     // BEN-SUP-03 is appended because this cycle dispatched runs (Step 4);
     // BEN-SUP-02/BEN-DIS-01 remain first, in their original order/behavior.
     expect(result.delegations.map((d) => d.childAgentCode)).toEqual(["BEN-SUP-02", "BEN-DIS-01", "BEN-SUP-03"]);
@@ -539,7 +545,9 @@ describe("BEN-SUP-01 Chief Prospect Intelligence Orchestrator", () => {
 
     expect(result.delegations.some((d) => d.childAgentCode === "BEN-SUP-03")).toBe(true);
     expect(result.delegations.some((d) => d.childAgentCode === "BEN-SUP-04")).toBe(true);
-    expect(result.status).toBe("running");
+    // p5.2b (2026-09-15): was "running" -- fixed in BEN-SUP-01.ts, see the
+    // other status-assertion fix above in this file for the full rationale.
+    expect(result.status).toBe("completed");
   });
 
   it("blocks the objective when a pending BEN-SUP-05 deny verdict exists for this research run", async () => {

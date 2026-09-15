@@ -1,6 +1,7 @@
 import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
+  extractEntityName,
   getProspectById,
   hostnameOf,
   MAX_DELEGATIONS_PER_RUN,
@@ -81,7 +82,7 @@ export class EmploymentCareerIntelligenceAgent implements Agent {
     if (currentSearch.success) {
       const results = ((currentSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
       for (const item of results.slice(0, 3)) {
-        records.push({ title: item.title, company: item.title, sourceUrl: item.url, sourceTitle: item.title });
+        records.push({ title: item.title, company: extractEntityName(item.title).name, sourceUrl: item.url, sourceTitle: item.title });
       }
     }
 
@@ -93,7 +94,7 @@ export class EmploymentCareerIntelligenceAgent implements Agent {
     if (historySearch.success) {
       const results = ((historySearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
       for (const item of results.slice(0, 3)) {
-        records.push({ title: item.title, company: item.title, sourceUrl: item.url, sourceTitle: item.title });
+        records.push({ title: item.title, company: extractEntityName(item.title).name, sourceUrl: item.url, sourceTitle: item.title });
       }
     }
 

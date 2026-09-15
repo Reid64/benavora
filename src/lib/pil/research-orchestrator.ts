@@ -135,7 +135,17 @@ async function escalateFailure(run: ResearchRun, reason: string): Promise<void> 
     review_type: "critic_block",
     subject_type: "pil_research_runs",
     subject_id: run.id,
-    requested_by_agent_id: "research-orchestrator",
+    // p5.2b (2026-09-15): was the literal "research-orchestrator", which is
+    // not a row in pil_agent_registry -- pil_human_review_queue.requested_by_agent_id
+    // has a real FK to that table (unlike logAction's actor_id below, which
+    // has no such constraint), so every escalation crashed on an FK
+    // violation instead of filing the review item, MASKING the real
+    // `reason` this function exists to surface (confirmed live this
+    // session: a real orchestration failure came back as an opaque FK
+    // error instead). BEN-SUP-01 is this system's own registered "Chief
+    // Prospect Intelligence Orchestrator" (see its own agent file), the
+    // correct attribution for a run-level (not single-agent) escalation.
+    requested_by_agent_id: "BEN-SUP-01",
     priority: "urgent",
     status: "pending",
     summary: `Research run ${run.id} failed: ${reason}`,

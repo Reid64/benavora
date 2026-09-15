@@ -249,7 +249,15 @@ export class CrossAgentResearchPlanner implements Agent {
     // 7. Determine terminal state: all stages complete with no orphaned
     // tasks and no active failure.
     const allComplete = effectiveStatuses.every((s) => s.status === "completed");
-    const status: AgentResult["status"] = allComplete ? "completed" : failedStage ? "replanning" : "running";
+    // p5.2b (2026-09-15): the third branch was "running" -- the in-progress
+    // placeholder AgentRunner.createRun() itself inserts, never a valid
+    // terminal AgentResult (confirmed live: left this run's own pil_agent_runs
+    // row stuck at status='running' forever whenever stages were still
+    // incomplete but nothing had failed). This run's own unit of work
+    // (checking stage statuses, logging planner decisions) is complete
+    // either way; overall multi-stage progress is tracked separately in
+    // structured_plan/pil_research_runs, not this run's own terminal status.
+    const status: AgentResult["status"] = allComplete ? "completed" : failedStage ? "replanning" : "completed";
 
     return {
       status,

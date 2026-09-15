@@ -508,7 +508,7 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
     urgencyTier: UrgencyTier;
     detail: string;
   }): Promise<void> {
-    await this.supabase.from("deadline_predictions").insert({
+    const { error } = await this.supabase.from("deadline_predictions").insert({
       org_id: this.orgId,
       opportunity_id: params.opportunityId,
       funder_id: params.funderId,
@@ -518,6 +518,16 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
       urgency_tier: params.urgencyTier,
       source_detail: params.detail,
     });
+    // p5.2b (2026-09-15): was previously unchecked -- unlike every other
+    // write in this file, a failed insert here silently discarded the
+    // prediction with no signal anywhere (the table itself was missing live
+    // until this session's migration 097; now applied, but this guard stays
+    // so a future regression is visible instead of silent).
+    if (error) {
+      console.error(
+        `[ag-25-deadline-prediction] Failed to record prediction: ${error.message}`,
+      );
+    }
   }
 
   /** Task item 4 — tier-specific actions, scoped to deadlines this agent

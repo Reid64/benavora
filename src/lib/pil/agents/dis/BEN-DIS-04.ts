@@ -77,6 +77,23 @@ interface CompanyDiscovery {
 
 export class CorporateGivingDiscoveryAgent implements Agent {
   async execute(context: AgentContext, runner: AgentRunner): Promise<AgentResult> {
+    // p5.2b (2026-09-15): every sibling DIS agent (01/02/03/05/06/07) returns
+    // early on an empty goal; this file was missing that guard. Impact was
+    // low (parseGoalCriteria degrades harmlessly on ""), but adding it for
+    // consistency and to avoid an unnecessary web_search call on a request
+    // with nothing to search for.
+    if (context.goal.trim().length === 0) {
+      return {
+        status: "completed",
+        evidence: [],
+        conclusions: { skipped: true, reason: "BEN-DIS-04 requires a non-empty goal" },
+        delegations: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        error: null,
+      };
+    }
+
     const criteria = parseGoalCriteria(context.goal);
     const locationPhrase = [criteria.geography, criteria.cause].filter(Boolean).join(" ");
     const evidenceCreated: EvidenceItem[] = [];

@@ -171,3 +171,31 @@ export function extractSummaryNear(text: string, name: string, windowChars = 240
 export function looksLikeRoundEstimate(text: string): boolean {
   return /\$\s?[\d,.]+\s*(million|thousand|billion|k|m|b)\b/i.test(text);
 }
+
+/**
+ * p5.2b (2026-09-15): best-effort extraction of an entity/company/
+ * institution name from a raw web-search-result TITLE, since
+ * web_search_result carries no structured name field (only title/url/
+ * page_age -- see tools/web-search.ts's own comment, "snippet is always ''
+ * here"). Several BEN-INT-0X callers previously used the entire raw title
+ * (e.g. "John Smith Named CEO of Acme Corp - Business Wire") verbatim as a
+ * graph node's company/institution/org name, polluting the relationship
+ * graph with headline text instead of clean names. Tries common
+ * news-headline patterns before falling back to the raw title; callers
+ * should treat `extracted: false` as lower-confidence than a real match.
+ */
+export function extractEntityName(title: string): { name: string; extracted: boolean } {
+  const trimmed = title.trim();
+  const NAME = "[A-Z][\\w&.,'-]*(?:\\s+(?:of\\s+|the\\s+)?[A-Z][\\w&.,'-]*){0,5}";
+  const patterns = [
+    new RegExp(`\\b(?:CEO|President|Director|Chair(?:man|woman)?|CFO|COO|VP|Vice President)\\s+of\\s+(${NAME})`, "i"),
+    new RegExp(`\\bjoins\\s+(${NAME})(?:\\s+as\\b)?`, "i"),
+    new RegExp(`\\b(?:at|with)\\s+(${NAME})\\s*(?:[-|]|$)`),
+  ];
+  for (const pattern of patterns) {
+    const match = trimmed.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (candidate && candidate.length >= 3) return { name: candidate, extracted: true };
+  }
+  return { name: trimmed, extracted: false };
+}

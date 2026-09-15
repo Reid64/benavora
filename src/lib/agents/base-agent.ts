@@ -156,9 +156,18 @@ export abstract class BaseAgent<TInput, TResult> {
 
   // --- logging helpers -------------------------------------------------------
 
-  /** Insert the `running` log row. Returns its id, or null on failure. */
+  /** Insert the `running` log row. Returns its id, or null on failure.
+   * p5.2b (2026-09-15): now logs a failed insert instead of swallowing it
+   * silently -- previously a persistent failure (e.g. an agentType literal
+   * missing from the agent_type enum, confirmed live for form-analyzer.ts/
+   * form-filler.ts/hud-monitor.ts this session) was indistinguishable from a
+   * rare transient blip: the agent's real work still completed correctly,
+   * but every run was permanently invisible to agent_runs/audit/quota
+   * tracking with no signal anywhere that this was happening. Still returns
+   * null and never throws -- a logging failure must never block the agent's
+   * real work, per this method's original contract. */
   private async logStart(input: TInput): Promise<string | null> {
-    const { data } = await this.client
+    const { data, error } = await this.client
       .from("agent_runs")
       .insert({
         organization_id: this.organizationId,
@@ -170,6 +179,12 @@ export abstract class BaseAgent<TInput, TResult> {
       })
       .select("id")
       .single();
+
+    if (error) {
+      console.error(
+        `[${this.agentType}] Failed to log agent_runs start row: ${error.message}`,
+      );
+    }
 
     // Meter this run against the org's daily agent_runs quota (Contracts §25).
     // Best-effort and decoupled from the run itself - a tracking failure must

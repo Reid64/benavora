@@ -1,6 +1,7 @@
 import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
 import {
   callTool,
+  extractEntityName,
   getProspectById,
   hostnameOf,
   MAX_DELEGATIONS_PER_RUN,
@@ -86,7 +87,7 @@ export class NonprofitBoardIntelligenceAgent implements Agent {
     if (boardSearch.success) {
       const results = ((boardSearch.data as { results?: Array<{ title: string; url: string }> } | null)?.results ?? []);
       for (const item of results.slice(0, 4)) {
-        mentions.push({ orgName: item.title, sourceUrl: item.url, sourceTitle: item.title });
+        mentions.push({ orgName: extractEntityName(item.title).name, sourceUrl: item.url, sourceTitle: item.title });
       }
     }
 
