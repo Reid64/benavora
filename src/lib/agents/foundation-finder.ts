@@ -43,7 +43,10 @@ export class FoundationFinderAgent extends BaseAgent<
   FoundationFinderInput,
   FoundationFinderResult
 > {
-  readonly agentType: AgentType = "foundation_research";
+  // p5a-002 (2026-09-15): was "foundation_research", colliding with the
+  // canonical research/foundation-grants.ts writer. Renamed to its own
+  // distinct DB enum value (already live) so agent_runs is attributable.
+  readonly agentType: AgentType = "foundation_research_finder";
 
   protected async execute(): Promise<
     AgentExecution<FoundationFinderResult>

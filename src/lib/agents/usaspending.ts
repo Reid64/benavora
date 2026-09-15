@@ -39,7 +39,10 @@ export class UsaspendingAgent extends BaseAgent<
   UsaspendingResult
 > {
   // Historical federal award data is government research intelligence.
-  readonly agentType: AgentType = "government_research";
+  // p5a-002 (2026-09-15): was "government_research", colliding with the
+  // canonical research/government-grants.ts writer. Renamed to its own
+  // distinct DB enum value (already live) so agent_runs is attributable.
+  readonly agentType: AgentType = "government_research_usaspending";
 
   protected async execute(
     input: UsaspendingInput,

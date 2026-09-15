@@ -617,6 +617,13 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
       if (aggregationDecisionId) decisions.push(aggregationDecisionId);
 
       const batchWasFull = batch.length >= EMBEDDING_BATCH_SIZE;
+      // A batch found rows to embed but embedded fewer than it found — this
+      // is a real failure (most commonly generateEmbeddingsBatch() throwing,
+      // e.g. a missing/invalid OPENAI_API_KEY), not a success, even though no
+      // exception escaped this try block. Previously this was always reported
+      // as status='completed', which made a 100%-failing batch indefinitely
+      // indistinguishable from real work in agent_runs.
+      const batchLevelFailure = itemsFound > 0 && itemsProcessed < itemsFound;
 
       await this.completeRun(runId, {
         outputSummary:
@@ -629,10 +636,13 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
           failed: failedCount,
           ranPatternAggregation: aggregationDecisionId !== null,
         },
+        ...(batchLevelFailure
+          ? { status: "failed" as const, errorMessage: errors.join("; ") }
+          : {}),
       });
 
       return {
-        success: true,
+        success: !batchLevelFailure,
         itemsFound,
         itemsProcessed,
         itemsQueued: 0,

@@ -154,7 +154,11 @@ export abstract class AutonomousAgent {
     return (data as { id: string }).id;
   }
 
-  /** Marks an agent_runs row completed with whatever summary fields apply. */
+  /** Marks an agent_runs row completed with whatever summary fields apply.
+   * `status`/`errorMessage` let a batch-style agent report a real failure
+   * (e.g. "found N, processed 0") without losing the itemsFound/itemsProcessed/
+   * outputSummary bookkeeping that a plain failRun() call would drop — status
+   * defaults to "completed" so existing callers are unaffected. */
   protected async completeRun(
     runId: string,
     params: {
@@ -168,10 +172,12 @@ export abstract class AutonomousAgent {
       /** agent_runs.output_payload jsonb (migration 080) -- structured run
        * output for agents whose result is more than a one-line summary. */
       outputPayload?: Record<string, unknown>;
+      status?: "completed" | "failed";
+      errorMessage?: string;
     },
   ): Promise<void> {
     const patch: Record<string, unknown> = {
-      status: "completed",
+      status: params.status ?? "completed",
       completed_at: new Date().toISOString(),
       output_summary: params.outputSummary,
     };
@@ -186,6 +192,7 @@ export abstract class AutonomousAgent {
       patch.confidence_score = params.confidenceScore;
     if (params.outputPayload !== undefined)
       patch.output_payload = params.outputPayload;
+    if (params.errorMessage !== undefined) patch.error_message = params.errorMessage;
 
     await this.supabase.from("agent_runs").update(patch).eq("id", runId);
   }

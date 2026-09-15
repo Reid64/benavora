@@ -46,7 +46,10 @@ export class HousingSpecificScrapersAgent extends BaseAgent<
   HousingScrapersInput,
   HousingScrapersResult
 > {
-  readonly agentType: AgentType = "government_research";
+  // p5a-002 (2026-09-15): was "government_research", colliding with the
+  // canonical research/government-grants.ts writer. Renamed to its own
+  // distinct DB enum value (already live) so agent_runs is attributable.
+  readonly agentType: AgentType = "government_research_housing_scrapers";
 
   protected async execute(): Promise<
     AgentExecution<HousingScrapersResult>

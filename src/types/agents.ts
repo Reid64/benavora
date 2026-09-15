@@ -126,7 +126,22 @@ export type AgentType =
   // to the more conventional ag15_* form) because opportunity-discovery-agent.ts
   // chains into this agent via queueChainedAgent using that exact literal.
   // Migration 178 adds this to the DB agent_type enum.
-  | "ag-15-probability";
+  | "ag-15-probability"
+  // p5a-002 (2026-09-15) — DB-level agent_type collision cleanup. These 8
+  // values already existed in the live DB enum (added by an earlier,
+  // never-committed DDL pass) but were never wired into the code that should
+  // use them; the shadow-duplicate files below silently wrote their working
+  // sibling's bucket instead. Wiring them here only changes which DB row a
+  // given agent's run is attributed to — no agent's runtime behavior changes.
+  // See AGENTS_v2.md's "Canonical implementation per AG-NN slot" table.
+  | "government_research_housing_scrapers" // housing-specific-scrapers.ts (was government_research)
+  | "government_research_nofa_parser" // nofa-parser.ts (was government_research)
+  | "government_research_usaspending" // usaspending.ts (was government_research)
+  | "foundation_research_finder" // foundation-finder.ts (was foundation_research)
+  | "custom_scrape_research" // custom-scrape.ts (was custom_api_research)
+  | "state_portal_housing_scrapers" // state-scrapers.ts (was state_portal)
+  | "state_portal_tdhca" // tdhca-scraper.ts (was state_portal)
+  | "budget_builder_worker"; // budget-builder.ts (was budget_builder; dormant, zero importers)
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

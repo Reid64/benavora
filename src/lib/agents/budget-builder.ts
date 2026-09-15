@@ -47,7 +47,17 @@ export class BudgetBuilderAgent extends BaseAgent<
   BudgetBuilderInput,
   BudgetResult
 > {
-  readonly agentType: AgentType = "budget_builder";
+  // p5a-002 (2026-09-15): was "budget_builder", colliding with budget-agent.ts
+  // (the live implementation behind /api/ai/budget/route.ts). CORRECTION:
+  // this file is NOT dormant — it's dynamically imported by
+  // worker/autonomous-orchestrator.ts's routeQueueItem() (case
+  // 'budget_builder', dispatched for agent_queue rows), just via `await
+  // import(...)` rather than a static top-level import a plain `grep "from"`
+  // would catch. Renamed to its own distinct DB enum value (already live) so
+  // its agent_queue-driven runs are attributable separately from
+  // budget-agent.ts's direct-API-route runs — a real, intended fix, not a
+  // precautionary no-op.
+  readonly agentType: AgentType = "budget_builder_worker";
 
   private readonly model: string;
   private readonly maxTokens: number;

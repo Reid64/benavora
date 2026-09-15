@@ -12,7 +12,9 @@
 //   4. Merges extracted fields across all PDFs (first non-empty wins).
 //   5. UPDATEs the opportunity with extracted values, but ONLY for fields that
 //      are currently null/empty in the database — never overwrites populated data.
-//   6. Logs the run to agent_runs with agent_type = government_research.
+//   6. Logs the run to agent_runs with agent_type =
+//      government_research_nofa_parser (renamed 2026-09-15, p5a-002 — was
+//      government_research, colliding with research/government-grants.ts).
 //
 // The exported runNofaBatch() function processes all opportunities where
 // opportunity_documents is not null AND description is null.
@@ -278,7 +280,10 @@ async function extractWithClaude(
 }
 
 export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult> {
-  readonly agentType: AgentType = "government_research";
+  // p5a-002 (2026-09-15): was "government_research", colliding with the
+  // canonical research/government-grants.ts writer. Renamed to its own
+  // distinct DB enum value (already live) so agent_runs is attributable.
+  readonly agentType: AgentType = "government_research_nofa_parser";
 
   constructor(options: BaseAgentOptions) {
     // PDF download + Claude extraction can take minutes for large NOFAs.

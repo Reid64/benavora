@@ -371,6 +371,75 @@ Discovers and scores corporate donors via Google Places and enrichment pipeline.
 
 ---
 
+## Canonical implementation per AG-NN slot / DB collision cleanup (p5a-002, 2026-09-15)
+
+`AGENT_INVENTORY_COMPLETE.md` §3 (Phase 0 audit) found two distinct kinds of collision in
+`src/lib/agents/` (104 files) that this doc's AG-01..AG-30 numbering never anticipated:
+
+1. **AG-NN label collisions** — two unrelated files both informally called "AG-08" (etc.) in
+   different places (`worker/scheduler.ts`'s comments vs `worker/autonomous-orchestrator.ts`'s).
+   Re-verified this session by reading each file's actual `agent_id`/`agentType` literal: **every
+   one of these 8 already writes a distinct DB value** (e.g. `ag-08-renewal-tracker` vs the
+   `government_research` bucket) — this was purely a human-documentation-label collision, zero DB
+   attribution risk. Recorded here so the label is never reused as if it meant "the same feature":
+
+   | Slot (doc label only — not a DB value) | Canonical file | Other file(s) sharing the label |
+   |---|---|---|
+   | AG-08 | `renewal-tracker-agent.ts` (`ag-08-renewal-tracker`) | `housing-specific-scrapers.ts`, `nofa-parser.ts` — unrelated features, own DB values (see below) |
+   | AG-09 | `outcome-analyzer-agent.ts` (`ag-09-outcome-analyzer`) | `email-parser.ts` (`email_parser`) |
+   | AG-10 | `grant-dna-agent.ts` (`ag-10-grant-dna`) | `document-expiry-agent.ts` (`ag-10-document-expiry`) |
+   | AG-11 | `knowledge-gap-agent.ts` (`ag-11-knowledge-gap`) | `cold-outreach.ts` |
+   | AG-12 | `search-profile-optimizer-agent.ts` (`ag-12-search-optimizer`) | `research/corporate-giving.ts` / `corporate-scraper.ts` (`corporate_research`) |
+   | AG-25 | `deadline-prediction-agent.ts` (`ag-25-deadline-prediction`) | `disaster-response-agent.ts` (plain function, never logs to `agent_runs`) |
+   | AG-28 | `followup-generator-agent.ts` (`ag-28-followup`) | `impact-simulation-agent.ts` (`ag-41-impact-simulation` — this file's real number is AG-41; AG-28 was a seed-doc mislabel) |
+   | AG-29 | `knowledge-indexer-agent.ts` (`ag-29-knowledge-indexer`) | `fundability-scorer-agent.ts` (`ag-29-fundability` — deliberately suffixed per its own header, see p5a-001) |
+
+2. **DB-level `agent_type` string collisions** — the real attribution risk: multiple distinct
+   classes writing the exact same `agent_runs.agent_type` value. The live DB enum already had
+   distinct values provisioned for 7 of these 9 groups (added by an earlier, never-committed DDL
+   pass — no matching migration file exists in this repo) but the code never used them. This
+   session wired the code to use them:
+
+   | Shared bucket (before) | Canonical (stays as-is) | Shadow file (renamed this session) | New DB value |
+   |---|---|---|---|
+   | `government_research` | `research/government-grants.ts` | `housing-specific-scrapers.ts` | `government_research_housing_scrapers` |
+   | `government_research` | `research/government-grants.ts` | `nofa-parser.ts` | `government_research_nofa_parser` |
+   | `government_research` | `research/government-grants.ts` | `usaspending.ts` | `government_research_usaspending` |
+   | `foundation_research` | `research/foundation-grants.ts` | `foundation-finder.ts` | `foundation_research_finder` |
+   | `custom_api_research` | `custom-api.ts` | `custom-scrape.ts` | `custom_scrape_research` |
+   | `state_portal` | `state-portal.ts` | `state-scrapers.ts` | `state_portal_housing_scrapers` |
+   | `state_portal` | `state-portal.ts` | `tdhca-scraper.ts` | `state_portal_tdhca` |
+   | `budget_builder` | `budget-agent.ts` (live, `/api/ai/budget/route.ts`) | `budget-builder.ts` (live via `worker/autonomous-orchestrator.ts`'s `routeQueueItem()`, case `'budget_builder'` — a real `agent_queue`-dispatched implementation, not dormant; a `grep "from ..."`-only importer check misses this since it's a dynamic `await import(...)`) | `budget_builder_worker` |
+
+   All 8 renames are attribution-only: no agent's runtime behavior changed, only which
+   `agent_runs.agent_type` value its rows carry going forward. Historical rows under the old
+   shared value are left as-is (not backfilled/relabeled).
+
+   **2 groups intentionally left unresolved** — re-investigation found BOTH files in each pair are
+   genuinely live and independently wired (not an accidental duplicate with a clear dormant side),
+   and no pre-provisioned distinct DB value exists for either. Renaming either without a product
+   decision on which should keep the canonical bucket risks silently dropping real runs out of
+   existing dashboards/analytics that filter on the shared value — documented here rather than
+   guessed, same principle as `UNUSED_AGENT_TRIAGE.md`'s "if in doubt, don't guess" standard:
+
+   | Shared bucket | Writer A | Writer B | Status |
+   |---|---|---|---|
+   | `corporate_research` | `research/corporate-giving.ts` (cron + primary trigger) | `corporate-scraper.ts` (multi-source trigger, `/api/agents/research` `sources=` flow) | Both live — needs a product decision, not a guess |
+   | `browser_automation` | `browser-automation.ts` (used by `automation-worker.ts`, approve routes) | `playwright-agent.ts` (`/api/agents/playwright`) | Both live — needs a product decision, not a guess |
+
+   A regression test (`src/__tests__/unit/agent-type-collision-check.test.ts`) statically scans
+   every file in `src/lib/agents/` for its declared `agent_type`/`agentId` and fails CI if any
+   *new* collision appears outside this pair's grandfathered allowlist.
+
+3. **Undocumented AG-32+ agents** — everything above AG-30 in the live codebase (AG-32 through
+   AG-43, plus `ag-digest`, `ag22_propensity_scoring`, `ag-36-learning-network`, etc.) exists only
+   as code/DB additions with **no spec in this document** — this file only ever covered AG-01
+   through AG-30. Treat any AG-3x/AG-4x reference elsewhere as undocumented-but-real unless a
+   future revision of this file adds a real spec section for it; do not assume absence from this
+   doc means the agent doesn't exist (see `AGENT_INVENTORY_COMPLETE.md` for the live inventory).
+
+---
+
 ## Agent Registry Schema
 
 ```sql

@@ -1,5 +1,105 @@
 # Benavora Platform Build State
 
+## PHASE 5.1 — legacy agent system repair (2026-09-15)
+
+Executed `queue-phase5-agent-repair.yaml` (p5a-001 through p5a-006, plus verification). Full
+detail in `AGENTS_v2.md` (collision table), `UNUSED_AGENT_TRIAGE.md` (43-file triage), and each
+fix's own code comments. Summary:
+
+1. **✅ FIXED — AG-29 Knowledge Indexer silent 100% failure.** Root cause: `OPENAI_API_KEY` was
+   completely absent from Railway production (`benavora-worker` service) — confirmed by listing all
+   24 production env vars, present locally but never set in prod. Set it live (Railway `variables
+   --set`, user-confirmed before applying since it's a production secret change); the worker
+   auto-redeployed and the very next batch embedded 2/2 rows successfully (previously 0/2 on 100%
+   of the last 5,401 runs). Also fixed the observability gap so this class of failure can't hide
+   again: `knowledge-indexer-agent.ts` now reports `status='failed'` with a real `error_message`
+   when a batch-level embedding failure occurs (previously always `status='completed'` regardless
+   of `items_processed`), via a new optional `status`/`errorMessage` param on
+   `autonomous-base.ts`'s `completeRun()`. Regression test:
+   `src/__tests__/unit/knowledge-indexer-agent.test.ts`.
+2. **✅ FIXED — 9 real `agent_type` DB-string collisions.** Re-investigation found the live DB enum
+   already had 7 of 8 disambiguating values provisioned (added by an earlier, never-committed DDL
+   pass — same pattern as several other findings this session) but never wired into code; wired
+   `housing-specific-scrapers.ts`, `nofa-parser.ts`, `usaspending.ts`, `foundation-finder.ts`,
+   `custom-scrape.ts`, `state-scrapers.ts`, `tdhca-scraper.ts`, and `budget-builder.ts` to their own
+   distinct values (see `AGENTS_v2.md`'s full table). 2 groups (`corporate_research`,
+   `browser_automation`) were left intentionally unresolved — both writers in each pair are
+   genuinely live with no dormant side to rename and no pre-provisioned value, so forcing a rename
+   would risk silently dropping real runs from existing dashboards; needs a human product decision,
+   not a guess. Added a standing regression guard,
+   `src/__tests__/unit/agent-type-collision-check.test.ts`, that statically scans every file in
+   `src/lib/agents/` and fails if any *new* collision appears outside a small documented allowlist.
+   Also documented the 8 AG-NN doc-label collisions (AG-08, AG-09, etc.) — re-verified these were
+   never real DB collisions, just two files informally called by the same number in different
+   comments.
+3. **✅ TRACED — 43 zero-30-day-execution agent files (`UNUSED_AGENT_TRIAGE.md`).** Corrected the
+   source audit's premise: 19 of 27 files it filed under "idle" or "confirmed zero callers" turned
+   out to have a real route, importer, or UI fetch when re-checked with a repo-wide search — only
+   ~5 were genuinely dead. **Caught and corrected a methodology bug mid-session**: the first-pass
+   importer search (`grep "from ..."`) missed `worker/autonomous-orchestrator.ts`'s dominant pattern
+   of dynamic `await import(...)` inside its `routeQueueItem()` dispatcher, producing 3 false
+   "zero importers" findings (`budget-builder.ts`, `deadline-extractor.ts`,
+   `probability-scoring-agent.ts` are all real, `agent_queue`-dispatched implementations) — caught
+   before any deletion by the required re-confirmation-at-deletion-time step, corrected with a
+   pattern that also catches dynamic imports.
+4. **✅ DELETED — 5 confirmed dead-code agent files**, re-confirmed zero importers (static AND
+   dynamic) immediately before deletion: `budget-builder-agent.ts`, `compliance-check-agent.ts`,
+   `eligibility-scoring-agent.ts`, `deadline-extraction-agent.ts`, `funder-signal-monitor-agent.ts`
+   (AG-43 — a real, deliberately-built feature that was simply never wired to anything).
+   `tsc --noEmit` and the full unit suite pass with zero regressions after the deletions.
+5. **✅ CONFIRMED ALREADY FIXED — `success_probability` WGR-170.** Live data shows the last failure
+   was 2026-09-11T07:02, followed by 29/29 successful runs from 09-11T16:17 onward through today —
+   the missing `UNIQUE (application_id)` constraint the upsert's `onConflict` target needs was
+   silently added to the live DB sometime in that window (same never-committed-DDL pattern as #2
+   above), not by this session. Re-verified the constraint still matches the code's target and
+   added a standing regression guard,
+   `src/__tests__/integration/success-probability-upsert-constraint.test.ts`, against it being
+   dropped/changed again without a matching code update.
+6. **✅ FIXED — stuck-run watchdog built and wired**, `worker/stuck-run-watchdog.ts` (new poll loop,
+   same shape as `knowledge-indexer-processor.ts`, wired into `worker/index.ts`'s boot/shutdown
+   sequence). Sweeps any `agent_runs` row stuck at `status='running'` for >30 minutes to
+   `status='failed'` with a real timeout `error_message`. One-time cleanup swept **6** currently-stuck
+   rows platform-wide (not just the 2 the source audit named): `grant_summary` (89 days!),
+   `eligibility_scoring` (89 days!), `grants_gov_research` (×2, 41 days), `review` (23 days),
+   `recursive_learning` (4 days). Investigated `review-agent.ts`'s specific timeout handling — its
+   internal 270s `timeoutMs` + `maxDuration=300` route config are correctly ordered and the
+   try/catch already marks a timed-out run `failed`; the stuck rows are consistent with the process
+   itself being killed (platform restart/deploy) before its own cleanup code could run, which is
+   exactly the class of failure the external watchdog (not an in-process fix) is the right
+   structural mitigation for.
+7. **✅ FIXED — AG-38 (self-improvement-agent) never fired despite being scheduled daily at
+   4:00 AM.** Root cause: two migrations were written and committed to the repo but **never applied
+   to the live production DB** (same never-committed/never-applied-DDL pattern found repeatedly this
+   session) — `088_self_improvement_agent.sql`'s `ALTER TABLE agent_runs ALTER COLUMN
+   organization_id DROP NOT NULL` (AG-38 is the first platform-wide, non-org-scoped agent and its
+   own `startRun()` correctly passes `organization_id: null`, but the live column still had its
+   original `NOT NULL` from migration 001 — every single run failed at the very first `agent_runs`
+   insert, before any row could exist, explaining the audit's "zero executions anywhere" finding),
+   and `100_self_improvement_hardening.sql`'s `agent_performance_metrics.runs_failed` column (the
+   code has referenced this column since 2026-07-20 expecting migration 100 to have added it).
+   Applied both migrations live (idempotent, `IF NOT EXISTS`-guarded, matching their own committed
+   SQL exactly). Live-verified with a real, direct invocation of `runSelfImprovementPipeline()`:
+   first attempt reproduced the NOT NULL failure exactly, second (after migration 088) reproduced
+   the missing-column failure exactly, third (after migration 100) **succeeded**: `status=completed`,
+   9 metric rows calculated, 0 underperformers (real "nothing to flag" outcome), weekly report
+   correctly skipped (not Sunday).
+8. **EA-01..EA-10 corporate-enrichment pipeline decision: reconfirmed, not re-decided.** A prior
+   session (2026-09-11, see this file's Phase 1 entry) already made and recorded this exact
+   go/no-go call: `worker/enrichment-processor.ts` is built but deliberately not wired into
+   `worker/index.ts`'s boot sequence, since enabling it starts continuous external-API/Claude spend
+   against all unenriched `corporate_prospects` rows — an explicit human cost/scope decision, not a
+   silent code change. Re-verified this session: still true, nothing has changed since 09-11.
+9. **Verification:** `npm run typecheck` — 0 errors. `npm run test:integration` — 3/3 passed (one
+   pre-existing, unrelated cleanup-ordering issue noted in `autoapply-queue-live-worker.test.ts`,
+   not touched by this session — leaked 2 test orgs due to an FK constraint on `funders`, logged but
+   not chased down, matching this repo's known "integration tests can leak prod rows" pattern).
+   `npm run test:unit` — 873/874 passed, 1 pre-existing unrelated failure (the same
+   `funders.city`/`state` missing-columns gap noted in this file's Phase 1 entry, item 4 of "Next
+   Session Priorities" — still open, not this session's scope), 13 todo (expected). Zero
+   regressions from any fix or deletion above.
+
+---
+
 ## PHASE 1 FIXES — scoring foundations repair (2026-09-11)
 
 Verified via 2 independent audit passes (static: tsc/tests/code review; live: real API calls + real DB queries against org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) across two sessions same-day. **All 5 fixes are now fully verified end-to-end.**

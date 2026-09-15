@@ -73,7 +73,10 @@ export class CustomScrapeResearchAgent extends BaseAgent<
 > {
   // Reuses the custom_api_research agent_type — both agents discover
   // opportunities from external sources and share the same DB enum value.
-  readonly agentType: AgentType = "custom_api_research";
+  // p5a-002 (2026-09-15): was "custom_api_research", colliding with
+  // custom-api.ts (the client-configured REST API agent). Renamed to its own
+  // distinct DB enum value (already live) so agent_runs is attributable.
+  readonly agentType: AgentType = "custom_scrape_research";
 
   protected async execute(
     input: CustomScrapeInput,

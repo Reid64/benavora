@@ -78,7 +78,11 @@ export class StateScrapersAgent extends BaseAgent<
   StateScrapersInput,
   StateScrapersResult
 > {
-  readonly agentType: AgentType = "state_portal";
+  // p5a-002 (2026-09-15): was "state_portal", colliding with state-portal.ts
+  // (the canonical, general state-grant-portal writer) and tdhca-scraper.ts.
+  // Renamed to its own distinct DB enum value (already live) so agent_runs
+  // is attributable.
+  readonly agentType: AgentType = "state_portal_housing_scrapers";
 
   constructor(options: BaseAgentOptions) {
     // Multi-state HTML scrape + Claude extraction (with inter-fetch delays)
