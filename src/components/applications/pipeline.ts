@@ -665,4 +665,17 @@ export async function executeTransition({
       body: JSON.stringify({ applicationId: application.id }),
     }).catch(() => undefined);
   }
+
+  // Trigger Agent 09 (Final Assembly Agent) on submission (Phase 5.4,
+  // 2026-09-15) - orders attached documents, builds the submission
+  // checklist, drafts a cover letter. Best-effort, same fire-and-forget
+  // pattern as the three triggers above - a failure here must never block
+  // the stage transition itself.
+  if (target === "submitted") {
+    void fetch("/api/agents/final-assembly", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ application_id: application.id }),
+    }).catch(() => undefined);
+  }
 }

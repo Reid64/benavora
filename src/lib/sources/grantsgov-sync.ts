@@ -18,6 +18,11 @@ export interface GrantsGovSyncResult {
   keywordsSearched: number;
 }
 
+export interface GrantsGovPersistResult {
+  newCount: number;
+  updatedCount: number;
+}
+
 interface SearchProfileRow {
   keywords: string[] | null;
 }
@@ -54,6 +59,84 @@ export async function listActiveGrantsGovOrgIds(
       (data ?? []).map((r) => r.organization_id as string).filter(Boolean),
     ),
   );
+}
+
+/**
+ * Upserts already-fetched Grants.gov hits into `opportunities` — deduping by
+ * the Grants.gov external id encoded in `url` (Contracts §17; `opportunities`
+ * has no dedicated external_id column). Extracted (Phase 5.4, 2026-09-15) so
+ * category-scoped callers (education/environmental/health/minority-farmer
+ * Grants.gov agents) can persist their own pre-fetched, pre-filtered hits
+ * under their own `category` without duplicating this upsert logic.
+ */
+export async function persistGrantsGovHits(
+  admin: SupabaseClient,
+  organizationId: string,
+  hits: GrantsGovNormalizedOpportunity[],
+  category: "government_grant" | "education_grant",
+): Promise<GrantsGovPersistResult> {
+  if (hits.length === 0) return { newCount: 0, updatedCount: 0 };
+
+  const byExternalId = new Map<string, GrantsGovNormalizedOpportunity>();
+  for (const hit of hits) {
+    if (!byExternalId.has(hit.externalId)) {
+      byExternalId.set(hit.externalId, hit);
+    }
+  }
+
+  // Load this org's existing grants_gov opportunities so external ids can be
+  // matched to existing rows for update-vs-insert.
+  const { data: existingRows, error: existingError } = await admin
+    .from("opportunities")
+    .select("id, url")
+    .eq("organization_id", organizationId)
+    .eq("source", "grants_gov");
+
+  if (existingError) {
+    throw new Error("Could not load existing opportunities.");
+  }
+
+  const existingByExternalId = new Map<string, string>();
+  for (const row of (existingRows ?? []) as ExistingOpportunityRow[]) {
+    const externalId = extractExternalId(row.url);
+    if (externalId) existingByExternalId.set(externalId, row.id);
+  }
+
+  let newCount = 0;
+  let updatedCount = 0;
+
+  for (const opp of byExternalId.values()) {
+    const existingId = existingByExternalId.get(opp.externalId);
+
+    const patch: Record<string, unknown> = {
+      name: opp.name,
+      description: opp.description,
+      amount_max: opp.amount,
+      deadline: opp.deadline,
+      source: "grants_gov",
+      source_type: "government_federal" as const,
+      url: externalUrl(opp.externalId),
+    };
+
+    if (existingId) {
+      const { error } = await admin
+        .from("opportunities")
+        .update(patch)
+        .eq("id", existingId)
+        .eq("organization_id", organizationId);
+      if (!error) updatedCount++;
+    } else {
+      const { error } = await admin.from("opportunities").insert({
+        ...patch,
+        organization_id: organizationId,
+        category,
+        status: "open" as const,
+      });
+      if (!error) newCount++;
+    }
+  }
+
+  return { newCount, updatedCount };
 }
 
 /**
@@ -106,57 +189,12 @@ export async function syncGrantsGovForOrg(
     }
   }
 
-  // Load this org's existing grants_gov opportunities so external ids can be
-  // matched to existing rows for update-vs-insert.
-  const { data: existingRows, error: existingError } = await admin
-    .from("opportunities")
-    .select("id, url")
-    .eq("organization_id", organizationId)
-    .eq("source", "grants_gov");
-
-  if (existingError) {
-    throw new Error("Could not load existing opportunities.");
-  }
-
-  const existingByExternalId = new Map<string, string>();
-  for (const row of (existingRows ?? []) as ExistingOpportunityRow[]) {
-    const externalId = extractExternalId(row.url);
-    if (externalId) existingByExternalId.set(externalId, row.id);
-  }
-
-  let newCount = 0;
-  let updatedCount = 0;
-
-  for (const opp of byExternalId.values()) {
-    const existingId = existingByExternalId.get(opp.externalId);
-
-    const patch: Record<string, unknown> = {
-      name: opp.name,
-      description: opp.description,
-      amount_max: opp.amount,
-      deadline: opp.deadline,
-      source: "grants_gov",
-      source_type: "government_federal" as const,
-      url: externalUrl(opp.externalId),
-    };
-
-    if (existingId) {
-      const { error } = await admin
-        .from("opportunities")
-        .update(patch)
-        .eq("id", existingId)
-        .eq("organization_id", organizationId);
-      if (!error) updatedCount++;
-    } else {
-      const { error } = await admin.from("opportunities").insert({
-        ...patch,
-        organization_id: organizationId,
-        category: "government_grant" as const,
-        status: "open" as const,
-      });
-      if (!error) newCount++;
-    }
-  }
+  const { newCount, updatedCount } = await persistGrantsGovHits(
+    admin,
+    organizationId,
+    Array.from(byExternalId.values()),
+    "government_grant",
+  );
 
   return { newCount, updatedCount, keywordsSearched: keywords.length };
 }

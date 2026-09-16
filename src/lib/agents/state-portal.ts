@@ -22,11 +22,16 @@
 // regardless of relevance). Wiring this into automation would require
 // resolving each org's configured/allowed state(s) first — a real feature,
 // not a one-line schedule addition — and no such per-org state configuration
-// currently exists to resolve against. Live-tested directly this session
-// (state: "TX"): threw a real `404` from the Texas portal URL in the
-// built-in registry — the portal URL itself is stale/wrong, a separate real
-// bug from the scheduling question, not diagnosed further here (out of scope
-// for this pass).
+// currently exists to resolve against.
+//
+// TX 404 RESOLVED (Phase 5.4, 2026-09-15): the 2026-08-04 note below this
+// dash used to report a live 404 against the Texas portal URL in
+// src/lib/sources/state-portals/portal-registry.ts. That registry's TX
+// entry was corrected the very next day (2026-08-05, per its own header
+// comment) to "https://egrants.gov.texas.gov/fundingopp" — re-verified live
+// today via a direct fetch: `200`, real content. No code change was needed
+// here; this comment was simply describing a bug in a dependency that had
+// already been fixed one day later.
 
 import { callClaude } from "@/lib/ai/claude";
 import {

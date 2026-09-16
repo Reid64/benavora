@@ -50,10 +50,11 @@
 // exactly this situation -- a platform-level background pipeline with no
 // requesting org.
 //
-// This module is not wired into worker/index.ts's boot sequence by this
-// change. Call start(supabase) from index.ts when this pipeline is ready to
-// run continuously in production; runEnrichmentBatch(supabase) is also
-// exported standalone for a one-shot/manual/CLI run in the meantime.
+// Wired into worker/index.ts's boot/shutdown sequence (Phase 5.4,
+// 2026-09-15) following the exact start/stop/waitForIdle convention
+// dd-request-processor.ts established -- this pipeline now runs
+// continuously in production. runEnrichmentBatch(supabase) remains exported
+// standalone for a one-shot/manual/CLI run.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 

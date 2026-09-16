@@ -30,7 +30,13 @@ interface PlanStage {
 }
 
 const STAGES: PlanStage[] = [
-  { stage: 1, agents: ["BEN-DIS-01"], dependsOn: null },
+  // Phase 5.4 (2026-09-15): BEN-DIS-02 (Major Donor Discovery) and BEN-DIS-08
+  // (Hidden Prospect & CRM Rediscovery) were fully built but had no entry
+  // point into this pipeline -- both are independent of any other stage's
+  // output (BEN-DIS-08 does an org-wide CRM scan, BEN-DIS-02 needs only
+  // context.goal), so they run in parallel with BEN-DIS-01 here, same as
+  // stage 2 already fans out to two agents at once.
+  { stage: 1, agents: ["BEN-DIS-01", "BEN-DIS-02", "BEN-DIS-08"], dependsOn: null },
   { stage: 2, agents: ["BEN-INT-01", "BEN-INT-08"], dependsOn: 1 },
   { stage: 3, agents: ["BEN-REL-01"], dependsOn: 2 },
   { stage: 4, agents: ["BEN-QLF-04"], dependsOn: 3 },

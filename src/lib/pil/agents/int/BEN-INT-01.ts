@@ -200,6 +200,11 @@ export class IndividualIntelligenceAgent implements Agent {
       const hasBoard = allEvidence.some((e) => e.claim_type === "nonprofit_board");
       const hasGiving = allEvidence.some((e) => e.claim_type === "giving_history");
       const hasWealth = allEvidence.some((e) => e.claim_type === "wealth_capacity");
+      // Phase 5.4 (2026-09-15): BEN-INT-10 (Contact Intelligence) was fully
+      // built but had no gap-check delegating into it -- every other
+      // dimension BEN-SUP-02's DIMENSION_AGENT map assigns to an INT agent
+      // (employment/education/board/giving/wealth) already had one here.
+      const hasContactInfo = allEvidence.some((e) => e.claim_type === "contact");
       const hasRelationshipEdges = personEdges.length > 0;
 
       const dimensionCoverage: Record<string, boolean> = {
@@ -274,6 +279,12 @@ export class IndividualIntelligenceAgent implements Agent {
         pushCandidate(
           "BEN-INT-08",
           `Prospect ${context.prospectId} has no wealth/capacity evidence on file -- research wealth and giving capacity.`,
+        );
+      }
+      if (!hasContactInfo) {
+        pushCandidate(
+          "BEN-INT-10",
+          `Prospect ${context.prospectId} has no contact-channel evidence on file -- identify permissible contact pathways.`,
         );
       }
       if (!hasRelationshipEdges) {

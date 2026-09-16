@@ -3,6 +3,7 @@ import { createAdminClient } from '../src/lib/supabase/admin.js';
 import * as heartbeat from './heartbeat.js';
 import * as queueProcessor from './queue-processor.js';
 import * as ddRequestProcessor from './dd-request-processor.js';
+import * as enrichmentProcessor from './enrichment-processor.js';
 import * as knowledgeIndexerProcessor from './knowledge-indexer-processor.js';
 import * as stuckRunWatchdog from './stuck-run-watchdog.js';
 import * as confirmationMonitor from '../src/lib/autoapply/confirmation-monitor.js';
@@ -98,6 +99,7 @@ async function shutdown(signal: string): Promise<void> {
 
   queueProcessor.stop();
   ddRequestProcessor.stop();
+  enrichmentProcessor.stop();
   knowledgeIndexerProcessor.stop();
   stuckRunWatchdog.stop();
   confirmationMonitor.stop();
@@ -109,6 +111,7 @@ async function shutdown(signal: string): Promise<void> {
     Promise.all([
       queueProcessor.waitForIdle(),
       ddRequestProcessor.waitForIdle(),
+      enrichmentProcessor.waitForIdle(),
       knowledgeIndexerProcessor.waitForIdle(),
       stuckRunWatchdog.waitForIdle(),
       confirmationMonitor.waitForIdle(),
@@ -167,6 +170,7 @@ async function main(): Promise<void> {
   heartbeat.start(supabase, env.workerId);
   queueProcessor.start(supabase, env.workerId, streamServer);
   ddRequestProcessor.start(supabase);
+  enrichmentProcessor.start(supabase);
   knowledgeIndexerProcessor.start(supabase);
   stuckRunWatchdog.start(supabase);
   confirmationMonitor.start(supabase);

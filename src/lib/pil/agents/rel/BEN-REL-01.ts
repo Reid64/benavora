@@ -248,6 +248,33 @@ export class RelationshipDiscoveryAgent implements Agent {
       });
     }
 
+    // Phase 5.4 (2026-09-15): BEN-REL-07 (Foundation Relationship Mapping)
+    // and BEN-REL-08 (Professional Connection Mapping) were fully built but
+    // had no entry point into the live graph -- both are pure callees
+    // (issue zero delegations of their own). BEN-REL-07 gates itself on the
+    // prospect's own entity_type (kept as a literal list here, mirroring
+    // BEN-REL-07's own unexported FOUNDATION_TYPES const, rather than
+    // exporting cross-family coupling for one check); BEN-REL-08 has no
+    // entity-type gate and runs alongside the one-hop sweep for every
+    // prospect that reaches this agent.
+    if (
+      (["family_foundation", "private_foundation", "community_foundation", "corporate_foundation"] as string[])
+        .includes(prospect.entity_type)
+    ) {
+      delegations.push({
+        childAgentCode: "BEN-REL-07",
+        objective: `Prospect ${prospect.id} is a foundation (entity_type=${prospect.entity_type}) -- map its trustee/family-member/co-funder network via 990 data`,
+        maxAutonomy: "A2",
+        constraints: { prospectId: prospect.id },
+      });
+    }
+    delegations.push({
+      childAgentCode: "BEN-REL-08",
+      objective: `Map professional connections (co-authors, co-panelists, colleagues, co-board members) for prospect ${prospect.id} beyond the one-hop relationship sweep just completed`,
+      maxAutonomy: "A2",
+      constraints: { prospectId: prospect.id },
+    });
+
     const tokensUsed = await tryModelTokens(context, runner, 500);
 
     // BEN_REL_01Decision.v1's 6 named output dimensions (roster), populated

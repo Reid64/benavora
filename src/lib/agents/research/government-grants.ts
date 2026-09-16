@@ -96,8 +96,13 @@ import {
 import { search, type SearchSource } from "@/lib/agents/research/search-engine";
 import { fetchPage, type ResearchContext } from "@/lib/agents/research/web-fetcher";
 import { SamGovResearchAgent } from "@/lib/agents/sam-gov";
+import { searchEducationTrainingGrants } from "@/lib/agents/education-training-grants";
+import { searchEnvironmentalClimateGrants } from "@/lib/agents/environmental-climate-grants";
+import { searchHealthGrants } from "@/lib/agents/health-grants";
+import { searchMinorityFarmerGrants } from "@/lib/agents/minority-farmer-grants";
 import { inferSourceType } from "@/lib/opportunities/source-type";
-import { syncGrantsGovForOrg } from "@/lib/sources/grantsgov-sync";
+import { persistGrantsGovHits, syncGrantsGovForOrg } from "@/lib/sources/grantsgov-sync";
+import type { GrantsGovNormalizedOpportunity } from "@/lib/sources/grantsgov-client";
 import type { AgentType } from "@/types/agents";
 import type { Enums, TablesInsert } from "@/types/database";
 
@@ -129,7 +134,7 @@ export interface GovernmentGrantsInput {
 
 /** Per-source outcome for the three parallel dedicated-API branches. */
 export interface GovernmentGrantsSourceOutcome {
-  source: "grants_gov" | "sam_gov" | "hud";
+  source: "grants_gov" | "sam_gov" | "hud" | "education" | "environment" | "health" | "minority_farmer";
   ok: boolean;
   created: number;
   /** Set when the branch did not run at all (e.g. no SAM.gov key configured). */
@@ -272,10 +277,22 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
         ),
       ]);
 
+    // Phase 5.4 (2026-09-15): the 4 category-scoped Grants.gov agents
+    // (education/environmental/health/minority-farmer) were fully built,
+    // tested, and never called by anything. They share the same "grants_gov"
+    // source/externalId dedup key as runGrantsGovBranch above, so they run
+    // SEQUENTIALLY after it (not inside the Promise.all with the other
+    // branches) -- running them concurrently with each other or with
+    // runGrantsGovBranch would let two branches both pass their own
+    // independent "not found" externalId check before either insert
+    // commits, double-inserting the same opportunity.
+    const categoryOutcomes = await this.runCategoryGrantsBranches(aggregatedKeywords);
+
     const sources: GovernmentGrantsSourceOutcome[] = [
       grantsGovOutcome,
       samGovOutcome,
       hudOutcome,
+      ...categoryOutcomes,
     ];
 
     // The three dedicated-API branches insert directly and don't return
@@ -316,7 +333,8 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
       webSearchResult.opportunitiesCreated +
       grantsGovOutcome.created +
       samGovOutcome.created +
-      hudOutcome.created -
+      hudOutcome.created +
+      categoryOutcomes.reduce((sum, o) => sum + o.created, 0) -
       afterKb.removed.length -
       afterReflection.removed.length;
 
@@ -619,6 +637,55 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
         error: err instanceof Error ? err.message : "unknown error",
       };
     }
+  }
+
+  /**
+   * The 4 category-scoped Grants.gov searches (education/environmental/
+   * health/minority-farmer), run sequentially (see the caller's comment on
+   * why not concurrently) after runGrantsGovBranch has already committed its
+   * inserts. Each persists via the shared persistGrantsGovHits() upsert —
+   * the same "grants_gov" source + externalId dedup key as the generic
+   * branch, under the org-wide "government_grant" category (no dedicated
+   * enum values exist for environment/health/minority-farmer; education has
+   * its own "education_grant" category). A failure in one category never
+   * blocks the others.
+   */
+  private async runCategoryGrantsBranches(
+    keywords: string[],
+  ): Promise<GovernmentGrantsSourceOutcome[]> {
+    const categories: Array<{
+      source: GovernmentGrantsSourceOutcome["source"];
+      search: (terms?: readonly string[]) => Promise<GrantsGovNormalizedOpportunity[]>;
+      category: "government_grant" | "education_grant";
+    }> = [
+      { source: "education", search: searchEducationTrainingGrants, category: "education_grant" },
+      { source: "environment", search: searchEnvironmentalClimateGrants, category: "government_grant" },
+      { source: "health", search: searchHealthGrants, category: "government_grant" },
+      { source: "minority_farmer", search: searchMinorityFarmerGrants, category: "government_grant" },
+    ];
+
+    const outcomes: GovernmentGrantsSourceOutcome[] = [];
+    for (const { source, search, category } of categories) {
+      try {
+        const hits = await search(keywords.length > 0 ? keywords : undefined);
+        const { newCount } = await persistGrantsGovHits(
+          this.client,
+          this.organizationId,
+          hits,
+          category,
+        );
+        outcomes.push({ source, ok: true, created: newCount });
+      } catch (err) {
+        console.error(`[government-grants:${source}] search/persist failed:`, err);
+        outcomes.push({
+          source,
+          ok: false,
+          created: 0,
+          error: err instanceof Error ? err.message : "unknown error",
+        });
+      }
+    }
+    return outcomes;
   }
 
   /**

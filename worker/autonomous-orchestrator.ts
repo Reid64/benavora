@@ -1918,6 +1918,27 @@ export async function routeQueueItem(
       const result = await agent.run('manual');
       return `ag-15-probability completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
     }
+    case 'ag-05-draft': {
+      // AG-05/06 (spec numbering diverges), src/lib/agents/draft-generation-agent.ts
+      // — 5-phase agentic grant-draft generation (intel -> narrative ->
+      // sections -> compliance -> confidence). Queued under this literal
+      // agent code by 3 producers (probability-scoring-agent.ts,
+      // deadline-prediction-agent.ts, fundability-scorer-agent.ts's
+      // queueChainedAgent("ag-05-draft", ...) calls) but this case was
+      // missing, so every queued row fell into `default` and threw. This is
+      // NOT the same pipeline as the 'draft_generation' case above (that one
+      // calls src/lib/drafts/generator.ts) — DraftGenerationAgent owns its
+      // own narrative-humanizer/style-guide/pattern-extractor/confidence
+      // pipeline and several live routes depend on its specific output
+      // (src/app/api/drafts/[id]/humanize/route.ts,
+      // draft-generator/autonomous/page.tsx) — do not consolidate the two.
+      const { DraftGenerationAgent } = await import(
+        '../src/lib/agents/draft-generation-agent.js'
+      );
+      const agent = new DraftGenerationAgent(orgId, supabase);
+      const result = await agent.run('chain');
+      return `ag-05-draft completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
     case 'ag-29-fundability': {
       // Also wired into the nightly per-org sweep and reachable manually via
       // /api/intelligence/fundability — added here too so a manual trigger

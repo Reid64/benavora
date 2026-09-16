@@ -158,8 +158,13 @@ describe("BEN-SUP-03 Cross-Agent Research Planner", () => {
 
     const result = await planner.execute(context as never, {} as never);
 
+    // Phase 5.4 (2026-09-15): stage 1 now runs BEN-DIS-01/02/08 in parallel
+    // (BEN-DIS-02 and BEN-DIS-08 were fully built but had no entry point
+    // into this pipeline until this stage-1 expansion wired them in).
     expect(result.delegations).toEqual([
       { childAgentCode: "BEN-DIS-01", objective: expect.stringContaining("stage 1"), maxAutonomy: "A2" },
+      { childAgentCode: "BEN-DIS-02", objective: expect.stringContaining("stage 1"), maxAutonomy: "A2" },
+      { childAgentCode: "BEN-DIS-08", objective: expect.stringContaining("stage 1"), maxAutonomy: "A2" },
     ]);
     const decisions = result.conclusions.decisions as Array<{ action: string; stage: number }>;
     expect(decisions.some((d) => d.action === "dispatch_stage" && d.stage === 1)).toBe(true);
@@ -209,13 +214,14 @@ describe("BEN-SUP-03 Cross-Agent Research Planner", () => {
     vi.mocked(getBudgetSummary).mockResolvedValue([] as never);
     vi.mocked(logAction).mockResolvedValue(undefined as never);
 
-    const priorCompletedRun = makeAgentRun({
-      id: "ar-prior-dis01",
-      agent_id: "BEN-DIS-01",
-      research_run_id: "run-old",
-      status: "completed",
-      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago, within the 7-day redundancy window
-    });
+    const priorCompletedRun = (agentId: string) =>
+      makeAgentRun({
+        id: `ar-prior-${agentId.replace("BEN-", "").replace(/-/g, "").toLowerCase()}`,
+        agent_id: agentId,
+        research_run_id: "run-old",
+        status: "completed",
+        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago, within the 7-day redundancy window
+      });
 
     const recorded: RecordedOp[] = [];
     vi.mocked(getPilClient).mockReturnValue(
@@ -223,10 +229,18 @@ describe("BEN-SUP-03 Cross-Agent Research Planner", () => {
         {
           pil_agent_runs: [
             { data: [], error: null }, // 1. loadAgentRuns(run-current) -- nothing started yet
-            { data: [priorCompletedRun], error: null }, // 2. findRedundantCompletedRun for BEN-DIS-01
+            // Phase 5.4 (2026-09-15): stage 1 now runs 3 agents in parallel
+            // (BEN-DIS-01/02/08) -- findRedundantCompletedRun is called once
+            // per stage-1 agent, so all 3 need a prior completed run for the
+            // stage to be treated as fully satisfied and cascade to stage 2.
+            { data: [priorCompletedRun("BEN-DIS-01")], error: null }, // 2. findRedundantCompletedRun for BEN-DIS-01
+            { data: [priorCompletedRun("BEN-DIS-02")], error: null }, // 3. findRedundantCompletedRun for BEN-DIS-02
+            { data: [priorCompletedRun("BEN-DIS-08")], error: null }, // 4. findRedundantCompletedRun for BEN-DIS-08
           ],
           pil_research_runs: [
             { data: [{ id: "run-old" }, { id: "run-current" }], error: null }, // research runs for org+prospect
+            { data: [{ id: "run-old" }, { id: "run-current" }], error: null },
+            { data: [{ id: "run-old" }, { id: "run-current" }], error: null },
           ],
         },
         recorded,
@@ -360,7 +374,10 @@ describe("BEN-SUP-03 Cross-Agent Research Planner", () => {
 
     expect(result.delegations).toEqual([]);
     const decisions = result.conclusions.decisions as Array<{ action: string; stage?: number }>;
-    expect(decisions).toEqual([{ action: "budget_reservation_conflict", stage: 1, agents: ["BEN-DIS-01"] }]);
+    // Phase 5.4 (2026-09-15): stage 1's agents array now includes BEN-DIS-02/08.
+    expect(decisions).toEqual([
+      { action: "budget_reservation_conflict", stage: 1, agents: ["BEN-DIS-01", "BEN-DIS-02", "BEN-DIS-08"] },
+    ]);
     expect(vi.mocked(logAction).mock.calls.some((c) => (c[0] as { action: string }).action === "planner.budget_reservation_conflict")).toBe(true);
   });
 });
