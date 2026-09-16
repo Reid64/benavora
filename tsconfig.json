@@ -56,7 +56,8 @@
     ".next-build-12292/types/**/*.ts",
     ".next-build-5552/types/**/*.ts",
     ".next-build-2840/types/**/*.ts",
-    ".next-build-19196/types/**/*.ts"
+    ".next-build-19196/types/**/*.ts",
+    ".next-build-27744/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

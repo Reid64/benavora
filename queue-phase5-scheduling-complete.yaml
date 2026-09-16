@@ -1,0 +1,278 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - SCHEDULING_AUDIT.md
+  - CROSS_WIRING_REPORT.md
+  - AGENT_INVENTORY_COMPLETE.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+# NOT TO BE EXECUTED without explicit sign-off. SCHEDULING_AUDIT.md found the 6 registered
+# Vercel crons and 13 worker jobs are already real and working — this queue is mostly about the
+# 6 orphaned outbound-comms routes, documentation drift, and the monitoring gap CROSS_WIRING_REPORT.md
+# found (no UI surface or alerting would ever catch a silently-failing agent).
+
+prompts:
+
+  - id: p5s-001-verify-6-vercel-crons
+    phase: verify
+    description: "Confirm the 6 registered Vercel crons are still healthy — low-risk verification pass, no changes expected"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      SCHEDULING_AUDIT.md §1 confirmed all 6 vercel.json crons (research, grantsgov, reminders,
+      autoapply, autoapply-retry, domain-warmup) call real, non-stub handlers. This prompt is a
+      verification pass, not expected to change anything.
+
+      SCOPE:
+      1. For each of the 6, confirm the handler file still exists at the path recorded in
+         SCHEDULING_AUDIT.md §1 and still exports the named function/class.
+      2. Cross-check the last-run timestamp for each against live agent_runs data — confirm each
+         cron actually fired within its expected schedule window in the last 48 hours (a cron
+         that's registered but silently stopped firing is exactly the class of bug found
+         elsewhere in this audit, e.g. self-improvement-agent).
+      3. If any cron hasn't fired on schedule, treat it with the same seriousness as
+         queue-phase5-agent-repair.yaml's p5a-006 (self-improvement investigation) — document
+         and fix, don't just note it.
+      4. No code changes expected unless step 3 finds a problem.
+
+      VERIFICATION:
+      - All 6 crons confirmed firing on schedule in the last 48 hours, or a fix applied if not
+
+    gates: []
+    max_retries: 1
+    on_fail: continue
+
+  - id: p5s-002-verify-13-worker-jobs
+    phase: verify
+    description: "Confirm the 13 worker/scheduler.ts jobs are firing on schedule; specifically re-check AG-38 self-improvement after queue-phase5-agent-repair.yaml's fix"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      SCHEDULING_AUDIT.md §2 lists all 13 worker/scheduler.ts jobs with their real handlers.
+      Cross-reference each against 30-day agent_runs activity (LEGACY_AGENT_STATUS.md).
+
+      SCOPE:
+      1. Confirm the 12 jobs known to be firing (per LEGACY_AGENT_STATUS.md's "working" list) are
+         still firing after any changes queue-phase5-agent-repair.yaml made.
+      2. Re-verify self-improvement-agent (AG-38) specifically — if queue-phase5-agent-repair.yaml's
+         p5a-006 already fixed it, confirm a real execution now appears; if that queue hasn't run
+         yet, flag this job as still broken rather than re-diagnosing it here (avoid duplicate
+         investigation across queues).
+      3. Confirm the AG-36 double-scheduling (fires from both worker/scheduler.ts and
+         worker/autonomous-orchestrator.ts's nightly pipeline) — decide whether to keep both
+         paths (if they're idempotent/harmless) or remove the duplicate. Document the decision.
+      4. Confirm the 7-row autonomous_orchestrator 'pending' backlog (stuck since 2026-08-21,
+         per LEGACY_AGENT_STATUS.md) isn't still growing — investigate what's blocking it from
+         draining.
+
+      VERIFICATION:
+      - All 13 jobs' current firing status confirmed against fresh agent_runs data
+      - AG-38 status confirmed (fixed or still-flagged, not silently ignored)
+      - AG-36 double-scheduling decision documented
+      - autonomous_orchestrator pending backlog investigated
+
+    gates: []
+    max_retries: 2
+    on_fail: continue
+    depends_on:
+      - p5s-001-verify-6-vercel-crons
+
+  - id: p5s-003-decide-outbound-comms-crons
+    phase: decision-gate
+    description: "Decide whether to wire the 6 orphaned outbound-comms cron routes for real, contingent on RESEND_API_KEY actually existing in Vercel Production"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      SCHEDULING_AUDIT.md §3: sales-sends, email-sequences, follow-ups, draft-automation,
+      draft-queue-check, and campaigns are all real, non-stub cron routes that have NEVER been
+      registered in vercel.json on main (a prior session's claim that 2 of these were registered
+      did not actually land — confirmed via git log -S returning zero commits).
+
+      DECISION SCOPE — do this BEFORE writing any vercel.json change:
+      1. Check Vercel Production environment variables for RESEND_API_KEY and
+         RESEND_WEBHOOK_SECRET (this could not be verified from the audit sandbox). If either is
+         missing, wiring these crons would let them run and hard-fail (or worse, silently no-op)
+         on every invocation — get the real keys from the Resend dashboard first.
+      2. Check current row counts on sales_campaigns, prospects (the outreach-specific ones, not
+         corporate_prospects), suppression_list — confirm whether these are still all empty. If
+         they're still 0 rows, wiring the crons is a safe no-op for now (nothing to send) but
+         also delivers no value yet — consider whether this is worth doing now or deferring until
+         real outreach data exists.
+      3. campaigns' cron route was deliberately retired from vercel.json (commit 5f1c7b5, "zero
+         orgs have cold_outreach_email enabled") — re-confirm that's still true before
+         re-registering it; if it is, leave campaigns out even if the other 5 get wired.
+      4. Make and document the decision: wire some/all/none of the 5 remaining routes now, and
+         why.
+
+      VERIFICATION:
+      - RESEND_API_KEY/RESEND_WEBHOOK_SECRET presence in Vercel Production confirmed one way or
+        the other
+      - Decision documented with current row-count evidence
+      - campaigns' retirement re-confirmed as still correct
+
+    gates: []
+    max_retries: 1
+    on_fail: continue
+    depends_on:
+      - p5s-002-verify-13-worker-jobs
+
+  - id: p5s-004-wire-approved-outbound-crons
+    phase: foundation
+    description: "Register the outbound-comms crons approved in p5s-003 into vercel.json for real this time — verify the commit actually lands on main"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      Only wire the specific routes p5s-003 approved. For each approved route:
+      1. Add the vercel.json entry following the exact pattern of the 6 already-working crons.
+      2. Confirm the route is in middleware.ts's SECRET_GATED_PATHS allowlist (it should already
+         be, per SCHEDULING_AUDIT.md — but re-verify, don't assume).
+      3. CRITICAL — this exact type of change was claimed done in a prior session and never
+         actually landed on main. After committing, run: git log -S"<route-name>" -- vercel.json
+         to independently confirm the commit is present, don't just trust that the edit tool
+         succeeded.
+      4. Test locally with the real CRON_SECRET against a dev server — confirm a 200 response
+         with sane counts (matching real row counts from p5s-003, not fabricated).
+      5. Commit: git add -A; git commit -m "fix(scheduling): register approved outbound-comms crons in vercel.json"
+
+      VERIFICATION:
+      - vercel.json contains the new entries
+      - git log -S confirms the commit is present (not lost to an unmerged branch/worktree again)
+      - Local test against real CRON_SECRET returns 200 with real (not fabricated) counts
+
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: stop
+    depends_on:
+      - p5s-003-decide-outbound-comms-crons
+
+  - id: p5s-005-fix-ui-monitoring-blindspot
+    phase: critical-fix
+    description: "Fix the UI/monitoring gap CROSS_WIRING_REPORT.md found — no page or alert would ever catch a silently-failing agent like ag-29"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      CROSS_WIRING_REPORT.md §3-5 found: outcomes/analytics/page.tsx doesn't even select
+      items_processed/error_message; research/page.tsx filters ag-29 out entirely by agent_type;
+      admin/orgs/[id]'s OrgDetailTabs is the only screen with the right raw columns but computes
+      no mismatch flag; no Sentry integration exists; the alerts table is opt-in per-agent, not a
+      global failure hook.
+
+      FIX SCOPE:
+      1. Add items_processed and error_message to outcomes/analytics/page.tsx's query, and
+         surface a "silent failure" indicator (found > 0 AND processed = 0 AND status='completed')
+         as its own visible metric, not buried in a raw table.
+      2. In admin/orgs/[id]'s OrgDetailTabs, add a computed column or badge that flags exactly
+         this mismatch pattern per row, and make it sortable/filterable so it's actually findable
+         among thousands of rows (not just technically present in the data).
+      3. Add a lightweight, agent-agnostic write path: whenever any agent's run completes with
+         items_found > 0 and items_processed = 0, write a real alerts row automatically (don't
+         rely on each agent's own code remembering to call createNotification() — that's the gap
+         that let ag-29 go unnoticed for 4+ days). This can live in base-agent.ts/autonomous-base.ts
+         as a shared post-run check.
+      4. Decide whether a minimal Sentry integration (or a simple Slack/email webhook) is worth
+         adding now for critical agents (ag-29, success_probability) — document the decision
+         either way; a full observability platform is likely out of scope for this queue.
+      5. Run: pnpm tsc --noEmit and pnpm test.
+      6. Commit: git add -A; git commit -m "fix(monitoring): surface silent agent-failure pattern in UI and alerts, close the gap that hid ag-29 for 4+ days"
+
+      VERIFICATION:
+      - outcomes/analytics page now fetches and surfaces the mismatch metric
+      - OrgDetailTabs flags the pattern per-row, sortable/filterable
+      - A shared post-run check writes a real alert on any agent's silent-failure pattern, not
+        just agents that remember to call it themselves
+      - tsc --noEmit and pnpm test pass
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+    depends_on:
+      - p5s-004-wire-approved-outbound-crons
+
+  - id: p5s-006-e2e-scheduling-test
+    phase: verify
+    description: "End-to-end test: every cron and worker job round-trips into agent_runs AND into the new monitoring surface from p5s-005"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      SCOPE:
+      1. For each of the 6 vercel.json crons, the 13 worker jobs, and any newly-wired outbound
+         route from p5s-004: trigger (in a safe/staging context, not blind against prod for
+         anything that sends real email/submissions) and confirm a real agent_runs row appears.
+      2. Force at least one deliberate failure case (e.g. a bad API key in a test env) and
+         confirm p5s-005's new alert-on-silent-failure path actually fires.
+      3. Confirm the dependency-chain map in SCHEDULING_AUDIT.md §4 is still accurate after this
+         queue's changes — no new job should silently depend on another job's agent_runs output
+         without an explicit, documented hook.
+
+      VERIFICATION:
+      - Every cron/job confirmed producing a real agent_runs row in this test pass
+      - Deliberate-failure test confirms the new alerting path fires
+      - Dependency-chain map still accurate
+
+    gates: []
+    max_retries: 2
+    on_fail: continue
+    depends_on:
+      - p5s-005-fix-ui-monitoring-blindspot
+
+  - id: p5s-007-integration-tests
+    phase: verify
+    description: "Full integration test pass before deploy"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      1. pnpm tsc --noEmit && pnpm test — zero errors, zero regressions.
+      2. Confirm no RLS regressions from any UI query changes in p5s-005.
+      3. Update STATE_OF_THE_BUILD.md with the full scheduling-completion changelog.
+
+      VERIFICATION:
+      - All checks pass
+      - STATE_OF_THE_BUILD.md updated
+
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: stop
+    depends_on:
+      - p5s-006-e2e-scheduling-test
+
+  - id: p5s-008-deploy
+    phase: deploy
+    description: "Deploy to Vercel production only after p5s-007 passes clean"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      1. npx vercel deploy --prod
+      2. Health check the deployed URL returns 200.
+      3. Monitor for 24 hours: confirm newly-wired crons (if any) fire on schedule, confirm the
+         new monitoring surface from p5s-005 stays quiet (no unexpected alert storm) or correctly
+         flags any real issue.
+      4. Commit: git add -A; git commit -m "deploy: Phase 5 scheduling infrastructure completion queue"
+
+      VERIFICATION:
+      - Deploy succeeds, health check 200
+      - 24-hour monitoring window confirms expected behavior
+
+    gates:
+      - type: compile
+    max_retries: 1
+    on_fail: stop
+    depends_on:
+      - p5s-007-integration-tests

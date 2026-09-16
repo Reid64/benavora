@@ -1,0 +1,110 @@
+library:
+  name: "Benavora Audit Remediation Library"
+  version: "1.0"
+  description: "Library manifest for Phases 1-4 autonomous FORGE execution"
+  created_date: "2026-09-10"
+  project: "benavora"
+  
+location:
+  local_path: "C:\Users\manag\Documents\benavora"
+  repo_path: "https://github.com/Reid64/benavora"
+  
+queues:
+  - filename: "queue-phase-1-scoring-foundations.yaml"
+    phase: 1
+    status: "ready"
+    description: "Scoring foundations repair - 5 critical agents"
+    prompt_count: 6
+    estimated_runtime_minutes: 480
+    governance_requirements:
+      - BLUEPRINT_v2.md
+      - SCHEMA_REGISTRY_v2.md
+      - BEHAVIORAL_CONTRACTS.md
+      - STATE_OF_THE_BUILD_2026-09-01.md
+      - STANDING_DIRECTIVES.md
+    
+  - filename: "queue-phase-2-partial-completions.yaml"
+    phase: 2
+    status: "ready"
+    description: "Partial systems completion - 9 systems"
+    prompt_count: 10
+    estimated_runtime_minutes: 540
+    depends_on: ["queue-phase-1-scoring-foundations.yaml"]
+    governance_requirements:
+      - BLUEPRINT_v2.md
+      - SCHEMA_REGISTRY_v2.md
+      - BEHAVIORAL_CONTRACTS.md
+      - STATE_OF_THE_BUILD_2026-09-01.md
+      - STANDING_DIRECTIVES.md
+    
+  - filename: "queue-phase-3-phase1-wiring.yaml"
+    phase: 3
+    status: "ready"
+    description: "Agent wiring and new agents - 6 agents"
+    prompt_count: 7
+    estimated_runtime_minutes: 480
+    depends_on: ["queue-phase-2-partial-completions.yaml"]
+    governance_requirements:
+      - BLUEPRINT_v2.md
+      - SCHEMA_REGISTRY_v2.md
+      - BEHAVIORAL_CONTRACTS.md
+      - STATE_OF_THE_BUILD_2026-09-01.md
+      - STANDING_DIRECTIVES.md
+    
+  - filename: "queue-phase-4-cleanup.yaml"
+    phase: 4
+    status: "ready"
+    description: "Cleanup and registry completion - 6 cleanup tasks"
+    prompt_count: 6
+    estimated_runtime_minutes: 360
+    depends_on: ["queue-phase-3-phase1-wiring.yaml"]
+    governance_requirements:
+      - BLUEPRINT_v2.md
+      - SCHEMA_REGISTRY_v2.md
+      - BEHAVIORAL_CONTRACTS.md
+      - STATE_OF_THE_BUILD_2026-09-01.md
+      - STANDING_DIRECTIVES.md
+
+governance_sync:
+  before_each_phase: true
+  files:
+    - BLUEPRINT_v2.md
+    - SCHEMA_REGISTRY_v2.md
+    - BEHAVIORAL_CONTRACTS.md
+    - STATE_OF_THE_BUILD_2026-09-01.md
+    - STANDING_DIRECTIVES.md
+
+execution_rules:
+  sequential_order: ["phase-1", "phase-2", "phase-3", "phase-4"]
+  total_estimated_runtime_hours: 24
+  total_estimated_token_budget: 600000
+  max_retries_per_prompt: 3
+  fail_fast: true  # Stop entire run if any on_fail: stop prompt exhausts retries
+
+logging:
+  log_location: "C:\Users\manag\Documents\benavora\logs"
+  log_format: "markdown"
+  archive_logs: true
+  keep_logs_days: 30
+
+reporting:
+  generate_phase_reports: true
+  generate_final_summary: true
+  output_format: ["markdown", "json"]
+  
+post_execution:
+  - backup_all_files: true
+  - git_commit: "FORGE: Phases 1-4 complete"
+  - git_push: true
+  - verify_deployment: true
+  - health_check: "https://benavora.vercel.app/api/health"
+  - update_state_of_build: true
+
+metadata:
+  created_by: "Claude (BENAVORA Audit Remediation Session)"
+  last_updated: "2026-09-10"
+  total_queues: 4
+  total_prompts: 29
+  total_agents_fixed: 44
+  total_agents_wired: 6
+  total_new_agents_built: 2

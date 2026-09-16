@@ -1,0 +1,354 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - AGENT_INVENTORY_COMPLETE.md
+  - LEGACY_AGENT_STATUS.md
+  - CROSS_WIRING_REPORT.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STATE_OF_THE_BUILD_2026-09-01.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+# NOT TO BE EXECUTED without explicit sign-off — this is a planning artifact from the Phase 0
+# audit (AGENT_INVENTORY_COMPLETE.md / LEGACY_AGENT_STATUS.md / CROSS_WIRING_REPORT.md). Several
+# steps intentionally replace the originally-requested "delete/remove" actions with
+# "investigate, then decide" — the audit found several supposedly-dead agents are either
+# shared-bucket duplicates, structurally-starved-but-legitimate features, or scheduled jobs that
+# mysteriously never fire, none of which should be bulk-deleted without individual review.
+
+prompts:
+
+  - id: p5a-001-fix-ag29-silent-failure
+    phase: critical-fix
+    description: "Fix ag-29-knowledge-indexer's silent 100% failure — do NOT remove it from the orchestrator, it's the platform's highest-volume real feature (KB embeddings) and removal would be a regression, not a fix"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      CRITICAL DEFECT (AGENT_INVENTORY_COMPLETE.md §4): ag-29-knowledge-indexer runs every ~60
+      seconds, is 66% of all agent_runs rows ever written (40,528 of 61,122), and has reported
+      status='completed' on 100% of its last 5,401 runs (4 days) while embedding 0 of 2 rows
+      found every single time. output_summary literally reads "Embedded 0/2 row(s) (2 failed)."
+
+      DO NOT simply remove this agent from worker/scheduler.ts or worker/autonomous-orchestrator.ts
+      — pgvector embedding of knowledge-base content is a real, load-bearing feature (105/105
+      intelligence_proposal_sections rows already have genuine embeddings from before this
+      regression started). Deleting the job would stop it from ever recovering.
+
+      FIX SCOPE:
+      1. Read src/lib/intelligence/embeddings.ts in full — confirm it throws "Missing required
+         env var: OPENAI_API_KEY" when that key is absent, and confirm generateEmbeddingsBatch()'s
+         actual failure mode (rate limit? invalid key? something else?).
+      2. Check Railway production environment variables (via Railway CLI/dashboard — this could
+         not be verified from the audit sandbox) for OPENAI_API_KEY presence and validity. This is
+         the most likely root cause and may be a pure ops fix requiring no code change.
+      3. Regardless of root cause, fix the observability gap: src/lib/agents/knowledge-indexer-agent.ts
+         currently swallows the real embedding error into a local variable that never reaches
+         agent_runs.error_message (stays null). Persist the real error message to error_message,
+         and change status to 'failed' (not 'completed') when items_processed < items_found for a
+         batch-level failure — a "found 2, processed 0" run is not a success.
+      4. Add a regression guard: a unit test asserting that when generateEmbeddingsBatch() throws,
+         the resulting agent_runs row has status='failed', not 'completed'.
+      5. Once the underlying cause is fixed, verify: run 5 consecutive polls, confirm
+         items_processed > 0 on rows where items_found > 0.
+      6. Commit: git add -A; git commit -m "fix(agents): surface ag-29-knowledge-indexer's real embedding failures instead of reporting false completions"
+
+      VERIFICATION:
+      - Root cause identified and documented (env var vs. code bug)
+      - error_message column now populated on failure
+      - status='failed' when a batch fully fails, not 'completed'
+      - Regression test added and passing
+      - 5 consecutive live polls show real embedding progress (items_processed > 0)
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+
+  - id: p5a-002-resolve-id-collisions
+    phase: cleanup
+    description: "Resolve AG-NN slot collisions (AG-08/09/10/11/12/25/28/29) and DB-level agent_type string collisions without changing runtime behavior of the working sibling"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      FINDING (AGENT_INVENTORY_COMPLETE.md §3): multiple unrelated agent files claim the same
+      AG-NN slot (AG-08: renewal-tracker-agent.ts vs housing-specific-scrapers.ts vs
+      nofa-parser.ts; AG-09: outcome-analyzer-agent.ts vs email-parser.ts; AG-10:
+      grant-dna-agent.ts vs document-expiry-agent.ts; AG-11: knowledge-gap-agent.ts vs
+      cold-outreach.ts; AG-12: search-profile-optimizer-agent.ts vs corporate-scraper.ts; AG-25:
+      disaster-response-agent.ts vs deadline-prediction-agent.ts; AG-28:
+      followup-generator-agent.ts vs impact-simulation-agent.ts; AG-29:
+      knowledge-indexer-agent.ts vs fundability-scorer-agent.ts). Separately, multiple files
+      write the SAME agent_runs.agent_type string (government_research: 4 writers;
+      corporate_research, foundation_research, state_portal, browser_automation,
+      custom_api_research, budget_builder: 2-3 writers each) — this is worse than label drift,
+      it makes DB rows unattributable to a specific implementation.
+
+      FIX SCOPE (documentation + renaming, NOT behavior changes — this is a clarity fix):
+      1. Read AGENTS_v2.md in full; it's the only real spec (AG-01 through AG-30). Update it to
+         record which file is canonical for each AG-NN slot per AGENT_INVENTORY_COMPLETE.md §1,
+         and explicitly mark undocumented AG-32+ agents as "undocumented, code-only."
+      2. For each DB-level string collision, do NOT rename the working implementation's
+         agent_type value (that would break historical agent_runs continuity/dashboards). Instead,
+         rename the DORMANT/shadow file's internal label only (e.g. give
+         housing-specific-scrapers.ts its own distinct agent_type instead of reusing
+         government_research) so future runs are attributable, and add a header comment
+         explaining the collision was intentional-then-accidental, resolved on this date.
+      3. Add a lightweight registry check (a script or test) that fails CI if two files in
+         src/lib/agents/ ever declare the same agent_type string again.
+      4. Do not touch any currently-working agent's runtime logic in this prompt — this is a
+         naming/documentation pass only. Runtime consolidation is p5a-005.
+      5. Run: pnpm tsc --noEmit — must exit 0.
+      6. Commit: git add -A; git commit -m "docs+fix: resolve AG-NN and agent_type naming collisions, add collision-prevention CI check"
+
+      VERIFICATION:
+      - AGENTS_v2.md updated with canonical-file-per-slot table
+      - No agent_type string is written by more than one file going forward
+      - New collision-prevention check exists and passes
+      - tsc --noEmit passes
+      - No agent's runtime behavior changed
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+    depends_on:
+      - p5a-001-fix-ag29-silent-failure
+
+  - id: p5a-003-trace-and-triage-unused-agents
+    phase: investigation
+    description: "Trace real usage for all ~43 zero-30-day-execution agent files BEFORE any deletion — the original '18 zombie agents' estimate is stale and several of these are legitimate idle features, not dead code"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      CONSTRAINT (standing, from the audit brief): trace usage before deleting agents. The prior
+      estimate of "18 unused agents" is superseded — LEGACY_AGENT_STATUS.md's real count is ~43
+      files with zero 30-day executions, split into categories A-F. This prompt is investigation
+      ONLY. No file should be deleted as part of this prompt.
+
+      SCOPE — for each file in LEGACY_AGENT_STATUS.md categories B, C, and D specifically
+      (collision-shadow duplicates; has-a-route-but-idle; confirmed-zero-callers), do the
+      following and record the result in a new file UNUSED_AGENT_TRIAGE.md:
+      1. grep the entire src/ and worker/ trees (including src/app/**/*.tsx, not just API routes)
+         for any reference to the file's exported class/function name or its agent_type string.
+      2. Check git log for the file — when was it last meaningfully edited, and does the commit
+         message suggest it was a deliberate feature landing or an abandoned experiment?
+      3. Check whether a UI button/form anywhere could reach its API route (for category C) —
+         search src/app/**/*.tsx for fetch()/axios calls to that route path.
+      4. Classify each file into exactly one of: KEEP-IDLE-FEATURE (real route, reachable from
+         UI, just not used recently — do nothing), CONSOLIDATE (shadow duplicate of a working
+         bucket — safe to delete ONLY after confirming zero unique callers, tracked in p5a-005),
+         TRUE-ZOMBIE (zero callers anywhere, no UI path, last edit >60 days old — safe deletion
+         candidate), or INVESTIGATE-FURTHER (ambiguous, needs a human decision).
+      5. Do NOT delete anything in this prompt. Output UNUSED_AGENT_TRIAGE.md with the
+         classification table and evidence for each file.
+      6. Commit: git add -A; git commit -m "docs: triage 43 zero-execution legacy agent files before any deletion"
+
+      VERIFICATION:
+      - UNUSED_AGENT_TRIAGE.md exists with all ~43 files classified
+      - Every classification cites concrete evidence (grep result, git log date, or UI trace)
+      - Zero files deleted
+      - TRUE-ZOMBIE list is the only set eligible for a future deletion prompt
+
+    gates:
+      - type: file_exists
+        files: [UNUSED_AGENT_TRIAGE.md]
+    max_retries: 2
+    on_fail: continue
+    depends_on:
+      - p5a-002-resolve-id-collisions
+
+  - id: p5a-004-fix-blocked-agents
+    phase: critical-fix
+    description: "Fix the 3 remaining blocked agents (success_probability/WGR-170 priority, review-agent stuck run, recursive_learning stuck run) plus add a stuck-run watchdog"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      3 legacy agents are confirmed BLOCKED (LEGACY_AGENT_STATUS.md), on top of ag-29 already
+      fixed in p5a-001:
+
+      1. success_probability — 100 of 129 runs failed (78%) over 30 days, last failure
+         2026-09-11. Known root cause on record as "WGR-170": an onConflict/upsert bug in
+         success-probability.ts. PRIORITY FIX — read the file's upsert call, find the conflicting
+         unique constraint, fix the onConflict target to match the actual constraint.
+      2. review (review-agent.ts) — 1 run stuck status='running' since 2026-08-23 (3+ weeks), 2
+         other runs timeout-failed. No code currently marks a run as failed after a timeout.
+      3. recursive_learning (recursive-learning.ts) — 1 run stuck status='running' since
+         2026-09-11.
+
+      FIX SCOPE:
+      1. Fix success-probability.ts's onConflict bug per WGR-170. Add a regression test with a
+         real duplicate-key scenario.
+      2. Add a shared stuck-run watchdog: any agent_runs row with status='running' older than a
+         reasonable per-agent timeout (default 30 minutes unless the agent's own historical
+         duration_ms suggests otherwise) should be swept to status='failed' with
+         error_message='timeout: exceeded Nm without completion'. This can live in
+         base-agent.ts/autonomous-base.ts so all agents inherit it, or as a dedicated cron —
+         your call, document which you chose and why.
+      3. Manually resolve the 2 currently-stuck rows (review, recursive_learning) via the new
+         watchdog logic (or a one-time cleanup script if the watchdog doesn't retroactively sweep
+         existing rows).
+      4. Investigate why review-agent's other 2 failures were timeouts specifically — is there an
+         unbounded LLM call or missing request timeout in review-agent.ts?
+      5. Run: pnpm test — no regressions.
+      6. Commit: git add -A; git commit -m "fix(agents): resolve WGR-170 upsert bug, add stuck-run timeout watchdog, clear 2 orphaned running rows"
+
+      VERIFICATION:
+      - success_probability's onConflict target matches the real DB constraint; regression test passes
+      - Stuck-run watchdog exists and is documented
+      - The 2 previously-stuck rows now show status='failed', not 'running'
+      - pnpm test passes with no new failures
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+    depends_on:
+      - p5a-003-trace-and-triage-unused-agents
+
+  - id: p5a-005-consolidate-canonical-implementations
+    phase: cleanup
+    description: "Using the p5a-003 triage, consolidate CONSOLIDATE-classified shadow duplicates into their working sibling; decide the EA-01..EA-10 pipeline's fate"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      Depends on UNUSED_AGENT_TRIAGE.md from p5a-003.
+
+      FIX SCOPE:
+      1. For every file classified CONSOLIDATE in UNUSED_AGENT_TRIAGE.md, confirm zero remaining
+         importers (re-grep, don't trust the earlier pass alone), then delete the file and any
+         now-unreachable route that only served it.
+      2. For every file classified TRUE-ZOMBIE, this prompt may delete them too — but re-run the
+         same zero-importer confirmation first. If in doubt, leave it and note it in
+         STATE_OF_THE_BUILD.md as deferred rather than guessing.
+      3. EA-01-10 decision (a single go/no-go, not 10 separate deletions): the ea-01..ea-10
+         corporate-enrichment pipeline is fully built but has zero callers, and
+         ag-22-propensity-scoring.ts depends on its output to be meaningful. Choose ONE:
+         (a) wire it into the research pipeline (add a real caller, likely in
+         worker/scheduler.ts or the corporate_research cron flow) so AG-22 gets real enrichment
+         data, or (b) formally document that AG-22 is intentionally scoped to its current small
+         static dataset and remove the dead-code EA files. Do not leave it ambiguous — record the
+         decision and rationale in STATE_OF_THE_BUILD.md either way.
+      4. Run: pnpm tsc --noEmit and pnpm test — zero regressions from any deletion.
+      5. Commit: git add -A; git commit -m "cleanup(agents): consolidate shadow-duplicate agent files, resolve EA-01..10 pipeline decision"
+
+      VERIFICATION:
+      - Every deleted file had zero importers, re-confirmed at deletion time
+      - EA-01..10 decision recorded with rationale, either wired or formally retired
+      - tsc --noEmit and pnpm test both pass
+      - STATE_OF_THE_BUILD.md updated
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+    depends_on:
+      - p5a-004-fix-blocked-agents
+
+  - id: p5a-006-investigate-self-improvement-never-fires
+    phase: investigation
+    description: "self-improvement-agent (AG-38) is scheduled daily at 04:00 in worker/scheduler.ts but has zero executions in 30 days — find out why"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      FINDING (LEGACY_AGENT_STATUS.md category A): self-improvement-agent.ts is genuinely
+      scheduled in worker/scheduler.ts (daily, 04:00, via runSelfImprovementPipeline), yet has
+      ZERO executions anywhere in the last 30 days of agent_runs. This is the most suspicious
+      single entry in the entire audit — a job that should be firing daily and isn't, with no
+      error trail explaining why.
+
+      INVESTIGATION SCOPE:
+      1. Read worker/scheduler.ts's runSelfImprovementPipeline call site — confirm it's not
+         gated behind a feature flag or environment check that's silently false in production.
+      2. Read self-improvement-agent.ts in full — does it have an early-return guard clause that
+         could be silently skipping execution (e.g. "only run if X condition", where X is never
+         true in practice)?
+      3. Check Railway worker logs if accessible (may not be from this environment — note if so)
+         for any startup error or silent exception around 04:00 daily.
+      4. Check whether it writes to agent_runs under a different agent_type string than expected
+         — re-grep for its actual DB write, don't assume the label matches the file name.
+      5. Fix whatever's found. If it's a silent guard clause, either fix the condition or make the
+         skip log visibly (not silently) so this doesn't recur for the next agent.
+      6. Commit: git add -A; git commit -m "fix(agents): resolve why self-improvement-agent (AG-38) never actually fires despite being scheduled"
+
+      VERIFICATION:
+      - Root cause identified and documented
+      - Fix applied and one real execution confirmed in agent_runs (or a clear, visible skip-log
+        reason if the correct behavior really is to not run yet)
+
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: continue
+    depends_on:
+      - p5a-005-consolidate-canonical-implementations
+
+  - id: p5a-007-integration-tests
+    phase: verify
+    description: "Full integration test pass across all fixed/consolidated legacy agents before any deploy"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      VERIFICATION SCOPE — do not proceed to p5a-008 (deploy) if any of this fails:
+      1. pnpm tsc --noEmit — zero errors.
+      2. pnpm test:unit — full pass, no regressions from p5a-001 through p5a-006.
+      3. Live-verify (against a real or staging environment, NOT blind against prod) that:
+         a. ag-29-knowledge-indexer now reports status='failed' on a forced embedding failure,
+            not 'completed'.
+         b. success_probability's onConflict fix handles a real duplicate-key scenario correctly.
+         c. The stuck-run watchdog sweeps a manually-created stale 'running' row.
+         d. Every consolidated/deleted agent's former route (if any) either 404s cleanly or was
+            itself removed — no dangling references.
+      4. Confirm no cross-org RLS regressions were introduced by any schema-adjacent change.
+      5. Update STATE_OF_THE_BUILD.md with a full changelog of this queue's fixes.
+
+      VERIFICATION:
+      - All 5 checks above pass
+      - STATE_OF_THE_BUILD.md updated with changelog
+
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 2
+    on_fail: stop
+    depends_on:
+      - p5a-006-investigate-self-improvement-never-fires
+
+  - id: p5a-008-deploy
+    phase: deploy
+    description: "Deploy to Vercel production only after p5a-007 passes clean"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      Deploy scope: this queue's fixes only (ag-29 error surfacing, ID-collision cleanup,
+      consolidated/deleted zombie agents, WGR-170 fix, stuck-run watchdog, self-improvement fix).
+
+      1. Confirm p5a-007's gate passed (do not deploy otherwise).
+      2. npx vercel deploy --prod
+      3. Health check the deployed URL returns 200.
+      4. Monitor agent_runs for the first hour post-deploy: confirm ag-29 shows real
+         status/error data on its next few polls, confirm no new agent_type collisions were
+         introduced.
+      5. Commit: git add -A; git commit -m "deploy: Phase 5 legacy agent repair queue complete"
+
+      VERIFICATION:
+      - Deploy succeeds, health check 200
+      - Post-deploy agent_runs monitoring confirms fixes are live
+
+    gates:
+      - type: compile
+    max_retries: 1
+    on_fail: stop
+    depends_on:
+      - p5a-007-integration-tests

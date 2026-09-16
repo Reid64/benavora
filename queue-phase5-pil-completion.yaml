@@ -1,0 +1,312 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - PIL_WIRING_AUDIT.md
+  - CROSS_WIRING_REPORT.md
+  - PROSPECT_INTELLIGENCE_ARCHITECTURE.md
+  - BEHAVIORAL_CONTRACTS.md
+  - STANDING_DIRECTIVES.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+
+# NOT TO BE EXECUTED without explicit sign-off. PIL_WIRING_AUDIT.md found the PIL agent system
+# has TWO independent, compounding disconnections from production (no orchestrator caller, and
+# a hardcoded policy check that denies 40 of 51 agents even if a caller existed). This is a
+# real go/no-go decision, not a small follow-up — p5p-001 forces that decision explicitly before
+# any wiring work begins, per the audit's own recommendation.
+
+prompts:
+
+  - id: p5p-001-go-nogo-decision
+    phase: decision-gate
+    description: "Explicit go/no-go: ship the PIL layer for real, or formally pause it — do not let this remain ambiguous"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      PIL_WIRING_AUDIT.md found: 51 real agent implementations exist (not stubs), a real policy
+      engine exists, real cost/evidence/graph schema exists (35 tables, 13 with real data) — but
+      the system has never processed a real prospect. Two independent bugs compound: (1) nothing
+      calls the orchestrator, ever, and (2) even a manual caller would be denied for 40 of 51
+      agents by a hardcoded execute_reversible policy check requiring autonomy A3.
+
+      THIS PROMPT MAKES NO CODE CHANGES. It exists to force an explicit decision before p5p-002
+      onward run, because "just wire it up" tasks have been issued at least 4 times before on
+      this exact system (BEN-QUA-01's 3 reissues plus this Phase 0 brief's own wrong "AG-43-93"
+      assumption) without anyone confirming PIL should actually go live.
+
+      DECISION SCOPE:
+      1. Read PIL_WIRING_AUDIT.md and PROSPECT_INTELLIGENCE_ARCHITECTURE.md in full.
+      2. Write a short decision memo (PIL_GO_NOGO_DECISION.md) answering: is there a real business
+         need for PIL to run against live prospects now, or was it built ahead of need? What's the
+         cost/risk of running 51 agents (many at high autonomy tiers, some A4) against real
+         prospect data for the first time?
+      3. If GO: proceed to p5p-002 through p5p-008 below.
+      4. If NO-GO (defer): stop here. Record the decision and the specific trigger condition that
+         would revisit it (e.g. "revisit when we have >X real prospects needing automated
+         qualification"). Do not silently let this decay into another ambiguous half-state —
+         that's exactly what happened before this audit.
+
+      VERIFICATION:
+      - PIL_GO_NOGO_DECISION.md exists with an explicit GO or NO-GO and reasoning
+      - If NO-GO, a concrete revisit trigger is documented and the remaining prompts are skipped
+
+    gates:
+      - type: file_exists
+        files: [PIL_GO_NOGO_DECISION.md]
+    max_retries: 1
+    on_fail: stop
+
+  - id: p5p-002-wire-orchestrator
+    phase: foundation
+    description: "Add a real caller for orchestrateResearchRun()/pollAndOrchestratePendingRuns() — currently zero callers exist anywhere"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      Only proceed if p5p-001's decision was GO.
+
+      FINDING: src/lib/pil/research-orchestrator.ts exports orchestrateResearchRun() and
+      pollAndOrchestratePendingRuns() — confirmed, twice independently, to have zero importers
+      anywhere in src/ or worker/. Neither POST /api/pil/research nor POST /api/pil/discover call
+      either function — they only insert a pil_research_runs row that then sits forever.
+
+      FIX SCOPE:
+      1. Decide the trigger mechanism: a new Vercel cron (src/app/api/cron/pil-research/route.ts,
+         CRON_SECRET-gated, following the exact pattern of the 6 already-working cron routes in
+         SCHEDULING_AUDIT.md §1) polling pollAndOrchestratePendingRuns() on a schedule, OR a
+         worker/scheduler.ts entry if PIL should run on the same Railway worker as the legacy
+         system. Pick one — don't build both.
+      2. If a new cron route: remember WGR-111's known trap (middleware.ts 307-redirects
+         cron-secret-gated routes to /login before their own auth check runs unless the path is
+         added to SECRET_GATED_PATHS) — add the new route there too.
+      3. Wire POST /api/pil/research and /api/pil/discover to actually call
+         orchestrateResearchRun() after creating the run row, so a manual trigger works
+         immediately without waiting for the next poll.
+      4. Add a real unit test for the new cron/scheduler entry.
+      5. Do NOT touch agent-runner.ts's policy check in this prompt — that's p5p-003.
+      6. Run: pnpm tsc --noEmit — zero errors.
+      7. Commit: git add -A; git commit -m "fix(pil): wire real trigger path for PIL research orchestrator"
+
+      VERIFICATION:
+      - New trigger mechanism exists and is documented (cron or worker entry)
+      - Manual POST /api/pil/research now results in orchestrateResearchRun() actually being called
+      - middleware.ts allowlist updated if a new cron route was added
+      - tsc --noEmit passes
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+    depends_on:
+      - p5p-001-go-nogo-decision
+
+  - id: p5p-003-fix-policy-blocker
+    phase: foundation
+    description: "Replace the hardcoded execute_reversible policy check (denies 40 of 51 agents) with per-agent-family action classification — get explicit sign-off first, this is a safety gate, not a simple bug"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      IMPORTANT — per prior project memory, agent-runner.ts's policy check is the core
+      autonomy/safety gate for the entire PIL system. Do not silently loosen it. This prompt
+      requires the same explicit sign-off spirit as p5p-001's decision gate.
+
+      FINDING: src/lib/pil/agent-runner.ts hardcodes every single agent invocation to request
+      policy action "execute_reversible" (requires autonomy tier A3). 40 of 51 registered agents
+      are provisioned at A1/A2 by their own registry rows and are denied before a pil_agent_runs
+      row is even created.
+
+      FIX SCOPE:
+      1. Read policy.ts's ACTION_MIN_AUTONOMY table and agent-runner.ts's checkAgentAuthorization
+         call site in full.
+      2. Design a real per-agent-family (or per-mission) action classification instead of one
+         hardcoded string — likely reading a required-action-level field from the agent's own
+         pil_agent_registry row, or deriving it from the family (discovery/read-only research
+         probably needs a lower bar than application/submission-adjacent actions).
+      3. This MUST NOT simply lower the global floor to A1/A2 — that defeats the purpose of tiered
+         autonomy. Each agent should be evaluated against an action level that actually matches
+         what it does.
+      4. Fix the separate swallowed-error bug noted in prior audits: delegate()'s catch block
+         (agent-runner.ts, near line 360) silently discards the real PolicyViolationError instead
+         of persisting it to pil_delegated_tasks or pil_policy_decisions — fix this regardless of
+         the classification redesign, so future denials are debuggable.
+      5. Add tests: at least one A1/A2 agent that should now be allowed under its correct action
+         level, and confirm a genuinely-inappropriate action is still denied (don't just remove
+         all denial).
+      6. Run: pnpm tsc --noEmit and pnpm test — zero regressions.
+      7. Commit: git add -A; git commit -m "fix(pil): replace hardcoded execute_reversible policy check with per-agent action classification"
+
+      VERIFICATION:
+      - Policy check now varies by agent/action instead of one hardcoded string
+      - Denial reasons are persisted, not swallowed
+      - Tests confirm both a newly-allowed agent and a still-correctly-denied case
+      - tsc --noEmit and pnpm test pass
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: stop
+    depends_on:
+      - p5p-002-wire-orchestrator
+
+  - id: p5p-004-real-data-test
+    phase: verify
+    description: "Test all 51 PIL agents against real (non-synthetic) prospect data for the first time, behind a feature flag"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      The only prior execution evidence (38 pil_agent_runs rows) is a single 2026-09-09 synthetic
+      test burst whose own data says "not a real research target." This prompt is the first real
+      test.
+
+      FIX SCOPE:
+      1. Add a feature flag (pil_feature_flags table is real and currently empty — use it) gating
+         PIL execution to a small allowlist of orgs, defaulting OFF.
+      2. Enable it for exactly one real, consenting org (confirm with a human before touching any
+         real org's data — this is new, previously-inert code touching production for the first
+         time).
+      3. Trigger a real research run for one real prospect. Watch it end-to-end: research run
+         created → orchestrator picks it up → agents execute → policy decisions recorded → a real
+         dossier/evidence/graph output appears.
+      4. Fix whatever breaks — this is the first time this code has ever run against non-synthetic
+         data, expect real bugs (BEN-QLF-04's "[object Object]" error-column bug from the prior
+         session's test burst is a preview of the kind of thing likely still lurking).
+      5. Do not leave the feature flag on for more orgs than explicitly approved.
+      6. Commit: git add -A; git commit -m "test(pil): first real-data end-to-end PIL run, feature-flagged"
+
+      VERIFICATION:
+      - One real org successfully completes a real PIL research run end-to-end
+      - Any bugs found during this first real run are fixed and documented
+      - Feature flag remains scoped to only the approved org(s)
+
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: continue
+    depends_on:
+      - p5p-003-fix-policy-blocker
+
+  - id: p5p-005-fix-qlf04-error-bug
+    phase: cleanup
+    description: "Fix BEN-QLF-04's error column storing the literal string '[object Object]' — a real bug surfaced by the 2026-09-09 test burst"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      During the 2026-09-09 test burst, BEN-QLF-04's failed run stored the literal string
+      "[object Object]" in its error column — an unstringified error object, not a query
+      artifact. Find the catch block writing this (likely in agent-runner.ts or BEN-QLF-04.ts
+      itself) and fix it to store error.message (or JSON.stringify with a replacer that handles
+      Error objects) instead of the raw object's default toString().
+
+      Also check every other agent-runner.ts / pil-agents catch block for the same class of bug —
+      this was found once by accident during audit; there's no reason to assume it's the only
+      instance.
+
+      VERIFICATION:
+      - BEN-QLF-04 (and any other affected agent) now stores readable error text on failure
+      - A regression test confirms an Error object thrown during a run produces readable
+        error_message, not "[object Object]"
+
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: continue
+    depends_on:
+      - p5p-004-real-data-test
+
+  - id: p5p-006-document-qua-precedent
+    phase: cleanup
+    description: "Formally document the BEN-QUA-01/BEN-QLF-04 naming-collision precedent so a 5th reissue of the same wrong task doesn't recreate more phantom agents"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      src/lib/pil/agents/qua/BEN-QUA-01.ts exists purely because a task prompt was reissued 3
+      times asking for a nonexistent agent whose mission duplicates the real BEN-QLF-04. This
+      Phase 0 audit's own brief made an analogous mistake (assuming PIL agents are "AG-43-93").
+      This is now a documented pattern, not a one-off.
+
+      SCOPE:
+      1. Add a short, prominent note to PROSPECT_INTELLIGENCE_ARCHITECTURE.md's agent-numbering
+         section: PIL agents are BEN-<FAMILY>-NN only; there is no AG-numbered or QUA-family
+         agent; any task referencing either should be treated as a probable premise error and
+         verified against pil_agent_registry before acting.
+      2. Leave the BEN-QUA-01.ts shim in place (it's harmless, real code depends on nothing about
+         it) but add a comment pointing to this note so a future session understands why it
+         exists without re-investigating from scratch.
+
+      VERIFICATION:
+      - PROSPECT_INTELLIGENCE_ARCHITECTURE.md updated with the numbering-scheme warning
+      - BEN-QUA-01.ts's comment references the new doc section
+
+    gates: []
+    max_retries: 1
+    on_fail: continue
+    depends_on:
+      - p5p-005-fix-qlf04-error-bug
+
+  - id: p5p-007-pil-monitoring
+    phase: verify
+    description: "Add real monitoring for PIL agent failures — pil_monitoring_events/pil_monitoring_subscriptions exist but nothing writes to them"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      CROSS_WIRING_REPORT.md found pil_monitoring_events and pil_monitoring_subscriptions are
+      real, empty tables with no code writing to them — PIL has the same "structurally blind to
+      failure" gap as the legacy system's ag-29 problem, just not yet exercised.
+
+      FIX SCOPE:
+      1. Wire agent-runner.ts to write a pil_monitoring_event row on every policy denial and every
+         agent failure (not just success paths).
+      2. Add at minimum one subscriber path — even a simple admin-visible feed is enough for this
+         phase; a full alerting integration (Slack/email) can be a later phase.
+      3. Cross-check against p5a-001's fix for the legacy ag-29 pattern — apply the same principle
+         (status must reflect real success/failure, errors must be human-readable and persisted)
+         to every PIL agent, not just the ones touched in p5p-004/005.
+
+      VERIFICATION:
+      - pil_monitoring_events receives real rows on agent failure/denial
+      - At least one admin-visible surface shows PIL agent health
+
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: continue
+    depends_on:
+      - p5p-006-document-qua-precedent
+
+  - id: p5p-008-integration-tests-and-deploy
+    phase: deploy
+    description: "Full integration test pass, then staged/canary deploy — PIL going live for the first time warrants extra caution"
+    prompt: |
+      Project root: C:\Users\manag\Documents\benavora
+
+      1. pnpm tsc --noEmit && pnpm test — zero errors, zero regressions.
+      2. Confirm the feature flag from p5p-004 is still scoped correctly — do not let this deploy
+         accidentally widen PIL access beyond what was explicitly approved.
+      3. Deploy: npx vercel deploy --prod. Health check 200.
+      4. Monitor for the first 24 hours: real research runs completing (not stuck 'running'),
+         policy decisions being made with the new per-agent classification, no runaway cost via
+         pil_cost_ledger (check budgets — pil_cost_budgets is currently empty, consider seeding
+         real budgets before wide rollout).
+      5. Update STATE_OF_THE_BUILD.md with the full PIL-completion changelog.
+
+      VERIFICATION:
+      - All checks above pass
+      - STATE_OF_THE_BUILD.md updated
+
+    gates:
+      - type: compile
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md]
+    max_retries: 1
+    on_fail: stop
+    depends_on:
+      - p5p-007-pil-monitoring
