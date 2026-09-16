@@ -121,15 +121,19 @@ export abstract class BaseAgent<TInput, TResult> {
       const tokensUsed = execution.tokensUsed ?? 0;
       const itemsFound = execution.itemsFound ?? 0;
 
+      const itemsProcessed = execution.itemsProcessed ?? itemsFound;
+
       await this.update(runId, {
         status: "completed",
         output_summary: execution.outputSummary,
         items_found: itemsFound,
-        items_processed: execution.itemsProcessed ?? itemsFound,
+        items_processed: itemsProcessed,
         tokens_used: tokensUsed,
         duration_ms: durationMs,
         completed_at: new Date().toISOString(),
       });
+
+      await this.checkSilentFailure(itemsFound, itemsProcessed, execution.outputSummary);
 
       return { runId, data: execution.data, tokensUsed, durationMs };
     } catch (err) {
@@ -202,6 +206,34 @@ export abstract class BaseAgent<TInput, TResult> {
   ): Promise<void> {
     if (!runId) return;
     await this.client.from("agent_runs").update(patch).eq("id", runId);
+  }
+
+  /**
+   * Silent-failure guard (CROSS_WIRING_REPORT.md, 2026-09-15): a run can
+   * report status='completed' while finding real work and processing none of
+   * it (ag-29-knowledge-indexer's original bug pattern, on the sibling
+   * AutonomousAgent base class before p5a-001's fix). Shared and
+   * agent-agnostic on purpose so no BaseAgent subclass can silently regress
+   * into the same invisible-failure pattern. Best-effort: never blocks or
+   * masks the real run result.
+   */
+  private async checkSilentFailure(
+    itemsFound: number,
+    itemsProcessed: number,
+    outputSummary: string,
+  ): Promise<void> {
+    if (itemsFound <= 0 || itemsProcessed > 0) return;
+    try {
+      await this.client.from("alerts").insert({
+        organization_id: this.organizationId,
+        type: "system",
+        severity: "warning",
+        message: `${this.agentType}: found ${itemsFound} item(s), processed 0. ${outputSummary}`,
+        dedup_key: `agent-silent-failure:${this.agentType}:${crypto.randomUUID()}`,
+      });
+    } catch {
+      // Best-effort only -- never let alerting itself fail a real run.
+    }
   }
 
   // --- timeout ---------------------------------------------------------------

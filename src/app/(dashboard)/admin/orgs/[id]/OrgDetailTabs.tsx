@@ -220,61 +220,124 @@ function agentRunStatusColor(status: string): string {
   }
 }
 
+// CROSS_WIRING_REPORT.md (2026-09-15): the ag-29 pattern -- status='completed'
+// while items_found > 0 and items_processed === 0 -- was the platform's
+// single highest-volume silent failure (40,528 runs, 66% of all agent_runs
+// rows ever written) and this was the only screen with the raw columns to
+// ever catch it, with no computed flag and no way to sort/filter for it.
+function isSilentFailure(run: OrgAgentRunRow): boolean {
+  return run.status === "completed" && (run.items_found ?? 0) > 0 && (run.items_processed ?? 0) === 0;
+}
+
 function AgentActivityTab({ agentRuns }: { agentRuns: OrgAgentRunRow[] }) {
+  const [silentOnly, setSilentOnly] = useState(false);
+  const [silentFirst, setSilentFirst] = useState(true);
+
+  const silentCount = agentRuns.filter(isSilentFailure).length;
+
+  let rows = silentOnly ? agentRuns.filter(isSilentFailure) : agentRuns;
+  if (silentFirst) {
+    rows = [...rows].sort((a, b) => Number(isSilentFailure(b)) - Number(isSilentFailure(a)));
+  }
+
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Agent</th>
-            <th style={thStyle}>Status</th>
-            <th style={thStyle}>Items Found</th>
-            <th style={thStyle}>Items Processed</th>
-            <th style={thStyle}>Duration</th>
-            <th style={thStyle}>Trigger</th>
-            <th style={thStyle}>Started</th>
-          </tr>
-        </thead>
-        <tbody>
-          {agentRuns.length === 0 ? (
+    <div>
+      <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "12px", fontSize: "13px" }}>
+        {silentCount > 0 && (
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: "#EF4444",
+              border: "1px solid #EF4444",
+              borderRadius: "999px",
+              padding: "2px 8px",
+            }}
+          >
+            {silentCount} silent failure{silentCount === 1 ? "" : "s"}
+          </span>
+        )}
+        <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+          <input type="checkbox" checked={silentFirst} onChange={(e) => setSilentFirst(e.target.checked)} />
+          Sort silent failures first
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+          <input type="checkbox" checked={silentOnly} onChange={(e) => setSilentOnly(e.target.checked)} />
+          Show only silent failures
+        </label>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
             <tr>
-              <td style={tdStyle} colSpan={7}>
-                No agent runs recorded for this organization.
-              </td>
+              <th style={thStyle}>Agent</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}>Flag</th>
+              <th style={thStyle}>Items Found</th>
+              <th style={thStyle}>Items Processed</th>
+              <th style={thStyle}>Duration</th>
+              <th style={thStyle}>Trigger</th>
+              <th style={thStyle}>Started</th>
             </tr>
-          ) : (
-            agentRuns.map((run) => (
-              <tr key={run.id}>
-                <td style={tdStyle}>{humanizeEnum(run.agent_type)}</td>
-                <td style={tdStyle}>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: agentRunStatusColor(run.status),
-                      border: `1px solid ${agentRunStatusColor(run.status)}`,
-                      borderRadius: "999px",
-                      padding: "2px 8px",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {run.status}
-                  </span>
-                </td>
-                <td style={tdStyle}>{run.items_found ?? "-"}</td>
-                <td style={tdStyle}>{run.items_processed ?? "-"}</td>
-                <td style={tdStyle}>
-                  {run.duration_ms != null ? `${(run.duration_ms / 1000).toFixed(1)}s` : "-"}
-                </td>
-                <td style={tdStyle}>{run.trigger_source ? humanizeEnum(run.trigger_source) : "-"}</td>
-                <td style={tdStyle}>
-                  {formatDate(run.created_at)} · {formatRelative(run.created_at)}
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td style={tdStyle} colSpan={8}>
+                  {silentOnly ? "No silent failures found." : "No agent runs recorded for this organization."}
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              rows.map((run) => (
+                <tr key={run.id}>
+                  <td style={tdStyle}>{humanizeEnum(run.agent_type)}</td>
+                  <td style={tdStyle}>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: agentRunStatusColor(run.status),
+                        border: `1px solid ${agentRunStatusColor(run.status)}`,
+                        borderRadius: "999px",
+                        padding: "2px 8px",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {run.status}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    {isSilentFailure(run) && (
+                      <span
+                        title={run.error_message ?? undefined}
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: "#EF4444",
+                          border: "1px solid #EF4444",
+                          borderRadius: "999px",
+                          padding: "2px 8px",
+                        }}
+                      >
+                        Silent failure
+                      </span>
+                    )}
+                  </td>
+                  <td style={tdStyle}>{run.items_found ?? "-"}</td>
+                  <td style={tdStyle}>{run.items_processed ?? "-"}</td>
+                  <td style={tdStyle}>
+                    {run.duration_ms != null ? `${(run.duration_ms / 1000).toFixed(1)}s` : "-"}
+                  </td>
+                  <td style={tdStyle}>{run.trigger_source ? humanizeEnum(run.trigger_source) : "-"}</td>
+                  <td style={tdStyle}>
+                    {formatDate(run.created_at)} · {formatRelative(run.created_at)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

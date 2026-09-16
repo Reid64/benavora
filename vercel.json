@@ -18,6 +18,9 @@
     "src/app/api/onboarding/complete-setup/**/*.ts": {
       "maxDuration": 300
     },
+    "src/app/api/cron/pil-research/**/*.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/**/*.ts": {
       "maxDuration": 120
     }
@@ -28,7 +31,8 @@
     { "path": "/api/cron/reminders", "schedule": "0 8 * * *" },
     { "path": "/api/cron/autoapply", "schedule": "0 2 * * *" },
     { "path": "/api/cron/domain-warmup", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/autoapply-retry", "schedule": "0 * * * *" }
+    { "path": "/api/cron/autoapply-retry", "schedule": "0 * * * *" },
+    { "path": "/api/cron/pil-research", "schedule": "*/10 * * * *" }
   ],
   "headers": [
     {

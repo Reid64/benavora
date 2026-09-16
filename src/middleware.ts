@@ -129,6 +129,7 @@ const SECRET_GATED_PATHS = new Set([
   "/api/cron/draft-queue-check",
   "/api/cron/research",
   "/api/cron/grantsgov",
+  "/api/cron/pil-research",
   "/api/sources/samgov",
   "/api/sources/propublica",
   "/api/sources/grantsgov",

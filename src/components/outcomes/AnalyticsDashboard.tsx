@@ -142,6 +142,10 @@ export function AnalyticsDashboard({
     [deadlines, today],
   );
   const agents = useMemo(() => buildAgentActivity(agentRuns), [agentRuns]);
+  const silentFailureAgents = useMemo(
+    () => agents.filter((a) => a.silentFailures > 0),
+    [agents],
+  );
   const velocity = useMemo(
     () => computeVelocity(applications, outcomes),
     [applications, outcomes],
@@ -387,6 +391,20 @@ export function AnalyticsDashboard({
           title="Agent activity"
           description="Runs per research / drafting agent."
         >
+          {silentFailureAgents.length > 0 && (
+            <div className="mb-3 flex flex-col gap-1 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/40">
+              {silentFailureAgents.map((a) => (
+                <div key={a.type} className="flex items-center gap-2 text-sm">
+                  <Badge color="red">Silent failure</Badge>
+                  <span>
+                    <strong>{a.label}</strong>: {a.silentFailures} run
+                    {a.silentFailures === 1 ? "" : "s"} reported "completed"
+                    while finding items but processing none.
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           <ChartFrame empty={agents.length === 0}>
             <BarChart
               layout="vertical"

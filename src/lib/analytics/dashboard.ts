@@ -57,6 +57,8 @@ export interface AgentRunRow {
   status: string | null;
   created_at: string;
   items_found: number | null;
+  items_processed: number | null;
+  error_message: string | null;
 }
 
 // --- Shared helpers ---------------------------------------------------------
@@ -307,6 +309,11 @@ export interface AgentActivity {
   completed: number;
   failed: number;
   itemsFound: number;
+  /** CROSS_WIRING_REPORT.md (2026-09-15): runs that reported status='completed'
+   * while items_found > 0 and items_processed === 0 -- the ag-29 "false
+   * completion" pattern. Structurally invisible before this field existed:
+   * no query selected items_processed/error_message at all. */
+  silentFailures: number;
 }
 
 export function buildAgentActivity(runs: AgentRunRow[]): AgentActivity[] {
@@ -321,11 +328,19 @@ export function buildAgentActivity(runs: AgentRunRow[]): AgentActivity[] {
         completed: 0,
         failed: 0,
         itemsFound: 0,
+        silentFailures: 0,
       };
     g.runs += 1;
     if (r.status === "completed") g.completed += 1;
     else if (r.status === "failed") g.failed += 1;
     g.itemsFound += num(r.items_found);
+    if (
+      r.status === "completed" &&
+      num(r.items_found) > 0 &&
+      (r.items_processed ?? 0) === 0
+    ) {
+      g.silentFailures += 1;
+    }
     groups.set(r.agent_type, g);
   }
   return Array.from(groups.values()).sort((a, b) => b.runs - a.runs);

@@ -4,15 +4,25 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPilEnabledForOrg } from "@/lib/feature-flags/pil";
+import { createResearchRun } from "@/lib/pil/workflow";
 
 // POST /api/discovery/pil-trigger
 //
 // Webhook receiver: Discovery (the existing donor-prospect import system) calls
 // this after importing a prospect, so the Prospect Intelligence Layer can pick
-// it up. Creates a pil_prospects row; migration 170's trigger
-// (pil_create_research_run_on_prospect_insert) then auto-creates the matching
-// pil_research_runs row -- this route must NOT also insert into
-// pil_research_runs itself, or the prospect would get two runs.
+// it up. Creates a pil_prospects row, then a matching pil_research_runs row.
+//
+// PIL_WIRING_AUDIT.md (2026-09-15): an earlier version of this route relied on
+// a migration 170 DB trigger (pil_create_research_run_on_prospect_insert)
+// supposedly auto-creating that pil_research_runs row. Live pg_trigger catalog
+// check found no such trigger exists -- every prospect this route ever created
+// had no research run at all, so nothing was ever queued for enrichment
+// despite this route returning status "queued_for_enrichment". Fixed by
+// creating the run explicitly here instead of trusting a nonexistent trigger.
+// Kept fast/non-blocking on purpose: this does not await orchestrateResearchRun
+// itself (Discovery may call this once per imported prospect, in bulk) --
+// /api/cron/pil-research's poller picks the new "planning" row up within
+// its 10-minute schedule.
 //
 // SECURITY: this is a system-to-system endpoint with no user session, so it is
 // gated by a static shared secret (mirrors CRON_SECRET / cron/campaigns) rather
@@ -204,10 +214,17 @@ export async function POST(request: Request) {
     console.error("pil-trigger: failed to record discovery alias", aliasInsertError);
   }
 
-  // pil_create_research_run_on_prospect_insert (migration 170) fired on the insert
-  // above and already created the pil_research_runs row for this prospect.
+  const run = await createResearchRun({
+    orgId: organization_id,
+    prospectId: prospect.id,
+    runType: "discovery_import",
+    goal: `Deep research on prospect ${prospect.id} (imported from Discovery: ${name.trim()})`,
+    triggeredBy: "discovery-webhook",
+  });
+
   return NextResponse.json({
     prospect_id: prospect.id,
+    research_run_id: run.id,
     status: "queued_for_enrichment",
   });
 }

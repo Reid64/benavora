@@ -195,6 +195,31 @@ export abstract class AutonomousAgent {
     if (params.errorMessage !== undefined) patch.error_message = params.errorMessage;
 
     await this.supabase.from("agent_runs").update(patch).eq("id", runId);
+
+    // Silent-failure guard (CROSS_WIRING_REPORT.md, 2026-09-15): a run can
+    // report status='completed' while having found real work and processed
+    // none of it -- ag-29-knowledge-indexer's original bug (fixed to report
+    // status='failed' in that specific agent, p5a-001), but nothing stopped
+    // any OTHER AutonomousAgent subclass from hitting the same pattern and
+    // going equally unnoticed. This check is shared and agent-agnostic on
+    // purpose -- it does not depend on a subclass remembering to call
+    // createNotification() itself, which was exactly the gap that let ag-29
+    // run silently broken for 4+ days with zero alert.
+    if (
+      (patch.status ?? "completed") === "completed" &&
+      params.itemsFound !== undefined &&
+      params.itemsProcessed !== undefined &&
+      params.itemsFound > 0 &&
+      params.itemsProcessed === 0
+    ) {
+      await this.createNotification(
+        "silent_failure",
+        `${this.agentId}: found ${params.itemsFound} item(s), processed 0`,
+        params.outputSummary,
+        undefined,
+        "warning",
+      );
+    }
   }
 
   /** Marks an agent_runs row failed. Never throws - a logging failure must

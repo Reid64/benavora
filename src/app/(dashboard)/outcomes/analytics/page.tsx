@@ -120,7 +120,7 @@ export default function OutcomeAnalyticsPage() {
       supabase.from("deadlines").select("due_date, is_completed"),
       supabase
         .from("agent_runs")
-        .select("agent_type, status, created_at, items_found"),
+        .select("agent_type, status, created_at, items_found, items_processed, error_message"),
       supabase.from("organizations").select("subscription_tier"),
       // Load proven_narratives for both the top-narratives table and the
       // pattern insights panel. Order by effectiveness_score so the table

@@ -352,7 +352,7 @@ export async function pollAndOrchestratePendingRuns(options: { orgId?: string; l
 
   let query = getPilClient()
     .from("pil_research_runs")
-    .select("id")
+    .select("id, prospect_id")
     .in("status", ["planning", "running"] satisfies ResearchRunStatus[])
     .order("created_at", { ascending: true })
     .limit(limit);
@@ -364,7 +364,18 @@ export async function pollAndOrchestratePendingRuns(options: { orgId?: string; l
   if (error) throw error;
 
   const results: PendingRunsPollResult[] = [];
-  for (const row of (data ?? []) as { id: string }[]) {
+  for (const row of (data ?? []) as { id: string; prospect_id: string | null }[]) {
+    // Discovery-type runs (POST /api/pil/discover) are deliberately created
+    // with no prospect_id -- a discovery run plans a multi-prospect search,
+    // it doesn't drive one prospect through the family pipeline below. This
+    // orchestrator only knows how to drive single-prospect runs (see the
+    // prospect_id guard inside orchestrateResearchRun). Without this skip,
+    // every poll would immediately fail-and-escalate every discovery run
+    // instead of leaving it for whatever process is meant to fan discovery
+    // results out into real per-prospect runs -- that fan-out doesn't exist
+    // yet (tracked separately, not part of this wiring pass), so for now
+    // these rows are simply left alone rather than mass-failed.
+    if (!row.prospect_id) continue;
     try {
       const finished = await orchestrateResearchRun(row.id);
       results.push({ runId: row.id, status: finished.status });

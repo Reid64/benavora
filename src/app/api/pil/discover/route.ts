@@ -96,5 +96,14 @@ export async function POST(request: Request) {
   });
   await advanceRunState(run.id, "running", { natural_language_plan: plan });
 
+  // See src/app/api/pil/research/route.ts's identical note: drive the run
+  // inline so a manual discovery request doesn't wait up to 10 minutes for
+  // the /api/cron/pil-research poller. A discovery run has no single
+  // prospect_id (orchestrateResearchRun requires one, per its own guard) --
+  // this route's runs are picked up per-prospect once discovery agents
+  // create prospect rows, so there is nothing to drive inline yet; the cron
+  // poller is this run type's real trigger path. Left unawaited on purpose:
+  // do not call orchestrateResearchRun(run.id) here.
+
   return NextResponse.json({ runId: run.id, plan });
 }
