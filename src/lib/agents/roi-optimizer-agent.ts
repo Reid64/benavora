@@ -22,17 +22,16 @@
 // state before applying a literal spec verbatim (see
 // opportunity-discovery-agent.ts's header for a prior instance of this same
 // pattern):
-//   - `platform_patterns_applied` (task spec item 1) has no column on
-//     submission_variables (migration 089's actual columns: id,
+//   - `platform_patterns_applied` (task spec item 1): migration 089's
+//     submission_variables originally had no column for this (id,
 //     application_id, org_id, submission_day_of_week, days_before_deadline,
 //     prompt_version, word_count, attachment_count, has_budget,
 //     has_logic_model, has_board_list, narrative_readability_score,
-//     executive_contact_name, outcome_result, outcome_amount, created_at - no
-//     jsonb column either). It IS read here (applications.platform_patterns_
-//     applied, migration 084) so nothing is silently skipped, but it is not
-//     sent in the submission_variables insert payload - Postgrest throws on
-//     an insert with a column the table doesn't have. Persisting it requires
-//     a schema migration, out of scope for a single-file agent rewrite.
+//     executive_contact_name, outcome_result, outcome_amount, created_at).
+//     Migration 180 (Phase 5.5, 2026-09-15) added it (nullable integer,
+//     additive) - it is now read from applications.platform_patterns_applied
+//     (migration 084) AND persisted into the submission_variables insert
+//     below, so nothing is silently skipped.
 //   - `has_logic_model` / `has_board_list` (columns DO exist, but the task's
 //     "SELECT EXISTS(... document_type='logic_model')" has no backing
 //     column - `documents` has no document_type field, only `category`
@@ -620,10 +619,6 @@ export class RoiOptimizerAgent extends AutonomousAgent {
     }
 
     const application = applicationRow as ApplicationForTracking;
-    // Read for completeness per task item 1 ("capture ALL ... without
-    // exception"); not sent in the insert below - see the file header's
-    // schema-gap note on why submission_variables has no column for it yet.
-    void application.platform_patterns_applied;
 
     const submittedAt = application.submitted_at
       ? new Date(application.submitted_at)
@@ -697,6 +692,7 @@ export class RoiOptimizerAgent extends AutonomousAgent {
         has_logic_model: hasLogicModel,
         has_board_list: hasBoardList,
         narrative_readability_score: narrativeReadabilityScore,
+        platform_patterns_applied: application.platform_patterns_applied,
       });
 
     if (insertError) {

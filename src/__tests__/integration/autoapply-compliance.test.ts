@@ -213,21 +213,29 @@ function daysFromNow(days: number): string {
       // 'compliance_hold' (see AUTOAPPLY_ARCHITECTURE_V2.md §6B and the
       // compliance page's own "How this works" copy). That filter reads
       // `funders.city` and `funders.state` in its query
-      // (src/lib/autoapply/auto-queue-populator.ts:195). A live column check
-      // against production (service-role REST) confirms NEITHER column exists
-      // on the live `funders` table (PostgREST 42703 "column funders.city
-      // does not exist"), unlike `funders.type` and
-      // `organizations.contact_email`, which migration 053 already backfilled
-      // for an identical prior failure class. So today, in production, the
-      // state-based compliance-hold filter can never run at all — populateQueue()
-      // throws before ComplianceGuard is even reached, for every organization,
-      // regardless of whether any registrations or funders exist. This test
-      // documents that real, currently-live gap rather than asserting the
-      // aspirational (currently unreachable) blocked/allowed queue behavior.
-      it("cannot currently enforce state compliance holds — funders.city/state are missing columns in production", async () => {
-        await expect(
-          populateQueue({ organizationId: orgAId, supabase: service, dry_run: true }),
-        ).rejects.toThrow(/column funders\.(city|state) does not exist/);
+      // (src/lib/autoapply/auto-queue-populator.ts:195).
+      //
+      // RESOLVED (Phase 5.5, 2026-09-15): this test used to document that
+      // neither column existed on the live `funders` table (PostgREST 42703
+      // "column funders.city does not exist"), so populateQueue() threw
+      // before ComplianceGuard was even reached, for every organization.
+      // Live-verified today via both a direct psql query and a raw REST call
+      // against production: both columns exist now and PostgREST serves them
+      // correctly (`{"city":null,"state":null}` for a real row) — the gap
+      // was already closed at the schema level, this test just hadn't been
+      // updated to match. Org A here has zero `funders` rows (this describe
+      // block only seeds `solicitation_registrations` — the state
+      // block/allow decision itself is already covered exhaustively by
+      // ComplianceGuard.canSolicitInState()/getRegisteredStates() above), so
+      // the real, now-reachable behavior for this fixture is a successful
+      // empty result rather than a thrown error.
+      it("resolves successfully now that funders.city/state exist in production (empty result — org A has no funders rows)", async () => {
+        const result = await populateQueue({
+          organizationId: orgAId,
+          supabase: service,
+          dry_run: true,
+        });
+        expect(result.funders).toEqual([]);
       });
     });
   },

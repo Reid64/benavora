@@ -89,6 +89,7 @@ interface QueueRow {
   status: string;
   started_at: string | null;
   completed_at: string | null;
+  error_message: string | null;
 }
 
 /**
@@ -112,7 +113,7 @@ async function waitForTerminal(
   while (Date.now() < deadline) {
     const { data, error } = await service
       .from("submission_queue")
-      .select("id, status, started_at, completed_at")
+      .select("id, status, started_at, completed_at, error_message")
       .eq("id", queueItemId)
       .single();
     if (error) throw new Error(`poll failed for queue item ${queueItemId}: ${error.message}`);
@@ -416,6 +417,18 @@ async function waitForTerminal(
       // the risk-engine 'manual' route, which also only runs after the
       // org-readiness gate. Any one of these is proof this item was not
       // stopped by org_not_ready.
+      //
+      // Phase 5.5 (2026-09-15): added a 4th proof. checkCrossClientDedup()
+      // (queue-processor.ts:749, throwing SkipError('cross_client_blocked: ...'))
+      // runs strictly AFTER checkOrgReadiness() (line 701) in processItem() —
+      // confirmed by reading the file directly. This test's fixed TARGET_URL
+      // (httpbin.org/forms/post) is a shared public target reused across every
+      // run of this suite (and by hand while diagnosing this very test), so
+      // once any org has submitted to it within the 7-day dedup window, every
+      // subsequent "ready org" run legitimately gets skipped here instead of
+      // reaching automation_sessions/autoapply_submissions — that is the guard
+      // correctly doing its job, not a readiness-gate failure, and is just as
+      // valid a proof of passing org_not_ready as the other three outcomes.
       const { data: sessions } = await service
         .from("automation_sessions")
         .select("id, status")
@@ -428,7 +441,8 @@ async function waitForTerminal(
       const reachedRealPipeline =
         row.status === "pending_manual" ||
         (sessions?.length ?? 0) > 0 ||
-        (submissions?.length ?? 0) > 0;
+        (submissions?.length ?? 0) > 0 ||
+        (row.status === "skipped" && (row.error_message ?? "").startsWith("cross_client_blocked"));
 
       expect(
         reachedRealPipeline,

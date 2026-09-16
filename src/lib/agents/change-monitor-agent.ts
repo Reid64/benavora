@@ -8,21 +8,21 @@
 // (website reachability, leadership/status drift) and triggers
 // re-enrichment.
 //
-// Scope correction (the spec's own section, load-bearing — do not narrow
-// this back to corporate_prospects only, that would make the agent
-// permanently untestable): corporate_prospects does not exist in
-// production, reconfirmed live 2026-08-03 (PGRST205, the same blocker
-// documented for every other agent in this codebase that reads it —
-// AG-20/21/22/24/30/32). This agent's foundation_directory half is the one
-// genuinely testable, real, populated (133,000+ rows) branch — "IRS BMF
-// status" (the spec's own phrase) is literally foundation_directory's
-// foundation_type/subsection_code/status columns, sourced from the real
-// IRS BMF import (confirmed real columns: supabase/migrations/046, 058,
-// 072). The corporate_prospects half is fully implemented below and
-// activates automatically once that table exists — it degrades to "zero
-// prospects in scope" via the same try/catch-and-treat-as-empty pattern
-// DonorIntentMonitorAgent.loadProspects() already established for this
-// exact table, never failing the run.
+// Scope correction, UPDATED (Phase 5.5, 2026-09-15): the paragraph below
+// documented corporate_prospects as missing in production as of 2026-08-03.
+// Live-verified against the real database today: the table exists (created
+// 2026-08-03, the same day this comment was written — the two events simply
+// landed on the same date in different order) with 49 real rows and the
+// exact columns this agent's loadProspectScope() query selects (id,
+// legal_name, website, enrichment). Both halves of this agent's scope are
+// now genuinely live — this is no longer degrading to "zero prospects in
+// scope" in practice, though the try/catch-and-treat-as-empty pattern below
+// is kept as defensive code (harmless if the table's shape ever changes
+// again). This agent's foundation_directory half is the other real,
+// populated (133,000+ rows) branch — "IRS BMF status" (the spec's own
+// phrase) is literally foundation_directory's foundation_type/
+// subsection_code/status columns, sourced from the real IRS BMF import
+// (confirmed real columns: supabase/migrations/046, 058, 072).
 //
 // PLATFORM-LEVEL, NOT ORG-SCOPED — same pattern as AG-36 (Learning Network
 // Aggregator, learning-network-aggregator-agent.ts): neither
@@ -222,11 +222,12 @@ export class ChangeMonitorAgent extends AutonomousAgent {
     }
   }
 
-  /** corporate_prospects does not exist live (reconfirmed 2026-08-03) —
-   * the same try/catch-and-treat-as-empty pattern
-   * DonorIntentMonitorAgent.loadProspects() already established for this
-   * exact table. A missing table degrades this half of scope to zero, it
-   * never fails the run. */
+  /** corporate_prospects exists live (49 rows, re-verified 2026-09-15) with
+   * matching columns for this query — this branch is genuinely active, not
+   * degraded. The try/catch-and-treat-as-empty pattern (same one
+   * DonorIntentMonitorAgent.loadProspects() established for this exact
+   * table) is kept as defensive code: a future schema change to this table
+   * still degrades this half of scope to zero rather than failing the run. */
   private async loadProspectScope(
     budget: number,
   ): Promise<{ rows: ProspectRow[]; tableMissing: boolean }> {

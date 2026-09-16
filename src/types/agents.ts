@@ -141,7 +141,20 @@ export type AgentType =
   | "custom_scrape_research" // custom-scrape.ts (was custom_api_research)
   | "state_portal_housing_scrapers" // state-scrapers.ts (was state_portal)
   | "state_portal_tdhca" // tdhca-scraper.ts (was state_portal)
-  | "budget_builder_worker"; // budget-builder.ts (was budget_builder; dormant, zero importers)
+  // budget-builder.ts (was budget_builder). Phase 5.4 (2026-09-15) wired
+  // case 'budget_builder' into worker/autonomous-orchestrator.ts's
+  // routeQueueItem() — no longer dormant/zero-importers as of that fix.
+  | "budget_builder_worker"
+  // Phase 5.5 (2026-09-15) — documentation-only addition, not a schema
+  // change: both values below already existed in the live agent_type enum
+  // (same never-committed-DDL-pass pattern as the p5a-002 block above) but
+  // were absent from this union. Neither learning-network-aggregator-
+  // agent.ts (AG-36) nor change-monitor-agent.ts (AG-42) type their
+  // agentId against AgentType (both extend AutonomousAgent, whose agentId
+  // is a plain string), so this addition doesn't fix a compile error — it
+  // makes this union an accurate catalog of every real agent_type value.
+  | "ag-36-learning-network" // learning-network-aggregator-agent.ts
+  | "ag-42-change-monitor"; // change-monitor-agent.ts
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

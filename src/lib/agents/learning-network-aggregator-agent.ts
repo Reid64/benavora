@@ -34,15 +34,14 @@
 // today. See AGENTS_v2.md's own Phase 2-5 addendum for the full cross-doc
 // numbering mismatch this agent shares with several others.
 //
-// Known, unresolved gap (matches the pattern documented in AGENTS_v2.md
-// §1.2 for AG-02/03/04/05/06/07/15/17/19/25/28/digest): "ag-36-learning-
-// network" is not yet a value in the `agent_type` Postgres enum. Until a
-// migration adds it (`ALTER TYPE agent_type ADD VALUE IF NOT EXISTS
-// 'ag-36-learning-network'`), `startRun()`'s insert into `agent_runs` will
-// throw before any aggregation happens. Not fixed here since a
-// schema migration for the enum specifically is out of scope for this
-// hardening pass (migration 099 only extends the two tables this agent
-// already owns).
+// RESOLVED (Phase 5.5, 2026-09-15): the paragraph below used to document
+// "ag-36-learning-network" as absent from the `agent_type` Postgres enum.
+// Live-verified against the real database today: the value already exists
+// (added by an earlier, never-committed DDL pass - the same pattern
+// AGENTS_v2.md's "canonical implementation per AG-NN slot" table documents
+// for several other agent_type values). `startRun()`'s insert into
+// `agent_runs` does not throw; this agent runs end-to-end. No code or
+// schema change was needed here - this comment was simply stale.
 //
 // No chain target: AUTONOMOUS_PLATFORM_VISION.md §7's Phase 4 table lists
 // this feature as "Internal only - no client-facing route," and this
