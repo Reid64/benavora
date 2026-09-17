@@ -92,7 +92,7 @@ async function buildFillData(
   }
 
   const { data: kbData } = await supabase
-    .from("knowledge_base_entries")
+    .from("knowledge_base")
     .select("category, content")
     .eq("organization_id", organizationId);
 

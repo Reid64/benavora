@@ -2,6 +2,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
+import { withClaudeLimit } from "./claude-concurrency";
 
 let _claude: Anthropic | null = null;
 let _resend: Resend | null = null;
@@ -104,11 +105,13 @@ async function generateFollowUpContent(
     promptMap[templateType] ??
     `Following up on our ${requestLabel} request to ${funderName}. We'd love to hear if you had a chance to review it.`;
 
-  const message = await claude.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 256,
-    messages: [{ role: "user", content: prompt }],
-  });
+  const message = await withClaudeLimit(() =>
+    claude.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 256,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  );
 
   const block = message.content[0];
   if (block?.type === "text") {

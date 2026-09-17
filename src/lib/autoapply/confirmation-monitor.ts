@@ -28,6 +28,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { gmail_v1, google } from 'googleapis';
 import Anthropic from '@anthropic-ai/sdk';
+import { withClaudeLimit } from './claude-concurrency';
 
 import { CredentialManager } from './credential-manager';
 import type { Database } from '@/types/database';
@@ -281,7 +282,8 @@ async function extractConfirmationDetails(emailText: string): Promise<ExtractedC
 
   try {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
+    const response = await withClaudeLimit(() =>
+      client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 256,
       messages: [
@@ -301,7 +303,8 @@ Email:
 ${emailText.slice(0, 6000)}`,
         },
       ],
-    });
+      }),
+    );
 
     const raw = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);

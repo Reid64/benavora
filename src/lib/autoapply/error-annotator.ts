@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { withClaudeLimit } from './claude-concurrency';
 
 let _client: Anthropic | null = null;
 
@@ -25,7 +26,8 @@ export async function annotateErrorScreenshot(params: {
 
   const base64 = screenshotBuffer.toString('base64');
 
-  const message = await getClaude().messages.create({
+  const message = await withClaudeLimit(() =>
+    getClaude().messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 512,
     messages: [
@@ -47,7 +49,8 @@ export async function annotateErrorScreenshot(params: {
         ],
       },
     ],
-  });
+    }),
+  );
 
   const annotation = message.content
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')

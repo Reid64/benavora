@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import { withClaudeLimit } from "./claude-concurrency";
 import type { AdvancedFieldHandler } from "./advanced-field-handler";
 import type { DocumentVault, OrgDocument } from "./document-vault";
 
@@ -143,16 +144,18 @@ export class DocumentAttacher {
 
         const context = `Field label: "${raw.label}"\nNearby text: "${raw.nearbyText}"\nAccepted file types: "${raw.acceptAttr}"`;
         try {
-          const response = await this.anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 256,
-            messages: [
-              {
-                role: "user",
-                content: `You are analyzing a file upload field on a nonprofit grant application form.\n${context}\n\nWhich document type does this field expect? Reply with ONLY one of these exact strings (no explanation):\n501c3_letter, form_990, board_list, project_budget, financial_statements, annual_report, organizational_chart, letters_of_support, insurance_certificate, other`,
-              },
-            ],
-          });
+          const response = await withClaudeLimit(() =>
+            this.anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 256,
+              messages: [
+                {
+                  role: "user",
+                  content: `You are analyzing a file upload field on a nonprofit grant application form.\n${context}\n\nWhich document type does this field expect? Reply with ONLY one of these exact strings (no explanation):\n501c3_letter, form_990, board_list, project_budget, financial_statements, annual_report, organizational_chart, letters_of_support, insurance_certificate, other`,
+                },
+              ],
+            }),
+          );
           const content = response.content[0];
           const docType = content?.type === "text" ? content.text.trim() : "other";
           return {
@@ -199,16 +202,18 @@ export class DocumentAttacher {
 
         const availableTypes = orgDocuments.map((d) => d.document_type).join(", ");
         try {
-          const response = await this.anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 64,
-            messages: [
-              {
-                role: "user",
-                content: `This upload field is labeled "${field.label}" and expects a document of type "${field.expectedDocType}". Which of these available document types is the best match: ${availableTypes}?\n\nReply with ONLY the exact document type string from the list, or "none" if none match.`,
-              },
-            ],
-          });
+          const response = await withClaudeLimit(() =>
+            this.anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 64,
+              messages: [
+                {
+                  role: "user",
+                  content: `This upload field is labeled "${field.label}" and expects a document of type "${field.expectedDocType}". Which of these available document types is the best match: ${availableTypes}?\n\nReply with ONLY the exact document type string from the list, or "none" if none match.`,
+                },
+              ],
+            }),
+          );
           const content = response.content[0];
           const chosen = content?.type === "text" ? content.text.trim() : "none";
 

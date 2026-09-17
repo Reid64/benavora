@@ -10,6 +10,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 import type { Database } from "@/types/database";
@@ -74,6 +75,10 @@ export class CorporateScraperAgent extends BaseAgent<
   CorporateScraperResult
 > {
   readonly agentType: AgentType = "corporate_research";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     // unused

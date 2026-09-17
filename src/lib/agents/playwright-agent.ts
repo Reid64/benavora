@@ -24,6 +24,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import { callClaude } from "@/lib/ai/claude";
 import { BrowserEngine } from "@/lib/automation/browser-engine";
@@ -125,6 +126,10 @@ export class PlaywrightAgent extends BaseAgent<
   PlaywrightAgentResult
 > {
   readonly agentType: AgentType = "browser_automation";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: PlaywrightAgentInput,

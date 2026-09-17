@@ -20,6 +20,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 import type { AgentType } from "@/types/agents";
@@ -56,6 +57,10 @@ interface ExtractedGiving {
 
 export class EA01GivingDetectorAgent extends BaseAgent<EA01Input, EA01Result> {
   readonly agentType: AgentType = "ea01_giving_detector";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: EA01Input,

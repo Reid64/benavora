@@ -12,6 +12,11 @@
 > `autoapply_queue_processor`) via `ALTER TYPE agent_type ADD VALUE IF NOT EXISTS`, applied live.
 > The authoritative `agent_type` union is `src/types/agents.ts`; see `AGENTS_v2.md`'s "AutoApply
 > agent identity (AR-1.2, 2026-09-17)" section for context.
+>
+> **Note (2026-09-17, AR-2.1):** Also stale on the Knowledge Base table name — this template
+> never had one to be wrong about, but `SCHEMA_REGISTRY_v2.md`'s real "knowledge_base" section did
+> (it said `knowledge_base_entries`, which doesn't exist). See that file's own AR-2.1 correction
+> note and `STATE_OF_THE_BUILD.md`'s "AR-2.1" section.
 
 ---
 

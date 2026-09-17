@@ -21,6 +21,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 import type { AgentType } from "@/types/agents";
@@ -67,6 +68,10 @@ export class EA06PressReleaseAnalyzerAgent extends BaseAgent<
   EA06Result
 > {
   readonly agentType: AgentType = "ea06_press_release_analyzer";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: EA06Input,

@@ -17,6 +17,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 import type { AgentType } from "@/types/agents";
@@ -60,6 +61,10 @@ export class EA03SponsorshipDetectorAgent extends BaseAgent<
   EA03Result
 > {
   readonly agentType: AgentType = "ea03_sponsorship_detector";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: EA03Input,

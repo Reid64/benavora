@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 import { generateEmbedding } from './embeddings'
 
 let anthropicClient: Anthropic | null = null
@@ -137,12 +138,14 @@ export async function generateLogicModel(params: {
     userContent = `Generate a logic model for this program:\n${contextBlock}\n\nCategory: ${category}\n\nReturn ONLY valid JSON.`
   }
 
-  const response = await getClient().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userContent }],
-  })
+  const response = await withClaudeLimit(() =>
+    getClient().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userContent }],
+    }),
+  )
 
   const block = response.content[0]
   if (!block || block.type !== 'text') {

@@ -25,6 +25,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import {
   AllowlistBlockedError,
@@ -77,6 +78,10 @@ export class CustomScrapeResearchAgent extends BaseAgent<
   // custom-api.ts (the client-configured REST API agent). Renamed to its own
   // distinct DB enum value (already live) so agent_runs is attributable.
   readonly agentType: AgentType = "custom_scrape_research";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: CustomScrapeInput,

@@ -441,7 +441,7 @@ export class FormFillerAgent {
     let entries: KBEntry[] = [];
     try {
       const { data: kbData } = await this.supabase
-        .from('knowledge_base_entries')
+        .from('knowledge_base')
         .select('category, content')
         .eq('organization_id', organizationId);
       entries = (kbData as KBEntry[] | null) ?? [];

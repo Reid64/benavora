@@ -63,7 +63,7 @@ export class CompetitorIntelAgent extends BaseAgent<
   private readonly maxTokens: number;
 
   constructor(options: CompetitorIntelAgentOptions) {
-    super(options);
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }

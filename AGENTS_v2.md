@@ -16,6 +16,37 @@ All agent outputs write to the database. Never to local files.
 **Model:** claude-sonnet-4-6 for all agents unless specified.
 **Timeout:** All agent API routes require `export const maxDuration = 300`.
 
+**Per-agent timeout policy (AR-2.1, 2026-09-17):** `BaseAgent`'s own default run
+timeout (`AGENT_TIMEOUT_MS`, `src/lib/agents/base-agent.ts`) is 60s — correct
+for deterministic, non-Claude agents, but too short for any agent that calls
+Claude. Live `agent_runs` showed `review` (4/4 runs, never succeeded),
+`budget_builder`, `foundation_research`, `government_research`, and
+`local_sponsorship` all failing with `"Agent timed out after 60s."`. Every
+`BaseAgent` subclass that imports `@/lib/ai/claude` or `@anthropic-ai/sdk` now
+overrides `timeoutMs` in its constructor: **300000ms (300s)** for
+research/scraping/drafting agents, **180000ms (180s)** for scoring/review/
+classification agents. `src/__tests__/unit/agent-timeouts.test.ts` statically
+enforces this — it fails any `BaseAgent` subclass that calls Claude without a
+`timeoutMs` override above 60000. (`narrative_drafting`, the other agent type
+seen orphaning in `agent_runs`, is not a `BaseAgent` subclass — it's called
+directly from `src/app/api/ai/draft/route.ts` and two other routes, which
+already set `export const maxDuration = 300` at the route level.)
+
+**Claude concurrency limit (AR-2.1, 2026-09-17):** `narrative_drafting` also
+saw 7 production `429 rate_limit_error` failures ("Number of concurrent
+connections has exceeded your rate limit") — nothing capped how many Claude
+calls the platform fired at once. `src/lib/ai/claude-concurrency.ts` exports
+a shared `withClaudeLimit()` (concurrency 4, via `p-limit`) that every
+Anthropic call in `src/lib/agents/**` and `src/lib/intelligence/**` now routes
+through (including indirectly, via `src/lib/ai/claude.ts`'s `callClaude*`
+wrappers). `src/lib/autoapply/**` has its own separate instance,
+`src/lib/autoapply/claude-concurrency.ts`, because that tree is compiled by
+`worker/tsconfig.json`'s restricted `include` list, which does not cover
+`src/lib/ai/**` — every autoapply Claude caller already instantiates its own
+`Anthropic` client rather than importing `src/lib/ai/claude.ts` for exactly
+that reason. `src/__tests__/unit/claude-concurrency.test.ts` proves the
+limiter caps in-flight calls at 4 and that every call still resolves.
+
 ---
 
 ## Phase 1 Agents (MVP — Already Built)

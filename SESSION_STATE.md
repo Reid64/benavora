@@ -8,13 +8,37 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-1.2 AutoApply agent identity + agent_runs logging, out-of-band from the blocked Phase 6 queue below)
+- **Last updated:** 2026-09-17 (AR-2.1 cross-cutting defects: knowledge_base table fix, per-agent timeouts, Claude concurrency limiter, out-of-band from the blocked Phase 6 queue below)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
 
 Queue.yaml exists at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` but contains template prompts only. DO NOT EXECUTE.
+
+## Session — 2026-09-17 (AR-2.1: knowledge_base table fix, per-agent timeouts, Claude concurrency limiter)
+
+Ran independently of the blocked Phase 6 queue below (targeted cross-cutting defect fix, not a
+FORGE queue execution). Full detail in `STATE_OF_THE_BUILD.md`'s "AR-2.1" section (top of file).
+Summary: (1) fixed 3 call sites querying the nonexistent `knowledge_base_entries` table — real name
+is `knowledge_base` — including one (`org-profile-mapper.ts`) not in the original bug report, found
+by grep; also corrected the wrong table name at its source, `SCHEMA_REGISTRY_v2.md`'s "canonical"
+section 11. (2) Gave every Claude-calling `BaseAgent` subclass an explicit `timeoutMs` override
+(300s research/drafting, 180s scoring/review) — 34 files, 15 of which had no constructor at all and
+were silently defaulting to BaseAgent's 60s ceiling (`custom-scrape.ts` and all nine EA-0X
+corporate-enrichment agents were not in the task's original failure list; found via the new static
+test). (3) Added `src/lib/ai/claude-concurrency.ts`, a shared `p-limit(4)` gate wrapping all Claude
+call functions in `src/lib/ai/claude.ts` plus 11 direct-SDK call sites in
+`src/lib/intelligence/**`, and a second, independent instance,
+`src/lib/autoapply/claude-concurrency.ts`, wrapping 12 direct-SDK call sites in
+`src/lib/autoapply/**` — two instances because `worker/tsconfig.json` compiles that tree separately
+and its `include` list doesn't cover `src/lib/ai/**`. Added 2 new test files (3 tests).
+`pnpm tsc --noEmit`: 0 errors. `npx tsc --noEmit -p worker/tsconfig.json`: 0 errors. `pnpm run build`:
+succeeds. Full suite: 102 files (1 skipped) / 911 tests passed, 13 todo, 0 regressions. Did not
+touch `narrative_drafting`'s 11 orphaned `agent_runs` rows — that agent type isn't a `BaseAgent`
+subclass (it's called directly from 3 API routes, all already on `maxDuration = 300`), so it was out
+of this fix's scope; flagged in governance docs as the natural next investigation if orphaning
+continues. Not deployed per explicit instruction — commit only.
 
 ## Session — 2026-09-17 (AR-1.2: AutoApply agent identity + agent_runs logging)
 

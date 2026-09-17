@@ -15,6 +15,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { withClaudeLimit } from './claude-concurrency';
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
 export const AGENT_TYPE = 'autoapply_form_analyzer';
@@ -310,12 +311,14 @@ export class FormAnalyzerAgent {
   }
 
   private async callClaude(system: string, prompt: string, maxTokens: number): Promise<string> {
-    const message = await this.claude.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const message = await withClaudeLimit(() =>
+      this.claude.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    );
     const block = message.content[0];
     return block?.type === 'text' ? block.text : '';
   }

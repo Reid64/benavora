@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
 let anthropicClient: Anthropic | null = null
 
@@ -54,12 +55,14 @@ If no explicit scoring criteria are found, infer likely dimensions based on the 
 
   const userContent = contextPrefix + text.slice(0, 50000)
 
-  const response = await getClient().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userContent }],
-  })
+  const response = await withClaudeLimit(() =>
+    getClient().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }],
+    }),
+  )
 
   const block = response.content[0]
   if (!block || block.type !== 'text') {

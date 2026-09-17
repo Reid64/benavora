@@ -3,7 +3,7 @@
 //
 // Real-schema note: `organizations` (root supabase/migrations, migration 001)
 // has no executive_director_name/email columns — this file sources those from
-// knowledge_base_entries (category/title text matching, same loose-matching
+// knowledge_base (category/title text matching, same loose-matching
 // convention already used by form-filler-agent.ts's buildFillData()) and,
 // failing that, the org's owner profile (profiles.role = 'owner').
 //
@@ -170,7 +170,7 @@ async function generateNarrativeField(
 
 /**
  * Builds a standardized SubmissionProfile for a given organization from its
- * `organizations` row and `knowledge_base_entries`, filling any missing
+ * `organizations` row and `knowledge_base`, filling any missing
  * narrative field via a targeted Claude call. See file header for the
  * fabrication guard on factual fields and requested_amount.
  */
@@ -189,7 +189,7 @@ export async function mapOrgToSubmissionProfile(
   const org = (orgRow ?? {}) as Partial<OrgProfile>;
 
   const { data: kbRows } = await supabase
-    .from('knowledge_base_entries')
+    .from('knowledge_base')
     .select('title, category, content')
     .eq('organization_id', organizationId);
   const kb = classifyKbEntries((kbRows ?? []) as KBRow[]);

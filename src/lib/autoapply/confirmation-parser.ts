@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { withClaudeLimit } from "./claude-concurrency";
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
 export const AGENT_TYPE = "autoapply_confirmation_parser";
@@ -58,7 +59,8 @@ export async function parseConfirmationPage(page: unknown): Promise<Confirmation
 
   const claude = getClaude();
 
-  const response = await claude.messages.create({
+  const response = await withClaudeLimit(() =>
+    claude.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 512,
     messages: [
@@ -80,7 +82,8 @@ Page text:
 ${pageText.slice(0, 6000)}`,
       },
     ],
-  });
+    }),
+  );
 
   const raw = response.content[0]?.type === "text" ? response.content[0].text : "";
 

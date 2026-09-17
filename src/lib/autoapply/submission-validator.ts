@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { FormField } from "@/types/automation";
+import { withClaudeLimit } from "./claude-concurrency";
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
 export const AGENT_TYPE = "autoapply_submission_validator";
@@ -359,21 +360,23 @@ export class SubmissionValidator {
 
     const claude = getClaude();
 
-    const response = await claude.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 256,
-      messages: [
-        {
-          role: "user",
-          content: `Does the following web page text show any indication that a donation or grant request from this organization is already pending, under review, or has already been submitted? Look for phrases like "You have a pending request", "Already submitted", "Your application is under review", "Duplicate submission detected", or similar.
+    const response = await withClaudeLimit(() =>
+      claude.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 256,
+        messages: [
+          {
+            role: "user",
+            content: `Does the following web page text show any indication that a donation or grant request from this organization is already pending, under review, or has already been submitted? Look for phrases like "You have a pending request", "Already submitted", "Your application is under review", "Duplicate submission detected", or similar.
 
 Respond with JSON only: { "hasPending": true/false, "message": "<the exact phrase found, or null>" }
 
 Page text:
 ${pageText.slice(0, 4000)}`,
-        },
-      ],
-    });
+          },
+        ],
+      }),
+    );
 
     const raw = response.content[0]?.type === "text" ? response.content[0].text : "";
 

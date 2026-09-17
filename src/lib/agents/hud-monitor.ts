@@ -17,6 +17,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import { fetchWithRetry } from "@/lib/agents/research/http-retry";
 import type { AgentType } from "@/types/agents";
@@ -98,6 +99,10 @@ function parseClaudeResponse(text: string): RawHudOpportunity[] {
 
 export class HudMonitorAgent extends BaseAgent<HudMonitorInput, HudMonitorResult> {
   readonly agentType: AgentType = "hud_monitor";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: HudMonitorInput,

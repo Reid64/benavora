@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { withClaudeLimit } from './claude-concurrency';
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
 export const AGENT_TYPE = 'autoapply_pitch_personalizer';
@@ -231,11 +232,13 @@ export async function personalizePitch(
 
   const prompt = buildPrompt(params);
 
-  const message = await getClaude().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 512,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  const message = await withClaudeLimit(() =>
+    getClaude().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  );
 
   const content = message.content[0];
   const pitch =

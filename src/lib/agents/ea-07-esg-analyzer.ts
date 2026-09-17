@@ -19,6 +19,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 import type { AgentType } from "@/types/agents";
@@ -54,6 +55,10 @@ interface ExtractedEsg {
 
 export class EA07EsgAnalyzerAgent extends BaseAgent<EA07Input, EA07Result> {
   readonly agentType: AgentType = "ea07_esg_analyzer";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: EA07Input,

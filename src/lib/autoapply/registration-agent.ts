@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Anthropic from '@anthropic-ai/sdk';
 import crypto from 'crypto';
+import { withClaudeLimit } from './claude-concurrency';
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
 export const AGENT_TYPE = 'autoapply_registration';
@@ -118,7 +119,8 @@ export class RegistrationAgent {
   async detectRegistrationForm(page: any): Promise<RegistrationFormDetection | null> {
     const html: string = await page.content();
 
-    const response = await this.claude.messages.create({
+    const response = await withClaudeLimit(() =>
+      this.claude.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{
@@ -144,7 +146,8 @@ Return ONLY this JSON (no explanation):
 HTML (first 8000 chars):
 ${html.slice(0, 8000)}`,
       }],
-    });
+      }),
+    );
 
     const firstBlock = response.content[0];
     const text = firstBlock?.type === 'text' ? firstBlock.text : null;
@@ -241,7 +244,8 @@ ${html.slice(0, 8000)}`,
   async detectLoginForm(page: any): Promise<LoginFormDetection | null> {
     const html: string = await page.content();
 
-    const response = await this.claude.messages.create({
+    const response = await withClaudeLimit(() =>
+      this.claude.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       messages: [{
@@ -264,7 +268,8 @@ Return ONLY this JSON (no explanation):
 HTML (first 6000 chars):
 ${html.slice(0, 6000)}`,
       }],
-    });
+      }),
+    );
 
     const firstBlock = response.content[0];
     const text = firstBlock?.type === 'text' ? firstBlock.text : null;

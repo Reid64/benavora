@@ -1,5 +1,6 @@
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { withClaudeLimit } from './claude-concurrency';
 
 export interface FormPage {
   pageNumber: number;
@@ -88,16 +89,18 @@ export class MultiPageFormHandler {
     if (!result.isMultiPage && !result.nextButton) {
       const snippet = (await page.content()).slice(0, 6000);
       try {
-        const message = await this.claude.messages.create({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 256,
-          messages: [
-            {
-              role: 'user',
-              content: `Analyze this HTML snippet. Answer ONLY with valid JSON (no markdown): {"isMultiPage":boolean,"pageCount":number|null,"currentPage":number|null,"nextButtonSelector":string|null}. Is this a multi-page or multi-step form? If so, how many pages/steps? What CSS selector targets the "Next" or "Continue" button?\n${snippet}`,
-            },
-          ],
-        });
+        const message = await withClaudeLimit(() =>
+          this.claude.messages.create({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 256,
+            messages: [
+              {
+                role: 'user',
+                content: `Analyze this HTML snippet. Answer ONLY with valid JSON (no markdown): {"isMultiPage":boolean,"pageCount":number|null,"currentPage":number|null,"nextButtonSelector":string|null}. Is this a multi-page or multi-step form? If so, how many pages/steps? What CSS selector targets the "Next" or "Continue" button?\n${snippet}`,
+              },
+            ],
+          }),
+        );
 
         const raw =
           message.content[0]?.type === 'text' ? message.content[0].text.trim() : '{}';

@@ -296,8 +296,23 @@ Junction: documents attached to applications.
 | document_id | uuid NOT NULL | FK → documents(id) ON DELETE CASCADE |
 | created_at | timestamptz DEFAULT now() | |
 
-### 11. knowledge_base_entries
+### 11. knowledge_base
 Reusable narrative blocks and standard answers.
+
+> **Correction (AR-2.1, 2026-09-17):** This table's real name in
+> `supabase/migrations/001_initial_schema.sql` is `knowledge_base`, not
+> `knowledge_base_entries` as this doc previously said. That mismatch was not
+> just a documentation error — `src/lib/autoapply/form-filler-agent.ts`,
+> `src/app/api/autoapply/templates/test/route.ts`, and
+> `src/lib/autoapply/org-profile-mapper.ts` all queried the nonexistent
+> `knowledge_base_entries` name (inside try/catch, so it failed silently),
+> which is why 14 of 16 fill keys in `buildFillData()` were permanently
+> empty. Fixed to query `knowledge_base` in all three files. Real columns
+> confirmed against the migration: `id, organization_id, category, title,
+> content, is_proven, proven_count, funder_categories, keywords, version,
+> created_by, created_at, updated_at` — note `funder_categories` (plural,
+> array), not `funder_types` as the table below still lists; not corrected
+> further here since no live call site referenced that column name.
 
 | Column | Type | Notes |
 |---|---|---|

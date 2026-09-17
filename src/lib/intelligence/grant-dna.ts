@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
 export interface GrantDNAScore {
   composite: number
@@ -80,7 +81,8 @@ export class GrantDNAScorer {
       .map(([section, text]) => `## ${section}\n${text}`)
       .join('\n\n')
 
-    const response = await getClient().messages.create({
+    const response = await withClaudeLimit(() =>
+      getClient().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [
@@ -119,7 +121,8 @@ Return a JSON object:
 Return ONLY the JSON object, no preamble.`,
         },
       ],
-    })
+      }),
+    )
 
     const block = response.content[0]
     if (!block || block.type !== 'text') {

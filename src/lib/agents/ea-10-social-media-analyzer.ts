@@ -36,6 +36,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 import {
@@ -75,6 +76,10 @@ export class EA10SocialMediaAnalyzerAgent extends BaseAgent<
   EA10Result
 > {
   readonly agentType: AgentType = "ea10_social_media_analyzer";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: EA10Input,

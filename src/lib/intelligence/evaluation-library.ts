@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 import {
   EVALUATION_TEMPLATES,
   KPI_DATABASE,
@@ -253,12 +254,14 @@ EVALUATION PLAN REQUIREMENTS:
 
 Write this as a cohesive, professional grant narrative section (not bullet points for section 1 and 6). Use bullet points only for sections 2 and 5. Keep the total length to 600–900 words.`
 
-    const response = await getClient().messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
+    const response = await withClaudeLimit(() =>
+      getClient().messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    )
 
     const block = response.content[0]
     if (!block || block.type !== 'text') {

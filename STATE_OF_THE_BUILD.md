@@ -1,5 +1,78 @@
 # Benavora Platform Build State
 
+## AR-2.1 — Cross-cutting defects: knowledge_base table fix, per-agent timeouts, Claude concurrency limiter (2026-09-17)
+
+Three defects, each confirmed against live production data before fixing.
+
+1. **Wrong table name (`knowledge_base_entries` doesn't exist).**
+   `src/lib/autoapply/form-filler-agent.ts`, `src/app/api/autoapply/templates/test/route.ts`, and
+   (found during this session, not in the original bug report) `src/lib/autoapply/org-profile-mapper.ts`
+   all queried `.from('knowledge_base_entries')` inside try/catch, so the query failed silently on
+   every call. The real table, created in `supabase/migrations/001_initial_schema.sql`, is
+   `knowledge_base` — confirmed via grep that 59+ other call sites already use the correct name.
+   Real columns: `id, organization_id, category, title, content, is_proven, proven_count,
+   funder_categories, keywords, version, created_by, created_at, updated_at`. All three files'
+   existing `.select('category, content')` / `.select('title, category, content')` column lists
+   already matched the real schema — only the table name was wrong. Fixed all three call sites plus
+   the stale comments referencing the wrong name. Root cause traced to `SCHEMA_REGISTRY_v2.md`
+   itself, whose "canonical" section 11 documented the table as `knowledge_base_entries` — corrected
+   there too (see that file's own AR-2.1 note).
+2. **60s default timeout killed every Claude-backed `BaseAgent`.** `src/lib/agents/base-agent.ts`'s
+   `AGENT_TIMEOUT_MS` (60s) is correct for deterministic agents but too short for anything calling
+   Claude. Live `agent_runs` showed `review` (4/4 runs, never succeeded once), `budget_builder`,
+   `foundation_research`, `government_research`, and `local_sponsorship` all failing with
+   `"Agent timed out after 60s."`. Grepped every `BaseAgent` subclass importing `@/lib/ai/claude` or
+   `@anthropic-ai/sdk` and gave each an explicit constructor `timeoutMs` override: **300000ms** for
+   research/scraping/drafting agents, **180000ms** for scoring/review/classification agents.
+   34 files changed (some already had a compliant override from earlier sessions — e.g.
+   `review-agent.ts`, `state-scrapers.ts`, `tdhca-scraper.ts`, `nofa-parser.ts`,
+   `research/government-grants.ts`, both `ag-22-propensity-scoring.ts` classes — left those as-is
+   since 270000/280000 already clears the bar). Files that had **no constructor at all** (silently
+   defaulting to 60000, the most dangerous case): `corporate-scraper.ts`,
+   `housing-specific-scrapers.ts`, `hud-monitor.ts`, `playwright-agent.ts`, `state-portal.ts`,
+   `foundation-finder.ts`, `custom-scrape.ts`, and all nine EA-0X corporate-enrichment agents
+   (`ea-01-giving-detector.ts` through `ea-10-social-media-analyzer.ts`, excluding `ea-04` which
+   doesn't call Claude) — none of these were in the task's original failure list, found by writing
+   the static-analysis test first and letting it fail. `narrative_drafting` (11 orphaned runs in the
+   live data) is **not** a `BaseAgent` subclass — it's called directly from
+   `src/app/api/ai/draft/route.ts`, `src/app/api/ai/humanize/route.ts`, and
+   `src/app/api/drafts/[id]/humanize/route.ts`, all three of which already set
+   `export const maxDuration = 300` at the route level (a prior session's fix); no `BaseAgent`
+   change applies there.
+3. **No concurrency limit on Anthropic calls.** `narrative_drafting` also had 7 production
+   `429 rate_limit_error` failures. Added `src/lib/ai/claude-concurrency.ts`, a single module-level
+   `p-limit(4)` limiter exported as `withClaudeLimit()`. Wrapped all 4 exported call functions in
+   `src/lib/ai/claude.ts` (`callClaude`, `callClaudeConversation`, `callClaudeWithTools`,
+   `callClaudeWithWebSearch`) — this alone routes ~75 files under `src/lib/agents/**` and
+   `src/lib/intelligence/**` through the limiter without touching each call site. The 8
+   `src/lib/intelligence/**` files that instantiate `Anthropic` directly instead of using
+   `claude.ts` (`budget-patterns.ts`, `evaluation-library.ts`, `grant-dna.ts`,
+   `logic-model-generator.ts`, `need-statement-engine.ts`, `pattern-engine.ts` [3 call sites],
+   `rubric-extractor.ts`, `section-extractor.ts` [2 call sites]) were wrapped individually — 11 call
+   sites total. `src/lib/autoapply/**` gets a **second, independent** limiter,
+   `src/lib/autoapply/claude-concurrency.ts`, because that tree compiles under
+   `worker/tsconfig.json`'s restricted `include` list (only `autoapply/**`, `supabase/**`,
+   `donor-discovery/**`, `security/**`, `enrichment/web-extractor.ts`, `env.ts`) — confirmed by
+   reading it — which does not cover `src/lib/ai/**`. This is why every autoapply Claude caller
+   already instantiated its own `Anthropic` client instead of importing `claude.ts`; adding
+   `src/lib/ai/**` to that include list would have been the alternative, but a second limiter keeps
+   the worker build's existing dependency boundary intact. Wrapped all 12 direct `.messages.create()`
+   call sites across 10 autoapply files (`confirmation-monitor.ts`, `confirmation-parser.ts`,
+   `document-attacher.ts` [2 sites — the file already ran these concurrently via `Promise.all`, so
+   this was a real, not theoretical, concurrency risk], `error-annotator.ts`,
+   `follow-up-scheduler.ts`, `form-analyzer-agent.ts`, `multi-page-handler.ts`,
+   `pitch-personalizer.ts`, `registration-agent.ts` [2 sites], `submission-validator.ts`).
+4. **Tests:** `src/__tests__/unit/claude-concurrency.test.ts` (2 tests — proves the limiter caps
+   in-flight calls at 4 while every call still resolves, and that a rejected call doesn't wedge the
+   queue for calls after it) and `src/__tests__/unit/agent-timeouts.test.ts` (1 test — static
+   analysis that greps every `src/lib/agents/**` file, flags any `extends BaseAgent` class that
+   imports the Claude SDK without a `timeoutMs` override above 60000; this is what caught
+   `custom-scrape.ts` and all nine EA-0X agents before they shipped un-fixed).
+5. **Verification:** `pnpm tsc --noEmit` (root) — 0 errors. `npx tsc --noEmit -p worker/tsconfig.json`
+   — 0 errors (confirms the second autoapply-scoped limiter was the right call, not a guess).
+   `pnpm run build` — succeeds. `pnpm test` (full suite) — 102 files / 1 skipped, 911 tests passed /
+   13 todo, 0 regressions.
+
 ## AR-1.2 — AutoApply agent identity + agent_runs logging (2026-09-17)
 
 The 40-module AutoApply pipeline under `src/lib/autoapply/**` (invoked directly from

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency';
 import { NeedDataPoint } from './sources/types';
 import { CensusDataSource } from './sources/census-api';
 import { HudDataSource } from './sources/hud-api';
@@ -152,11 +153,13 @@ Instructions:
 
 Return ONLY the need statement text, no preamble or commentary.`;
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await withClaudeLimit(() =>
+      anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    );
 
     const firstBlock = response.content[0];
     const statement = firstBlock?.type === 'text' ? firstBlock.text.trim() : '';

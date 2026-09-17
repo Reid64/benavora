@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withClaudeLimit } from "@/lib/ai/claude-concurrency";
 
 /**
  * Claude API wrapper with token tracking.
@@ -137,13 +138,15 @@ export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {
 
   let message;
   try {
-    message = await getClient(req.apiKey).messages.create({
-      model,
-      max_tokens: maxTokens,
-      ...(req.system ? { system: req.system } : {}),
-      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-      messages: [{ role: "user", content: req.prompt }],
-    });
+    message = await withClaudeLimit(() =>
+      getClient(req.apiKey).messages.create({
+        model,
+        max_tokens: maxTokens,
+        ...(req.system ? { system: req.system } : {}),
+        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        messages: [{ role: "user", content: req.prompt }],
+      }),
+    );
   } catch (err) {
     if (!req.apiKey && isAuthError(err)) {
       await reportPlatformKeyAuthFailure("callClaude", err);
@@ -200,13 +203,15 @@ export async function callClaudeConversation(
 
   let message;
   try {
-    message = await getClient(req.apiKey).messages.create({
-      model,
-      max_tokens: maxTokens,
-      ...(req.system ? { system: req.system } : {}),
-      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-      messages: req.messages,
-    });
+    message = await withClaudeLimit(() =>
+      getClient(req.apiKey).messages.create({
+        model,
+        max_tokens: maxTokens,
+        ...(req.system ? { system: req.system } : {}),
+        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        messages: req.messages,
+      }),
+    );
   } catch (err) {
     if (!req.apiKey && isAuthError(err)) {
       await reportPlatformKeyAuthFailure("callClaudeConversation", err);
@@ -277,13 +282,15 @@ export async function callClaudeWithTools(req: ClaudeToolCallRequest): Promise<C
 
   let message;
   try {
-    message = await getClient(req.apiKey).messages.create({
-      model,
-      max_tokens: maxTokens,
-      ...(req.system ? { system: req.system } : {}),
-      messages: req.messages,
-      tools: req.tools as unknown as Anthropic.Tool[],
-    });
+    message = await withClaudeLimit(() =>
+      getClient(req.apiKey).messages.create({
+        model,
+        max_tokens: maxTokens,
+        ...(req.system ? { system: req.system } : {}),
+        messages: req.messages,
+        tools: req.tools as unknown as Anthropic.Tool[],
+      }),
+    );
   } catch (err) {
     if (!req.apiKey && isAuthError(err)) {
       await reportPlatformKeyAuthFailure("callClaudeWithTools", err);
@@ -337,14 +344,16 @@ export async function callClaudeWithWebSearch(
 
   let message;
   try {
-    message = await getClient(req.apiKey).messages.create({
-      model,
-      max_tokens: maxTokens,
-      ...(req.system ? { system: req.system } : {}),
-      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-      messages: [{ role: "user", content: req.prompt }],
-      tools: [webSearchTool],
-    });
+    message = await withClaudeLimit(() =>
+      getClient(req.apiKey).messages.create({
+        model,
+        max_tokens: maxTokens,
+        ...(req.system ? { system: req.system } : {}),
+        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        messages: [{ role: "user", content: req.prompt }],
+        tools: [webSearchTool],
+      }),
+    );
   } catch (err) {
     if (!req.apiKey && isAuthError(err)) {
       await reportPlatformKeyAuthFailure("callClaudeWithWebSearch", err);

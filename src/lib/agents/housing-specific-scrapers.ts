@@ -12,6 +12,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 
@@ -50,6 +51,10 @@ export class HousingSpecificScrapersAgent extends BaseAgent<
   // canonical research/government-grants.ts writer. Renamed to its own
   // distinct DB enum value (already live) so agent_runs is attributable.
   readonly agentType: AgentType = "government_research_housing_scrapers";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(): Promise<
     AgentExecution<HousingScrapersResult>

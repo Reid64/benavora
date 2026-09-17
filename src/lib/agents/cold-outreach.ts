@@ -72,7 +72,7 @@ export class ColdOutreachAgent extends BaseAgent<
   private readonly maxTokens: number;
 
   constructor(options: ColdOutreachOptions) {
-    super(options);
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }

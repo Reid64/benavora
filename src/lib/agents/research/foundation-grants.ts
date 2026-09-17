@@ -126,7 +126,7 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
   private readonly focus?: ResearchFocus;
 
   constructor(options: FoundationGrantsOptions) {
-    super(options);
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.focus = options.focus;

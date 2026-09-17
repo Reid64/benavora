@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
 export const BUDGET_CATEGORIES = [
   'personnel',
@@ -351,12 +352,14 @@ Instructions:
 - Total all sections and confirm the budget is internally consistent.
 - Do NOT fabricate numbers not present in the budget data.`
 
-    const response = await getClient().messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
+    const response = await withClaudeLimit(() =>
+      getClient().messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    )
 
     const block = response.content[0]
     if (!block || block.type !== 'text') {

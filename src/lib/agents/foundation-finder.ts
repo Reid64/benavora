@@ -9,6 +9,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 
@@ -47,6 +48,10 @@ export class FoundationFinderAgent extends BaseAgent<
   // canonical research/foundation-grants.ts writer. Renamed to its own
   // distinct DB enum value (already live) so agent_runs is attributable.
   readonly agentType: AgentType = "foundation_research_finder";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(): Promise<
     AgentExecution<FoundationFinderResult>

@@ -38,6 +38,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import {
   PORTAL_REGISTRY,
@@ -123,6 +124,10 @@ export class StatePortalResearchAgent extends BaseAgent<
   StatePortalResult
 > {
   readonly agentType: AgentType = "state_portal";
+
+  constructor(options: BaseAgentOptions) {
+    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+  }
 
   protected async execute(
     input: StatePortalInput,

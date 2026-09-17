@@ -6,6 +6,10 @@
 > ForgeLearning, etc.), not the Benavora platform's product agents. The live, actively-maintained
 > catalog of Benavora agents (AutoApply, research, scoring, etc.) is `AGENTS_v2.md` at the repo
 > root — see its "AutoApply agent identity (AR-1.2, 2026-09-17)" section for this session's work.
+>
+> **Note (2026-09-17, AR-2.1):** Same caveat applies to the per-agent Claude timeout policy and
+> shared concurrency limiter added this session — see `AGENTS_v2.md`'s "Per-agent timeout policy"
+> and "Claude concurrency limit" sections, and `STATE_OF_THE_BUILD.md`'s "AR-2.1" section.
 
 ---
 

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
 export interface NarrativePattern {
   type: string
@@ -35,7 +36,8 @@ export class NarrativePatternEngine {
 
     const sectionsJson = JSON.stringify(proposalSections, null, 2)
 
-    const response = await getClient().messages.create({
+    const response = await withClaudeLimit(() =>
+      getClient().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       messages: [
@@ -64,7 +66,8 @@ Return a JSON array of patterns with this exact structure:
 Return ONLY the JSON array, no preamble.`,
         },
       ],
-    })
+      }),
+    )
 
     const block = response.content[0]
     if (!block || block.type !== 'text') return []
@@ -79,7 +82,8 @@ Return ONLY the JSON array, no preamble.`,
   }
 
   async scoreSection(sectionText: string, sectionType: string): Promise<PatternScore> {
-    const response = await getClient().messages.create({
+    const response = await withClaudeLimit(() =>
+      getClient().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [
@@ -105,7 +109,8 @@ Return a JSON object with this exact structure:
 Return ONLY the JSON object, no preamble.`,
         },
       ],
-    })
+      }),
+    )
 
     const block = response.content[0]
     if (!block || block.type !== 'text') {
@@ -145,7 +150,8 @@ Return ONLY the JSON object, no preamble.`,
   ): Promise<string[]> {
     const patternsJson = JSON.stringify(patterns, null, 2)
 
-    const response = await getClient().messages.create({
+    const response = await withClaudeLimit(() =>
+      getClient().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [
@@ -165,7 +171,8 @@ Return a JSON array of specific, actionable improvement suggestions:
 Each suggestion should reference a specific pattern and explain exactly how to apply it. Return ONLY the JSON array, no preamble.`,
         },
       ],
-    })
+      }),
+    )
 
     const block = response.content[0]
     if (!block || block.type !== 'text') return []

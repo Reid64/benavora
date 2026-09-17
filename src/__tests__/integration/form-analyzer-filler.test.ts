@@ -458,11 +458,11 @@ interface FieldMappingEntry {
           );
 
           // The org's real name and the request's unique description are the
-          // two values FormFillerAgent had genuine data for (buildFillData()
-          // only populates 'organization.name', the hardcoded tax_status
-          // default, and request.* from the passed requestProfile — its KB
-          // lookup queries the nonexistent 'knowledge_base_entries' table,
-          // confirmed separately, so every other KB-sourced field is empty).
+          // two values this fixture guarantees regardless of KB content
+          // (buildFillData() populates 'organization.name' from the org row
+          // and request.* from the passed requestProfile directly; KB-sourced
+          // fields now come from the real 'knowledge_base' table but this test
+          // seeds no KB rows for the org, so they stay empty here too).
           // Both are tagged with the unique test suffix so a real Claude copy
           // (not a coincidental partial string) is required to pass.
           const custname = submittedForm["custname"] ?? "";
