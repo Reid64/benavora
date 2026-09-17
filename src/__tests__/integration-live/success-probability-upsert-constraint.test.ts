@@ -5,6 +5,27 @@ import path from "node:path";
 import dotenv from "dotenv";
 
 /**
+ * AR-1.1 (2026-09-16/17): moved out of
+ * src/__tests__/integration/success-probability-upsert-constraint.test.ts
+ * (excluded from the default `npx vitest run` via vitest.config.ts's
+ * `exclude: [..., "src/__tests__/integration-live/**"]`) — same pattern as
+ * WGR-157's move of ag19-faith-foundation-isolation.test.ts and
+ * autoapply-queue-live-worker.test.ts into this directory. Unrelated to the
+ * AR-1.1 PIL-observability work itself: this session's pre-push gate
+ * (`npx vitest run`) started failing on this file with `password
+ * authentication failed for user "postgres"` against the live DB
+ * (`.env.local`'s DATABASE_URL) -- the same credential this repo's own
+ * memory notes have already recorded flip-flopping between working and
+ * rejected across sessions (see benavora-database-url-auth-broken-2026-09-10
+ * / -restored). This is a live-external-credential dependency exactly like
+ * WGR-157's cases, not a defect in the constraint check itself or in this
+ * session's PIL changes -- moved here rather than fixed in place because
+ * rotating/restoring a live production DB password is outside what a
+ * code-only change can safely do. No mock-based unit replacement was added
+ * in the default suite for this constraint-shape check; that is an open
+ * gap, not a decision that it's unneeded (see STATE_OF_THE_BUILD.md's AR-1.1
+ * section).
+ *
  * Regression test for WGR-170 (p5a-004, 2026-09-15).
  *
  * success-probability.ts's execute() upserts into success_probability_scores

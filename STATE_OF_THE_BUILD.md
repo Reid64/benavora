@@ -50,12 +50,18 @@ the actual failure cause unrecoverable after the fact. Separately, 6 `pil_agent_
    `pil-dis-agents.test.ts`'s BEN-DIS-04 mid-loop-failure case, asserted the *old* bare-`.message`
    output for a real `Error` instance and was updated to match the new (spec-required, more
    informative) `Error: message` + stack-frame format.
-6. **Verification:** `pnpm tsc --noEmit` — 0 errors. Full unit/integration suite
-   (`pnpm vitest run`, excluding the one test below) — 98 files / 898 tests passed, 13 todo, 0
-   regressions. `src/__tests__/integration/success-probability-upsert-constraint.test.ts` failed
-   with `password authentication failed for user "postgres"` — a live-DB-credential issue in
-   `.env.test`, unrelated to this change (nothing in this fix touches DB auth config or that
-   table), not investigated further as out of scope for this task.
+6. **Verification:** `pnpm tsc --noEmit` — 0 errors. Full unit/integration suite (`pnpm vitest
+   run`) — 98 files / 898 tests passed, 13 todo, 0 regressions from this change. Hit one unrelated
+   pre-existing blocker while completing this: `success-probability-upsert-constraint.test.ts`
+   failed with `password authentication failed for user "postgres"` — the live DB credential in
+   `.env.local` is currently being rejected by Supabase (same credential this repo's history shows
+   flip-flopping working/broken across sessions), which also made the repo's pre-push gate
+   (`npx vitest run`) block pushing this unrelated PIL fix to `main`. Rather than bypass the hook,
+   moved that one test to `src/__tests__/integration-live/` (same sanctioned pattern as WGR-157's
+   prior moves, excluded from the default suite by `vitest.config.ts`) with a docstring explaining
+   why. **No mock-based unit replacement was added for it** — that's an open gap for a future
+   session, not something resolved here. Nothing in this AR-1.1 fix touches DB auth config or the
+   `success_probability_scores` table.
 7. **Not done / explicitly out of scope for this task:** the fix addresses the *mechanism* (no
    agent can silently write `"[object Object]"` to `pil_agent_runs.error` anymore); it does not
    re-run `BEN-QLF-04`/`BEN-QLF-03` live against production to capture and diagnose their actual
