@@ -469,6 +469,14 @@ Discovers and scores corporate donors via Google Places and enrichment pipeline.
    future revision of this file adds a real spec section for it; do not assume absence from this
    doc means the agent doesn't exist (see `AGENT_INVENTORY_COMPLETE.md` for the live inventory).
 
+   **Status update (AR-2.2, 2026-09-17):** `ag22_propensity_scoring` and `ag-32-relationship-graph`
+   both depend on `corporate_prospects`, which is live in production (5 migrations already applied:
+   107/108/109/111/179 — see `SCHEMA_REGISTRY_v2.md` §36). Both agent types have been completing
+   successfully in `agent_runs` since 2026-09-11 16:17 UTC. `ag-05-draft` writes to
+   `applications.knowledge_patterns_applied`, also confirmed live (backfilled into
+   `supabase/migrations/183`); it hasn't run since 2026-08-08 so a post-fix success isn't directly
+   confirmed, but the schema now matches its write path exactly.
+
 ---
 
 ## AutoApply agent identity (AR-1.2, 2026-09-17)

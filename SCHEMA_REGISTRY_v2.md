@@ -252,8 +252,16 @@ Grant applications in the 12-stage pipeline.
 | cloned_from_id | uuid | FK → applications(id) — source if cloned |
 | created_at | timestamptz DEFAULT now() | |
 | updated_at | timestamptz DEFAULT now() | |
+| knowledge_patterns_applied | jsonb NOT NULL DEFAULT '[]' | Knowledge Engine (migration 096) `knowledge_patterns.id` values injected into this draft's prompt — added by `src/supabase/migrations/123_knowledge_engine_draft_integration.sql`, backfilled into this canonical directory by `supabase/migrations/183_applications_knowledge_patterns_applied.sql` (AR-2.2, 2026-09-17). Live-verified present in production 2026-09-17. |
 
 **Indexes:** idx_applications_org, idx_applications_stage, idx_applications_funder
+
+**Note (AR-2.2, 2026-09-17):** this section is known stale beyond the row above — live `applications` also
+carries `auto_generated`, `pending_review`, `draft_source`, `platform_patterns_applied`, `twin_powered`,
+`twin_completeness`, `compliance_check_result`, and `metadata` (see
+`src/lib/agents/draft-generation-agent.ts`'s `DraftApplicationPayload`), none of which are documented here.
+Out of scope for this session; flagged rather than silently left implying the table has only the columns
+listed above.
 
 ### 8. application_stage_history
 Audit trail of stage transitions.
@@ -763,6 +771,15 @@ Alternative name mappings for NAICS codes.
 
 ### 36. corporate_prospects
 Master corporate intelligence table. Shared across all orgs. Tens of millions of records at scale.
+
+**LIVE (confirmed 2026-09-17, AR-2.2):** created by `supabase/migrations/107_corporate_prospects.sql`
+(+ agent_type enum values in `108`/`109`), RLS-hardened by `111_corporate_prospects_rls_hardening.sql`,
+and given `authenticated` SELECT/UPDATE(scores, scores_computed_at) grants + policies by
+`179_corporate_prospects_authenticated_grant.sql`. Live column list, constraints, RLS state, and grants
+all verified via direct Postgres query this session — exact match to the table below, including the
+(legal_name, address_city, address_state) unique constraint. An earlier session (2026-07-30) recorded
+this table as absent from production; that was true at the time but is no longer current — see
+project memory `benavora-ag22-propensity-batch-route-built-2026-09-10`.
 
 | Column | Type | Notes |
 |---|---|---|

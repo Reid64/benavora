@@ -19,42 +19,36 @@ function createClient(url: string, key: string, opts: Record<string, unknown> = 
 
 /**
  * corporate_prospects unique constraint + scores jsonb structure
- * (TESTING_v2.md §2.1 original intent; this task's prompt asked for the
- * unique constraint on (legal_name, city, state) and the AG-22 propensity
- * `scores` jsonb structure "built tonight").
+ * (TESTING_v2.md §2.1 original intent; the AG-22 propensity `scores` jsonb
+ * structure).
  *
- * VERIFIED LIVE STATE (2026-07-30, PostgREST OpenAPI introspection + a
- * direct `GET /rest/v1/corporate_prospects` probe): the `corporate_prospects`
- * table described in SCHEMA_REGISTRY_v2.md §36 does not exist in production.
- * The request returns PostgREST error PGRST205
- * ("Could not find the table 'public.corporate_prospects' in the schema
- * cache", hint: "Perhaps you meant... 'corporate_relationships'"). This
- * matches project memory `benavora-corporate-prospects-confirmed-missing-
- * breaks-outreach` (confirmed missing 2026-07-20) — this session
- * re-confirms the gap is still live, not newly discovered.
+ * INVERTED 2026-09-17 (AR-2.2). This file previously asserted the table's
+ * *absence*, current as of 2026-07-30 (PGRST205, "Could not find the table
+ * 'public.corporate_prospects' in the schema cache"). A new task session
+ * arrived citing the same class of live error as still-current (4 recent
+ * ag-32-relationship-graph failures, 2 ag22_propensity_scoring "permission
+ * denied" failures) and asked for a migration to create the table. Direct
+ * live verification this session (Postgres query via the Supabase project,
+ * not the old PGRST205 probe) found the table has existed in production for
+ * some time: `to_regclass('public.corporate_prospects')` resolves, all
+ * columns/constraints match supabase/migrations/107_corporate_prospects.sql
+ * exactly (including the (legal_name, address_city, address_state) unique
+ * constraint), RLS is enabled with the authenticated SELECT/UPDATE policies
+ * from supabase/migrations/179_corporate_prospects_authenticated_grant.sql,
+ * and service_role has full grants. Cross-checking `agent_runs` directly:
+ * every "table not found" / "permission denied" error on this table is
+ * dated 2026-08-03 through 2026-09-11 06:32 UTC; both agent types have run
+ * to `completed` repeatedly since 2026-09-11 16:17 UTC, with zero failures
+ * after that point. The task's cited failures were real when they happened,
+ * just already fixed before this session started — see project memory
+ * `benavora-ag22-propensity-batch-route-built-2026-09-10`.
  *
- * There is also no `agent_runs` activity from "tonight" (2026-07-30) in the
- * live database as of this session — the most recent row is 2026-07-28 — so
- * there is no evidence an AG-22 propensity-scoring run wrote anything,
- * anywhere, tonight. The two live tables that come closest to "corporate
- * propensity scoring" are `donor_discovery_prospects` (integer `score` +
- * `score_rationale` text, not jsonb) and `corporate_intent_signals`
- * (numeric `intent_score`, not a `scores` jsonb blob) — neither matches the
- * `scores` jsonb column this file was scoped to test, because that column
- * belongs to a table that was never created.
- *
- * Per this repo's testing convention (see organizations.test.ts,
- * foundation-directory.test.ts, agent-runs.test.ts in this directory —
- * "Never fabricate test results"), this file does not synthesize tests
- * against a schema that doesn't exist. It instead runs a single test that
- * verifies — and will keep failing loudly if this ever silently changes in
- * the wrong direction — that the table is actually absent, and documents
- * exactly what still needs to happen (a real migration for
- * `corporate_prospects`, per SCHEMA_REGISTRY_v2.md §36) before the unique-
- * constraint and scores-jsonb tests this file was asked to build can be
- * written for real. If a future migration creates the table, the guarded
- * block below is where those tests belong — written now, but only run once
- * `TABLE_EXISTS` flips to true.
+ * This test now asserts the table's presence and shape instead of its
+ * absence, per this repo's testing convention (see organizations.test.ts,
+ * foundation-directory.test.ts, agent-runs.test.ts — "Never fabricate test
+ * results," which cuts both ways: don't assert a false absence either).
+ * The unique-constraint and scores-jsonb tests below were already written
+ * (dynamically gated on a live `tableExists` probe) and now actually run.
  */
 
 function loadLocalEnv(): Record<string, string> {
@@ -102,29 +96,25 @@ function randomSuffix(): string {
     }
   });
 
-  it("documents that corporate_prospects does not exist in production (SCHEMA_REGISTRY_v2.md §36 was never migrated live)", async () => {
+  it("exists in production with the SCHEMA_REGISTRY_v2.md §36 shape (migrations 107/108/109/111/179)", async () => {
     const { data, error } = await service.from("corporate_prospects").select("id").limit(1);
 
-    if (tableExists) {
-      // Table has been created since this file was written — nothing to
-      // document, the guarded suite below covers the real behavior instead.
-      expect(error).toBeNull();
-      return;
+    if (!tableExists) {
+      // Regression: the table existed when this test was inverted
+      // (2026-09-17, AR-2.2) but has since disappeared or become
+      // unreachable for the authenticated/service-role path. Fail loudly
+      // rather than silently skip — this table's absence has broken real
+      // agents (ag-32-relationship-graph, ag22_propensity_scoring) before.
+      // eslint-disable-next-line no-console
+      console.error(
+        "[corporate-prospects.test] REGRESSION: corporate_prospects was live-verified present " +
+          "2026-09-17 (AR-2.2) but this run cannot reach it: " +
+          `${error?.code ?? "unknown error"} — ${error?.message ?? "no message"}`,
+      );
     }
 
-    expect(data).toBeNull();
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("PGRST205");
-    expect(error!.message).toContain("corporate_prospects");
-
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[corporate-prospects.test] corporate_prospects table does not exist in production — " +
-        "unique-constraint and scores-jsonb tests cannot run against real data. " +
-        "See project memory benavora-corporate-prospects-confirmed-missing-breaks-outreach. " +
-        "Closest live analogues: donor_discovery_prospects.score (integer) and " +
-        "corporate_intent_signals.intent_score (numeric) — neither is the AG-22 `scores` jsonb blob.",
-    );
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
   });
 
   // These two are NOT gated with describe.skip(tableExists) — vitest

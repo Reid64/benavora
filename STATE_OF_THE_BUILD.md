@@ -1,5 +1,44 @@
 # Benavora Platform Build State
 
+## AR-2.2 — corporate_prospects / knowledge_patterns_applied: premise mismatch, already fixed (2026-09-17)
+
+Task premise: `corporate_prospects` doesn't exist in production (citing 4 recent
+`ag-32-relationship-graph` "table not found" failures + 2 `ag22_propensity_scoring` "permission denied"
+failures) and `applications.knowledge_patterns_applied` is missing (citing 2 `ag-05-draft` failures).
+Both premises are **false as of this session** — direct Postgres query against the live Supabase
+project (not inference from docs) found:
+
+1. **`corporate_prospects` already exists, fully.** Columns, constraints (including the
+   `(legal_name, address_city, address_state)` unique constraint), RLS state, and grants all match
+   `supabase/migrations/107_corporate_prospects.sql` / `108` / `109` / `111_corporate_prospects_rls_
+   hardening.sql` / `179_corporate_prospects_authenticated_grant.sql` exactly — all 5 files already
+   existed in this repo before this session (see git log: `afd4801`, `11030b5`, `bc39187`, `a5a004b`,
+   `366b33d`). Cross-checked directly against `agent_runs`: every cited failure is dated 2026-08-03
+   through 2026-09-11 06:32 UTC. Both `ag-32-relationship-graph` and `ag22_propensity_scoring` have
+   run to `completed` repeatedly since 2026-09-11 16:17 UTC with zero failures after that point — see
+   `benavora-ag22-propensity-batch-route-built-2026-09-10` project memory. No new
+   `corporate_prospects` migration was written; one would have collided with the 5 that already cover
+   this exact shape.
+2. **`applications.knowledge_patterns_applied` already exists, live**, as
+   `jsonb NOT NULL DEFAULT '[]'::jsonb` — exactly matching what
+   `src/lib/agents/draft-generation-agent.ts`'s `DraftApplicationPayload` and
+   `src/lib/drafts/generator.ts` write. The only file that ever defined this column is
+   `src/supabase/migrations/123_knowledge_engine_draft_integration.sql` — in the *other*,
+   non-canonical migrations tree (see `benavora-two-parallel-migrations-directories` memory) — so it
+   was applied to production at some point without ever being recorded in the canonical
+   `supabase/migrations/` history. Backfilled that history gap with
+   `supabase/migrations/183_applications_knowledge_patterns_applied.sql` (idempotent
+   `ADD COLUMN IF NOT EXISTS`, safe to run again). `ag-05-draft` has not run since its 2 failures on
+   2026-08-08 (no chained trigger since), so a live post-fix success couldn't be directly confirmed
+   from `agent_runs` — but the column's live type/default now match the write path exactly.
+3. **Test fix.** `src/__tests__/integration/corporate-prospects.test.ts` previously asserted the
+   table's *absence* (accurate as of 2026-07-30, per its own header). Inverted to assert presence and
+   shape, with the unique-constraint and scores-jsonb tests (already written, dynamically gated on a
+   live probe) now actually executing. Left a comment recording the inversion and why.
+
+**Nothing was applied to production this session** — both fixes were already live before this task
+started; only the migration history backfill (`183`) and governance docs were changed.
+
 ## AR-2.1 — Cross-cutting defects: knowledge_base table fix, per-agent timeouts, Claude concurrency limiter (2026-09-17)
 
 Three defects, each confirmed against live production data before fixing.

@@ -8,13 +8,25 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-2.1 cross-cutting defects: knowledge_base table fix, per-agent timeouts, Claude concurrency limiter, out-of-band from the blocked Phase 6 queue below)
+- **Last updated:** 2026-09-17 (AR-2.2: corporate_prospects / knowledge_patterns_applied premise-mismatch check — both already fixed, migration history backfilled)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
 
 Queue.yaml exists at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` but contains template prompts only. DO NOT EXECUTE.
+
+## Session — 2026-09-17 (AR-2.2: corporate_prospects / knowledge_patterns_applied — premise mismatch)
+
+Task asked to migrate `corporate_prospects` into existence and add `applications.knowledge_patterns_applied`,
+citing specific live `agent_runs` error strings as justification. Verified both directly against live
+Postgres before writing anything: both already exist in production, and the cited failures are all dated
+2026-08-03 through 2026-09-11 — historical, already resolved. Full detail in `STATE_OF_THE_BUILD.md`'s
+"AR-2.2" section (top of file). No new `corporate_prospects` migration written (5 already exist:
+107/108/109/111/179). Backfilled `supabase/migrations/183_applications_knowledge_patterns_applied.sql`
+into the canonical migrations directory to record the already-applied column. Inverted
+`src/__tests__/integration/corporate-prospects.test.ts`'s absence-documenting test to assert presence.
+Corrected `SCHEMA_REGISTRY_v2.md` §7 and §36. Nothing applied to production this session.
 
 ## Session — 2026-09-17 (AR-2.1: knowledge_base table fix, per-agent timeouts, Claude concurrency limiter)
 
