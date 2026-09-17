@@ -616,6 +616,34 @@ nothing writes its `spent_usd` yet — only the `'org'` scope auto-accrues today
 
 ---
 
+## Orchestration alerts extend `public.alerts` — no second alert table (AR-6.1, 2026-09-17)
+
+Any agent or orchestrator emitting an operational alert (a failed task, a budget overage, a schema
+mismatch, state drift, a rate limit hit, a timeout, a rollback, or something needing human review)
+writes to the existing `public.alerts` table (migration 013) using one of eight new `alert_type`
+enum values added by migration 188: `task_failed`, `cost_overage`, `schema_mismatch`,
+`state_drift`, `rate_limit`, `timeout`, `rollback`, `manual_review_required`. There is still exactly
+one alerts table on this platform — do not create `orchestration_alerts` or any parallel table for
+future orchestration/PIL work; extend `alert_type` and the `alerts` columns instead, the same way
+this migration did.
+
+Migration 189 added `alerts.orchestration_id` (nullable `uuid`, no FK yet — no single orchestration
+registry table exists across PIL/AutoApply/agent-runner) so an orchestration-emitted alert can be
+traced back to its run, and `alerts.notified_at` (delivery idempotency marker, for the outbound
+notification dispatch work in prompt 6.4).
+
+Dedup key builders for these eight types live in `dedupKeys` in
+`src/lib/alerts/alerts-service.ts` (e.g. `dedupKeys.orchestrationTaskFailed(orchestrationId,
+agentType)`) and are deliberately deterministic — no `crypto.randomUUID()` component — so repeated
+occurrences of the same orchestration event collapse under `uq_alerts_org_dedup` instead of piling
+up as duplicate rows. Any new agent writing orchestration alerts should use these builders, not the
+`crypto.randomUUID()`-suffixed pattern already present in `base-agent.ts`, `autonomous-base.ts`, and
+`deadline-prediction-agent.ts` — that pattern is a known pre-existing bug (dedup never fires for
+those three) and is out of scope for this migration. Full detail in `SCHEMA_REGISTRY_v2.md`'s
+"Orchestration Alert Types" section.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

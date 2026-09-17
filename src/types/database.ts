@@ -1684,6 +1684,9 @@ export interface Database {
           application_id: string | null;
           deadline_id: string | null;
           dedup_key: string;
+          // Migration 189 (AR-6.1) - orchestration linkage + delivery marker.
+          orchestration_id: string | null;
+          notified_at: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -1704,6 +1707,8 @@ export interface Database {
           application_id?: string | null;
           deadline_id?: string | null;
           dedup_key: string;
+          orchestration_id?: string | null;
+          notified_at?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1724,6 +1729,8 @@ export interface Database {
           application_id?: string | null;
           deadline_id?: string | null;
           dedup_key?: string;
+          orchestration_id?: string | null;
+          notified_at?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -5550,12 +5557,23 @@ export interface Database {
         | "submission";
       invitation_status: "pending" | "accepted" | "expired" | "cancelled";
       // Alerts / daily action list (migration 013).
+      // Migration 188 (AR-6.1) added the eight orchestration values below -
+      // extends the existing alerts table instead of a second
+      // orchestration_alerts table.
       alert_type:
         | "deadline_due"
         | "new_opportunity"
         | "application_action"
         | "draft_review"
-        | "system";
+        | "system"
+        | "task_failed"
+        | "cost_overage"
+        | "schema_mismatch"
+        | "state_drift"
+        | "rate_limit"
+        | "timeout"
+        | "rollback"
+        | "manual_review_required";
       alert_severity: "info" | "warning" | "critical";
       // Cross-provider validation verdict (migration 014).
       validation_verdict: "verified" | "discrepancy" | "unverifiable";

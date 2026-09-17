@@ -1,5 +1,69 @@
 # Benavora Platform Build State
 
+## AR-6.1 — Eight orchestration alert types added to the live `alerts` table, no second table (2026-09-17)
+
+**Why this was needed:** the Orchestration Logging and Alerting Specification v1.0 proposed a new
+`orchestration_alerts` table with acknowledge/dismiss/severity/dedup. `public.alerts` (migration 013)
+already had every one of those and was live in production with 1,806 rows (most recent `'system'`
+alert written the morning of 2026-09-17) — acknowledge = `is_read`/`read_at`, dismiss =
+`is_dismissed`/`dismissed_at`, snooze = `snoozed_until`, noise suppression =
+`uq_alerts_org_dedup`. A second table would mean two inboxes and strand that history behind the
+wrong one, so this extends `alerts` instead of creating `orchestration_alerts`.
+
+**Migration 188** (enum values only, transactionally isolated): adds eight `alert_type` values —
+`task_failed`, `cost_overage`, `schema_mismatch`, `state_drift`, `rate_limit`, `timeout`,
+`rollback`, `manual_review_required`. Shipped as its own file with nothing but
+`ALTER TYPE ... ADD VALUE IF NOT EXISTS` statements, since Postgres forbids referencing a new enum
+value in the same transaction that added it.
+
+**Migration 189** adds `alerts.orchestration_id` (nullable `uuid`, no FK — no single orchestration
+registry table exists yet across PIL/AutoApply/agent-runner) and `alerts.notified_at`
+(delivery-idempotency marker for the future prompt 6.4 outbound-notification work), plus
+`idx_alerts_orchestration_id`.
+
+**Types:** `src/types/database.ts` is hand-maintained (no `supabase gen types` script in
+`package.json`) — added the eight enum values to the `alert_type` union and the two new columns to
+the `alerts` `Row`/`Insert`/`Update` shapes by hand.
+
+**Labels and dedup, `src/lib/alerts/alerts-service.ts`:** `ALERT_TYPE_LABEL` got all eight new keys
+(the compiler enforces this — `Record<AlertType, string>` would not build otherwise). `BadgeCategory`
+/ `AlertCounts` were deliberately **not** extended: those drive the sidebar nav badges, a per-org
+user worklist (deadlines/opportunities/applications/drafts); orchestration failures are an
+operator/platform-admin concern, not a nonprofit user's action list, so they intentionally do not
+bump nav counts. Eight new deterministic `dedupKeys` builders were added (e.g.
+`orchestrationTaskFailed(orchestrationId, agentType)` →
+`` `orchestration:task_failed:${orchestrationId}:${agentType}` ``) — no `crypto.randomUUID()`
+component, so repeat occurrences of the same event actually collapse under `uq_alerts_org_dedup`.
+
+**Known pre-existing bug, logged not fixed (out of scope for this migration):**
+`src/lib/agents/base-agent.ts:232`, `src/lib/agents/autonomous-base.ts:292`, and
+`src/lib/agents/deadline-prediction-agent.ts:560` all append `crypto.randomUUID()` to their
+dedup keys, which means every alert those three write is unique and `uq_alerts_org_dedup` never
+fires for them — they never dedup. This migration did not touch those call sites; it only makes
+sure new orchestration dedup keys don't repeat the mistake.
+
+**Test:** `src/__tests__/unit/orchestration-alert-types.test.ts` — 3/3 green. Asserts all eight
+types are present, every one has a non-empty label, and the same orchestration event produces a
+byte-identical `dedup_key` across two calls (direct guard on the dedup-key fix above).
+
+**Live-application gap, reported not hidden:** this session's two live-DDL paths both failed —
+`DATABASE_URL` via `psql` returned "password authentication failed for user postgres", and the
+Management API PAT recorded in `BLUEPRINT_v2.md` §11 returned `401 Unauthorized` (rotated since it
+was last live-verified). Both migration files (188, 189) are committed and correct, but **not
+confirmed applied to project `vbjplpquqxxfbpazyalt`** as of this note — matches the
+`benavora-database-url-auth-broken` / Vercel-CLI-team-mismatch pattern of credentials that
+periodically rotate out from under this repo. Next session should re-verify both paths before
+assuming this migration is live.
+
+**Gates, real numbers:** `pnpm typecheck` — 0 errors. `pnpm run build` — succeeded, full route
+manifest emitted. `pnpm test` — **106 test files passed, 1 skipped, 925 tests passed, 13 todo**
+(938 total), up from AR-5.2's 105/922/13/935 by exactly the one new file and its 3 tests.
+
+**How many alert tables does this platform have? One.** `public.alerts`. AR-6.1 extended it; it did
+not create a second one.
+
+---
+
 ## AR-5.2 — Budget enforcement made real: `cost_budgets` rename, `orchestration` scope, spend accrual trigger (2026-09-17)
 
 **Why this was needed:** `pil_cost_budgets.spent_usd` was read in three places (`BEN-SUP-03.ts:296`,

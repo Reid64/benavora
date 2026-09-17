@@ -8,11 +8,68 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-5.2: cost_budgets rename + orchestration scope + real spend accrual trigger)
+- **Last updated:** 2026-09-17 (AR-6.1: eight orchestration alert types added to the live alerts table, deterministic dedup keys)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-6.1: extend alerts with orchestration types, not a second table)
+
+Prerequisite: AR-5.2 (below) complete. Task premise: the Orchestration Logging and Alerting
+Specification v1.0 proposed a new `orchestration_alerts` table with acknowledge/dismiss/
+severity/dedup. `public.alerts` (migration 013) already had every one of those and was live in
+production with 1,806 rows — rejected the second table, extended the existing one.
+
+**Migration 188** (its own file, enum values only — `ALTER TYPE alert_type ADD VALUE IF NOT
+EXISTS` × 8 for `task_failed`, `cost_overage`, `schema_mismatch`, `state_drift`, `rate_limit`,
+`timeout`, `rollback`, `manual_review_required`): a new enum value cannot be referenced in the
+same transaction that added it, so this file contains nothing else — no insert, no trigger, no
+function body touching the new values.
+
+**Migration 189:** `ALTER TABLE public.alerts ADD COLUMN orchestration_id uuid` (nullable, no FK
+— no orchestration registry table exists yet), `ADD COLUMN notified_at timestamptz` (nullable,
+delivery-idempotency marker pre-added for prompt 6.4), plus `idx_alerts_orchestration_id`.
+
+**Code:** `src/types/database.ts` (hand-maintained, confirmed no `supabase gen types` script in
+`package.json`) got the eight enum values and the two new `alerts` columns by hand.
+`src/lib/alerts/alerts-service.ts` got eight `ALERT_TYPE_LABEL` entries (required for
+`pnpm typecheck` to pass against `Record<AlertType, string>`) and eight new `dedupKeys` builders
+(`orchestrationTaskFailed`, `orchestrationCostOverage`, `orchestrationSchemaMismatch`,
+`orchestrationStateDrift`, `orchestrationRateLimit`, `orchestrationTimeout`,
+`orchestrationRollback`, `orchestrationManualReviewRequired`), all with no random component so
+repeats of the same event collapse under `uq_alerts_org_dedup` instead of piling up. Did **not**
+extend `BadgeCategory`/`AlertCounts` — those drive per-org user-facing sidebar nav badges
+(deadlines/opportunities/applications/drafts); orchestration failures are an operator concern, not
+a nonprofit user's worklist item, so they should not bump those counts. Flagged, not silently
+decided: if a future task wants orchestration alerts visible in-app, that's a new surface, not an
+extension of the existing nav badges.
+
+**Found, not fixed (explicit follow-up, per task instruction):** `src/lib/agents/base-agent.ts:232`,
+`src/lib/agents/autonomous-base.ts:292`, and `src/lib/agents/deadline-prediction-agent.ts:560` all
+append `crypto.randomUUID()` to their `dedup_key`, which means `uq_alerts_org_dedup` never fires
+for any alert those three agents write — every one is unique, none ever dedup. Not touched this
+session.
+
+**Test:** `src/__tests__/unit/orchestration-alert-types.test.ts`, 3/3 green — all eight types
+present, every one labeled, and a direct dedup-determinism guard (same event → byte-identical key
+across two calls, distinct events → distinct keys).
+
+**Live-application gap:** both live-DDL paths failed this session — `DATABASE_URL` via `psql`:
+"password authentication failed for user postgres"; Management API PAT (`BLUEPRINT_v2.md` §11):
+`401 Unauthorized`, rotated since last verified. Migrations 188/189 are committed but their
+`ALTER TYPE`/`ALTER TABLE` statements are **not confirmed applied** to project
+`vbjplpquqxxfbpazyalt`. This does not block `pnpm typecheck`/`build`/`test`, all of which pass
+against the hand-maintained TypeScript types independent of live DB state — but it does mean any
+code that writes one of these eight new alert types will fail against the live DB (`invalid input
+value for enum alert_type`) until a working credential applies the migration. Re-verify
+`DATABASE_URL` and/or rotate a fresh Management API PAT before that code ships.
+
+**Gates, real numbers:** `pnpm typecheck` — 0 errors. `pnpm run build` — succeeded. `pnpm test` —
+106 files passed, 1 skipped, 925 tests passed, 13 todo (938 total) — up from AR-5.2's
+105/922/13/935 by exactly the one new test file (3 tests).
+
+**Alert table count: one.** `public.alerts`. No `orchestration_alerts` table was created.
 
 ## Session — 2026-09-17 (AR-5.2: budget enforcement — cost_budgets rename, orchestration scope, spend accrual trigger)
 

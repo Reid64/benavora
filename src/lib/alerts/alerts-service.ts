@@ -43,6 +43,28 @@ export const dedupKeys = {
   applicationAction: (applicationId: string, stage: string) =>
     `application_action:${applicationId}:${stage}`,
   draftReview: (applicationId: string) => `draft_review:${applicationId}`,
+  // Orchestration events (migration 188/189, AR-6.1). Deliberately NO random
+  // component - two calls describing the same event must produce the same
+  // key so uq_alerts_org_dedup actually dedups. Several existing agents
+  // (base-agent.ts, autonomous-base.ts, deadline-prediction-agent.ts) append
+  // crypto.randomUUID() to their dedup keys, which defeats the unique index
+  // entirely; that is a pre-existing bug, not a pattern to repeat here.
+  orchestrationTaskFailed: (orchestrationId: string, agentType: string) =>
+    `orchestration:task_failed:${orchestrationId}:${agentType}`,
+  orchestrationCostOverage: (orchestrationId: string) =>
+    `orchestration:cost_overage:${orchestrationId}`,
+  orchestrationSchemaMismatch: (orchestrationId: string, agentType: string) =>
+    `orchestration:schema_mismatch:${orchestrationId}:${agentType}`,
+  orchestrationStateDrift: (orchestrationId: string) =>
+    `orchestration:state_drift:${orchestrationId}`,
+  orchestrationRateLimit: (orchestrationId: string, agentType: string) =>
+    `orchestration:rate_limit:${orchestrationId}:${agentType}`,
+  orchestrationTimeout: (orchestrationId: string, agentType: string) =>
+    `orchestration:timeout:${orchestrationId}:${agentType}`,
+  orchestrationRollback: (orchestrationId: string) =>
+    `orchestration:rollback:${orchestrationId}`,
+  orchestrationManualReviewRequired: (orchestrationId: string) =>
+    `orchestration:manual_review_required:${orchestrationId}`,
 };
 
 // ---------------------------------------------------------------------------
@@ -82,4 +104,19 @@ export const ALERT_TYPE_LABEL: Record<AlertType, string> = {
   application_action: "Applications needing action",
   draft_review: "Drafts pending review",
   system: "Notices",
+  // Orchestration event types (migration 188, AR-6.1). Not added to
+  // BadgeCategory/AlertCounts below - those drive the sidebar nav badges,
+  // which are a per-org user worklist (deadlines/opportunities/applications/
+  // drafts). Orchestration failures are an operator/platform-admin concern,
+  // not a nonprofit user's action list, so they intentionally do not bump
+  // nav counts. Surfacing them is separate follow-up work if a build/ops
+  // alert view is added.
+  task_failed: "Task failed",
+  cost_overage: "Cost overage",
+  schema_mismatch: "Schema mismatch",
+  state_drift: "State drift",
+  rate_limit: "Rate limit",
+  timeout: "Timeout",
+  rollback: "Rollback",
+  manual_review_required: "Manual review required",
 };

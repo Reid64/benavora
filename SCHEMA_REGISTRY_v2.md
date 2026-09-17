@@ -1450,6 +1450,56 @@ history and the "what hard_stop can/cannot stop" boundary in `STATE_OF_THE_BUILD
 
 ---
 
+## Orchestration Alert Types: `alerts` extended, no second table (AR-6.1, 2026-09-17)
+
+The Orchestration Logging and Alerting Specification v1.0 proposed a new `orchestration_alerts`
+table with acknowledge/dismiss/severity/dedup. `public.alerts` (migration 013, **not** documented
+accurately in this file's "14. alerts" entry above — that entry is stale v1.0 content describing a
+`title`/`entity_type`/`entity_id` shape that was never applied; the real live shape is below)
+already had every one of those and was live in production with 1,806 rows (most recent `'system'`
+alert written the morning of 2026-09-17). A second table would mean two inboxes and strand that
+history behind the wrong one, so this extends `alerts` instead of creating one.
+
+**Live `public.alerts` shape (migration 013, corrects the stale "14. alerts" entry above):** `id`,
+`organization_id` (FK → `organizations(id)`), `type` (`alert_type` enum), `severity`
+(`alert_severity` enum, DEFAULT `'info'`), `message`, `link`, `is_read`/`read_at` (acknowledge),
+`is_dismissed`/`dismissed_at` (dismiss), `snoozed_until` (snooze), `opportunity_id`/`application_id`/
+`deadline_id` (provenance FKs), `dedup_key`, `created_by`, `created_at`, `updated_at`. Indexes:
+`uq_alerts_org_dedup` (UNIQUE on `organization_id, dedup_key` — the noise-suppression mechanism),
+`idx_alerts_org`, `idx_alerts_type`, `idx_alerts_active`.
+
+Migration 188 adds eight `alert_type` enum values: `task_failed`, `cost_overage`,
+`schema_mismatch`, `state_drift`, `rate_limit`, `timeout`, `rollback`, `manual_review_required`.
+Shipped as its own migration file containing only `ALTER TYPE ... ADD VALUE IF NOT EXISTS`
+statements — Postgres forbids referencing a new enum value in the same transaction that added it
+("unsafe use of new value of enum type"), so nothing that uses these values can ship in the same
+file.
+
+Migration 189 adds two nullable columns to `public.alerts`: `orchestration_id` (`uuid`, no FK — no
+single orchestration registry table exists yet across PIL/AutoApply/agent-runner) and `notified_at`
+(`timestamptz`, delivery idempotency marker for prompt 6.4's outbound notification dispatch, added
+now per the Phase 6.1 spec). `idx_alerts_orchestration_id` indexes the new FK-shaped column.
+
+**Deterministic dedup keys.** `dedupKeys` in `src/lib/alerts/alerts-service.ts` gained eight
+orchestration builders (e.g. `orchestrationTaskFailed(orchestrationId, agentType)` →
+`` `orchestration:task_failed:${orchestrationId}:${agentType}` ``), all with **no random
+component** — two calls describing the same event must produce the same key or
+`uq_alerts_org_dedup` never fires. **Known pre-existing bug, not touched by this migration:**
+`src/lib/agents/base-agent.ts:232`, `src/lib/agents/autonomous-base.ts:292`, and
+`src/lib/agents/deadline-prediction-agent.ts:560` append `crypto.randomUUID()` to their dedup
+keys, which defeats the unique index for those agents entirely — every alert they write is
+unique, so none of them ever dedup. Logged here as follow-up work; AR-6.1 only added new key
+builders and did not touch those three call sites.
+
+Live-application status: migration 188/189 files are committed, but this session's two live-DDL
+paths (`DATABASE_URL` via `psql` — password auth failure; Management API PAT from this file's
+own §11 — `401 Unauthorized`, rotated since it was last live-verified) both failed, so the ADD
+VALUE/ADD COLUMN statements are **not confirmed applied to project `vbjplpquqxxfbpazyalt`** as of
+this note. `pnpm typecheck`/`build`/`test` all pass against the hand-maintained
+`src/types/database.ts`, which does not require a live DB match to compile.
+
+---
+
 ## Data Volume Estimates
 
 | Table | Current Records | Target Scale |
