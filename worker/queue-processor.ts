@@ -1,7 +1,9 @@
 ﻿import type { SupabaseClient } from '@supabase/supabase-js';
 import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
 import { FormAnalyzerAgent, AGENT_TYPE as FORM_ANALYZER_AGENT_TYPE } from '../src/lib/autoapply/form-analyzer-agent.js';
-import { FormFillerAgent, AGENT_TYPE as FORM_FILLER_AGENT_TYPE, type FillOutcome } from '../src/lib/autoapply/form-filler-agent.js';
+import { FormFillerAgent, AGENT_TYPE as FORM_FILLER_AGENT_TYPE, type FillOutcome, IncompleteSubmissionError } from '../src/lib/autoapply/form-filler-agent.js';
+import { raiseOrchestrationAlert } from '../src/lib/alerts/raise-orchestration-alert.js';
+import { dedupKeys } from '../src/lib/alerts/alerts-service.js';
 import { CaptchaSolver, AGENT_TYPE as CAPTCHA_SOLVER_AGENT_TYPE } from '../src/lib/autoapply/captcha-solver.js';
 import { RegistrationAgent, AGENT_TYPE as REGISTRATION_AGENT_TYPE } from '../src/lib/autoapply/registration-agent.js';
 import { CredentialManager } from '../src/lib/autoapply/credential-manager.js';
@@ -1546,6 +1548,23 @@ export class QueueProcessor {
       const message = err instanceof Error ? err.message : String(err);
       errorMessage = message;
       submissionStatus = classifyError(message);
+
+      // AR-6.3: a form the agent refuses to submit (required fields still
+      // empty) is a deliberate, correct refusal — not a crash — but it still
+      // needs a human to look at it, or it's silence exactly like the
+      // 2026-09-16 audit's "status='submitted' with no evidence" defect,
+      // just inverted (this time nothing was submitted, and nothing said
+      // so). queueItemId is the stable identity for this attempt — no
+      // orchestration registry row exists for the AutoApply pipeline yet.
+      if (err instanceof IncompleteSubmissionError) {
+        void raiseOrchestrationAlert(this.supabase, {
+          organizationId: orgId,
+          type: 'manual_review_required',
+          severity: 'warning',
+          message: `AutoApply refused to submit for ${funderName}: required fields still empty (${err.emptyFields.join(', ')}).`,
+          dedupKey: dedupKeys.orchestrationManualReviewRequired(queueItemId),
+        }).catch(() => {});
+      }
 
       // Mark proxy as failed if the error looks like an IP block
       if (proxy !== null && isIpBlock(message)) {

@@ -672,6 +672,45 @@ from the queue row). Full boundary-by-boundary detail in `STATE_OF_THE_BUILD.md`
 
 ---
 
+## Deterministic alert rules replace meta-agent monitoring in the hot path (AR-6.3, 2026-09-17)
+
+Five Postgres triggers (migration 191) now raise `public.alerts` rows directly off
+`orchestration_logs`/`cost_budgets` writes — **no agent, no LLM call, in this path.** A monitoring
+agent that can itself fail is not monitoring; deterministic SQL cannot silently die the way six agent
+types did on `AGENT_TIMEOUT_MS` before the 2026-09-16 audit. Any new agent wired into
+`worker/autonomous-orchestrator.ts` that calls `runOrchestrationStep()` (per AR-6.2's convention
+above) gets `task_failed`/`schema_mismatch`/`state_drift`/`timeout` coverage for free — no additional
+agent-side alerting code needed. An agent with genuine retry logic (`agent_queue`'s
+`retry_count`/`max_retries`) should pass `ctx.retryCount`/`ctx.maxRetries` to
+`runOrchestrationStep()` so `task_failed` can tell a final failure from one that will retry; omitting
+them means every failure from that call site reads as final (critical).
+
+**`rate_limit`, `rollback`, `manual_review_required` are the three types no trigger can derive** —
+raise them from application code via `src/lib/alerts/raise-orchestration-alert.ts`, not a raw
+`alerts` insert (it shares the same `(organization_id, dedup_key)` dedup contract as the trigger
+side, and swallows every failure the same way — an alerting call must never be able to fail the
+work it's observing). `worker/queue-processor.ts` now does this in its `IncompleteSubmissionError`
+catch branch: AutoApply's own deliberate refusal to submit a form with required fields still empty
+(AR-3.1) previously fell into `classifyError()`'s generic `'failed'` bucket with no alert at all — a
+correct refusal that produced silence, not an incident.
+
+**`state_drift` is DB-reconciliation, not a markdown diff — do not build it toward the latter.** The
+Orchestration spec's section 8 proposed snapshotting `STATE_OF_THE_BUILD.md` around each task; that
+was rejected (a governance doc that build agents update as normal, legitimate work would trigger
+"drift" on every real update). If a future agent's own logic wants stronger reconciliation than the
+generic terminal-status/items-coherence check migration 191 does, pass
+`reconciliationPassed`/`schemaValidationPassed` explicitly via `runOrchestrationStep()`'s
+`toOutcome()` callback — do not add file-reading logic to any trigger, and do not add a second,
+broader `items_processed <> items_expected` check to the trigger itself (a first draft of exactly
+that was written, then rejected before ever reaching the live database, once a read of this file's
+own call sites showed `items_processed < items_expected` is the ordinary healthy shape, not a
+failure).
+
+Full rule-by-rule detail, dedup key shapes, and the flagged-but-unfixed Rule 2 dedup gap (no
+budget-period component): `SCHEMA_REGISTRY_v2.md`'s and `STATE_OF_THE_BUILD.md`'s "AR-6.3" sections.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

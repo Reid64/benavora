@@ -1,5 +1,144 @@
 # Benavora Platform Build State
 
+## AR-6.3 — Deterministic alert rules 1-5 in Postgres; Rule 4 reconciles against the DB, not markdown (2026-09-17)
+
+**Prerequisite gap found and closed first:** this prompt's own premise ("the eight alert_type values
+exist in a COMMITTED, ALREADY-APPLIED migration") was false. Live verification via a REST probe
+against `alerts` (`type=eq.task_failed` → `22P02 invalid input value for enum alert_type`) and
+`alerts?select=orchestration_id` (`42703 column does not exist`) showed migrations 188/189 were
+committed but never actually applied — exactly the gap AR-6.1's own note flagged and a later session
+was supposed to re-verify. Both previously-known DDL paths (`DATABASE_URL`/psql, the Management API
+PAT) were dead again this session (re-confirmed). The `mcp__claude_ai_Supabase__apply_migration` /
+`execute_sql` connector — the same one AR-6.2 used — reached project `vbjplpquqxxfbpazyalt` this
+time (an account/connection state that has flipped before; re-verify fresh next session, don't
+assume it's still connected). Applied, in order: 188 (8 enum values), 189 (`alerts.orchestration_id`/
+`notified_at`), then this prompt's own migration 191. All three are now live and confirmed via direct
+`pg_enum`/schema queries, not just "the file is committed."
+
+**Migration 191** adds one shared helper, `raise_orchestration_alert(org_id, orchestration_id, type,
+severity, message, dedup_key)` — a single `INSERT ... ON CONFLICT (organization_id, dedup_key) DO
+NOTHING` wrapped in its own `EXCEPTION WHEN OTHERS` — plus five `AFTER INSERT OR UPDATE` trigger
+functions:
+
+- **Rule 1 — `task_failed`** (trigger on `orchestration_logs`, fires on `status = 'failed'`):
+  `'critical'` if this was the last retry, `'warning'` otherwise. `orchestration_logs` has no
+  `retry_count`/`max_retries` of its own (that state lives on `agent_queue`), so a caller with real
+  retry context now passes `state_delta = {"retry_count": <attempts so far>, "max_retries": <n>}` —
+  `worker/autonomous-orchestrator.ts`'s `runQueueItem()` and
+  `src/lib/orchestration/orchestration-log.ts`'s `runOrchestrationStep()` were extended with
+  `ctx.retryCount`/`ctx.maxRetries` to plumb this through. No retry context in `state_delta` →
+  treated as the only attempt → always critical.
+- **Rule 2 — `cost_overage`** (trigger on `cost_budgets`, `AFTER INSERT OR UPDATE OF spent_usd,
+  budget_limit_usd` — fired by AR-5.2's `accrue_cost_budget_spend` trigger on `ai_usage_log`):
+  `'critical'` when `hard_stop`, `'warning'` otherwise, once `spent_usd >= budget_limit_usd`. Dedup
+  key deliberately keys on `(scope_type, scope_id)`, not the TS `dedupKeys.orchestrationCostOverage`
+  helper's `orchestrationId`-only shape — a `cost_budgets` row is just as often `scope_type='org'` or
+  `'agent'` with no orchestration context at all.
+- **Rule 3 — `schema_mismatch`** (trigger on `orchestration_logs`, `AFTER INSERT OR UPDATE OF
+  schema_validation_passed`): `'critical'` whenever that column reads `false`.
+- **Rule 4 — `state_drift`** — see the dedicated deviation writeup below; this is the rule the prompt
+  explicitly said the spec got wrong.
+- **Rule 5 — `timeout`** (trigger on `orchestration_logs`): `'warning'` when `duration_ms` exceeds a
+  60,000 literal (mirrors `AGENT_TIMEOUT_MS` in `src/lib/agents/base-agent.ts` — SQL can't import a TS
+  constant, so it's duplicated; keep the two in sync by hand), or when `finished_at IS NULL` and
+  `started_at` is already more than 60s in the past at write time. Documented limitation: this cannot
+  catch a step that was silently dropped and never wrote a row at all (the audit's actual "six agent
+  types silently dying on 60s with nothing recorded" finding) — that needs a periodic sweep, and
+  `pg_cron` is not installed (hard constraint, see below).
+
+**Rule 4 / state_drift — the deviation, and a second miscalibration caught before it ever hit the
+DB.** Spec section 8 wanted to snapshot `STATE_OF_THE_BUILD.md` before/after each task and diff it —
+rejected outright: this file is a governance document build agents update as part of normal,
+legitimate work, so every real doc update would read as "drift," training the operator to ignore
+critical alerts. Nothing in migration 191 reads, diffs, or references any file from SQL. Instead Rule
+4 reconciles a `status='completed'` row against real DB facts: (1) if `agent_run_id`/
+`pil_agent_run_id` is set, does that row show a terminal status; (2) is `items_processed` coherent
+with `items_expected`. **Check 2 was originally written as a plain inequality
+(`items_processed <> items_expected`) and would have been a second, self-inflicted miscalibration** —
+a live read of `worker/autonomous-orchestrator.ts` shows dozens of call sites where
+`items_expected = itemsFound` and `items_processed = itemsProcessed` from the same result object,
+and processing *fewer* than were found is the normal, healthy shape (`"12/50 opportunity(ies)
+scored"` — the rest already handled or filtered, not a failure). A blanket mismatch check would have
+fired on the majority of healthy completions — the exact failure mode ("critical during healthy
+operation trains the operator to ignore critical alerts") this migration rejects spec section 8 for.
+Caught during manual review, before any live apply. Fixed to only flag two shapes that are incoherent
+regardless of business logic: `items_processed IS NULL` while `items_expected > 0` (claimed success,
+zero evidence anything happened — the literal "reported success it had not earned" pattern), or
+`items_processed > items_expected` (processed more than was ever found — structurally impossible). A
+caller with real target-table knowledge can still pass `reconciliation_passed=false` explicitly
+(AR-6.2's `toOutcome()` callback) as an independent, always-honored contradiction signal — this
+generic check does not replace that.
+
+**`rate_limit`, `rollback`, `manual_review_required` — the three non-trigger-derivable types.**
+`src/lib/alerts/raise-orchestration-alert.ts` is the new application-layer write path (same dedup
+contract, `ignoreDuplicates: true` upsert on `(organization_id, dedup_key)`, every failure mode
+swallowed — network error, RLS rejection, bad enum value — never thrown). Wired one real call site:
+`worker/queue-processor.ts`'s `IncompleteSubmissionError` catch branch (AutoApply refusing to submit
+because required fields are still empty) now raises `manual_review_required` instead of falling
+through to `classifyError()`'s generic `'failed'` bucket with no alert at all — a form the agent
+correctly refuses to submit was previously silence, the AR-3.1 audit's failure mode with the outcome
+inverted (that time, false success with no evidence; this time, a correct refusal with no signal).
+
+**Blast radius, live-proven not just asserted.** Every rule function and the shared insert helper is
+wrapped in `EXCEPTION WHEN OTHERS` (`RAISE WARNING`, swallow, `RETURN NEW`) — two independent layers,
+since the helper's own `INSERT` can fail for reasons unrelated to the calling rule's own logic (e.g.
+an FK violation). Live-tested: a row with `state_delta = {"retry_count": "not-a-number"}` makes
+Rule 1's `::int` cast throw *inside* the trigger — the underlying `orchestration_logs` INSERT still
+succeeds (assertion 6).
+
+**A privilege gap found and closed after the first live apply, not before.** New Postgres functions
+in this project default to `EXECUTE` granted not just to `PUBLIC` but explicitly to `anon` and
+`authenticated` individually (confirmed via `pg_proc.proacl`), and PostgREST exposes every
+public-schema function as an RPC endpoint by default. `raise_orchestration_alert` is `SECURITY
+DEFINER` with no per-caller `organization_id` check — a direct `rpc/raise_orchestration_alert` call
+with an anon key initially returned **HTTP 204 (success)**, meaning any anon caller who knew (or
+guessed) a real `organization_id` could have forged an alert into that org's inbox. `REVOKE ... FROM
+PUBLIC` alone was not sufficient (anon/authenticated hold their own separate grants, not just via
+`PUBLIC`) — fixed with an explicit `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated` plus `GRANT
+... TO service_role`. Re-verified live: the same anon RPC call now returns `401` /
+`42501 permission denied`. The five `alert_rule_*` trigger functions carry the same broad grants but
+are not exploitable — they `RETURNS trigger`, and Postgres refuses to invoke a trigger function
+outside trigger context regardless of privilege (live-confirmed: PostgREST 404s them, since it
+excludes trigger-return functions from its RPC schema cache entirely).
+
+**No network from SQL — verified, not just avoided.** No `pg_net`/`http`/`pg_cron` install statement
+anywhere in migration 191, no `net.http_post` call. Slack delivery stays prompt 6.4's job in the
+worker.
+
+**Test:** `src/__tests__/integration/orchestration-alert-rules.test.ts` — 8/8 green against the real
+database (the 6 required assertions plus a split-out 4a/4a-negative pair): Rule 1 dedup proof (two
+identical failures → one row), Rule 2 warning-at-limit and critical-with-hard_stop, Rule 3 critical
+on `schema_validation_passed=false`, Rule 4a raises on `items_processed > items_expected`, Rule
+4a-negative proves `items_processed < items_expected` (the healthy "found more than processed"
+shape) raises nothing, Rule 4b proves editing a governance markdown fixture file raises nothing (the
+explicit spec-section-8 guard), Rule 5 raises on a `duration_ms` overrun, and assertion 6 is the
+blast-radius proof above. Command discrepancy, same as AR-6.2's: the prompt's suggested
+`--config vitest.integration.config.ts` run finds zero tests (that config's `include` is scoped to
+`integration-live/**` only); run via plain `pnpm vitest run <path>` / `pnpm test`, matching every
+other file in `src/__tests__/integration/`.
+
+**Gates, real numbers:** `pnpm typecheck` — 0 errors. `pnpm run build` — succeeded, full route
+manifest emitted. `pnpm run build:worker` — 0 errors. `pnpm vitest run
+src/__tests__/integration/orchestration-alert-rules.test.ts` — 8/8 green against the live database.
+`pnpm test` (full suite) — **108 test files passed, 1 skipped, 937 tests passed, 13 todo** (950
+total), up from AR-6.2's 107/929/13/942 by exactly the one new file and its 8 tests — zero
+regressions.
+
+**Can any of these five rules fire on normal, healthy operation?** No, by design, after the Rule 4
+fix above — that fix exists specifically because the first draft of Rule 4 *would* have. Rule 1 only
+fires on `status='failed'`. Rule 2 fires once per genuine budget-limit crossing and then dedups
+(though see the caveat below). Rule 3 only fires on an explicit `false`. Rule 4, post-fix, only fires
+on a claimed success with zero recorded evidence or an impossible over-count — never on the ordinary
+"processed fewer than found" shape. Rule 5 only fires past a real 60s overrun. **One latent
+miscalibration risk, not yet exercisable:** Rule 2's dedup key is `(scope_type, scope_id)` with no
+budget-period component — if a `daily`/`monthly` budget's `spent_usd` is ever reset to 0 for a new
+period (no reset mechanism exists in this codebase today; accrual is purely additive), a genuine
+overage in the new period would collide with the old period's dedup key and be silently dropped by
+`ON CONFLICT DO NOTHING`. Flagged here rather than fixed, since building a period-reset mechanism is
+out of this prompt's scope and there is nothing live to test the fix against yet.
+
+---
+
 ## AR-6.2 — `orchestration_logs`: org-scoped execution facts with schema and reconciliation evidence (2026-09-17)
 
 **Tenancy check first:** the spec's wording ("company_id") is DialStars/Cordial vocabulary, not

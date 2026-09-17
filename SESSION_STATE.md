@@ -8,11 +8,59 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-6.2: orchestration_logs — org-scoped execution facts with schema and reconciliation evidence)
+- **Last updated:** 2026-09-17 (AR-6.3: deterministic alert rules 1-5 in Postgres; Rule 4 reconciles against the DB, not markdown)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-6.3: deterministic alert rules 1-5 in Postgres; Rule 4 reconciles against the DB, not markdown)
+
+Prerequisite: AR-6.1/6.2 (below). Found the prerequisite claim false before writing any trigger:
+migrations 188/189 were committed but **not actually applied live** (live REST probe: `alert_type`
+enum missing the 8 new values, `alerts.orchestration_id` column missing) — exactly the gap AR-6.1's
+own note said to re-verify. Both previously-known DDL paths (`DATABASE_URL`, Management API PAT) were
+dead again this session; the Supabase MCP connector (`mcp__claude_ai_Supabase__apply_migration`/
+`execute_sql`) reached the project this time and applied 188, then 189, then this prompt's own 191,
+in order — all three confirmed live via direct schema queries afterward, not assumed from the commit.
+
+**Migration 191:** one shared `raise_orchestration_alert()` insert helper (`ON CONFLICT
+(organization_id, dedup_key) DO NOTHING`) plus 5 `AFTER INSERT OR UPDATE` triggers — `task_failed`
+(on `orchestration_logs.status='failed'`, critical iff last retry), `cost_overage` (on
+`cost_budgets.spent_usd`, critical iff `hard_stop`), `schema_mismatch` (critical on
+`schema_validation_passed=false`), `state_drift` (see below), `timeout` (warning past a 60s literal
+mirroring `AGENT_TIMEOUT_MS`). `rate_limit`/`rollback`/`manual_review_required` are raised from
+application code instead (`src/lib/alerts/raise-orchestration-alert.ts`), wired into
+`worker/queue-processor.ts`'s `IncompleteSubmissionError` catch branch.
+
+**Rule 4 (`state_drift`) deviates from spec section 8 on purpose** (diffing `STATE_OF_THE_BUILD.md`
+would flag every legitimate governance update as "drift") and reconciles against the DB instead —
+terminal `agent_runs`/`pil_agent_runs` status, plus `items_processed` coherence. **A second,
+self-inflicted miscalibration was caught and fixed before ever applying live:** the first draft's
+`items_processed <> items_expected` check would have fired on the ordinary "processed fewer than
+found" shape used throughout `worker/autonomous-orchestrator.ts` — narrowed to only
+`items_processed IS NULL` (claimed success, zero evidence) or `items_processed > items_expected`
+(impossible over-count).
+
+**A live privilege gap was also caught and closed after the first apply:** `raise_orchestration_alert`
+initially returned HTTP 204 (success) to an anon-key RPC call with an arbitrary `organization_id` —
+Supabase grants new functions' `EXECUTE` to `anon`/`authenticated` individually, so `REVOKE ... FROM
+PUBLIC` alone didn't close it. Fixed with an explicit `REVOKE ... FROM PUBLIC, anon, authenticated`;
+re-verified live as `401`/`42501`.
+
+**Test:** `src/__tests__/integration/orchestration-alert-rules.test.ts` — 8/8 green against the real
+database (includes a 4a-negative case proving the healthy under-processing shape raises nothing, and
+a 4b case proving a governance-markdown-file edit raises nothing).
+
+**Gates:** `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm run build:worker` 0 errors,
+`pnpm test` 108 files / 937 tests passed / 13 todo (950 total) — up from AR-6.2's 107/929/13/942 by
+exactly the one new file and its 8 tests, zero regressions.
+
+See `STATE_OF_THE_BUILD.md`'s "AR-6.3" section for the full rule-by-rule rationale, the two
+miscalibrations caught, and the one flagged-but-unfixed latent risk (Rule 2's dedup key has no
+budget-period component).
+
+---
 
 ## Session — 2026-09-17 (AR-6.2: orchestration_logs — org-scoped execution facts, schema/reconciliation evidence)
 

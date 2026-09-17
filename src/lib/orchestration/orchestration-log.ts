@@ -142,6 +142,14 @@ export interface OrchestrationStepContext {
   agentRunId?: string | null;
   pilAgentRunId?: string | null;
   itemsExpected?: number | null;
+  // Retry context (e.g. agent_queue.retry_count/max_retries) for AR-6.3's
+  // Rule 1 (task_failed) trigger to tell a final failure from one that will
+  // retry. retryCount is the number of attempts already made BEFORE this
+  // one — the trigger computes "is this the last retry" as
+  // (retryCount + 1) >= maxRetries. Omitted entirely for steps with no
+  // retry mechanism, which the trigger then treats as always-final.
+  retryCount?: number | null;
+  maxRetries?: number | null;
 }
 
 export interface OrchestrationStepOutcome {
@@ -199,6 +207,10 @@ export async function runOrchestrationStep<T>(
     return result;
   } catch (err) {
     const finishedAt = new Date();
+    const retryStateDelta =
+      ctx.retryCount != null || ctx.maxRetries != null
+        ? { retry_count: ctx.retryCount ?? null, max_retries: ctx.maxRetries ?? null }
+        : null;
     await logOrchestrationStep(supabase, {
       organizationId: ctx.organizationId,
       orchestrationId: ctx.orchestrationId,
@@ -214,6 +226,7 @@ export async function runOrchestrationStep<T>(
       errorCode: errorCodeOf(err),
       errorMessage: errorMessageOf(err),
       schemaValidationPassed: false,
+      stateDelta: retryStateDelta,
     });
     throw err;
   }

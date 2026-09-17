@@ -1539,6 +1539,74 @@ connector — confirmed via `pg_policies`.
 
 ---
 
+## Deterministic alert rules 1-5 in Postgres (AR-6.3, 2026-09-17)
+
+**Prerequisite gap found live, not assumed from the commit:** migrations 188/189 (AR-6.1) were
+committed but not actually applied — a REST probe against `alerts` before this migration returned
+`22P02 invalid input value for enum alert_type` for `task_failed` and `42703 column
+alerts.orchestration_id does not exist`. Applied 188, then 189, then this migration (191) in order
+via the Supabase MCP connector after both previously-known DDL paths failed again; all three
+confirmed live afterward via direct `pg_enum`/column queries.
+
+**`raise_orchestration_alert(org_id, orchestration_id, type, severity, message, dedup_key)`** — the
+one shared write path every rule below (and the application-layer helper for the three
+non-trigger-derivable types) uses: `INSERT ... ON CONFLICT (organization_id, dedup_key) DO NOTHING`,
+its own `EXCEPTION WHEN OTHERS` swallow. `SECURITY DEFINER`, `search_path = public` fixed. **EXECUTE
+revoked from `PUBLIC`, `anon`, and `authenticated` explicitly** — Supabase grants new functions'
+`EXECUTE` to `anon`/`authenticated` individually by default (confirmed via `pg_proc.proacl`), which
+made this SECURITY DEFINER, no-caller-check function briefly callable as
+`rpc/raise_orchestration_alert` with an arbitrary `organization_id` (live-verified: returned HTTP 204
+before the fix, `401`/`42501 permission denied` after). Granted only to `service_role`.
+
+**Five `AFTER INSERT OR UPDATE` triggers**, all wrapped in `EXCEPTION WHEN OTHERS` (never block the
+INSERT/UPDATE that fired them — live-proven via a deliberately malformed `state_delta.retry_count`
+that throws inside Rule 1's `::int` cast; the underlying `orchestration_logs` row still writes):
+
+| Rule | Table / event | Fires when | Severity |
+|---|---|---|---|
+| `task_failed` | `orchestration_logs`, INSERT/UPDATE | `status = 'failed'` | critical if last retry (from `state_delta.retry_count`/`max_retries`, no column of its own on this table), else warning |
+| `cost_overage` | `cost_budgets`, INSERT/UPDATE OF `spent_usd`, `budget_limit_usd` | `spent_usd >= budget_limit_usd` (fed by AR-5.2's `accrue_cost_budget_spend`) | critical if `hard_stop`, else warning |
+| `schema_mismatch` | `orchestration_logs`, INSERT/UPDATE OF `schema_validation_passed` | `schema_validation_passed = false` | critical |
+| `state_drift` | `orchestration_logs`, INSERT/UPDATE | see deviation below | critical |
+| `timeout` | `orchestration_logs`, INSERT/UPDATE | `duration_ms > 60000`, or `finished_at IS NULL` and `started_at` already >60s old | warning |
+
+Dedup keys are built from stable row identifiers (`orchestration_id`, `agent_type`/`task_id`,
+`scope_type`/`scope_id`) — never `crypto.randomUUID()` — so `uq_alerts_org_dedup` (migration 013)
+actually collapses repeats. `cost_overage`'s key, `(scope_type, scope_id)`, deliberately diverges from
+`src/lib/alerts/alerts-service.ts`'s `dedupKeys.orchestrationCostOverage(orchestrationId)`, since a
+`cost_budgets` row is routinely `scope_type='org'`/`'agent'` with no orchestration context at all.
+**Known latent gap, not yet fixable/testable:** this key has no budget-period component, so if
+`spent_usd` is ever reset for a new period (no reset mechanism exists in this codebase yet), a
+genuine new-period overage would collide with the old period's dedup key and be dropped.
+
+**`state_drift` deviates from spec section 8 by design** (diffing `STATE_OF_THE_BUILD.md` before/
+after each task would flag every legitimate governance update as "drift"). Reconciles against the DB
+instead, only for a `status='completed'` row: (1) `agent_run_id`/`pil_agent_run_id`, if set, must
+point at a row with a terminal status; (2) `items_processed` must be coherent with `items_expected`
+— **not** a plain inequality (a live read of `worker/autonomous-orchestrator.ts` shows
+`items_processed < items_expected` is the normal healthy shape, "candidates found" vs. "candidates
+acted on" — a blanket mismatch check was drafted, then rejected before ever being applied live for
+the same reason spec section 8 was rejected). Only `items_processed IS NULL` (claimed success, zero
+evidence) or `items_processed > items_expected` (impossible over-count) count as incoherent. An
+explicit `reconciliation_passed=false` from a caller with real target-table knowledge (AR-6.2's
+`toOutcome()`) is honored as an additional, independent signal.
+
+`rate_limit`/`rollback`/`manual_review_required` are not trigger-derivable (nothing in Postgres knows
+an upstream 429, a rollback ran, or an agent refused an action) — raised instead from
+`src/lib/alerts/raise-orchestration-alert.ts`, same dedup contract, every failure swallowed. Wired
+into `worker/queue-processor.ts`'s `IncompleteSubmissionError` catch (AutoApply refusing to submit
+with required fields still empty) → `manual_review_required`.
+
+**No network from SQL:** no `pg_net`/`http`/`pg_cron` install, no `net.http_post`, anywhere in
+migration 191 — verified against the live project (all three available but not installed) before
+writing a line of trigger code.
+
+**Test:** `src/__tests__/integration/orchestration-alert-rules.test.ts`, 8/8 green against the real
+database. Full rationale, both miscalibrations caught before/after the live apply, and the flagged
+latent Rule 2 dedup gap: `STATE_OF_THE_BUILD.md`'s "AR-6.3" section.
+
+---
+
 ## Data Volume Estimates
 
 | Table | Current Records | Target Scale |

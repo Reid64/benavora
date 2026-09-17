@@ -2368,6 +2368,12 @@ async function runQueueItem(
         orchestrationId: crypto.randomUUID(),
         taskId: item.id,
         agentType: item.agent_id,
+        // Attempts already made before this one, and the ceiling above which
+        // agent_queue gives up for good (see the catch block below) — lets
+        // AR-6.3's task_failed trigger tell a final failure from one that
+        // will retry.
+        retryCount: item.retry_count ?? 0,
+        maxRetries: item.max_retries ?? 3,
       },
       () => routeQueueItem(supabase, item),
     );
