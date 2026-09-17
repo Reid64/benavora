@@ -1242,6 +1242,79 @@ export interface Database {
         };
         Relationships: [];
       };
+      // orchestration_logs (migration 190, AR-6.2): execution facts for one
+      // step of one orchestration run. schema_validation_passed /
+      // reconciliation_passed make a step's success claim falsifiable — no
+      // cost column, cost_log_id joins to ai_usage_log instead.
+      orchestration_logs: {
+        Row: {
+          id: string;
+          organization_id: string;
+          orchestration_id: string;
+          task_id: string | null;
+          agent_type: string | null;
+          agent_run_id: string | null;
+          pil_agent_run_id: string | null;
+          status: string;
+          started_at: string;
+          finished_at: string | null;
+          duration_ms: number | null;
+          items_expected: number | null;
+          items_processed: number | null;
+          error_code: string | null;
+          error_message: string | null;
+          schema_validation_passed: boolean | null;
+          reconciliation_passed: boolean | null;
+          state_delta: Json | null;
+          cost_log_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          orchestration_id: string;
+          task_id?: string | null;
+          agent_type?: string | null;
+          agent_run_id?: string | null;
+          pil_agent_run_id?: string | null;
+          status: string;
+          started_at?: string;
+          finished_at?: string | null;
+          duration_ms?: number | null;
+          items_expected?: number | null;
+          items_processed?: number | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          schema_validation_passed?: boolean | null;
+          reconciliation_passed?: boolean | null;
+          state_delta?: Json | null;
+          cost_log_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          orchestration_id?: string;
+          task_id?: string | null;
+          agent_type?: string | null;
+          agent_run_id?: string | null;
+          pil_agent_run_id?: string | null;
+          status?: string;
+          started_at?: string;
+          finished_at?: string | null;
+          duration_ms?: number | null;
+          items_expected?: number | null;
+          items_processed?: number | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          schema_validation_passed?: boolean | null;
+          reconciliation_passed?: boolean | null;
+          state_delta?: Json | null;
+          cost_log_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       platform_config: {
         Row: {
           id: string;

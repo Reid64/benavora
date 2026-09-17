@@ -1,5 +1,128 @@
 # Benavora Platform Build State
 
+## AR-6.2 — `orchestration_logs`: org-scoped execution facts with schema and reconciliation evidence (2026-09-17)
+
+**Tenancy check first:** the spec's wording ("company_id") is DialStars/Cordial vocabulary, not
+Benavora's. Live schema on 2026-09-17 has 146 columns named `organization_id` and zero named
+`company_id` anywhere. Every column and RLS policy below uses `organization_id`.
+
+**Migration 190** creates `public.orchestration_logs`: `id`, `organization_id` (`NOT NULL REFERENCES
+organizations(id) ON DELETE CASCADE`), `orchestration_id` (groups one run's steps, no FK — nothing
+in this schema is a single orchestration registry), `task_id`, `agent_type`, `agent_run_id` (FK
+`agent_runs`), `pil_agent_run_id` (FK `pil_agent_runs`), `status`, `started_at`/`finished_at`/
+`duration_ms`, `items_expected`/`items_processed`, `error_code`/`error_message`,
+`schema_validation_passed`/`reconciliation_passed` (booleans, not derived — the two columns this
+table exists for), `state_delta` (jsonb), `cost_log_id` (FK `ai_usage_log`, no `cost_usd` column —
+cost stays the single ledger from AR-5.1). Indexes: `(organization_id, created_at DESC)`,
+`(orchestration_id)`, `(status) WHERE status <> 'completed'`, `(agent_run_id)`.
+
+**Why `schema_validation_passed`/`reconciliation_passed` matter:** the 2026-09-16 agent audit's
+headline defect was AutoApply writing `status='submitted'` with no confirmation number and no
+screenshot — an evidence-validation failure nothing recorded. These two booleans make a step's
+success claim falsifiable instead of trusting `status` alone.
+
+**RLS:** matches the live `public.current_org_id()` master pattern (migration 001's
+`agent_runs_org_isolation`), not the `src/supabase/migrations` lockdown-only convention (that one is
+for orphaned tables with zero real authenticated reader — this table is meant to be read by org
+members). `REVOKE ALL FROM anon`; one `SELECT` policy, `organization_id = public.current_org_id()`.
+No `authenticated` INSERT/UPDATE/DELETE policy — the worker's service-role client (which bypasses
+RLS regardless) does all the writing; there is no authenticated write path to close.
+
+**Typed writer, `src/lib/orchestration/orchestration-log.ts`:** `logOrchestrationStep()` is the only
+code in this repo that inserts into `orchestration_logs`; it redacts `error_message`/`state_delta`
+before the insert (patterns for `sk-ant-*`, generic `sk-*`/`pk-*`, AWS `AKIA*`, JWT-shaped tokens,
+`Bearer <token>` headers, and `key/token/secret/password = value` pairs, plus full-value redaction
+by key *name* for any field literally called password/token/secret/api_key/private_key — so
+redaction doesn't depend on guessing every provider's key shape). `runOrchestrationStep(supabase,
+ctx, fn, toOutcome?)` times one `fn()` call, writes exactly one row (`status: 'completed'` +
+`schema_validation_passed: true` on success, `status: 'failed'` + real `error_code`/`error_message`
++ `schema_validation_passed: false` on a thrown error), then rethrows unchanged so existing
+retry/continue control flow is untouched.
+
+**Orchestrator wiring, `worker/autonomous-orchestrator.ts` — no single choke point exists, so the
+smallest set of boundaries that covers every step was instrumented and is named here:**
+1. **`runOrgPipeline()`'s 16 nightly per-org step functions** (`discovery`, `eligibility_scoring`,
+   `probability_scoring`, `draft_generation`, `reputation`, `deadline_prediction`,
+   `document_expiry`, `fundability_scorer`, `donor_intent`, `renewal_tracker`, `search_optimizer`,
+   `community_need`, `roi_optimizer`, `outcome_analyzer`, `knowledge_gap`, `strategic_advisor`) —
+   each already had its own internal try/catch (swallowing per-step errors so one failing step
+   doesn't kill the sweep), so `runOrchestrationStep()` wraps the real work *inside* that existing
+   try, not the function boundary itself; one `orchestration_id` is minted per `runOrgPipeline()`
+   call and threaded through all 16.
+2. **`runQueueItem()`** — the actual single existing choke point in this file: every one of
+   `routeQueueItem()`'s 27 `agent_queue` dispatch cases (opportunity_discovery through
+   foundation-990-enrichment) already flowed through this one function's try/catch before this
+   change. Wrapping the `routeQueueItem()` call here covers all 27 cases in one edit.
+3. **`runDigestPipeline()`** (`AutonomousDigestAgent`, per-org).
+4. **`runLearningNetworkPipeline()`** (AG-36) and **`runChangeMonitorDailyPipeline()`** (AG-42) —
+   both platform-level; logged against each agent's own pre-existing synthetic system-organization
+   row (`00000000-0000-4000-8000-000000000036` / `...042`), the same row `agent_runs`/
+   `agent_decisions` already use for these two, so `organization_id NOT NULL` is satisfied without
+   inventing a new convention.
+5. **`runDisasterResponsePipeline()`** — only the auto-deploy branch (`deployDisasterResponse()`
+   call); the pending-approval branch performs no real execution (deferred to human review), so
+   there is no step attempt to log.
+6. **`runGrantDnaWeeklyPipeline()`** (AG-10), **`runFundingForecastMonthlyPipeline()`** (AG-26),
+   **`runRelationshipGraphIncrementalPipeline()`** (AG-23), **`runBoardPacketDailyPipeline()`**
+   (AG-27) — each already loops per-org with its own try/catch; wrapped the single `agent.run()`
+   call in each loop body.
+
+**Named gap, not silently dropped: `runSelfImprovementPipeline()` (AG-38) is NOT instrumented.**
+`SelfImprovementAgent` doesn't extend `AutonomousAgent` and writes `agent_runs.organization_id =
+null` by design (migration 088 loosened that column's `NOT NULL` specifically for this agent,
+per that agent's own file header — it has no owning org at all, not even a synthetic one).
+`orchestration_logs.organization_id` is `NOT NULL` per this migration's explicit spec, so logging
+this pipeline would require either inventing a synthetic org (a new convention AG-38 deliberately
+avoided) or loosening this table's constraint the same way — out of scope for this prompt. AG-38 IS
+covered when it runs via the queue instead (`ag-38-self-improvement` in `routeQueueItem()`, which
+does have a real `org_id` from the queue row) — the gap is specific to its dedicated 4:00 AM cron
+entrypoint only.
+
+**Types:** `src/types/database.ts` is hand-maintained (no `supabase gen types` script in
+`package.json`) — added `orchestration_logs` `Row`/`Insert`/`Update`.
+
+**Test:** `src/__tests__/integration/orchestration-logs.test.ts`, 4 assertions against the real
+database (RLS cannot be verified any other way): (1) `logOrchestrationStep()` writes a row with the
+right `organization_id` and a resolvable `orchestration_id`; (2) a failed step records `status` +
+`error_code` with `schema_validation_passed === false` (not null); (3) an error message containing
+an API-key-shaped value is persisted redacted; (4) a second org's authenticated user reading the
+first org's row gets zero rows back.
+
+**Command discrepancy, reported not silently worked around:** the prompt's suggested run command
+(`pnpm vitest run --config vitest.integration.config.ts src/__tests__/integration/orchestration-logs.test.ts`)
+runs zero tests — `vitest.integration.config.ts`'s `include` is scoped to
+`src/__tests__/integration-live/**/*.test.ts` only; every other file in
+`src/__tests__/integration/` (the 16 referenced by this prompt's own DATABASE CONNECTION section)
+is picked up by the *default* `vitest.config.ts`'s `src/**/*.test.ts` glob and runs via plain
+`pnpm vitest run <path>` / `pnpm test`. This file was written to match the other 16 and is run the
+same way they are.
+
+**Migration applied live, unlike AR-6.1's 188/189:** `DATABASE_URL`/`psql` and the Management API PAT
+were not re-tested (no reason to expect either had come back since AR-6.1 confirmed both dead hours
+earlier the same day), but the authenticated Supabase MCP connector
+(`mcp__claude_ai_Supabase__apply_migration`) worked — same fallback that shipped AR-5.1/AR-5.2.
+Migration 190 is live on project `vbjplpquqxxfbpazyalt`: table created, all 4 indexes present, RLS
+enabled, and `SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'orchestration_logs'`
+confirms exactly one policy — `orchestration_logs_org_isolation`, `SELECT`, `(organization_id =
+current_org_id())`. "DO NOT DEPLOY" was read as "do not `vercel --prod`," not "do not apply an
+additive, non-destructive migration this task's own checkpoint requires to test against a real DB"
+— the same reading implicit in every prior AR-*.* prompt that shipped a migration and a real-DB
+integration test in the same commit.
+
+**Gates, real numbers:** `pnpm typecheck` — 0 errors. `pnpm run build:worker` — 0 errors.
+`pnpm run build` — succeeded, full route manifest emitted. `pnpm vitest run
+src/__tests__/integration/orchestration-logs.test.ts` — 4/4 green (all four checkpoint assertions,
+including the RLS one against the real database). `pnpm test` (full suite) — **107 test files
+passed, 1 skipped, 929 tests passed, 13 todo** (942 total), up from AR-6.1's 106/925/13/938 by
+exactly the one new file and its 4 tests — zero regressions. `node
+scripts/audit/forge-gates/ar-6-org-scoped-tenancy.mjs` — `OK` (this gate already existed in the
+repo before this prompt started and does a literal case-insensitive `company_id` string match
+across every migration numbered ≥185; the first draft of migration 190's own header comment
+*explaining* why the table uses `organization_id` instead tripped it by quoting the rejected term —
+reworded to describe rather than quote it).
+
+---
+
 ## AR-6.1 — Eight orchestration alert types added to the live `alerts` table, no second table (2026-09-17)
 
 **Why this was needed:** the Orchestration Logging and Alerting Specification v1.0 proposed a new

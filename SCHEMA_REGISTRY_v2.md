@@ -1500,6 +1500,45 @@ this note. `pnpm typecheck`/`build`/`test` all pass against the hand-maintained
 
 ---
 
+## `orchestration_logs`: execution facts for one step of one orchestration run (AR-6.2, 2026-09-17)
+
+`public.orchestration_logs`: `id`, `organization_id` (`NOT NULL REFERENCES organizations(id) ON
+DELETE CASCADE`), `orchestration_id` (`uuid NOT NULL`, no FK — groups every row one orchestrator
+call wrote; correction to AR-6.1's `alerts.orchestration_id` note above, which said "no single
+orchestration registry table exists yet" — this is now that table, though `alerts.orchestration_id`
+was not retroactively given an FK to it, since an alert can legitimately reference an orchestration
+that never logged a step), `task_id`, `agent_type`, `agent_run_id` (FK `agent_runs`),
+`pil_agent_run_id` (FK `pil_agent_runs`), `status`, `started_at`/`finished_at`/`duration_ms`,
+`items_expected`/`items_processed`, `error_code`/`error_message`, `schema_validation_passed`/
+`reconciliation_passed` (booleans — not derived from `status`, the two columns this table exists
+for), `state_delta` (jsonb), `cost_log_id` (FK `ai_usage_log`, no `cost_usd` — cost stays the
+AR-5.1 single ledger), `created_at`. Indexes: `(organization_id, created_at DESC)`,
+`(orchestration_id)`, `(status) WHERE status <> 'completed'`, `(agent_run_id)`.
+
+**RLS:** matches the live `public.current_org_id()` master pattern from migration 001 (e.g.
+`agent_runs_org_isolation`), not the `src/supabase/migrations`-only lockdown convention (zero-policy
++ revoke-all is for orphaned tables with no real authenticated reader — this table is meant to be
+read by org members: recovery tooling, dashboards). `REVOKE ALL FROM anon`; one policy,
+`orchestration_logs_org_isolation`, `FOR SELECT USING (organization_id = current_org_id())`. No
+`authenticated` write policy — the worker's service-role client does all writing and bypasses RLS
+regardless, so there is no authenticated write path to close.
+
+**Writer:** `src/lib/orchestration/orchestration-log.ts` is the only code that inserts into this
+table — `logOrchestrationStep()` (redacts `error_message`/`state_delta` before insert: `sk-ant-*`,
+generic `sk-*`/`pk-*`, AWS `AKIA*`, JWT-shaped tokens, `Bearer <token>`, `key/token/secret/password
+= value` pairs, plus full-value redaction by key name) and `runOrchestrationStep()` (times one call,
+writes one row, rethrows unchanged). Wired into `worker/autonomous-orchestrator.ts` at 25 boundary
+functions (16 nightly per-org steps + the single `runQueueItem()` choke point covering all 27
+`routeQueueItem()` cases + `runDigestPipeline()` + 7 of 8 standalone pipelines) — see
+`STATE_OF_THE_BUILD.md`'s "AR-6.2" section for the full list and the one named gap
+(`runSelfImprovementPipeline`/AG-38's dedicated cron entrypoint, which has no owning org by design).
+
+Live-verified via `src/__tests__/integration/orchestration-logs.test.ts` (4/4, real DB including
+the RLS assertion) and applied live to project `vbjplpquqxxfbpazyalt` via the Supabase MCP
+connector — confirmed via `pg_policies`.
+
+---
+
 ## Data Volume Estimates
 
 | Table | Current Records | Target Scale |

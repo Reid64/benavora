@@ -8,11 +8,55 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-6.1: eight orchestration alert types added to the live alerts table, deterministic dedup keys)
+- **Last updated:** 2026-09-17 (AR-6.2: orchestration_logs — org-scoped execution facts with schema and reconciliation evidence)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-6.2: orchestration_logs — org-scoped execution facts, schema/reconciliation evidence)
+
+Prerequisite: AR-6.1 (below) complete. Tenancy check: live schema has 146 `organization_id`
+columns and zero `company_id` — every column/policy below uses `organization_id`.
+
+**Migration 190** creates `public.orchestration_logs` (id, `organization_id NOT NULL REFERENCES
+organizations`, `orchestration_id` (groups one run's steps, no FK), `task_id`, `agent_type`,
+`agent_run_id`/`pil_agent_run_id` FKs, `status`, `started_at`/`finished_at`/`duration_ms`,
+`items_expected`/`items_processed`, `error_code`/`error_message`,
+`schema_validation_passed`/`reconciliation_passed` (the two columns this design exists for — the
+2026-09-16 agent audit's AutoApply `status='submitted'`-with-no-evidence defect is exactly what
+these make falsifiable), `state_delta` jsonb, `cost_log_id` FK to `ai_usage_log` — no `cost_usd`
+column, cost stays the AR-5.1 single ledger). 4 indexes. RLS matches the live
+`current_org_id()` master pattern (migration 001), not the lockdown-only convention: one `SELECT`
+policy for org members, no authenticated write path (service role does all writing).
+
+**Code:** `src/lib/orchestration/orchestration-log.ts` — `logOrchestrationStep()` (typed writer,
+redacts `error_message`/`state_delta` before insert) and `runOrchestrationStep()` (times one call,
+writes exactly one row, rethrows). Wired into `worker/autonomous-orchestrator.ts` at every real
+boundary: the 16 nightly per-org step functions, the single `runQueueItem()` choke point (covers
+all 27 `routeQueueItem()` agent_queue cases), `runDigestPipeline()`, and 7 of the 8 standalone
+pipeline exports (AG-10, AG-23, AG-26, AG-27, AG-36, AG-42, disaster-response's auto-deploy
+branch). **Not instrumented: `runSelfImprovementPipeline()` (AG-38's dedicated cron slot)** —
+`SelfImprovementAgent` writes `agent_runs.organization_id = null` by design (migration 088), and
+`orchestration_logs.organization_id` is `NOT NULL` per this migration's explicit spec; AG-38 is
+still covered when queue-routed (`ag-38-self-improvement` case has a real `org_id`). 51 of 52
+distinct step types across the file now write a row.
+
+**Test:** `src/__tests__/integration/orchestration-logs.test.ts` — 4/4 green against the real
+database (RLS assertion cannot be mocked): writer round-trip, failed-step `error_code` +
+`schema_validation_passed=false`, API-key-shaped `error_message` redacted, cross-org `SELECT`
+returns zero rows for a signed-in user of the other org.
+
+**Migration applied live** via the Supabase MCP connector (`mcp__claude_ai_Supabase__apply_migration`,
+project `vbjplpquqxxfbpazyalt`) — `DATABASE_URL`/psql and the Management API PAT were not re-tried
+(AR-6.1 confirmed both dead hours earlier the same day). Confirmed via `pg_policies`: table live,
+RLS enabled, exactly the one expected policy.
+
+**Gates:** `pnpm typecheck` 0 errors, `pnpm run build:worker` 0 errors, `pnpm run build` succeeded,
+`pnpm test` 107 files / 929 tests passed / 13 todo (942 total) — up from AR-6.1's 106/925/13/938 by
+exactly the one new file and its 4 tests, zero regressions.
+
+See `STATE_OF_THE_BUILD.md`'s "AR-6.2" section for the full boundary-by-boundary rationale.
 
 ## Session — 2026-09-17 (AR-6.1: extend alerts with orchestration types, not a second table)
 

@@ -644,6 +644,34 @@ those three) and is out of scope for this migration. Full detail in `SCHEMA_REGI
 
 ---
 
+## `orchestration_logs` gives every orchestrator step a falsifiable success claim (AR-6.2, 2026-09-17)
+
+`worker/autonomous-orchestrator.ts` now writes one `public.orchestration_logs` row per step attempt
+at 25 boundary points, covering 51 of 52 distinct step types in the file: the 16 nightly per-org
+sweep steps, all 27 `agent_queue`-routed agent types (one shared wrapper around `routeQueueItem()`),
+`AutonomousDigestAgent`, and 7 of the 8 standalone scheduler.ts pipelines (AG-10, AG-23, AG-26,
+AG-27, AG-36, AG-42, disaster-response's auto-deploy branch). **Any new agent wired into this
+orchestrator must call `runOrchestrationStep()` from `src/lib/orchestration/orchestration-log.ts` at
+its call site** — do not add a raw `orchestration_logs` insert, and do not add a new dynamic-import
+dispatch path that bypasses both `runOrgPipeline()`'s step list and `routeQueueItem()`.
+
+`schema_validation_passed` and `reconciliation_passed` are booleans set by the caller, not derived
+from `status` — a step can complete (`status='completed'`) with `schema_validation_passed=false` if
+it produced output that didn't pass its own evidence check (the AutoApply
+`status='submitted'`-with-no-confirmation-number defect from the 2026-09-16 agent audit is exactly
+the failure mode this pair of columns exists to make visible). Nothing in this table's writer
+infers these from `status` automatically — an agent that wants real evidence-validation tracking
+must set `schemaValidationPassed`/`reconciliationPassed` explicitly via `toOutcome` when it calls
+`runOrchestrationStep()`.
+
+**Named gap:** `runSelfImprovementPipeline()` (AG-38's dedicated 4:00 AM CST cron entrypoint) does
+not write to `orchestration_logs` — `SelfImprovementAgent` runs with `agent_runs.organization_id =
+null` by design (migration 088), and this table's `organization_id` is `NOT NULL`. AG-38 is still
+covered when it runs via `agent_queue` instead (`ag-38-self-improvement` case has a real `org_id`
+from the queue row). Full boundary-by-boundary detail in `STATE_OF_THE_BUILD.md`'s "AR-6.2" section.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

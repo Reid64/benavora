@@ -137,6 +137,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DraftTemplateType } from '../src/types/ai.js';
 import type { FunderRelationshipEvent } from '../src/lib/agents/funder-relationship.js';
+import { runOrchestrationStep } from '../src/lib/orchestration/orchestration-log.js';
+
+// Synthetic platform-level organizations rows each agent provisions for
+// itself so agent_runs/agent_decisions have a real FK target while running
+// unscoped (see each agent file's own header). Duplicated here as literals,
+// not a static top-level import of the agent modules, to preserve this
+// file's existing lazy dynamic-import loading of every agent class.
+const AG36_SYSTEM_ORG_ID = '00000000-0000-4000-8000-000000000036';
+const AG42_SYSTEM_ORG_ID = '00000000-0000-4000-8000-000000000042';
 
 const SLEEP_BETWEEN_ORGS_MS = 2_000;
 const QUEUE_POLL_EMPTY_MS = 30_000;
@@ -346,13 +355,19 @@ async function insertAlert(
 async function runDiscoveryStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
     const { runOpportunityDiscovery } = await import(
       '../src/lib/agents/opportunity-discovery-agent.js'
     );
-    const result = await runOpportunityDiscovery(orgId, supabase);
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'discovery' },
+      () => runOpportunityDiscovery(orgId, supabase),
+      (r) => ({ itemsExpected: r.itemsFound, itemsProcessed: r.itemsProcessed }),
+    );
     log.push(`discovery: ${result.itemsFound} matched / ${result.itemsProcessed} found`);
     return result.itemsFound > 0;
   } catch (err) {
@@ -364,38 +379,47 @@ async function runDiscoveryStep(
 async function runEligibilityScoringStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { EligibilityScorer } = await import(
-      '../src/lib/agents/eligibility-scorer.js'
-    );
-    const { data: opps } = await supabase
-      .from('opportunities')
-      .select('id')
-      .eq('organization_id', orgId)
-      .eq('status', 'open')
-      .is('eligibility_score', null)
-      .limit(MAX_ITEMS_PER_STEP);
+    const processed = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'eligibility_scoring' },
+      async () => {
+        const { EligibilityScorer } = await import(
+          '../src/lib/agents/eligibility-scorer.js'
+        );
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('status', 'open')
+          .is('eligibility_score', null)
+          .limit(MAX_ITEMS_PER_STEP);
 
-    let processed = 0;
-    for (const opp of opps ?? []) {
-      try {
-        const agent = new EligibilityScorer({
-          client: supabase,
-          organizationId: orgId,
-          triggeredBy: null,
-        });
-        await agent.run({ opportunityId: opp.id as string });
-        processed += 1;
-      } catch (err) {
-        log.push(`eligibility_scoring[${opp.id}]: FAILED - ${errMsg(err)}`);
-      }
-    }
-    log.push(
-      `eligibility_scoring: ${processed}/${(opps ?? []).length} scored`,
+        let count = 0;
+        for (const opp of opps ?? []) {
+          try {
+            const agent = new EligibilityScorer({
+              client: supabase,
+              organizationId: orgId,
+              triggeredBy: null,
+            });
+            await agent.run({ opportunityId: opp.id as string });
+            count += 1;
+          } catch (err) {
+            log.push(`eligibility_scoring[${opp.id}]: FAILED - ${errMsg(err)}`);
+          }
+        }
+        log.push(
+          `eligibility_scoring: ${count}/${(opps ?? []).length} scored`,
+        );
+        return { count, total: (opps ?? []).length };
+      },
+      (r) => ({ itemsExpected: r.total, itemsProcessed: r.count }),
     );
-    return processed > 0;
+    return processed.count > 0;
   } catch (err) {
     log.push(`eligibility_scoring: FAILED to load - ${errMsg(err)}`);
     return false;
@@ -405,37 +429,46 @@ async function runEligibilityScoringStep(
 async function runProbabilityScoringStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { SuccessProbabilityAgent } = await import(
-      '../src/lib/agents/success-probability.js'
-    );
-    const { data: apps } = await supabase
-      .from('applications')
-      .select('id')
-      .eq('organization_id', orgId)
-      .not('stage', 'in', '(submitted,awarded,denied,reporting_required)')
-      .limit(MAX_ITEMS_PER_STEP);
+    const processed = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'probability_scoring' },
+      async () => {
+        const { SuccessProbabilityAgent } = await import(
+          '../src/lib/agents/success-probability.js'
+        );
+        const { data: apps } = await supabase
+          .from('applications')
+          .select('id')
+          .eq('organization_id', orgId)
+          .not('stage', 'in', '(submitted,awarded,denied,reporting_required)')
+          .limit(MAX_ITEMS_PER_STEP);
 
-    let processed = 0;
-    for (const app of apps ?? []) {
-      try {
-        const agent = new SuccessProbabilityAgent({
-          client: supabase,
-          organizationId: orgId,
-          triggeredBy: null,
-        });
-        await agent.run({ applicationId: app.id as string });
-        processed += 1;
-      } catch (err) {
-        log.push(`probability_scoring[${app.id}]: FAILED - ${errMsg(err)}`);
-      }
-    }
-    log.push(
-      `probability_scoring: ${processed}/${(apps ?? []).length} scored`,
+        let count = 0;
+        for (const app of apps ?? []) {
+          try {
+            const agent = new SuccessProbabilityAgent({
+              client: supabase,
+              organizationId: orgId,
+              triggeredBy: null,
+            });
+            await agent.run({ applicationId: app.id as string });
+            count += 1;
+          } catch (err) {
+            log.push(`probability_scoring[${app.id}]: FAILED - ${errMsg(err)}`);
+          }
+        }
+        log.push(
+          `probability_scoring: ${count}/${(apps ?? []).length} scored`,
+        );
+        return { count, total: (apps ?? []).length };
+      },
+      (r) => ({ itemsExpected: r.total, itemsProcessed: r.count }),
     );
-    return processed > 0;
+    return processed.count > 0;
   } catch (err) {
     log.push(`probability_scoring: FAILED to load - ${errMsg(err)}`);
     return false;
@@ -445,10 +478,31 @@ async function runProbabilityScoringStep(
 async function runDraftGenerationStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   config: OrgAutonomousConfig,
   log: string[],
 ): Promise<boolean> {
   try {
+    const processed = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'draft_generation' },
+      () => runDraftGenerationWork(supabase, orgId, config, log),
+      (r) => ({ itemsExpected: r.total, itemsProcessed: r.count }),
+    );
+    return processed.count > 0;
+  } catch (err) {
+    log.push(`draft_generation: FAILED to load - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runDraftGenerationWork(
+  supabase: SupabaseClient,
+  orgId: string,
+  config: OrgAutonomousConfig,
+  log: string[],
+): Promise<{ count: number; total: number }> {
+  {
     const { generateDraft } = await import('../src/lib/drafts/generator.js');
     const cap =
       config.max_auto_drafts_per_night > 0
@@ -467,7 +521,7 @@ async function runDraftGenerationStep(
     const oppList = opps ?? [];
     if (oppList.length === 0) {
       log.push('draft_generation: no qualifying opportunities');
-      return false;
+      return { count: 0, total: 0 };
     }
 
     const oppIds = oppList.map((o) => o.id as string);
@@ -529,66 +583,72 @@ async function runDraftGenerationStep(
     log.push(
       `draft_generation: ${processed}/${candidates.length} drafted (${oppList.length} qualifying)`,
     );
-    return processed > 0;
-  } catch (err) {
-    log.push(`draft_generation: FAILED to load - ${errMsg(err)}`);
-    return false;
+    return { count: processed, total: candidates.length };
   }
 }
 
 async function runReputationStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { checkEntityReputation } = await import(
-      '../src/lib/intelligence/reputation-agent.js'
-    );
-    const { data: funders } = await supabase
-      .from('funders')
-      .select('id, name')
-      .eq('organization_id', orgId)
-      .limit(REPUTATION_SAMPLE_SIZE);
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'reputation' },
+      async () => {
+        const { checkEntityReputation } = await import(
+          '../src/lib/intelligence/reputation-agent.js'
+        );
+        const { data: funders } = await supabase
+          .from('funders')
+          .select('id, name')
+          .eq('organization_id', orgId)
+          .limit(REPUTATION_SAMPLE_SIZE);
 
-    let signalCount = 0;
-    for (const funder of funders ?? []) {
-      try {
-        const signals = (await checkEntityReputation(
-          funder.id as string,
-          'funder',
-          (funder.name as string) ?? '',
-          supabase,
-        )) as Array<{ id: string; severity: string }>;
+        let signalCount = 0;
+        for (const funder of funders ?? []) {
+          try {
+            const signals = (await checkEntityReputation(
+              funder.id as string,
+              'funder',
+              (funder.name as string) ?? '',
+              supabase,
+            )) as Array<{ id: string; severity: string }>;
 
-        for (const signal of signals) {
-          await supabase.from('reputation_alerts').insert({
-            org_id: orgId,
-            signal_id: signal.id,
-            status: 'unread',
-          });
-          // AGENTS_v2.md AG-18: send an immediate notice for RED/ORANGE
-          // (critical/high) severity signals.
-          if (signal.severity === 'critical' || signal.severity === 'high') {
-            await insertAlert(supabase, {
-              organizationId: orgId,
-              type: 'system',
-              severity: 'critical',
-              message: `Reputation risk detected for funder "${
-                (funder.name as string) ?? 'Unknown'
-              }".`,
-            });
+            for (const signal of signals) {
+              await supabase.from('reputation_alerts').insert({
+                org_id: orgId,
+                signal_id: signal.id,
+                status: 'unread',
+              });
+              // AGENTS_v2.md AG-18: send an immediate notice for RED/ORANGE
+              // (critical/high) severity signals.
+              if (signal.severity === 'critical' || signal.severity === 'high') {
+                await insertAlert(supabase, {
+                  organizationId: orgId,
+                  type: 'system',
+                  severity: 'critical',
+                  message: `Reputation risk detected for funder "${
+                    (funder.name as string) ?? 'Unknown'
+                  }".`,
+                });
+              }
+              signalCount += 1;
+            }
+          } catch (err) {
+            log.push(`reputation[${funder.id}]: FAILED - ${errMsg(err)}`);
           }
-          signalCount += 1;
         }
-      } catch (err) {
-        log.push(`reputation[${funder.id}]: FAILED - ${errMsg(err)}`);
-      }
-    }
-    log.push(
-      `reputation: ${signalCount} signal(s) from ${(funders ?? []).length} funder(s) checked`,
+        log.push(
+          `reputation: ${signalCount} signal(s) from ${(funders ?? []).length} funder(s) checked`,
+        );
+        return { signalCount, funderCount: (funders ?? []).length };
+      },
+      (r) => ({ itemsExpected: r.funderCount, itemsProcessed: r.signalCount }),
     );
-    return signalCount > 0;
+    return result.signalCount > 0;
   } catch (err) {
     log.push(`reputation: FAILED to load - ${errMsg(err)}`);
     return false;
@@ -598,18 +658,25 @@ async function runReputationStep(
 async function runDeadlinePredictionStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { DeadlinePredictionAgent } = await import(
-      '../src/lib/agents/deadline-prediction.js'
+    const outcome = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'deadline_prediction' },
+      async () => {
+        const { DeadlinePredictionAgent } = await import(
+          '../src/lib/agents/deadline-prediction.js'
+        );
+        const agent = new DeadlinePredictionAgent({
+          client: supabase,
+          organizationId: orgId,
+          triggeredBy: null,
+        });
+        return agent.run({});
+      },
     );
-    const agent = new DeadlinePredictionAgent({
-      client: supabase,
-      organizationId: orgId,
-      triggeredBy: null,
-    });
-    const outcome = await agent.run({});
     log.push(`deadline_prediction: completed (tokens=${outcome.tokensUsed})`);
     return true;
   } catch (err) {
@@ -621,14 +688,22 @@ async function runDeadlinePredictionStep(
 async function runRenewalTrackerStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { RenewalTrackerAgent } = await import(
-      '../src/lib/agents/renewal-tracker-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'renewal_tracker' },
+      async () => {
+        const { RenewalTrackerAgent } = await import(
+          '../src/lib/agents/renewal-tracker-agent.js'
+        );
+        const agent = new RenewalTrackerAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsQueued }),
     );
-    const agent = new RenewalTrackerAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(`renewal_tracker: ${result.itemsQueued} renewal(s) created`);
     return result.itemsQueued > 0;
   } catch (err) {
@@ -640,14 +715,22 @@ async function runRenewalTrackerStep(
 async function runOutcomeAnalyzerStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { OutcomeAnalyzerAgent } = await import(
-      '../src/lib/agents/outcome-analyzer-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'outcome_analyzer' },
+      async () => {
+        const { OutcomeAnalyzerAgent } = await import(
+          '../src/lib/agents/outcome-analyzer-agent.js'
+        );
+        const agent = new OutcomeAnalyzerAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new OutcomeAnalyzerAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(`outcome_analyzer: ${result.itemsProcessed} outcome(s) analyzed`);
     return result.itemsProcessed > 0;
   } catch (err) {
@@ -659,14 +742,22 @@ async function runOutcomeAnalyzerStep(
 async function runDocumentExpiryStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { DocumentExpiryAgent } = await import(
-      '../src/lib/agents/document-expiry-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'document_expiry' },
+      async () => {
+        const { DocumentExpiryAgent } = await import(
+          '../src/lib/agents/document-expiry-agent.js'
+        );
+        const agent = new DocumentExpiryAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsQueued }),
     );
-    const agent = new DocumentExpiryAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(`document_expiry: ${result.itemsQueued} document(s) notified`);
     return result.itemsQueued > 0;
   } catch (err) {
@@ -678,14 +769,22 @@ async function runDocumentExpiryStep(
 async function runKnowledgeGapStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { KnowledgeGapAgent } = await import(
-      '../src/lib/agents/knowledge-gap-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'knowledge_gap' },
+      async () => {
+        const { KnowledgeGapAgent } = await import(
+          '../src/lib/agents/knowledge-gap-agent.js'
+        );
+        const agent = new KnowledgeGapAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsQueued }),
     );
-    const agent = new KnowledgeGapAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(`knowledge_gap: ${result.itemsQueued} gap(s) identified`);
     return result.itemsQueued > 0;
   } catch (err) {
@@ -697,14 +796,22 @@ async function runKnowledgeGapStep(
 async function runSearchProfileOptimizerStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { SearchProfileOptimizerAgent } = await import(
-      '../src/lib/agents/search-profile-optimizer-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'search_optimizer' },
+      async () => {
+        const { SearchProfileOptimizerAgent } = await import(
+          '../src/lib/agents/search-profile-optimizer-agent.js'
+        );
+        const agent = new SearchProfileOptimizerAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsQueued }),
     );
-    const agent = new SearchProfileOptimizerAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(
       `search_optimizer: ${result.itemsQueued} profile(s) flagged underperforming`,
     );
@@ -718,14 +825,22 @@ async function runSearchProfileOptimizerStep(
 async function runStrategicAdvisorStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { StrategicAdvisorAgent } = await import(
-      '../src/lib/agents/strategic-advisor-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'strategic_advisor' },
+      async () => {
+        const { StrategicAdvisorAgent } = await import(
+          '../src/lib/agents/strategic-advisor-agent.js'
+        );
+        const agent = new StrategicAdvisorAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new StrategicAdvisorAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(
       `strategic_advisor: ${result.itemsProcessed} recommendation(s) generated`,
     );
@@ -739,14 +854,22 @@ async function runStrategicAdvisorStep(
 async function runFundabilityScorerStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { FundabilityScorerAgent } = await import(
-      '../src/lib/agents/fundability-scorer-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'fundability_scorer' },
+      async () => {
+        const { FundabilityScorerAgent } = await import(
+          '../src/lib/agents/fundability-scorer-agent.js'
+        );
+        const agent = new FundabilityScorerAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsExpected: r.itemsFound, itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new FundabilityScorerAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(
       `fundability_scorer: ${result.itemsProcessed}/${result.itemsFound} opportunity(ies) scored`,
     );
@@ -760,14 +883,22 @@ async function runFundabilityScorerStep(
 async function runDonorIntentStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { DonorIntentMonitorAgent } = await import(
-      '../src/lib/agents/donor-intent-monitor-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'donor_intent' },
+      async () => {
+        const { DonorIntentMonitorAgent } = await import(
+          '../src/lib/agents/donor-intent-monitor-agent.js'
+        );
+        const agent = new DonorIntentMonitorAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsExpected: r.itemsFound, itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new DonorIntentMonitorAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(
       `donor_intent: ${result.itemsQueued} signal(s) from ${result.itemsProcessed}/${result.itemsFound} prospect(s)`,
     );
@@ -781,14 +912,22 @@ async function runDonorIntentStep(
 async function runCommunityNeedStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { CommunityNeedPredictorAgent } = await import(
-      '../src/lib/agents/community-need-predictor-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'community_need' },
+      async () => {
+        const { CommunityNeedPredictorAgent } = await import(
+          '../src/lib/agents/community-need-predictor-agent.js'
+        );
+        const agent = new CommunityNeedPredictorAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new CommunityNeedPredictorAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(`community_need: ${result.itemsProcessed} need signal(s) recorded`);
     return result.itemsProcessed > 0;
   } catch (err) {
@@ -800,14 +939,22 @@ async function runCommunityNeedStep(
 async function runRoiOptimizerStep(
   supabase: SupabaseClient,
   orgId: string,
+  orchestrationId: string,
   log: string[],
 ): Promise<boolean> {
   try {
-    const { RoiOptimizerAgent } = await import(
-      '../src/lib/agents/roi-optimizer-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      { organizationId: orgId, orchestrationId, taskId: 'roi_optimizer' },
+      async () => {
+        const { RoiOptimizerAgent } = await import(
+          '../src/lib/agents/roi-optimizer-agent.js'
+        );
+        const agent = new RoiOptimizerAgent(orgId, supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new RoiOptimizerAgent(orgId, supabase);
-    const result = await agent.run('schedule');
     log.push(`roi_optimizer: ${result.itemsProcessed} insight(s) computed`);
     return result.itemsProcessed > 0;
   } catch (err) {
@@ -837,6 +984,11 @@ async function runOrgPipeline(
     .select('id')
     .single();
   const runId = (runRow?.id as string | undefined) ?? null;
+  // Groups every orchestration_logs row this org's nightly sweep writes —
+  // one orchestration_id per runOrgPipeline() call, minted even when
+  // agent_runs insert above failed (runId null), since step logging must
+  // not depend on that insert having succeeded.
+  const orchestrationId = crypto.randomUUID();
 
   const log: string[] = [];
   let hadActivity = false;
@@ -845,59 +997,59 @@ async function runOrgPipeline(
   // -> draft_generation -> reputation -> relationship -> deadline_prediction
   // -> renewal_tracker -> document_expiry -> knowledge_gap -> search_optimizer.
   if (config.auto_research_enabled) {
-    hadActivity = (await runDiscoveryStep(supabase, org.id, log)) || hadActivity;
+    hadActivity = (await runDiscoveryStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   }
   if (config.auto_score_enabled) {
     hadActivity =
-      (await runEligibilityScoringStep(supabase, org.id, log)) || hadActivity;
+      (await runEligibilityScoringStep(supabase, org.id, orchestrationId, log)) || hadActivity;
     hadActivity =
-      (await runProbabilityScoringStep(supabase, org.id, log)) || hadActivity;
+      (await runProbabilityScoringStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   }
   if (config.auto_draft_enabled) {
     hadActivity =
-      (await runDraftGenerationStep(supabase, org.id, config, log)) ||
+      (await runDraftGenerationStep(supabase, org.id, orchestrationId, config, log)) ||
       hadActivity;
   }
   if (config.auto_reputation_enabled) {
-    hadActivity = (await runReputationStep(supabase, org.id, log)) || hadActivity;
+    hadActivity = (await runReputationStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   }
   // relationship (FunderRelationshipAgent): deterministic score delta for one
   // specific event against one funder — no meaningful blind nightly call.
   // Queue-routed only; see routeQueueItem() below.
   if (config.auto_deadline_prediction_enabled) {
     hadActivity =
-      (await runDeadlinePredictionStep(supabase, org.id, log)) || hadActivity;
+      (await runDeadlinePredictionStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   }
 
   // AG-08..AG-12: no per-agent toggle or cron slot exists (see file header) —
   // all run inside this same nightly sweep, cadence approximated by calendar
   // day. document_expiry is nightly; the rest gate on the 1st of the month
   // or Sunday.
-  hadActivity = (await runDocumentExpiryStep(supabase, org.id, log)) || hadActivity;
+  hadActivity = (await runDocumentExpiryStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   // AG-29/AG-30: same no-toggle nightly precedent as AG-08..AG-12 above.
   hadActivity =
-    (await runFundabilityScorerStep(supabase, org.id, log)) || hadActivity;
-  hadActivity = (await runDonorIntentStep(supabase, org.id, log)) || hadActivity;
+    (await runFundabilityScorerStep(supabase, org.id, orchestrationId, log)) || hadActivity;
+  hadActivity = (await runDonorIntentStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   if (isFirstOfMonthChicago()) {
     hadActivity =
-      (await runRenewalTrackerStep(supabase, org.id, log)) || hadActivity;
+      (await runRenewalTrackerStep(supabase, org.id, orchestrationId, log)) || hadActivity;
     hadActivity =
-      (await runSearchProfileOptimizerStep(supabase, org.id, log)) ||
+      (await runSearchProfileOptimizerStep(supabase, org.id, orchestrationId, log)) ||
       hadActivity;
     // AG-35/AG-39: monthly cadence matches their own design (Community Need's
     // underlying public data sources update monthly; ROI Optimizer's
     // correlation pass is designed as a monthly analysis run).
     hadActivity =
-      (await runCommunityNeedStep(supabase, org.id, log)) || hadActivity;
-    hadActivity = (await runRoiOptimizerStep(supabase, org.id, log)) || hadActivity;
+      (await runCommunityNeedStep(supabase, org.id, orchestrationId, log)) || hadActivity;
+    hadActivity = (await runRoiOptimizerStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   }
   if (isSundayChicago()) {
     hadActivity =
-      (await runOutcomeAnalyzerStep(supabase, org.id, log)) || hadActivity;
+      (await runOutcomeAnalyzerStep(supabase, org.id, orchestrationId, log)) || hadActivity;
     hadActivity =
-      (await runKnowledgeGapStep(supabase, org.id, log)) || hadActivity;
+      (await runKnowledgeGapStep(supabase, org.id, orchestrationId, log)) || hadActivity;
     hadActivity =
-      (await runStrategicAdvisorStep(supabase, org.id, log)) || hadActivity;
+      (await runStrategicAdvisorStep(supabase, org.id, orchestrationId, log)) || hadActivity;
   }
 
   if (runId) {
@@ -978,11 +1130,22 @@ export async function runDigestPipeline(supabase: SupabaseClient): Promise<void>
 
   for (const org of orgs) {
     try {
-      const { AutonomousDigestAgent } = await import(
-        '../src/lib/agents/autonomous-digest-agent.js'
+      await runOrchestrationStep(
+        supabase,
+        {
+          organizationId: org.id,
+          orchestrationId: crypto.randomUUID(),
+          taskId: 'morning_digest',
+          agentType: 'autonomous_digest',
+        },
+        async () => {
+          const { AutonomousDigestAgent } = await import(
+            '../src/lib/agents/autonomous-digest-agent.js'
+          );
+          const agent = new AutonomousDigestAgent(org.id, supabase);
+          return agent.run('schedule');
+        },
       );
-      const agent = new AutonomousDigestAgent(org.id, supabase);
-      await agent.run('schedule');
     } catch (err) {
       console.error(
         `[AutonomousOrchestrator] Digest agent failed for org ${org.id}:`,
@@ -1048,11 +1211,23 @@ export async function runLearningNetworkPipeline(
 
   console.log('[AutonomousOrchestrator] AG-36 learning network pipeline starting.');
   try {
-    const { LearningNetworkAggregatorAgent } = await import(
-      '../src/lib/agents/learning-network-aggregator-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      {
+        organizationId: AG36_SYSTEM_ORG_ID,
+        orchestrationId: crypto.randomUUID(),
+        taskId: 'learning_network',
+        agentType: 'ag-36-learning-network',
+      },
+      async () => {
+        const { LearningNetworkAggregatorAgent } = await import(
+          '../src/lib/agents/learning-network-aggregator-agent.js'
+        );
+        const agent = new LearningNetworkAggregatorAgent(supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsExpected: r.itemsFound, itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new LearningNetworkAggregatorAgent(supabase);
-    const result = await agent.run('schedule');
     console.log(
       `[AutonomousOrchestrator] AG-36 complete: ${result.itemsProcessed}/${result.itemsFound} pattern(s) aggregated, success=${result.success}.`,
     );
@@ -1076,11 +1251,23 @@ export async function runChangeMonitorDailyPipeline(
 ): Promise<void> {
   console.log('[AutonomousOrchestrator] AG-42 change monitor daily pipeline starting.');
   try {
-    const { ChangeMonitorAgent } = await import(
-      '../src/lib/agents/change-monitor-agent.js'
+    const result = await runOrchestrationStep(
+      supabase,
+      {
+        organizationId: AG42_SYSTEM_ORG_ID,
+        orchestrationId: crypto.randomUUID(),
+        taskId: 'change_monitor',
+        agentType: 'ag-42-change-monitor',
+      },
+      async () => {
+        const { ChangeMonitorAgent } = await import(
+          '../src/lib/agents/change-monitor-agent.js'
+        );
+        const agent = new ChangeMonitorAgent(supabase);
+        return agent.run('schedule');
+      },
+      (r) => ({ itemsExpected: r.itemsFound, itemsProcessed: r.itemsProcessed }),
     );
-    const agent = new ChangeMonitorAgent(supabase);
-    const result = await agent.run('schedule');
     console.log(
       `[AutonomousOrchestrator] AG-42 complete: ${result.itemsProcessed}/${result.itemsFound} entity(s) checked, ` +
         `success=${result.success}.`,
@@ -1183,7 +1370,16 @@ export async function runDisasterResponsePipeline(
           `affects ${affectedStates.join(', ')}, matching org ${org.name ?? org.id}'s service state.`;
 
         if (autoDeployEnabled) {
-          const result = await deployDisasterResponse(declarationId, org.id, supabase);
+          const result = await runOrchestrationStep(
+            supabase,
+            {
+              organizationId: org.id,
+              orchestrationId: crypto.randomUUID(),
+              taskId: 'disaster_response',
+              agentType: 'ag-25-disaster-response',
+            },
+            () => deployDisasterResponse(declarationId, org.id, supabase),
+          );
           await supabase.from('agent_decisions').insert({
             org_id: org.id,
             agent_id: 'ag-25-disaster-response',
@@ -1267,8 +1463,20 @@ export async function runGrantDnaWeeklyPipeline(
 
   for (const org of orgs) {
     try {
-      const agent = new GrantDnaAgent(org.id, supabase);
-      const result = await agent.run('schedule');
+      const result = await runOrchestrationStep(
+        supabase,
+        {
+          organizationId: org.id,
+          orchestrationId: crypto.randomUUID(),
+          taskId: 'grant_dna',
+          agentType: 'ag-10-grant-dna',
+        },
+        () => {
+          const agent = new GrantDnaAgent(org.id, supabase);
+          return agent.run('schedule');
+        },
+        (r) => ({ itemsExpected: r.itemsFound, itemsProcessed: r.itemsProcessed }),
+      );
       console.log(
         `[AutonomousOrchestrator] AG-10 org ${org.id} complete: ${result.itemsProcessed}/${result.itemsFound} profile(s) updated, success=${result.success}.`,
       );
@@ -1319,8 +1527,20 @@ export async function runFundingForecastMonthlyPipeline(
 
   for (const org of orgs) {
     try {
-      const agent = new FundingForecastAgent(org.id, supabase);
-      const result = await agent.run('schedule');
+      const result = await runOrchestrationStep(
+        supabase,
+        {
+          organizationId: org.id,
+          orchestrationId: crypto.randomUUID(),
+          taskId: 'funding_forecast',
+          agentType: 'ag-26-funding-forecast',
+        },
+        () => {
+          const agent = new FundingForecastAgent(org.id, supabase);
+          return agent.run('schedule');
+        },
+        (r) => ({ itemsProcessed: r.itemsProcessed }),
+      );
       console.log(
         `[AutonomousOrchestrator] AG-26 org ${org.id} complete: ${result.itemsProcessed} row-set(s) written, success=${result.success}.`,
       );
@@ -1475,8 +1695,21 @@ export async function runRelationshipGraphIncrementalPipeline(
 
   for (const [orgId, boardMemberIds] of scopeByOrg) {
     try {
-      const agent = new RelationshipGraphBuilderAgent(orgId, supabase);
-      const result = await agent.run('schedule', boardMemberIds);
+      const result = await runOrchestrationStep(
+        supabase,
+        {
+          organizationId: orgId,
+          orchestrationId: crypto.randomUUID(),
+          taskId: 'relationship_graph',
+          agentType: 'ag-23-relationship-graph',
+          itemsExpected: boardMemberIds.length,
+        },
+        () => {
+          const agent = new RelationshipGraphBuilderAgent(orgId, supabase);
+          return agent.run('schedule', boardMemberIds);
+        },
+        (r) => ({ itemsProcessed: r.itemsProcessed }),
+      );
       console.log(
         `[AutonomousOrchestrator] AG-23 org ${orgId} complete: ${boardMemberIds.length} board member(s) scoped, ` +
           `${result.itemsProcessed}/${result.itemsFound} item(s) processed, success=${result.success}.`,
@@ -1605,8 +1838,21 @@ export async function runBoardPacketDailyPipeline(
 
   for (const [orgId, meetingIds] of scopeByOrg) {
     try {
-      const agent = new BoardPacketAgent(orgId, supabase);
-      const result = await agent.run('schedule', meetingIds);
+      const result = await runOrchestrationStep(
+        supabase,
+        {
+          organizationId: orgId,
+          orchestrationId: crypto.randomUUID(),
+          taskId: 'board_packet',
+          agentType: 'ag-27-board-packet',
+          itemsExpected: meetingIds.length,
+        },
+        () => {
+          const agent = new BoardPacketAgent(orgId, supabase);
+          return agent.run('schedule', meetingIds);
+        },
+        (r) => ({ itemsProcessed: r.itemsProcessed }),
+      );
       console.log(
         `[AutonomousOrchestrator] AG-27 org ${orgId} complete: ${meetingIds.length} meeting(s) scoped, ` +
           `${result.itemsProcessed}/${result.itemsFound} packet(s) written, success=${result.success}.`,
@@ -2115,7 +2361,16 @@ async function runQueueItem(
   item: AgentQueueRow,
 ): Promise<void> {
   try {
-    const summary = await routeQueueItem(supabase, item);
+    const summary = await runOrchestrationStep(
+      supabase,
+      {
+        organizationId: item.org_id,
+        orchestrationId: crypto.randomUUID(),
+        taskId: item.id,
+        agentType: item.agent_id,
+      },
+      () => routeQueueItem(supabase, item),
+    );
     await supabase
       .from('agent_queue')
       .update({
