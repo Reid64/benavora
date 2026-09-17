@@ -1,5 +1,150 @@
 # Benavora Platform Build State
 
+## AR-6.4 — Worker-side Slack delivery, verified model rate card, RLS-safe dashboard views (2026-09-17)
+
+**Part A — delivery moved out of SQL and into the worker.** `pg_net`, `pg_cron`, and `http` are
+confirmed not installed on this project (`pg_extension` queried directly), and `supabase/functions`
+does not exist in this repo — the spec's Edge Function is unbuildable as written and SQL cannot reach
+Slack at all. `worker/alert-notifier.ts` is a new interval-loop module, wired into `worker/index.ts`
+alongside the existing set (`queueProcessor`, `stuckRunWatchdog`, etc. — same `start()`/`stop()`/
+`waitForIdle()` shape, same shutdown-sequence slot). It polls `public.alerts` for
+`severity = 'critical' AND notified_at IS NULL` (the column AR-6.1 added specifically for this),
+oldest first, batched at 20, and POSTs a compact message to `process.env.FORGE_SLACK_WEBHOOK` — the
+existing convention (`forge-slack.ps1` reads the same var and no-ops when unset); mirrored rather than
+provisioning a second webhook. `notified_at` is set only after a 2xx response, so a failed post
+retries and a successful one is never re-sent (the query itself excludes it next poll). Message text
+goes through `redactSecrets()` from `src/lib/orchestration/orchestration-log.ts` (AR-6.2) before it
+ever leaves the process — reused, not reimplemented, so there is exactly one redaction pattern list in
+this codebase, not two.
+
+**A production-data incident during test authoring, caught and reverted before it could ship.**
+The first draft of `src/__tests__/integration/alert-delivery.test.ts` called the real, unscoped
+`pollOnce(service)` against the live database to exercise delivery idempotency. `pollOnce`'s
+production query is deliberately global — the worker must service every org's pending critical
+alerts in one batch, not just a test org's — so calling it live picked up **39 genuine, pre-existing
+production alerts** (real deadline/cost-overage/schema-mismatch/task-failure rows across several real
+orgs) and set their `notified_at` to a timestamp, pointing at a fake test webhook that never reached
+Slack. Caught immediately via a live `SELECT ... WHERE notified_at > now() - interval '20 minutes'`
+query (39 rows, none belonging to a test org, all with realistic production content — e.g. real NOFO
+deadline names), reverted with a single `UPDATE ... SET notified_at = NULL WHERE id IN (...)` against
+those exact 39 ids, and confirmed clean (`count(*) WHERE notified_at IS NOT NULL` → 0) before
+continuing. **Fix, not just a revert:** `pollOnce()` gained an optional `organizationId` scoping
+parameter, used only by tests — every production call site (`worker/index.ts` via the
+`AlertNotifier` class) still calls it unscoped. This is the reason the delivery tests below poll a
+single throwaway org rather than the shared live table.
+
+**Part B — the rate card is verified against a live fetch, not copied from the spec or recalled from
+training data.** The spec's card (dated September 2025, `claude-opus-4`/`claude-sonnet-4`) is not
+used — neither model id has any reference in `src/` or `worker/` (grep, 2026-09-17: 0 hits for both,
+vs. 41 for `claude-sonnet-4-6`, 5 for `claude-haiku-4-5-20251001`, 1 for `claude-haiku-4-5`).
+`public.model_cost_reference` (migration 192) is seeded with those three plus `claude-sonnet-5` and
+`claude-opus-5` (not yet called from this repo, priced ahead of adoption). Every rate was checked live
+against `https://claude.com/pricing` via WebFetch during this session — this caught a real discrepancy
+before it could ship: cached knowledge suggested Sonnet 5's $2/$10 rate was introductory pricing that
+expired 2026-08-31 (17 days before this build), which would have made the task-provided figures stale
+on arrival — the same failure mode this whole part exists to prevent. The live page shows $2/$10 with
+no expiration mentioned; it is Sonnet 5's standard rate, not an expired intro rate. All five rows
+(input/output/cache-write-5m/cache-read, confirmed to the cent) matched the task's provided figures
+exactly once verified live. `source` records the URL and `effective_from` records 2026-09-17 per row,
+not a static doc reference. `cache_write_usd_per_mtok` holds the 5-minute-TTL rate (1.25x input); the
+1-hour-TTL rate (2x input) is a `COMMENT ON COLUMN`, not a second column. A new test (see below) fails
+if any row's `effective_from` is older than 180 days, so this table cannot silently rot the way the
+spec's own card had.
+
+**Part C — five views, all `security_invoker = true`, reading cost from `ai_usage_log`.** This project
+is PG17.6 (confirmed via `mcp_supabase_list_projects`), where a view defaults to security-definer
+semantics unless declared otherwise — every view below would have silently bypassed RLS on its base
+tables without this. Verified live post-apply via `pg_class.reloptions` for all five (also asserted
+by test, see below). No spec section 5 text exists in this repo to copy verbatim from (only an
+engineering review of it, `Claude outputs/BENAVORA_ORCHESTRATION_LOGGING_SPEC_REVIEW.md`, survives) —
+the five views were authored from the review's stated intent (orchestration health, cost, alerts,
+budget) and this platform's actual live schema: `v_orchestration_run_summary`,
+`v_orchestration_daily_cost` (from `ai_usage_log`, per the spec-review's own AR-5.1 consolidation — NOT
+`orchestration_logs`, which carries no cost columns by design), `v_alert_activity_summary`,
+`v_budget_utilization`, `v_agent_reliability`. Full column-by-column detail:
+`SCHEMA_REGISTRY_v2.md`'s "AR-6.4" section.
+
+**A second prerequisite gap found and fixed in the same migration.** `public.ai_usage_log` (migration
+056) has RLS enabled but had zero policies and zero `authenticated` grants — default-deny, so no real
+org member could ever read their own org's cost rows, directly or through
+`v_orchestration_daily_cost`. Fixed with the identical org-isolation SELECT-only pattern
+`orchestration_logs_org_isolation` (AR-6.2) already established: `GRANT SELECT ... TO authenticated`,
+`REVOKE ALL ... FROM anon`, one `FOR SELECT USING (organization_id = current_org_id())` policy. No
+authenticated write path added anywhere — service role still does all the writing, matching every
+other table this migration set touches.
+
+**Test-support addition: `public.debug_view_is_security_invoker(p_view_name text)`** (migration 194).
+PostgREST exposes no `pg_catalog`, and this suite is required to use the Supabase service-role client
+rather than a raw `DATABASE_URL` connection (`tests/setup.ts`'s `.env.test` carries no `DATABASE_URL`
+at all; that var is reserved for one-off migration scripts and `integration-live/`) — this
+`SECURITY DEFINER`, `service_role`-only, parameterized RPC is the only way to assert the
+`security_invoker` declaration from that client. No dynamic SQL, `EXECUTE` revoked from `PUBLIC`
+(which also removes the implicit `anon`/`authenticated` grant new functions get by default on this
+project).
+
+**Command discrepancy, same pattern as AR-6.2/AR-6.3.** The prompt's suggested
+`pnpm vitest run --config vitest.integration.config.ts src/__tests__/integration/alert-delivery.test.ts`
+finds zero tests — that config's `include` is scoped to `integration-live/**` only, and a CLI filename
+argument narrows an already-collected file list, it does not add a file outside `include`. Verified
+directly (`filter:` line in vitest's own diagnostic output confirms this). Ran instead via plain
+`pnpm vitest run src/__tests__/integration/alert-delivery.test.ts` / `pnpm test`, matching every other
+file in this directory.
+
+**Test:** `src/__tests__/integration/alert-delivery.test.ts` — 7/7 green against the real database (the
+5 required assertions plus a `formatSlackMessage` unit-level sanity check and the rate-card freshness
+guard): unset webhook → no query, no send, no `notified_at`; non-2xx → `notified_at` stays `NULL`
+across two consecutive polls; 2xx → `notified_at` set exactly once, second poll sends nothing (0
+additional fetch calls, confirmed by call-count, not just by outcome); an API-key-shaped value in the
+alert message is posted redacted (`[REDACTED]`, not the raw secret) and delivery still succeeds; all
+five views assert `security_invoker = true` via the RPC above AND return zero rows for a different
+organization when queried as a real authenticated user scoped to a different org (a security-definer
+view would have leaked these rows straight through — this is the outcome the flag exists to prevent,
+not just the flag's presence). Assertion 2 is the one the prompt called out explicitly as the one that
+keeps this from losing alerts; not relaxed.
+
+**Gates, real numbers:** `pnpm typecheck` — 0 errors (does not type-check `worker/` at all — excluded
+by root `tsconfig.json`; `pnpm run build:worker` — 0 errors — is the actual gate for this session's
+worker changes and was run in addition to the three requested commands). `pnpm run build` — succeeded,
+full route manifest emitted, unchanged from AR-6.3. `pnpm vitest run
+src/__tests__/integration/alert-delivery.test.ts` — 7/7 green against the live database, stable across
+two consecutive runs. `pnpm test` (full suite) — **109 test files passed, 1 skipped, 944 tests passed,
+13 todo** (957 total), up from AR-6.3's 108/937/13/950 by exactly the one new file and its 7 tests —
+zero regressions.
+
+**Can a critical alert be raised and never delivered? Under what condition?** Yes, under exactly one
+condition: `FORGE_SLACK_WEBHOOK` stays unset in the worker's environment forever. `pollOnce()` no-ops
+before ever querying `alerts` in that case (logged once at boot via `FEATURE_ENV_VARS`, then silently
+every poll after) — the alert itself is still raised and stored (AR-6.1/6.3's job), it just never
+reaches Slack until that env var is set, at which point every backlogged critical alert (bounded to 20
+per poll, oldest first) is delivered on the next cycle. A configured webhook that returns non-2xx or
+throws also never loses an alert — `notified_at` stays `NULL` and the same alert is retried every poll
+indefinitely (assertion 2), so the only way to lose one permanently is the webhook staying unset
+forever or Slack's own retention window expiring on a delivered message, which is outside this
+system's control.
+
+**Can a secret reach Slack or the `orchestration_logs` table?** No, by two independent, already-tested
+layers, not one. `orchestration_logs` writes go through `logOrchestrationStep()`, which has called
+`redactSecrets()`/`redactJson()` on `error_message`/`state_delta` since AR-6.2 (unchanged here).
+`worker/alert-notifier.ts`'s Slack payload calls the same `redactSecrets()` on `message` and `link`
+before building the POST body — same pattern list (`sk-ant-*`, `sk-*`/`pk-*`, AWS `AKIA*`, JWT-shaped
+tokens, `Bearer` headers, generic `key=value`/`token=value` pairs), reused rather than duplicated, so
+there is one place to fix if a new secret shape needs covering, not two drifting copies.
+Assertion 4 proves this for delivery specifically: an API-key-shaped value in a real alert message is
+confirmed redacted in the actual POST body before the alert is marked delivered.
+
+**Is every dollar figure any dashboard now shows traceable to a rate with a date and a source?** Yes,
+with one boundary worth naming: `v_orchestration_daily_cost` sums `ai_usage_log.cost_usd`, a value
+computed and written at call time by whatever wrote that row (`recordCost()` per AR-5.1) — this
+migration set does not recompute those historical dollar figures from `model_cost_reference`, it only
+makes the *current* rate card queryable and dated for future cost computation and for a
+human/dashboard cross-check. Every row in `model_cost_reference` itself carries `effective_from` and
+`source` (verified 2026-09-17 against `https://claude.com/pricing`), and the freshness test above
+means that pairing cannot silently go stale past 180 days without failing the suite. If a future
+change wires per-call cost computation through this table (not part of this prompt), that computation
+would inherit the same traceability by construction.
+
+---
+
 ## AR-6.3 — Deterministic alert rules 1-5 in Postgres; Rule 4 reconciles against the DB, not markdown (2026-09-17)
 
 **Prerequisite gap found and closed first:** this prompt's own premise ("the eight alert_type values

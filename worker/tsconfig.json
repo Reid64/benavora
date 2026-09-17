@@ -19,6 +19,7 @@
     "../src/lib/autoapply/**/*.ts",
     "../src/lib/supabase/**/*.ts",
     "../src/lib/donor-discovery/**/*.ts",
+    "../src/lib/orchestration/**/*.ts",
     "../src/lib/security/**/*.ts",
     "../src/lib/enrichment/web-extractor.ts",
     "../src/lib/env.ts"

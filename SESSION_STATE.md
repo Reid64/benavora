@@ -8,11 +8,61 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-6.3: deterministic alert rules 1-5 in Postgres; Rule 4 reconciles against the DB, not markdown)
+- **Last updated:** 2026-09-17 (AR-6.4: worker-side Slack delivery with retry, verified model rate card, RLS-safe dashboard views)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-6.4: worker-side Slack delivery, verified model rate card, RLS-safe dashboard views)
+
+Prerequisite: AR-6.1 (`alerts.notified_at`), AR-6.2/6.3 (below). Confirmed live before writing any
+code: `pg_net`/`pg_cron`/`http` not installed, `supabase/functions` absent — SQL cannot reach Slack,
+the spec's Edge Function is unbuildable here. Delivery lives in the already-continuous worker instead.
+
+**Part A:** `worker/alert-notifier.ts`, wired into `worker/index.ts`'s existing interval-loop set
+(same shape as `stuck-run-watchdog.ts`). Polls `alerts` for `severity='critical' AND notified_at IS
+NULL`, posts to `FORGE_SLACK_WEBHOOK` (existing convention, no second webhook), sets `notified_at`
+only on a 2xx so a failure retries and a success never re-sends. Redacts via the existing
+`redactSecrets()` (AR-6.2), not a new pattern list.
+
+**Incident during test authoring, caught and reverted:** the first test draft called the real
+unscoped `pollOnce()` against the live DB, which — correctly, by production design — processes every
+org's pending critical alerts in one batch. That set `notified_at` on **39 real, pre-existing
+production alerts** (genuine deadline/cost/schema-failure rows, several real orgs) to a timestamp
+pointing at a fake test webhook. Caught within the same session via a `notified_at > now() - interval
+'20 minutes'` query, reverted by id, confirmed clean. Fixed at the root: `pollOnce()` gained an
+optional test-only `organizationId` scope parameter; every production call site stays unscoped.
+
+**Part B:** `public.model_cost_reference` (migration 192). Spec's Sept-2025 card
+(`claude-opus-4`/`claude-sonnet-4`) rejected — 0 references in `src/`/`worker/`. Seeded with the 3
+models this codebase actually calls plus `claude-sonnet-5`/`claude-opus-5`, every rate verified live
+against `https://claude.com/pricing` via WebFetch (caught a real near-miss: cached knowledge said
+Sonnet 5's $2/$10 was expired intro pricing as of 2026-08-31 — the live page shows it as current
+standard pricing, confirmed before seeding). `source`/`effective_from` recorded per row. A new test
+fails the suite if any row exceeds 180 days old.
+
+**Part C:** five views (migration 193) — `v_orchestration_run_summary`, `v_orchestration_daily_cost`
+(from `ai_usage_log`, not `orchestration_logs`), `v_alert_activity_summary`, `v_budget_utilization`,
+`v_agent_reliability` — all `WITH (security_invoker = true)` (mandatory on this project's PG17.6, or
+every view silently bypasses its base tables' RLS). **Second prerequisite gap found and fixed in the
+same migration:** `ai_usage_log` had RLS enabled but zero policies/grants for `authenticated` — fixed
+with the same org-isolation pattern `orchestration_logs` already has (AR-6.2). Migration 194 adds a
+`service_role`-only introspection RPC purely so the test below can assert `security_invoker` from the
+mandated service-role client (PostgREST exposes no `pg_catalog`).
+
+**Test:** `src/__tests__/integration/alert-delivery.test.ts` — 7/7 green against the real database.
+
+**Gates:** `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm run build:worker` 0 errors
+(worker isn't covered by `pnpm typecheck`'s root tsconfig, so run separately), `pnpm test` 109 files /
+944 tests passed / 13 todo (957 total) — up from AR-6.3's 108/937/13/950 by exactly the one new file
+and its 7 tests, zero regressions.
+
+See `STATE_OF_THE_BUILD.md`'s "AR-6.4" section for the full production-incident writeup, the three
+plain-language safety answers (can an alert be lost, can a secret leak, is every dollar traceable),
+and `SCHEMA_REGISTRY_v2.md`'s "AR-6.4" section for the column-by-column view/table detail.
+
+---
 
 ## Session — 2026-09-17 (AR-6.3: deterministic alert rules 1-5 in Postgres; Rule 4 reconciles against the DB, not markdown)
 

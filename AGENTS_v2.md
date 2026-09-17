@@ -711,6 +711,42 @@ budget-period component): `SCHEMA_REGISTRY_v2.md`'s and `STATE_OF_THE_BUILD.md`'
 
 ---
 
+## Critical alerts reach a human via the worker, not SQL (AR-6.4, 2026-09-17)
+
+`worker/alert-notifier.ts` is the delivery leg AR-6.1's `alerts.notified_at` column and AR-6.3's
+trigger-raised rows were both built toward. It is a poll loop, not an agent — no LLM call anywhere in
+this path, matching AR-6.3's "no meta-agent in the hot path" precedent. Any new code that raises a
+`critical` alert (a new trigger, or a new `raise_orchestration_alert()`/`raiseOrchestrationAlert()`
+call site) gets Slack delivery for free with zero additional wiring — the notifier polls by
+`severity`/`notified_at`, not by alert type or source.
+
+**If you add a new critical alert type or source, you do not need to touch this file.** The one thing
+that *would* require a change here: if a new alert type's `message` can legitimately contain a secret
+shape `redactSecrets()` (`src/lib/orchestration/orchestration-log.ts`, AR-6.2) doesn't already cover —
+extend that shared pattern list, not a local one in the notifier, so `orchestration_logs` and Slack
+delivery stay covered by the same redaction guarantee rather than two that can drift apart.
+
+**Do not remove the `organizationId` scoping option on `pollOnce()`.** It exists only for tests
+(every production call site — the `AlertNotifier` class, `worker/index.ts` — calls it unscoped, which
+is correct: the worker must service every org's pending alerts in one batch). It was added after
+calling the unscoped function from a test against the live database delivered 39 real production
+alerts to a fake test webhook and marked them `notified_at` — see `STATE_OF_THE_BUILD.md`'s "AR-6.4"
+section for the full incident and revert. Any new test that exercises delivery against the live
+database must pass this option; do not call the production-shaped unscoped query from a test again.
+
+`public.model_cost_reference` (migration 192) is a plain reference table, not organization-scoped —
+if you add a new model this codebase calls, add its row here with a live-verified rate and today's
+date as `effective_from`, not a copied or recalled figure (this table exists specifically because the
+originating spec's rate card was a year stale and would have shipped confidently wrong numbers). The
+five dashboard views (migration 193) read cost from `ai_usage_log`, never `orchestration_logs` — that
+table carries no cost columns by design (AR-6.2) — and are declared `security_invoker = true`; a new
+view built the same way must repeat that declaration explicitly, since Postgres does not infer it from
+sibling views.
+
+Full detail: `SCHEMA_REGISTRY_v2.md`'s and `STATE_OF_THE_BUILD.md`'s "AR-6.4" sections.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

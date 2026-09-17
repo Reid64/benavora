@@ -6,6 +6,7 @@ import * as ddRequestProcessor from './dd-request-processor.js';
 import * as enrichmentProcessor from './enrichment-processor.js';
 import * as knowledgeIndexerProcessor from './knowledge-indexer-processor.js';
 import * as stuckRunWatchdog from './stuck-run-watchdog.js';
+import * as alertNotifier from './alert-notifier.js';
 import * as confirmationMonitor from '../src/lib/autoapply/confirmation-monitor.js';
 import * as scheduler from './scheduler.js';
 import {
@@ -47,6 +48,7 @@ const FEATURE_ENV_VARS = [
   'SAM_GOV_API_KEY', // donor-discovery entity/award adapters, grants sources
   'RESEND_API_KEY', // email sends (campaigns, digests, reminders)
   'PROXY_LIST', // scraper proxy rotation
+  'FORGE_SLACK_WEBHOOK', // critical-alert Slack delivery (worker/alert-notifier.ts)
 ] as const;
 
 function validateEnv(): { workerId: string } {
@@ -102,6 +104,7 @@ async function shutdown(signal: string): Promise<void> {
   enrichmentProcessor.stop();
   knowledgeIndexerProcessor.stop();
   stuckRunWatchdog.stop();
+  alertNotifier.stop();
   confirmationMonitor.stop();
   scheduler.stop();
   stopAgentQueueProcessor();
@@ -114,6 +117,7 @@ async function shutdown(signal: string): Promise<void> {
       enrichmentProcessor.waitForIdle(),
       knowledgeIndexerProcessor.waitForIdle(),
       stuckRunWatchdog.waitForIdle(),
+      alertNotifier.waitForIdle(),
       confirmationMonitor.waitForIdle(),
       agentQueueDone,
     ]),
@@ -173,6 +177,7 @@ async function main(): Promise<void> {
   enrichmentProcessor.start(supabase);
   knowledgeIndexerProcessor.start(supabase);
   stuckRunWatchdog.start(supabase);
+  alertNotifier.start(supabase);
   confirmationMonitor.start(supabase);
   scheduler.start(supabase);
   agentQueueDone = processAgentQueue(supabase).catch((err: unknown) => {

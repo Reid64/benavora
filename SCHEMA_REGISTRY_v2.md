@@ -1607,6 +1607,80 @@ latent Rule 2 dedup gap: `STATE_OF_THE_BUILD.md`'s "AR-6.3" section.
 
 ---
 
+## Worker-side Slack delivery, verified rate card, RLS-safe dashboard views (AR-6.4, 2026-09-17)
+
+**`public.model_cost_reference`** (migration 192) — `model text PRIMARY KEY`,
+`input_usd_per_mtok`/`output_usd_per_mtok`/`cache_write_usd_per_mtok`/`cache_read_usd_per_mtok
+numeric(10,4)`, `effective_from date`, `source text`. Global reference table, no `organization_id` —
+rates apply identically to every org. RLS enabled, `anon` revoked, `authenticated` granted `SELECT`
+via a `USING (true)` policy (read-only reference data, not tenant data). Seeded with 5 rows, each
+`source = 'https://claude.com/pricing'` and `effective_from = '2026-09-17'` — verified by a live
+WebFetch against that URL during this session, not recalled from training data or copied from the
+spec (whose Sept-2025 card, `claude-opus-4`/`claude-sonnet-4`, has zero references anywhere in
+`src/`/`worker/` and was rejected outright):
+
+| model | input | output | cache write (5m) | cache read |
+|---|---|---|---|---|
+| `claude-sonnet-4-6` | $3.00 | $15.00 | $3.75 | $0.30 |
+| `claude-haiku-4-5` | $1.00 | $5.00 | $1.25 | $0.10 |
+| `claude-haiku-4-5-20251001` | $1.00 | $5.00 | $1.25 | $0.10 |
+| `claude-sonnet-5` | $2.00 | $10.00 | $2.50 | $0.20 |
+| `claude-opus-5` | $5.00 | $25.00 | $6.25 | $0.50 |
+
+`cache_write_usd_per_mtok` carries the 5-minute-TTL rate (1.25x input); the 1-hour-TTL rate (2x input)
+is documented in a `COMMENT ON COLUMN` rather than a second column, matching the pricing page's own
+per-TTL split. `cache_read_usd_per_mtok` is 0.1x input for both TTLs.
+`src/__tests__/integration/alert-delivery.test.ts`'s "Rate card freshness" suite fails the build if any
+seeded row's `effective_from` is more than 180 days old, so this table cannot silently rot past that
+window the way the spec's own year-old card did.
+
+**Prerequisite fix: `ai_usage_log` had RLS enabled with zero policies and zero `authenticated`
+grants** (migration 056 never added either) — default-deny, so no org member could read their own
+cost rows, directly or through a view. Fixed in migration 193 with the same pattern
+`orchestration_logs_org_isolation` (AR-6.2) already uses: `GRANT SELECT ... TO authenticated`, `REVOKE
+ALL ... FROM anon`, one `FOR SELECT USING (organization_id = current_org_id())` policy. No
+authenticated write path added — service role still does all the writing.
+
+**Five dashboard views** (migration 193), each declared `WITH (security_invoker = true)` — mandatory
+on PG17 (this project, confirmed via `mcp_supabase_list_projects`): a view without it defaults to
+security-definer semantics (runs as the view owner, bypassing the base tables' RLS entirely), which
+would turn every one of these into a cross-tenant read path despite AR-6.2's `orchestration_logs`
+policy and this migration's own `ai_usage_log` fix above. Verified live post-apply via
+`pg_class.reloptions` for all five. None declare their own `organization_id` filter — invoker security
+means each base table's existing per-row RLS policy applies during the view's own scan, before
+aggregation:
+
+| View | Source table(s) | Grain |
+|---|---|---|
+| `v_orchestration_run_summary` | `orchestration_logs` | one row per `orchestration_id`: step/failure counts, evidence-validation state, derived `run_status` |
+| `v_orchestration_daily_cost` | `ai_usage_log` (not `orchestration_logs`, which carries no cost columns by design — AR-6.2) | organization × day × model × agent_type × billing_path |
+| `v_alert_activity_summary` | `alerts` | organization × type × severity: total/unread/undismissed/`pending_delivery_count` (critical + `notified_at IS NULL` — surfaces the AR-6.4 Part A backlog directly) |
+| `v_budget_utilization` | `cost_budgets` | one row per budget scope: `spent_usd`/`budget_limit_usd`/`remaining_usd`/`pct_used`/`hard_stop` |
+| `v_agent_reliability` | `orchestration_logs` | organization × `agent_type`: success rate, timeout count (`duration_ms > 60000`, same literal as AR-6.3 Rule 5) |
+
+**`public.debug_view_is_security_invoker(p_view_name text)`** (migration 194) — a `SECURITY DEFINER`,
+`service_role`-only introspection RPC that exists solely so
+`src/__tests__/integration/alert-delivery.test.ts` can assert the `security_invoker` declaration above
+from the mandated Supabase service-role client. PostgREST exposes no `pg_catalog` access, and this
+suite may not open a raw `DATABASE_URL` connection (reserved for one-off scripts and
+`integration-live/`) — this RPC is the only path. Parameterized query against `pg_class`, no dynamic
+SQL, `REVOKE ALL ... FROM PUBLIC` (which also removes the implicit `anon`/`authenticated` grant every
+new function gets by default on this project).
+
+**Delivery path — `worker/alert-notifier.ts`, no new table.** The originating spec called for a Slack
+Edge Function; `supabase/functions` does not exist in this repo, so delivery is one more interval-loop
+module in the already-continuous Railway worker instead (same `start()`/`stop()`/`waitForIdle()` shape
+as `worker/stuck-run-watchdog.ts`). Polls `alerts` for `severity = 'critical' AND notified_at IS NULL`
+(the column AR-6.1 added specifically for this), posts a compact message to `FORGE_SLACK_WEBHOOK`
+(existing convention — `forge-slack.ps1` reads the same var and no-ops when unset; mirrored here
+rather than provisioning a second webhook), and sets `notified_at` only after a 2xx response. Message
+text is passed through `redactSecrets()` (`src/lib/orchestration/orchestration-log.ts`, AR-6.2) before
+it ever leaves the process — reused rather than re-implemented, so the redaction pattern set is one
+list, not two. Full behavioral detail and the production-data incident this design was hardened
+against mid-session: `STATE_OF_THE_BUILD.md`'s "AR-6.4" section.
+
+---
+
 ## Data Volume Estimates
 
 | Table | Current Records | Target Scale |
