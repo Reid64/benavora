@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = "autoapply_confirmation_parser";
+
 export interface ConfirmationData {
   confirmation_number: string | null;
   reference_id: string | null;

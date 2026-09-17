@@ -2,6 +2,17 @@
 **Version:** 1.0 | **Format:** Supabase Migration SQL + Annotations
 **Migration File:** supabase/migrations/20250101000001_tarritrix_complete_schema.sql
 
+> **Note (2026-09-17, AR-1.2):** This document is a stale initial-scaffold template — it predates
+> and does not reflect the live schema (the real migration history starts at
+> `supabase/migrations/001_initial_schema.sql`, now at `182_autoapply_agent_identity.sql`).
+> Recorded here for traceability only: migration 182 added 10 new `agent_type` enum values
+> (`autoapply_form_analyzer`, `autoapply_form_filler`, `autoapply_registration`,
+> `autoapply_submission_validator`, `autoapply_receipt`, `autoapply_risk_engine`,
+> `autoapply_pitch_personalizer`, `autoapply_captcha_solver`, `autoapply_confirmation_parser`,
+> `autoapply_queue_processor`) via `ALTER TYPE agent_type ADD VALUE IF NOT EXISTS`, applied live.
+> The authoritative `agent_type` union is `src/types/agents.ts`; see `AGENTS_v2.md`'s "AutoApply
+> agent identity (AR-1.2, 2026-09-17)" section for context.
+
 ---
 
 ## AGENT READING INSTRUCTIONS

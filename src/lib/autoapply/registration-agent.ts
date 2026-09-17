@@ -2,6 +2,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import crypto from 'crypto';
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = 'autoapply_registration';
+
 // --- types -------------------------------------------------------------------
 
 export interface RegistrationField {

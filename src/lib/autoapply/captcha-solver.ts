@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Solver } from '@2captcha/captcha-solver';
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = 'autoapply_captcha_solver';
+
 /**
  * detectCaptcha() below is the live, current-policy entry point for AutoApply's
  * own submission pipeline (worker/queue-processor.ts): every detection there now

@@ -16,6 +16,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = 'autoapply_form_analyzer';
+
 const MAX_HTML_CHARS = 80_000;
 const MAX_PAGE_TEXT_CHARS = 20_000;
 const AUTOMATION_CONFIDENCE_THRESHOLD = 0.7;

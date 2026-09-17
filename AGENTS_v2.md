@@ -440,6 +440,32 @@ Discovers and scores corporate donors via Google Places and enrichment pipeline.
 
 ---
 
+## AutoApply agent identity (AR-1.2, 2026-09-17)
+
+Distinct from the p5a-002 collision cleanup above: the 40-module AutoApply pipeline under
+`src/lib/autoapply/**` (invoked directly from `worker/queue-processor.ts`, never through
+`BaseAgent`) had declared **no** `agent_type` at all — not a collision, an absence. A live query of
+`agent_runs` on 2026-09-17 returned 51 distinct `agent_type` values and none were AutoApply, so no
+AutoApply execution was ever attributable.
+
+10 new values were added (`src/types/agents.ts`, migration `182_autoapply_agent_identity.sql`):
+`autoapply_form_analyzer`, `autoapply_form_filler`, `autoapply_registration`,
+`autoapply_submission_validator`, `autoapply_receipt`, `autoapply_risk_engine`,
+`autoapply_pitch_personalizer`, `autoapply_captcha_solver`, `autoapply_confirmation_parser`,
+`autoapply_queue_processor` — one per real module/call-site, none aliasing the pre-existing
+`form_analyzer`/`form_filler` values (those belong to the *separate*, `BaseAgent`-driven
+`src/lib/agents/form-analyzer.ts`/`form-filler.ts` Vercel API route implementations).
+
+Since `worker/tsconfig.json` doesn't include `src/lib/agents/` (so these modules can't import
+`BaseAgent`), logging goes through a new standalone module, `src/lib/autoapply/run-logger.ts`
+(`withAgentRun`), giving the same running → completed/failed `agent_runs` contract without the
+dependency. A new test, `src/__tests__/unit/agent-type-uniqueness.test.ts`, extends the p5a-002
+collision guard's pattern across both `src/lib/autoapply/**` and `src/lib/agents/**` so this
+absence-of-identity problem and the collision problem can't recur in either direction. Full detail
+in `STATE_OF_THE_BUILD.md`'s "AR-1.2" section.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

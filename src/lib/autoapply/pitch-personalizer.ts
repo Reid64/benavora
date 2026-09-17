@@ -2,6 +2,9 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = 'autoapply_pitch_personalizer';
+
 // Lazy singleton — only instantiated on first call.
 let _claude: Anthropic | null = null;
 

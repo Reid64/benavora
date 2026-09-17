@@ -4,6 +4,13 @@ Project Blueprint v2\.0
 
 Complete Platform Architecture
 
+> **Note (2026-09-17, AR-1.2):** This `governance/` copy is a stale June 2026 snapshot — the
+> actively-maintained platform-state docs live at the repo root (`STATE_OF_THE_BUILD.md`,
+> `SESSION_STATE.md`, `AGENTS_v2.md`). Recorded here only because this task's instructions named
+> `BLUEPRINT.md` and no root copy exists: AR-1.2 added `agent_type` observability
+> (`agent_runs` logging) to the previously-unattributed AutoApply pipeline — see
+> `STATE_OF_THE_BUILD.md`'s "AR-1.2" section for full detail.
+
 Phases 1\-6: MVP through Full Autonomous Operation
 
 Version 2\.0 | June 13, 2026

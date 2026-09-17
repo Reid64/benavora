@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { FormField } from "@/types/automation";
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = "autoapply_submission_validator";
+
 export interface ValidationError {
   field: string;
   message: string;

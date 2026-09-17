@@ -49,6 +49,10 @@ vi.mock("@/lib/autoapply/submission-validator", () => ({
     checkOrgReadiness: mockCheckOrgReadiness,
     checkConcurrentAutomation: mockCheckConcurrentAutomation,
   })),
+  // AR-1.2: queue-processor.ts imports this alongside SubmissionValidator to
+  // tag the checkOrgReadiness withAgentRun() call — the real module exports
+  // it as a plain string constant (see submission-validator.ts).
+  AGENT_TYPE: "autoapply_submission_validator",
 }));
 
 // Import AFTER the mocks above (hoisted by vitest, but keep the read order

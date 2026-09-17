@@ -4,6 +4,14 @@
 ## Date: June 20, 2026
 ## Status: CANONICAL — Extends AUTOAPPLY_ARCHITECTURE.md with advanced automation capabilities. All items below are approved for implementation.
 
+> **Implementation-status note (2026-09-17, AR-1.2):** This document specifies AutoApply's
+> capabilities, not its observability. As of AR-1.2, the pipeline's 10 real modules/call-sites
+> (form analysis, form filling, registration/login, org-readiness validation, receipts, risk
+> scoring, pitch personalization, CAPTCHA detection, confirmation parsing, and the queue-processor
+> dispatch loop itself) each log a real `agent_runs` row via `src/lib/autoapply/run-logger.ts`'s
+> `withAgentRun()` — previously none of them did. See `STATE_OF_THE_BUILD.md`'s "AR-1.2" section
+> and `AGENTS_v2.md`'s "AutoApply agent identity" section for full detail.
+
 ---
 
 ## 1. Infrastructure Layer Enhancements

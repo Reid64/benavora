@@ -1,17 +1,17 @@
 ﻿import type { SupabaseClient } from '@supabase/supabase-js';
 import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
-import { FormAnalyzerAgent } from '../src/lib/autoapply/form-analyzer-agent.js';
-import { FormFillerAgent } from '../src/lib/autoapply/form-filler-agent.js';
-import { CaptchaSolver } from '../src/lib/autoapply/captcha-solver.js';
-import { RegistrationAgent } from '../src/lib/autoapply/registration-agent.js';
+import { FormAnalyzerAgent, AGENT_TYPE as FORM_ANALYZER_AGENT_TYPE } from '../src/lib/autoapply/form-analyzer-agent.js';
+import { FormFillerAgent, AGENT_TYPE as FORM_FILLER_AGENT_TYPE } from '../src/lib/autoapply/form-filler-agent.js';
+import { CaptchaSolver, AGENT_TYPE as CAPTCHA_SOLVER_AGENT_TYPE } from '../src/lib/autoapply/captcha-solver.js';
+import { RegistrationAgent, AGENT_TYPE as REGISTRATION_AGENT_TYPE } from '../src/lib/autoapply/registration-agent.js';
 import { CredentialManager } from '../src/lib/autoapply/credential-manager.js';
 import { ScreenshotManager } from '../src/lib/autoapply/screenshot-manager.js';
-import { SubmissionValidator } from '../src/lib/autoapply/submission-validator.js';
+import { SubmissionValidator, AGENT_TYPE as SUBMISSION_VALIDATOR_AGENT_TYPE } from '../src/lib/autoapply/submission-validator.js';
 import { SubmissionControls } from '../src/lib/autoapply/submission-controls.js';
-import { parseConfirmationPage, type ConfirmationData } from '../src/lib/autoapply/confirmation-parser.js';
-import { generateReceipt } from '../src/lib/autoapply/receipt-generator.js';
+import { parseConfirmationPage, type ConfirmationData, AGENT_TYPE as CONFIRMATION_PARSER_AGENT_TYPE } from '../src/lib/autoapply/confirmation-parser.js';
+import { generateReceipt, AGENT_TYPE as RECEIPT_AGENT_TYPE } from '../src/lib/autoapply/receipt-generator.js';
 import { getOptimalAskAmount } from '../src/lib/autoapply/amount-optimizer.js';
-import { personalizePitch } from '../src/lib/autoapply/pitch-personalizer.js';
+import { personalizePitch, AGENT_TYPE as PITCH_PERSONALIZER_AGENT_TYPE } from '../src/lib/autoapply/pitch-personalizer.js';
 import { getTimingScore } from '../src/lib/autoapply/timing-optimizer.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
@@ -21,7 +21,7 @@ import { assertUrlSafe, SsrfBlockedError } from '../src/lib/security/ssrf-guard.
 import { scoreAndReorderQueue } from './batch-scorer.js';
 import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
-import { assessSubmissionRisk, type RiskAssessment } from '../src/lib/autoapply/risk-engine.js';
+import { assessSubmissionRisk, type RiskAssessment, AGENT_TYPE as RISK_ENGINE_AGENT_TYPE } from '../src/lib/autoapply/risk-engine.js';
 import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.js';
 import { submitViaEmail } from '../src/lib/autoapply/email-submitter.js';
 import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
@@ -44,6 +44,7 @@ import {
 } from '../src/worker/jobs/run-connector-enrichment.js';
 import { BrowserAutomationAgent } from '../src/lib/agents/browser-automation.js';
 import { AutomationSessionManager } from '../src/lib/automation/session-manager.js';
+import { withAgentRun } from '../src/lib/autoapply/run-logger.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -104,6 +105,8 @@ interface OrgRow {
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const SLEEP_MS = 15_000;
+/** agent_runs.agent_type value for this module (AR-1.2). */
+const QUEUE_PROCESSOR_AGENT_TYPE = 'autoapply_queue_processor';
 
 // --- helpers -----------------------------------------------------------------
 
@@ -329,9 +332,25 @@ export class QueueProcessor {
         // ordinary funder/request_profile item (no automation session at
         // all) into processBrowserAutomationItem() and fail it instantly.
         if (item.automation_session_id) {
-          await this.processBrowserAutomationItem(item);
+          await withAgentRun(
+            {
+              supabase: this.supabase,
+              agentType: QUEUE_PROCESSOR_AGENT_TYPE,
+              organizationId: item.organization_id,
+              inputSummary: `Process browser-automation queue item ${item.id}`,
+            },
+            () => this.processBrowserAutomationItem(item),
+          );
         } else {
-          await this.processItem(item);
+          await withAgentRun(
+            {
+              supabase: this.supabase,
+              agentType: QUEUE_PROCESSOR_AGENT_TYPE,
+              organizationId: item.organization_id,
+              inputSummary: `Process queue item ${item.id} (funder ${item.funder_id ?? 'none'})`,
+            },
+            () => this.processItem(item),
+          );
         }
         await this.supabase
           .from('submission_queue')
@@ -698,7 +717,15 @@ export class QueueProcessor {
     // --- Org readiness (cached per org, cleared on idleâ†’active transition) ---
     let orgReadinessReport: ReadinessReport;
     if (!this.orgReadinessCache.has(orgId)) {
-      const readiness = await this.submissionValidator.checkOrgReadiness(orgId, this.supabase);
+      const readiness = await withAgentRun(
+        {
+          supabase: this.supabase,
+          agentType: SUBMISSION_VALIDATOR_AGENT_TYPE,
+          organizationId: orgId,
+          inputSummary: `Org readiness check for org ${orgId}`,
+        },
+        () => this.submissionValidator.checkOrgReadiness(orgId, this.supabase),
+      );
       this.orgReadinessCache.set(orgId, readiness);
       orgReadinessReport = readiness;
       if (!readiness.ready) {
@@ -826,27 +853,36 @@ export class QueueProcessor {
         .map((p) => p.name)
         .filter((n): n is string => n !== null);
 
-      personalizedPitch = await personalizePitch({
-        orgMission,
-        orgPrograms: programs,
-        orgName,
-        funderName,
-        funderPriorities: funder.category ? [funder.category] : [],
-        funderCategory: funder.category ?? undefined,
-        requestProfile: requestProfile
-          ? {
-              request_type: requestProfile.request_type,
-              needs_description: requestProfile.needs_description,
-              pitch_template: requestProfile.pitch_template,
-            }
-          : null,
-        pitchStyle: abVariant?.pitchStyle,
-        emphasis: abVariant?.emphasis,
-        bypassCache: abVariant !== null,
-        organizationId: orgId,
-        funderId,
-        supabase: this.supabase,
-      }).catch((e: unknown) => {
+      personalizedPitch = await withAgentRun(
+        {
+          supabase: this.supabase,
+          agentType: PITCH_PERSONALIZER_AGENT_TYPE,
+          organizationId: orgId,
+          inputSummary: `Personalize pitch for funder ${funderName}`,
+        },
+        () =>
+          personalizePitch({
+            orgMission,
+            orgPrograms: programs,
+            orgName,
+            funderName,
+            funderPriorities: funder.category ? [funder.category] : [],
+            funderCategory: funder.category ?? undefined,
+            requestProfile: requestProfile
+              ? {
+                  request_type: requestProfile.request_type,
+                  needs_description: requestProfile.needs_description,
+                  pitch_template: requestProfile.pitch_template,
+                }
+              : null,
+            pitchStyle: abVariant?.pitchStyle,
+            emphasis: abVariant?.emphasis,
+            bypassCache: abVariant !== null,
+            organizationId: orgId,
+            funderId,
+            supabase: this.supabase,
+          }),
+      ).catch((e: unknown) => {
         console.warn(
           '[QueueProcessor] personalizePitch failed (using raw mission):',
           e instanceof Error ? e.message : String(e),
@@ -1053,34 +1089,43 @@ export class QueueProcessor {
     const isStaleRefresh = existingTemplate !== null && needsReanalysis;
 
     // --- Risk assessment (before browser launch) ---
-    const riskAssessment = await assessSubmissionRisk({
-      funder: {
-        id: funderId,
-        name: funderName,
-        automation_level: funder.automation_level,
-        giving_portal_url: funder.giving_portal_url,
+    const riskAssessment = await withAgentRun(
+      {
+        supabase: this.supabase,
+        agentType: RISK_ENGINE_AGENT_TYPE,
+        organizationId: orgId,
+        inputSummary: `Risk assessment for funder ${funderName}`,
       },
-      requestProfile: requestProfile
-        ? {
-            request_type: requestProfile.request_type,
-            min_value: requestProfile.min_value,
-            max_value: requestProfile.max_value,
-          }
-        : undefined,
-      formTemplate: existingTemplate
-        ? {
-            field_count: (existingTemplate['field_count'] as number | null | undefined) ?? null,
-            has_file_uploads: Boolean(existingTemplate['requires_file_upload']),
-            form_structure: existingTemplate['form_structure'],
-          }
-        : null,
-      orgReadiness: {
-        ready: orgReadinessReport.ready,
-        missing_required: orgReadinessReport.missing_required,
-      },
-      crossClientBlocked: false,
-      supabase: this.supabase,
-    }).catch((e: unknown) => {
+      () =>
+        assessSubmissionRisk({
+          funder: {
+            id: funderId,
+            name: funderName,
+            automation_level: funder.automation_level,
+            giving_portal_url: funder.giving_portal_url,
+          },
+          requestProfile: requestProfile
+            ? {
+                request_type: requestProfile.request_type,
+                min_value: requestProfile.min_value,
+                max_value: requestProfile.max_value,
+              }
+            : undefined,
+          formTemplate: existingTemplate
+            ? {
+                field_count: (existingTemplate['field_count'] as number | null | undefined) ?? null,
+                has_file_uploads: Boolean(existingTemplate['requires_file_upload']),
+                form_structure: existingTemplate['form_structure'],
+              }
+            : null,
+          orgReadiness: {
+            ready: orgReadinessReport.ready,
+            missing_required: orgReadinessReport.missing_required,
+          },
+          crossClientBlocked: false,
+          supabase: this.supabase,
+        }),
+    ).catch((e: unknown) => {
       console.warn(
         '[QueueProcessor] assessSubmissionRisk failed (proceeding as auto):',
         e instanceof Error ? e.message : String(e),
@@ -1216,7 +1261,15 @@ export class QueueProcessor {
         let analyzeResult: { id: string; fieldCount: number };
         try {
           const analyzer = new FormAnalyzerAgent(this.supabase);
-          analyzeResult = await analyzer.analyzeAndStore({ page, portalUrl: portalUrl!, funderId, organizationId: orgId });
+          analyzeResult = await withAgentRun(
+            {
+              supabase: this.supabase,
+              agentType: FORM_ANALYZER_AGENT_TYPE,
+              organizationId: orgId,
+              inputSummary: `Analyze form for funder ${funderName}`,
+            },
+            () => analyzer.analyzeAndStore({ page, portalUrl: portalUrl!, funderId, organizationId: orgId }),
+          );
         } catch (analyzerErr) {
           const analyzerMsg = analyzerErr instanceof Error ? analyzerErr.message : String(analyzerErr);
           console.warn(`[QueueProcessor] FormAnalyzerAgent failed for funder ${funderName}: ${analyzerMsg}`);
@@ -1312,7 +1365,15 @@ export class QueueProcessor {
       }
 
       // Handle portals that require login or registration before the form is reachable
-      await this.handleLoginGating(page, orgId, funderId, portalUrl!, orgProfile);
+      await withAgentRun(
+        {
+          supabase: this.supabase,
+          agentType: REGISTRATION_AGENT_TYPE,
+          organizationId: orgId,
+          inputSummary: `Login/registration gate for funder ${funderName}`,
+        },
+        () => this.handleLoginGating(page, orgId, funderId, portalUrl!, orgProfile),
+      );
 
       // Capture page state after login (the portal form, ready to be filled)
       preFillPath = await snap('pre_fill');
@@ -1324,7 +1385,15 @@ export class QueueProcessor {
       // configured. There is no auto-solve path here anymore (see captcha-solver.ts's
       // own header for why solveCaptcha()/injectSolution() still exist as methods but
       // are dead from this call site).
-      const captchaDetection = await this.captchaSolver.detectCaptcha(page);
+      const captchaDetection = await withAgentRun(
+        {
+          supabase: this.supabase,
+          agentType: CAPTCHA_SOLVER_AGENT_TYPE,
+          organizationId: orgId,
+          inputSummary: `CAPTCHA detection for funder ${funderName}`,
+        },
+        () => this.captchaSolver.detectCaptcha(page),
+      );
       const pageText = await page
         .evaluate(() => document.body?.innerText ?? '')
         .then((t: string) => t.toLowerCase())
@@ -1382,14 +1451,27 @@ export class QueueProcessor {
 
       // Fill and submit the form, passing request profile (with personalized pitch injected)
       const filler = new FormFillerAgent(this.supabase, stealthBrowser);
-      const fillResult = await filler.fillAndSubmit({
-        page,
-        template,
-        organizationId: orgId,
-        funderId,
-        requestProfile: fillerRequestProfile,
-        sessionId: autoSessionId,
-      });
+      // Captured into a const (rather than referencing the `let` directly)
+      // so TypeScript's narrowing to `string` from the assignment above
+      // survives being read inside the withAgentRun closure below.
+      const approvedSessionId: string = autoSessionId;
+      const fillResult = await withAgentRun(
+        {
+          supabase: this.supabase,
+          agentType: FORM_FILLER_AGENT_TYPE,
+          organizationId: orgId,
+          inputSummary: `Fill and submit form for funder ${funderName}`,
+        },
+        () =>
+          filler.fillAndSubmit({
+            page,
+            template,
+            organizationId: orgId,
+            funderId,
+            requestProfile: fillerRequestProfile,
+            sessionId: approvedSessionId,
+          }),
+      );
 
       confirmationNumber = fillResult.confirmationNumber;
       requestDescription = fillResult.requestDescription;
@@ -1397,7 +1479,15 @@ export class QueueProcessor {
       broadcastStep('Capturing confirmation');
 
       // Parse the confirmation page for structured data (confirmation number, next steps, etc.)
-      confirmationData = await parseConfirmationPage(page).catch((e: unknown) => {
+      confirmationData = await withAgentRun(
+        {
+          supabase: this.supabase,
+          agentType: CONFIRMATION_PARSER_AGENT_TYPE,
+          organizationId: orgId,
+          inputSummary: `Parse confirmation page for funder ${funderName}`,
+        },
+        () => parseConfirmationPage(page),
+      ).catch((e: unknown) => {
         console.warn(
           '[QueueProcessor] parseConfirmationPage failed:',
           e instanceof Error ? e.message : String(e),
@@ -1589,20 +1679,29 @@ export class QueueProcessor {
       // Generate PDF receipt for successful submissions (fire-and-forget â€” never
       // block the queue on a receipt failure).
       if (submissionStatus === 'submitted') {
-        generateReceipt({
-          supabase: this.supabase,
-          submission: submission as Parameters<typeof generateReceipt>[0]['submission'],
-          funderName,
-          orgName,
-          requestProfile: (requestProfile as unknown) as Parameters<typeof generateReceipt>[0]['requestProfile'],
-          confirmationData: confirmationData ?? undefined,
-          screenshots: [
-            ...(pageLoadPath ? [{ stage: 'page_load', path: pageLoadPath }] : []),
-            ...(preFillPath ? [{ stage: 'pre_fill', path: preFillPath }] : []),
-            ...(postFillPath ? [{ stage: 'post_fill', path: postFillPath }] : []),
-            ...(confirmationPath ? [{ stage: 'confirmation', path: confirmationPath }] : []),
-          ],
-        }).catch((e: unknown) => {
+        withAgentRun(
+          {
+            supabase: this.supabase,
+            agentType: RECEIPT_AGENT_TYPE,
+            organizationId: orgId,
+            inputSummary: `Generate receipt for funder ${funderName}`,
+          },
+          () =>
+            generateReceipt({
+              supabase: this.supabase,
+              submission: submission as Parameters<typeof generateReceipt>[0]['submission'],
+              funderName,
+              orgName,
+              requestProfile: (requestProfile as unknown) as Parameters<typeof generateReceipt>[0]['requestProfile'],
+              confirmationData: confirmationData ?? undefined,
+              screenshots: [
+                ...(pageLoadPath ? [{ stage: 'page_load', path: pageLoadPath }] : []),
+                ...(preFillPath ? [{ stage: 'pre_fill', path: preFillPath }] : []),
+                ...(postFillPath ? [{ stage: 'post_fill', path: postFillPath }] : []),
+                ...(confirmationPath ? [{ stage: 'confirmation', path: confirmationPath }] : []),
+              ],
+            }),
+        ).catch((e: unknown) => {
           console.warn(
             '[QueueProcessor] Receipt generation failed:',
             e instanceof Error ? e.message : String(e),

@@ -2,6 +2,11 @@
 
 **Last Updated:** June 22, 2026
 
+> **Note (2026-09-17, AR-1.2):** This file documents the FORGE tooling itself (ForgeCore,
+> ForgeLearning, etc.), not the Benavora platform's product agents. The live, actively-maintained
+> catalog of Benavora agents (AutoApply, research, scoring, etc.) is `AGENTS_v2.md` at the repo
+> root — see its "AutoApply agent identity (AR-1.2, 2026-09-17)" section for this session's work.
+
 ---
 
 ## Agent: ForgeCore (forge.ps1 + ForgeCore.psm1)

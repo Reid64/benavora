@@ -154,7 +154,27 @@ export type AgentType =
   // is a plain string), so this addition doesn't fix a compile error — it
   // makes this union an accurate catalog of every real agent_type value.
   | "ag-36-learning-network" // learning-network-aggregator-agent.ts
-  | "ag-42-change-monitor"; // change-monitor-agent.ts
+  | "ag-42-change-monitor" // change-monitor-agent.ts
+  // AR-1.2 (2026-09-17) — AutoApply agent identity. The 40-module AutoApply
+  // pipeline under src/lib/autoapply/** (called directly from
+  // worker/queue-processor.ts, not via BaseAgent — see run-logger.ts) wrote
+  // no agent_type and logged nothing to agent_runs, so no AutoApply execution
+  // was ever attributable. These values are new and do not alias the
+  // pre-existing "form_analyzer"/"form_filler" values, which belong to the
+  // separate BaseAgent-driven src/lib/agents/form-analyzer.ts and
+  // src/lib/agents/form-filler.ts (the Vercel API route implementations —
+  // see those files' own header comments for why the logic is duplicated
+  // rather than shared).
+  | "autoapply_form_analyzer" // src/lib/autoapply/form-analyzer-agent.ts
+  | "autoapply_form_filler" // src/lib/autoapply/form-filler-agent.ts
+  | "autoapply_registration" // src/lib/autoapply/registration-agent.ts
+  | "autoapply_submission_validator" // src/lib/autoapply/submission-validator.ts
+  | "autoapply_receipt" // src/lib/autoapply/receipt-generator.ts
+  | "autoapply_risk_engine" // src/lib/autoapply/risk-engine.ts
+  | "autoapply_pitch_personalizer" // src/lib/autoapply/pitch-personalizer.ts
+  | "autoapply_captcha_solver" // src/lib/autoapply/captcha-solver.ts
+  | "autoapply_confirmation_parser" // src/lib/autoapply/confirmation-parser.ts
+  | "autoapply_queue_processor"; // worker/queue-processor.ts
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

@@ -1,5 +1,77 @@
 # Benavora Platform Build State
 
+## AR-1.2 — AutoApply agent identity + agent_runs logging (2026-09-17)
+
+The 40-module AutoApply pipeline under `src/lib/autoapply/**` (invoked directly from
+`worker/queue-processor.ts`, never through `BaseAgent`) declared no `agent_type` and wrote nothing
+to `agent_runs`. A live query of `agent_runs` on 2026-09-17 returned 51 distinct `agent_type`
+values and not one was an AutoApply agent — every AutoApply execution was unattributable by
+construction, not by a bug. This prompt made AutoApply observable; it did not change AutoApply
+behavior.
+
+1. **10 new `agent_type` identities**, one per real module/call-site in the pipeline:
+   `autoapply_form_analyzer` (`form-analyzer-agent.ts`), `autoapply_form_filler`
+   (`form-filler-agent.ts`), `autoapply_registration` (`registration-agent.ts`),
+   `autoapply_submission_validator` (`submission-validator.ts`), `autoapply_receipt`
+   (`receipt-generator.ts`), `autoapply_risk_engine` (`risk-engine.ts`),
+   `autoapply_pitch_personalizer` (`pitch-personalizer.ts`), `autoapply_captcha_solver`
+   (`captcha-solver.ts`), `autoapply_confirmation_parser` (`confirmation-parser.ts`), and
+   `autoapply_queue_processor` (`worker/queue-processor.ts` itself, tagging the top-level
+   dequeue → process dispatch). Added to `src/types/agents.ts`'s `AgentType` union and confirmed
+   via grep to collide with nothing already declared in `src/lib/agents/` — these are new values,
+   not aliases of the pre-existing `form_analyzer`/`form_filler` values, which belong to the
+   separate `BaseAgent`-driven `src/lib/agents/form-analyzer.ts`/`form-filler.ts` (the Vercel API
+   route implementations; see those files' own headers for why the logic is duplicated rather than
+   shared with the worker-compiled `src/lib/autoapply/` versions).
+2. **Migration 182** (`182_autoapply_agent_identity.sql`) adds all 10 values to the live
+   `agent_type` enum via `ALTER TYPE ... ADD VALUE IF NOT EXISTS` (one statement per value, enum
+   not dropped/recreated). Applied live to the production Supabase project
+   (`vbjplpquqxxfbpazyalt`) via the Supabase MCP `apply_migration` tool — the `.env.local`
+   `DATABASE_URL` credential was rejected (`password authentication failed for user "postgres"`,
+   same flip-flopping credential noted in prior sessions) so direct `psql` was not usable this
+   session; verified live afterward with a `pg_enum` query confirming all 10 labels present.
+3. **`src/lib/autoapply/run-logger.ts`** — new module exporting `withAgentRun<T>(opts, work)`,
+   a standalone (non-`BaseAgent`) `running` → `completed`/`failed` logger for `agent_runs`.
+   Needed as a standalone module rather than a `BaseAgent` import because
+   `worker/tsconfig.json` only includes `src/lib/autoapply/**` and `src/lib/supabase/**` —
+   `BaseAgent` pulls in `@/lib/billing/usage-tracker` and other modules outside that build's
+   scope. Logging is best-effort in both directions (a failed insert/update is logged to console
+   and swallowed) and a throw from `work` always rethrows the original error object unchanged, so
+   callers' existing `instanceof SkipError`/`CaptchaPauseError`/`AccountSetupRequiredError` checks
+   in `worker/queue-processor.ts`'s catch blocks are unaffected.
+4. **All 10 identities wired at their real call sites** in `worker/queue-processor.ts`: each
+   `src/lib/autoapply/*.ts` module now exports its own `AGENT_TYPE` constant (a plain string,
+   colocated with the module rather than passed as a bare literal at the call site) which
+   `queue-processor.ts` imports and passes to `withAgentRun`. One closure-narrowing fix was
+   required along the way: `autoSessionId` (a `let`, narrowed to `string` by a prior assignment)
+   lost that narrowing once referenced inside the new `withAgentRun` closure — TypeScript does not
+   carry control-flow narrowing of closed-over `let` bindings into nested functions — fixed by
+   capturing it into a new `const approvedSessionId: string` immediately after assignment.
+5. **Tests:** `src/__tests__/unit/autoapply-run-logger.test.ts` (7 tests — insert-before-work
+   ordering, completed/failed status transitions, original-error-object rethrow, and that neither
+   an insert failure/throw nor an update failure/throw ever breaks or masks the wrapped work) and
+   `src/__tests__/unit/agent-type-uniqueness.test.ts` (3 tests — statically scans
+   `src/lib/autoapply/**` + `src/lib/agents/**` for declared agent types and fails on any
+   cross-file collision outside the pre-existing `src/lib/agents/`-internal grandfathered
+   allowlist carried over from `agent-type-collision-check.test.ts`). One pre-existing test,
+   `autoapply-queue-gating.test.ts`, mocked `@/lib/autoapply/submission-validator` without an
+   `AGENT_TYPE` export and broke when `queue-processor.ts` started importing it — fixed by adding
+   the export to that test's mock factory.
+6. **Verification:** `pnpm tsc --noEmit` (root, excludes `worker/` but reaches
+   `queue-processor.ts` transitively via `autoapply-queue-gating.test.ts`'s import) — 0 errors.
+   `npx tsc --noEmit -p worker/tsconfig.json` (the real worker build's own type-check) — 0 errors.
+   `pnpm run build:worker` (`tsc` + `tsc-alias`) — succeeds. `pnpm run build` (Next.js production
+   build) — succeeds. `pnpm test` (full unit suite) — 100 files / 908 tests passed, 13 todo, 1
+   pre-existing skip, 0 regressions.
+7. **Scope note — not every code path was wrapped.** `submission-validator.ts` exports several
+   independent checks (`checkOrgReadiness`, `checkConcurrentAutomation`,
+   `checkConcurrentSubmissionQueue`, `validateFormData`, `detectExistingSubmission`); only the
+   primary `checkOrgReadiness` gate call is wrapped under `autoapply_submission_validator` — the
+   others are lower-signal, per-item helper checks, not separate module executions, and wrapping
+   all of them would multiply `agent_runs` rows without adding attribution value. Likewise
+   `registration-agent.ts`'s `RegistrationAgent` is wrapped once, at its single real call site
+   (`handleLoginGating()`), which covers both the login and registration branches internally.
+
 ## AR-1.1 — PIL observability: error serialization + stuck pil_agent_runs reaping (2026-09-16)
 
 Live production data showed `BEN-QLF-04` failed 3/3 runs and `BEN-QLF-03` failed 1/1 run with

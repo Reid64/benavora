@@ -13,6 +13,9 @@ import type { CaptchaDetection } from './captcha-solver.js';
 import { ScreenshotManager } from './screenshot-manager.js';
 import { WebhookNotifier } from './webhook-notifier.js';
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = 'autoapply_form_filler';
+
 export interface RequestProfile {
   request_type: string;
   name: string;

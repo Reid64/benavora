@@ -8,13 +8,34 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-16 (AR-1.1 PIL observability fix, out-of-band from the blocked Phase 6 queue below)
+- **Last updated:** 2026-09-17 (AR-1.2 AutoApply agent identity + agent_runs logging, out-of-band from the blocked Phase 6 queue below)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
 
 Queue.yaml exists at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` but contains template prompts only. DO NOT EXECUTE.
+
+## Session — 2026-09-17 (AR-1.2: AutoApply agent identity + agent_runs logging)
+
+Ran independently of the blocked Phase 6 queue below (targeted observability prompt, not a FORGE
+queue execution). Full detail in `STATE_OF_THE_BUILD.md`'s "AR-1.2" section (top of file). Summary:
+the AutoApply pipeline (`src/lib/autoapply/**`, called from `worker/queue-processor.ts`, not via
+`BaseAgent`) wrote no `agent_type` and logged nothing to `agent_runs` — 51 distinct `agent_type`
+values existed live and none were AutoApply. Added 10 new `agent_type` values to
+`src/types/agents.ts` and to the live DB enum via migration 182 (applied through the Supabase MCP
+`apply_migration` tool — `.env.local`'s `DATABASE_URL` was again rejecting the stored credential,
+so direct `psql` wasn't usable this session); added `src/lib/autoapply/run-logger.ts`
+(`withAgentRun`, a standalone `BaseAgent`-independent running→completed/failed logger, since
+`worker/tsconfig.json` doesn't include `src/lib/agents/`); wired all 10 identities at their real
+`worker/queue-processor.ts` call sites via per-module exported `AGENT_TYPE` constants; fixed one
+TS closure-narrowing issue this surfaced (`autoSessionId`). Added 2 new test files (10 tests) and
+fixed 1 pre-existing test whose module mock needed the new `AGENT_TYPE` export.
+`pnpm tsc --noEmit`: 0 errors. `npx tsc --noEmit -p worker/tsconfig.json`: 0 errors.
+`pnpm run build:worker` and `pnpm run build`: both succeed. Full suite: 100 files / 908 tests
+passed, 13 todo, 0 regressions. Did not wrap every `submission-validator.ts`/`registration-agent.ts`
+helper method individually — only their primary real call sites — see STATE_OF_THE_BUILD.md's
+point 7 for the reasoning.
 
 ## Session — 2026-09-16 (AR-1.1: PIL error serialization + stuck pil_agent_runs reaping)
 

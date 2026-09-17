@@ -7,6 +7,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { ConfirmationData } from "./confirmation-parser.js";
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = "autoapply_receipt";
+
 type AutoApplySubmission =
   Database["public"]["Tables"]["autoapply_submissions"]["Row"];
 type RequestProfile =

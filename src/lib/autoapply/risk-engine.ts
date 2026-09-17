@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+/** agent_runs.agent_type value for this module (AR-1.2). */
+export const AGENT_TYPE = "autoapply_risk_engine";
+
 export interface RiskFactor {
   name: string;
   points: number;
