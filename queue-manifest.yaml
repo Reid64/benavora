@@ -1,0 +1,49 @@
+manifest:
+  version: "6.0"
+  project: "benavora"
+  project_path: "C:\\Users\\manag\\Documents\\benavora"
+  description: "Phase 6: Enterprise Email Parser - Complete 4-Phase Build"
+  created: "2026-09-15"
+  phases:
+    - phase: "6.1"
+      name: "Email Security, Authentication & PII Protection"
+      queue_file: "queue-phase6-1-security.yaml"
+      dependencies: []
+      expected_output: "Security layer complete, email_security_audit_log table, pii_mask_log table"
+      expected_commit: "[FORGE] Phase 6.1 COMPLETE: Email security layer"
+      
+    - phase: "6.2"
+      name: "Advanced Content Extraction (OCR, Tables, Entities, MIME)"
+      queue_file: "queue-phase6-2-content.yaml"
+      dependencies: ["6.1"]
+      expected_output: "Content extraction layer complete, OCR integrated, entity extraction working"
+      expected_commit: "[FORGE] Phase 6.2 COMPLETE: Email content extraction"
+      
+    - phase: "6.3"
+      name: "Portal-Specific Parsers & Form Schema Extraction"
+      queue_file: "queue-phase6-3-portal.yaml"
+      dependencies: ["6.2"]
+      expected_output: "5 portal parsers, classification logic, form validation"
+      expected_commit: "[FORGE] Phase 6.3 COMPLETE: Portal-specific parsers and form schema extraction"
+      
+    - phase: "6.4"
+      name: "ML Confidence, Human Review Queue, Feedback Loop"
+      queue_file: "queue-phase6-4-ml.yaml"
+      dependencies: ["6.3"]
+      expected_output: "ML model, confidence grading, review queue, feedback loop, autoapply integration"
+      expected_commit: "[FORGE] Phase 6.4 COMPLETE: ML confidence model and human review queue"
+      final_deployment: true
+      
+  execution_instructions:
+    - "Download all 4 queue files (.docx) to machine"
+    - "Run PowerShell placement script to extract and place at repo root"
+    - "FORGE reads this manifest and queue files in order"
+    - "Each phase commits independently"
+    - "Phase 6.4 triggers final production deployment"
+    - "Do NOT deploy between phases"
+    
+  governance_updates_required:
+    - "STATE_OF_THE_BUILD.md (update after each phase)"
+    - "AGENTS.md (update email-parser.ts sections)"
+    - "SCHEMA_REGISTRY.md (if new tables added)"
+    - "SESSION_STATE.md (final status)"

@@ -1,5 +1,82 @@
 # Benavora Platform Build State
 
+## AR-3.1 — AutoApply submit integrity: could report a submission it never made (2026-09-17)
+
+Highest-severity defect found in the platform. Reproduced against a real local portal with real
+Chromium and real Claude: on a form using standard HTML5 `required` attributes, `FormFillerAgent`
+filled 0 of 8 fields, the browser silently refused the submit (no exception, no navigation, no
+POST), and the caller still recorded `pagesCompleted: 1` with `confirmationNumber: null` — the
+worker persisted `autoapply_submissions.status = 'submitted'` anyway. Production corroboration: the
+single live row in `autoapply_submissions` was `status='submitted'` with `confirmation_number`,
+`confirmation_data`, and `error_message` all `NULL` and no screenshot.
+
+Three independent root causes, all confirmed by code read before fixing:
+
+1. **Inverted `field_mapping` contract.** `form-analyzer-agent.ts`'s `buildFieldMapping()` stores an
+   **array** (`FieldMappingEntry[]` — DOM field → KB category) in `form_templates.field_mapping`.
+   `form-filler-agent.ts`'s `extractFieldMapping()` only accepted a plain object
+   (`!Array.isArray(raw)`), so it silently discarded the real array shape on every production run
+   and returned `{}` — `fillPageFields()` then iterated zero fields, every time. Fixed by making
+   `extractFieldMapping()` accept both shapes: when `field_mapping` is an array, each entry's
+   `fieldName` becomes an attribute selector (`[name="..."],[id="..."]`) and its `kbMapping` is
+   translated through a new `KB_MAPPING_TO_FILL_KEY` table into this worker's `organization.*`/
+   `request.*` fill-data vocabulary, skipping any entry with `manualReviewRequired: true`. The
+   legacy plain-object shape still works unchanged.
+2. **Submit was never verified.** `submitForm()` clicked a submit control and returned immediately —
+   it never checked for navigation or a response, so a click the browser silently refused was
+   indistinguishable from a real submit. Fixed: `submitForm()` now arms a page-navigation listener
+   and a POST-response listener *before* the click, races them with a bounded 15s timeout, and
+   throws a new `SubmissionNotVerifiedError` if neither fires.
+3. **Failure was swallowed, then reported as success.** `fillAndSubmit()`'s submit call was wrapped
+   in an empty `catch {}`, and `worker/queue-processor.ts` set `submissionStatus = 'submitted'`
+   unconditionally on return — which then flowed into `autoapply_submissions.status`,
+   `submitted_at`, `finalizeAutomationSession(..., true, ...)`, and
+   `abTestEngine.recordOutcome(variantId, true)` regardless of what actually happened. Fixed with
+   three changes:
+   - A pre-submit gate (`getUnfilledRequiredFields()`) runs immediately before the submit click,
+     checking every live-DOM `[required]`/`[aria-required="true"]` element plus every field the
+     stored template's `form_structure` marks required. If any are still empty it throws a new
+     `IncompleteSubmissionError` naming them — the submit click is never attempted.
+   - The empty catch is gone. `FillResult` gained a discriminated `outcome:
+     'submitted' | 'not_submitted' | 'unverified'` field plus `submitFailureReason`; only
+     `SubmissionNotVerifiedError` and `NoSubmitControlError` are caught and translated into an
+     outcome — every other error still propagates.
+   - `worker/queue-processor.ts` now derives `submissionStatus` from
+     `mapFillOutcomeToStatus(fillResult.outcome)` (new exported function) instead of assuming
+     `'submitted'`. `'unverified'` maps to a new `'submit_unverified'` status value
+     (`supabase/migrations/184_autoapply_submit_unverified_status.sql` — **applied live** this
+     session via the Supabase Management API, confirmed by re-querying
+     `autoapply_submissions_status_check`'s definition before and after). `errorMessage` is now set
+     from `submitFailureReason` whenever `outcome !== 'submitted'`, so the evidence is never
+     written without the value.
+
+**Test:** `src/__tests__/integration/autoapply-submit-integrity.test.ts` — new, serves its own local
+HTTP form with real `required` attributes on every field (the sibling
+`form-analyzer-filler.test.ts` targets `httpbin.org/forms/post`, which has no `required`
+attributes and is structurally incapable of catching any of the three causes above). 4/4
+assertions pass against real Playwright + real Claude + real Supabase this session: (1) incomplete
+fill data throws `IncompleteSubmissionError` and the local server receives zero POSTs, (2) complete
+fill data produces exactly one POST with every required field non-empty and `outcome==='submitted'`,
+(3) a submit blocked by `onsubmit="return false"` (no navigation/response) yields
+`outcome==='unverified'`, and `mapFillOutcomeToStatus()` maps that to `'submit_unverified'`, never
+`'submitted'`, (4) a real `FormAnalyzerAgent.analyzeAndStore()` run's actual array-shaped
+`field_mapping` produces a non-empty filler map via `extractFieldMapping()` — direct regression
+guard on cause 1.
+
+**Verification:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — succeeds. `pnpm test` (full
+suite) — 103 files passed / 1 skipped (104), 915 tests passed / 13 todo, 0 failures. Migration 184 applied to the live
+`benavora` Supabase project (`vbjplpquqxxfbpazyalt`) — the `submit_unverified` status value is real
+in production, not just written to a migration file.
+
+**Can AutoApply still report a submission it did not make? No** — the three specific mechanisms
+that allowed it (silently-discarded array field_mapping, unverified submit click, swallowed
+exception + unconditional `'submitted'` status) are all closed, and the regression suite above
+exercises all three against a real browser and a real required-field form. This does not prove
+every possible funder-portal quirk is handled — a portal that both accepts an incomplete POST *and*
+navigates in response to it would still read as `'submitted'`, since navigation/response is the
+only verification signal available without funder-specific confirmation-page parsing (which
+`parseConfirmationPage()` already attempts separately, best-effort, after a verified submit).
+
 ## AR-2.2 — corporate_prospects / knowledge_patterns_applied: premise mismatch, already fixed (2026-09-17)
 
 Task premise: `corporate_prospects` doesn't exist in production (citing 4 recent

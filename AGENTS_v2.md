@@ -505,6 +505,23 @@ in `STATE_OF_THE_BUILD.md`'s "AR-1.2" section.
 
 ---
 
+## AutoApply submit integrity (AR-3.1, 2026-09-17)
+
+`autoapply_form_filler` (`src/lib/autoapply/form-filler-agent.ts`, identity added above in AR-1.2)
+could previously log a `completed` `agent_runs` row — and `worker/queue-processor.ts` could
+previously persist `autoapply_submissions.status = 'submitted'` — for a submission that never
+reached the funder's portal. A browser silently refusing an HTML5-`required` form submit throws
+nothing and navigates nowhere, and `fillAndSubmit()` had no way to tell that apart from a real
+success. Fixed by three changes to `FormFillerAgent` (adapter for `FormAnalyzerAgent`'s real
+array-shaped `field_mapping`; a pre-submit required-field gate; a bounded verified-signal wait in
+`submitForm()`) plus a discriminated `FillResult.outcome` that `worker/queue-processor.ts`'s new
+`mapFillOutcomeToStatus()` maps honestly to `autoapply_submissions.status`, including a new
+`'submit_unverified'` value (migration 184) for the ambiguous case. Full incident writeup in
+`STATE_OF_THE_BUILD.md`'s "AR-3.1" section; contract detail in `AUTOAPPLY_ARCHITECTURE_V2.md`'s
+"Submit-integrity note (AR-3.1)".
+
+---
+
 ## Agent Registry Schema
 
 ```sql

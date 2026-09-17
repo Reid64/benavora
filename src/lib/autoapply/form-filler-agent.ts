@@ -58,6 +58,43 @@ export class DeferredSubmissionError extends Error {
   }
 }
 
+/**
+ * Thrown before any submit click when one or more fields the browser (or the
+ * stored template) considers required are still empty. A browser silently
+ * refuses to submit an HTML5-`required` form and fires no error and no
+ * navigation — without this gate that silent refusal was indistinguishable
+ * from a real submission (AR-3.1: pagesCompleted=1, confirmationNumber=null,
+ * no exception). Never caught internally — always propagates to the caller.
+ */
+export class IncompleteSubmissionError extends Error {
+  constructor(public readonly emptyFields: string[]) {
+    super(`Cannot submit: required fields still empty: ${emptyFields.join(', ')}`);
+    this.name = 'IncompleteSubmissionError';
+  }
+}
+
+/** Thrown by submitForm() when no submit button/control could be found on the page. */
+export class NoSubmitControlError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NoSubmitControlError';
+  }
+}
+
+/**
+ * Thrown by submitForm() when a submit control was clicked but neither a page
+ * navigation nor a POST response was observed within the verification
+ * timeout — the click may or may not have actually submitted the form.
+ * fillAndSubmit() catches this specific error and reports outcome:'unverified'
+ * rather than treating an ambiguous click as a confirmed success.
+ */
+export class SubmissionNotVerifiedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SubmissionNotVerifiedError';
+  }
+}
+
 export interface FillOptions {
   page: Page;
   template: Record<string, unknown>;
@@ -77,6 +114,14 @@ export interface FillOptions {
   sessionId?: string;
 }
 
+/**
+ * Discriminated result of the submit attempt:
+ * - 'submitted': a real navigation or POST response was observed after the click.
+ * - 'unverified': a submit control was clicked but no signal confirmed the submit went through.
+ * - 'not_submitted': no submit control was ever clicked (none found on the page).
+ */
+export type FillOutcome = 'submitted' | 'not_submitted' | 'unverified';
+
 export interface FillResult {
   confirmationNumber: string | null;
   requestDescription: string | null;
@@ -89,6 +134,10 @@ export interface FillResult {
   captchaSolved: boolean;
   /** Passed through from dossierContext.successProbability, if supplied, for the caller to persist. */
   successProbability?: number | null;
+  /** Ground truth for whether a submission was actually verified — never infer success from the absence of a thrown error. */
+  outcome: FillOutcome;
+  /** Non-null when outcome !== 'submitted' — the evidence for why, for the caller to persist alongside the status. */
+  submitFailureReason: string | null;
 }
 
 type FieldType =
@@ -356,17 +405,45 @@ export class FormFillerAgent {
     // BEHAVIORAL_CONTRACTS §18: never submit without a human-approved session.
     await this.assertSessionApproved(sessionId, organizationId);
 
+    // Never submit a form known to still be missing a required value. A browser
+    // silently refuses an HTML5-`required` submit — no exception, no navigation,
+    // no POST — which previously let the caller record a confirmed submission
+    // that never happened (AR-3.1). Runs on the final page's live DOM state,
+    // after every fill pass above, immediately before the submit click. Not
+    // caught here — a form known to be incomplete must never be attempted.
+    const unfilledRequired = await this.getUnfilledRequiredFields(page, template).catch(
+      (): string[] => [],
+    );
+    if (unfilledRequired.length > 0) {
+      throw new IncompleteSubmissionError(unfilledRequired);
+    }
+
     let confirmationNumber: string | null = null;
     let confirmationScreenshot: Buffer | null = null;
+    let outcome: FillOutcome = 'not_submitted';
+    let submitFailureReason: string | null = null;
 
     try {
       await this.submitForm(page);
+      outcome = 'submitted';
       await page.waitForTimeout(3000);
       const confirmData = await parseConfirmationPage(page).catch(() => null);
       confirmationNumber =
         confirmData?.confirmation_number ?? confirmData?.reference_id ?? null;
-    } catch {
-      // Submission failed; screenshot captures the failure state
+    } catch (err) {
+      // Only the two known, expected submit-ambiguity errors are translated
+      // into a result outcome here — anything else is unexpected and must
+      // propagate so the caller sees the real failure rather than a silently
+      // swallowed one.
+      if (err instanceof SubmissionNotVerifiedError) {
+        outcome = 'unverified';
+        submitFailureReason = err.message;
+      } else if (err instanceof NoSubmitControlError) {
+        outcome = 'not_submitted';
+        submitFailureReason = err.message;
+      } else {
+        throw err;
+      }
     }
 
     try {
@@ -386,6 +463,8 @@ export class FormFillerAgent {
       captchaEncountered,
       captchaSolved,
       successProbability: dossierContext?.successProbability ?? null,
+      outcome,
+      submitFailureReason,
     };
   }
 
@@ -581,21 +660,144 @@ export class FormFillerAgent {
     }, source);
   }
 
+  /**
+   * form-analyzer-agent.ts's KbMapping vocabulary ('organizations.name',
+   * 'organizations.email', ...) was written for the legacy
+   * src/lib/agents/form-filler.ts, which resolves it directly against
+   * `organizations` table columns. This worker's buildFillData() instead
+   * derives an 'organization.*' (singular) vocabulary from the
+   * knowledge_base table, so a kbMapping value cannot be used verbatim as a
+   * fillData key — it must be translated. Entries with no translation here
+   * (organizations.city/state/zip, request.amount — this worker has no
+   * equivalent fillData source for those) are left keyed by the raw
+   * kbMapping string, which simply never matches a fillData key: fillPageFields
+   * already skips any mapping whose value is falsy, so those fields fall
+   * through to the Claude-driven fillUnmappedFields() fallback instead of
+   * being force-filled with the wrong value.
+   */
+  private static readonly KB_MAPPING_TO_FILL_KEY: Readonly<Record<string, string>> = {
+    'organizations.name': 'organization.name',
+    'organizations.ein': 'organization.ein',
+    'organizations.mission_statement': 'organization.mission_statement',
+    'organizations.email': 'organization.contact_email',
+    'organizations.phone': 'organization.phone',
+    'organizations.address_line1': 'organization.address',
+    'organizations.website': 'organization.website',
+    'request.description': 'request.description',
+  };
+
+  /**
+   * Accepts both field_mapping shapes stored in form_templates: the legacy
+   * plain object (benavoraField -> CSS selector) that this method always
+   * expected, and the array FormAnalyzerAgent actually stores
+   * (FieldMappingEntry[] — DOM field -> KB category). Previously the
+   * `!Array.isArray(raw)` guard below silently discarded the array shape on
+   * every run, returning {} and causing fillPageFields() to iterate zero
+   * fields (AR-3.1 CAUSE 1). fieldName becomes an attribute-selector pair
+   * (matches by `name` or `id`, never a bare `#id` selector, since fieldName
+   * may contain characters that are invalid in an unescaped ID selector).
+   */
   private extractFieldMapping(
     template: Record<string, unknown>,
     requestProfile?: RequestProfile,
   ): Record<string, string> {
     const raw = template['field_mapping'];
-    const base: Record<string, string> =
-      raw && typeof raw === 'object' && !Array.isArray(raw)
-        ? (raw as Record<string, string>)
-        : {};
+    let base: Record<string, string> = {};
+
+    if (Array.isArray(raw)) {
+      for (const entry of raw as Array<Record<string, unknown>>) {
+        if (!entry || entry['manualReviewRequired'] === true) continue;
+        const fieldName = typeof entry['fieldName'] === 'string' ? entry['fieldName'] : '';
+        const kbMapping = typeof entry['kbMapping'] === 'string' ? entry['kbMapping'] : '';
+        if (!fieldName || !kbMapping || kbMapping === 'manual_review_required') continue;
+
+        const benavoraField = FormFillerAgent.KB_MAPPING_TO_FILL_KEY[kbMapping] ?? kbMapping;
+        const escaped = fieldName.replace(/"/g, '\\"');
+        base[benavoraField] = `[name="${escaped}"],[id="${escaped}"]`;
+      }
+    } else if (raw && typeof raw === 'object') {
+      base = raw as Record<string, string>;
+    }
 
     if (requestProfile?.form_field_overrides) {
       return { ...base, ...requestProfile.form_field_overrides };
     }
 
     return { ...base };
+  }
+
+  /**
+   * Checks the live DOM (every `[required]`/`[aria-required="true"]`
+   * element) plus every field the stored template's form_structure marked
+   * required, and returns the identifying name/id of each one still empty.
+   * Runs immediately before the submit click — see fillAndSubmit().
+   */
+  private async getUnfilledRequiredFields(
+    page: Page,
+    template: Record<string, unknown>,
+  ): Promise<string[]> {
+    const formStructure = template['form_structure'];
+    const structureFields: Array<{ name?: string; required?: boolean }> = Array.isArray(formStructure)
+      ? (formStructure as Array<{ name?: string; required?: boolean }>)
+      : Array.isArray((formStructure as { fields?: unknown } | null)?.fields)
+        ? (formStructure as { fields: Array<{ name?: string; required?: boolean }> }).fields
+        : [];
+
+    const templateRequiredSelectors = structureFields
+      .filter((f) => f.required && f.name)
+      .map((f) => {
+        const escaped = (f.name as string).replace(/"/g, '\\"');
+        return `[name="${escaped}"],[id="${escaped}"]`;
+      });
+
+    return page
+      .evaluate((selectors: string[]) => {
+        const isFilled = (el: Element): boolean => {
+          const style = window.getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden') return true;
+
+          const tag = el.tagName.toLowerCase();
+          if (tag === 'select') return (el as HTMLSelectElement).value !== '';
+          if (tag === 'textarea') return (el as HTMLTextAreaElement).value.trim() !== '';
+          if (tag === 'input') {
+            const inp = el as HTMLInputElement;
+            if (inp.type === 'checkbox') return inp.checked;
+            if (inp.type === 'radio') {
+              if (!inp.name) return inp.checked;
+              const group = document.querySelectorAll<HTMLInputElement>(
+                `input[type="radio"][name="${inp.name.replace(/"/g, '\\"')}"]`,
+              );
+              return Array.from(group).some((r) => r.checked);
+            }
+            if (inp.type === 'file') return inp.files !== null && inp.files.length > 0;
+            return inp.value.trim() !== '';
+          }
+          return true;
+        };
+
+        const labelOf = (el: Element): string => {
+          const asInput = el as HTMLInputElement;
+          return asInput.name || asInput.id || el.getAttribute('aria-label') || el.tagName.toLowerCase();
+        };
+
+        const empty = new Set<string>();
+
+        document.querySelectorAll('[required], [aria-required="true"]').forEach((el) => {
+          if (!isFilled(el)) empty.add(labelOf(el));
+        });
+
+        for (const sel of selectors) {
+          try {
+            const el = document.querySelector(sel);
+            if (el && !isFilled(el)) empty.add(labelOf(el));
+          } catch {
+            // invalid selector — skip
+          }
+        }
+
+        return Array.from(empty);
+      }, templateRequiredSelectors)
+      .catch((): string[] => []);
   }
 
   private async fillPageFields(
@@ -808,28 +1010,68 @@ export class FormFillerAgent {
     }
   }
 
+  /**
+   * A click can succeed even when the browser silently refused to submit
+   * (e.g. an unmet HTML5 `required` constraint) — clicking never throws
+   * either way. This bounds how long to wait for real evidence that a submit
+   * actually happened (navigation, or a POST response) before giving up.
+   */
+  private static readonly SUBMIT_VERIFY_TIMEOUT_MS = 15000;
+
   private async submitForm(page: Page): Promise<void> {
     const explicitSelectors = [
       'input[type="submit"]',
       'button[type="submit"]',
     ];
 
+    let clickTarget: { click: () => Promise<void> } | null = null;
+
     for (const sel of explicitSelectors) {
       const el = await page.$(sel);
       if (el) {
-        await el.click();
-        return;
+        clickTarget = el;
+        break;
       }
     }
 
-    // Fall back to text-match on any visible button
-    const btn = page
-      .locator('button')
-      .filter({ hasText: /submit|send application|apply now|send request/i })
-      .first();
+    if (!clickTarget) {
+      // Fall back to text-match on any visible button
+      const btn = page
+        .locator('button')
+        .filter({ hasText: /submit|send application|apply now|send request/i })
+        .first();
 
-    if ((await btn.count()) > 0) {
-      await btn.click();
+      if ((await btn.count()) > 0) {
+        clickTarget = btn;
+      }
+    }
+
+    if (!clickTarget) {
+      throw new NoSubmitControlError('No submit button or control found on the page.');
+    }
+
+    // Both listeners must be armed before the click — set them up first, then
+    // race for whichever fires. Both are bounded to the same timeout, so this
+    // never waits longer than SUBMIT_VERIFY_TIMEOUT_MS regardless of outcome.
+    const navigated = page
+      .waitForNavigation({ timeout: FormFillerAgent.SUBMIT_VERIFY_TIMEOUT_MS })
+      .then(() => true)
+      .catch(() => false);
+    const responded = page
+      .waitForResponse((res) => res.request().method() === 'POST', {
+        timeout: FormFillerAgent.SUBMIT_VERIFY_TIMEOUT_MS,
+      })
+      .then(() => true)
+      .catch(() => false);
+
+    await clickTarget.click();
+
+    const [gotNavigation, gotResponse] = await Promise.all([navigated, responded]);
+    if (!gotNavigation && !gotResponse) {
+      throw new SubmissionNotVerifiedError(
+        'Submit control was clicked but no navigation or POST response was observed ' +
+          `within ${FormFillerAgent.SUBMIT_VERIFY_TIMEOUT_MS}ms — the submission could not be verified.`,
+      );
     }
   }
 }

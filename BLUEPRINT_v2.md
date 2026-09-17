@@ -555,6 +555,7 @@ cd C:\Users\manag\Documents\FORGE; $env:NODE_OPTIONS="--max-old-space-size=8192"
 | Intelligence Library duplicates | FIXED IN queue | Dedup check added. Truncate NIH records before re-ingest. |
 | Admin page 404 | FIXED | Built in last FORGE run. |
 | Alerts API 500 | FIXED IN queue | Route corrected in last FORGE run. |
+| AutoApply could report a submission it never made | FIXED (AR-3.1, 2026-09-17) | Browser silently refuses an HTML5-`required` submit with no exception/navigation; `FormFillerAgent` couldn't tell that apart from success. Fixed: real field_mapping adapter, pre-submit required-field gate, verified-signal submit, new `submit_unverified` status. See `STATE_OF_THE_BUILD.md` "AR-3.1" and `AUTOAPPLY_ARCHITECTURE_V2.md`. Migration 184 (status enum) applied live via Supabase MCP this session — confirmed by re-querying the constraint definition before and after. |
 
 ---
 

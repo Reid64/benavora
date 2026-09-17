@@ -8,13 +8,41 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-2.2: corporate_prospects / knowledge_patterns_applied premise-mismatch check — both already fixed, migration history backfilled)
+- **Last updated:** 2026-09-17 (AR-3.1: AutoApply submit integrity — field_mapping adapter, submit verification, honest status; migration 184 applied live)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
 
 Queue.yaml exists at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` but contains template prompts only. DO NOT EXECUTE.
+
+## Session — 2026-09-17 (AR-3.1: AutoApply submit integrity — highest severity defect)
+
+Task: AutoApply could persist `autoapply_submissions.status = 'submitted'` for a submission that
+never reached the funder's portal. Full detail in `STATE_OF_THE_BUILD.md`'s "AR-3.1" section (top
+of file). On arrival, `src/lib/autoapply/form-filler-agent.ts` and `worker/queue-processor.ts`
+already contained the fix from an interrupted prior pass (uncommitted working-tree changes, plus
+the new `src/__tests__/integration/autoapply-submit-integrity.test.ts`); this session verified,
+completed, and shipped it rather than re-implementing from scratch. Three root causes fixed: (1)
+`extractFieldMapping()` now accepts `FormAnalyzerAgent`'s real array-shaped `field_mapping` (it
+previously discarded it every time, returning `{}`); (2) `submitForm()` now awaits a bounded 15s
+navigation-or-POST-response signal and throws `SubmissionNotVerifiedError` if neither arrives; (3)
+the empty catch around submit is gone, `FillResult` gained a discriminated
+`outcome: 'submitted' | 'not_submitted' | 'unverified'`, a new pre-submit
+`IncompleteSubmissionError` gate blocks any click while required fields are empty, and
+`worker/queue-processor.ts`'s new `mapFillOutcomeToStatus()` derives the persisted status honestly
+instead of assuming `'submitted'` unconditionally. Migration 184 (`submit_unverified` status value)
+was found **not yet applied live** — direct `psql` via `.env.local`'s `DATABASE_URL` timed out from
+this sandbox again, same pattern as AR-1.2's session — so applied it through the Supabase MCP
+`apply_migration` tool against project `vbjplpquqxxfbpazyalt`, and confirmed via a before/after
+`pg_get_constraintdef` query that `submit_unverified` is now really in the live CHECK constraint.
+Ran the new test's 4 assertions individually first (all green, real Playwright + real Claude + real
+local required-field HTTP server, no external host dependency) before the full verification pass.
+`pnpm tsc --noEmit`: 0 errors. `pnpm run build`: succeeds. Full suite: 103 files passed / 1 skipped
+(104), 915 tests passed / 13 todo, 0 failures. `AGENTS_v2.md` and `AUTOAPPLY_ARCHITECTURE_V2.md`
+already reflected the fix from the interrupted prior pass (unchanged this session). `BLUEPRINT_v2.md`
+and `SCHEMA_REGISTRY_v2.md` had stale "migration 184 not yet confirmed applied" caveats — corrected
+both now that the migration is confirmed live. Not deployed per explicit instruction — commit only.
 
 ## Session — 2026-09-17 (AR-2.2: corporate_prospects / knowledge_patterns_applied — premise mismatch)
 

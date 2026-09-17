@@ -59,7 +59,7 @@ const EXPECTED_SCORE = 15;
   () => {
     let service: SupabaseClient;
     let testOrgId: string;
-    let funderIds: string[] = [];
+    const funderIds: string[] = [];
 
     beforeAll(async () => {
       service = createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {

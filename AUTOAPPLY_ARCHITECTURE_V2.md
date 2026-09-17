@@ -12,6 +12,32 @@
 > `withAgentRun()` — previously none of them did. See `STATE_OF_THE_BUILD.md`'s "AR-1.2" section
 > and `AGENTS_v2.md`'s "AutoApply agent identity" section for full detail.
 
+> **Submit-integrity note (2026-09-17, AR-3.1):** Prior to this fix, a browser silently refusing
+> an HTML5-`required` submit (0 fields filled, no exception, no navigation) was indistinguishable
+> from a real submission — `autoapply_submissions.status` was written as `'submitted'`
+> unconditionally whenever `FormFillerAgent.fillAndSubmit()` returned without throwing. Three
+> independent root causes combined to make this possible; all three are now fixed. See
+> `STATE_OF_THE_BUILD.md`'s "AR-3.1" section for the full incident writeup and
+> `src/lib/autoapply/form-filler-agent.ts` for the real code. Summary of the new contract:
+>
+> - `FormFillerAgent.extractFieldMapping()` now accepts BOTH `form_templates.field_mapping` shapes
+>   — the legacy plain object and the array `FormAnalyzerAgent` actually stores (previously the
+>   array was silently discarded every time, so the direct-mapping fill path never ran in
+>   production; every real fill depended entirely on the Claude-driven unmapped-field fallback).
+> - `fillAndSubmit()` now runs a pre-submit gate immediately before the submit click: every DOM
+>   `[required]`/`[aria-required]` element (plus every field the stored template marked required)
+>   must have a real value, or it throws `IncompleteSubmissionError` and never attempts the click.
+> - `submitForm()` now awaits a bounded (15s) real submission signal — page navigation or a POST
+>   response — after the click, and throws `SubmissionNotVerifiedError` if neither arrives.
+> - `FillResult` gained a discriminated `outcome: 'submitted' | 'not_submitted' | 'unverified'`
+>   field (plus `submitFailureReason`) that `worker/queue-processor.ts`'s
+>   `mapFillOutcomeToStatus()` maps to the persisted `autoapply_submissions.status` — `'unverified'`
+>   maps to the new `'submit_unverified'` status value (migration 184), never to `'submitted'`.
+>   `recordOutcome()`/`submitted_at` are only ever set true/non-null when `outcome === 'submitted'`.
+> - Regression-guarded by `src/__tests__/integration/autoapply-submit-integrity.test.ts` against a
+>   local HTTP form with real `required` attributes (the sibling `form-analyzer-filler.test.ts`
+>   suite's httpbin.org target has none, which is why it could not have caught any of this).
+
 ---
 
 ## 1. Infrastructure Layer Enhancements

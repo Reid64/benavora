@@ -1,7 +1,7 @@
 ﻿import type { SupabaseClient } from '@supabase/supabase-js';
 import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
 import { FormAnalyzerAgent, AGENT_TYPE as FORM_ANALYZER_AGENT_TYPE } from '../src/lib/autoapply/form-analyzer-agent.js';
-import { FormFillerAgent, AGENT_TYPE as FORM_FILLER_AGENT_TYPE } from '../src/lib/autoapply/form-filler-agent.js';
+import { FormFillerAgent, AGENT_TYPE as FORM_FILLER_AGENT_TYPE, type FillOutcome } from '../src/lib/autoapply/form-filler-agent.js';
 import { CaptchaSolver, AGENT_TYPE as CAPTCHA_SOLVER_AGENT_TYPE } from '../src/lib/autoapply/captcha-solver.js';
 import { RegistrationAgent, AGENT_TYPE as REGISTRATION_AGENT_TYPE } from '../src/lib/autoapply/registration-agent.js';
 import { CredentialManager } from '../src/lib/autoapply/credential-manager.js';
@@ -175,6 +175,21 @@ function classifyError(message: string): string {
   if (/login|sign\s+in|account/.test(lower)) return 'account_required';
   if (/timeout|etimedout/.test(lower)) return 'timeout';
   if (/\b404\b|\b403\b|\b500\b/.test(lower)) return 'site_error';
+  return 'failed';
+}
+
+/**
+ * AR-3.1: FormFillerAgent.fillAndSubmit() returning without throwing no
+ * longer implies a confirmed submission — it resolves normally for the
+ * ambiguous 'unverified' and 'not_submitted' outcomes too. This maps its
+ * discriminated outcome to the autoapply_submissions.status value the queue
+ * processor persists, so a status is never written as 'submitted' without
+ * verified evidence (migration 184 adds 'submit_unverified' to the column's
+ * CHECK constraint).
+ */
+export function mapFillOutcomeToStatus(outcome: FillOutcome): string {
+  if (outcome === 'submitted') return 'submitted';
+  if (outcome === 'unverified') return 'submit_unverified';
   return 'failed';
 }
 
@@ -1475,7 +1490,14 @@ export class QueueProcessor {
 
       confirmationNumber = fillResult.confirmationNumber;
       requestDescription = fillResult.requestDescription;
-      submissionStatus = 'submitted';
+      // AR-3.1: fillAndSubmit() no longer implies success just by returning —
+      // it resolves normally for the ambiguous 'unverified' and 'not_submitted'
+      // outcomes too, so the status written here must come from its
+      // discriminated outcome, never be assumed unconditionally.
+      submissionStatus = mapFillOutcomeToStatus(fillResult.outcome);
+      if (fillResult.outcome !== 'submitted') {
+        errorMessage = fillResult.submitFailureReason ?? `submission outcome: ${fillResult.outcome}`;
+      }
       broadcastStep('Capturing confirmation');
 
       // Parse the confirmation page for structured data (confirmation number, next steps, etc.)

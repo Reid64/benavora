@@ -4,6 +4,16 @@
 ## Status: CANONICAL — All migrations listed here are the authoritative source of truth.
 ## Current migration count: 097 applied or queued
 
+> **Coverage note (2026-09-17, AR-3.1):** This doc's "097 applied or queued" snapshot predates
+> `autoapply_submissions` and `form_templates` (both from migration 045) — neither table is indexed
+> anywhere below; see `supabase/migrations/045_autoapply_tables.sql` directly. Migration 184 added
+> a new value, `'submit_unverified'`, to `autoapply_submissions.status`'s CHECK constraint — see
+> `AUTOAPPLY_ARCHITECTURE_V2.md`'s "Submit-integrity note (AR-3.1)" for what it means and
+> `STATE_OF_THE_BUILD.md`'s "AR-3.1" section for the full incident. Migration 184 was applied live
+> via the Supabase MCP `apply_migration` tool on 2026-09-17 (direct `psql` again timed out from the
+> sandbox) — confirmed by re-querying `autoapply_submissions_status_check`'s definition before and
+> after; `'submit_unverified'` is real in production.
+
 ---
 
 ## Migration Strategy
