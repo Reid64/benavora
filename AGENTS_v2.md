@@ -591,6 +591,31 @@ runs). Full defect list and live verification in `STATE_OF_THE_BUILD.md`'s "AR-5
 
 ---
 
+## Budget enforcement is now real: `cost_budgets` + spend accrual (AR-5.2, 2026-09-17)
+
+Every `ai_usage_log` insert (i.e. every `recordCost()` call, which means every `useTool()`/
+`finalizeRun()` call in `AgentRunner`) now automatically increments the inserting org's `'org'`-scope
+`cost_budgets` row (renamed from `pil_cost_budgets`) via a DB trigger — agent code does not need to,
+and must not try to, update `spent_usd` itself. `AgentRunner.run()` calls `checkBudget(context.orgId)`
+once, before an agent starts; a `hard_stop=true` budget at its limit now genuinely throws
+`BudgetExceededError` there. **This does not interrupt an agent already running** — there is no
+mid-run cost polling in `AgentRunner`, so a budget exhausted by an agent's own spend blocks only the
+*next* run for that org, not the current one. Keep routing every priced action through `useTool()`
+rather than calling `recordCost()` directly — that's what keeps both attribution and budget accrual
+correct.
+
+`checkBudget()`'s signature is now `checkBudget(orgId, scopeType = "org", scopeId = orgId)` — the old
+`checkBudget(orgId, costType)` form is gone (`costType` was already unused for enforcement, only for an
+error string). `BEN-SUP-03.ts` and `BEN-SUP-04.ts` read `spent_usd` via `getBudgetSummary()` and their
+own `isBudgetConstrained()`/`isConstrained()` helpers — unchanged by this migration, since neither
+called `checkBudget()` or referenced the table name directly; their soft "constrained" signal (spend
+above `alert_threshold_pct`) now reflects real, accruing spend rather than a frozen insert-time value.
+A new `'orchestration'` scope exists on `cost_budgets` for a future orchestration-layer budget, but
+nothing writes its `spent_usd` yet — only the `'org'` scope auto-accrues today. Full detail in
+`SCHEMA_REGISTRY_v2.md`'s "Budget Enforcement" section.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

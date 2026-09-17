@@ -159,7 +159,7 @@ export type SourcePermissibilityStatus = "permitted" | "restricted" | "prohibite
 
 export type CostType = "model_tokens" | "api_call" | "licensed_data" | "browser_automation" | "storage";
 
-export type CostBudgetScopeType = "org" | "agent" | "research_run";
+export type CostBudgetScopeType = "org" | "agent" | "research_run" | "orchestration";
 
 export type CostBudgetPeriod = "daily" | "monthly" | "per_run";
 
@@ -492,7 +492,7 @@ export interface CostLedgerEntry {
   created_at: ISODateTime;
 }
 
-// pil_cost_budgets
+// cost_budgets (renamed by migration 187 / AR-5.2 from its prior name)
 export interface CostBudget {
   id: UUID;
   organization_id: UUID;

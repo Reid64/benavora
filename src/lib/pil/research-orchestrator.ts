@@ -55,7 +55,7 @@ const MAX_DELEGATION_DEPTH = 3;
 // Fallback per-agent token budget when a run has no explicit token_budget
 // (pil_research_runs.token_budget is nullable -- POST /api/pil/research
 // never sets it today). AgentRunner.run() enforces the real spend limit via
-// checkBudget()/pil_cost_budgets; this value only seeds AgentContext.budget,
+// checkBudget()/cost_budgets; this value only seeds AgentContext.budget,
 // which pil_delegated_tasks.token_budget inherits for any child delegation.
 const DEFAULT_AGENT_TOKEN_BUDGET = 100_000;
 

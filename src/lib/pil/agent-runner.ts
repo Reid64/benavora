@@ -146,7 +146,7 @@ export class AgentRunner {
       };
     }
 
-    await checkBudget(context.orgId, "model_tokens");
+    await checkBudget(context.orgId);
 
     const agentRun = await this.createRun(context, agentDef.default_autonomy_level, "running");
 

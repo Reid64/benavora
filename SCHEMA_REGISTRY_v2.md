@@ -1400,6 +1400,56 @@ table was not touched.
 
 ---
 
+## Budget Enforcement: `cost_budgets` rename, `orchestration` scope, spend accrual (AR-5.2, 2026-09-17)
+
+`pil_cost_budgets` (migration 158, 9.2) is renamed to `cost_budgets` by migration 187 (0 rows live at
+rename time, so no data movement). Shape is unchanged except the `scope_type` CHECK: `id`,
+`organization_id` (FK → `organizations(id)` ON DELETE CASCADE), `scope_type`, `scope_id`,
+`budget_period`, `budget_limit_usd`, `spent_usd` (DEFAULT 0), `alert_threshold_pct`, `hard_stop`
+(DEFAULT true), `created_at`, `updated_at`, `UNIQUE (organization_id, scope_type, scope_id,
+budget_period)`. RLS policies (`..._org_select/_insert/_update`) and the `idx_pil_cost_budgets_org`
+index kept their pre-rename names — Postgres does not rename dependent objects when a table itself is
+renamed, and nothing requires them to match the new table name to function correctly.
+
+`scope_type` CHECK extended from `'org' | 'agent' | 'research_run'` to add `'orchestration'` — a plain
+`text` CHECK constraint, not a Postgres enum, so this was a normal `DROP CONSTRAINT` / `ADD CONSTRAINT`
+pair (the live constraint name was looked up via `pg_constraint` rather than assumed, since it kept its
+pre-rename auto-generated name `pil_cost_budgets_scope_type_check` after the table rename).
+
+**Spend now genuinely accrues.** Before this migration, `spent_usd` was read by `checkBudget()`
+(`src/lib/pil/cost.ts`), `BEN-SUP-03.ts:296`, and `BEN-SUP-04.ts:256`, and written by nothing — a
+`hard_stop` budget could never actually stop anything. Migration 187 adds
+`accrue_cost_budget_spend()`, a `SECURITY DEFINER` (fixed `search_path = public`) trigger function,
+fired by `ai_usage_log_accrue_cost_budget` — `AFTER INSERT ON ai_usage_log` — that runs:
+
+```sql
+UPDATE cost_budgets
+SET spent_usd = spent_usd + NEW.cost_usd, updated_at = now()
+WHERE organization_id = NEW.organization_id
+  AND scope_type = 'org'
+  AND scope_id = NEW.organization_id::text;
+```
+
+No-ops (does not error) when no matching `'org'`-scope budget row exists — matches `checkBudget()`'s
+pre-existing "no budget configured, nothing to enforce" behavior. Pure SQL, no `pg_net` call (not
+installed on this project). **Only the `'org'` scope auto-accrues.** `'agent'`, `'research_run'`, and
+the new `'orchestration'` scope can hold budget rows and be read via `checkBudget(orgId, scopeType,
+scopeId)`, but nothing currently writes their `spent_usd` — a future task wiring per-agent or
+per-orchestration-run spend tracking would need its own accrual path (or an extended version of this
+trigger); do not assume those scopes enforce anything today just because the column exists.
+
+`checkBudget()` signature: `checkBudget(orgId: string, scopeType: CostBudgetScopeType = "org", scopeId:
+string = orgId)` — generalized from a hardcoded org-scope-only check. `CostBudgetScopeType`
+(`src/lib/pil/types.ts`) is now `"org" | "agent" | "research_run" | "orchestration"`.
+
+Live-verified via `src/__tests__/integration/budget-accrual.test.ts` (4/4, real DB, no mocks) and FORGE
+gate `scripts/audit/forge-gates/ar-5-budget-accrual.mjs` (`OK: one budget table (cost_budgets) with an
+orchestration scope, spend accrues by SQL trigger on ai_usage_log, no stale references`). Full defect
+history and the "what hard_stop can/cannot stop" boundary in `STATE_OF_THE_BUILD.md`'s and
+`SESSION_STATE.md`'s "AR-5.2" sections.
+
+---
+
 ## Data Volume Estimates
 
 | Table | Current Records | Target Scale |

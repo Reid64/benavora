@@ -8,11 +8,95 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-5.1: single cost ledger — ai_usage_log is now canonical, pil_cost_ledger superseded/read-only)
+- **Last updated:** 2026-09-17 (AR-5.2: cost_budgets rename + orchestration scope + real spend accrual trigger)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-5.2: budget enforcement — cost_budgets rename, orchestration scope, spend accrual trigger)
+
+Prerequisite: AR-5.1 (below) must have landed — `ai_usage_log` is the single cost ledger this task's
+trigger fires on. Live facts verified against project `vbjplpquqxxfbpazyalt` before writing any
+migration: `pil_cost_budgets` had 0 rows; `spent_usd` was read in `BEN-SUP-03.ts:296`,
+`BEN-SUP-04.ts:256`, and the PIL dashboard's cost-summary route, and written by nothing —
+`checkBudget()`'s `remaining > 0 || !hard_stop` logic was correct, but `remaining` never moved off the
+full limit, so `hard_stop` could never fire.
+
+**Rejected the spec's second table.** The v1.0 Orchestration Logging spec asked for a new
+`orchestration_cost_budget` table. Building it would have meant a second copy of `checkBudget()`'s
+enforcement logic next to the first, guaranteed to drift. Instead, migration 187:
+1. `ALTER TABLE pil_cost_budgets RENAME TO cost_budgets` (0 rows, free). Looked up the live
+   `scope_type` CHECK constraint's name via `pg_constraint` before dropping it, rather than assuming
+   an auto-generated name — confirmed live that Postgres does **not** rename constraints/indexes when
+   a table itself is renamed, so guessing a post-rename name would have failed.
+2. Extended that CHECK to admit `'orchestration'` alongside `'org'`/`'agent'`/`'research_run'`.
+   `scope_type` is a plain `text` CHECK, not a Postgres enum, so no `ALTER TYPE ... ADD VALUE`
+   own-transaction handling was needed (that concern, real for an actual enum, doesn't apply here).
+3. Added `accrue_cost_budget_spend()` — `SECURITY DEFINER`, fixed `search_path = public` — as an
+   `AFTER INSERT ON ai_usage_log` trigger (`ai_usage_log_accrue_cost_budget`) that increments the
+   matching `(organization_id, scope_type='org', scope_id=organization_id::text)` row's `spent_usd` by
+   `NEW.cost_usd`, no-opping (not erroring) when no such row exists. Pure SQL, zero network calls
+   (`pg_net` is not installed on this project — checked before writing the trigger, not after).
+
+**`checkBudget()` signature change:** `checkBudget(orgId, costType)` → `checkBudget(orgId, scopeType =
+"org", scopeId = orgId)`. `costType` was already dead for query purposes (the query always hardcoded
+`scope_type = 'org'`; the param only ever reached an error-message string) — the one real call site,
+`AgentRunner.run()` in `src/lib/pil/agent-runner.ts` (`checkBudget(context.orgId, "model_tokens")`), now
+reads `checkBudget(context.orgId)`, which performs the identical org-scope check as before via the new
+defaults. `BudgetExceededError` is unchanged. `getBudgetSummary()` and `recordCost()` untouched apart
+from the table-name swap.
+
+**New test, live DB, no mocks:** `src/__tests__/integration/budget-accrual.test.ts`, 4/4 green:
+(1) a cost-ledger insert raises the matching budget's `spent_usd` by exactly the inserted `cost_usd`;
+(2) `hard_stop=true` at the limit makes `checkBudget()` throw `BudgetExceededError`; (3) a cost-ledger
+insert for an org with no budget row succeeds and changes nothing; (4) an `'orchestration'`-scope budget
+row can be created and correctly read back via `checkBudget(orgId, "orchestration", scopeId)`, and a
+mismatched `scopeId` still reads as unconfigured (the accrual trigger only touches the `'org'` scope, by
+design — `'orchestration'`/`'agent'`/`'research_run'` budgets exist for `checkBudget()` to read but
+nothing writes to them yet, out of scope for AR-5.2).
+
+**Real bug found and fixed in the test's own cleanup, not worked around:** `organizations` has a DB
+trigger that auto-inserts a `platform_config` row on org insert with no `ON DELETE CASCADE` back to
+`organizations`. First test run left 4 `organizations` + their `platform_config` rows behind in
+production (`cost_budgets` rows correctly cascade-deleted; `organizations` did not) — discovered via a
+live `DELETE` that surfaced `platform_config_organization_id_fkey`, not assumed. Manually swept the
+leftover rows, then fixed `afterAll` to delete `platform_config` before `organizations`, re-ran, and
+confirmed via `execute_sql` that zero `BUDGET_ACCRUAL_%`-named orgs remained afterward.
+
+**Task-instruction discrepancy, not silently worked around:** the task specified running
+`pnpm vitest run --config vitest.integration.config.ts src/__tests__/integration/budget-accrual.test.ts`.
+That config's `include` covers only `src/__tests__/integration-live/**/*.test.ts` — the new test (and
+all 16 pre-existing files in `src/__tests__/integration/`, none of which run under this config either)
+isn't matched, so this literal command reports "No test files found, exiting with code 0". Ran
+`pnpm vitest run src/__tests__/integration/budget-accrual.test.ts` instead (the default
+`vitest.config.ts`, whose `include` covers `src/**/*.test.ts`) — the config every sibling suite in this
+directory actually runs under.
+
+**FORGE gate:** `scripts/audit/forge-gates/ar-5-budget-accrual.mjs` (pre-existing, authored against
+these same live facts) failed once on a false positive — an explanatory code comment in `cost.ts`/
+`types.ts` literally contained the string `pil_cost_budgets` (documenting the rename, not referencing
+the old table), which the gate's naive regex can't distinguish from a real stale reference. Reworded
+both comments to describe the rename without repeating the old table name verbatim; gate now passes:
+`OK: one budget table (cost_budgets) with an orchestration scope, spend accrues by SQL trigger on
+ai_usage_log, no stale references`.
+
+**What hard_stop can and cannot do, stated plainly:** `AgentRunner.run()` calls `checkBudget()` once,
+before an agent starts — proven by this session's test 2, a `hard_stop` budget genuinely blocks the
+*next* `checkBudget()` call once `spent_usd` reaches the limit. It does **not** interrupt an
+already-running agent: there is no mid-run cost polling or cancellation path anywhere in `AgentRunner`,
+so an agent whose single, upfront `checkBudget()` call passed keeps running to completion even if its
+own spend pushes the org over the limit mid-run. That's the boundary of what "real hard_stop
+enforcement" means today — the next run is blocked, the current one is not interrupted.
+
+**Gates run, real numbers:** `pnpm typecheck` — 0 errors. `pnpm run build` — succeeded, full route
+manifest emitted, no errors. `pnpm test` — **105 test files passed, 1 skipped, 922 tests passed, 13
+todo** (935 total), up from AR-5.1's 931 by the 4 new `budget-accrual.test.ts` tests.
+
+**Commit:** `git add supabase/migrations src/lib/pil src/types "src/app/(dashboard)/intelligence/pil"
+src/__tests__/integration/budget-accrual.test.ts` — commit `[FORGE] AR-5.2: cost_budgets with scope,
+spend accrual trigger, real hard_stop enforcement`, pushed to `origin main`. **Not deployed** — per
+task instruction, no `vercel --prod` was run.
 
 ## Session — 2026-09-17 (AR-5.1: single cost ledger in ai_usage_log)
 
