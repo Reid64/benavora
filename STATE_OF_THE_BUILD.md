@@ -1,5 +1,54 @@
 # Benavora Platform Build State
 
+## AR-5.1 — Single cost ledger: `ai_usage_log` is now canonical, `pil_cost_ledger` superseded (2026-09-17)
+
+**Why this is first:** Phase 5's Orchestration Logging and Alerting Specification adds cost columns
+and a budget table. This codebase already had fourteen cost/usage/budget/alert tables, nine empty
+and three tracking cost incompatibly — building the orchestration layer on top without consolidating
+first would have produced a fourth cost model inside the system whose job is telling the truth about
+the others. Live facts verified against project `vbjplpquqxxfbpazyalt` before any migration:
+`ai_usage_log` (migration 056) had 0 rows and no application reader/writer; `pil_cost_ledger`
+(migration 158) had 49 rows, written only by `recordCost()` in `src/lib/pil/cost.ts`.
+
+**Three defects fixed before `ai_usage_log` became canonical:** (1) `estimated_cost_cents` was an
+INTEGER — a $0.0035 Haiku call rounds to 0 cents, silently zeroing most of the platform's real spend;
+fixed with a new `cost_usd numeric(14,6)` column (the old integer column is untouched, unread, and
+now unwritten). (2) No run attribution — added `agent_run_id` (FK core `agent_runs`) and
+`pil_agent_run_id` (FK `pil_agent_runs`), both `ON DELETE SET NULL`, preserving the one thing
+`pil_cost_ledger` had that a naive migration would have lost. (3) No billing-path discriminator —
+Benavora runtime agents spend real Anthropic Console credits via `ANTHROPIC_API_KEY`
+(`billing_path = 'api'`); FORGE build runs authenticate the `claude` CLI against a Max subscription
+with that same env var forced to `$null` (`forge-orchestrator.ps1`) and have no per-token dollar cost
+(`billing_path = 'subscription'`) — without this, subscription rows would read as real spend.
+
+**Migrations 185 (schema) + 186 (backfill), applied live:** all 49 `pil_cost_ledger` rows now live in
+`ai_usage_log`, verified post-migration (`count=49`, `sum(cost_usd)=0.3771`, all `billing_path='api'`).
+`pil_cost_ledger` is marked superseded/read-only via `COMMENT ON TABLE`, not dropped — it's the only
+audit trail for those 49 rows. The task's literal backfill mapping (`agent_run_id -> agent_run_id`)
+was corrected: migration 158 defines `pil_cost_ledger.agent_run_id` as a FK to `pil_agent_runs(id)`,
+not the core `agent_runs(id)` table the new column of that name points to, so those values map to
+`pil_agent_run_id` instead (see migration 186's header). Both migrations were applied through the
+authenticated Supabase MCP connector after direct `psql` (password auth failure) and the
+governance-doc Management API PAT (401, likely rotated) both failed this session.
+
+`recordCost()` now writes `ai_usage_log`; `CostLedgerEntry` (`src/lib/pil/types.ts`) and both callers
+in `src/lib/pil/agent-runner.ts` were updated to match. One documented information loss:
+`ai_usage_log` has no `research_run_id`/`delegated_task_id` columns, so that finer PIL-specific
+attribution is gone going forward (`pil_agent_run_id` remains the run-attribution column) — out of
+scope for this consolidation per the task spec. New test
+`src/__tests__/unit/cost-ledger-consolidation.test.ts` (3/3 green) and the pre-existing FORGE gate
+`scripts/audit/forge-gates/ar-5-single-cost-ledger.mjs` both pass.
+
+**Gates, real numbers:** `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm lint` clean,
+`pnpm test` **104 files / 918 tests passed, 1 file skipped, 13 todo** (931 total).
+
+**Still open — more than one table is written with per-call cost.** `adapter_usage_log` (migration
+076, `src/lib/donor-discovery/adapters/google-places-adapter.ts` and
+`src/lib/donor-discovery/connectors/usage-log.ts`) writes an `api_cost_cents` column (hardcoded `0`
+on every call) on every donor-discovery connector call. Out of scope for AR-5.1 — named here rather
+than left for a future session to rediscover from scratch. Full detail in `SESSION_STATE.md`'s
+"AR-5.1" section.
+
 ## AR-4.1 — Agent exercise harness: converts "wired" into "proven" or "a bug" (2026-09-17)
 
 **Why this is the keystone:** 63 agents were wired and had never executed once; 27 of the 51

@@ -8,11 +8,101 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-4.1: agent exercise harness — registry of 144 real agents, idempotent seed fixture, exercise-all-agents.ts; full 144-agent pass not yet run)
+- **Last updated:** 2026-09-17 (AR-5.1: single cost ledger — ai_usage_log is now canonical, pil_cost_ledger superseded/read-only)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-5.1: single cost ledger in ai_usage_log)
+
+Task: this codebase had fourteen cost/usage/budget/alert tables, nine empty, three tracking cost in
+incompatible ways. Before Phase 5's Orchestration Logging and Alerting Specification adds another
+budget table on top, consolidate the two live per-call cost writers into one. Live facts verified
+against project `vbjplpquqxxfbpazyalt` before writing any migration: `ai_usage_log` (migration 056)
+had 0 rows and no application reader/writer; `pil_cost_ledger` (migration 158) had 49 rows and was
+the only table `recordCost()` (`src/lib/pil/cost.ts`) wrote to.
+
+Three defects fixed before `ai_usage_log` became canonical:
+1. `estimated_cost_cents` is an INTEGER — a 1,000/500-token `claude-haiku-4-5-20251001` call
+   ($0.0035) rounds to 0. Added `cost_usd numeric(14,6)`; `estimated_cost_cents` is left in place
+   (no rows, no readers) but nothing writes to it now.
+2. No run attribution — added `agent_run_id` (FK `agent_runs(id)`) and `pil_agent_run_id` (FK
+   `pil_agent_runs(id)`), both `ON DELETE SET NULL`, so a cost row is still joinable back to the run
+   that incurred it (the one thing a naive migration would have lost from `pil_cost_ledger`).
+3. No billing-path discriminator — Benavora runtime agents spend real Anthropic Console credits
+   (`billing_path = 'api'`); FORGE build runs authenticate the `claude` CLI against a Max
+   subscription with `$env:ANTHROPIC_API_KEY` forced to `$null` and have no per-token dollar cost
+   (`billing_path = 'subscription'`). Added `billing_path text NOT NULL DEFAULT 'api'` (CHECK
+   constrained to `api`/`subscription`) and `provider text NOT NULL DEFAULT 'anthropic'`.
+
+Migrations 185 (schema) and 186 (backfill) applied live via the authenticated Supabase MCP
+connector after both direct `psql` (password auth failure) and the governance-doc Management API
+PAT (401) failed in this session — see "Governance Files Consulted" note below. All 49
+`pil_cost_ledger` rows backfilled into `ai_usage_log`, verified live: `count=49`,
+`sum(cost_usd)=0.3771`, one distinct `billing_path` (`'api'`, correct — all 49 pre-date FORGE's
+subscription-path runs even touching this ledger). `pil_cost_ledger` now carries a `COMMENT ON
+TABLE` marking it superseded and read-only; it was **not** dropped — it remains the only audit
+trail for those 49 historical rows.
+
+**Correction to the task's literal backfill mapping:** the spec said `agent_run_id -> agent_run_id`,
+but migration 158 defines `pil_cost_ledger.agent_run_id` as `REFERENCES pil_agent_runs(id)`, not the
+core `agent_runs(id)` table the new `ai_usage_log.agent_run_id` column points to. Inserting those
+values into `agent_run_id` would violate that column's FK for every non-null row. Mapped to
+`pil_agent_run_id` instead (see migration 186's header for the full reasoning); `agent_run_id` is
+NULL for every backfilled row since `pil_cost_ledger` never recorded a core `agent_runs` id.
+
+`recordCost()` (`src/lib/pil/cost.ts`) now inserts into `ai_usage_log`; `CostLedgerEntry`
+(`src/lib/pil/types.ts`) was reshaped to match. Both callers in `src/lib/pil/agent-runner.ts`
+(`useTool()`, `finalizeRun()`) updated — `model` falls back to `"unknown"` at both call sites since
+neither reports which underlying model was actually called (same gap that existed before: neither
+call site had a real `model_name` either). One real, documented information loss: `ai_usage_log` has
+no `research_run_id`/`delegated_task_id` columns, unlike the superseded `pil_cost_ledger` — that
+finer-grained attribution is out of scope for this consolidation; `pil_agent_run_id` remains the
+primary run-attribution column. `src/lib/pil/db.ts`'s `pilCostLedger()` helper (a dead export, zero
+callers) was left reading `pil_cost_ledger` as-is — a read of frozen historical data, not a second
+writer, so it isn't in scope for the "no second writer" rule this task enforces.
+
+New FORGE gate `scripts/audit/forge-gates/ar-5-single-cost-ledger.mjs` (already present in the repo
+before this session's changes, authored against these same live facts) verifies: a migration ≥185
+adds a numeric `cost_usd` to `ai_usage_log`, adds `agent_run_id`, adds `billing_path`; no migration
+creates `orchestration_cost_budget`/`orchestration_cost_ledger`/`cost_ledger_v2`; and
+`src/lib/pil/cost.ts` writes `ai_usage_log`, not `pil_cost_ledger`. Ran clean: `OK: single cost
+ledger (ai_usage_log)...`.
+
+New test `src/__tests__/unit/cost-ledger-consolidation.test.ts` (3 tests, all green): `recordCost()`
+targets `ai_usage_log` and never `pil_cost_ledger`; a $0.0035 cost round-trips as `0.0035` (and is
+shown to become `0` under the old cents-rounding scheme, the direct DEFECT 1 regression guard); an
+`api`-path row is distinguishable from a `subscription`-path row.
+
+**Gates run, real numbers:** `pnpm typecheck` — 0 errors (after fixing 4 `TS2532` "possibly
+undefined" errors the new test's own array-index reads introduced — non-null assertions after
+explicit `toHaveLength()` checks). `pnpm run build` — succeeded, full route manifest emitted, no
+errors. `pnpm lint` — "No ESLint warnings or errors". `pnpm test` — **104 test files passed, 1
+skipped, 918 tests passed, 13 todo** (out of 931 total).
+
+**Still true after this session — more than one table is written with per-call cost.**
+`adapter_usage_log` (migration 076) is written by `src/lib/donor-discovery/adapters/
+google-places-adapter.ts` and `src/lib/donor-discovery/connectors/usage-log.ts`'s
+`logConnectorUsage()`, with an `api_cost_cents` column set to a hardcoded `0` on every call. It was
+out of scope for AR-5.1 (which targeted only the `ai_usage_log`/`pil_cost_ledger` pair named in the
+task) and was not touched. Named here, not silently left for a future session to rediscover.
+
+**Governance files consulted:** `BLUEPRINT_v2.md` §8.3 for the Supabase Management API PAT
+(returned 401 — likely rotated/expired, matching this repo's prior "Supabase creds go stale between
+sessions" pattern) and `.env.local`'s `DATABASE_URL` (direct `psql` returned `28P01` password
+auth failure). Neither governance file was edited (read-only per CLAUDE.md Iron Law #1). Both
+migrations were ultimately applied via the already-authenticated Supabase MCP connector
+(`mcp__claude_ai_Supabase__apply_migration`), verified live afterward with a direct `execute_sql`
+count/sum check.
+
+**Commit:** `git add supabase/migrations src/lib/pil/cost.ts src/lib/pil/types.ts
+src/__tests__/unit/cost-ledger-consolidation.test.ts` (no changes were needed in
+`src/types/database.ts` or `scripts/audit/forge-gates` — the gate script already existed pre-session
+and `ai_usage_log`/`pil_cost_ledger` were never in the hand-authored `database.ts` to begin with, so
+nothing there needed updating) — commit `[FORGE] AR-5.1: single cost ledger in ai_usage_log - numeric
+USD, run attribution, billing_path`, pushed to `origin main`. **Not deployed** — per task instruction,
+no `vercel --prod` was run.
 
 ## Session — 2026-09-17 (AR-4.1: agent exercise harness + seeded fixture org)
 

@@ -1361,6 +1361,43 @@ What-if scenario modeling results.
 | 096 | Disaster Response Engine | QUEUED (tonight) |
 | 097 | Knowledge Engine (pgvector, patterns, queries) | QUEUED (tonight) |
 
+**Note (2026-09-17):** this index was not maintained past migration 097. The live schema is far
+ahead of it (highest applied migration is 186 as of this note, including the 12-table Prospect
+Intelligence Layer batch at 150-169 and everything through AR-5.1 below) — treat everything above
+this note as historical, not current, for any migration number beyond 097.
+
+---
+
+## Cost Ledger Consolidation (AR-5.1, 2026-09-17)
+
+`ai_usage_log` (original shape: migration 056, `agent_type` column, `estimated_cost_cents integer`)
+is now the platform's single per-call cost ledger. Migrations 185-186 verified live facts before
+changing anything: `ai_usage_log` had 0 rows and no application reader/writer; `pil_cost_ledger`
+(migration 158, documented nowhere in this file since it postdates migration 097 — see the note
+above) had 49 rows and was the only table `recordCost()` wrote to.
+
+Migration 185 added, all nullable/defaulted so the change is additive:
+| Column | Type | Notes |
+|---|---|---|
+| cost_usd | numeric(14,6) | Real per-call USD cost. `estimated_cost_cents` (integer) is left in place but unwritten — it rounds any sub-cent call (e.g. a $0.0035 Haiku call) to 0. |
+| agent_run_id | uuid, FK → agent_runs(id) ON DELETE SET NULL | Core (non-PIL) agent run attribution. |
+| pil_agent_run_id | uuid, FK → pil_agent_runs(id) ON DELETE SET NULL | PIL agent run attribution — this is what pil_cost_ledger.agent_run_id actually pointed to. |
+| provider | text NOT NULL DEFAULT 'anthropic' | Which LLM/API provider was billed. |
+| billing_path | text NOT NULL DEFAULT 'api', CHECK IN ('api','subscription') | 'api' = real Anthropic Console spend (Benavora runtime agents, ANTHROPIC_API_KEY). 'subscription' = FORGE `claude` CLI build runs against a Max subscription (forge-orchestrator.ps1 forces ANTHROPIC_API_KEY=$null) — no per-token dollar cost. Without this column subscription rows would read as real spend. |
+
+Migration 186 backfilled all 49 `pil_cost_ledger` rows into `ai_usage_log` (verified post-migration:
+`count=49`, `sum(cost_usd)=0.3771`, all `billing_path='api'`), then marked `pil_cost_ledger`
+superseded and read-only via `COMMENT ON TABLE` — it was **not** dropped; it remains the sole audit
+trail for those 49 rows, and `src/lib/pil/db.ts`'s `pilCostLedger()` (a dead export, zero callers)
+still reads it. Nothing in `src/` or `worker/` inserts into `pil_cost_ledger` anymore;
+`src/lib/pil/cost.ts`'s `recordCost()` inserts into `ai_usage_log`.
+
+**Known second per-call cost writer, out of scope for AR-5.1:** `adapter_usage_log` (migration 076)
+is written by `src/lib/donor-discovery/adapters/google-places-adapter.ts` and
+`src/lib/donor-discovery/connectors/usage-log.ts`, with `api_cost_cents` hardcoded to `0` on every
+call. AR-5.1 consolidated only the pair the task named (`ai_usage_log` / `pil_cost_ledger`); this
+table was not touched.
+
 ---
 
 ## Data Volume Estimates

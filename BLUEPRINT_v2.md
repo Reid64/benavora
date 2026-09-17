@@ -568,6 +568,7 @@ cd C:\Users\manag\Documents\FORGE; $env:NODE_OPTIONS="--max-old-space-size=8192"
 | Admin page 404 | FIXED | Built in last FORGE run. |
 | Alerts API 500 | FIXED IN queue | Route corrected in last FORGE run. |
 | AutoApply could report a submission it never made | FIXED (AR-3.1, 2026-09-17) | Browser silently refuses an HTML5-`required` submit with no exception/navigation; `FormFillerAgent` couldn't tell that apart from success. Fixed: real field_mapping adapter, pre-submit required-field gate, verified-signal submit, new `submit_unverified` status. See `STATE_OF_THE_BUILD.md` "AR-3.1" and `AUTOAPPLY_ARCHITECTURE_V2.md`. Migration 184 (status enum) applied live via Supabase MCP this session — confirmed by re-querying the constraint definition before and after. |
+| `pil_cost_ledger` and `ai_usage_log` were two disconnected per-call cost writers (integer-cent rounding on one, no run attribution or billing-path discriminator on the other) | FIXED (AR-5.1, 2026-09-17) | `ai_usage_log` is now the single per-call cost ledger: `cost_usd numeric(14,6)`, `agent_run_id`/`pil_agent_run_id`, `billing_path` (api/subscription) added (migration 185); all 49 `pil_cost_ledger` rows backfilled (migration 186), table marked superseded/read-only via `COMMENT ON TABLE`, not dropped. `recordCost()` (`src/lib/pil/cost.ts`) now writes `ai_usage_log`. Migrations applied live via the Supabase MCP connector after both `psql` (password auth failure) and the §11 Management API PAT (401) failed this session. See `STATE_OF_THE_BUILD.md` "AR-5.1" and `SCHEMA_REGISTRY_v2.md`'s "Cost Ledger Consolidation" section. **Still open:** `adapter_usage_log` (migration 076) is a second, out-of-scope per-call cost writer (`api_cost_cents`, hardcoded to 0) — not touched by this fix. |
 
 ---
 
@@ -575,7 +576,7 @@ cd C:\Users\manag\Documents\FORGE; $env:NODE_OPTIONS="--max-old-space-size=8192"
 
 | Service | Key/ID | Notes |
 |---|---|---|
-| Supabase Management | `sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1` | Never expose to client |
+| Supabase Management | `sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1` | Never expose to client. **Verified 2026-09-17: returns 401 (stale/rotated).** `.env.local`'s `DATABASE_URL` also failed live (`28P01` password auth). The authenticated Supabase MCP connector (`mcp__claude_ai_Supabase__*`) worked and is the fallback that shipped AR-5.1's migrations. |
 | SAM.gov | `SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a` | Federal opportunities |
 | Google Places | `AIzaSyA3sJ1vkNp1AvPLfKY_5uaiJK0FBiwjlt0` | Business discovery |
 | Vercel project | `prj_7pn7UmQQsiEjTIHH58cfUU84p6xc` | Deployment |

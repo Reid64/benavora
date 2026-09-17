@@ -571,6 +571,26 @@ full 144 at once — given the Claude/browser/live-API cost each real invocation
 
 ---
 
+## Single cost ledger: `ai_usage_log` (AR-5.1, 2026-09-17)
+
+Every agent that spends money — `AgentRunner.useTool()` and `AgentRunner.finalizeRun()` in
+`src/lib/pil/agent-runner.ts`, called by every PIL agent (AG-31+ / BEN-* families) that reports
+token usage or calls a priced tool — now records that spend into `ai_usage_log`, not
+`pil_cost_ledger`. `pil_cost_ledger` is superseded and read-only as of migrations 185-186; nothing
+in `src/` or `worker/` inserts into it anymore. `recordCost()` (`src/lib/pil/cost.ts`) is the single
+writer; route every new priced action through `useTool()` rather than calling it directly, same rule
+as before — that's what keeps tool calls attributable to `context.tools` in the first place.
+
+New columns on `ai_usage_log` relevant to agent authors: `cost_usd` (numeric, real dollars — use
+this, not the old `estimated_cost_cents`), `pil_agent_run_id` (PIL run attribution;
+`agent_run_id` is reserved for the core, non-PIL `agent_runs` pipeline — AG-01 through AG-30's
+nightly batch jobs, not PIL agents), and `billing_path` (`'api'` for anything calling the real
+Anthropic API — which is every PIL agent — vs `'subscription'` for FORGE's own `claude` CLI build
+runs). Full defect list and live verification in `STATE_OF_THE_BUILD.md`'s "AR-5.1" section and
+`SCHEMA_REGISTRY_v2.md`'s "Cost Ledger Consolidation" section.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

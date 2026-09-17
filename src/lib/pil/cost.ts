@@ -8,11 +8,12 @@ export class BudgetExceededError extends Error {
   }
 }
 
-// pil_cost_ledger has no `recorded_at` column (the task spec assumed one);
-// the real DB-generated fields are `id` and `created_at` (both defaulted),
-// so those are what's omitted from the caller-supplied entry.
+// AR-5.1: ai_usage_log is now the single per-call cost ledger (migrations
+// 185/186); pil_cost_ledger is superseded and read-only -- nothing may
+// INSERT into it anymore. `id` and `created_at` are DB-generated (both
+// defaulted), so those are what's omitted from the caller-supplied entry.
 export async function recordCost(entry: Omit<CostLedgerEntry, "id" | "created_at">): Promise<void> {
-  const { error } = await getPilClient().from("pil_cost_ledger").insert(entry);
+  const { error } = await getPilClient().from("ai_usage_log").insert(entry);
   if (error) throw error;
 }
 

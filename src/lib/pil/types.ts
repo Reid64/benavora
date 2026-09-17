@@ -466,21 +466,29 @@ export interface SourceSnapshot {
   created_at: ISODateTime;
 }
 
-// pil_cost_ledger
+export type BillingPath = "api" | "subscription";
+
+// ai_usage_log (migration 056, extended by 185/186 -- AR-5.1). Single per-call
+// cost ledger for the whole platform; supersedes pil_cost_ledger, which is
+// now read-only. agent_run_id is the core agent_runs(id) row (Railway
+// worker / nightly pipeline); pil_agent_run_id is the PIL agent_runs(id) row
+// (src/lib/pil/agent-runner.ts) -- a call is attributable to at most one of
+// the two.
 export interface CostLedgerEntry {
   id: UUID;
   organization_id: UUID;
+  model: string;
+  endpoint: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  duration_ms: number | null;
+  agent_type: string | null;
   agent_run_id: UUID | null;
-  research_run_id: UUID | null;
-  delegated_task_id: UUID | null;
-  cost_type: CostType;
-  provider: string | null;
-  units: number;
-  unit_cost: number;
-  total_cost_usd: number;
-  model_name: string | null;
-  token_count: number | null;
-  occurred_at: ISODateTime;
+  pil_agent_run_id: UUID | null;
+  provider: string;
+  billing_path: BillingPath;
   created_at: ISODateTime;
 }
 

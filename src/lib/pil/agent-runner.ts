@@ -222,19 +222,27 @@ export class AgentRunner {
     if (!context.tools.includes(toolName)) {
       throw new ToolNotPermittedError(toolName, context.agentCode);
     }
+    const costType = cost.costType ?? "api_call";
+    // ai_usage_log has no research_run_id/delegated_task_id columns (unlike
+    // the superseded pil_cost_ledger) -- that finer-grained attribution is
+    // out of scope for AR-5.1's consolidation; pil_agent_run_id is preserved
+    // as the run-attribution column. model is unknown at this call site (a
+    // tool invocation, not necessarily a model call) so it falls back to
+    // "unknown" to satisfy ai_usage_log.model's NOT NULL constraint.
     await recordCost({
       organization_id: context.orgId,
-      agent_run_id: cost.agentRunId ?? null,
-      research_run_id: context.runId,
-      delegated_task_id: null,
-      cost_type: cost.costType ?? "api_call",
-      provider: toolName,
-      units: cost.units,
-      unit_cost: cost.unitCost,
-      total_cost_usd: cost.units * cost.unitCost,
-      model_name: null,
-      token_count: null,
-      occurred_at: new Date().toISOString(),
+      model: "unknown",
+      endpoint: costType,
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: costType === "model_tokens" ? cost.units : 0,
+      cost_usd: cost.units * cost.unitCost,
+      duration_ms: null,
+      agent_type: toolName,
+      agent_run_id: null,
+      pil_agent_run_id: cost.agentRunId ?? null,
+      provider: "anthropic",
+      billing_path: "api",
     });
   }
 
@@ -289,19 +297,23 @@ export class AgentRunner {
       .eq("id", agentRun.id);
 
     if (tokensUsed > 0 || costUsd > 0) {
+      // model is unknown here (the agent implementation doesn't report which
+      // underlying model it called) -- falls back to "unknown", same as
+      // useTool() above, to satisfy ai_usage_log.model's NOT NULL constraint.
       await recordCost({
         organization_id: context.orgId,
-        agent_run_id: agentRun.id,
-        research_run_id: context.runId,
-        delegated_task_id: null,
-        cost_type: "model_tokens",
-        provider: null,
-        units: tokensUsed,
-        unit_cost: tokensUsed > 0 ? costUsd / tokensUsed : 0,
-        total_cost_usd: costUsd,
-        model_name: null,
-        token_count: tokensUsed,
-        occurred_at: new Date().toISOString(),
+        model: "unknown",
+        endpoint: "model_tokens",
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: tokensUsed,
+        cost_usd: costUsd,
+        duration_ms: null,
+        agent_type: context.agentCode,
+        agent_run_id: null,
+        pil_agent_run_id: agentRun.id,
+        provider: "anthropic",
+        billing_path: "api",
       });
     }
 
