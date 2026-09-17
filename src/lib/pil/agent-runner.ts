@@ -6,6 +6,7 @@ import { checkBudget, recordCost } from "@/lib/pil/cost";
 import { canDelegate, checkAgentAuthorization, PolicyViolationError } from "@/lib/pil/policy";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { agentEventsLogged, agentRunDuration } from "@/lib/observability/metrics";
+import { serializePilError } from "@/lib/pil/serialize-error";
 import type { AgentRun, AgentRunStatus, AutonomyLevel } from "@/lib/pil/types";
 
 // The closed reasoning/execution loop harness
@@ -159,7 +160,7 @@ export class AgentRunner {
     try {
       result = await implementation.execute(context, this);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       await this.finalizeRun(agentRun, context, "failed", {}, 0, 0, message);
       observeRun("failed", agentDef.family);
       return {

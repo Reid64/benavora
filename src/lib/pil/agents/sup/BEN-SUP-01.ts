@@ -4,6 +4,7 @@ import { createResearchRun, advanceRunState } from "@/lib/pil/workflow";
 import { logAction } from "@/lib/pil/audit";
 import { createReviewItem } from "@/lib/pil/human-review";
 import type { AgentRun, AgentRunStatus, PolicyDecision, Prospect, ResearchRun } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-SUP-01 -- Chief Prospect Intelligence Orchestrator
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 1 -- SUPERVISORY & ORCHESTRATION").
@@ -261,7 +262,7 @@ export class ChiefProspectIntelligenceOrchestrator implements Agent {
     try {
       return await this.loadRunsForProspect(context.orgId, prospectId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       if (/duplicate|conflict/i.test(message)) {
         await this.recordDecision(context, "orchestrator.duplicate_delivery_recovered", { error: message });
         return await this.loadRunsForProspect(context.orgId, prospectId);

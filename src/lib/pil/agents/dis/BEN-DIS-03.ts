@@ -11,6 +11,7 @@ import {
 } from "@/lib/pil/agents/dis/shared";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNode, ProspectEntityType } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // Foundation identity/lifecycle keyword signal (FoundationIdentityHypothesis.v2,
 // PIL_AGENT_COMPLETE_ROSTER.md "Discovery" section): a 990 mission statement
@@ -280,7 +281,7 @@ export class FoundationDiscoveryAgent implements Agent {
           resource_type: "pil_agent_runs",
           resource_id: context.runId,
           before_state: null,
-          after_state: { foundationName: match.name, ein: match.ein, message: err instanceof Error ? err.message : String(err) },
+          after_state: { foundationName: match.name, ein: match.ein, message: serializePilError(err) },
           policy_decision: null,
           ip_address: null,
         });

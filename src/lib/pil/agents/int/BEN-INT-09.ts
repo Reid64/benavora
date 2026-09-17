@@ -13,6 +13,7 @@ import { logAction } from "@/lib/pil/audit";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getNodesByProspect, traverseGraph } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNode } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-INT-09 -- Wealth Origin & Liquidity Event Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~560). Explains, with citations, the
@@ -315,7 +316,7 @@ export class WealthOriginLiquidityEventAgent implements Agent {
         ownedCompaniesFound: ownedCompanies.length,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       await logAction({
         organization_id: context.orgId,
         actor_type: "agent",

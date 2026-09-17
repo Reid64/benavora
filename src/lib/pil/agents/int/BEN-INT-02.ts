@@ -15,6 +15,7 @@ import { logAction } from "@/lib/pil/audit";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges, upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-INT-02 -- Employment & Career Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3"). Reconstructs the prospect's
@@ -243,7 +244,7 @@ export class EmploymentCareerIntelligenceAgent implements Agent {
         employmentRecordsFound: records.length,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       try {
         await logAction({
           organization_id: context.orgId,

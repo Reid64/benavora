@@ -930,7 +930,11 @@ describe("BEN-DIS-04 Corporate Giving Discovery Agent", () => {
     const result = await agent.execute(context as never, fakeRunner());
 
     expect(result.status).toBe("failed");
-    expect(result.error).toBe("pil_graph_nodes write failed");
+    // AR-1.1: serializePilError() formats a real Error instance as
+    // `${name}: ${message}` plus stack frames (not just the bare .message
+    // the old `err instanceof Error ? err.message : String(err)` produced),
+    // so this now asserts the prefix rather than an exact match.
+    expect(result.error).toMatch(/^Error: pil_graph_nodes write failed/);
     expect(result.delegations).toHaveLength(1);
     expect(result.delegations[0]?.childAgentCode).toBe("BEN-SUP-06");
     expect(result.delegations[0]?.maxAutonomy).toBe("A2");

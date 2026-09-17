@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { callClaudeWithTools, type ClaudeToolSpec } from "@/lib/ai/claude";
 import type { AgentContext } from "@/lib/pil/agent-runner";
 import type { Tool, ToolResult } from "@/lib/pil/tools";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // T-WEB (Search Provider Adapter, open web). Uses Claude's server-side
 // web_search tool (web_search_20250305, the same GA tool
@@ -107,7 +108,7 @@ export const webSearchTool: Tool = {
         tokens_used: response.usage.totalTokens,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       return { success: false, data: null, cost_usd: 0, error: `web_search failed for "${query}": ${message}` };
     }
   },

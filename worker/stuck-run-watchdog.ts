@@ -28,6 +28,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * completed-run durations before choosing this (2026-09-15): every agent
  * type with real history completes in under 2 minutes on average (grants_gov_research's
  * max was 72s), so 30 minutes is generously conservative, not tuned per-type.
+ *
+ * PIL sweep (AR-1.1, 2026-09-16): this watchdog swept only `agent_runs`.
+ * `pil_agent_runs` (PROSPECT_INTELLIGENCE_ARCHITECTURE.md's separate agent
+ * harness -- src/lib/pil/agent-runner.ts) has the identical
+ * crash-before-completeRun failure mode and was never touched by any sweep:
+ * live production data showed 6 rows stuck in status='running' forever
+ * (BEN-SUP-01 x6, plus BEN-DIS-08, BEN-INT-03, BEN-INT-09, BEN-REL-03). Same
+ * threshold, same select-then-guarded-update shape, same log prefix
+ * convention, added below as a second sweep target rather than a separate
+ * poll loop.
  */
 
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
@@ -40,6 +50,12 @@ function sleep(ms: number): Promise<void> {
 interface StuckRow {
   id: string;
   agent_type: string;
+  started_at: string;
+}
+
+interface StuckPilRow {
+  id: string;
+  agent_id: string;
   started_at: string;
 }
 
@@ -115,11 +131,53 @@ class StuckRunWatchdog {
     }
   }
 
+  private async sweepPilAgentRunsOnce(): Promise<void> {
+    const cutoff = new Date(Date.now() - STUCK_TIMEOUT_MS).toISOString();
+    const { data: stuck, error } = await this.supabase
+      .from('pil_agent_runs')
+      .select('id, agent_id, started_at')
+      .eq('status', 'running')
+      .lt('started_at', cutoff);
+
+    if (error) {
+      console.error('[StuckRunWatchdog] Failed to query stuck pil_agent_runs:', error.message);
+      return;
+    }
+    if (!stuck || stuck.length === 0) return;
+
+    for (const row of stuck as StuckPilRow[]) {
+      const ageMinutes = Math.round(
+        (Date.now() - new Date(row.started_at).getTime()) / 60_000,
+      );
+      const { error: updateError } = await this.supabase
+        .from('pil_agent_runs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error: `Timeout: run left status='running' for ${ageMinutes}m without completing (swept by stuck-run watchdog, threshold ${STUCK_TIMEOUT_MS / 60_000}m).`,
+        })
+        .eq('id', row.id)
+        .eq('status', 'running'); // don't clobber a run that completed between the select and this update
+
+      if (updateError) {
+        console.error(
+          `[StuckRunWatchdog] Failed to sweep pil_agent_runs ${row.id} (${row.agent_id}):`,
+          updateError.message,
+        );
+      } else {
+        console.log(
+          `[StuckRunWatchdog] Swept stuck pil_agent_runs ${row.id} (${row.agent_id}, running ${ageMinutes}m)`,
+        );
+      }
+    }
+  }
+
   private async loop(): Promise<void> {
     while (this.running) {
       this.sweeping = true;
       try {
         await this.sweepOnce();
+        await this.sweepPilAgentRunsOnce();
       } catch (err) {
         console.error(
           '[StuckRunWatchdog] Sweep pass failed:',

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { AgentContext } from "@/lib/pil/agent-runner";
 import { getPilClient } from "@/lib/pil/db";
 import type { Tool, ToolResult } from "@/lib/pil/tools";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // T-GRAPH/T-CRM-adjacent internal lookup, not a real external API call --
 // $0.0001/lookup per the task spec reflects that this only ever touches
@@ -193,7 +194,7 @@ export const entityLookupTool: Tool = {
         cost_usd: COST_PER_LOOKUP_USD,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       return { success: false, data: null, cost_usd: 0, error: `entity_lookup failed for "${name}": ${message}` };
     }
   },

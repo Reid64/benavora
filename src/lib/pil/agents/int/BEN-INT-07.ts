@@ -14,6 +14,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges, getNodesByProspect } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphEdge, GraphNode } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // The six BEN-INT-07 output-contract dimensions (roster "Core Intelligence"
 // section / PIL_AGENT_DEPENDENCIES.yaml's BEN-INT-07 entry). Coverage is
@@ -257,7 +258,7 @@ export class GivingHistoryIntelligenceAgent implements Agent {
         givingMentionsFound: mentions.length,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       await logAction({
         organization_id: context.orgId,
         actor_type: "agent",

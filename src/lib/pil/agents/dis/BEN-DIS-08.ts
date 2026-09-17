@@ -12,6 +12,7 @@ import {
 import { getPilClient } from "@/lib/pil/db";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNodeType, Prospect, ProspectEntityType } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-DIS-08 -- Hidden Prospect & CRM Rediscovery Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). Identifies
@@ -304,7 +305,7 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
           resource_type: "pil_agent_runs",
           resource_id: context.runId,
           before_state: null,
-          after_state: { crmTable: "funders" as const, crmRecordId: funder.id, message: err instanceof Error ? err.message : String(err) },
+          after_state: { crmTable: "funders" as const, crmRecordId: funder.id, message: serializePilError(err) },
           policy_decision: null,
           ip_address: null,
         });
@@ -438,7 +439,7 @@ export class HiddenProspectAndCrmRediscoveryAgent implements Agent {
           resource_type: "pil_agent_runs",
           resource_id: context.runId,
           before_state: null,
-          after_state: { crmTable: "contacts" as const, crmRecordId: contact.id, message: err instanceof Error ? err.message : String(err) },
+          after_state: { crmTable: "contacts" as const, crmRecordId: contact.id, message: serializePilError(err) },
           policy_decision: null,
           ip_address: null,
         });

@@ -12,6 +12,7 @@ import {
   tryModelTokens,
 } from "@/lib/pil/agents/dis/shared";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-DIS-02 -- Major Donor Discovery Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). Like
@@ -151,7 +152,7 @@ export class MajorDonorDiscoveryAgent implements Agent {
         resource_type: "pil_agent_runs",
         resource_id: context.runId,
         before_state: null,
-        after_state: { source: "news_search", message: err instanceof Error ? err.message : String(err) },
+        after_state: { source: "news_search", message: serializePilError(err) },
         policy_decision: null,
         ip_address: null,
       });
@@ -212,7 +213,7 @@ export class MajorDonorDiscoveryAgent implements Agent {
         resource_type: "pil_agent_runs",
         resource_id: context.runId,
         before_state: null,
-        after_state: { source: "web_search", message: err instanceof Error ? err.message : String(err) },
+        after_state: { source: "web_search", message: serializePilError(err) },
         policy_decision: null,
         ip_address: null,
       });
@@ -271,7 +272,7 @@ export class MajorDonorDiscoveryAgent implements Agent {
         resource_type: "pil_agent_runs",
         resource_id: context.runId,
         before_state: null,
-        after_state: { source: "entity_lookup", message: err instanceof Error ? err.message : String(err) },
+        after_state: { source: "entity_lookup", message: serializePilError(err) },
         policy_decision: null,
         ip_address: null,
       });

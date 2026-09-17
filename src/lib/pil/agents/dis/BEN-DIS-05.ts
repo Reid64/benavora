@@ -12,6 +12,7 @@ import { logAction } from "@/lib/pil/audit";
 import { getPilClient } from "@/lib/pil/db";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // Shared Discovery-family delegation cap (PIL_AGENT_COMPLETE_ROSTER.md's
 // max_delegation_depth/budget-bounded language, A2 default autonomy):
@@ -186,7 +187,7 @@ export class ExecutiveProspectDiscoveryAgent implements Agent {
         // Recovery protocol: one company's search/write failure must not
         // discard every executive already discovered from other companies
         // in this same run.
-        const message = err instanceof Error ? err.message : String(err);
+        const message = serializePilError(err);
         await logAction({
           organization_id: context.orgId,
           actor_type: "agent",

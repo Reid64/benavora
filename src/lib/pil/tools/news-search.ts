@@ -4,6 +4,7 @@ import { callClaudeWithTools, type ClaudeToolSpec } from "@/lib/ai/claude";
 import type { AgentContext } from "@/lib/pil/agent-runner";
 import type { Tool, ToolResult } from "@/lib/pil/tools";
 import { extractRawSearchResults } from "@/lib/pil/tools/web-search";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // T-NEWS (News/Search Connector). No standalone news API is configured for
 // this project (no NEWS_API_KEY-shaped env var anywhere in this codebase),
@@ -96,7 +97,7 @@ export const newsSearchTool: Tool = {
         tokens_used: response.usage.totalTokens,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       return { success: false, data: null, cost_usd: 0, error: `news_search failed for "${query}": ${message}` };
     }
   },

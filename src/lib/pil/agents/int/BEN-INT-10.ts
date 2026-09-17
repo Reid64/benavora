@@ -14,6 +14,7 @@ import { logAction } from "@/lib/pil/audit";
 import { getEvidence } from "@/lib/pil/evidence";
 import { upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphNodeType, ProspectEntityType } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-INT-10 -- Contact Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~581). Identifies permissible and
@@ -314,7 +315,7 @@ export class ContactIntelligenceAgent implements Agent {
         noPermissibleChannelFound,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       await logAction({
         organization_id: context.orgId,
         actor_type: "agent",

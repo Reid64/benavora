@@ -15,6 +15,7 @@ import { logAction } from "@/lib/pil/audit";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // Six domain dimensions this agent's report scores coverage across, per
 // PIL_AGENT_COMPLETE_ROSTER.md's "Core Intelligence" BEN_INT_01Decision.v1
@@ -309,7 +310,7 @@ export class IndividualIntelligenceAgent implements Agent {
         delegationsIssued: delegations.map((d) => d.childAgentCode),
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       try {
         await logAction({
           organization_id: context.orgId,

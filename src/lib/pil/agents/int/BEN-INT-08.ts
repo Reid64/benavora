@@ -12,6 +12,7 @@ import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges, getNodesByProspect } from "@/lib/pil/graph";
 import { createReviewItem } from "@/lib/pil/human-review";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-INT-08 -- Wealth & Capacity Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3", line ~539). Evaluates
@@ -261,7 +262,7 @@ export class WealthCapacityIntelligenceAgent implements Agent {
         error: null,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       await logAction({
         organization_id: context.orgId,
         actor_type: "agent",

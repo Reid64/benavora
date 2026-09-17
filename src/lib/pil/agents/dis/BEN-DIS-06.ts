@@ -12,6 +12,7 @@ import {
 import { logAction } from "@/lib/pil/audit";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem, ProspectEntityType } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-DIS-06 -- Geographic Funding Discovery Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). Maps the
@@ -165,7 +166,7 @@ export class GeographicFundingDiscoveryAgent implements Agent {
           resource_type: "pil_agent_runs",
           resource_id: context.runId,
           before_state: null,
-          after_state: { phase: "foundation_directory", message: err instanceof Error ? err.message : String(err) },
+          after_state: { phase: "foundation_directory", message: serializePilError(err) },
           policy_decision: null,
           ip_address: null,
         });
@@ -211,7 +212,7 @@ export class GeographicFundingDiscoveryAgent implements Agent {
           resource_type: "pil_agent_runs",
           resource_id: context.runId,
           before_state: null,
-          after_state: { phase: "community_foundation", message: err instanceof Error ? err.message : String(err) },
+          after_state: { phase: "community_foundation", message: serializePilError(err) },
           policy_decision: null,
           ip_address: null,
         });
@@ -256,7 +257,7 @@ export class GeographicFundingDiscoveryAgent implements Agent {
           resource_type: "pil_agent_runs",
           resource_id: context.runId,
           before_state: null,
-          after_state: { phase: "local_program", message: err instanceof Error ? err.message : String(err) },
+          after_state: { phase: "local_program", message: serializePilError(err) },
           policy_decision: null,
           ip_address: null,
         });

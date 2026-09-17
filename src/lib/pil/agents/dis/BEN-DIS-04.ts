@@ -12,6 +12,7 @@ import {
 } from "@/lib/pil/agents/dis/shared";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-DIS-04 -- Corporate Giving Discovery Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). Identifies
@@ -303,7 +304,7 @@ export class CorporateGivingDiscoveryAgent implements Agent {
       // distinct from the already-handled `if (!success)` tool-failure checks
       // above -- preserve whatever evidence/discoveries were already
       // collected rather than discarding this run's partial progress.
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       await logAction({
         organization_id: context.orgId,
         actor_type: "agent",

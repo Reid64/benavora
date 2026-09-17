@@ -1,5 +1,67 @@
 # Benavora Platform Build State
 
+## AR-1.1 — PIL observability: error serialization + stuck pil_agent_runs reaping (2026-09-16)
+
+Live production data showed `BEN-QLF-04` failed 3/3 runs and `BEN-QLF-03` failed 1/1 run with
+`pil_agent_runs.error` reading the literal string `"[object Object]"` for every one of them, making
+the actual failure cause unrecoverable after the fact. Separately, 6 `pil_agent_runs` rows sat in
+`status='running'` forever (`BEN-SUP-01` ×6, plus `BEN-DIS-08`, `BEN-INT-03`, `BEN-INT-09`,
+`BEN-REL-03`) because `worker/stuck-run-watchdog.ts` swept only `agent_runs`, never
+`pil_agent_runs`.
+
+1. **Root cause confirmed.** `src/lib/pil/agent-runner.ts`'s `AgentRunner.run()` is the single
+   choke point through which every agent's result reaches `pil_agent_runs.error` (via
+   `finalizeRun()`). Its outer catch used `err instanceof Error ? err.message : String(err)`.
+   Supabase-js throws plain `PostgrestError` objects (not `Error` instances) from
+   `if (error) throw error;` — the dominant error-raising pattern across `src/lib/pil/**` — so
+   `err instanceof Error` is false and `String(plainObject)` evaluates to `"[object Object]"`.
+   `BEN-QLF-04`/`BEN-QLF-03` have no internal `try/catch`, so every thrown Supabase error bubbled
+   straight to this exact line.
+2. **Fixed the serializer, not just the symptom.** Added `src/lib/pil/serialize-error.ts`
+   (`serializePilError(err: unknown): string`), handling `Error` instances (name + message + up to
+   5 stack frames), Supabase `PostgrestError`-shaped objects (`code`/`message`/`details`/`hint`),
+   any object with a string `.message`, arbitrary plain objects (`JSON.stringify`, truncated to
+   2000 chars), strings, and `null`/`undefined` — with an explicit guard so no branch can ever
+   return the literal `"[object Object]"`.
+3. **Replaced every write site.** Found via repo-wide grep of `src/lib/pil/**` (`worker/**` and
+   `src/app/api/**` had none of this pattern touching `pil_agent_runs.error`): the
+   `err instanceof Error ? err.message : String(err)` pattern appeared 31 times across 20 files —
+   `agent-runner.ts` (the universal catch), all 10 `BEN-INT-01..10.ts`, all 8 `BEN-DIS-01..08.ts`,
+   `BEN-SUP-01.ts`, `BEN-SUP-04.ts` (×2), and the 4 tool adapters in `src/lib/pil/tools/`
+   (`web-search.ts`, `web-crawler.ts`, `news-search.ts`, `entity-lookup.ts`). All 31 call sites now
+   call `serializePilError(err)`. Two literal `pil_agent_runs.error` writers were also checked:
+   `agent-runner.ts`'s `finalizeRun()` (writes whatever it's given — now always a
+   `serializePilError`-produced string) and `BEN-SUP-07.ts`'s `terminateRun()` (writes a string
+   template built from `violation.detail`, never a raw caught error — confirmed no change needed).
+   `research-orchestrator.ts` uses the same buggy pattern twice but writes to `pil_research_runs`/
+   `pil_audit_log`, not `pil_agent_runs` — out of this fix's stated scope, left unchanged.
+4. **Extended the stuck-run watchdog to `pil_agent_runs`.** `worker/stuck-run-watchdog.ts` now runs
+   a second sweep every cycle: selects `id, agent_id, started_at` where `status='running'` and
+   `started_at` older than the existing 30-minute threshold, then updates matched rows to
+   `status='failed'` with a timeout message naming the threshold, guarded by
+   `.eq('status','running')` on the update so a run that completes between the select and the
+   update is never clobbered — identical shape/logging convention to the pre-existing `agent_runs`
+   sweep, added as a second target in the same poll loop rather than a separate one.
+5. **Tests added:** `src/__tests__/unit/pil-error-serialization.test.ts` (13 tests, every
+   `serializePilError` branch plus an explicit "never `[object Object]`" sweep over 9 adversarial
+   inputs) and `src/__tests__/unit/stuck-run-watchdog-pil.test.ts` (4 tests: correct select/filter
+   shape, a stuck row gets marked failed with a non-empty error, the guarded-update shape that
+   prevents clobbering, and the existing `agent_runs` sweep is unaffected). One pre-existing test,
+   `pil-dis-agents.test.ts`'s BEN-DIS-04 mid-loop-failure case, asserted the *old* bare-`.message`
+   output for a real `Error` instance and was updated to match the new (spec-required, more
+   informative) `Error: message` + stack-frame format.
+6. **Verification:** `pnpm tsc --noEmit` — 0 errors. Full unit/integration suite
+   (`pnpm vitest run`, excluding the one test below) — 98 files / 898 tests passed, 13 todo, 0
+   regressions. `src/__tests__/integration/success-probability-upsert-constraint.test.ts` failed
+   with `password authentication failed for user "postgres"` — a live-DB-credential issue in
+   `.env.test`, unrelated to this change (nothing in this fix touches DB auth config or that
+   table), not investigated further as out of scope for this task.
+7. **Not done / explicitly out of scope for this task:** the fix addresses the *mechanism* (no
+   agent can silently write `"[object Object]"` to `pil_agent_runs.error` anymore); it does not
+   re-run `BEN-QLF-04`/`BEN-QLF-03` live against production to capture and diagnose their actual
+   underlying root cause now that the real error text will be visible — that diagnosis is the
+   natural next step once this ships and those agents fail again (or are manually re-triggered).
+
 ## PHASE 5.1 — legacy agent system repair (2026-09-15)
 
 Executed `queue-phase5-agent-repair.yaml` (p5a-001 through p5a-006, plus verification). Full
@@ -140,3 +202,61 @@ Phase 1 (scoring foundations) is closed out — all 5 checklist items verified l
 ---
 
 Last Updated: 2026-09-11
+
+## Phase 6 Status � BLOCKED (2026-09-16)
+
+**Current State:**
+- Queue.yaml written: `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml`
+- Status: Template prompts only (4 prompts, 30-50 lines each, NOT enterprise-grade)
+- Blocker: Prompts lack RLS policies, error schemas, auth patterns, test fixtures, integration details
+- Decision: Phase 6 specifications being written by external model (ChatGPT)
+
+**What Happened:**
+- 2026-09-16 05:47�07:50: Claude generated Phase 6.1�6.4 queue.yaml (4 prompts)
+- Issue identified: Prompts are templates, not enterprise-grade specifications
+- 2+ hours spent on queue.yaml file truncation debugging (PowerShell here-string method)
+- Root cause: Claude read STANDING_DIRECTIVES.md, BLUEPRINT.md, SCHEMA_REGISTRY.md AFTER being confronted, not BEFORE
+- Prompts lacked: RLS policies, error schemas, auth patterns (session vs body), test fixtures, integration with PIL agents, detailed DB migrations
+
+**Blockers:**
+1. No enterprise-grade Phase 6 prompts
+2. Queue.yaml at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` contains template prompts (DO NOT EXECUTE)
+3. Cannot execute FORGE until specifications meet STANDING_DIRECTIVES standards
+
+**Next Actions:**
+1. Receive Phase 6 specifications from ChatGPT
+2. Convert to queue.yaml format (validate against FORGE queue standards)
+3. Validate all prompts against STANDING_DIRECTIVES.md, BLUEPRINT.md, SCHEMA_REGISTRY.md
+4. Verify gate definitions (compile, build, test, file_exists)
+5. Execute via FORGE: `cd C:\Users\manag\Documents\FORGE && powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora -startFrom 0`
+6. Update STATE_OF_THE_BUILD.md with Phase 6 completion status
+
+
+## Phase 6 Status � BLOCKED (2026-09-16)
+
+**Current State:**
+- Queue.yaml written: `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml`
+- Status: Template prompts only (4 prompts, 30-50 lines each, NOT enterprise-grade)
+- Blocker: Prompts lack RLS policies, error schemas, auth patterns, test fixtures, integration details
+- Decision: Phase 6 specifications being written by external model (ChatGPT)
+
+**What Happened:**
+- 2026-09-16 05:47�07:50: Claude generated Phase 6.1�6.4 queue.yaml (4 prompts)
+- Issue identified: Prompts are templates, not enterprise-grade specifications
+- 2+ hours spent on queue.yaml file truncation debugging (PowerShell here-string method)
+- Root cause: Claude read STANDING_DIRECTIVES.md, BLUEPRINT.md, SCHEMA_REGISTRY.md AFTER being confronted, not BEFORE
+- Prompts lacked: RLS policies, error schemas, auth patterns (session vs body), test fixtures, integration with PIL agents, detailed DB migrations
+
+**Blockers:**
+1. No enterprise-grade Phase 6 prompts
+2. Queue.yaml at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` contains template prompts (DO NOT EXECUTE)
+3. Cannot execute FORGE until specifications meet STANDING_DIRECTIVES standards
+
+**Next Actions:**
+1. Receive Phase 6 specifications from ChatGPT
+2. Convert to queue.yaml format (validate against FORGE queue standards)
+3. Validate all prompts against STANDING_DIRECTIVES.md, BLUEPRINT.md, SCHEMA_REGISTRY.md
+4. Verify gate definitions (compile, build, test, file_exists)
+5. Execute via FORGE: `cd C:\Users\manag\Documents\FORGE && powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora -startFrom 0`
+6. Update STATE_OF_THE_BUILD.md with Phase 6 completion status
+

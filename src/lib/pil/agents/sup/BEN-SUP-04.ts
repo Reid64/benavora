@@ -5,6 +5,7 @@ import { getBudgetSummary } from "@/lib/pil/cost";
 import { getAuditTrail, logAction } from "@/lib/pil/audit";
 import { createReviewItem } from "@/lib/pil/human-review";
 import type { AgentRun, CostBudget, EvidenceItem, ResearchRun } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-SUP-04 -- Research Portfolio Allocator
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 1 -- SUPERVISORY & ORCHESTRATION").
@@ -95,7 +96,7 @@ export class ResearchPortfolioAllocator implements Agent {
     try {
       budgets = await getBudgetSummary(context.orgId);
     } catch (err) {
-      return this.estimatorUnavailable(err instanceof Error ? err.message : String(err));
+      return this.estimatorUnavailable(serializePilError(err));
     }
     const orgBudget = budgets.find((b) => b.scope_type === "org" && b.scope_id === context.orgId) ?? null;
 
@@ -114,7 +115,7 @@ export class ResearchPortfolioAllocator implements Agent {
       evidenceByProspect =
         prospectIds.length > 0 ? await this.loadEvidenceByProspect(context.orgId, prospectIds) : new Map<string, EvidenceItem[]>();
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       return {
         status: "completed",
         evidence: [],

@@ -15,6 +15,7 @@ import { logAction } from "@/lib/pil/audit";
 import { getEvidence } from "@/lib/pil/evidence";
 import { getEdges, upsertEdge } from "@/lib/pil/graph";
 import type { EvidenceItem } from "@/lib/pil/types";
+import { serializePilError } from "@/lib/pil/serialize-error";
 
 // BEN-INT-03 -- Business Ownership Intelligence Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3"). Investigates documented
@@ -235,7 +236,7 @@ export class BusinessOwnershipIntelligenceAgent implements Agent {
         ownershipMentionsFound: mentions.length,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = serializePilError(err);
       try {
         await logAction({
           organization_id: context.orgId,
