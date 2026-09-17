@@ -522,6 +522,55 @@ array-shaped `field_mapping`; a pre-submit required-field gate; a bounded verifi
 
 ---
 
+## Agent exercise harness (AR-4.1, 2026-09-17)
+
+63 agents were wired but had never executed once; 27 of the 51 registered PIL agents specifically
+had never executed. Neither "wired" nor "registered" means "proven" — nothing had ever actually
+invoked them, so whether they work was unknown, not just undocumented. `scripts/audit/exercise-all-agents.ts`
+converts that unknown into either "proven working" (a completed `agent_runs`/`pil_agent_runs` row,
+or for the 3 agents with no DB write at all, a verified `alerts` side effect) or a concrete,
+reproducible failure (`threw`/`timeout`) or a concrete no-op (`no_effect` — ran without error but
+produced no verifiable result, e.g. blocked by policy, escalated at delegation depth 0, or gated on
+missing upstream data). **Returning without throwing is never sufficient for "success"** — that
+distinction is the entire point of the harness; see its own header comment.
+
+`scripts/audit/agent-exercise-registry.ts` is the derived-from-source inventory this harness runs
+against: **144 invocable agents** found by scanning `src/lib/agents/**` (83: 55 `BaseAgent`
+subclasses + 25 `AutonomousAgent` subclasses + 3 plain functions with no `agent_type`/DB write),
+`src/lib/pil/agents/**` (51, dispatched through `AgentRunner`/`loadAgentImpl`, not 44 —
+`AGENT_FACTORIES` in `src/lib/pil/agents/index.ts` has 51 real entries despite the file's own
+header comment and `PROSPECT_INTELLIGENCE_AGENTS.md`'s Fleet Summary both still saying 44),
+`src/lib/autoapply/**` (9, one per real `AGENT_TYPE` module), and `src/lib/intelligence/**` (1,
+`ag-18-reputation`). `src/lib/research/**` contributes **zero** — it's config/data only; the four
+"research lane" agent classes it configures physically live under `src/lib/agents/research/**`
+and are already counted in the 83 above. No file anywhere in the repo claims "154 agents" (checked
+directly) — the two real, disagreeing totals already in circulation before this session were 44 vs
+51 for PIL alone, plus an unreconciled ~50+ file count for the `ag-NN` core family. 144 is the real,
+source-derived number; treat any other total (44, 48, 51-alone, 154) as describing a subset or a
+stale doc, not the whole system.
+
+`scripts/audit/seed-exercise-org.ts` idempotently seeds one clearly-tagged `EXERCISE-HARNESS-`
+organization (org profile, knowledge_base, funder, opportunity, request_profile, application,
+outcome, funder_giving_history, search_profile, corporate_prospect, an approved
+automation_sessions row, and a pil_research_goals/pil_research_runs pair) so PIL agents have a
+valid `research_run_id` to attach to. Browser-driven agents (`form-analyzer`, `form-filler`,
+`browser-automation`, `playwright-agent`, `registration-agent`, autoapply's captcha/confirmation
+modules) are pointed at a local fixture file
+(`scripts/audit/fixtures/fixture-application-form.html`) via `StealthBrowser` — never at a live
+funder portal; the harness hard-refuses to run against any organization whose name doesn't start
+with `EXERCISE-HARNESS-` unless `--allow-real-org` is passed. Default `--max-agents=25` caps token
+spend on a first run; `--family=`/`--agent=`/`--dry-run` narrow it further. The harness always
+exits 0 (it's a measurement instrument, not a gate) and writes `AGENT_EXERCISE_REPORT.md` +
+`scripts/audit/agent-exercise-results.json`.
+
+**Phase 5 and every remediation phase after it are gated on this harness's first full report.**
+Fixing an agent nobody has run is guesswork; this is what turns that guesswork into a punch list.
+Run it with `pnpm tsx scripts/audit/exercise-all-agents.ts --dry-run` first (lists all 144 without
+invoking anything), then in bounded `--family=`/`--max-agents=` slices for the real pass — not the
+full 144 at once — given the Claude/browser/live-API cost each real invocation carries.
+
+---
+
 ## Agent Registry Schema
 
 ```sql

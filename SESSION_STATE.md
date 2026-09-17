@@ -8,11 +8,50 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-3.1: AutoApply submit integrity — field_mapping adapter, submit verification, honest status; migration 184 applied live)
+- **Last updated:** 2026-09-17 (AR-4.1: agent exercise harness — registry of 144 real agents, idempotent seed fixture, exercise-all-agents.ts; full 144-agent pass not yet run)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-4.1: agent exercise harness + seeded fixture org)
+
+Task: 63 agents wired, never executed once (27 of 51 PIL agents specifically). Built the harness
+that converts "unproven" into "proven working" or "a concrete, reproducible bug" for every agent in
+the platform, since no amount of code reading resolves that — only actually invoking them does.
+Full detail in `STATE_OF_THE_BUILD.md`'s "AR-4.1" section and `AGENTS_v2.md`'s "Agent exercise
+harness (AR-4.1, 2026-09-17)" section. Three new scripts:
+
+1. `scripts/audit/agent-exercise-registry.ts` — derived from a live source scan (not any doc),
+   found **144** invocable agents: 83 core (`src/lib/agents/**`), 51 PIL
+   (`src/lib/pil/agents/**`), 9 AutoApply (`src/lib/autoapply/**`), 1 intelligence
+   (`src/lib/intelligence/**`), 0 research (`src/lib/research/**` is config/data only). No doc in
+   the repo claims "154" — the task brief's own number does not reconcile against anything on
+   disk; 144 is the real, verified count.
+2. `scripts/audit/seed-exercise-org.ts` — idempotent (verified live, ran twice, identical UUIDs
+   both times), tags every row `EXERCISE-HARNESS-`, seeds enough fixture data (org, KB, funder,
+   opportunity, request_profile, application, outcome, funder_giving_history, search_profile,
+   corporate_prospect, an approved automation_sessions row, pil_research_goals/pil_research_runs)
+   that a meaningful fraction of the 144 can attempt real work instead of a trivial no-op.
+3. `scripts/audit/exercise-all-agents.ts` — invokes each agent, verifies a real completed
+   `agent_runs`/`pil_agent_runs` row (or, for the 3 DB-write-free agents, an `alerts` side effect)
+   before ever calling it a success; browser-driven agents point at a local fixture file, never a
+   live funder portal; refuses non-`EXERCISE-HARNESS-` orgs without `--allow-real-org`;
+   `--max-agents` defaults to 25; always exits 0 (measurement instrument, not a gate).
+
+Live-verified this session: `pnpm tsc --noEmit` clean; `--dry-run` lists all 144 (83/51/9/1/0 split)
+without invoking anything; one real `BaseAgent` invocation (`deadline_extraction`) completed
+end-to-end with a genuine `agent_runs` success row; one real PIL invocation (`BEN-SUP-01`) ran
+through `AgentRunner`/`pil_agent_runs` end-to-end and correctly reported `no_effect`
+(`escalated`, delegation depth pinned to 0 by design); one real `sam_gov_research` invocation with
+a fake API key surfaced a genuine silent-failure finding (`agent_runs.status='completed'` despite
+the credential failure) rather than a harness bug.
+
+Not run this session, deliberately: the full 144-agent pass (real Claude/browser/external-API
+spend at scale — a separate, cost-approved action). **Phase 5 and every remediation phase after it
+are gated on that first full report existing.**
+
+---
 
 Queue.yaml exists at `C:\Users\manag\Documents\FORGE\projects\benavora\queue.yaml` but contains template prompts only. DO NOT EXECUTE.
 

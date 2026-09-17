@@ -413,6 +413,18 @@ See `PLATFORM_VISION_ARCHITECTURE.md` for full specification of each pillar.
 
 See `AGENTS_v2.md` for full agent specifications (AG-01 through AG-30).
 
+> **Note (2026-09-17, AR-4.1):** The AG-NN numbering above is a planning convention, not the real
+> count. A live source scan (`scripts/audit/agent-exercise-registry.ts`) found **144** actually
+> invocable agents across `src/lib/agents/**` (83), `src/lib/pil/agents/**` (51 — not the 44
+> `PROSPECT_INTELLIGENCE_AGENTS.md` still claims), `src/lib/autoapply/**` (9), and
+> `src/lib/intelligence/**` (1); `src/lib/research/**` contributes 0 (config/data only). Before
+> this session, 63 of those agents were wired but had never executed once — 27 of the 51 PIL
+> agents specifically. `scripts/audit/exercise-all-agents.ts` is the harness that actually invokes
+> each one against a seeded `EXERCISE-HARNESS-` test org and records whether it truly ran
+> (completed DB row / verified side effect) or not — see `AGENTS_v2.md`'s "Agent exercise harness
+> (AR-4.1, 2026-09-17)" section and `STATE_OF_THE_BUILD.md`'s "AR-4.1" section. Phase 5 and later
+> remediation phases are gated on that harness's first full report.
+
 **Nightly Pipeline Execution Order (Railway worker, 2AM-7AM CST):**
 ```
 2:00 AM — AG-17: Opportunity Discovery

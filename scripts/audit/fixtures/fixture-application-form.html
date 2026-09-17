@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EXERCISE-HARNESS Fixture Giving Portal</title>
+</head>
+<body>
+  <!--
+    Static local fixture for AR-4.1's agent exercise harness. Never a real
+    funder portal. Playwright-driven autoapply agents (form-analyzer-agent,
+    form-filler-agent, browser-automation, playwright-agent, registration-agent,
+    submission-validator) are pointed at this file via a file:// URL or a
+    localhost static server, never at an external domain, per the harness's
+    STEP 4 safety guard.
+  -->
+  <form id="grant-application-form" action="#" method="post" onsubmit="event.preventDefault(); document.getElementById('confirmation').style.display='block'; document.getElementById('confirmation-number').textContent = 'FIXTURE-' + Date.now();">
+    <h1>Fixture Foundation Grant Application</h1>
+
+    <label for="org_name">Organization Name</label>
+    <input id="org_name" name="org_name" type="text" required>
+
+    <label for="org_ein">EIN</label>
+    <input id="org_ein" name="org_ein" type="text">
+
+    <label for="contact_name">Contact Name</label>
+    <input id="contact_name" name="contact_name" type="text" required>
+
+    <label for="contact_email">Contact Email</label>
+    <input id="contact_email" name="contact_email" type="email" required>
+
+    <label for="contact_phone">Contact Phone</label>
+    <input id="contact_phone" name="contact_phone" type="tel">
+
+    <label for="requested_amount">Requested Amount</label>
+    <input id="requested_amount" name="requested_amount" type="number">
+
+    <label for="project_description">Project Description</label>
+    <textarea id="project_description" name="project_description" rows="6" required></textarea>
+
+    <label for="mission_statement">Mission Statement</label>
+    <textarea id="mission_statement" name="mission_statement" rows="4"></textarea>
+
+    <label for="document_upload">Supporting Document</label>
+    <input id="document_upload" name="document_upload" type="file">
+
+    <fieldset>
+      <legend>Population Served</legend>
+      <label><input type="checkbox" name="population_served" value="housing"> Housing</label>
+      <label><input type="checkbox" name="population_served" value="veterans"> Veterans</label>
+      <label><input type="checkbox" name="population_served" value="rural"> Rural</label>
+    </fieldset>
+
+    <label for="geographic_area">Geographic Area</label>
+    <select id="geographic_area" name="geographic_area">
+      <option value="local">Local</option>
+      <option value="regional">Regional</option>
+      <option value="statewide">Statewide</option>
+      <option value="national">National</option>
+    </select>
+
+    <button id="submit-application" type="submit">Submit Application</button>
+  </form>
+
+  <div id="confirmation" style="display:none;">
+    <h2>Application Received</h2>
+    <p>Confirmation number: <span id="confirmation-number"></span></p>
+  </div>
+</body>
+</html>

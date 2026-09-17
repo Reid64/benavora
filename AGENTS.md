@@ -10,6 +10,11 @@
 > **Note (2026-09-17, AR-2.1):** Same caveat applies to the per-agent Claude timeout policy and
 > shared concurrency limiter added this session — see `AGENTS_v2.md`'s "Per-agent timeout policy"
 > and "Claude concurrency limit" sections, and `STATE_OF_THE_BUILD.md`'s "AR-2.1" section.
+>
+> **Note (2026-09-17, AR-4.1):** Same caveat again — the agent exercise harness
+> (`scripts/audit/exercise-all-agents.ts` + `agent-exercise-registry.ts`) that proves or disproves
+> whether a Benavora product agent actually runs is documented in `AGENTS_v2.md`'s "Agent exercise
+> harness (AR-4.1, 2026-09-17)" section, not here.
 
 ---
 

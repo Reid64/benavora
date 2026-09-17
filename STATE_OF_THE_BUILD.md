@@ -1,5 +1,73 @@
 # Benavora Platform Build State
 
+## AR-4.1 — Agent exercise harness: converts "wired" into "proven" or "a bug" (2026-09-17)
+
+**Why this is the keystone:** 63 agents were wired and had never executed once; 27 of the 51
+registered PIL agents specifically had never executed. No amount of reading the code answers
+whether they work — nothing had ever invoked them. This session built the harness that does:
+`scripts/audit/exercise-all-agents.ts` invokes each agent for real against a seeded, clearly-tagged
+`EXERCISE-HARNESS-` organization, then verifies a completed `agent_runs`/`pil_agent_runs` row (or,
+for the 3 agents with no DB write at all, a verified `alerts` side effect) actually appeared —
+**never** treating "returned without throwing" as success on its own. Outcomes are `success` /
+`threw` / `timeout` / `no_effect` (ran, no error, no verifiable result — e.g. blocked by policy,
+escalated at delegation depth 0, or gated on missing upstream data) / `skipped` (not invoked at
+all — filtered out or dropped by the `--max-agents` cap).
+
+**Real agent count, derived from the live source, not any doc:** `scripts/audit/agent-exercise-registry.ts`
+found **144** invocable agents by scanning the five directories the task specified — 83 in
+`src/lib/agents/**` (55 `BaseAgent` subclasses + 25 `AutonomousAgent` subclasses + 3 plain
+functions with no `agent_type`), 51 in `src/lib/pil/agents/**` (not 44 — `agents/index.ts`'s real
+`AGENT_FACTORIES` map has 51 entries despite its own header comment and
+`PROSPECT_INTELLIGENCE_AGENTS.md`'s Fleet Summary both still claiming 44), 9 in
+`src/lib/autoapply/**`, and 1 in `src/lib/intelligence/**` (`ag-18-reputation`).
+`src/lib/research/**` contributes 0 — it's pure config/data; the four research-lane agent classes
+it configures live under `src/lib/agents/research/**` and are already counted in the 83. **No file
+in the repo claims "154"** — checked directly; that number doesn't reconcile against anything on
+disk, and 144 is what a full, verified scan of the actual code produces. Full detail, the
+per-shape invocation contracts, and why 144 differs from every other total already in circulation
+(44/48/51/154) are in `AGENTS_v2.md`'s "Agent exercise harness (AR-4.1, 2026-09-17)" section.
+
+**Seed fixture:** `scripts/audit/seed-exercise-org.ts` is idempotent (verified by running it twice
+live and diffing identical UUIDs back both times) and tags every row it writes via an
+`EXERCISE-HARNESS-` prefix on the organization (and, for the one shared cross-org table it touches,
+`corporate_prospects.legal_name`) so it can be found and removed later without a join. It seeds
+enough real rows — org profile, knowledge_base, funder, opportunity, request_profile, application,
+outcome, funder_giving_history, search_profile, corporate_prospect, an approved
+`automation_sessions` row, and a `pil_research_goals`/`pil_research_runs` pair — that a meaningful
+fraction of the 144 can attempt real work rather than trivially no-op on missing data.
+
+**Safety guards, all live-verified this session:** browser-driven agents (form-analyzer,
+form-filler, browser-automation, playwright-agent, registration-agent, autoapply's
+captcha/confirmation modules) are pointed at a local fixture file
+(`scripts/audit/fixtures/fixture-application-form.html`) via `StealthBrowser` — never at a live
+funder portal. The harness refuses to run against any organization whose name doesn't start with
+`EXERCISE-HARNESS-` unless `--allow-real-org` is explicitly passed. `--max-agents` defaults to 25
+so a first run can't spend unbounded Claude/browser/live-API cost; `--family=`/`--agent=` narrow
+further; `--dry-run` lists all 144 grouped by family and exits 0 without invoking anything
+(live-verified: `pnpm tsx scripts/audit/exercise-all-agents.ts --dry-run` lists exactly 144, split
+83/51/9/1/0 across core/pil/autoapply/intelligence/research). The harness itself always exits 0 —
+it is a measurement instrument, not a gate.
+
+**Live-verified this session (not just written and assumed correct):** `pnpm tsc --noEmit` passes
+clean; the dry-run lists all 144 with the exact family split above; a real, non-dry-run invocation
+of a cheap `BaseAgent` agent (`deadline_extraction`) completed end-to-end and produced a genuine
+`success` with a real `agent_runs` row; a real PIL agent (`BEN-SUP-01`) ran through
+`AgentRunner`/`pil_agent_runs` end-to-end and correctly reported `no_effect` (`escalated`, since
+delegation depth is pinned to 0 so the harness never triggers runaway sub-agent chains); a real
+`sam_gov_research` invocation with a deliberately fake API key completed with `agent_runs.status =
+'completed'` rather than `failed` — the agent swallows the credential failure into a "0 items
+found" success rather than surfacing it, which is itself exactly the kind of silent-failure finding
+this harness exists to produce (same family of bug as the historical AG-29 issue), not a harness
+bug.
+
+**Not run this session, deliberately:** the full 144-agent pass. That is real Claude spend, real
+browser automation, and real external API calls (Grants.gov, SAM.gov, ProPublica, USAspending,
+DuckDuckGo) at meaningful scale — an explicit, cost-approved action for a later session, not
+something to run unilaterally while building the harness. **Phase 5 and everything after it are
+gated on that first full report existing.**
+
+---
+
 ## AR-3.1 — AutoApply submit integrity: could report a submission it never made (2026-09-17)
 
 Highest-severity defect found in the platform. Reproduced against a real local portal with real
