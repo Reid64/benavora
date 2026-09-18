@@ -33,6 +33,7 @@
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import { decryptKey, encryptKey } from "@/lib/crypto/key-encrypt";
@@ -109,7 +110,7 @@ export class CustomApiResearchAgent extends BaseAgent<
     const { data: rows, error: loadError } = await query;
     if (loadError) {
       throw new AgentError(
-        "Failed to load custom API connections.",
+        withCause("Failed to load custom API connections.", loadError),
         "load_failed",
       );
     }
@@ -229,7 +230,7 @@ export class CustomApiResearchAgent extends BaseAgent<
       await assertDomainAllowed(this.client, this.organizationId, conn.base_url);
     } catch (err) {
       if (err instanceof AllowlistBlockedError) throw err;
-      throw new Error("Could not verify the domain allowlist.");
+      throw new Error(withCause("Could not verify the domain allowlist.", err));
     }
 
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -255,8 +256,8 @@ export class CustomApiResearchAgent extends BaseAgent<
     let rawData: unknown;
     try {
       rawData = JSON.parse(response.body);
-    } catch {
-      throw new Error("Response was not valid JSON.");
+    } catch (err) {
+      throw new Error(withCause("Response was not valid JSON.", err));
     }
     const items = normalizeItems(rawData);
 

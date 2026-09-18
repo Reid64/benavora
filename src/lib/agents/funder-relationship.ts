@@ -30,6 +30,7 @@
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import {
@@ -169,7 +170,7 @@ export class FunderRelationshipAgent extends BaseAgent<
 
       if (eventInsertError) {
         throw new AgentError(
-          "Failed to record relationship event.",
+          withCause("Failed to record relationship event.", eventInsertError),
           "write_failed",
         );
       }
@@ -217,7 +218,7 @@ export class FunderRelationshipAgent extends BaseAgent<
 
     if (upsertError) {
       throw new AgentError(
-        "Failed to save relationship score.",
+        withCause("Failed to save relationship score.", upsertError),
         "write_failed",
       );
     }

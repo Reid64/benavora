@@ -115,6 +115,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import { causeOf } from "@/lib/agents/base-agent";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 
@@ -230,8 +231,8 @@ export class ChangeMonitorAgent extends AutonomousAgent {
    * still degrades this half of scope to zero rather than failing the run. */
   private async loadProspectScope(
     budget: number,
-  ): Promise<{ rows: ProspectRow[]; tableMissing: boolean }> {
-    if (budget <= 0) return { rows: [], tableMissing: false };
+  ): Promise<{ rows: ProspectRow[]; tableMissing: boolean; cause: string | null }> {
+    if (budget <= 0) return { rows: [], tableMissing: false, cause: null };
     try {
       const { data, error } = await this.supabase
         .from("corporate_prospects")
@@ -239,10 +240,14 @@ export class ChangeMonitorAgent extends AutonomousAgent {
         .order("id", { ascending: true })
         .limit(budget);
 
-      if (error) return { rows: [], tableMissing: true };
-      return { rows: (data ?? []) as ProspectRow[], tableMissing: false };
-    } catch {
-      return { rows: [], tableMissing: true };
+      // AR-7.3: this branch used to assert "table does not exist" for ANY
+      // error (RLS denial, network blip, column drift, an actually-missing
+      // table) — the query result's real cause is preserved instead of
+      // guessing which one it was.
+      if (error) return { rows: [], tableMissing: true, cause: causeOf(error) };
+      return { rows: (data ?? []) as ProspectRow[], tableMissing: false, cause: null };
+    } catch (err) {
+      return { rows: [], tableMissing: true, cause: causeOf(err) };
     }
   }
 
@@ -686,17 +691,16 @@ export class ChangeMonitorAgent extends AutonomousAgent {
     let changesDetected = 0;
 
     try {
-      const { rows: prospects, tableMissing } = await this.loadProspectScope(
-        MAX_ENTITIES_PER_RUN,
-      );
+      const { rows: prospects, tableMissing, cause: prospectScopeCause } =
+        await this.loadProspectScope(MAX_ENTITIES_PER_RUN);
       const remainingBudget = MAX_ENTITIES_PER_RUN - prospects.length;
       const foundations = await this.loadFoundationScope(remainingBudget);
 
       if (tableMissing) {
         errors.push(
-          "corporate_prospects is unavailable in this environment (table does not " +
-            "exist in production as of 2026-08-03) — zero corporate prospects in " +
-            "scope this run; the foundation_directory half below is unaffected.",
+          "corporate_prospects query failed — zero corporate prospects in scope " +
+            "this run; the foundation_directory half below is unaffected. Cause: " +
+            (prospectScopeCause || "unknown (no error detail captured)"),
         );
       }
 

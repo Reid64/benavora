@@ -129,6 +129,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
   protected async execute(
     input: LocalSponsorshipInput,
   ): Promise<AgentExecution<LocalSponsorshipResult>> {
+    this.setPhase("resolving search profiles");
     const profiles = await this.resolveProfiles(input.profileIds ?? null);
 
     if (profiles.length === 0) {
@@ -169,6 +170,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
         break;
       }
       profilesRun.push(profile.name);
+      this.setPhase(`gathering candidates for profile "${profile.name}" (page ${pagesProcessed}/${MAX_PAGES_PER_RUN})`);
 
       const queries = buildLocalQueries(profile);
       const candidates = await this.gatherCandidates(queries, seenUrls);
@@ -188,6 +190,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
         if (urlDup.isDuplicate) continue;
 
         pagesProcessed++;
+        this.setPhase(`fetching page ${pagesProcessed}/${MAX_PAGES_PER_RUN} for profile "${profile.name}"`);
         const page = await fetchPage(ctx, { url });
         if (!page.ok || !page.text) continue;
 

@@ -12,6 +12,7 @@ import { buildReviewPrompt } from "@/lib/ai/prompts/review";
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -67,6 +68,7 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
   ): Promise<AgentExecution<ReviewResult>> {
     const applicationId = input.applicationId;
 
+    this.setPhase("fetching application");
     const { data: app, error } = await this.client
       .from("applications")
       .select("id, opportunity_id, draft_content")
@@ -87,6 +89,7 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
       );
     }
 
+    this.setPhase("fetching opportunity and knowledge base");
     const [oppRes, kbRes] = await Promise.all([
       this.client
         .from("opportunities")
@@ -137,6 +140,7 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
       knowledgeFacts,
     });
 
+    this.setPhase("calling claude for review");
     const response = await callClaude({
       system,
       prompt,
@@ -144,8 +148,10 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
       maxTokens: this.maxTokens,
     });
 
+    this.setPhase("parsing claude response");
     const parsed = parseReviewResponse(response.text);
 
+    this.setPhase("saving review note");
     // Persist the review as a note on the application (best effort).
     await this.client.from("notes").insert({
       organization_id: this.organizationId,
@@ -217,9 +223,9 @@ export function parseReviewResponse(
   let raw: unknown;
   try {
     raw = JSON.parse(text.slice(start, end + 1));
-  } catch {
+  } catch (err) {
     throw new AgentError(
-      "The review model returned malformed JSON.",
+      withCause("The review model returned malformed JSON.", err),
       "bad_model_output",
     );
   }

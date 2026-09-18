@@ -15,6 +15,7 @@
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
@@ -163,7 +164,10 @@ export class DeadlineExtractor extends BaseAgent<
         })),
       );
       if (insertError) {
-        throw new AgentError("Failed to create deadlines.", "write_failed");
+        throw new AgentError(
+          withCause("Failed to create deadlines.", insertError),
+          "write_failed",
+        );
       }
     }
 

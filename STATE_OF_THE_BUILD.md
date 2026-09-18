@@ -1,5 +1,106 @@
 # Benavora Platform Build State
 
+## AR-7.3 — Core agent errors preserve their cause, redacted; timeouts recorded not swallowed (2026-09-17)
+
+**The defect.** `success_probability`: 144 runs, 44 completed, 100 failed
+(69%). All 100 failures carried the identical `error_message`: `"Failed to
+save probability score."` — no table, no Postgres code, no constraint name,
+zero diagnostic value across 100 failures. `review`: 4 runs, 0 completed,
+ever — both captured failures read `"Agent timed out after 60s."`, naming
+neither the agent's actual configured limit nor how far execution got.
+AR-1 fixed this exact class ([object Object] serialization) for the PIL
+layer; it was never applied to core agents (`src/lib/agents/**`,
+`worker/**`).
+
+**Step 1 — inventory.** A file-by-file sweep of every `catch` block and
+every Supabase `{ data, error }` destructure in `src/lib/agents/**` and
+`worker/**` found **16 real-discard sites** — a genuine caught error in
+scope, replaced by a fixed string with zero reference to `.message`/`.code`/
+`.constraint`: `success-probability.ts`, `deadline-extractor.ts`,
+`custom-scrape.ts`, `email-campaign.ts`, `deadline-prediction.ts`,
+`giving-history.ts`, `application-cloner.ts`, `funder-relationship.ts` (x2),
+`review-agent.ts`, `custom-api.ts` (x3), and `worker/queue-processor.ts`
+(x2: a `form_templates` lookup and the Walmart SparkGood account-setup
+check, both of which could misreport a real DB error as a routine "not
+found"/"needs setup" case). A larger set of `error || !data` "not found"
+checks that also discard a real `error` when one is present (lower risk —
+usually a genuine empty result, not a masked failure) was left as-is; fixing
+those is a distinct, lower-urgency defect class.
+
+**Step 2 — shared infrastructure, not 16 one-off fixes.**
+`src/lib/agents/base-agent.ts` gained two exported helpers:
+`causeOf(err)` extracts `code`/`constraint`/`message`/`details`/`hint` from
+a Postgrest/pg error (or falls back to a plain `Error`'s message), redacted
+via **AR-6.2's `redactSecrets()`** (reused, not duplicated — a raw pg error
+can echo a connection string or key back from the query). `withCause(human,
+err)` appends that cause to a human-readable message without replacing it —
+`throw new AgentError(withCause("Failed to save probability score.",
+upsertError), "write_failed")` now reads `Failed to save probability score.
+(code=23505 | constraint=... | duplicate key value violates unique
+constraint)` instead of the old bare string. All 16 real-discard sites use
+this. Redaction was also centralized at every place that writes
+`agent_runs.error_message` — `BaseAgent.run()`'s catch,
+`AutonomousAgent.failRun()`/`completeRun()`, `AutomationWorkerAgent.logFailed()`,
+`withAgentRun()` (`src/lib/autoapply/run-logger.ts`, the worker's
+BaseAgent-independent re-implementation), and the four
+`submission_queue.error_message` writes in `worker/queue-processor.ts` —
+none of these redacted before this change, so a raw Postgres error
+(in principle) could have carried a secret-shaped value straight into a
+persisted row.
+
+**Step 3 — timeouts record the limit and the phase, not a bare string.**
+`BaseAgent` gained `protected setPhase(phase: string)` and a private `phase`
+field (default `"start"`), read by `withTimeout()`'s rejection:
+`` `Agent timed out after ${s}s (limit=${ms}ms, phase="${phase}").` ``.
+`AutomationWorkerAgent` (which doesn't extend `BaseAgent` — see its own
+5-minute budget) got the same field and the same message shape. `setPhase()`
+calls were wired into the agents this session's audit and AR-2.1 both name
+as chronic timeout failures: `review-agent.ts`, `budget-builder.ts`,
+`success-probability.ts`, and the three research agents sharing
+`local-sponsorship.ts`/`foundation-grants.ts`/`corporate-giving.ts`'s
+profile-loop shape (phase now names the profile and page index in flight).
+**The 60s default and the 270s/300s per-agent overrides are unchanged** —
+AR-2.1 already raised them for these five agents; this session only makes a
+timeout, if one still happens, name where it happened. AR-6.3's timeout
+alert rule now has real phase/limit data to fire on instead of the same
+opaque string on every occurrence.
+
+**Step 4 — success_probability's actual root cause.** Migration 145's header
+and `src/__tests__/integration-live/success-probability-upsert-constraint.test.ts`
+(WGR-170 regression guard) both independently document that the 100
+failures were caused by `success_probability_scores`'s `onConflict:
+"application_id"` target not matching any live unique constraint (Postgres
+42P10) — and that a matching constraint was added directly to the live
+database (no committed migration; same never-committed-DDL pattern as the
+`agent_type` enum gap) on 2026-09-11, after which 29+/29 runs succeeded.
+**144 = 100 pre-fix failures (2026-08-19 → 2026-09-11) + 44 post-fix
+successes, zero new failures since** — this session's "100 failed" is a
+historical count, not an active defect. `DATABASE_URL` was dead again this
+session (the credential's known flip-flop — see prior memory notes), so the
+live constraint could not be re-verified directly; the cross-referenced
+evidence above is the basis for this conclusion, not a fresh live check.
+The upsert's error path now uses `withCause()` regardless, so if this ever
+regresses, the real Postgres code/constraint will be visible instead of
+another 100 identical diagnosis-free rows.
+
+**Verification.** New suite `src/__tests__/unit/agent-error-fidelity.test.ts`
+(7 tests, all green) exercises `BaseAgent.run()`/`withTimeout()` against a
+fake Supabase client: a Postgres error's code/constraint survive into
+`agent_runs.error_message`; a secret-shaped value in that error is
+redacted (`[REDACTED]`) while the human message and real cause survive;
+a timeout's persisted message names its configured limit and last-reported
+phase. `pnpm typecheck` (root + `worker/tsconfig.json`), `pnpm run build`,
+and `pnpm test` (91 files / 860 tests) all pass clean.
+
+**What's still open.** The `error || !data` not-found-conflation pattern
+(a real DB error on a `.single()`/`.maybeSingle()` lookup reported as a
+generic 404/"not found" rather than surfaced) exists across many more agent
+files than the 16 fixed here — out of scope for this pass, tracked as a
+distinct, lower-urgency defect class. `worker/**`'s other non-`agent_runs`
+error surfaces (`automation_sessions.error`, etc.) were not swept
+exhaustively — this pass prioritized `agent_runs.error_message` per the
+task's own framing.
+
 ## AR-7.2 — automation_sessions deadlock: finalize on every path, reap what's already stuck (2026-09-17)
 
 **The defect.** `autoapply_queue_processor`: 32 runs, 0 completed, 32 failed —

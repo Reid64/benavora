@@ -18,6 +18,7 @@ import { differenceInCalendarDays } from "date-fns";
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
@@ -58,6 +59,7 @@ export class SuccessProbabilityAgent extends BaseAgent<
   ): Promise<AgentExecution<SuccessProbabilityResult>> {
     const { applicationId } = input;
 
+    this.setPhase("fetching application");
     const { data: application, error: appError } = await this.client
       .from("applications")
       .select("id, opportunity_id, organization_id")
@@ -77,6 +79,7 @@ export class SuccessProbabilityAgent extends BaseAgent<
       );
     }
 
+    this.setPhase("fetching opportunity");
     const { data: opportunity, error: oppError } = await this.client
       .from("opportunities")
       .select("id, name, category, funder_id, deadline, eligibility_score")
@@ -88,6 +91,7 @@ export class SuccessProbabilityAgent extends BaseAgent<
       throw new AgentError("Opportunity not found.", "not_found", 404);
     }
 
+    this.setPhase("scoring factors");
     const [givingRes, outcomesRes, competitorRes, narrativesRes] =
       await Promise.all([
         opportunity.funder_id
@@ -163,6 +167,7 @@ export class SuccessProbabilityAgent extends BaseAgent<
       narrativeQuality: f6,
     };
 
+    this.setPhase("saving probability score");
     const { error: upsertError } = await this.client
       .from("success_probability_scores")
       .upsert(
@@ -180,7 +185,7 @@ export class SuccessProbabilityAgent extends BaseAgent<
 
     if (upsertError) {
       throw new AgentError(
-        "Failed to save probability score.",
+        withCause("Failed to save probability score.", upsertError),
         "write_failed",
       );
     }

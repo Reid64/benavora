@@ -3,6 +3,7 @@ import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
 import { FormAnalyzerAgent, AGENT_TYPE as FORM_ANALYZER_AGENT_TYPE } from '../src/lib/autoapply/form-analyzer-agent.js';
 import { FormFillerAgent, AGENT_TYPE as FORM_FILLER_AGENT_TYPE, type FillOutcome, IncompleteSubmissionError } from '../src/lib/autoapply/form-filler-agent.js';
 import { raiseOrchestrationAlert } from '../src/lib/alerts/raise-orchestration-alert.js';
+import { redactSecrets } from '../src/lib/orchestration/orchestration-log.js';
 import { dedupKeys } from '../src/lib/alerts/alerts-service.js';
 import { CaptchaSolver, AGENT_TYPE as CAPTCHA_SOLVER_AGENT_TYPE } from '../src/lib/autoapply/captcha-solver.js';
 import { RegistrationAgent, AGENT_TYPE as REGISTRATION_AGENT_TYPE } from '../src/lib/autoapply/registration-agent.js';
@@ -381,7 +382,7 @@ export class QueueProcessor {
             .from('submission_queue')
             .update({
               status: 'requires_account_setup',
-              error_message: err.message,
+              error_message: redactSecrets(err.message),
               completed_at: new Date().toISOString(),
             })
             .eq('id', item.id);
@@ -396,7 +397,7 @@ export class QueueProcessor {
           console.log(`[QueueProcessor] Item ${item.id} skipped: ${err.message}`);
           const { error: updateErr } = await this.supabase
             .from('submission_queue')
-            .update({ status: 'skipped', error_message: err.message, completed_at: new Date().toISOString() })
+            .update({ status: 'skipped', error_message: redactSecrets(err.message), completed_at: new Date().toISOString() })
             .eq('id', item.id);
           if (updateErr) {
             console.error(`[QueueProcessor] Failed to persist skip reason for item ${item.id}:`, updateErr.message);
@@ -448,7 +449,7 @@ export class QueueProcessor {
           console.error(`[QueueProcessor] Item ${item.id} failed: ${msg}`);
           const { error: failUpdateErr } = await this.supabase
             .from('submission_queue')
-            .update({ status: 'failed', error_message: msg, completed_at: new Date().toISOString() })
+            .update({ status: 'failed', error_message: redactSecrets(msg), completed_at: new Date().toISOString() })
             .eq('id', item.id);
           if (failUpdateErr) {
             console.error(`[QueueProcessor] Failed to persist failure reason for item ${item.id}:`, failUpdateErr.message);
@@ -1364,7 +1365,12 @@ export class QueueProcessor {
         .maybeSingle();
 
       if (templateError || templateRow === null) {
-        throw new Error('form_template unavailable after analysis');
+        throw new Error(
+          `form_template unavailable after analysis (id=${formTemplateId}): ` +
+            (templateError
+              ? `${templateError.code ?? 'no_code'} ${templateError.message}`
+              : 'no row returned'),
+        );
       }
 
       const template = templateRow as Record<string, unknown>;
@@ -1617,28 +1623,11 @@ export class QueueProcessor {
         // Browser already closed â€” skip error screenshot
       }
     } finally {
-      if (hasViewers) {
-        await stealthBrowser.stopScreencast().catch(() => {});
-      }
-      try {
-        await browser.close();
-      } catch {
-        // Ignore close errors
-      }
-      // Retrieve recording path only after browser.close() finalizes the .webm file
-      localRecordingPath = await stealthBrowser.getRecordingPath().catch(() => null);
-
-      // AR-7.2: finalize the automation_sessions audit trail from `finally`,
-      // not after the try/catch, so it runs on every outcome - success, a
-      // thrown IncompleteSubmissionError/SubmissionNotVerifiedError, or any
-      // other error the catch above absorbed. A session created above
-      // (autoSessionId set by createApprovedAutomationSession()) that never
-      // reaches a terminal status blocks this org+funder pair forever via
-      // checkConcurrentAutomation()'s mutual-exclusion guard - that deadlock
-      // is what stranded every autoapply_queue_processor run in production
-      // (32/32 failed, 2026-09-17 audit). autoSessionId may still be null if
-      // the run failed before reaching the fill/submit stage - nothing to
-      // finalize in that case.
+      // AR-7.2: finalize first in `finally` (ahead of browser teardown) so
+      // every outcome - success or a thrown IncompleteSubmissionError /
+      // SubmissionNotVerifiedError / anything else - reaches a terminal
+      // status. A session stuck non-terminal deadlocks this org+funder pair
+      // forever via checkConcurrentAutomation() (32/32 prod runs, 2026-09-17).
       if (autoSessionId !== null) {
         const sessionId = autoSessionId;
         await this.finalizeAutomationSession(
@@ -1664,6 +1653,17 @@ export class QueueProcessor {
           }).catch(() => {});
         });
       }
+
+      if (hasViewers) {
+        await stealthBrowser.stopScreencast().catch(() => {});
+      }
+      try {
+        await browser.close();
+      } catch {
+        // Ignore close errors
+      }
+      // Retrieve recording path only after browser.close() finalizes the .webm file
+      localRecordingPath = await stealthBrowser.getRecordingPath().catch(() => null);
     }
 
     // Persist full submission audit record
@@ -2124,7 +2124,15 @@ export class QueueProcessor {
       Boolean((portalAccount as { deed_verified: boolean }).deed_verified);
 
     if (!verified) {
-      throw new AccountSetupRequiredError(setupMessage);
+      // AR-7.3: a real DB error on the lookup above must not be reported as
+      // "needs one-time account setup" — that masks the actual problem
+      // (RLS denial, connection failure, etc.) behind an actionable-looking
+      // but wrong message.
+      throw new AccountSetupRequiredError(
+        portalAccountError
+          ? `org_portal_accounts lookup failed: ${portalAccountError.code ?? 'no_code'} ${portalAccountError.message}`
+          : setupMessage,
+      );
     }
 
     const existing = await this.credentialManager.getCredentials(orgId, funderId);

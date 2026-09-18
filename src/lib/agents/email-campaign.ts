@@ -27,6 +27,7 @@
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import {
@@ -117,7 +118,10 @@ export class EmailCampaignAgent extends BaseAgent<
 
     const { data: campaignData, error: campaignError } = await query;
     if (campaignError) {
-      throw new AgentError("Could not load campaigns.", "load_failed");
+      throw new AgentError(
+        withCause("Could not load campaigns.", campaignError),
+        "load_failed",
+      );
     }
     const campaigns = (campaignData ?? []) as CampaignRow[];
     if (campaigns.length === 0) {

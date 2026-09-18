@@ -120,6 +120,7 @@ export class CorporateGivingResearchAgent extends BaseAgent<
   protected async execute(
     input: CorporateGivingInput,
   ): Promise<AgentExecution<CorporateGivingResult>> {
+    this.setPhase("resolving search profiles");
     const profiles = await this.resolveProfiles(input.profileIds ?? null);
 
     if (profiles.length === 0) {
@@ -153,6 +154,7 @@ export class CorporateGivingResearchAgent extends BaseAgent<
         break;
       }
       profilesRun.push(profile.name);
+      this.setPhase(`gathering candidates for profile "${profile.name}" (page ${pagesProcessed}/${MAX_PAGES_PER_RUN})`);
 
       const queries = buildCorporateQueries(profile);
       const candidates = await this.gatherCandidates(queries, seenUrls);
@@ -172,6 +174,7 @@ export class CorporateGivingResearchAgent extends BaseAgent<
         if (urlDup.isDuplicate) continue;
 
         pagesProcessed++;
+        this.setPhase(`fetching page ${pagesProcessed}/${MAX_PAGES_PER_RUN} for profile "${profile.name}"`);
         const page = await fetchPage(ctx, { url });
         if (!page.ok || !page.text) continue;
 

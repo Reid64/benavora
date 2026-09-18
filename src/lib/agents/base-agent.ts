@@ -20,11 +20,58 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { trackUsage } from "@/lib/billing/usage-tracker";
+import { redactSecrets } from "@/lib/orchestration/orchestration-log";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
 /** Default hard ceiling on a single agent run (AGENTS.md §15). */
 export const AGENT_TIMEOUT_MS = 60_000;
+
+/**
+ * AR-7.3: extracts the diagnostic parts of a Postgrest/pg error (code,
+ * constraint, message, details, hint) or a plain Error/string, so a throw
+ * site that only has a generic human-readable message to give AgentError can
+ * still append the real cause instead of discarding it. Never throws; "" if
+ * `err` carries nothing useful. Redacted via {@link redactSecrets} (AR-6.2) —
+ * a raw pg error can echo back a connection string or other secret-shaped
+ * value from the query, so this must never be skipped before persisting.
+ */
+export function causeOf(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as {
+      code?: unknown;
+      message?: unknown;
+      details?: unknown;
+      hint?: unknown;
+      constraint?: unknown;
+    };
+    const parts: string[] = [];
+    if (typeof e.code === "string" && e.code) parts.push(`code=${e.code}`);
+    if (typeof e.constraint === "string" && e.constraint) {
+      parts.push(`constraint=${e.constraint}`);
+    }
+    if (typeof e.message === "string" && e.message) parts.push(e.message);
+    else if (err instanceof Error) parts.push(err.message);
+    if (typeof e.details === "string" && e.details) parts.push(`details=${e.details}`);
+    if (typeof e.hint === "string" && e.hint) parts.push(`hint=${e.hint}`);
+    if (parts.length) return redactSecrets(parts.join(" | "));
+  }
+  if (err instanceof Error) return redactSecrets(err.message);
+  if (typeof err === "string" && err) return redactSecrets(err);
+  return "";
+}
+
+/**
+ * Builds an AgentError message that keeps the human-readable summary a
+ * caller wants surfaced to users/routes, but appends the real cause (Postgres
+ * code/constraint/message, or the original error text) so
+ * agent_runs.error_message stops being diagnostically empty (AR-7.3). Does
+ * not replace the human message — only appends when a cause is available.
+ */
+export function withCause(humanMessage: string, err: unknown): string {
+  const cause = causeOf(err);
+  return cause ? `${humanMessage} (${cause})` : humanMessage;
+}
 
 export interface BaseAgentOptions {
   /** Supabase client. Session client from routes, admin client for schedules. */
@@ -90,12 +137,30 @@ export abstract class BaseAgent<TInput, TResult> {
   protected readonly triggeredBy: string | null;
   /** This agent's hard run timeout (ms). Overridable via constructor options. */
   protected readonly timeoutMs: number;
+  /**
+   * AR-7.3: last checkpoint a subclass reported reaching via {@link setPhase}.
+   * Read by {@link withTimeout} so a timeout's agent_runs.error_message names
+   * how far execute() got instead of just "timed out" with no context.
+   * Defaults to "start" for subclasses that never call setPhase — still
+   * honest (we genuinely don't know more), just not as precise.
+   */
+  private phase = "start";
 
   constructor(options: BaseAgentOptions) {
     this.client = options.client;
     this.organizationId = options.organizationId;
     this.triggeredBy = options.triggeredBy ?? null;
     this.timeoutMs = options.timeoutMs ?? AGENT_TIMEOUT_MS;
+  }
+
+  /**
+   * Subclasses call this at meaningful checkpoints inside execute() (e.g.
+   * "fetched application", "calling claude", "saving result") so a timeout
+   * has something real to report about progress. Optional — omitting it just
+   * means a timeout reports phase="start".
+   */
+  protected setPhase(phase: string): void {
+    this.phase = phase;
   }
 
   /**
@@ -143,7 +208,11 @@ export abstract class BaseAgent<TInput, TResult> {
 
       await this.update(runId, {
         status: "failed",
-        error_message: message,
+        // AR-7.3: redacted here, once, for every BaseAgent subclass — the
+        // message itself may carry a raw Postgres error (or a subclass's own
+        // withCause()-built message) that could echo a secret-shaped value
+        // back from the query; never persist it unredacted (AR-6.2 pattern).
+        error_message: redactSecrets(message),
         duration_ms: durationMs,
         completed_at: new Date().toISOString(),
       });
@@ -238,14 +307,22 @@ export abstract class BaseAgent<TInput, TResult> {
 
   // --- timeout ---------------------------------------------------------------
 
-  /** Reject with an AgentError if `work` exceeds this agent's `timeoutMs`. */
+  /**
+   * Reject with an AgentError if `work` exceeds this agent's `timeoutMs`.
+   * AR-7.3: the message now names the configured limit explicitly (not just
+   * the derived seconds) and the last phase {@link setPhase} recorded, so a
+   * timed-out run's agent_runs.error_message says how far execute() got
+   * instead of just "timed out" with zero context — AR-6.3's timeout alert
+   * rule needs this to be a real signal rather than the same opaque string
+   * on every one of six silently-dying agent types.
+   */
   private withTimeout<T>(work: Promise<T>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined = undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         reject(
           new AgentError(
-            `Agent timed out after ${this.timeoutMs / 1000}s.`,
+            `Agent timed out after ${this.timeoutMs / 1000}s (limit=${this.timeoutMs}ms, phase="${this.phase}").`,
             "timeout",
             504,
           ),

@@ -47,6 +47,36 @@ wrappers). `src/lib/autoapply/**` has its own separate instance,
 that reason. `src/__tests__/unit/claude-concurrency.test.ts` proves the
 limiter caps in-flight calls at 4 and that every call still resolves.
 
+**Error contract for core agents (AR-7.3, 2026-09-17):** `agent_runs.error_message`
+must never be a fixed human string that discards a real caught error. When a
+subclass has a genuine Postgrest/pg error in scope (an `{ data, error }`
+destructure, or a caught exception), it must build the message with
+`withCause(humanMessage, err)` (`src/lib/agents/base-agent.ts`) — appends the
+error's `code`/`constraint`/`message`/`details`/`hint` (or a plain `Error`'s
+message) to the human-readable summary rather than replacing it, e.g.
+`"Failed to save probability score. (code=23505 | constraint=... |
+duplicate key value violates unique constraint)"`. Every writer of
+`agent_runs.error_message` (`BaseAgent.run()`, `AutonomousAgent.failRun()`/
+`completeRun()`, `AutomationWorkerAgent.logFailed()`, `withAgentRun()` in
+`src/lib/autoapply/run-logger.ts`) redacts via **AR-6.2's `redactSecrets()`**
+before persisting — a raw pg error can echo a connection string or key back
+from the query, so this is centralized at the write boundary, not left to
+each throw site to remember. A timeout's message names its configured limit
+and the last phase a `protected setPhase(phase: string)` call reported
+reaching (default `"start"` if a subclass never calls it) —
+`` `Agent timed out after ${s}s (limit=${ms}ms, phase="${phase}").` `` — so
+AR-6.3's timeout alert rule has real per-run content instead of the same
+opaque string on every occurrence. Live evidence this fixed:
+`success_probability` (100/144 failed runs, all reading the identical
+diagnosis-free `"Failed to save probability score."`) and `review` (4/4
+failed, both captured runs reading a bare `"Agent timed out after 60s."`
+with no phase). `src/__tests__/unit/agent-error-fidelity.test.ts` is the
+regression guard (fake-Supabase-client unit suite, no live DB dependency).
+16 real-discard sites were fixed under this contract this session; a
+broader `error || !data` "not found" conflation pattern (a real DB error
+masquerading as a 404) still exists elsewhere and is a distinct,
+lower-urgency follow-up, not covered by this contract's enforcement yet.
+
 ---
 
 ## Phase 1 Agents (MVP — Already Built)

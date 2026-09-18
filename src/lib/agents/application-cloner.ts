@@ -9,6 +9,7 @@ import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -154,7 +155,7 @@ Return ONLY the adapted grant application text. Do not include any explanation o
 
     if (insertErr || !newApp) {
       throw new AgentError(
-        "Failed to create the cloned application.",
+        withCause("Failed to create the cloned application.", insertErr),
         "write_failed",
       );
     }

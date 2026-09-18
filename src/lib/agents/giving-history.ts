@@ -9,6 +9,7 @@
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
@@ -125,7 +126,7 @@ export class GivingHistoryAgent extends BaseAgent<
 
     if (upsertError) {
       throw new AgentError(
-        "Failed to save giving history.",
+        withCause("Failed to save giving history.", upsertError),
         "write_failed",
       );
     }

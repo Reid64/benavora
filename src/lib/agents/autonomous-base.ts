@@ -15,6 +15,7 @@
 // jsonb column, so `metadata` passed to createNotification is not persisted.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { redactSecrets } from "@/lib/orchestration/orchestration-log";
 
 export const AUTONOMOUS_HARD_LIMITS = {
   NEVER_SUBMIT_EXTERNALLY: true,
@@ -192,7 +193,7 @@ export abstract class AutonomousAgent {
       patch.confidence_score = params.confidenceScore;
     if (params.outputPayload !== undefined)
       patch.output_payload = params.outputPayload;
-    if (params.errorMessage !== undefined) patch.error_message = params.errorMessage;
+    if (params.errorMessage !== undefined) patch.error_message = redactSecrets(params.errorMessage);
 
     await this.supabase.from("agent_runs").update(patch).eq("id", runId);
 
@@ -223,14 +224,16 @@ export abstract class AutonomousAgent {
   }
 
   /** Marks an agent_runs row failed. Never throws - a logging failure must
-   * never mask the original error the caller is already handling. */
+   * never mask the original error the caller is already handling.
+   * AR-7.3: redacted here, once, so no subclass has to remember to do it
+   * itself before a caught Postgres/provider error reaches error_message. */
   protected async failRun(runId: string, errorMessage: string): Promise<void> {
     await this.supabase
       .from("agent_runs")
       .update({
         status: "failed",
         completed_at: new Date().toISOString(),
-        error_message: errorMessage,
+        error_message: redactSecrets(errorMessage),
       })
       .eq("id", runId);
   }

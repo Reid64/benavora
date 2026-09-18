@@ -19,6 +19,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { BrowserAutomationAgent } from "@/lib/agents/browser-automation";
 import { resolveTier } from "@/lib/billing/usage-tracker";
+import { redactSecrets } from "@/lib/orchestration/orchestration-log";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
@@ -76,6 +77,8 @@ export class AutomationWorkerAgent {
   private readonly client: SupabaseClient;
   private readonly organizationId: string;
   private readonly triggeredBy: string | null;
+  /** AR-7.3: last checkpoint reached, surfaced by withTimeout() on timeout. */
+  private phase = "start";
 
   constructor(options: AutomationWorkerOptions) {
     this.client = options.client;
@@ -215,6 +218,7 @@ export class AutomationWorkerAgent {
     }
 
     // 7. Invoke the browser automation pipeline.
+    this.phase = `running browser automation for queue item ${queueItem.id}`;
     try {
       const browserAgent = new BrowserAutomationAgent({
         client: this.client,
@@ -422,7 +426,7 @@ export class AutomationWorkerAgent {
       .from("agent_runs")
       .update({
         status: "failed",
-        error_message: errorMessage,
+        error_message: redactSecrets(errorMessage),
         duration_ms: durationMs,
         completed_at: new Date().toISOString(),
       })
@@ -436,7 +440,8 @@ export class AutomationWorkerAgent {
         () =>
           reject(
             new Error(
-              `Automation worker timed out after ${PROCESSING_TIMEOUT_MS / 60_000} minutes.`,
+              `Automation worker timed out after ${PROCESSING_TIMEOUT_MS / 60_000} minutes ` +
+                `(limit=${PROCESSING_TIMEOUT_MS}ms, phase="${this.phase}").`,
             ),
           ),
         PROCESSING_TIMEOUT_MS,

@@ -24,6 +24,7 @@ import { callClaude } from "@/lib/ai/claude";
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -98,7 +99,10 @@ export class CustomScrapeResearchAgent extends BaseAgent<
 
     const { data: rows, error: loadError } = await query;
     if (loadError) {
-      throw new AgentError("Failed to load scraping targets.", "load_failed");
+      throw new AgentError(
+        withCause("Failed to load scraping targets.", loadError),
+        "load_failed",
+      );
     }
     if (!rows || rows.length === 0) {
       return {

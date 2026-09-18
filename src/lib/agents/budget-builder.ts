@@ -73,6 +73,7 @@ export class BudgetBuilderAgent extends BaseAgent<
   ): Promise<AgentExecution<BudgetResult>> {
     const opportunityId = input.opportunityId;
 
+    this.setPhase("fetching opportunity");
     const { data: opp, error } = await this.client
       .from("opportunities")
       .select(
@@ -86,6 +87,7 @@ export class BudgetBuilderAgent extends BaseAgent<
       throw new AgentError("Opportunity not found.", "not_found", 404);
     }
 
+    this.setPhase("fetching organization, programs, and funder");
     const [orgRes, programsRes, funderRes] = await Promise.all([
       this.client
         .from("organizations")
@@ -125,6 +127,7 @@ export class BudgetBuilderAgent extends BaseAgent<
       })),
     });
 
+    this.setPhase("calling claude for budget narrative");
     const response = await callClaude({
       system,
       prompt,
@@ -132,6 +135,7 @@ export class BudgetBuilderAgent extends BaseAgent<
       maxTokens: this.maxTokens,
     });
 
+    this.setPhase("parsing claude response");
     const parsed = parseBudgetResponse(response.text);
 
     // Persist the narrative as a note (best effort - a notes failure must not

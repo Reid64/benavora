@@ -15,6 +15,7 @@
 import {
   AgentError,
   BaseAgent,
+  withCause,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
@@ -91,7 +92,7 @@ export class DeadlinePredictionAgent extends BaseAgent<
 
     if (error) {
       throw new AgentError(
-        "Failed to load historical deadlines.",
+        withCause("Failed to load historical deadlines.", error),
         "db_error",
       );
     }

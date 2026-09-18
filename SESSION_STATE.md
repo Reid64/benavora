@@ -8,11 +8,60 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-7.2: automation_sessions deadlock — finalize on every path, reap 7 stuck rows live, 32/32 autoapply_queue_processor failures explained)
+- **Last updated:** 2026-09-17 (AR-7.3: core agent errors preserve their cause, redacted; timeouts record limit + phase instead of a bare string)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-7.3: core agent error honesty)
+
+Production evidence: `success_probability` — 144 runs, 44 completed, 100 failed, every failure
+carrying the identical `error_message` `"Failed to save probability score."` — no table, no
+Postgres code, no constraint, zero diagnostic value across 100 rows. `review` — 4 runs, 0 completed
+ever, both captured failures reading `"Agent timed out after 60s."` with no limit or phase named.
+AR-1 fixed this exact `[object Object]`-class defect for the PIL layer; never applied to
+`src/lib/agents/**`/`worker/**`.
+
+**Inventory:** a file-by-file sweep of every `catch` block and Supabase `{ data, error }` destructure
+across both directories found 16 real-discard sites (a genuine caught error replaced by a fixed
+string with zero reference to it) — see STATE_OF_THE_BUILD.md's AR-7.3 entry for the full file list.
+A larger set of `error || !data` "not found" checks that also discard a real `error` when one is
+present was left as-is (lower risk, distinct defect class, out of this pass's scope).
+
+**Fix, once, not 16 times:** `src/lib/agents/base-agent.ts` gained `causeOf(err)`/`withCause(human,
+err)` — extracts Postgres `code`/`constraint`/`message`/`details`/`hint` (or a plain `Error`'s
+message), redacted via AR-6.2's `redactSecrets()` (reused, not duplicated), and appends it to the
+human-readable message instead of replacing it. All 16 sites now use it. Redaction was centralized
+at every `agent_runs.error_message`/`submission_queue.error_message` writer that didn't already have
+it: `BaseAgent.run()`, `AutonomousAgent.failRun()`/`completeRun()`, `AutomationWorkerAgent.logFailed()`,
+`withAgentRun()` (`src/lib/autoapply/run-logger.ts`), and `worker/queue-processor.ts`'s four write
+sites — none of these redacted before this change.
+
+**Timeouts:** `BaseAgent` gained `setPhase()`/a `phase` field (default `"start"`), read by
+`withTimeout()`'s message: `` limit=${ms}ms, phase="${phase}" ``. `AutomationWorkerAgent` (its own
+5-minute budget, doesn't extend `BaseAgent`) got the same shape. Wired into the chronic-timeout
+agents AR-2.1 and this session's audit both name: `review-agent.ts`, `budget-builder.ts`,
+`success-probability.ts`, `local-sponsorship.ts`/`foundation-grants.ts`/`corporate-giving.ts`. The
+60s default and AR-2.1's 270s/300s per-agent overrides are unchanged — only the timeout *message* now
+carries real diagnostic content.
+
+**success_probability's real cause:** migration 145's header and
+`src/__tests__/integration-live/success-probability-upsert-constraint.test.ts` (WGR-170 guard) both
+document that the failures were `onConflict: "application_id"` not matching any live unique
+constraint (Postgres 42P10) — fixed live, out-of-band, on 2026-09-11 (29+/29 successes since). 144 =
+100 pre-fix failures + 44 post-fix successes, zero new failures. `DATABASE_URL` was dead again this
+session so this could not be re-verified live directly (see prior flip-flop notes); the conclusion
+rests on the cross-referenced migration/test evidence, stated as such rather than as a fresh check.
+
+**Test:** `src/__tests__/unit/agent-error-fidelity.test.ts`, 7/7 green, fake-Supabase-client unit
+suite (no live DB dependency) — Postgres code/constraint survive into `error_message`, a
+secret-shaped value is redacted while the real cause survives, a timeout's message names its limit
+and last-reported phase. `pnpm typecheck` (root + `worker/tsconfig.json`), `pnpm run build`, and
+`pnpm test` (91 files / 860 tests) all pass clean.
+
+**Open:** the `error || !data` not-found-conflation pattern exists more broadly across
+`src/lib/agents/**` than the 16 sites fixed here — tracked as a distinct, lower-urgency follow-up.
 
 ## Session — 2026-09-17 (AR-7.2: automation_sessions deadlock)
 

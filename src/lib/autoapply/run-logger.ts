@@ -14,6 +14,7 @@
 // failed row is recorded.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { redactSecrets } from "@/lib/orchestration/orchestration-log";
 
 export interface WithAgentRunOptions {
   supabase: SupabaseClient;
@@ -106,7 +107,7 @@ export async function withAgentRun<T>(
     await logPatch(opts.supabase, opts.agentType, runId, {
       status: "failed",
       duration_ms: Date.now() - startedAt,
-      error_message: message,
+      error_message: redactSecrets(message),
       completed_at: new Date().toISOString(),
     });
     throw err;
