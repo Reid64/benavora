@@ -486,16 +486,38 @@ export class FormFillerAgent {
       throw new Error('Submission blocked: session not approved');
     }
 
-    const { data, error } = await this.supabase
-      .from('automation_sessions')
-      .select('status')
-      .eq('id', sessionId)
-      .eq('organization_id', organizationId)
-      .maybeSingle();
+    // A transient query error (network blip, connection-pool exhaustion under
+    // heavy parallel load) is not the same signal as a real non-approved
+    // session — retrying only on `error` keeps the fail-closed guarantee
+    // (a genuinely missing/non-approved row still blocks immediately, no
+    // retry) while not letting infra flakiness masquerade as a real block.
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data, error } = await this.supabase
+        .from('automation_sessions')
+        .select('status')
+        .eq('id', sessionId)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
 
-    if (error || !data || (data as { status: string }).status !== 'approved') {
-      throw new Error('Submission blocked: session not approved');
+      if (!error) {
+        if (!data || (data as { status: string }).status !== 'approved') {
+          throw new Error('Submission blocked: session not approved');
+        }
+        return;
+      }
+
+      lastError = error;
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      }
     }
+
+    throw new Error(
+      `Submission blocked: session not approved (approval check failed: ${
+        lastError instanceof Error ? lastError.message : JSON.stringify(lastError)
+      })`,
+    );
   }
 
   private async buildFillData(
