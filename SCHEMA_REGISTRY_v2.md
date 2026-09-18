@@ -1748,3 +1748,47 @@ against mid-session: `STATE_OF_THE_BUILD.md`'s "AR-6.4" section.
 | donor_discovery_directory | Unknown | 500K+ per org |
 | pig_nodes | 0 | 10M+ |
 | pig_edges | 0 | 50M+ |
+
+---
+
+## model_cost_reference (Migration 192, AR-6.4) — now consumed, not just seeded (AR-10.1, 2026-09-18)
+
+| Column | Type | Notes |
+|---|---|---|
+| model | text PK | e.g. `claude-sonnet-4-6` |
+| input_usd_per_mtok | numeric(10,4) | |
+| output_usd_per_mtok | numeric(10,4) | |
+| cache_write_usd_per_mtok | numeric(10,4) | 5-minute-TTL rate; the 1-hour-TTL rate is `input_usd_per_mtok * 2`, not a separate column |
+| cache_read_usd_per_mtok | numeric(10,4) | |
+| effective_from | date NOT NULL | |
+| source | text NOT NULL | e.g. `https://claude.com/pricing` |
+
+Global reference table, no `organization_id` — rates apply identically to
+every org. RLS: `SELECT` granted to `authenticated`, revoked from `anon`.
+
+AR-6.4 created and seeded this table (rates verified live against
+claude.com/pricing on 2026-09-17) and added a 180-day freshness test, but
+nothing read it — every cost computation in the repo used its own hardcoded
+per-MTok literal. AR-9.2 (same day as AR-10.1, earlier) fixed this for every
+direct Anthropic call. AR-10.1 fixed the remaining gap: the PIL agent
+framework's own internal tool-cost accounting
+(`AgentRunner.useTool()`'s `"model_tokens"` costType), which used a flat,
+unsourced $0.00002/token constant defined independently in 28 places across
+`src/lib/pil/agents/**`, unrelated to this table. The single resolver for
+both paths is `src/lib/pil/model-pricing.ts`:
+
+- `priceUsage(model, inputTokens, outputTokens)` / `computeCostUsd(...)` —
+  exact cost from a real input/output split (every direct Anthropic call).
+- `pilBlendedTokenRateUsd()` — blended (input+output averaged) per-token
+  rate for `PIL_AGENT_MODEL` (`"claude-sonnet-4-6"`), for the PIL framework's
+  `useTool()` calls, which track one combined token count rather than a
+  real split.
+
+Both return a typed unpriced result (never a fabricated 0) and raise a
+throttled `system_errors` alert (`error_type: "unpriced_model"`) when
+`model` has no row here — the visible signal that replaces "spend silently
+reads as free." Cached in-process for 5 minutes; this table changes rarely
+enough that per-call reads would be pure overhead. Full detail, the real
+per-file count (54, not AR-6.4's estimated "~29"), and the double-counting
+bug found alongside the wrong-rate bug: `STATE_OF_THE_BUILD.md`'s "AR-10.1"
+section.

@@ -1,5 +1,58 @@
 # Benavora Platform Build State
 
+## AR-9.3 — The scheduler gap: EA-family invocation path traced, no disabling mechanism found, fix proven live (2026-09-18)
+
+**The question.** AR-7.1 fixed the missing Chromium executable (215 failures across ea01/ea02/ea05/
+ea08/ea09) and deployed. Three hours later: 0 EA `agent_runs`, 184 other agent runs. Before assuming
+the fix worked, or assuming something switched the family off, this traced the actual invocation path —
+because a platform where failing agents quietly stop being scheduled would mean "59 agents never
+executed" (the broader 144-agent inventory finding) could mean "silently disabled," not "never wired."
+
+**Finding: no disabling mechanism touches the EA family.** Grepped for circuit breakers, registry
+`active`/`enabled` flags, and failure-count gates against every EA call site — none exist.
+`src/lib/resilience/circuit-breaker.ts` is real and wired, but only into AutoApply/scraper code
+(`worker/queue-processor.ts`, `worker/proxy-manager.ts`, `src/lib/scraper/stealth-engine.ts`); EA agents
+aren't registry rows in any table that has an enable/disable column.
+
+**Actual cause: queue starvation, two layers deep.** (1) `corporate_prospects`' only feed —
+`acquireFromGooglePlaces()` in `src/lib/sources/corporate-acquisition-adapter.ts` — is called from
+exactly two manual-only places: `POST /api/prospects/acquire` (per-org, human-triggered) and
+`pnpm acquire:prospects` (CLI). The API route's own comment claims a "nightly" sweep exists
+"same as `scripts/acquire-corporate-prospects.ts`" — grepping `worker/scheduler.ts`, `vercel.json`, and
+every `src/app/api/cron/*` route for this function confirms **no such schedule exists**. It's
+aspirational documentation, not live behavior — nothing has fed new rows into `corporate_prospects`
+since 2026-08-04. (2) Once a row is attempted, `worker/enrichment-processor.ts`'s `enrichProspect()`
+unconditionally stamps `enrichment_completed_at` at the end of its 10-agent loop regardless of
+per-agent failures, and `corporate-enrichment-shared.ts`'s `mergeEnrichmentPatch()` stamps the same
+column on every individual agent's successful merge — so "attempted" and "fully enriched" are
+indistinguishable, and a row can never re-enter the `.is('enrichment_completed_at', null)` queue once
+touched. All 50 live `corporate_prospects` rows were already stamped **before AR-7.1 even existed**
+(2026-09-17 ~07:2x–08:3x UTC vs. the fix's 2026-09-18T02:29 UTC commit) — the queue has been sitting at
+zero independent of the Chromium bug or its fix the entire time.
+
+**Live proof — the actual gate for this task.** Reset one production row
+(`3d15c0f2-e524-4d94-a7fa-e03c82d965b6`, "GOOD HOUSING CONSTRUCTION LLC") to unenriched, then invoked
+the real, unmodified `runEnrichmentBatch()` against production. Result: all 10 EA agents (ea01
+through ea10) plus the chained Score Engine (`ag22_propensity_scoring`) completed with **zero errors**
+— the exact five agents from the original 215-failure incident ran clean. `railway status` confirms the
+live worker deployment descends from commit `119139d` (AR-7.1); the prior "worker not yet redeployed"
+gap noted right after AR-7.1 landed has resolved. **AR-7.1's Chromium fix is proven live, not just
+deployed or code-reviewed.**
+
+**What real disabling mechanisms DO exist, for the next family's triage:** `ENABLE_SCRAPER` (env flag)
+silently no-ops `foundation-enrichment-weekly` and `nonprofit-enrichment-weekly` in `worker/scheduler.ts`
+every week if unset (current production value not checked this session). `pil_agent_registry.active` is
+a real, four-call-site-enforced per-agent kill switch for every `BEN-*` agent (live query: all 51 rows
+currently `active = true`, nothing presently suppressed). `isPilEnabledForOrg()` (LaunchDarkly) gates
+whether a PIL research run is created per org at all. None of these apply to EA; each applies to a
+different family. Full map: `test-evidence/AGENT_INVOCATION_MAP.md`.
+
+**Left undone, explicitly.** The other 49 `corporate_prospects` rows were not re-queued — their
+ea01/02/05/08/09 enrichment data likely still reflects the pre-fix broken run, but bulk-reprocessing 49
+rows × 10 agents is a real API/LLM cost decision, not taken without explicit approval. `ENABLE_SCRAPER`'s
+live value and the AutoApply circuit breaker's open/closed state were named as real mechanisms but not
+checked — both are natural next steps for whichever family's "never executed" triage needs them.
+
 ## AR-9.2 — `ai_usage_log` actually captures cost for the platform's real traffic (2026-09-18)
 
 **The defect.** AR-5.1 (below) consolidated the platform onto one per-call cost ledger and was marked
@@ -1986,3 +2039,124 @@ the commit body.
 3. AR-8.2's other carry-forward items (`DATABASE_URL` 28P01, stale
    `TESTING_v2.md` Jest references, parked quarantine specs) are unrelated
    to this pass and untouched.
+
+## AR-10.1 — Wired the rate card; found and fixed a real 2x double-count on top of it (2026-09-18)
+
+AR-6.4's closing finding was "`model_cost_reference` (migration 192) is
+created, seeded, freshness-tested — and nothing reads it. `ai_usage_log.cost_usd`
+is computed by callers before `recordCost()`, from per-file hardcoded rates
+scattered across roughly 29 files under `src/lib/pil/agents/`." That count
+predates AR-9.2/AR-9.2-recovery (2026-09-18, same day, earlier commits), which
+already fixed the larger half of this: every direct Anthropic call — the ~91
+`BaseAgent`/`AutonomousAgent` subclasses through `src/lib/ai/claude.ts` and the
+~34 modules that built their own raw `new Anthropic(...)` client — now records
+through `src/lib/ai/usage-recorder.ts`, which already read `model_cost_reference`
+via a cached resolver at `src/lib/ai/pricing.ts`. That part of AR-6.4's finding
+was stale by the time this task started.
+
+**Real count (Step 1, don't trust "29"):** grepping for `1_000_000`/`1000000`/
+`1e6` and rate literals across `src/lib/pil` and `src/lib/agents` found 2 hits
+in one file (`BEN-QLF-03.ts`) that are unrelated free-text dollar-amount
+parsing ("$1.2 million" in a grant claim), not token pricing — annotated
+`// ok:` for the FORGE gate's existing bypass mechanism. The real bypass was a
+single named constant, `MODEL_TOKEN_UNIT_COST_USD = 0.00002` ($20/MTok flat,
+sourced nowhere, blind to which model actually ran), independently defined in
+**3 shared.ts modules** (`agents/dis`, `agents/int`, `agents/rel`) and **24
+individual agent files**, plus **1 file** (`BEN-SUP-04.ts`) using the raw
+literal `0.00002` with no named constant at all — **28 definition sites**,
+imported/used across **54 files total** (28 + 26 files that only imported the
+constant from a shared module for their own `AgentResult.costUsd` line). This
+is the PIL agent framework's *own* internal tool-cost accounting
+(`AgentRunner.useTool()`'s `"model_tokens"` costType), a code path AR-9.2
+never touched because it doesn't call Anthropic directly — it reports a token
+count an agent implementation already computed.
+
+**Two bugs found while wiring it, not one:**
+
+1. **Wrong rate.** $0.00002/token flat vs. `claude-sonnet-4-6`'s real seeded
+   blended rate (`(3.00 + 15.00) / 2 / 1,000,000 = $0.000009/token`) — every
+   PIL-framework dollar was **≈2.22x overstated**.
+2. **Double-recorded.** `AgentRunner.finalizeRun()` called `recordCost()` a
+   *second* time with the run's total `tokensUsed`/`costUsd` — fields that
+   are non-zero *only* when the agent already called `tryModelTokens()`/
+   `tryUseTool()`, which itself calls `useTool()`, which *already* wrote an
+   `ai_usage_log` row for those exact tokens in real time. Both rows carried
+   the same `pil_agent_run_id`, same `total_tokens`, same `cost_usd`, same
+   `endpoint: "model_tokens"` — true duplicates, not two different
+   measurements. Every PIL agent family (APP/DIS/INT/KNW/OPS/QLF/REL/STR/SUP)
+   hit this on every run that used `T-MODEL`. Compounded with bug 1: PIL-
+   framework-sourced `ai_usage_log` dollars were **≈4.44x overstated**
+   (2.22x wrong rate × 2x double-write) versus what they are now.
+3. **Untraceable regardless of rate.** Both write sites recorded
+   `model: "unknown"` unconditionally — even a correctly-priced row could
+   never join back to `model_cost_reference` by model id. Fixed by threading
+   `PIL_AGENT_MODEL` (`"claude-sonnet-4-6"`, matching `CLAUDE.md`/
+   `AGENTS_v2.md`'s "all agents" model) through `useTool()`'s new `model`
+   field.
+
+**Fix:**
+
+- `src/lib/pil/model-pricing.ts` (new) — the single resolver, at the exact
+  path the FORGE gate (`gates/ar-10-rate-card-consumed.mjs`) already checked
+  for. Supersedes `src/lib/ai/pricing.ts` (deleted, not kept as a shim —
+  `usage-recorder.ts` and both its test files now import the new path
+  directly). Adds a typed `PriceResult` (`{priced:true,...}` /
+  `{priced:false, costUsd:null}`) instead of a bare `number | null`, and a
+  best-effort, per-model-throttled `system_errors` alert
+  (`error_type: "unpriced_model"`) when a model has no rate row — the
+  cost_overage-adjacent signal the task asked for: cost_overage means "we
+  know the spend and it's too high", this means "we can't compute the spend
+  at all", an equally invisible failure mode if left to resolve to a silent
+  0. `pilBlendedTokenRateUsd()` is the PIL-framework-specific helper —
+  documented as a blended (input+output averaged) approximation, since
+  `AgentRunner.useTool()`'s `"model_tokens"` costType tracks one combined
+  token count, not a real input/output split (a pre-existing shape of that
+  code path this task did not restructure).
+- `agent-runner.ts` — `useTool()` now accepts `unitCost: number | null` (null
+  propagates to `cost_usd: null`, never a fabricated 0) and an optional
+  `model`; `finalizeRun()` no longer double-writes `ai_usage_log` — it still
+  updates the `pil_agent_runs` rollup columns, just not a second ledger row.
+- All 54 PIL agent files: `MODEL_TOKEN_UNIT_COST_USD`/the raw literal
+  replaced with `pilBlendedTokenRateUsd()`; each file's own
+  `costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD` return value (which fed
+  the now-removed second write) replaced with `costUsd: 0` plus a comment —
+  the real number lives in the `ai_usage_log` row `useTool()` already wrote.
+- FORGE gate narrowed: `scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs`
+  check #3 flagged `adapter_usage_log.api_cost_cents` (Google
+  Places/Apollo/Hunter per-API-call cents in
+  `donor-discovery/adapters/google-places-adapter.ts` and
+  `donor-discovery/connectors/usage-log.ts`) as "a second cost ledger". It
+  isn't — it prices a different provider entirely, one `model_cost_reference`
+  has no rows for. Excluded by path with a comment, the same pattern check
+  #2 already uses for `BEN-QLF-03.ts`.
+- New test: `src/__tests__/integration/cost-traceability.test.ts` (live
+  Supabase project, same pattern as `alert-delivery.test.ts`) — asserts a
+  recorded row traces to a `model_cost_reference` row's `effective_from`/
+  `source`, an unknown model never resolves to a silent 0, the PIL blended
+  rate and the precise resolver read the same table, and the cache is
+  consistent across calls. Excluded from the default `pnpm test` gate by
+  the same AR-8.2 live-suite split as every other `src/__tests__/integration`
+  file; run via `pnpm test:integration`.
+
+**Verification:** `pnpm tsc --noEmit` clean, `pnpm run build` clean,
+`pnpm lint` clean, `pnpm test` 95 files / 882 tests passed (unchanged pass
+count — this task touched no unit-test-covered behavior other than the
+resolver's own `ai-pricing.test.ts`/`ai-usage-log-recording.test.ts`, whose
+imports were updated to the new path).
+`node scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs` passes.
+`pnpm test:integration -- cost-traceability`: `cost-traceability.test.ts`
+itself passed 6/6 (the filter arg still ran the full 25-file live suite;
+24/25 passed, the one failure is `success-probability-upsert-constraint.test.ts`,
+a pre-existing, unrelated direct-`pg` password auth error — see
+`SESSION_STATE.md`'s AR-10.1 section for the exact output).
+
+**Is every dollar figure any dashboard shows now traceable to a dated,
+sourced rate?** For the ~91 `BaseAgent`/`AutonomousAgent` agents and the ~34
+raw-Anthropic-client modules: yes, unchanged from AR-9.2 (already correct,
+just relocated). For the PIL agent framework (all 9 families): yes, now —
+previously no, both because of the wrong flat rate and the `model: "unknown"`
+join-key gap. For `adapter_usage_log`: that ledger prices Google Places/
+Apollo/Hunter, not Anthropic tokens — out of `model_cost_reference`'s scope
+by design, not a gap in this fix. No other token-to-dollar computation site
+remains outside `src/lib/pil/model-pricing.ts` (verified by the FORGE gate's
+repo-wide grep).

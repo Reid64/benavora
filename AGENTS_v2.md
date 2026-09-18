@@ -267,9 +267,23 @@ pages through `StealthEngine` (`src/lib/scraper/stealth-engine.ts`). Production 
 `stealth-engine.ts` was 1 of 5 unfixed `chromium.launch()` call sites (of 6 total in the
 repo) that didn't resolve the worker container's system Chromium binary. Fixed by routing
 every call site through the new `src/lib/browser/launch-chromium.ts` helper — see
-`STATE_OF_THE_BUILD.md`'s "AR-7.1" section. **Code fix only, not yet live**: the Railway
-worker was not redeployed this session, so all five agents remain broken in production
-until it is.
+`STATE_OF_THE_BUILD.md`'s "AR-7.1" section.
+
+**AR-9.3 update (2026-09-18): live-verified fixed, and the "Trigger" lines above are stale.**
+The Railway worker has since redeployed (confirmed via `railway status`: running deployment
+descends from commit `119139d`), and a live production run of all 10 EA agents (reset one
+`corporate_prospects` row, called the real `runEnrichmentBatch()`) completed with zero errors —
+see `STATE_OF_THE_BUILD.md`'s "AR-9.3" section for the full agent_runs table. **Also found while
+tracing this:** the "Trigger: On new corporate_prospect record creation" line above (and AG-21's
+identical claim) is not accurate to the live system — there is no on-create trigger anywhere in
+the codebase. The only real trigger is `worker/enrichment-processor.ts`'s continuous poll loop
+over `corporate_prospects.enrichment_completed_at IS NULL`, and the only feed for *new* rows into
+that queue is two manual-only paths (`POST /api/prospects/acquire`, `pnpm acquire:prospects`) —
+no cron or scheduler job populates `corporate_prospects` despite the acquisition route's own code
+comment claiming a "nightly" sweep. No new rows have landed since 2026-08-04, so the EA family
+will stay silent going forward until either that acquisition step is scheduled or someone runs it
+manually — not because anything is broken, but because nothing is feeding the queue. Full
+invocation trace: `test-evidence/AGENT_INVOCATION_MAP.md`.
 
 ### AG-22: Propensity Scoring Agent
 
@@ -915,3 +929,31 @@ CREATE TABLE agent_configurations (
   UNIQUE(org_id, agent_id)
 );
 ```
+
+---
+
+## AR-10.1 — PIL agent cost instrumentation now traces to model_cost_reference (2026-09-18)
+
+Every agent above that runs inside the PIL framework (`src/lib/pil/agents/**`
+— the APP/DIS/INT/KNW/OPS/QLF/REL/STR/SUP families, i.e. the Prospect
+Intelligence agents this doc's Phase 3 section describes) reports its token
+usage through `AgentRunner.useTool(context, "T-MODEL", { costType:
+"model_tokens", ... })`. That call previously priced every token at a flat,
+undated, unsourced $0.00002 (`MODEL_TOKEN_UNIT_COST_USD`, defined
+independently in 28 places) regardless of which model actually ran, and
+`AgentRunner.finalizeRun()` wrote a second, duplicate `ai_usage_log` row for
+the same tokens on top of that — every PIL-framework dollar figure was
+~4.4x overstated. Both bugs are fixed: `useTool()` now resolves the rate from
+`model_cost_reference` via `src/lib/pil/model-pricing.ts`'s
+`pilBlendedTokenRateUsd()`, tags the row with the real model id
+(`PIL_AGENT_MODEL = "claude-sonnet-4-6"` — the model this doc's "Model:
+claude-sonnet-4-6 for all agents unless specified" line already names), and
+`finalizeRun()` no longer double-writes. Full detail, exact file counts, and
+the before/after dollar comparison: `STATE_OF_THE_BUILD.md`'s "AR-10.1"
+section.
+
+Every agent in Phase 1/2 (AG-01..AG-30, the `agent_runs`-table agents, not
+the PIL framework) was already unaffected by this bug — those record through
+`src/lib/ai/claude.ts`/`src/lib/ai/usage-recorder.ts`, fixed earlier the same
+day by AR-9.2, and `src/lib/pil/model-pricing.ts` is a superset rename of
+that fix's resolver (`src/lib/ai/pricing.ts`), not a second implementation.

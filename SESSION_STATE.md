@@ -8,11 +8,50 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-9.2 + recovery pass: ai_usage_log captures cost; all 34 raw Anthropic clients instrumented, live-verified 52 rows)
+- **Last updated:** 2026-09-18 (AR-9.3: EA-family invocation path traced — queue starvation, not a disabling mechanism; live-verified with a real agent_runs row)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-9.3: the scheduler gap — EA-family invocation path traced and restored)
+
+AR-7.1 fixed the Chromium executable bug, but EA agent_runs stayed at 0 for three hours after deploy
+while 184 other agent runs happened. Traced why: **no disabling mechanism exists for the EA family** —
+no circuit breaker, feature flag, or registry gate touches `ea-0*` agents anywhere in the codebase
+(confirmed by grep; `src/lib/resilience/circuit-breaker.ts` is wired into AutoApply/scraper code only).
+The real cause is queue starvation, two layers deep: (1) `corporate_prospects`' only feed —
+`acquireFromGooglePlaces()` — is called from two manual-only places (`POST /api/prospects/acquire`,
+`pnpm acquire:prospects`); the "nightly" sweep the route's own comment claims does not exist anywhere
+in `worker/scheduler.ts` or `vercel.json` — it's aspirational documentation, not live behavior; (2) once
+a row is attempted, `enrichProspect()`'s unconditional stamp plus `mergeEnrichmentPatch()`'s per-agent
+stamp make `enrichment_completed_at` mean "attempted," not "fully succeeded," so a row can never
+re-enter the `.is('enrichment_completed_at', null)` queue. All 50 `corporate_prospects` rows were
+already stamped before AR-7.1 even existed (2026-09-17 ~07:2x–08:3x UTC vs. the fix's 02:29 UTC
+2026-09-18 commit) — the queue has been empty independent of the Chromium bug or its fix.
+
+**Live proof (the actual gate):** reset one production row (`3d15c0f2-e524-4d94-a7fa-e03c82d965b6`,
+"GOOD HOUSING CONSTRUCTION LLC") to unenriched, then called the real unmodified `runEnrichmentBatch()`
+against production. All 10 EA agents (ea01..ea10) plus the chained Score Engine (ag22) completed with
+zero errors — the exact five agents named in the original 215-failure incident ran clean. AR-7.1's fix
+is PROVEN live, not just deployed. Confirmed via `railway status` that the running worker deployment
+(`90f6c81f`, created 2026-09-18T08:06:51Z) descends from commit `119139d` (AR-7.1) — the prior
+"worker not yet redeployed" state has resolved.
+
+**What does exist elsewhere:** `ENABLE_SCRAPER` env flag silently no-ops two scheduler jobs
+(`foundation-enrichment-weekly`, `nonprofit-enrichment-weekly`) every week if unset (not checked this
+session); `pil_agent_registry.active` is a real per-agent kill switch for every `BEN-*` agent (currently
+all 51 rows `active = true`, none suppressed); `isPilEnabledForOrg()` (LaunchDarkly) gates whether a PIL
+research run is ever created per org. Full family-by-family map, including which mechanism (if any)
+governs each, is in `test-evidence/AGENT_INVOCATION_MAP.md` — the reference for triaging the 59
+never-executed agents in the 144-agent inventory.
+
+**Not done this session:** the 49 other `corporate_prospects` rows were not re-queued (their
+ea01/02/05/08/09 data may still reflect the pre-AR-7.1 broken run) — that's a bulk production
+re-processing decision (real API/LLM cost across 49 rows × 10 agents) left for explicit approval, not
+taken unprompted. `ENABLE_SCRAPER`'s live production value and the AutoApply circuit breaker's current
+open/closed state were named but not checked — flagged as follow-ups for whichever family's triage
+needs them next.
 
 ## Session — 2026-09-18 (AR-9.2: ai_usage_log actually captures cost)
 
@@ -992,3 +1031,57 @@ duplicated here.)*
    the correct Vercel team (current CLI session is on the wrong team).
 3. AR-8.2's carry-forward items (`DATABASE_URL` 28P01, stale `TESTING_v2.md`
    Jest references, parked quarantine specs) untouched by this pass.
+
+## AR-10.1 — Wire the rate card (2026-09-18)
+
+**Task:** AR-6.4 closed with its own finding that `model_cost_reference`
+(migration 192) was seeded but unconsumed — dollars traced to per-file
+hardcoded rates, "roughly 29 files under `src/lib/pil/agents/`". This
+session verified the real count (54 files, one shared constant
+`MODEL_TOKEN_UNIT_COST_USD = 0.00002`, not 29 independent literals), built
+`src/lib/pil/model-pricing.ts` as the single resolver, rewired all 54 files,
+and — while doing so — found and fixed a real 2x `ai_usage_log`
+double-write bug in `AgentRunner.finalizeRun()` that was independent of and
+compounding the wrong-rate bug. Full detail: `STATE_OF_THE_BUILD.md`'s
+"AR-10.1" section; `AGENTS_v2.md` and `SCHEMA_REGISTRY_v2.md` also updated.
+
+**Files touched:**
+- `src/lib/pil/model-pricing.ts` (new) — resolver.
+- `src/lib/ai/pricing.ts` — deleted (moved, not shimmed).
+- `src/lib/ai/usage-recorder.ts` — import path updated.
+- `src/lib/pil/agent-runner.ts` — `useTool()` accepts `unitCost: number |
+  null` + `model`; `finalizeRun()` no longer double-writes `ai_usage_log`.
+- 54 files under `src/lib/pil/agents/**` — hardcoded rate replaced with the
+  resolver; each agent's now-redundant `costUsd: tokensUsed * CONST` return
+  value replaced with `costUsd: 0` (real number lives in the `ai_usage_log`
+  row `useTool()` already writes).
+- `src/lib/pil/agents/qlf/BEN-QLF-03.ts` — 2 `// ok:` annotations on
+  unrelated dollar-text-parsing literals the FORGE gate's grep would
+  otherwise false-flag.
+- `scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs` — check #3
+  narrowed to exclude `adapter_usage_log.api_cost_cents` (Google Places/
+  Apollo/Hunter costs — a real but unrelated ledger, out of
+  `model_cost_reference`'s scope).
+- `src/__tests__/unit/ai-pricing.test.ts`, `ai-usage-log-recording.test.ts`
+  — import path updated to `@/lib/pil/model-pricing`.
+- `src/__tests__/integration/cost-traceability.test.ts` (new) — live-DB
+  traceability proof, per the task's Step 4.
+- `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`, `SCHEMA_REGISTRY_v2.md`,
+  `AGENTS_v2.md` — this governance update.
+
+**Verification this session:**
+
+| Check | Result |
+|---|---|
+| `node scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs` | OK |
+| `pnpm tsc --noEmit` | Clean, 0 errors |
+| `pnpm run build` | Clean |
+| `pnpm test` | 95 files passed, 1 skipped (96); 882 tests passed, 13 todo |
+| `pnpm test:integration -- cost-traceability` | `cost-traceability.test.ts`: 6/6 passed. Filter arg ran the full `src/__tests__/integration/**` + `integration-live/**` suite regardless (25 files) — 24/25 passed; the one failure (`success-probability-upsert-constraint.test.ts`, "password authentication failed for user postgres" on a direct `pg` connection, not Supabase-js) is pre-existing and unrelated to this task (untouched files, DB credential issue per project memory `benavora-database-url-auth-broken-2026-09-10`). |
+
+**Constraints honoured:**
+- No `git add -A` — commit stages only the paths the task specified.
+- No deploy (`DO NOT DEPLOY` per task).
+- Live-network integration test run was the task's own explicit "run the
+  traceability suite" instruction (Incremental Testing Checkpoint), not an
+  unrequested live call.
