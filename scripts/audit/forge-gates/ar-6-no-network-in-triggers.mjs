@@ -8,6 +8,7 @@
 // table, not in SQL.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { stripSql } from "./_sql.mjs";
 
 const MIG = "supabase/migrations";
 const fail = (m) => { console.error("FAIL: " + m); process.exit(1); };
@@ -18,7 +19,9 @@ catch { fail(`cannot read ${MIG}`); }
 const num = (f) => { const m = /^(\d+)/.exec(f); return m ? Number(m[1]) : -1; };
 const newMigs = files.filter((f) => num(f) >= 185);
 if (newMigs.length === 0) fail("no migration numbered 185 or higher - AR-6 wrote no schema change");
-const newSql = newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n").toLowerCase();
+// Comments and string literals are stripped first: a comment that merely
+// MENTIONS a forbidden construct is not a use of it (2026-09-17 regression).
+const newSql = stripSql(newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n")).toLowerCase();
 
 // 1. Do not install network extensions as a side effect of an alerting build.
 const ext = /create\s+extension[^;]*(pg_net|pg_cron|\bhttp\b)/.exec(newSql);

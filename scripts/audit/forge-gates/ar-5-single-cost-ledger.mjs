@@ -6,6 +6,7 @@
 // This gate fails if the build forks cost tracking instead of consolidating it.
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { stripSql } from "./_sql.mjs";
 
 const MIG = "supabase/migrations";
 const fail = (m) => { console.error("FAIL: " + m); process.exit(1); };
@@ -18,22 +19,40 @@ const num = (f) => { const m = /^(\d+)/.exec(f); return m ? Number(m[1]) : -1; }
 const newMigs = files.filter((f) => num(f) >= 185);
 if (newMigs.length === 0) fail("no migration numbered 185 or higher - AR-5 wrote no schema change");
 
-const newSql = newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n").toLowerCase();
+// Comments and string literals are stripped first: a comment that merely
+// MENTIONS a forbidden construct is not a use of it (2026-09-17 regression).
+const newSql = stripSql(newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n")).toLowerCase();
 
-// 1. ai_usage_log must gain a numeric USD column. estimated_cost_cents is an
-//    integer and cannot represent a sub-cent Haiku call.
-if (!/alter\s+table\s+(public\.)?ai_usage_log[\s\S]{0,400}?cost_usd/.test(newSql))
-  fail("no migration >=185 adds cost_usd to ai_usage_log");
-if (!/cost_usd\s+numeric/.test(newSql))
-  fail("cost_usd exists but is not numeric - integer cents truncates sub-cent calls");
+// Column names added to ai_usage_log are extracted as an exact SET. Substring
+// matching on a blob failed twice (2026-09-17): /agent_run_id/ matched inside
+// pil_agent_run_id, and /billing_path/ matched a CONSTRAINT NAME. Membership
+// on parsed names is immune to both.
+const alterStmts = [...newSql.matchAll(/alter\s+table\s+(?:public\.)?ai_usage_log\b[^;]*;/g)].map((m) => m[0]);
+if (!alterStmts.length) fail("no ALTER TABLE ai_usage_log statement in any migration >=185");
 
-// 2. A cost row must be attributable to the run that incurred it.
-if (!/agent_run_id/.test(newSql))
-  fail("no migration >=185 adds agent_run_id to ai_usage_log - cost cannot be attributed to a run");
+const added = new Map(); // column name -> its type text
+for (const stmt of alterStmts) {
+  for (const m of stmt.matchAll(/add\s+column\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*)\s+([a-z0-9_]+(?:\s*\([^)]*\))?)/g)) {
+    added.set(m[1], m[2]);
+  }
+}
+if (added.size === 0) fail("ALTER TABLE ai_usage_log exists but adds no columns");
+
+// 1. A numeric USD column. estimated_cost_cents is an integer and cannot
+//    represent a sub-cent Haiku call ($0.0035 -> 0 cents).
+if (!added.has("cost_usd"))
+  fail(`ai_usage_log gains no cost_usd column (columns added: ${[...added.keys()].join(", ") || "none"})`);
+if (!/^numeric/.test(added.get("cost_usd")))
+  fail(`ai_usage_log.cost_usd is '${added.get("cost_usd")}', not numeric - integer cents truncates sub-cent calls`);
+
+// 2. A cost row must be attributable to the run that incurred it. Note
+//    pil_agent_run_id is a DIFFERENT column and does not satisfy this.
+if (!added.has("agent_run_id"))
+  fail(`ai_usage_log gains no agent_run_id column - cost cannot be attributed to a core agent run (columns added: ${[...added.keys()].join(", ")})`);
 
 // 3. Subscription spend must be distinguishable from API spend.
-if (!/billing_path/.test(newSql))
-  fail("no billing_path discriminator - CLI/subscription rows would read as real dollar spend");
+if (!added.has("billing_path"))
+  fail(`ai_usage_log gains no billing_path column - CLI/subscription rows would read as real dollar spend (columns added: ${[...added.keys()].join(", ")})`);
 
 // 4. No second/third cost or budget table.
 const forked = /create\s+table\s+(if\s+not\s+exists\s+)?(public\.)?(orchestration_cost_budget|orchestration_cost_ledger|cost_ledger_v2|orchestration_usage)/.exec(newSql);

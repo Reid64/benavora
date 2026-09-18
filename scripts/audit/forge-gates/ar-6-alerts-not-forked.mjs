@@ -6,6 +6,7 @@
 // dedup. A second alert inbox is a defect, not a feature.
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { stripSql } from "./_sql.mjs";
 
 const MIG = "supabase/migrations";
 const fail = (m) => { console.error("FAIL: " + m); process.exit(1); };
@@ -18,7 +19,9 @@ catch { fail(`cannot read ${MIG}`); }
 const num = (f) => { const m = /^(\d+)/.exec(f); return m ? Number(m[1]) : -1; };
 const newMigs = files.filter((f) => num(f) >= 185);
 if (newMigs.length === 0) fail("no migration numbered 185 or higher - AR-6 wrote no schema change");
-const newSql = newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n").toLowerCase();
+// Comments and string literals are stripped first: a comment that merely
+// MENTIONS a forbidden construct is not a use of it (2026-09-17 regression).
+const newSql = stripSql(newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n")).toLowerCase();
 
 // 1. No forked alert table.
 if (/create\s+table\s+(if\s+not\s+exists\s+)?(public\.)?orchestration_alerts/.test(newSql))
@@ -42,7 +45,8 @@ if (missingTs.length) fail(`src/types/database.ts alert_type union is missing: $
 let svc;
 try { svc = readFileSync("src/lib/alerts/alerts-service.ts", "utf8"); }
 catch { fail("src/lib/alerts/alerts-service.ts not found"); }
-const missingLabel = NEW_TYPES.filter((t) => !new RegExp(`${t}\\s*:`).test(svc));
+// \b prefix: without it, renaming `rollback:` to `XXrollback:` still matched
+const missingLabel = NEW_TYPES.filter((t) => !new RegExp(`\\b${t}\\s*:`).test(svc));
 if (missingLabel.length) fail(`ALERT_TYPE_LABEL is missing entries for: ${missingLabel.join(", ")}`);
 
 // 5. Orchestration dedup keys must be deterministic. The existing codebase

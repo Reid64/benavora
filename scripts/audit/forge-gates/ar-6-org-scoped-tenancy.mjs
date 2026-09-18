@@ -8,6 +8,7 @@
 // inconsistently - a cross-tenant read path. This gate exists to stop that.
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { stripSql } from "./_sql.mjs";
 
 const MIG = "supabase/migrations";
 const fail = (m) => { console.error("FAIL: " + m); process.exit(1); };
@@ -21,12 +22,14 @@ if (newMigs.length === 0) fail("no migration numbered 185 or higher - AR-6 wrote
 
 // 1. company_id must appear nowhere in the new migrations.
 for (const f of newMigs) {
-  const sql = readFileSync(join(MIG, f), "utf8");
+  const sql = stripSql(readFileSync(join(MIG, f), "utf8"));
   if (/company_id/i.test(sql))
     fail(`${f} references company_id - Benavora's tenancy column is organization_id (146 columns; company_id: 0)`);
 }
 
-const newSql = newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n").toLowerCase();
+// Comments and string literals are stripped first: a comment that merely
+// MENTIONS a forbidden construct is not a use of it (2026-09-17 regression).
+const newSql = stripSql(newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n")).toLowerCase();
 
 // 2. orchestration_logs must exist and be org-scoped.
 const create = /create\s+table\s+(if\s+not\s+exists\s+)?(public\.)?orchestration_logs\s*\(([\s\S]*?)\n\s*\)\s*;/.exec(newSql);

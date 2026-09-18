@@ -7,6 +7,7 @@
 // file_exists can all pass while that is still true, so this gate exists.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { stripSql } from "./_sql.mjs";
 
 const MIG = "supabase/migrations";
 const fail = (m) => { console.error("FAIL: " + m); process.exit(1); };
@@ -17,7 +18,9 @@ catch { fail(`cannot read ${MIG}`); }
 const num = (f) => { const m = /^(\d+)/.exec(f); return m ? Number(m[1]) : -1; };
 const newMigs = files.filter((f) => num(f) >= 185);
 if (newMigs.length === 0) fail("no migration numbered 185 or higher - AR-5.2 wrote no schema change");
-const newSql = newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n").toLowerCase();
+// Comments and string literals are stripped first: a comment that merely
+// MENTIONS a forbidden construct is not a use of it (2026-09-17 regression).
+const newSql = stripSql(newMigs.map((f) => readFileSync(join(MIG, f), "utf8")).join("\n")).toLowerCase();
 
 // 1. One budget table. The v1.0 spec asks for orchestration_cost_budget; that
 //    would be a third budget table and a second copy of the enforcement logic.
