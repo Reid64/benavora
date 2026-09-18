@@ -161,6 +161,79 @@ describe("withAgentRun", () => {
     ).rejects.toBe(originalError);
   });
 
+  it("updates the run row to skipped (not failed) when work throws a SkipError-named error, and still rethrows it", async () => {
+    const { client, calls } = makeSupabase();
+    class SkipError extends Error {
+      constructor(reason: string) {
+        super(reason);
+        this.name = "SkipError";
+      }
+    }
+    const skip = new SkipError("cross_client_blocked: domain recently used by another org");
+
+    await expect(
+      withAgentRun(
+        { supabase: client, agentType: "autoapply_queue_processor", organizationId: "org-1" },
+        async () => {
+          throw skip;
+        },
+      ),
+    ).rejects.toBe(skip);
+
+    const updateCall = calls.find((c) => c.method === "update");
+    expect(updateCall).toBeDefined();
+    const payload = updateCall!.payload as Record<string, unknown>;
+    expect(payload.status).toBe("skipped");
+    expect(payload.error_message).toBe(
+      "cross_client_blocked: domain recently used by another org",
+    );
+  });
+
+  it("treats AccountSetupRequiredError and CaptchaPauseError names as skipped too", async () => {
+    for (const name of ["AccountSetupRequiredError", "CaptchaPauseError"]) {
+      const { client, calls } = makeSupabase();
+      const err = new Error(`${name} message`);
+      err.name = name;
+
+      await expect(
+        withAgentRun(
+          { supabase: client, agentType: "autoapply_queue_processor", organizationId: "org-1" },
+          async () => {
+            throw err;
+          },
+        ),
+      ).rejects.toBe(err);
+
+      const updateCall = calls.find((c) => c.method === "update");
+      const payload = updateCall!.payload as Record<string, unknown>;
+      expect(payload.status).toBe("skipped");
+    }
+  });
+
+  it("still marks an ordinary error (unrecognized name) as failed, not skipped", async () => {
+    const { client, calls } = makeSupabase();
+    class SomeOtherError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "SomeOtherError";
+      }
+    }
+    const err = new SomeOtherError("real bug");
+
+    await expect(
+      withAgentRun(
+        { supabase: client, agentType: "autoapply_queue_processor", organizationId: "org-1" },
+        async () => {
+          throw err;
+        },
+      ),
+    ).rejects.toBe(err);
+
+    const updateCall = calls.find((c) => c.method === "update");
+    const payload = updateCall!.payload as Record<string, unknown>;
+    expect(payload.status).toBe("failed");
+  });
+
   it("still runs and returns correctly when no run id was created (insert returned null)", async () => {
     const { client, calls } = makeSupabase({ insertId: null });
 

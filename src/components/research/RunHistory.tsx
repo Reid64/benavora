@@ -27,6 +27,7 @@ const STATUS_COLOR: Record<AgentRunStatus, BadgeColor> = {
   running: "blue",
   completed: "green",
   failed: "red",
+  skipped: "gray",
 };
 
 /** Format a duration in ms as a compact label. */

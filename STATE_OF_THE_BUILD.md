@@ -2265,3 +2265,86 @@ rows too, and `adapter_usage_log.api_cost_cents` is frozen. No other
 token-to-dollar computation site remains outside
 `src/lib/pil/model-pricing.ts` (verified by the FORGE gate's repo-wide
 grep).
+
+## AR-11.1 — The Failing Twelve: root-cause sweep of chronically failing agents (2026-09-18)
+
+Live counts from `agent_runs` (65,826 rows, 2026-06-11→2026-09-18, pulled via
+the Supabase REST API — both a direct `psql` connection and a session-pooler
+connection to the project timed out from this session): 62 distinct
+`agent_type` values have ever executed; 12 fail strictly more often than they
+succeed. Full ranked table and evidence: `test-evidence/AGENT_FAILURE_LEDGER.md`.
+
+Those 12 agent types trace to **8 distinct root causes**, not twelve:
+
+1. **Missing Chromium binary** (ea01/02/05/08/09, 215 failures) — AR-7.1,
+   already explained. Verified this session: `src/lib/browser/launch-chromium.ts`
+   is the fix and is present and correct in code. Still failing in production
+   as of this audit (43/50 each in the trailing 24h) because the worker has
+   not been redeployed since AR-7.1 landed — an infra gap, not a code gap.
+2. **`success_probability_scores` upsert with no matching unique constraint**
+   (WGR-170, 100 failures) — already explained, fixed live 2026-09-11 by
+   migration 149. Verified this session: 14/14 runs in the trailing 24h are
+   `completed`, 0 `failed`. Confirmed, not re-fixed.
+3. **Vercel's 60s default function timeout** on long Claude generations
+   (foundation_research, local_sponsorship, review, budget_builder — 24
+   failures, all dated 2026-06-11→2026-08-23, zero since). Verified this
+   session: `maxDuration = 300` is present in all four routes that invoke
+   these agent types. Confirmed fixed and live, not re-fixed.
+4. **Hardcoded dated Claude model snapshot** returning 404 (budget_builder,
+   1 failure, 2026-08-07). Verified this session: the current
+   `budget-agent.ts` resolves its model from the single `DEFAULT_MODEL`
+   constant in `src/lib/ai/claude.ts`; zero dated-snapshot model strings
+   remain anywhere in `src`. Confirmed fixed and live, not re-fixed.
+5. **`applications.knowledge_patterns_applied` column did not exist**
+   (ag-05-draft, 2 failures, 2026-08-08) — AR-2.2, migration 183. Verified
+   this session via a live REST query against production: the column exists.
+   Confirmed fixed and live, not re-fixed.
+6. **One-time stuck-run sweep artifact** (review, 1 failure) — already
+   self-documented in its own error message as a p5a-004 cleanup row, with
+   ongoing coverage in `worker/stuck-run-watchdog.ts` (AR-7.2). No action.
+7. **Correctly-rejected out-of-order call** (review, 1 failure, 2026-06-11):
+   `review-agent.ts` deliberately throws `"There is no draft to review on
+   this application."` when invoked before a draft exists. Single
+   occurrence, never recurred in three-plus months since. Not a code defect;
+   logged, not fixed.
+8. **Deliberate business-rule skips recorded as `agent_runs.status='failed'`**
+   (autoapply_queue_processor, 55/55 = 100% failed, all current/ongoing as of
+   this audit) — **new finding, fixed this session.**
+   `worker/queue-processor.ts` already distinguishes real errors from
+   deliberate skips (`SkipError`/`AccountSetupRequiredError`/`CaptchaPauseError`)
+   and persists the right `submission_queue.status` for each
+   (`'skipped'`/`'requires_account_setup'`/`'paused_verification'`, never
+   `'failed'`) — but `src/lib/autoapply/run-logger.ts`'s `withAgentRun()`,
+   the wrapper that writes the `agent_runs` row this whole audit reads from,
+   had no third bucket: every throw, deliberate or not, was recorded as
+   `status: "failed"`. A queue processor rejecting submissions exactly as
+   designed (cross_client_blocked, org_not_ready, no_funder_id,
+   concurrent_automation_conflict) therefore read as 100% broken.
+   Fix: `withAgentRun()` now checks the thrown error's `.name` against an
+   explicit allowlist and writes `agent_runs.status = "skipped"` instead of
+   `"failed"` for these three classes — duck-typed on `.name`, not
+   `instanceof`, since those classes live in `worker/queue-processor.ts`,
+   outside this file's build scope. Migration
+   `199_agent_run_status_skipped.sql` adds `'skipped'` to the
+   `agent_run_status` enum (previously `pending | running | completed |
+   failed`) — applied live to production this session, verified via
+   `pg_enum` before and after. `src/types/database.ts` and
+   `src/types/agents.ts` updated to match; two dashboard components
+   (`ResearchDashboard.tsx`, `RunHistory.tsx`) that exhaustively map
+   `AgentRunStatus → BadgeColor` updated (`skipped` → `gray`) — this is what
+   surfaced the type error proving the change was exhaustive, not a
+   silent gap.
+
+**Net result:** 1 cause fixed live this session (#8), 4 causes (#2-5)
+confirmed already fixed and live (not re-fixed), 1 cause (#1) confirmed
+code-fixed but pending a worker redeploy this prompt was scoped not to
+trigger (`DO NOT DEPLOY`), 2 causes (#6-7) already explained by existing
+mechanisms with no code action needed.
+
+**Verification:** `pnpm tsc --noEmit` clean (including
+`tsc -p worker/tsconfig.json`, the build scope containing the fixed file).
+`pnpm run build` clean. `pnpm test`: 95 files / 885 tests passed, 1 skipped,
+13 todo (10 new assertions added across 3 new test cases in
+`autoapply-run-logger.test.ts`, covering all three non-failure error names
+plus a negative case proving an unrecognized error name still maps to
+`"failed"`).

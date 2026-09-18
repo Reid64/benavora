@@ -97,6 +97,7 @@ const RUN_STATUS_COLOR: Record<AgentRunStatus, BadgeColor> = {
   running: "blue",
   completed: "green",
   failed: "red",
+  skipped: "gray",
 };
 
 const LANE_STATUS_COLOR: Record<ParallelLaneStatus["status"], BadgeColor> = {

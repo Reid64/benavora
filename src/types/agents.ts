@@ -176,7 +176,7 @@ export type AgentType =
   | "autoapply_confirmation_parser" // src/lib/autoapply/confirmation-parser.ts
   | "autoapply_queue_processor"; // worker/queue-processor.ts
 
-export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
+export type AgentRunStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export interface AgentRunResult {
   status: AgentRunStatus;

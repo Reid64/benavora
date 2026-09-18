@@ -8,13 +8,45 @@
 // running -> completed/failed contract instead of an import.
 //
 // Logging is best-effort in both directions: a failure to write the start row,
-// or to patch it to completed/failed, is logged to console and swallowed — it
-// must never block or mask the wrapped work's real result. A throw from `work`
-// always propagates unchanged (same reference, same instanceof) after the
-// failed row is recorded.
+// or to patch it to completed/failed/skipped, is logged to console and
+// swallowed — it must never block or mask the wrapped work's real result. A
+// throw from `work` always propagates unchanged (same reference, same
+// instanceof) after the terminal row is recorded.
+//
+// AR-11.1 root cause (production evidence 2026-09-18: autoapply_queue_processor
+// at 55/55 = 100% failed in agent_runs, all "failures" reading
+// cross_client_blocked/org_not_ready/no_funder_id/concurrent_automation_conflict).
+// worker/queue-processor.ts already distinguishes deliberate skips from real
+// errors via SkipError/AccountSetupRequiredError/CaptchaPauseError — it
+// persists submission_queue.status as 'skipped'/'requires_account_setup'/
+// 'paused_verification' accordingly, never 'failed', for these. But that
+// class distinction never reached this wrapper: withAgentRun's catch treated
+// every throw alike, so every deliberate skip was ALSO recorded as
+// agent_runs.status='failed', making a queue processor that was working
+// exactly as designed read as chronically broken. Duck-typed on `err.name`
+// (not `instanceof`) because those classes live in worker/queue-processor.ts,
+// outside this file's dependency scope by the same constraint described
+// above for BaseAgent.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
+
+/**
+ * Error `.name` values that represent a deliberate, expected control-flow
+ * decision (skip / pause / needs-setup) rather than a code or infrastructure
+ * failure. Kept as an explicit allowlist, not a naming convention, so a new
+ * error class must opt in deliberately rather than accidentally being
+ * classified as a non-failure by matching a pattern.
+ */
+const NON_FAILURE_ERROR_NAMES = new Set([
+  "SkipError",
+  "AccountSetupRequiredError",
+  "CaptchaPauseError",
+]);
+
+function isNonFailureError(err: unknown): boolean {
+  return err instanceof Error && NON_FAILURE_ERROR_NAMES.has(err.name);
+}
 
 export interface WithAgentRunOptions {
   supabase: SupabaseClient;
@@ -96,7 +128,7 @@ async function logPatch(
 async function writeOrchestrationLog(
   opts: WithAgentRunOptions,
   runId: string | null,
-  status: "completed" | "failed",
+  status: "completed" | "failed" | "skipped",
   startedAtIso: string,
   errorMessage?: string,
 ): Promise<void> {
@@ -114,6 +146,11 @@ async function writeOrchestrationLog(
       finishedAt: finishedAtIso,
       durationMs: Date.parse(finishedAtIso) - Date.parse(startedAtIso),
       errorMessage: errorMessage ?? null,
+      // 'skipped' deliberately excluded from schemaValidationPassed's
+      // success case too — Rule 4 (alert_rule_state_drift, migration 191)
+      // only ever fires on status='completed', so 'skipped' never trips it
+      // either way; this just keeps the flag meaning "the work claimed to
+      // have actually produced something," which a skip did not.
       schemaValidationPassed: status === "completed",
     });
     if (!result.ok) {
@@ -133,8 +170,9 @@ async function writeOrchestrationLog(
 /**
  * Runs `work`, logging an agent_runs row: inserted as 'running' before work
  * starts, patched to 'completed' (with duration_ms + output_summary) on
- * success, or to 'failed' (with duration_ms + error_message) if `work` throws
- * — then rethrows the original error unchanged either way.
+ * success, or — if `work` throws — to 'skipped' (with duration_ms +
+ * error_message) when the thrown error's name is in NON_FAILURE_ERROR_NAMES,
+ * else 'failed' — then rethrows the original error unchanged either way.
  */
 export async function withAgentRun<T>(
   opts: WithAgentRunOptions,
@@ -156,13 +194,14 @@ export async function withAgentRun<T>(
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const status = isNonFailureError(err) ? "skipped" : "failed";
     await logPatch(opts.supabase, opts.agentType, runId, {
-      status: "failed",
+      status,
       duration_ms: Date.now() - startedAtMs,
       error_message: redactSecrets(message),
       completed_at: new Date().toISOString(),
     });
-    await writeOrchestrationLog(opts, runId, "failed", startedAtIso, redactSecrets(message));
+    await writeOrchestrationLog(opts, runId, status, startedAtIso, redactSecrets(message));
     throw err;
   }
 }

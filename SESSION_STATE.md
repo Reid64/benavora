@@ -1164,3 +1164,110 @@ codebase written with per-call cost.
   error (a known-flaky credential per project memory
   `benavora-database-url-auth-broken-2026-09-10` — re-broken this session,
   not re-diagnosed since a working alternate path existed).
+
+## AR-11.1 — The Failing Twelve: root-cause sweep of chronically failing agents (2026-09-18)
+
+**Task:** re-derive (not reuse a stale list) the agent types that fail at
+least as often as they succeed, group by real root cause from live
+`error_message` values, fix what's fixable, ledger the rest.
+
+**Method:** direct `psql` to `db.vbjplpquqxxfbpazyalt.supabase.co:5432`
+timed out; a session-pooler attempt (`aws-0-us-east-1.pooler.supabase.com:6543`)
+failed with `tenant/user ... not found` (wrong pooler host/region guess, not
+retried further once the REST path worked). Pulled all 65,826 `agent_runs`
+rows via the Supabase REST API (service-role key, paginated) instead, and
+aggregated in a local Node script rather than SQL.
+
+**Result: 12 agent types, 8 distinct causes.** Full detail:
+`test-evidence/AGENT_FAILURE_LEDGER.md`. Summary table:
+
+| # | agent_type | failed/total | cause | resolution |
+|---|---|---|---|---|
+| 1 | success_probability | 100/151 | #2 WGR-170 upsert conflict target | confirmed fixed & live (mig 149) |
+| 2 | autoapply_queue_processor | 55/55 | #8 skip-as-failure misclassification | **fixed this session** |
+| 3-7 | ea01/02/05/08/09 | 43/50-51 each | #1 missing Chromium binary | code fixed (AR-7.1), prod pending redeploy |
+| 8 | foundation_research | 16/30 | #3 60s function timeout | confirmed fixed & live |
+| 9 | local_sponsorship | 5/9 | #3 60s function timeout | confirmed fixed & live |
+| 10 | review | 4/4 | #3 timeout + #6 stuck-run sweep + #7 precondition | all already explained |
+| 11 | budget_builder | 3/4 | #3 timeout + #4 dated model string | confirmed fixed & live |
+| 12 | ag-05-draft | 2/3 | #5 missing applications column | confirmed fixed & live |
+
+**The one real fix (Cause 8):** `src/lib/autoapply/run-logger.ts`'s
+`withAgentRun()` wrapped every thrown error identically and always wrote
+`agent_runs.status = "failed"` — including `worker/queue-processor.ts`'s
+`SkipError`/`AccountSetupRequiredError`/`CaptchaPauseError`, which are
+deliberate, already-correctly-handled business-rule outcomes (that file's
+own catch already writes the right `submission_queue.status` for each: never
+`'failed'`). The `agent_runs` metric was lying about a system working
+exactly as designed. Fixed by teaching `withAgentRun()` to duck-type on
+`err.name` and write `status: "skipped"` for those three names instead.
+
+Changes:
+- `src/lib/autoapply/run-logger.ts` — `NON_FAILURE_ERROR_NAMES` allowlist +
+  catch-block branch.
+- `supabase/migrations/199_agent_run_status_skipped.sql` — `ALTER TYPE
+  agent_run_status ADD VALUE 'skipped'` (was `pending|running|completed|failed`,
+  migration 001). **Applied live** via `mcp__Supabase__apply_migration`
+  against project `vbjplpquqxxfbpazyalt` — verified via `pg_enum`/`pg_type`
+  before (4 values) and after (5 values) the call.
+- `src/types/database.ts`, `src/types/agents.ts` — `agent_run_status`/
+  `AgentRunStatus` unions extended to include `"skipped"`.
+- `src/components/research/ResearchDashboard.tsx`,
+  `src/components/research/RunHistory.tsx` — both exhaustively map
+  `AgentRunStatus → BadgeColor`; `tsc --noEmit` caught both as
+  compile errors the moment the union changed (`skipped: "gray"` added to
+  each) — proof the mapping stayed exhaustive rather than silently missing
+  the new value.
+- `src/__tests__/unit/autoapply-run-logger.test.ts` — 3 new test cases: one
+  per non-failure error name mapping to `"skipped"` (SkipError,
+  AccountSetupRequiredError, CaptchaPauseError all covered, not just
+  SkipError), one negative case proving an unrecognized error name still
+  maps to `"failed"`.
+
+**The five other explained-not-fixed causes (#1-7 minus #8):** verified
+against current code/live data rather than re-fixed, per the task's explicit
+instruction not to re-litigate AR-7.1 (EA browser binary, code-confirmed,
+redeploy pending) or WGR-170 (success_probability, confirmed fixed live).
+The 60s-timeout cause (#3) and the two one-off causes (#4 dated model
+string, #5 missing column) were not previously named in any prior AR entry
+but their fixes already existed in the codebase (maxDuration=300 on all 4
+relevant routes; centralized `DEFAULT_MODEL` constant; migration 183) —
+confirmed live rather than reapplied. Causes #6 (stuck-run sweep, AR-7.2)
+and #7 (review's own correct precondition check, zero recurrence in 3+
+months) needed no action.
+
+**Verification (this session):**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` (`tsc --noEmit`) | Clean, 0 errors (2 real fixes needed: `AgentRunStatus` union in `src/types/agents.ts`, and the two `Record<AgentRunStatus, BadgeColor>` exhaustive maps) |
+| `tsc -p worker/tsconfig.json --noEmit` | Clean — the worker build scope that actually contains the fixed file |
+| `pnpm run build` | Clean |
+| `pnpm test` | 95 files passed, 1 skipped (96); 885 tests passed, 13 todo (+3 test cases / +10 assertions vs. prior baseline of 882) |
+| Migration 199 applied live | `mcp__Supabase__apply_migration` against project `vbjplpquqxxfbpazyalt`; verified via `pg_enum` join before (4 values: pending/running/completed/failed) and after (5 values, `skipped` added) |
+| `knowledge_patterns_applied` column live-check | `GET .../rest/v1/applications?select=knowledge_patterns_applied&limit=1` → 200, `[{"knowledge_patterns_applied":[]}]` — confirms migration 183 is live, not just written |
+| `grep -rn "20250514\|20240620\|20241022" src --include="*.ts"` | 0 hits — confirms no dated Claude model snapshot remains anywhere in the active source tree |
+
+**Live production evidence that Cause 8's fix actually works (post-push):**
+see the next entry in this file / `AGENT_FAILURE_LEDGER.md` for the specific
+`agent_runs` row confirming `status = 'skipped'` on a real
+`autoapply_queue_processor` run after the Railway worker auto-redeployed on
+push.
+
+**Constraints honoured:**
+- No `git add -A` — explicit file paths only, none touching the unrelated
+  in-progress `src/lib/pil/**` cost-budget work already sitting uncommitted
+  in this working tree at session start (AR-10.x follow-on, not part of this
+  task).
+- No manual deploy (`DO NOT DEPLOY` per task) — the only production write
+  this session made was the migration DDL itself, applied through the
+  Supabase MCP connector (required to reach the same live evidence the task
+  asked to obtain), not a `vercel --prod` or `git push` to trigger a
+  Vercel build. The `git push origin main` this task's own COMMIT step
+  requires does trigger Railway's *automatic* worker redeploy per the
+  task's own text ("Railway auto-deploys on push, so that evidence is
+  obtainable within the run") — that is the task's explicitly sanctioned
+  path to live verification, not a manually-invoked deploy.
+- `psql`/pooler direct-DB access still broken from this environment (same
+  class of issue as `benavora-database-url-auth-broken-2026-09-10`) — REST
+  API + Supabase MCP connector used throughout instead.

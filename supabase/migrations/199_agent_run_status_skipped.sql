@@ -1,0 +1,28 @@
+-- 199_agent_run_status_skipped.sql
+--
+-- AR-11.1: adds 'skipped' to the agent_run_status enum (migration 001:
+-- 'pending' | 'running' | 'completed' | 'failed').
+--
+-- Root cause: worker/queue-processor.ts already distinguishes deliberate,
+-- expected outcomes (SkipError / AccountSetupRequiredError / CaptchaPauseError
+-- -- e.g. cross_client_blocked, org_not_ready, concurrent_automation_conflict)
+-- from real errors, and persists submission_queue.status accordingly
+-- ('skipped' / 'requires_account_setup' / 'paused_verification', never
+-- 'failed'). But src/lib/autoapply/run-logger.ts's withAgentRun() had no
+-- third bucket to put these in for agent_runs -- every throw, deliberate or
+-- not, was recorded as status='failed'. That is why agent_runs shows
+-- autoapply_queue_processor at 55/55 = 100% failed in production
+-- (2026-09-18 audit) despite the queue processor working exactly as
+-- designed: every one of those 55 rows is a business-rule rejection, not a
+-- crash.
+--
+-- This migration only adds the enum value. src/lib/autoapply/run-logger.ts
+-- is the only writer that produces 'skipped' (see NON_FAILURE_ERROR_NAMES
+-- there); nothing else needs to change to start using it once this lands.
+--
+-- ALTER TYPE ... ADD VALUE cannot run inside the same transaction that later
+-- uses the new value (pre-PG12 restriction, still the safe-compatible
+-- pattern), so this migration does nothing but add the value -- no other
+-- statements share this file.
+
+ALTER TYPE agent_run_status ADD VALUE IF NOT EXISTS 'skipped';

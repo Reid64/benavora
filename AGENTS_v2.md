@@ -957,3 +957,43 @@ the PIL framework) was already unaffected by this bug — those record through
 `src/lib/ai/claude.ts`/`src/lib/ai/usage-recorder.ts`, fixed earlier the same
 day by AR-9.2, and `src/lib/pil/model-pricing.ts` is a superset rename of
 that fix's resolver (`src/lib/ai/pricing.ts`), not a second implementation.
+
+---
+
+## AR-11.1 — The Failing Twelve: cause grouping for chronically failing agent types (2026-09-18)
+
+Live `agent_runs` counts (65,826 rows, 2026-06-11→2026-09-18): 62 distinct
+`agent_type` values have ever executed, 12 fail strictly more often than
+they succeed. Full ranked table, error-message groupings, and fixes:
+`test-evidence/AGENT_FAILURE_LEDGER.md`; narrative summary:
+`STATE_OF_THE_BUILD.md`'s "AR-11.1" section.
+
+The 12 failing types collapse to 8 root causes — most of these agent
+identities do not correspond 1:1 to a single named agent above; several
+(`ea01_giving_detector` = AG-20/EA-01, `ea08_executive_biography_analyzer` =
+AG-21/EA-08, etc.) are the `EA-0x` Corporate Intelligence sub-agents this
+doc's Phase 3 section describes under AG-20/AG-21, not separately numbered
+here — their `agent_type` strings in `agent_runs` are their own EA-code
+names, not `AG-NN`.
+
+| Cause | Agents affected | Status |
+|---|---|---|
+| 1. Missing Chromium binary (AR-7.1) | ea01, ea02, ea05, ea08, ea09 | Code fixed (`src/lib/browser/launch-chromium.ts`), prod pending worker redeploy |
+| 2. `success_probability_scores` upsert conflict target (WGR-170) | success_probability | Fixed live 2026-09-11 (migration 149), confirmed |
+| 3. Vercel 60s function timeout | foundation_research, local_sponsorship, review, budget_builder | Confirmed fixed live (`maxDuration=300` on all 4 routes) |
+| 4. Hardcoded dated Claude model string (404) | budget_builder | Confirmed fixed live (centralized `DEFAULT_MODEL`) |
+| 5. Missing `applications.knowledge_patterns_applied` column | ag-05-draft | Confirmed fixed live (migration 183) |
+| 6. One-time stuck-run sweep artifact (AR-7.2) | review | Already covered by `worker/stuck-run-watchdog.ts`, no action |
+| 7. Correctly-rejected out-of-order review call | review | Not a defect — `review-agent.ts`'s own precondition check working as intended |
+| 8. Deliberate skips recorded as `agent_runs.status='failed'` | autoapply_queue_processor | **Fixed this session** — `src/lib/autoapply/run-logger.ts` |
+
+Cause 8 is the only new defect this audit found: `worker/queue-processor.ts`
+already had the right business logic (`SkipError` et al. correctly persist
+`submission_queue.status='skipped'`, never `'failed'`) — the bug was one
+layer up, in the shared `agent_runs` logging wrapper
+(`src/lib/autoapply/run-logger.ts`, AR-1.2) that every agent_type in this
+doc's "Agent Registry Schema" section relies on for its execution telemetry.
+It had no way to represent "the agent correctly declined to act" as
+anything other than "the agent failed" — now it can
+(`agent_run_status` enum, migration 001, gains a fifth value: `'skipped'`,
+via migration 199).

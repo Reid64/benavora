@@ -5598,7 +5598,7 @@ export interface Database {
         | "form_analyzer"
         // AutoApply Form Fill Engine.
         | "form_filler";
-      agent_run_status: "pending" | "running" | "completed" | "failed";
+      agent_run_status: "pending" | "running" | "completed" | "failed" | "skipped";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:
         | "pending"
