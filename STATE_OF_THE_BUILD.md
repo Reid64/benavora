@@ -2906,3 +2906,97 @@ mechanisms with no code action needed.
 `autoapply-run-logger.test.ts`, covering all three non-failure error names
 plus a negative case proving an unrecognized error name still maps to
 `"failed"`).
+
+## AR-9.3 — AutoApply end-to-end proof against a local required-field portal (2026-09-18)
+
+### Problem
+
+AR-3.1 (field-mapping adapter, verified submit, honest status mapping,
+`IncompleteSubmissionError`), AR-7.1 (single Chromium launcher), AR-7.2
+(session finalization on every path), and AR-9.2 (mutual exclusion) each
+proved one link of the AutoApply submission chain in isolation, against
+different test setups. No suite had ever proven the chain runs together,
+start to finish, against a form that could actually catch the class of bug
+AR-3.1 fixed — the pre-existing `form-analyzer-filler.test.ts` targets
+`httpbin.org/forms/post`, which has no HTML5 `required` attributes, so a
+2-of-8-filled form still "succeeds" there.
+
+### What was built
+
+`src/__tests__/integration/autoapply-e2e-proof.test.ts`: a local `http`
+fixture portal (two routes — `/apply`, a 4-field form with every field
+`required`; `/apply-unverified`, identical but with a client-side handler
+that blocks the real submit) driven by real Playwright, real Claude, and the
+real production pipeline pieces called in the same order
+`worker/queue-processor.ts`'s `processItem()` calls them:
+
+`SubmissionValidator.checkConcurrentAutomation()` (AR-9.2 mutex) →
+`StealthBrowser.launch()` (AR-7.1 launcher) →
+`FormAnalyzerAgent.analyzeAndStore()` →
+`SubmissionValidator.validateFormData()` →
+`QueueProcessor.createApprovedAutomationSession()` / `finalizeAutomationSession()`
+(private methods, exercised via reflection — the same pattern
+`automation-session-lifecycle.test.ts` already established) →
+`FormFillerAgent.fillAndSubmit()` (real field mapping, real submit-verification
+race, real discriminated outcome) → `mapFillOutcomeToStatus()` → a real
+`autoapply_submissions` insert.
+
+Five assertions, all passing on a clean live run (real Claude + real
+Playwright + real Supabase, no mocks in the path under test):
+1. **Happy path** — complete data produces exactly one POST with every
+   required field non-empty, `outcome === 'submitted'`, a real confirmation
+   number, a real uploaded screenshot path, and a terminal session.
+2. **Incomplete** — data missing one required field (EIN) throws
+   `IncompleteSubmissionError`, zero POSTs reach the portal, status is not
+   `'submitted'`, and the session still ends terminal (`'failed'`).
+3. **Unverified** — a submit producing no navigation/POST yields
+   `'unverified'`, which maps to `'submit_unverified'`, never `'submitted'`.
+4. **Array mapping** — the real `FormAnalyzerAgent` output actually used to
+   produce assertion 1's successful submission is array-shaped and produces
+   a non-empty filler map (the AR-3.1 CAUSE 1 regression guard).
+5. **No false success** — every `autoapply_submissions` row this suite
+   created has either a confirmation number or an explicit recorded reason
+   for its absence, never neither.
+
+### The named gap
+
+`processItem()` itself is never called end to end, for two confirmed
+reasons: (a) it calls `assertUrlSafe()` before ever touching the browser,
+which unconditionally rejects every private/loopback address including
+127.0.0.1/localhost, so a local fixture server can never reach
+`fillAndSubmit()` through `processItem()` itself — the same constraint
+`autoapply-submit-integrity.test.ts` and `automation-session-lifecycle.test.ts`
+already hit; (b) `processItem()` also gates on roughly ten unrelated
+business rules outside this task's named chain (queue control plane,
+org-readiness scoring, usage-tier allowance, velocity/cross-client/domain
+throttles, relationship contact rules, the risk engine, registration/login
+gating, a live portal health check, pitch personalization, A/B variant
+selection). This suite proves the named submission chain; it does **not**
+prove `processItem()`'s outer orchestration is wired correctly.
+
+### A real bug the proof surfaced, fixed in scope
+
+Building a form with genuine required EIN/email fields surfaced that
+`FormFillerAgent.buildFillData()` (`src/lib/autoapply/form-filler-agent.ts`)
+tried to source `organization.ein` / `organization.contact_email` /
+`organization.phone` / `organization.address` from `knowledge_base.category`
+string matches (`cat.includes('ein')`, etc.) — but `knowledge_base_category`
+(migration 001) is a closed enum (`mission | vision | need_statement |
+program_description | impact | capacity | sustainability | partnerships |
+budget_justification | organizational_history | custom`) with no such
+members. Those checks could never match a real row, and because a field
+`FormAnalyzerAgent.mapLabel()` classifies as EIN/email/phone/address becomes
+"mapped" (and therefore excluded from the Claude free-text fallback), such a
+field was silently unfillable in production regardless of org data
+completeness elsewhere. Fixed: `buildFillData()` now also reads
+`ein`/`contact_email`/`phone`/`address_line1` directly off the
+`organizations` row it already queries for `.name` — the same columns
+`SubmissionValidator.checkOrgReadiness()` already reads for the identical
+purpose — as a fallback layer beneath any future `knowledge_base` entry.
+
+### Verification
+
+`pnpm typecheck` clean. New suite: 5/5 passing on a clean live run. Three
+sibling AutoApply integration suites (`autoapply-submit-integrity.test.ts`,
+`automation-session-lifecycle.test.ts`, `form-analyzer-filler.test.ts`, 12
+tests) still pass unchanged after the `buildFillData()` fix — no regression.

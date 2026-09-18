@@ -173,6 +173,10 @@ interface KBEntry {
 
 interface OrgRow {
   name: string | null;
+  ein: string | null;
+  contact_email: string | null;
+  phone: string | null;
+  address_line1: string | null;
 }
 
 export class FormFillerAgent {
@@ -528,13 +532,14 @@ export class FormFillerAgent {
   ): Promise<Record<string, string>> {
     const fillData: Record<string, string> = {};
 
+    let orgRow: OrgRow | null = null;
     try {
       const { data: orgData } = await this.supabase
         .from('organizations')
-        .select('name')
+        .select('name, ein, contact_email, phone, address_line1')
         .eq('id', organizationId)
         .single();
-      const orgRow = orgData as OrgRow | null;
+      orgRow = orgData as OrgRow | null;
       if (orgRow?.name) fillData['organization.name'] = orgRow.name;
     } catch {
       // org lookup failed — continue without it
@@ -600,6 +605,23 @@ export class FormFillerAgent {
         fillData['organization.service_area'] ??= text;
       }
     }
+
+    // Fallback to the real organizations columns for fields the
+    // knowledge_base_category enum (migration 001) can never carry — it has
+    // no 'ein'/'contact_email'/'phone'/'address' member, only mission/vision/
+    // need_statement/program_description/impact/capacity/sustainability/
+    // partnerships/budget_justification/organizational_history/custom — so
+    // every `cat.includes('ein')`-style check above is permanently
+    // unreachable against a real row. checkOrgReadiness() (submission-
+    // validator.ts) already reads these same organizations columns directly
+    // for the identical purpose; this mirrors that rather than depending on
+    // a knowledge_base row that can never exist. A curated KB entry (if the
+    // enum is ever extended) still wins — these only fill gaps the loop
+    // above left empty.
+    if (orgRow?.ein) fillData['organization.ein'] ??= orgRow.ein;
+    if (orgRow?.contact_email) fillData['organization.contact_email'] ??= orgRow.contact_email;
+    if (orgRow?.phone) fillData['organization.phone'] ??= orgRow.phone;
+    if (orgRow?.address_line1) fillData['organization.address'] ??= orgRow.address_line1;
 
     fillData['organization.tax_status'] ??= '501(c)(3) nonprofit organization';
 

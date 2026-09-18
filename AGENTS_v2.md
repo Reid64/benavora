@@ -1154,3 +1154,53 @@ message/title can vary per entity.** Regression coverage:
 collision across genuinely different events, new key in a new period) and the FORGE gate
 `scripts/audit/forge-gates/ar-11-error-and-dedup.mjs`, which greps `src` and `worker` for
 `dedup_key.*randomUUID` on every run.
+
+---
+
+## AR-9.3 — AutoApply end-to-end proof; `autoapply_form_filler`'s KB-derived EIN/email/phone/address were dead code (2026-09-18)
+
+Building the first full-chain proof for `autoapply_form_filler`
+(`src/lib/autoapply/form-filler-agent.ts`, identity registered above in
+AR-1.2) — a local fixture portal with real `required` fields, driven by real
+Playwright + real Claude + the real production pipeline in the same order
+`worker/queue-processor.ts`'s `processItem()` calls it (mutex guard →
+`StealthBrowser` → `FormAnalyzerAgent` → `SubmissionValidator` →
+`FormFillerAgent` → status mapping → `autoapply_submissions` insert →
+session finalization) — surfaced a genuine bug in `buildFillData()`, the
+private method that assembles the values `fillPageFields()` writes into the
+form.
+
+`buildFillData()` tried to source `organization.ein`,
+`organization.contact_email`, `organization.phone`, and
+`organization.address` by string-matching `knowledge_base.category` against
+`'ein'`/`'contact_email'`/`'phone'`/`'address'`/etc. But
+`knowledge_base_category` (migration 001) is a closed Postgres enum —
+`mission | vision | need_statement | program_description | impact |
+capacity | sustainability | partnerships | budget_justification |
+organizational_history | custom` — with no member any of those checks can
+ever match. Any funder form with a `required` EIN/email/phone/address
+field — precisely the fields `FormAnalyzerAgent.mapLabel()` (the same file's
+sibling agent) is built to recognize by label — was silently unfillable in
+production, for every organization, regardless of how complete its profile
+was: once `mapLabel()` classifies a field, `extractFieldMapping()` marks it
+"mapped," which excludes it from `fillUnmappedFields()`'s Claude free-text
+fallback too, so nothing downstream could ever fill it either.
+
+**Fix:** `buildFillData()` now also reads `ein`, `contact_email`, `phone`,
+and `address_line1` directly off the `organizations` row it already queries
+for `.name` — the exact same columns
+`SubmissionValidator.checkOrgReadiness()` (`submission-validator.ts`) already
+reads for the identical purpose — as a fallback layer any future
+`knowledge_base` entry (if the enum is ever extended) can still override.
+
+Regression coverage: `src/__tests__/integration/autoapply-e2e-proof.test.ts`
+assertion 1 (happy path) fills a real required EIN field end to end via this
+exact path; assertion 2 (incomplete) proves an org missing only its `ein`
+column correctly produces `IncompleteSubmissionError` rather than silently
+proceeding. The suite's own header documents what it does and does not
+prove — it drives the named AR-3.1/AR-7.1/AR-7.2/AR-9.2 chain directly
+(the same functions/classes/private methods `processItem()` calls, in the
+same order), not `processItem()`'s outer orchestration wrapper, which gates
+on `assertUrlSafe()` (blocks every local/loopback address, so a
+no-external-host fixture portal can never reach it) plus roughly ten
+unrelated business rules outside this chain's scope.
