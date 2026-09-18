@@ -1,5 +1,71 @@
 # Benavora Platform Build State
 
+## AR-8.1 — CI build parity: placeholder service-role key, force-dynamic on admin routes, fail-fast guard (2026-09-18)
+
+**The defect, in full.** Reid received a "[Reid64/benavora] Run failed:
+Deploy Check" email on every push for months. Two unrelated root causes
+produced it:
+
+1. **Gitlinks (fixed in `dfd7d78`, before this pass).** Six
+   `.claude/worktrees/*` entries were committed as gitlinks (mode `160000`)
+   with no `.gitmodules`, each pointing at an absolute Windows path —
+   `/usr/bin/git` exits 128 trying to resolve them on Ubuntu runners. Now
+   untracked; `git ls-files -s | grep 160000` returns zero.
+2. **The actual exit-1 (fixed here).** `createAdminClient()`
+   (`src/lib/supabase/admin.ts`) throws when `SUPABASE_SERVICE_ROLE_KEY` is
+   absent. `.github/workflows/deploy-check.yml` supplied only
+   `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` — never the
+   service-role key. 83 files under `src/app/` call
+   `createAdminClient()`; 76 had no `export const dynamic`, so `next build`
+   evaluated (prerendered) them at build time and the constructor threw.
+   `.env.local` carries all 17 vars including the service-role key, so
+   local builds passed every single time and CI failed every single time,
+   on this one missing variable. The workflow's own 2026-08-11 comment
+   documents fixing this exact class for the *anon* client after an OOM had
+   masked it — nobody then checked the *admin* client, which is what
+   actually kept failing.
+
+**Fix.**
+- `deploy-check.yml`'s `Build` step now sets `SUPABASE_SERVICE_ROLE_KEY` to
+  a literal, obviously-fake placeholder
+  (`ci-build-placeholder-not-a-real-key-do-not-use`), commented in place
+  explaining why: the build only needs the client constructor not to
+  throw, nothing in a build ever queries with it, and the *real* key must
+  never live in a CI secret — it bypasses every RLS policy on the
+  platform, and a build secret is the wrong home for it regardless (any
+  workflow or compromised action could read it).
+- All 83 `src/app/**` files calling `createAdminClient()` now declare
+  `export const dynamic = "force-dynamic"` (73 already had
+  `export const runtime = "nodejs"` to anchor after; the remaining 3 —
+  `api/contacts/tasks/[taskId]/download`, `api/marketplace/listings`,
+  `api/unsubscribe` — got it inserted after their imports). This is
+  correct on its own terms, not a workaround: a route built on the
+  service-role client is inherently per-request and tenant-scoped; there
+  is never a valid reason to prerender one.
+- New `scripts/audit/assert-admin-routes-dynamic.mjs` walks `src/app/**`,
+  flags any file that imports `createAdminClient` without a `dynamic`
+  export, and exits 1 with the offending file list. Wired into
+  `deploy-check.yml` as a step immediately after `pnpm install` and before
+  `Build`, so a future regression fails in seconds instead of after a
+  ~4-minute build.
+
+**Proof, not assertion.** `.env.local` was moved aside (not just
+unreferenced) and `pnpm build` run with *only* the three vars
+`deploy-check.yml` sets
+(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY=ci-build-placeholder-not-a-real-key-do-not-use`)
+plus `NODE_OPTIONS=--max-old-space-size=4096` — the exact CI env contract,
+nothing more. Build exited 0, `.env.local` restored immediately after. No
+second missing variable surfaced. End-of-run gates: `pnpm typecheck` — 0
+errors; `pnpm build` — exit 0; `pnpm test` — 91 files passed (1 skipped),
+860 tests passed (13 todo), exit 0.
+
+**CI env contract (`deploy-check.yml`'s `Build` step), now complete:**
+`NODE_OPTIONS`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY` (placeholder only). See BLUEPRINT_v2.md §8.4 for
+the durable statement of this contract and the rule for adding new
+`createAdminClient()` callers.
+
 ## AR-7.3 — Core agent errors preserve their cause, redacted; timeouts recorded not swallowed (2026-09-17)
 
 **The defect.** `success_probability`: 144 runs, 44 completed, 100 failed

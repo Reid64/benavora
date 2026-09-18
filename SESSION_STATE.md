@@ -8,11 +8,33 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-7.3: core agent errors preserve their cause, redacted; timeouts record limit + phase instead of a bare string)
+- **Last updated:** 2026-09-18 (AR-8.1: CI build parity — placeholder service-role key, force-dynamic on admin routes, fail-fast guard)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-8.1: CI build parity)
+
+Two unrelated root causes produced the "Run failed: Deploy Check" email on every push for months.
+Gitlinks (`.claude/worktrees/*` committed as mode `160000`) were fixed in `dfd7d78`, before this
+session — verified zero remain via `git ls-files -s | grep 160000`. This session fixed the second,
+actual exit-1: `createAdminClient()` throws without `SUPABASE_SERVICE_ROLE_KEY`; `deploy-check.yml`
+never supplied it; 76 of 83 `src/app/**` callers had no `export const dynamic`, so `next build`
+prerendered them and hit the throw. `.env.local` masked this locally every time.
+
+**Fix:** literal placeholder value for `SUPABASE_SERVICE_ROLE_KEY` in the workflow (commented as a
+deliberate non-secret — the real key must never live in CI, it bypasses every RLS policy); all 83
+`createAdminClient()` callers under `src/app/` now declare `export const dynamic = "force-dynamic"`;
+new `scripts/audit/assert-admin-routes-dynamic.mjs` fails fast (before the build step) if a future
+route regresses.
+
+**Proof:** `.env.local` moved aside, `pnpm build` run with only the workflow's three env vars +
+`NODE_OPTIONS` — exit 0, no second missing variable found. `.env.local` restored. End-of-run:
+`pnpm typecheck` 0 errors, `pnpm build` exit 0, `pnpm test` 860 passed/13 todo, exit 0.
+
+Full root-cause writeup: STATE_OF_THE_BUILD.md's AR-8.1 entry. CI env contract now documented in
+BLUEPRINT_v2.md §8.4.
 
 ## Session — 2026-09-17 (AR-7.3: core agent error honesty)
 

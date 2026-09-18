@@ -520,6 +520,45 @@ Reason: `globals.css` contains a compatibility layer with `!important` rules tha
 - Split large SQL into separate statements to avoid payload limits
 - `list_migrations` and `execute_sql` MCP tools return permission errors — use REST API as fallback
 
+### 8.4 CI Build Parity (`.github/workflows/deploy-check.yml`) — AR-8.1, 2026-09-18
+
+`next build` prerenders/evaluates every route it can at build time unless that
+route opts out with `export const dynamic = "force-dynamic"`. Any route built
+on `createAdminClient()` (`src/lib/supabase/admin.ts`) MUST carry that export
+— the service-role client is inherently per-request and tenant-scoped, and
+`createAdminClient()` throws outright if `SUPABASE_SERVICE_ROLE_KEY` is
+missing, which it deliberately is in CI (see below). Enforced automatically:
+`scripts/audit/assert-admin-routes-dynamic.mjs` runs as a `deploy-check.yml`
+step before `Build` and fails the run if any `src/app/**` file imports
+`createAdminClient` without that export.
+
+**The CI env contract.** `deploy-check.yml`'s `Build` step is the only place
+this repo's env vars must be kept in sync with what `next build` actually
+touches. It is deliberately narrower than `.env.local` (17 vars) — CI only
+sets what a build needs to not throw, never what a live query needs to
+succeed:
+
+| Var | Value in CI | Why |
+|---|---|---|
+| `NODE_OPTIONS` | `--max-old-space-size=4096` | `ubuntu-latest`'s default ~2GB V8 heap OOMs mid-build otherwise (fixed 2026-08-11) |
+| `NEXT_PUBLIC_SUPABASE_URL` | real value, repo secret | inlined into the client bundle by Next.js at build time; public by design (RLS is the access boundary, not secrecy of this value) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | real value, repo secret | same as above |
+| `SUPABASE_SERVICE_ROLE_KEY` | **literal placeholder** (`ci-build-placeholder-not-a-real-key-do-not-use`), hardcoded in the workflow, NOT a secret | satisfies `createAdminClient()`'s constructor check only; nothing in a build ever queries with it. The real key bypasses every RLS policy on the platform and must never be stored as a CI secret — a build secret is the wrong home for it, and any workflow or compromised action could read it |
+
+**Root cause this closes.** Two unrelated defects produced a "Deploy Check"
+failure email on every push for months: (1) six `.claude/worktrees/*`
+gitlinks with no `.gitmodules` (fixed `dfd7d78`, unrelated to env vars), and
+(2) this one — `SUPABASE_SERVICE_ROLE_KEY` was never in the workflow at all,
+and 76 of 83 `createAdminClient()` callers lacked `dynamic`, so `next build`
+prerendered them and hit the throw. `.env.local` carries the real key, so
+local builds always passed while CI always failed. Full writeup:
+STATE_OF_THE_BUILD.md's AR-8.1 entry.
+
+**The rule going forward.** Any new route under `src/app/` that calls
+`createAdminClient()` must add `export const dynamic = "force-dynamic"` in
+the same change. The guard script fails the build in seconds if this is
+missed — do not bypass it by removing the step from `deploy-check.yml`.
+
 ---
 
 ## 9. FORGE Build System
