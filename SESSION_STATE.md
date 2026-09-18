@@ -794,3 +794,79 @@ Integration's single failure is `DATABASE_URL` auth (28P01), not code.
 2. `TESTING_v2.md` stack table still documents Jest; repo runs Vitest.
 3. `.quarantine-2026-09-06-unrelated-tsc-break/` — 12 days parked, 4 specs
    protecting nothing. Needs a decision.
+
+---
+
+# Session: Phase 8.3 Repo Hygiene (2026-09-18)
+
+**Outcome:** COMPLETE. All five files this session's predecessor listed as
+"left alone" resolved individually, plus the untracked dated snapshots,
+`.gitattributes`, and deploy-verification docs.
+
+## Triage decisions (see STATE_OF_THE_BUILD.md for full reasoning)
+
+- `src/lib/autoapply/form-filler-agent.ts` — **kept**, real retry-on-transient-
+  error fix to the session-approval gate, not debug leftover. `9a14f02`.
+- `src/__tests__/integration/alert-delivery.test.ts` — **kept**, type-check
+  fix (dropped a stale return-type annotation). `a8483b0`.
+- `src/__tests__/integration/form-analyzer-filler.test.ts` — **kept**, flake
+  fix for non-deterministic live-Claude field classification. `25a7e17`.
+- `tsconfig.json` — **fixed twice**. First pass (`e68c0d4`) collapsed 22 dead
+  `.next-build-<pid>` entries to one wildcard glob; that wildcard then broke
+  `pnpm typecheck` against a stale orphaned build dir, caught by this
+  session's own incremental-testing checkpoint. Corrected (`95ceabd`) to
+  drop `.next-build-*` from the committed include list entirely — it's
+  inherently per-build-transient and was never supposed to be permanent.
+- `supabase/.temp/{cli-latest,linked-project.json}` — **untracked**
+  (`180040b`), added `/supabase/.temp/` to `.gitignore`. Local CLI state,
+  not shared config.
+
+## Also done
+
+- Committed the 4 untracked `STATE_OF_THE_BUILD_2026-09-17*` snapshot docs
+  (`1b0fb2a`) — matches the repo's existing dated-snapshot convention;
+  grepped for secret-shaped strings first, none found.
+- Added `.gitattributes` (`accff1f`, `* text=auto eol=lf` + explicit binary
+  types) as its own commit, separate from every content commit — the CRLF
+  fix the task called for. `git add --renormalize .` found nothing to
+  reformat (every tracked blob is already LF; only Windows working-copy
+  checkouts were CRLF via local `core.autocrlf=true`), so this commit is
+  preventative, not a mass reformat.
+- Documented `VERCEL_TOKEN`/`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID` in
+  `.env.local.example` (`ae8e668`) for `scripts/verify-deployment.ts`,
+  including the standing CLI/team-mismatch blocker. No value invented;
+  script still honestly reports `INDETERMINATE`.
+
+## Verification run this session
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck` (after wildcard tsconfig attempt) | **FAILED** — 6 TS2307 errors against `.next-build-27288` |
+| `pnpm typecheck` (after correction) | Clean, 0 errors |
+| `pnpm test` | 91 files passed, 1 skipped (92); 860 tests passed, 13 todo |
+| `pnpm run build` | see below |
+| `git status --porcelain` (end of run) | see below |
+
+*(End-of-run build/status numbers filled in after this entry was written —
+this task's exact command output goes in the final chat response, not
+duplicated here.)*
+
+## Constraints honoured
+
+- No `git add -A` — every commit staged named files only.
+- `.gitattributes` normalization committed separately from content, per
+  instruction.
+- No live-network test run without separate approval — the two edited
+  integration test files are outside the default `pnpm test` gate by
+  design (AR-8.2) and were not exercised via `pnpm test:integration` here.
+- No deploy. No value invented for `VERCEL_TOKEN`/`VERCEL_PROJECT_ID`.
+
+## Carry-forward
+
+1. Stale `.next-build-27288`/`-27744`/`-27792` still on disk — harmless
+   (tsconfig no longer references them) but a manual cleanup candidate.
+2. `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` still unset — deploy verification
+   stays `INDETERMINATE` pending a human provisioning a real token against
+   the correct Vercel team (current CLI session is on the wrong team).
+3. AR-8.2's carry-forward items (`DATABASE_URL` 28P01, stale `TESTING_v2.md`
+   Jest references, parked quarantine specs) untouched by this pass.
