@@ -8,7 +8,7 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-9.3: EA-family invocation path traced — queue starvation, not a disabling mechanism; live-verified with a real agent_runs row)
+- **Last updated:** 2026-09-18 (AR-10.2: `adapter_usage_log` retired as a cost writer — `ai_usage_log` is now the only per-call cost ledger in the codebase)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
@@ -1085,3 +1085,82 @@ compounding the wrong-rate bug. Full detail: `STATE_OF_THE_BUILD.md`'s
 - Live-network integration test run was the task's own explicit "run the
   traceability suite" instruction (Incremental Testing Checkpoint), not an
   unrequested live call.
+
+## AR-10.2 — Retire `adapter_usage_log` as a cost writer (2026-09-18)
+
+**Task:** AR-10.1 named `adapter_usage_log.api_cost_cents` (migration 076,
+Google Places/Apollo/Hunter donor-discovery connectors) as a real ledger
+outside `model_cost_reference`'s scope and carved a FORGE-gate exception for
+it rather than fixing it. This session closes that gap: the cost dimension
+moves into `ai_usage_log` via `recordCost()`, priced through a
+`model_cost_reference` extension (or recorded as an explicit unpriced
+`null`); the gate exception is removed. Full detail:
+`STATE_OF_THE_BUILD.md`'s "AR-10.2" section; `SCHEMA_REGISTRY_v2.md` also
+updated.
+
+**Step 1 finding:** `adapter_name`, `records_returned`, `cache_hit`,
+`called_at` are real, read telemetry (`GET /api/donor-discovery/connectors`
+aggregates them; the adapter's own cache-first lookup depends on
+`cache_hit`). Only `api_cost_cents` was dishonest — a real number for Google
+Places, a hardcoded `0` for Apollo/Hunter regardless of actual spend. Those
+four columns are untouched.
+
+**Files touched:**
+- `supabase/migrations/197_adapter_usage_log_cost_retirement.sql` (new) —
+  extends `model_cost_reference` with `pricing_unit` (`'token'` default) +
+  `usd_per_call`, mutually-exclusive `CHECK`; seeds one `'call'` row
+  (`google_places`, `$0.032/request`); comments `adapter_usage_log
+  .api_cost_cents` as superseded; backfills historical non-zero rows into
+  `ai_usage_log` (0 rows existed live, so this ran as a documented no-op).
+- `src/lib/pil/model-pricing.ts` — `ModelRate` gains `pricingUnit`/
+  `usdPerCall`; `priceUsage()`/`pilBlendedTokenRateUsd()` guarded to only
+  match `'token'` rows; new `priceApiCall(model, calls)` resolver +
+  `ApiCallPriceResult` type, same never-a-silent-0 contract as
+  `priceUsage()`.
+- `src/lib/donor-discovery/adapters/google-places-adapter.ts` — removed the
+  local `COST_PER_REQUEST_USD` constant (pricing now lives in
+  `model_cost_reference`, not a per-file literal); `logAdapterUsage()` no
+  longer sends `api_cost_cents`; new `recordGooglePlacesCost()` prices paid
+  Nearby Search calls via `priceApiCall()` and writes `ai_usage_log`; the
+  Faith Foundation $100/month throttle re-pointed from
+  `adapter_usage_log.api_cost_cents` (`faithFoundationMonthSpendCents()`) to
+  `ai_usage_log.cost_usd` (`faithFoundationMonthSpendUsd()`) — required,
+  not optional, since the throttle would otherwise have silently gone
+  permanently open the moment `api_cost_cents` stopped being written.
+- `src/lib/donor-discovery/connectors/usage-log.ts` — `logConnectorUsage()`
+  no longer sends `api_cost_cents`; now also calls `priceApiCall()` +
+  `recordCost()` for the Apollo/Hunter path (resolves unpriced today, no
+  rate seeded for either).
+- `scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs` — check #3's
+  path-based exclusion for the two donor-discovery files removed; it now
+  fails on any `api_cost_cents` write anywhere, not "anywhere except these
+  two."
+- `src/__tests__/integration/cost-traceability.test.ts` — two new cases: a
+  connector call priced via `pricing_unit='call'`, and an unseeded connector
+  resolving to an explicit `null`.
+- `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`, `SCHEMA_REGISTRY_v2.md` —
+  this governance update.
+
+**Verification this session:**
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck` | Clean, 0 errors (1 real fix: `pilBlendedTokenRateUsd()` needed a null-narrowing guard once `rate.input`/`rate.output` became nullable) |
+| `pnpm run build` | Clean |
+| `pnpm test` | 95 files passed, 1 skipped (96); 882 tests passed, 13 todo — unchanged from AR-10.1's baseline count |
+| `pnpm test:integration -- cost-traceability` | `cost-traceability.test.ts` itself: 8/8 passed (6 pre-existing + 2 new AR-10.2 cases). Filter arg still ran the full `src/__tests__/integration/**` + `integration-live/**` suite (25 files) — 24/25 files passed, 109/111 tests passed, 2 skipped; the one failure (`success-probability-upsert-constraint.test.ts`, "password authentication failed for user postgres" on a direct `pg` connection) is the same pre-existing, unrelated `DATABASE_URL` credential issue AR-10.1 hit, not caused by this task |
+| Migration 197 applied live | `mcp__Supabase__apply_migration` against project `vbjplpquqxxfbpazyalt`; verified via `execute_sql`: `model_cost_reference` has 6 rows (5 `'token'` + 1 `'call'`), the `api_cost_cents` column comment reads back correctly, `adapter_usage_log` had 0 rows so the backfill inserted 0 |
+| `grep -rn "api_cost_cents" src worker --exclude-dir=__tests__` | 2 hits, both comments explaining the freeze — zero code writers |
+| `node scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs` | OK — one comment wording tweak needed first: the gate's comment-line filter (`// \| superseded \| deprecated`) didn't match a JSDoc `*`-continuation line that mentioned `api_cost_cents` without either word; reworded to say "superseded" explicitly |
+
+**Confirming the count:** `ai_usage_log` is now the only table in this
+codebase written with per-call cost.
+
+**Constraints honoured:**
+- No `git add -A` — commit stages only the paths the task specified.
+- No deploy (`DO NOT DEPLOY` per task).
+- Migration applied live via the authenticated Supabase MCP connector after
+  the repo's `DATABASE_URL`/psql path failed with a `28P01` password-auth
+  error (a known-flaky credential per project memory
+  `benavora-database-url-auth-broken-2026-09-10` — re-broken this session,
+  not re-diagnosed since a working alternate path existed).

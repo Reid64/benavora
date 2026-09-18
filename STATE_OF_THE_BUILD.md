@@ -1,5 +1,106 @@
 # Benavora Platform Build State
 
+## AR-10.2 — `adapter_usage_log` retired as a cost writer; the count is one (2026-09-18)
+
+AR-10.1 closed its own scope with a caveat: `adapter_usage_log.api_cost_cents`
+(migration 076, `google-places-adapter.ts` + `donor-discovery/connectors/
+usage-log.ts`) prices Google Places/Apollo/Hunter — a real, live ledger, but
+one `model_cost_reference` had no rows for, carved out of the FORGE gate by
+path rather than fixed. This task closes that gap: `ai_usage_log` becomes the
+platform's *only* per-call cost ledger, not the ledger for Anthropic calls
+plus a second one for everything else.
+
+**Step 1 — what `adapter_usage_log` actually carries.** `adapter_name`,
+`records_returned`, `cache_hit`, `called_at` are real signal with real
+readers: `GET /api/donor-discovery/connectors` aggregates them into
+`last_used_at`/`records_enriched` for the connectors settings UI, and
+`google-places-adapter.ts`'s own cache-first lookup depends on `cache_hit`
+telemetry existing. `api_cost_cents` is the one dishonest column —
+`google-places-adapter.ts` computed a real number for paid Nearby Search
+calls (`totalRequests * COST_PER_REQUEST_USD`) but never durably priced it
+against a rate card, and `connectors/usage-log.ts` (the Apollo/Hunter §6 BYOK
+path) wrote a **literal, unconditional `0`** regardless of whether the call
+actually cost money. Kept the first four columns exactly as they were;
+retired only the cost dimension.
+
+**Step 2 — extended the resolver, not a second one.** `model_cost_reference`
+(migration 192) was Anthropic-only, per-Mtok-token. Migration 197 adds a
+`pricing_unit` discriminator (`'token'` default — every existing row
+unaffected) and a `usd_per_call numeric` column, enforced mutually exclusive
+by a `CHECK`: a `'token'` row still requires all four per-Mtok columns
+NOT NULL and `usd_per_call` NULL; a `'call'` row requires the reverse.
+`src/lib/pil/model-pricing.ts` gets a new `priceApiCall(model, calls)`
+sibling to `priceUsage()`/`computeCostUsd()` — same typed
+`{priced:true,...} | {priced:false, costUsd:null}` contract, same
+throttled `system_errors` alert on a miss. Seeded exactly one `'call'` row:
+`google_places` at `$0.032/request`, carried forward from
+`google-places-adapter.ts`'s own pre-existing `COST_PER_REQUEST_USD`
+constant (Google's Basic Data SKU) rather than invented fresh — not
+re-verified live against Google's pricing page the way migration 192's
+Anthropic rates were, and the migration's `source` column says so explicitly.
+Apollo/Hunter get **no seeded row** — grepping both connector files found
+zero cost/price/USD references anywhere, so there is no real rate to record;
+every call through `priceApiCall('apollo' | 'hunter', 1)` resolves
+`{priced:false, costUsd:null}` and fires the same unpriced-model alert an
+unseeded Anthropic model would. Honest unpriced, not a second fabricated $0.
+
+**Step 3 — stopped writing `api_cost_cents`, backfilled what mattered, froze
+the rest.** Both call sites (`logAdapterUsage()` in the adapter,
+`logConnectorUsage()` in `usage-log.ts`) no longer send that key at insert
+time — it sits at its table `DEFAULT 0` going forward, not a fabricated 0 an
+application layer wrote on purpose. Migration 197 backfills every historical
+`adapter_usage_log` row with `api_cost_cents > 0` into `ai_usage_log` before
+commenting the column `'Superseded by ai_usage_log.cost_usd (AR-10.2)...'`
+(the live project had zero such rows — `adapter_usage_log` itself is
+currently empty in production — so the backfill ran as a documented no-op,
+not a skipped step). The table itself is untouched; only the one column is
+frozen. **A real behavior change fell out of this that had to be fixed in
+the same commit:** the Faith Foundation $100/month Places throttle
+(`faithFoundationMonthSpendCents()`) summed exactly this column — leaving it
+un-migrated would have silently disabled the spend ceiling (every future sum
+= 0, throttle never trips). Re-pointed at `ai_usage_log.cost_usd` (renamed
+`faithFoundationMonthSpendUsd()`), same organization/provider/month-window
+filter, now keyed on `model = 'google_places'` instead of
+`adapter_name = 'google_places'`.
+
+**Step 4 — the count is one.** `grep -rn "api_cost_cents" src worker
+--exclude-dir=__tests__` now matches only comments (2 hits, both explaining
+the freeze) — zero writers anywhere, not two files carved out by exception.
+`ai_usage_log` is the only table in this codebase written with per-call
+cost. The FORGE gate (`scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs`
+check #3) was tightened to match: it no longer excludes the two
+`donor-discovery` paths by name — it fails on *any* `api_cost_cents` write,
+full stop.
+
+**Test:** `src/__tests__/integration/cost-traceability.test.ts` gained two
+cases — a connector call priced through `model_cost_reference`'s
+`pricing_unit='call'` row (asserts the resolver's `costUsd` and the recorded
+`ai_usage_log` row agree, with `input_tokens`/`output_tokens` both `0` since
+a per-call API has no token split) and an unseeded connector resolving to an
+explicit `null`, never a fabricated `$0`.
+
+**Verification:** `pnpm typecheck` clean (one real fix needed:
+`pilBlendedTokenRateUsd()` read `rate.input`/`rate.output` without narrowing
+now that those fields are nullable for `'call'` rows — guarded the same way
+`priceUsage()` already was), `pnpm run build` clean, `pnpm test` **95 files /
+1 skipped (96); 882 tests passed, 13 todo** (unchanged count from AR-10.1 —
+this task touched no unit-test-covered behavior beyond
+`ai-pricing.test.ts`/`ai-usage-log-recording.test.ts`, both already green),
+`pnpm test:integration -- cost-traceability` — `cost-traceability.test.ts`
+itself 8/8 (6 pre-existing + 2 new); the filter still runs the full live-DB
+suite (25 files), which came back 24/25 files / 109/111 tests passed, the
+one failure being the same pre-existing, unrelated `DATABASE_URL`/`pg`
+password-auth error AR-10.1 also hit
+(`success-probability-upsert-constraint.test.ts`; see `SESSION_STATE.md`'s
+AR-10.2 section for the exact output). `node
+scripts/audit/forge-gates/ar-10-rate-card-consumed.mjs` passes. Migration 197
+applied live against
+project `vbjplpquqxxfbpazyalt` and verified: `model_cost_reference` now has
+6 rows (5 Anthropic `'token'` + 1 `google_places` `'call'`), the
+`api_cost_cents` column comment reads back correctly, `adapter_usage_log`
+has 0 rows in production so the backfill inserted nothing (not a failure —
+there was nothing historical to move).
+
 ## AR-9.3 — The scheduler gap: EA-family invocation path traced, no disabling mechanism found, fix proven live (2026-09-18)
 
 **The question.** AR-7.1 fixed the missing Chromium executable (215 failures across ea01/ea02/ea05/
@@ -1287,12 +1388,13 @@ scope for this consolidation per the task spec. New test
 **Gates, real numbers:** `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm lint` clean,
 `pnpm test` **104 files / 918 tests passed, 1 file skipped, 13 todo** (931 total).
 
-**Still open — more than one table is written with per-call cost.** `adapter_usage_log` (migration
+**Was open, now closed by AR-10.2 (below).** `adapter_usage_log` (migration
 076, `src/lib/donor-discovery/adapters/google-places-adapter.ts` and
-`src/lib/donor-discovery/connectors/usage-log.ts`) writes an `api_cost_cents` column (hardcoded `0`
-on every call) on every donor-discovery connector call. Out of scope for AR-5.1 — named here rather
-than left for a future session to rediscover from scratch. Full detail in `SESSION_STATE.md`'s
-"AR-5.1" section.
+`src/lib/donor-discovery/connectors/usage-log.ts`) wrote an `api_cost_cents` column (hardcoded `0`
+on every Apollo/Hunter call, a real but never-durably-priced number for Google Places) on every
+donor-discovery connector call. Out of scope for AR-5.1 — named here rather than left for a future
+session to rediscover from scratch. See AR-10.2 for the fix; `ai_usage_log` is now the only table
+in this codebase written with per-call cost.
 
 ## AR-4.1 — Agent exercise harness: converts "wired" into "proven" or "a bug" (2026-09-17)
 
@@ -2155,8 +2257,11 @@ sourced rate?** For the ~91 `BaseAgent`/`AutonomousAgent` agents and the ~34
 raw-Anthropic-client modules: yes, unchanged from AR-9.2 (already correct,
 just relocated). For the PIL agent framework (all 9 families): yes, now —
 previously no, both because of the wrong flat rate and the `model: "unknown"`
-join-key gap. For `adapter_usage_log`: that ledger prices Google Places/
-Apollo/Hunter, not Anthropic tokens — out of `model_cost_reference`'s scope
-by design, not a gap in this fix. No other token-to-dollar computation site
-remains outside `src/lib/pil/model-pricing.ts` (verified by the FORGE gate's
-repo-wide grep).
+join-key gap. For `adapter_usage_log`: at the time this task closed, no —
+that ledger priced Google Places/Apollo/Hunter, not Anthropic tokens, out of
+`model_cost_reference`'s scope by design. **AR-10.2 (below) closed this
+gap** — `model_cost_reference` now carries non-token `pricing_unit='call'`
+rows too, and `adapter_usage_log.api_cost_cents` is frozen. No other
+token-to-dollar computation site remains outside
+`src/lib/pil/model-pricing.ts` (verified by the FORGE gate's repo-wide
+grep).

@@ -1448,11 +1448,13 @@ trail for those 49 rows, and `src/lib/pil/db.ts`'s `pilCostLedger()` (a dead exp
 still reads it. Nothing in `src/` or `worker/` inserts into `pil_cost_ledger` anymore;
 `src/lib/pil/cost.ts`'s `recordCost()` inserts into `ai_usage_log`.
 
-**Known second per-call cost writer, out of scope for AR-5.1:** `adapter_usage_log` (migration 076)
-is written by `src/lib/donor-discovery/adapters/google-places-adapter.ts` and
-`src/lib/donor-discovery/connectors/usage-log.ts`, with `api_cost_cents` hardcoded to `0` on every
-call. AR-5.1 consolidated only the pair the task named (`ai_usage_log` / `pil_cost_ledger`); this
-table was not touched.
+**Former second per-call cost writer, closed by AR-10.2:** `adapter_usage_log` (migration 076) was
+written by `src/lib/donor-discovery/adapters/google-places-adapter.ts` and
+`src/lib/donor-discovery/connectors/usage-log.ts`, with `api_cost_cents` a real number for Google
+Places and a hardcoded `0` for Apollo/Hunter regardless of call outcome. AR-5.1 consolidated only the
+pair the task named (`ai_usage_log` / `pil_cost_ledger`); this table was untouched until AR-10.2
+(2026-09-18, see below) retired `api_cost_cents` as a cost writer entirely — `ai_usage_log` is now the
+only table in this codebase written with per-call cost.
 
 ---
 
@@ -1755,13 +1757,19 @@ against mid-session: `STATE_OF_THE_BUILD.md`'s "AR-6.4" section.
 
 | Column | Type | Notes |
 |---|---|---|
-| model | text PK | e.g. `claude-sonnet-4-6` |
-| input_usd_per_mtok | numeric(10,4) | |
-| output_usd_per_mtok | numeric(10,4) | |
-| cache_write_usd_per_mtok | numeric(10,4) | 5-minute-TTL rate; the 1-hour-TTL rate is `input_usd_per_mtok * 2`, not a separate column |
-| cache_read_usd_per_mtok | numeric(10,4) | |
+| model | text PK | e.g. `claude-sonnet-4-6`, or `google_places` for a `'call'` row |
+| pricing_unit | text NOT NULL DEFAULT 'token' | Added by migration 197 (AR-10.2). `'token'` (every pre-existing row) or `'call'`. A `CHECK` enforces the two shapes are mutually exclusive — see below. |
+| input_usd_per_mtok | numeric(10,4), nullable | NOT NULL in spirit for `'token'` rows (enforced by the `CHECK`, not a column constraint since `'call'` rows must leave it NULL) |
+| output_usd_per_mtok | numeric(10,4), nullable | Same as above |
+| cache_write_usd_per_mtok | numeric(10,4), nullable | 5-minute-TTL rate; the 1-hour-TTL rate is `input_usd_per_mtok * 2`, not a separate column. Same nullability as above |
+| cache_read_usd_per_mtok | numeric(10,4), nullable | Same as above |
+| usd_per_call | numeric(10,4), nullable | Added by migration 197 (AR-10.2). NOT NULL in spirit for `'call'` rows, NULL for `'token'` rows — same `CHECK`-enforced mutual exclusivity |
 | effective_from | date NOT NULL | |
-| source | text NOT NULL | e.g. `https://claude.com/pricing` |
+| source | text NOT NULL | e.g. `https://claude.com/pricing` for a `'token'` row; for the one `'call'` row (`google_places`), a code-path citation instead — not independently re-verified against Google's pricing page the way the Anthropic rows were |
+
+`model_cost_reference_pricing_unit_check` (migration 197): `pricing_unit = 'token'` requires all four
+per-Mtok columns NOT NULL and `usd_per_call` NULL; `pricing_unit = 'call'` requires `usd_per_call`
+NOT NULL and all four per-Mtok columns NULL. A row can never be both shapes at once.
 
 Global reference table, no `organization_id` — rates apply identically to
 every org. RLS: `SELECT` granted to `authenticated`, revoked from `anon`.
@@ -1792,3 +1800,60 @@ enough that per-call reads would be pure overhead. Full detail, the real
 per-file count (54, not AR-6.4's estimated "~29"), and the double-counting
 bug found alongside the wrong-rate bug: `STATE_OF_THE_BUILD.md`'s "AR-10.1"
 section.
+
+---
+
+## adapter_usage_log.api_cost_cents retired; model_cost_reference prices non-LLM calls too (AR-10.2, 2026-09-18)
+
+**`public.adapter_usage_log`** (migration 076) is unchanged in shape.
+`api_cost_cents integer NOT NULL DEFAULT 0` is now commented
+`'Superseded by ai_usage_log.cost_usd (AR-10.2)...'` and no application code
+writes it anymore — it sits at its table default on every new row.
+`adapter_name`, `records_returned`, `cache_hit`, `called_at` are unaffected
+and remain the live signal `GET /api/donor-discovery/connectors` and
+`google-places-adapter.ts`'s own cache-first lookup depend on.
+
+**`model_cost_reference`** gained the `pricing_unit`/`usd_per_call` columns
+described above (migration 197), seeded with exactly one `'call'` row:
+
+| model | pricing_unit | usd_per_call | source |
+|---|---|---|---|
+| google_places | call | 0.0320 | `google-places-adapter.ts`'s pre-existing `COST_PER_REQUEST_USD` constant (Basic Data SKU) |
+
+Apollo and Hunter have no row — neither connector file contains any
+cost/price/USD reference to seed one from, so `priceApiCall('apollo' | 'hunter', n)`
+resolves `{priced:false, costUsd:null}` until a real rate is sourced.
+
+**New resolver export:** `src/lib/pil/model-pricing.ts`'s
+`priceApiCall(model: string, calls: number): Promise<ApiCallPriceResult>` —
+sibling to `priceUsage()`/`computeCostUsd()`, same typed
+`{priced:true,...} | {priced:false, costUsd:null}` contract, same throttled
+`system_errors` unpriced-model alert. `priceUsage()` and
+`pilBlendedTokenRateUsd()` were both guarded to only match `pricing_unit =
+'token'` rows, so a `'call'` row (whose `input`/`output` are `null`) can
+never silently produce `NaN` through the token-priced path.
+
+**Two writers re-pointed at `ai_usage_log`:**
+- `google-places-adapter.ts`'s `recordGooglePlacesCost()` — one row per
+  `enumerate()` call that made ≥1 paid Nearby Search request, `model:
+  'google_places'`, `input_tokens`/`output_tokens`/`total_tokens: 0` (a
+  per-call API has no token split), `cost_usd` from `priceApiCall()`.
+- `connectors/usage-log.ts`'s `logConnectorUsage()` — one row per Apollo/
+  Hunter enrichment call, `model` set to the connector's provider key,
+  `cost_usd: null` today (unpriced, per above).
+
+**A dependent read had to move too:** the Faith Foundation $100/month
+Places spend ceiling (`google-places-adapter.ts`) previously summed
+`adapter_usage_log.api_cost_cents` directly — once that stopped being
+written, the sum would have silently gone to 0 forever and the throttle
+would never trip again. `faithFoundationMonthSpendUsd()` now sums
+`ai_usage_log.cost_usd WHERE model = 'google_places'` for the same
+organization/month window instead.
+
+**FORGE gate hardened, not just relaxed:** `ar-10-rate-card-consumed.mjs`
+check #3 previously excluded these two files by path (AR-10.1's carve-out).
+That exclusion is removed — the gate now fails on any `api_cost_cents`
+write anywhere in `src`/`worker`, matching the fact that `ai_usage_log` is
+now the sole per-call cost ledger with zero exceptions.
+
+Full detail: `STATE_OF_THE_BUILD.md`'s "AR-10.2" section.
