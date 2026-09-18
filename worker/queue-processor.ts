@@ -403,6 +403,29 @@ export class QueueProcessor {
           if (updateErr) {
             console.error(`[QueueProcessor] Failed to persist skip reason for item ${item.id}:`, updateErr.message);
           }
+          // AR-12.1: funder_not_found means a funder was deleted out from
+          // under an already-queued item (root-caused live 2026-09-18: the
+          // FunderDetail.tsx delete button has no awareness of pending
+          // submission_queue rows, and submission_queue_funder_id_fkey is
+          // ON DELETE SET NULL, not a block). Migration 200's BEFORE DELETE
+          // trigger on funders now cancels dependent queue rows proactively
+          // (before the worker ever sees them), so this is the residual
+          // path for anything that slips past that guard - it is always
+          // terminal (this branch already marks it 'skipped' above, and the
+          // 'pending' poll query never re-selects a non-pending row), but a
+          // silently-skipped item trains nobody to notice a funder
+          // disappeared mid-flight. Distinct dedup key per queue item so
+          // repeats of the same event collapse via uq_alerts_org_dedup
+          // instead of paging every hourly sweep.
+          if (err.message.startsWith('funder_not_found')) {
+            void raiseOrchestrationAlert(this.supabase, {
+              organizationId: item.organization_id,
+              type: 'manual_review_required',
+              severity: 'warning',
+              message: `AutoApply queue item ${item.id} was skipped: its funder record no longer exists (deleted after this item was queued).`,
+              dedupKey: dedupKeys.orchestrationManualReviewRequired(item.id),
+            }).catch(() => {});
+          }
           await heartbeat.incrementProcessed();
         } else if (err instanceof CaptchaPauseError) {
           console.log(

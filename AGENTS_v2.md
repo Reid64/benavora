@@ -941,6 +941,52 @@ watchdog will use once it does deploy. Full step-by-step, the reaped row ids,
 and the three closing questions answered directly: `STATE_OF_THE_BUILD.md`'s
 "AR-7.2" section.
 
+**Deployment status update (AR-12.1, 2026-09-18, later the same day):**
+this deadlock fix IS now live — `automation_sessions` holds 0 non-terminal
+rows in production as of this session, confirmed by direct query, not
+inference. `concurrent_automation_conflict` still appears frequently in
+`agent_runs` (39 occurrences in the ~26h before AR-12.1) — **that is not a
+regression of this deadlock.** It is `checkConcurrentAutomation()` correctly
+declining a new run while another is genuinely in flight for the same
+org+funder; the deadlock this section describes was specifically a session
+never reaching a terminal status at all. Do not re-open an investigation
+into this section on skip-count alone — check whether `automation_sessions`
+actually holds non-terminal rows first.
+
+**What replaced it as `autoapply_queue_processor`'s next blocker (AR-12.1):**
+not a code bug in the mutual-exclusion check itself, but a data-integrity
+gap one step downstream — `funders` had no delete-time awareness of
+`submission_queue`. See the new "`funders` deletion must not orphan
+`submission_queue` rows (AR-12.1, 2026-09-18)" section immediately below.
+
+---
+
+## `funders` deletion must not orphan `submission_queue` rows (AR-12.1, 2026-09-18)
+
+`src/components/funders/FunderDetail.tsx`'s delete button issues a plain
+client-side `supabase.from("funders").delete().eq("id", ...)` with no query
+against `submission_queue` first. `submission_queue_funder_id_fkey` is
+`ON DELETE SET NULL`, not a block, so deleting a funder that still has a
+`pending`/`processing` AutoApply queue item silently nulls the reference
+instead of cancelling it — the item sits until the worker dequeues it,
+discovers the funder is gone (`worker/queue-processor.ts`'s `processItem()`,
+`funder_not_found`), and only then goes terminal. Production evidence: 1
+occurrence, ever (2026-09-18 02:42:18 UTC) — real, but rare.
+
+**If you add a new code path that deletes a `funders` row** (a bulk-cleanup
+script, a future admin tool, a merge/dedup feature), you do not need to add
+your own `submission_queue` check — `supabase/migrations/200_funder_delete_cancels_queue_items.sql`
+installed a `BEFORE DELETE ON funders` trigger
+(`cancel_queue_items_on_funder_delete()`) that cancels every non-terminal
+dependent `submission_queue` row (marks it `'skipped'` with a
+`funder_deleted: ...` reason) and raises a `manual_review_required` alert,
+for **any** delete path, not just the UI button. It is wrapped in
+`EXCEPTION WHEN OTHERS` (same blast-radius contract as migration 191's alert
+rules) so a bug in this safety net can never block a legitimate deletion —
+if you need to verify it actually fired for a given delete, check
+`submission_queue.error_message ILIKE 'funder_deleted:%'` and the
+`alerts` table, not just that the delete succeeded.
+
 ---
 
 ## Agent Registry Schema

@@ -1,5 +1,161 @@
 # Benavora Platform Build State
 
+## AR-12.1 — funder_not_found root-caused and closed; AR-7.2/AR-11.1 both independently re-verified live (2026-09-18)
+
+**The task's premise, checked against production before acting (per Step 1's
+own instruction), was partially wrong — recorded here because both
+directions matter.** Confirmed true: AR-7.2's mutual-exclusion deadlock is
+genuinely closed — `automation_sessions` holds **0** non-terminal rows
+live. Not true as stated: `funder_not_found` was **not** "6 failures in the
+last 3 hours" or the new dominant blocker. Querying `agent_runs` for
+`autoapply_queue_processor` grouped by error category told a different
+story:
+
+| Category (last 3h / all-time) | Count (3h) | Count (all-time) |
+|---|---|---|
+| `cross_client_blocked` | 4 | 6 |
+| `org_not_ready` | 4 | 6 |
+| `concurrent_automation_conflict` | 3 | 39 |
+| `no_funder_id` | 1 | 3 |
+| `funder_not_found` | **0** | **1** |
+
+`concurrent_automation_conflict` is still the single most common skip
+reason (39 occurrences over ~26h, including as recent as 09:26 UTC the same
+morning) — but that is `SubmissionValidator.checkConcurrentAutomation()`
+doing exactly its designed job (real contention between the two AutoApply
+pipelines for the same org+funder), not a recurrence of AR-7.2's deadlock.
+The deadlock was specifically sessions getting **stuck non-terminal
+forever**; a session correctly reaching a terminal status and a *later*
+attempt correctly declining because one is already in flight are two
+different things, and only the first was ever broken. `funder_not_found`
+existed exactly **once** in `agent_runs`, ever, at 2026-09-18 02:42:18 UTC —
+real and worth fixing, but a rare race, not a hot loop.
+
+**Root cause, found by querying production directly (Step 1):**
+`submission_queue.funder_id` had **zero** orphaned references at
+investigation time (`LEFT JOIN funders ... WHERE f.id IS NULL AND
+sq.funder_id IS NOT NULL` → 0 of 56 rows) — category (a)/(d) from the
+prompt's list, but not a standing backlog. `submission_queue_funder_id_fkey`
+is `ON DELETE SET NULL`, confirmed via `pg_constraint`, and both historical
+`funder_not_found` rows now show `funder_id = NULL` — consistent with
+the FK having fired *after* the worker's lookup already came back empty.
+Traced to `src/components/funders/FunderDetail.tsx`'s delete button: a
+plain `supabase.from("funders").delete().eq("id", ...)` run from the
+browser, with no query against `submission_queue` first and no server route
+in between. Category **(d)** — the funder genuinely was deleted after the
+item was queued — not (b) (wrong query/scope: the worker's lookup has no
+`organization_id` filter, but `funders.id` is a global PK so that is
+irrelevant here) and not (c) (RLS conflation: `worker/queue-processor.ts`
+uses `createAdminClient()` — verified service-role, RLS-bypassing — so a
+`null` there is unambiguous. Directly demonstrated in the new test suite:
+the anon key against the *same* row returns `null` with no error — proof
+the RLS-empty and genuinely-absent cases really are indistinguishable at
+the client level, and proof the worker's use of the admin client is what
+prevents that ambiguity from ever reaching this code path).
+
+**Fix — closed at the source, not the symptom (Step 2):**
+`supabase/migrations/200_funder_delete_cancels_queue_items.sql`, applied
+live:
+- A `BEFORE DELETE ON funders` trigger
+  (`cancel_queue_items_on_funder_delete()`) finds every non-terminal
+  `submission_queue` row (`pending`/`processing`/`paused_verification`/
+  `requires_account_setup`/`pending_manual`) still pointing at the funder
+  being deleted, marks each `status = 'skipped'` with a
+  `funder_deleted: ...` reason and `completed_at`, and raises a
+  `manual_review_required` alert via the existing
+  `public.raise_orchestration_alert()` helper (migration 191) — covers
+  **every** deletion path (this button, a future admin tool, a direct SQL
+  delete), not just the one UI entry point, and runs *before* the funder is
+  gone so the alert can still name it. Wrapped in `EXCEPTION WHEN OTHERS`
+  (migration 191's own blast-radius contract) so a bug in this safety net
+  can never block a legitimate funder deletion.
+- A one-time retroactive `UPDATE` for any pre-existing non-terminal row with
+  `funder_id IS NULL` (the FK's `SET NULL` already fired, pre-fix) — 0 rows
+  matched; insurance, not a backlog clear.
+- `worker/queue-processor.ts`'s `SkipError` catch now also raises a
+  `manual_review_required` alert specifically for `funder_not_found`, as a
+  backstop for anything that reaches the worker despite the trigger (there
+  should be none going forward, but silence trained nobody to notice the
+  two that already happened).
+- **Verified live**, transactionally: inserted a disposable org+funder+
+  `pending` queue item, deleted the funder, confirmed the queue row flipped
+  to `skipped` with the `funder_deleted:` reason and an `alerts` row
+  appeared — all inside one transaction, then `ROLLBACK`ed; confirmed 0
+  rows leaked afterward.
+
+**No retry, ever (Step 3):** `worker/queue-processor.ts`'s poll loop only
+ever selects `status = 'pending'` — a `skipped` row is excluded from every
+future poll, permanently. This was already true before this session for
+whatever reached the worker's own `SkipError` catch; the gap this fix closes
+is upstream of that — an item can now be terminated *before* the worker
+ever wastes a poll cycle discovering its funder is gone, and the operator
+gets an alert either way instead of a silent DB flip.
+
+**Bonus finding, independent of this task's premise, surfaced while
+verifying (see also `AGENT_FAILURE_LEDGER.md`'s Cause 8):** AR-11.1
+(same day, earlier) added `run-logger.ts`'s skip/fail reclassification
+(`SkipError` → `agent_runs.status = 'skipped'`, not `'failed'`) and its own
+entry claims "Live verification ... post-deploy `agent_runs` row confirming
+`status = 'skipped'`." That row does not exist — queried `agent_runs` for
+`status = 'skipped'` across **every** agent_type, all-time: **zero rows**,
+despite the enum value and code having been on `main` for hours. Cause,
+found via `railway deployment list`: the currently-live deployment
+(`75ba4557`, SUCCESS) only went `Online` at 2026-09-18 11:18 UTC — *after*
+the last queue item this session found processed (09:57–09:59 UTC) and only
+minutes before this session started investigating — with a trail of
+SKIPPED/REMOVED deployments before it back to 2026-09-17 18:01 UTC. AR-11.1's
+fix was not actually live in production until, at the earliest, that
+deployment; its own "post-deploy" claim was written before that was true.
+**Directly re-verified this session, not just asserted:** ran the existing
+`src/__tests__/integration-live/autoapply-queue-live-worker.test.ts`
+("unready org" case) against the now-current deployment — a real
+`org_not_ready` queue item processed in 14.9s and recorded
+`agent_runs.status = 'skipped'`, next to an *identical* `org_not_ready`
+condition from 09:57:33 UTC (pre-deploy) that recorded `status = 'failed'`.
+Same business condition, two different `agent_runs.status` values on either
+side of the same deploy — direct, not inferential, proof AR-11.1 is now
+genuinely live. (Test cleanup for that run hit a pre-existing gap —
+`agent_runs.organization_id` has no `ON DELETE CASCADE`/`SET NULL`, so the
+live-worker suite's `organizations` delete failed with a FK violation and
+left one test org behind; cleaned up manually this session. Not fixed as
+part of this task — out of AR-12.1's scope, logged here so it isn't lost.)
+
+**Verification (Step VERIFICATION):**
+- `submission_queue`: 56 rows total (0 pending, 0 processing, 51 skipped, 3
+  completed, 2 failed), 21 resolve to a real funder, 35 have no funder_id
+  (each a legitimate, already-terminal `no_funder_id` skip), **0** orphaned
+  funder_id references.
+- `autoapply_queue_processor` **has** completed a run in production this
+  session — see the live-worker test result above
+  (`agent_runs.status = 'skipped'`, not `'failed'` or `'pending'`) — this is
+  real evidence, not an inference from a successful deploy.
+- Current live blocker for `autoapply_queue_processor`, honestly stated:
+  none rising to the level of a bug. Its `agent_runs.status` history is
+  still 100% `'failed'` for every run recorded *before* the 11:18 UTC
+  deploy (a reporting artifact AR-11.1 already fixed in code, just not
+  live until today), and legitimate business-rule skips
+  (`concurrent_automation_conflict`, `org_not_ready`, `cross_client_blocked`)
+  remain the routine, correct outcome for a queue whose test/demo funders
+  and orgs are deliberately under-provisioned. `funder_not_found` itself is
+  now closed at the root.
+
+**Gates:** `pnpm typecheck` — 0 errors. `pnpm run build:worker` — clean.
+`pnpm run build` — clean (155+ routes). `pnpm lint` — 0 warnings/errors.
+`pnpm test` — 904 passed, 0 failed, 13 todo, 1 file skipped (env-gated).
+New `src/__tests__/integration/queue-funder-resolution.test.ts` (3 tests,
+live against production) — all passing: a valid funder resolves via the
+exact lookup shape `processItem()` uses; deleting a funder with a pending
+item cancels it terminally with an alert and removes it from the pending
+poll predicate; an RLS-restricted (anon) read of the same funder returns
+empty-not-error while the service-role client sees it.
+
+**Files changed:** `worker/queue-processor.ts` (funder_not_found alert),
+`supabase/migrations/200_funder_delete_cancels_queue_items.sql` (new,
+applied live), `src/__tests__/integration/queue-funder-resolution.test.ts`
+(new).
+
+---
+
 ## AR-11.4 — Per-agent-class timeouts calibrated from recorded phase data, progress-aware (2026-09-18)
 
 **The premise.** The 2026-09-16 audit found six agent types (`review`,

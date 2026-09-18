@@ -8,11 +8,56 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-11.4: per-agent-class timeouts — DETERMINISTIC/CLAUDE_CALL/MULTI_STEP replace the flat 60s default, calibrated from what AR-7.3's phase recording actually captured (near-zero — every named chronic-timeout agent was already recalibrated by AR-2.1 before this session); a MULTI_STEP-class platform-race defect (several agents' in-process timeout sat exactly at Vercel's 300s hard kill) fixed; stall detection distinguishes a progressing agent from a hung one)
+- **Last updated:** 2026-09-18 (AR-12.1: `funder_not_found` root-caused to `FunderDetail.tsx`'s delete button racing `submission_queue` — a `BEFORE DELETE` trigger on `funders` now cancels dependent queue items terminally and alerts instead of leaving them to fail opaquely; along the way, independently re-verified that AR-7.2's session deadlock is genuinely closed live (0 non-terminal `automation_sessions` rows) and that AR-11.1's skip/fail reclassification — claimed live in its own entry — had never actually run in production until a Railway deploy that landed minutes before this session started; forced and confirmed a real post-deploy run)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-12.1: funder_not_found closed; AR-7.2/AR-11.1 re-verified live)
+
+**Task premise, checked before acting:** partially wrong. AR-7.2's deadlock
+(`automation_sessions` stuck non-terminal forever) IS closed — 0 non-terminal
+rows, confirmed live. But `funder_not_found` was not "6 failures in the last
+3 hours" or the new dominant blocker: it occurred exactly **once**, ever
+(2026-09-18 02:42:18 UTC). `concurrent_automation_conflict` remains the most
+common skip reason (39 in ~26h) — that's the mutual-exclusion check working
+as designed against real contention, not a deadlock recurrence.
+
+**Root cause (found by querying production, not guessed):**
+`src/components/funders/FunderDetail.tsx`'s delete button runs a plain
+client-side `supabase.from("funders").delete()` with zero awareness of
+`submission_queue`. `submission_queue_funder_id_fkey` is `ON DELETE SET
+NULL`, not a block — deleting a funder with a pending queue item silently
+orphans the reference instead of cancelling it; the worker only discovers
+this later when its (correctly service-role, RLS-bypassing — verified, so
+this is not an RLS-conflation bug) funders lookup comes back empty.
+
+**Fix:** `supabase/migrations/200_funder_delete_cancels_queue_items.sql`
+(applied live) — a `BEFORE DELETE ON funders` trigger cancels every
+non-terminal dependent `submission_queue` row with a clear reason and
+raises a `manual_review_required` alert, covering every deletion path, not
+just this one button. `worker/queue-processor.ts` also alerts on the
+residual `funder_not_found` path as a backstop. Verified live via a
+transactional insert→delete→assert→`ROLLBACK` (no data leaked) and via the
+new `src/__tests__/integration/queue-funder-resolution.test.ts` (3 tests,
+live, all passing).
+
+**Bonus finding:** AR-11.1's `agent_runs.status: 'failed'→'skipped'`
+reclassification fix was on `main` for hours but had **zero** live evidence
+of ever executing (0 `'skipped'` rows anywhere, any agent_type, all-time) —
+traced via `railway deployment list` to the worker's current deployment only
+going `Online` at 11:18 UTC, minutes before this session started. Forced a
+real run through the live worker (existing
+`autoapply-queue-live-worker.test.ts`, "unready org" case): confirmed
+`status = 'skipped'` now recorded for the same `org_not_ready` condition
+that recorded `status = 'failed'` pre-deploy at 09:57:33 UTC. Direct
+before/after proof, not an inference. Full detail:
+`STATE_OF_THE_BUILD.md`'s AR-12.1 entry.
+
+**Gates:** `pnpm typecheck`, `pnpm run build:worker`, `pnpm run build`,
+`pnpm lint` all clean. `pnpm test`: 904 passed, 0 failed, 13 todo, 1 file
+skipped.
 
 ## Session — 2026-09-18 (AR-11.4: per-agent-class timeouts, progress-aware)
 
