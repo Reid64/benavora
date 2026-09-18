@@ -8,11 +8,52 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-12.1: `funder_not_found` root-caused to `FunderDetail.tsx`'s delete button racing `submission_queue` — a `BEFORE DELETE` trigger on `funders` now cancels dependent queue items terminally and alerts instead of leaving them to fail opaquely; along the way, independently re-verified that AR-7.2's session deadlock is genuinely closed live (0 non-terminal `automation_sessions` rows) and that AR-11.1's skip/fail reclassification — claimed live in its own entry — had never actually run in production until a Railway deploy that landed minutes before this session started; forced and confirmed a real post-deploy run)
+- **Last updated:** 2026-09-18 (AR-12.2: found and fixed the actual bug blocking `autoapply_queue_processor`'s first completed run — `FormAnalyzerAgent` never navigated the page, and the queue processor only navigated on the cached-template path, so every first analysis of a funder ran against a blank browser page and cached a 0-field template; also cleared orphaned `cross_client_submissions` test debris that was permanently blocking the one safe non-funder test target. Full chain: `test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md`.)
+- **Previously:** 2026-09-18 (AR-12.1: `funder_not_found` root-caused to `FunderDetail.tsx`'s delete button racing `submission_queue` — a `BEFORE DELETE` trigger on `funders` now cancels dependent queue items terminally and alerts instead of leaving them to fail opaquely; along the way, independently re-verified that AR-7.2's session deadlock is genuinely closed live (0 non-terminal `automation_sessions` rows) and that AR-11.1's skip/fail reclassification — claimed live in its own entry — had never actually run in production until a Railway deploy that landed minutes before this session started; forced and confirmed a real post-deploy run)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-12.2: first real completed run, actual root cause found)
+
+**Task:** drive `autoapply_queue_processor` to a real `agent_runs.status =
+'completed'` row (0/55 historically), or name the exact remaining blocker.
+
+**Step 1 — checked, not assumed:** all 55 prior failing runs trace to
+`AUTOAPPLY_*_TEST_*`/`RLS_TEST_ORG_*` orgs — this repo's own integration
+suite exercising each `SkipError` branch on purpose. `automation_sessions`
+has 0 non-terminal rows, `submission_queue` has 0 pending rows — no real
+backlog, no code fix needed for `org_not_ready`/`no_funder_id`/
+`funder_not_found`/`concurrent_automation_conflict`.
+
+**Step 2:** the one path that has ever completed for real —
+`https://httpbin.org/forms/post`, this repo's designated safe non-funder
+test target — was permanently blocked by `checkCrossClientDedup()` seeing
+4 orphaned `cross_client_submissions` rows (owning test orgs long deleted,
+rows never cleaned up). Fixed the test's `afterAll` to clean up after
+itself (`hashOrgId` now exported from `submission-controls.ts`); one-time
+production cleanup of the 4 orphaned rows.
+
+**Step 3 (the actual bug):** seeded a fresh ready org+funder and let the
+real live worker process a real queue item. It ran real browser work
+(~21s) and failed: `"No submit button or control found on the page."`
+Root cause: `FormAnalyzerAgent.analyzeAndStore()` never navigates the
+page — `queue-processor.ts`'s `processItem()` only called `page.goto()` on
+the cached-template path, not on first analysis of a new funder (the
+comment claiming "analyzer already navigated" was simply wrong). Every
+first-ever analysis ran against a blank page, cached a 0-field template as
+"verified," and poisoned every retry within the 7-day staleness window.
+Fixed by moving the navigation to run once, unconditionally, before either
+branch.
+
+**Gates:** `pnpm typecheck`, `pnpm run build:worker`, `pnpm run build`,
+`pnpm lint` all clean. `pnpm test`: 904 passed, 0 failed, 13 todo, 1 file
+skipped — unchanged from the pre-session baseline.
+
+Full step-by-step, error text, and the final live-verified completion:
+`test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md`. `STATE_OF_THE_BUILD.md`'s
+AR-12.2 entry has the full narrative.
 
 ## Session — 2026-09-18 (AR-12.1: funder_not_found closed; AR-7.2/AR-11.1 re-verified live)
 

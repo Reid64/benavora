@@ -959,6 +959,23 @@ gap one step downstream — `funders` had no delete-time awareness of
 `submission_queue`. See the new "`funders` deletion must not orphan
 `submission_queue` rows (AR-12.1, 2026-09-18)" section immediately below.
 
+**What actually blocked the first completed run (AR-12.2, 2026-09-18):**
+none of the above — `org_not_ready`/`no_funder_id`/`funder_not_found`/
+`concurrent_automation_conflict` were all this repo's own integration
+suite exercising `processItem()`'s guard branches on synthetic orgs, not a
+real backlog. The two real blockers: (1) `checkCrossClientDedup()`
+permanently blocking the one safe test target (`httpbin.org`) on orphaned
+`cross_client_submissions` rows a test never cleaned up — fixed the test,
+not the guard; (2) the actual bug — `FormAnalyzerAgent.analyzeAndStore()`
+never navigates the page, and `queue-processor.ts` only called
+`page.goto()` on the cached-template path, so every *first* analysis of a
+funder read a blank browser page and cached a 0-field template. Fixed by
+navigating once, unconditionally, before either branch. If you touch
+`processItem()`'s analysis branch again: the page must already be on
+`portalUrl` before `FormAnalyzerAgent.analyzeAndStore()` runs — that agent
+will silently accept whatever is currently loaded rather than erroring on
+a blank page. Full chain: `test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md`.
+
 ---
 
 ## `funders` deletion must not orphan `submission_queue` rows (AR-12.1, 2026-09-18)

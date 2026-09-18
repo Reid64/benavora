@@ -317,3 +317,25 @@ or killed worker process, which no amount of `try`/`catch`/`finally` can
 protect against. That last class is why `reapStaleAutomationSessions()`
 exists. Full incident detail, the 7 reaped row ids, and per-status threshold
 rationale: `STATE_OF_THE_BUILD.md`'s "AR-7.2" section.
+
+### A test's dummy-target data is not exempt from production guards (AR-12.2, 2026-09-18)
+`SubmissionControls.checkCrossClientDedup()` (a *different* guard from this
+section's mutex — it blocks a new org's submission to a funder domain if a
+*different* org submitted there in the last 7 days, keyed by
+`SHA-256(orgId)` in `cross_client_submissions`) applies with no exception
+to `https://httpbin.org/forms/post`, this repo's own designated safe
+non-funder test target. That is correct — the guard has no way to know a
+domain is "just a test fixture," and must not be taught one, since a
+special-cased domain is exactly the kind of thing that quietly rots into a
+real bypass. The actual lesson: any test that writes to
+`cross_client_submissions` (i.e., drives a real submission all the way
+through) MUST clean up its own rows in `afterAll`, the same as every other
+table it touches — `autoapply-queue-live-worker.test.ts` did not, and its
+orphaned rows (owning orgs long since deleted) permanently blocked every
+future attempt at a real completion by any org, not just future test runs.
+Do not "fix" a cross-client-dedup block on a known-safe domain by touching
+`checkCrossClientDedup()` itself or by special-casing the domain — check
+first whether the blocking rows are orphaned test debris
+(`cross_client_submissions` has no other legitimate source) and, if so,
+delete only those, and fix the test that leaked them. Full incident:
+`STATE_OF_THE_BUILD.md`'s "AR-12.2" section.

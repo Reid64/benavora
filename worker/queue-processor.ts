@@ -1331,6 +1331,28 @@ export class QueueProcessor {
     let autoSessionId: string | null = null;
 
     try {
+      // AR-12.2: FormAnalyzerAgent.analyzeAndStore() does not navigate the
+      // page itself — it only reads whatever is already loaded
+      // (extractPageContent() evaluates document.querySelectorAll('form')
+      // against the current page). This branch used to skip navigation
+      // entirely on the strength of a comment claiming "analyzer already
+      // navigated to the portal," which was never true: on a brand-new
+      // funder (no cached form_templates row, the common case for every
+      // funder this pipeline has never successfully submitted to yet), the
+      // page was still on its post-launch blank state when analysis ran,
+      // so Claude was handed empty forms/page text every time — 0 fields,
+      // 0 form action, and submitForm() below then had no button to find.
+      // Confirmed live: a fresh queue item against a funder with no prior
+      // template produced form_templates.form_structure = {fields: [],
+      // formAction: ""} and failed with "No submit button or control found
+      // on the page." Navigating unconditionally here (once, before either
+      // branch) fixes both paths — the needsReanalysis branch actually sees
+      // the real form, and the cached-template branch's own now-redundant
+      // goto() below is removed rather than left to run twice.
+      broadcastStep('Loading portal');
+      await page.goto(portalUrl!, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      pageLoadPath = await snap('page_load');
+
       broadcastStep('Analyzing form');
       // Analyze the form if no cached template or template is stale
       if (needsReanalysis) {
@@ -1376,9 +1398,6 @@ export class QueueProcessor {
             `was ${existingFieldCount} fields, now ${analyzeResult.fieldCount} fields`,
           );
         }
-
-        // Capture page state after form analysis (analyzer already navigated to the portal)
-        pageLoadPath = await snap('page_load');
       }
 
       // Load current template (just stored or previously cached)
@@ -1435,14 +1454,6 @@ export class QueueProcessor {
             );
           }
         }
-      }
-
-      // For cached templates the FormAnalyzerAgent was skipped, so navigate now.
-      if (!needsReanalysis) {
-        broadcastStep('Loading portal');
-        await page.goto(portalUrl!, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-        // Capture page state immediately after navigation
-        pageLoadPath = await snap('page_load');
       }
 
       // Handle portals that require login or registration before the form is reachable

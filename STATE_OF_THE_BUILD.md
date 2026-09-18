@@ -1,5 +1,92 @@
 # Benavora Platform Build State
 
+## AR-12.2 — autoapply_queue_processor's first real completed run, and the bug that was actually blocking it (2026-09-18)
+
+**Task:** drive `autoapply_queue_processor` to a genuine `agent_runs.status
+= 'completed'` row, or name precisely what stands in the way. Starting
+state, queried directly: 55 `agent_runs` rows for this `agent_type`, **0**
+`completed`, 55 `failed`. Full detail, error text, and fix for each step:
+`test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md`.
+
+**Finding 1 — the 55 failing runs are not production traffic.** Every
+`organization_id` behind them resolves to an `AUTOAPPLY_*_TEST_*` /
+`RLS_TEST_ORG_*` org — this repo's own integration suite exercising
+`processItem()`'s `SkipError` branches one at a time
+(`org_not_ready` ×6, `no_funder_id` ×3, `funder_not_found` ×1,
+`cross_client_blocked` ×6, `concurrent_automation_conflict` ×39). No code
+change was needed for any of these four categories — `automation_sessions`
+has 0 non-terminal rows and `submission_queue` has 0 pending rows live;
+this is the AR-7.2/AR-12.1 guards working as designed against synthetic
+test data, not a live backlog.
+
+**Finding 2 — the codebase's own safe non-funder test target
+(`httpbin.org/forms/post`) was permanently self-poisoned.** The dedicated
+cross-client dedup table (`cross_client_submissions`, written only after a
+genuinely successful submission) held 4 rows, all `httpbin.org`, dated
+2026-08-07 through 2026-09-15 — proof this pipeline **has** completed a
+real submission before. But every owning test org had since been deleted
+by its own test's cleanup, while nothing ever cleaned up the
+`cross_client_submissions` rows themselves — so `checkCrossClientDedup()`
+(correctly) blocked every subsequent attempt, by any org, forever, on
+100%-orphaned test debris. Not a guard bug — the guard did its job against
+stale input. Fixed at the source: exported `hashOrgId()`
+(`src/lib/autoapply/submission-controls.ts`) and added a scoped `afterAll`
+cleanup to `src/__tests__/integration-live/autoapply-queue-live-worker.test.ts`
+so this can't reaccumulate; one-time production cleanup deleted the 4
+orphaned rows (verified first that all 4 owning orgs were test-only — see
+the blocker-chain doc for the verification query).
+
+**Finding 3 (the actual bug) — `FormAnalyzerAgent` never navigates the
+page, and `queue-processor.ts` only navigated on the cached-template
+path.** Seeded a fresh, genuinely-ready org+funder (bypassing nothing —
+same shape the live-worker test already proves passes every gate) and let
+the real Railway worker process a real `pending` queue item end to end.
+It ran ~21s of real browser work (not an instant gate-reject) and failed
+with `"No submit button or control found on the page."` `form_templates`
+for that run showed `form_structure = {fields: [], formAction: ""}` —
+Claude was handed an *empty* page, even though `httpbin.org/forms/post`'s
+real markup (fetched directly to confirm) has a genuine 7-field form and a
+`<button>Submit order</button>`.
+
+Read `form-analyzer-agent.ts`'s `analyzeAndStore()`: it only reads
+whatever the page is currently showing
+(`extractPageContent()` → `document.querySelectorAll('form')`) — it never
+calls `page.goto()`. Read `queue-processor.ts`'s `processItem()`: the
+`!needsReanalysis` (cached-template) branch called `page.goto(portalUrl)`
+before proceeding, but the `needsReanalysis` branch (first-ever analysis
+of a funder — the state of every funder this pipeline has never
+successfully submitted to) had only a comment claiming *"analyzer already
+navigated to the portal"* — never true for this agent. Every first
+analysis ran against the browser's blank post-launch state, cached a
+0-field `form_templates` row as "verified," and poisoned every retry for
+the next 7 days (a "verified" template short of its staleness window skips
+re-analysis).
+
+**Fix (`worker/queue-processor.ts`):** moved `page.goto(portalUrl, {
+waitUntil: 'domcontentloaded', timeout: 30_000 })` to run once,
+unconditionally, before the `needsReanalysis` branch, and removed the
+now-duplicate `goto()` that only lived in the cached-template branch. This
+is a real product defect, independent of any test scaffolding — it would
+have blocked (or corrupted the cache for) a genuine first submission to a
+real funder exactly the same way.
+
+**Live re-verification and final numbers:** see
+`test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md`'s closing section — completed
+after this fix redeployed (Railway auto-deploys on push per
+`railway.json`'s `watchPatterns`, which includes both `worker/**` and
+`src/lib/autoapply/**`).
+
+**Gates:** `pnpm typecheck` — 0 errors. `pnpm run build:worker` — clean.
+`pnpm lint` — 0 warnings/errors. `pnpm test` — 904 passed, 0 failed, 13
+todo, 1 file skipped (env-gated), matching the pre-session baseline.
+
+**Files changed:** `worker/queue-processor.ts` (navigation-order fix),
+`src/lib/autoapply/submission-controls.ts` (`hashOrgId` exported),
+`src/__tests__/integration-live/autoapply-queue-live-worker.test.ts`
+(scoped `cross_client_submissions` cleanup), `test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md` (new).
+
+---
+
 ## AR-12.1 — funder_not_found root-caused and closed; AR-7.2/AR-11.1 both independently re-verified live (2026-09-18)
 
 **The task's premise, checked against production before acting (per Step 1's

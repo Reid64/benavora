@@ -23,7 +23,11 @@ const DAILY_LIMITS: Record<string, number> = {
   consultant: Infinity,
 };
 
-function hashOrgId(orgId: string): string {
+// Exported so callers that need to scope a cleanup or lookup by the same
+// anonymized identity (e.g. a test's afterAll deleting only the
+// cross_client_submissions rows it created) can compute the same hash
+// without duplicating the algorithm.
+export function hashOrgId(orgId: string): string {
   return createHash('sha256').update(orgId).digest('hex');
 }
 

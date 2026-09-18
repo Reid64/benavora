@@ -4,6 +4,7 @@ import ws from "ws";
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
+import { hashOrgId } from "../../lib/autoapply/submission-controls";
 
 // Node 20 has no native WebSocket; mirrors the workaround in
 // src/lib/supabase/admin.ts and the other suites in this directory — without
@@ -262,6 +263,21 @@ async function waitForTerminal(
     // on this pinned supabase-js version's PostgrestFilterBuilder throws
     // synchronously instead of suppressing a rejection, which would abort
     // cleanup partway through.
+    // AR-12.2: a successful "ready org" run writes a row to
+    // cross_client_submissions keyed by SHA-256(orgId) (submission-controls.ts's
+    // recordSubmission) that nothing else in this file deletes. Left in place,
+    // it permanently poisons TARGET_URL's domain for every *other* org that
+    // runs this suite afterward (checkCrossClientDedup blocks on "a different
+    // org submitted to this domain in the last 7 days") — found live 2026-09-18
+    // as 4 accumulated orphaned rows (the owning test orgs long since deleted)
+    // blocking every fresh attempt at a real end-to-end completion. Scoped by
+    // this run's own org hash so it never touches another run's rows.
+    try {
+      await service.from("cross_client_submissions").delete().eq("org_hash", hashOrgId(orgReadyId));
+    } catch {
+      // best-effort cleanup
+    }
+
     for (const funderId of funderIds) {
       try {
         const { data: subs } = await service
