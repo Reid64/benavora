@@ -77,6 +77,7 @@ import {
   causeOf,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import { EligibilityScorer } from "@/lib/agents/eligibility-scorer";
 import { HudMonitorAgent } from "@/lib/agents/hud-monitor";
@@ -213,7 +214,7 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
     // 60s default to 270s to match, leaving a 30s buffer under the 300s
     // Vercel function ceiling (mirrors GrantsGovResearchAgent/
     // SamGovResearchAgent).
-    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.focus = options.focus;

@@ -21,6 +21,7 @@ import {
   BaseAgent,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 import type { AgentType } from "@/types/agents";
@@ -59,7 +60,7 @@ export class EA01GivingDetectorAgent extends BaseAgent<EA01Input, EA01Result> {
   readonly agentType: AgentType = "ea01_giving_detector";
 
   constructor(options: BaseAgentOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
   }
 
   protected async execute(

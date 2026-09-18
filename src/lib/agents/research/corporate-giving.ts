@@ -24,6 +24,7 @@ import {
   BaseAgent,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import { EligibilityScorer } from "@/lib/agents/eligibility-scorer";
 import { checkDuplicate } from "@/lib/agents/research/deduplicator";
@@ -112,7 +113,7 @@ export class CorporateGivingResearchAgent extends BaseAgent<
   private readonly maxTokens: number;
 
   constructor(options: CorporateGivingOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }

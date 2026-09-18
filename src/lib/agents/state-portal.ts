@@ -39,6 +39,7 @@ import {
   BaseAgent,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import {
   PORTAL_REGISTRY,
@@ -126,7 +127,7 @@ export class StatePortalResearchAgent extends BaseAgent<
   readonly agentType: AgentType = "state_portal";
 
   constructor(options: BaseAgentOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
   }
 
   protected async execute(

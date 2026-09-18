@@ -181,6 +181,51 @@ production run.
   precondition) with zero recurrence — no code action taken, logged here
   per Step 5.
 
+## AR-11.4 addendum — timeout calibration (2026-09-18, same day)
+
+Reviewed this ledger's own Cause 3 group (`foundation_research`,
+`local_sponsorship`, `review`, `budget_builder`) plus the two other agents
+the 2026-09-16 audit named (`success_probability`, `government_research`)
+as the AR-11.4 task's starting evidence. Confirms Cause 3 exactly:
+zero timeout recurrence since AR-2.1 raised these off the 60s default
+(2026-09-17), and zero `error_message ILIKE '%phase=%'` rows (AR-7.3's
+post-fix format) at all since AR-7.3 landed later that same day — real
+traffic has run since with 0 failures, so there simply isn't fresh
+per-phase evidence to tune against yet. Full detail and the resulting
+per-class design: `STATE_OF_THE_BUILD.md`'s AR-11.4 entry.
+
+**Watch item, not acted on:** `government_research` timed out once exactly
+at its own 270s ceiling (2026-06-22, `duration_ms=270145`) — a single data
+point, three months stale, zero recurrence since (including through the
+2026-08-04 cluster above, which was a different, already-explained cause).
+One data point is not enough to raise a class ceiling on; noted here so a
+future pass with real recurrence doesn't have to rediscover it.
+
+**Performance finding, not a timeout fix:** `ag-22-propensity-scoring.ts`'s
+`PropensityScoringAgent` makes **9 sequential Claude calls per prospect**
+inside a single run (the file's own existing comment already says so).
+This is a batching/parallelization candidate — 9 round-trips for one
+prospect is the same shape as "40 sequential calls that could be batched"
+AR-11.4's task explicitly warned against widening a window to hide. AR-11.4
+did not raise this agent's ceiling to accommodate it (it was already at
+270s/280s across its two classes; both are now 270s, i.e. *lower* for the
+batch variant, not higher). No code change made to the 9-call design
+itself — flagging it here as the fix that's actually owed, for a session
+scoped to touch `ag-22-propensity-scoring.ts`'s Claude-call pattern rather
+than its timeout.
+
+**Reviewed and deliberately left alone (no evidence basis to change):**
+`custom_api_research`, `grants_gov_research`, `giving_history_extractor`,
+`propublica_mining`, `government_research_usaspending`,
+`simpler_grants_research`, `email_campaign` all make an external network
+call (or loop over several) without calling Claude, and none override
+`BaseAgent`'s 60s default. Live-queried: zero `error_message ILIKE
+'%timed out%'` rows for any of these agent types, ever. Left on the
+DETERMINISTIC-class default rather than moved to MULTI_STEP on suspicion
+alone — matches this task's "do not tune on two data points" instruction
+applied in the conservative direction (no evidence to raise, not just no
+evidence to lower).
+
 ## Method note
 
 Both a direct `psql` connection to `db.vbjplpquqxxfbpazyalt.supabase.co:5432`

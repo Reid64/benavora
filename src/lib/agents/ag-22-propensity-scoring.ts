@@ -46,6 +46,7 @@ import {
   withCause,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import {
   parseClaudeJson,
@@ -420,7 +421,7 @@ export class PropensityBatchScorer extends BaseAgent<AG22BatchInput, AG22BatchRe
   readonly agentType: AgentType = "ag22_propensity_scoring";
 
   constructor(options: BaseAgentOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 280_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
   }
 
   protected async execute(
@@ -510,7 +511,7 @@ export class PropensityScoringAgent extends BaseAgent<AG22Input, AG22Result> {
     // 9 sequential Claude calls per prospect -- BaseAgent's default 60s
     // timeout is too tight. Same 270s ceiling other multi-call agents use
     // (grants-gov.ts, nofa-parser.ts, sam-gov.ts, tdhca-scraper.ts).
-    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
   }
 
   protected async execute(

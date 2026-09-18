@@ -27,6 +27,7 @@ import {
   withCause,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -290,7 +291,7 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
   constructor(options: BaseAgentOptions) {
     // PDF download + Claude extraction can take minutes for large NOFAs.
     // Cap at 270s to leave a 30s buffer under the 300s Vercel function limit.
-    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
   }
 
   protected async execute(

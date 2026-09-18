@@ -9,6 +9,7 @@ import {
   withCause,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_CLAUDE_CALL_MS,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 
@@ -60,7 +61,7 @@ export class SemanticMatchingAgent extends BaseAgent<
   private readonly maxTokens: number;
 
   constructor(options: SemanticMatchingOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 180_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_CLAUDE_CALL_MS });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }

@@ -1,5 +1,165 @@
 # Benavora Platform Build State
 
+## AR-11.4 — Per-agent-class timeouts calibrated from recorded phase data, progress-aware (2026-09-18)
+
+**The premise.** The 2026-09-16 audit found six agent types (`review`,
+`budget_builder`, `success_probability`, `foundation_research`,
+`government_research`, `local_sponsorship`) dying silently on
+`BaseAgent`'s flat 60s `AGENT_TIMEOUT_MS` for months, recorded nowhere.
+AR-7.3 (2026-09-17) made a timeout record its configured limit and the last
+`setPhase()` checkpoint reached, and *deliberately did not change any
+timeout value* — that needed the data this session's recording now
+produces. This session reads that data first, then calibrates.
+
+**Step 1 — what's actually been recorded since AR-7.3 landed (23:02
+2026-09-17): almost nothing, and that's the finding.** Queried
+`agent_runs` live (`vbjplpquqxxfbpazyalt`) for every row with
+`error_message ILIKE '%phase=%'` (AR-7.3's new format) since AR-7.3's
+commit — **zero rows.** Real production traffic has run since (30
+`eligibility_scoring`, 7 `success_probability`, and 20+ other agent types
+completed with 0 failures in that window as of the last query), so this
+isn't "the worker hasn't run" — it's that nothing has actually timed out
+since the phase-recording fix landed. This independently corroborates
+`test-evidence/AGENT_FAILURE_LEDGER.md`'s AR-11.1 finding (same day, written
+before this task): Cause 3 ("Vercel's 60s default function timeout killed
+long Claude generations") is "every failure ... dated 2026-06-11 through
+2026-08-23; zero recurrence since. Confirmed fixed and live." All 13
+historical timeout rows that exist (`error_message ILIKE 'Agent timed out
+after%'`, queried directly, pre-AR-7.3 format with no phase info) predate
+AR-2.1 (2026-09-17), which already raised `review`/`budget_builder`/the
+`*_research` family/`local_sponsorship`/`eligibility_scoring` off the 60s
+default (see AR-2.1's own entry below) — so **every named chronic-timeout
+agent had already been recalibrated before this session started.** Per this
+task's own instruction not to tune on two data points: this session does
+**not** invent new class boundaries from thin air. It (a) formalizes the
+scattered ad-hoc values AR-2.1 already chose into three named, documented
+classes so the rationale is discoverable and consistent, and (b) fixes one
+concrete defect the calibration review surfaced independent of any timeout
+count — see Step 2.
+
+**Step 2 — three per-agent-class ceilings, not one global number.**
+`src/lib/agents/base-agent.ts` now exports:
+
+| Class | Constant | Ceiling | Who | Evidence |
+|---|---|---|---|---|
+| DETERMINISTIC | `AGENT_TIMEOUT_MS` (unchanged) | 60s | No Claude, no browser, no network loop — pure DB/arithmetic (`success_probability`) | 7/7 clean post-AR-7.3 runs at this limit; its 2 historical timeouts (no phase data) predate WGR-170's fix and aren't attributable to this ceiling |
+| CLAUDE_CALL | `AGENT_TIMEOUT_CLAUDE_CALL_MS` (new name, same value) | 180s | One or a few sequential Claude calls, short structured output (`eligibility_scoring`, `semantic-matching`, `compliance-checker`, `email-parser`) | AR-2.1 raised these after `eligibility_scoring`'s only failure was a 291ms overrun of the 60s default (2026-08-24) — "barely too short," not "180s is too short." 30/30 clean since |
+| MULTI_STEP | `AGENT_TIMEOUT_MULTI_STEP_MS` (new name, **lowered** from the several 300_000/280_000 literals that used to sit here) | 270s | Browser automation, multi-page/paginated crawling, or long-form single-call generation (`review`, `budget_builder`, the `*_research` family, `ag-22` propensity scoring, the `ea-*` analyzers, scrapers) | See below |
+
+**The concrete defect found while calibrating, not invented:** several
+`MULTI_STEP`-class agents (`cold-outreach.ts`, `budget-agent.ts`,
+`budget-builder.ts`, most `ea-*-*.ts` analyzers, `final-assembly.ts`,
+`foundation-finder.ts`, `funder-intel.ts`, `grant-summary.ts`,
+`hud-monitor.ts`, `recursive-learning.ts`, `state-portal.ts`,
+`playwright-agent.ts`, `competitor-intel.ts`, `application-cloner.ts`,
+`corporate-scraper.ts`, `custom-scrape.ts`, `housing-specific-scrapers.ts`,
+and the `research/*.ts` family) were hardcoded to `timeoutMs: 300_000` —
+**exactly** the platform's real hard ceiling (`export const maxDuration =
+300` on every route that invokes them, verified live against `vercel.json`
+and each route file). An in-process timeout equal to the platform's own
+kill point means the platform can win that race — and a process the
+platform kills outright records *nothing at all*, reproducing the exact
+"died silently, recorded nowhere" defect this whole initiative exists to
+close, just at the 300s tier instead of the default 60s one. Lowered every
+one of these to 270s (a 30s margin, matching what `review-agent.ts`,
+`government-grants.ts`, `nofa-parser.ts`, `sam-gov.ts`,
+`state-scrapers.ts`, `tdhca-scraper.ts` already used) so this class's own
+graceful, recordable timeout always fires first. Checked against all of
+`agent_runs` before lowering: **no `BaseAgent`-driven run has ever recorded
+a successful completion between 270s and 300s** — this has no evidence of
+cutting off real in-flight work. (The one exception found, `duration_ms =
+303000` on `narrative_drafting`, is a different code path entirely —
+`src/app/api/ai/draft/route.ts` writes that `agent_runs` row directly, not
+through a `BaseAgent` subclass — so it's unaffected by this ceiling either
+way.) One historical run did time out exactly at the 270s ceiling
+(`government_research`, 2026-06-22, `duration_ms=270145`) — a single data
+point three months stale with zero recurrence since. Logged as a watch item
+below, not acted on — that actually is a two-and-fewer-data-point situation.
+All 40+ call sites were mechanically swept to import and reference the two
+named constants instead of a bare literal, so the class and its rationale
+stay discoverable from every call site, not just the definition. A handful
+of agents that make an external network call (ProPublica, USAspending,
+Simpler Grants, Gmail, the org's custom-API connections, grants.gov search)
+but neither call Claude nor loop internally were reviewed and **left on the
+60s default deliberately** — zero timeout evidence for any of them
+(`custom_api_research`, `grants_gov_research`, `giving_history_extractor`,
+etc. — checked live, 0 `error_message ILIKE '%timed out%'` rows for any of
+these types), so there is no evidence basis to move them.
+
+**Step 3 — a progressing agent is not killed at the same threshold as a
+stalled one.** `BaseAgent` gained a stall detector alongside the existing
+ceiling race: once an agent has called `setPhase()` at least once, a new
+phase check must land within `stallMs` (60s for CLAUDE_CALL, 90s for
+MULTI_STEP — `defaultStallMs()`, also exported and documented) or the run
+is rejected early with `code: "stalled"` and a message distinct from a
+ceiling timeout (`"Agent stalled: no progress past phase ... (stall
+threshold=Xms, ceiling=Yms not yet reached)"`). Deliberately **opt-in**:
+the stall check stays off for any agent that never calls `setPhase()` at
+all (`phaseReported` stays `false`) — no regression risk for the ~35
+`BaseAgent` subclasses AR-7.3 did not wire phase reporting into; they keep
+the exact pre-AR-11.4 flat-ceiling-only behavior. DETERMINISTIC gets no
+distinct stall window (`stallMs === timeoutMs`, so the stall timer is
+skipped entirely — a second timer firing at the same instant as the
+ceiling would just be redundant and racy).
+
+**Step 4 — a performance finding, not a wider window.** While reviewing the
+MULTI_STEP class, `ag-22-propensity-scoring.ts`'s own comment already
+names its own defect: `PropensityScoringAgent` makes **9 sequential Claude
+calls per prospect** inside a single 270s-ceilinged run. This session did
+**not** raise its ceiling to accommodate that (it was already at
+270s/280s, now consolidated to 270s — a *lower* number than before for the
+batch variant). Recorded as a performance finding in
+`test-evidence/AGENT_FAILURE_LEDGER.md` instead: 9 sequential round-trips
+for one prospect is a batching/parallelization candidate, not a timeout
+problem, and widening its window would have hidden that instead of fixing
+it.
+
+**Verification.** New suite
+`src/__tests__/unit/agent-timeout-calibration.test.ts` (8 tests): the three
+class constants resolve to their documented ceiling/stall pairs;
+`defaultStallMs()` buckets an arbitrary ceiling correctly; a progressing
+agent (phase advances faster than `stallMs`) survives past its own stall
+threshold and completes; a stalled agent (one phase report, then silence)
+is killed at the stall threshold, well before the ceiling, with a distinct
+`"stalled"` message naming the phase and both thresholds; an uninstrumented
+agent (never calls `setPhase()`) is *not* killed early — it runs the full
+ceiling and fails with `"timed out"`, not `"stalled"`, proving no
+regression for agents without phase telemetry. `src/__tests__/unit/agent-timeouts.test.ts`
+(AR-2.1's static-analysis guard) updated to resolve the two named constants
+to their real values instead of only grepping numeric literals — otherwise
+every file this sweep touched would have false-flagged as missing its
+timeout override. `pnpm typecheck` (root + `worker/tsconfig.json`),
+`pnpm run build`, and `pnpm test` (98 files / 904 tests, 13 todo, 1
+skipped) all pass clean.
+
+**What changed, concretely (old → new):**
+- `300_000` → `AGENT_TIMEOUT_MULTI_STEP_MS` (270,000) on ~24 agents: `cold-outreach.ts`, `application-cloner.ts`, `budget-agent.ts`, `budget-builder.ts`, `competitor-intel.ts`, `corporate-scraper.ts`, `custom-scrape.ts`, `ea-01/02/03/05/06/07/08/09/10-*.ts`, `final-assembly.ts`, `follow-up-generator.ts`, `form-analyzer.ts`, `form-filler.ts`, `foundation-finder.ts`, `funder-intel.ts`, `grant-summary.ts`, `housing-specific-scrapers.ts`, `hud-monitor.ts`, `playwright-agent.ts`, `recursive-learning.ts`, `state-portal.ts`, `research/corporate-giving.ts`, `research/foundation-grants.ts`, `research/local-sponsorship.ts`.
+- `280_000` → `AGENT_TIMEOUT_MULTI_STEP_MS` (270,000) on `ag-22-propensity-scoring.ts`'s `PropensityBatchScorer`.
+- `270_000` (unchanged value) → named `AGENT_TIMEOUT_MULTI_STEP_MS` on `review-agent.ts`, `research/government-grants.ts`, `nofa-parser.ts`, `sam-gov.ts`, `state-scrapers.ts`, `tdhca-scraper.ts`, `ag-22-propensity-scoring.ts`'s `PropensityScoringAgent`.
+- `180_000` (unchanged value) → named `AGENT_TIMEOUT_CLAUDE_CALL_MS` on `eligibility-scorer.ts`, `email-parser.ts`, `compliance-checker.ts`, `semantic-matching.ts`.
+- `60_000` (unchanged, DETERMINISTIC default) — `success_probability` and the reviewed-but-unevidenced networked agents above, untouched.
+- New: `stallMs` per-agent option and the stall detector itself (net-new behavior, not a value change).
+
+**What's still open.** `AutomationWorkerAgent`
+(`src/lib/agents/automation-worker.ts`, doesn't extend `BaseAgent`) has the
+identical flat-ceiling-at-exactly-the-platform-limit shape
+(`PROCESSING_TIMEOUT_MS = 300_000`, route `maxDuration = 300`) — **not
+changed this session.** Unlike the `MULTI_STEP` literals above, this number
+is tied to a documented per-item processing budget
+(`BEHAVIORAL_CONTRACTS §23`, which itself could not be located in the live
+doc — a pre-existing governance gap, not new) rather than an unexplained
+ad-hoc literal, and this agent type carries no timeout-failure evidence in
+this session's data review. Flagged here rather than silently left, since
+the underlying platform-race risk is real and identical in shape to the
+one just fixed. `src/lib/pil/agent-runner.ts` (the separate PIL harness)
+has no in-process timeout mechanism of its own at all — only the 30-minute
+flat `stuck-run-watchdog.ts` sweep catches a hung PIL run. Left untouched:
+zero evidence of PIL agents hitting this failure mode (the watchdog's own
+sweep found stuck rows caused by crash-before-finalize, not by need for a
+tighter or class-varied ceiling), and PIL's per-run "work" varies far more
+unpredictably (open-ended delegation trees) than the fixed-shape work the
+three classes above were calibrated against.
+
 ## AR-10.2 — `adapter_usage_log` retired as a cost writer; the count is one (2026-09-18)
 
 AR-10.1 closed its own scope with a caveat: `adapter_usage_log.api_cost_cents`

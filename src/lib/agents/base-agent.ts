@@ -26,8 +26,89 @@ import { dedupKeys } from "@/lib/alerts/alerts-service";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
-/** Default hard ceiling on a single agent run (AGENTS.md §15). */
+/**
+ * AR-11.4: per-agent-class timeout ceilings. A single global limit across
+ * agents doing wildly different work (AGENTS.md §15's flat 60s) is what let
+ * six agent types die silently for months (2026-09-16 audit) — a Claude
+ * call with SDK-level retries, a multi-page browser crawl, and a single
+ * upsert do not belong under one ceiling. Three classes, calibrated from
+ * what's actually been recorded in agent_runs.error_message (AR-7.3 made a
+ * timeout record its configured limit and last phase reached; before that,
+ * every timeout row read the same bare "Agent timed out after 60s." with no
+ * way to tell which class of work was running).
+ */
+
+/**
+ * DETERMINISTIC class: no Claude call, no browser, no multi-page/external
+ * network loop — pure DB reads/writes/arithmetic. Unchanged from AGENTS.md
+ * §15's original default. success_probability (purely arithmetic, the only
+ * BaseAgent subclass in this class with fresh post-AR-7.3 evidence) ran 7/7
+ * clean at this limit in the first batch of runs recorded after AR-7.3
+ * landed (2026-09-18) — confirms 60s remains correct here. Its 2 historical
+ * timeouts (pre-AR-7.3, no phase recorded) both predate WGR-170's fix and
+ * cannot be attributed to this limit being too short.
+ */
 export const AGENT_TIMEOUT_MS = 60_000;
+
+/**
+ * CLAUDE_CALL class: one or a few sequential Claude calls (with the SDK's
+ * own retry behavior) but no browser automation or multi-page crawl. AR-2.1
+ * (2026-09-17) raised eligibility_scoring/semantic-matching/
+ * compliance-checker/email-parser to this value after live data showed
+ * eligibility_scoring's only recorded failure was a single ~291ms overrun of
+ * the 60s default (2026-08-24, duration_ms=60291) — evidence the call was
+ * "just barely too short for one Claude round trip," not evidence 180s
+ * itself is insufficient. 30 completed / 0 failed eligibility_scoring runs
+ * recorded since (as of 2026-09-18), all well inside this limit.
+ */
+export const AGENT_TIMEOUT_CLAUDE_CALL_MS = 180_000;
+
+/**
+ * MULTI_STEP class: browser automation, multi-page/paginated crawling, or a
+ * multi-call pipeline (budget narrative generation, review, propensity
+ * scoring, the *_research family). Deliberately held to 270s, NOT the
+ * platform's real 300s ceiling (`export const maxDuration = 300` on every
+ * route that invokes these agents — verified live against vercel.json and
+ * each route file) that several of these agents were previously hardcoded to
+ * match exactly: an in-process timeout equal to the platform's own hard kill
+ * point means the platform can win that race, and a process killed by the
+ * platform records nothing at all — reproducing the exact "died silently,
+ * recorded nowhere" defect this whole initiative exists to close, just at
+ * the 300s tier instead of the default 60s one. 270s leaves a 30s margin so
+ * this class's own graceful timeout (which AR-7.3 made recordable) always
+ * fires first. Checked against all of agent_runs before lowering the several
+ * 300_000/280_000 literals that used to sit here: no BaseAgent-driven run
+ * has ever recorded a successful completion between 270s and 300s, so this
+ * has no evidence of cutting off a real in-flight workload. The one
+ * historical run that timed out exactly at this ceiling
+ * (government_research, 2026-06-22, duration_ms=270145) is a single data
+ * point three months stale with zero recurrence since — logged as a watch
+ * item in test-evidence/AGENT_FAILURE_LEDGER.md, not acted on (see AR-11.4:
+ * "do not tune on two data points" — this is one).
+ */
+export const AGENT_TIMEOUT_MULTI_STEP_MS = 270_000;
+
+/**
+ * AR-11.4 Step 3: how long a class can go without a NEW {@link BaseAgent.setPhase}
+ * checkpoint before it's treated as stalled (likely hung) rather than merely
+ * slow (legitimately still working). Only enforced once an agent has called
+ * setPhase() at least once — an agent that never reports phases keeps the
+ * pre-existing flat-ceiling-only behavior unchanged, so this adds zero
+ * regression risk for the ~35 BaseAgent subclasses AR-7.3 did not wire phase
+ * reporting into. The DETERMINISTIC class gets no distinct stall window
+ * (its ceiling is already short enough that a mid-window "no progress"
+ * check would just be a second, redundant timer); CLAUDE_CALL and
+ * MULTI_STEP get 60s/90s respectively — long enough that normal per-page/
+ * per-call cadence (research/*.ts's own pagination loops call setPhase()
+ * once per page, typically well under a minute apart) never trips it, short
+ * enough that a real hang inside a 270s ceiling is caught in well under
+ * half the window instead of only at the very end.
+ */
+export function defaultStallMs(ceilingMs: number): number {
+  if (ceilingMs <= AGENT_TIMEOUT_MS) return ceilingMs;
+  if (ceilingMs <= AGENT_TIMEOUT_CLAUDE_CALL_MS) return 60_000;
+  return 90_000;
+}
 
 /**
  * AR-7.3: extracts the diagnostic parts of a Postgrest/pg error (code,
@@ -83,11 +164,21 @@ export interface BaseAgentOptions {
   /** Profile id that triggered the run; null for automated/scheduled runs. */
   triggeredBy?: string | null;
   /**
-   * Per-run hard timeout in ms. Defaults to {@link AGENT_TIMEOUT_MS} (60s).
-   * Long-running agents (e.g. multi-pass scrapers) raise this toward the
-   * deploy platform's function limit (Vercel 300s).
+   * Per-run hard timeout in ms. Defaults to {@link AGENT_TIMEOUT_MS} (60s,
+   * the DETERMINISTIC class). Agents that call Claude or do browser/
+   * multi-page work should pass {@link AGENT_TIMEOUT_CLAUDE_CALL_MS} or
+   * {@link AGENT_TIMEOUT_MULTI_STEP_MS} rather than a bare literal, so the
+   * class-level rationale documented alongside those constants stays
+   * discoverable from the call site.
    */
   timeoutMs?: number;
+  /**
+   * AR-11.4: how long this agent can go without a new setPhase() checkpoint
+   * before it's treated as stalled rather than merely slow. Defaults to
+   * {@link defaultStallMs} of `timeoutMs`. Only ever matters for agents that
+   * call setPhase() at all — see that function's doc comment.
+   */
+  stallMs?: number;
 }
 
 /** What a subclass's {@link BaseAgent.execute} returns for one run. */
@@ -139,6 +230,8 @@ export abstract class BaseAgent<TInput, TResult> {
   protected readonly triggeredBy: string | null;
   /** This agent's hard run timeout (ms). Overridable via constructor options. */
   protected readonly timeoutMs: number;
+  /** AR-11.4: this agent's stall window (ms). See {@link defaultStallMs}. */
+  private readonly stallMs: number;
   /**
    * AR-7.3: last checkpoint a subclass reported reaching via {@link setPhase}.
    * Read by {@link withTimeout} so a timeout's agent_runs.error_message names
@@ -147,22 +240,36 @@ export abstract class BaseAgent<TInput, TResult> {
    * honest (we genuinely don't know more), just not as precise.
    */
   private phase = "start";
+  /** AR-11.4: wall-clock time of the last setPhase() call, for stall detection. */
+  private phaseChangedAt = Date.now();
+  /**
+   * AR-11.4: true once this agent has called setPhase() at least once. The
+   * stall detector in {@link withTimeout} stays off until this flips —
+   * an agent with no phase telemetry gives us nothing to judge "no progress"
+   * against, so it keeps the pre-AR-11.4 flat-ceiling-only behavior.
+   */
+  private phaseReported = false;
 
   constructor(options: BaseAgentOptions) {
     this.client = options.client;
     this.organizationId = options.organizationId;
     this.triggeredBy = options.triggeredBy ?? null;
     this.timeoutMs = options.timeoutMs ?? AGENT_TIMEOUT_MS;
+    this.stallMs = options.stallMs ?? defaultStallMs(this.timeoutMs);
   }
 
   /**
    * Subclasses call this at meaningful checkpoints inside execute() (e.g.
    * "fetched application", "calling claude", "saving result") so a timeout
-   * has something real to report about progress. Optional — omitting it just
-   * means a timeout reports phase="start".
+   * has something real to report about progress, and so {@link withTimeout}
+   * can tell a still-progressing run apart from a stalled one (AR-11.4).
+   * Optional — omitting it just means a timeout reports phase="start" and
+   * this agent never gets the stall-vs-slow distinction.
    */
   protected setPhase(phase: string): void {
     this.phase = phase;
+    this.phaseChangedAt = Date.now();
+    this.phaseReported = true;
   }
 
   /**
@@ -380,18 +487,24 @@ export abstract class BaseAgent<TInput, TResult> {
   // --- timeout ---------------------------------------------------------------
 
   /**
-   * Reject with an AgentError if `work` exceeds this agent's `timeoutMs`.
-   * AR-7.3: the message now names the configured limit explicitly (not just
-   * the derived seconds) and the last phase {@link setPhase} recorded, so a
-   * timed-out run's agent_runs.error_message says how far execute() got
-   * instead of just "timed out" with zero context — AR-6.3's timeout alert
-   * rule needs this to be a real signal rather than the same opaque string
-   * on every one of six silently-dying agent types.
+   * Reject with an AgentError if `work` exceeds this agent's `timeoutMs`, OR
+   * (AR-11.4) if it goes `stallMs` without a new {@link setPhase} checkpoint
+   * once it has started reporting phases at all — Step 3's "slow vs hung"
+   * distinction. A progressing agent (phase keeps advancing) only ever hits
+   * the ceiling timer; an agent that reports a phase once and then goes
+   * quiet for the whole stall window is very likely hung and gets killed
+   * well before the ceiling, with a distinct `code: "stalled"` so it reads
+   * differently from a genuine ceiling timeout in agent_runs.error_message.
+   * AR-7.3: both messages name the configured limit/threshold explicitly and
+   * the last phase {@link setPhase} recorded, instead of a bare "timed out"
+   * with zero context.
    */
   private withTimeout<T>(work: Promise<T>): Promise<T> {
-    let timer: ReturnType<typeof setTimeout> | undefined = undefined;
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
+    let ceilingTimer: ReturnType<typeof setTimeout> | undefined;
+    let stallTimer: ReturnType<typeof setInterval> | undefined;
+
+    const ceiling = new Promise<never>((_, reject) => {
+      ceilingTimer = setTimeout(() => {
         reject(
           new AgentError(
             `Agent timed out after ${this.timeoutMs / 1000}s (limit=${this.timeoutMs}ms, phase="${this.phase}").`,
@@ -401,8 +514,38 @@ export abstract class BaseAgent<TInput, TResult> {
         );
       }, this.timeoutMs);
     });
-    return Promise.race([work, timeout]).finally(() => {
-      if (timer) clearTimeout(timer);
+
+    const racers = [work, ceiling];
+
+    // Only meaningful when the stall window is strictly shorter than the
+    // ceiling (true for CLAUDE_CALL/MULTI_STEP; the DETERMINISTIC class sets
+    // stallMs === timeoutMs, where a second timer firing at the same instant
+    // would just be redundant and racy against the ceiling timer).
+    if (this.stallMs < this.timeoutMs) {
+      const checkIntervalMs = Math.min(5_000, this.stallMs);
+      const stall = new Promise<never>((_, reject) => {
+        stallTimer = setInterval(() => {
+          if (!this.phaseReported) return; // no telemetry to judge staleness from
+          const sinceLastPhase = Date.now() - this.phaseChangedAt;
+          if (sinceLastPhase >= this.stallMs) {
+            reject(
+              new AgentError(
+                `Agent stalled: no progress past phase "${this.phase}" for ` +
+                  `${Math.round(sinceLastPhase / 1000)}s (stall threshold=${this.stallMs}ms, ` +
+                  `ceiling=${this.timeoutMs}ms not yet reached).`,
+                "stalled",
+                504,
+              ),
+            );
+          }
+        }, checkIntervalMs);
+      });
+      racers.push(stall);
+    }
+
+    return Promise.race(racers).finally(() => {
+      if (ceilingTimer) clearTimeout(ceilingTimer);
+      if (stallTimer) clearInterval(stallTimer);
     });
   }
 }

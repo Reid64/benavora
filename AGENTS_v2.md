@@ -16,21 +16,42 @@ All agent outputs write to the database. Never to local files.
 **Model:** claude-sonnet-4-6 for all agents unless specified.
 **Timeout:** All agent API routes require `export const maxDuration = 300`.
 
-**Per-agent timeout policy (AR-2.1, 2026-09-17):** `BaseAgent`'s own default run
-timeout (`AGENT_TIMEOUT_MS`, `src/lib/agents/base-agent.ts`) is 60s — correct
-for deterministic, non-Claude agents, but too short for any agent that calls
-Claude. Live `agent_runs` showed `review` (4/4 runs, never succeeded),
-`budget_builder`, `foundation_research`, `government_research`, and
-`local_sponsorship` all failing with `"Agent timed out after 60s."`. Every
-`BaseAgent` subclass that imports `@/lib/ai/claude` or `@anthropic-ai/sdk` now
-overrides `timeoutMs` in its constructor: **300000ms (300s)** for
-research/scraping/drafting agents, **180000ms (180s)** for scoring/review/
-classification agents. `src/__tests__/unit/agent-timeouts.test.ts` statically
-enforces this — it fails any `BaseAgent` subclass that calls Claude without a
-`timeoutMs` override above 60000. (`narrative_drafting`, the other agent type
+**Per-agent-class timeout policy (AR-2.1 2026-09-17, calibrated + made
+progress-aware by AR-11.4 2026-09-18):** `BaseAgent`
+(`src/lib/agents/base-agent.ts`) exports three named, documented ceilings
+instead of one global number — a Claude call with retries, a multi-page
+browser crawl, and a single upsert do not belong under one ceiling:
+
+| Class | Constant | Ceiling | Stall window | Who |
+|---|---|---|---|---|
+| DETERMINISTIC | `AGENT_TIMEOUT_MS` | 60s | none (same as ceiling) | No Claude/browser/network loop — pure DB/arithmetic (`success_probability`) |
+| CLAUDE_CALL | `AGENT_TIMEOUT_CLAUDE_CALL_MS` | 180s | 60s | One or a few sequential Claude calls, short structured output (`eligibility_scoring`, `semantic-matching`, `compliance-checker`, `email-parser`) |
+| MULTI_STEP | `AGENT_TIMEOUT_MULTI_STEP_MS` | 270s | 90s | Browser automation, multi-page crawling, or long-form generation (`review`, `budget_builder`, the `*_research` family, `ag-22`, the `ea-*` analyzers, scrapers) |
+
+270s, not 300s, is deliberate: every route invoking a MULTI_STEP agent sets
+`export const maxDuration = 300` — an in-process ceiling equal to that
+platform limit lets the platform win the race, and a platform-killed
+process records nothing at all (AR-11.4 found and fixed ~24 agents that
+were hardcoded to exactly `300_000` for this reason). Every `BaseAgent`
+subclass that imports `@/lib/ai/claude` or `@anthropic-ai/sdk` overrides
+`timeoutMs` in its constructor with one of the two non-default constants
+above (never a bare literal — the class and its rationale should stay
+discoverable from the call site). `src/__tests__/unit/agent-timeouts.test.ts`
+statically enforces this — it fails any `BaseAgent` subclass that calls
+Claude without a `timeoutMs` override above 60000, resolving the named
+constants to their real values. (`narrative_drafting`, the other agent type
 seen orphaning in `agent_runs`, is not a `BaseAgent` subclass — it's called
 directly from `src/app/api/ai/draft/route.ts` and two other routes, which
 already set `export const maxDuration = 300` at the route level.)
+
+**Progress vs. hung (AR-11.4, 2026-09-18):** once an agent has called
+`setPhase()` at least once, `withTimeout()` also enforces a per-class stall
+window (see table above) — a new phase must land within it or the run
+fails early with a distinct `code: "stalled"` error, instead of only ever
+timing out at the full ceiling. A long-running agent that keeps advancing
+phases is never killed by this; only a phase that goes quiet is. Opt-in by
+design: an agent that never calls `setPhase()` keeps the flat
+ceiling-only behavior unchanged.
 
 **Claude concurrency limit (AR-2.1, 2026-09-17):** `narrative_drafting` also
 saw 7 production `429 rate_limit_error` failures ("Number of concurrent

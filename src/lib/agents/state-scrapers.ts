@@ -12,6 +12,7 @@ import {
   BaseAgent,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 
@@ -88,7 +89,7 @@ export class StateScrapersAgent extends BaseAgent<
     // Multi-state HTML scrape + Claude extraction (with inter-fetch delays)
     // needs more than 60s; cap at 270s to leave a 30s buffer under the 300s
     // Vercel function limit.
-    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
   }
 
   protected async execute(): Promise<AgentExecution<StateScrapersResult>> {

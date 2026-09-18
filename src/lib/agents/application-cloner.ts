@@ -12,6 +12,7 @@ import {
   withCause,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 import type { Database } from "@/types/database";
@@ -46,7 +47,7 @@ export class ApplicationClonerAgent extends BaseAgent<
   private readonly maxTokens: number;
 
   constructor(options: ApplicationClonerOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }

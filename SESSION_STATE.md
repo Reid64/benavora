@@ -8,11 +8,65 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-11.3: six `alerts.dedup_key` sites stopped appending `crypto.randomUUID()`, so `uq_alerts_org_dedup` now actually suppresses repeat noise — 61 of 108 live rows checked would have deduped under the new keys)
+- **Last updated:** 2026-09-18 (AR-11.4: per-agent-class timeouts — DETERMINISTIC/CLAUDE_CALL/MULTI_STEP replace the flat 60s default, calibrated from what AR-7.3's phase recording actually captured (near-zero — every named chronic-timeout agent was already recalibrated by AR-2.1 before this session); a MULTI_STEP-class platform-race defect (several agents' in-process timeout sat exactly at Vercel's 300s hard kill) fixed; stall detection distinguishes a progressing agent from a hung one)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-11.4: per-agent-class timeouts, progress-aware)
+
+Six agent types (2026-09-16 audit) died silently on `BaseAgent`'s flat 60s
+`AGENT_TIMEOUT_MS` for months, recorded nowhere. AR-7.3 made a timeout
+record its configured limit and last `setPhase()` checkpoint but
+deliberately left every timeout value unchanged — that needed the data this
+session's recording would produce. Queried `agent_runs` for every row with
+the new phase-annotated format since AR-7.3 landed: **zero.** Real traffic
+ran in that window with 0 failures; nothing has actually timed out since
+the fix landed, and every one of the six named agents had already been
+raised off the 60s default by AR-2.1 the same day, before this session
+started. Per the task's own "don't tune on two data points" instruction,
+this session does not invent new numbers from thin air — it formalizes
+AR-2.1's scattered ad-hoc literals into three named, documented classes
+(`AGENT_TIMEOUT_MS` 60s deterministic, `AGENT_TIMEOUT_CLAUDE_CALL_MS` 180s,
+`AGENT_TIMEOUT_MULTI_STEP_MS` 270s) and fixes one concrete defect the
+calibration review surfaced: ~24 agents were hardcoded to `timeoutMs:
+300_000` — exactly the platform's real `maxDuration = 300` hard kill point,
+meaning the platform could win that race and a platform-killed process
+records nothing at all, reproducing the exact "died silently, recorded
+nowhere" failure this whole initiative targets, just at 300s instead of
+60s. Lowered to 270s (30s margin, matching what six other agents already
+safely used); checked against all of `agent_runs` first — no `BaseAgent`
+run has ever recorded a successful completion between 270s and 300s, so
+this has no evidence of cutting off real work.
+
+**Step 3 (progress vs. hung):** `BaseAgent` gained an opt-in stall
+detector — once an agent calls `setPhase()` at least once, a new phase
+check must land within a stall window (60s/90s by class) or the run fails
+early with a distinct `"stalled"` error naming the phase and both
+thresholds, instead of waiting out the full ceiling. Off by default for any
+agent that never calls `setPhase()` — zero regression risk for the ~35
+agent classes AR-7.3 didn't wire phase reporting into.
+
+**Step 4 (performance, not a wider window):** `ag-22-propensity-scoring.ts`
+makes 9 sequential Claude calls per prospect inside one run — its own
+existing comment already says so. Not widened to accommodate this;
+recorded as a performance finding in `test-evidence/AGENT_FAILURE_LEDGER.md`
+instead (its ceiling was actually *lowered*, 280s→270s, alongside the rest
+of the MULTI_STEP consolidation).
+
+**Verification:** new `src/__tests__/unit/agent-timeout-calibration.test.ts`
+(8 tests) proves the three classes resolve correctly and a progressing
+agent survives past its stall threshold while a stalled one is killed well
+before the ceiling and an uninstrumented one is not killed early.
+`src/__tests__/unit/agent-timeouts.test.ts` (AR-2.1's static guard) updated
+to resolve the two new named constants, not just numeric literals.
+`pnpm typecheck` (root + `worker/tsconfig.json`), `pnpm run build`, and
+`pnpm test` (98 files / 904 tests, 13 todo, 1 skipped) all pass clean. Full
+detail, the old→new value table, and the two documented "left alone"
+findings (`AutomationWorkerAgent`'s identical 300s-vs-300s risk; PIL's
+`agent-runner.ts` has no in-process timeout at all): STATE_OF_THE_BUILD.md's
+AR-11.4 entry.
 
 ## Session — 2026-09-18 (AR-11.3: deterministic, period-scoped dedup keys)
 

@@ -17,6 +17,7 @@ import {
   BaseAgent,
   type AgentExecution,
   type BaseAgentOptions,
+  AGENT_TIMEOUT_MULTI_STEP_MS,
 } from "@/lib/agents/base-agent";
 import type { FieldMappingEntry } from "@/lib/agents/form-analyzer";
 import type { AgentType } from "@/types/agents";
@@ -108,7 +109,7 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
   private readonly maxTokens: number;
 
   constructor(options: FormFillerAgentOptions) {
-    super({ ...options, timeoutMs: options.timeoutMs ?? 300_000 });
+    super({ ...options, timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MULTI_STEP_MS });
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   }
