@@ -7,8 +7,8 @@
 // no `export const dynamic` opt-out, so `next build` evaluated them. Every push
 // since 2026-08-07 emailed a failure. The workflow's own history shows the same
 // class fixed once for the ANON client and never checked for the ADMIN client.
-import { readFileSync, existsSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 const fail = (m) => { console.error("FAIL: " + m); process.exit(1); };
 const WF = ".github/workflows/deploy-check.yml";
@@ -25,15 +25,28 @@ if (!/SUPABASE_SERVICE_ROLE_KEY/.test(wf))
   fail("deploy-check.yml provides no SUPABASE_SERVICE_ROLE_KEY at all - createAdminClient() throws and the build exits 1");
 
 // 3. Routes using the admin client must opt out of static evaluation.
-let hits = "";
-try {
-  hits = execSync(
-    `grep -rl --include=*.ts --include=*.tsx --exclude-dir=node_modules "createAdminClient" src/app || true`,
-    { encoding: "utf8" });
-} catch (e) { hits = e.stdout ?? ""; }
-const files = hits.split("\n").filter(Boolean);
-if (!files.length) fail("no src/app file calls createAdminClient - unexpected; check the grep");
-const missing = files.filter((f) => !/export const dynamic/.test(readFileSync(f, "utf8")));
+//    Walk the tree in pure Node - shelling out to `grep ... || true` is a POSIX
+//    idiom and this gate also runs under cmd.exe on Windows, where both `grep`
+//    and `|| true` are unrecognized and the gate reported a phantom "no files".
+const APP_ROOT = join(process.cwd(), "src", "app");
+if (!existsSync(APP_ROOT)) fail(`${APP_ROOT} not found - run this gate from the repo root`);
+
+function walk(dir, out = []) {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) walk(full, out);
+    else if (/\.(ts|tsx)$/.test(entry)) out.push(full);
+  }
+  return out;
+}
+
+const rel = (f) => f.replace(process.cwd(), "").replace(/^[\\/]/, "").replace(/\\/g, "/");
+const files = walk(APP_ROOT)
+  .filter((f) => /createAdminClient/.test(readFileSync(f, "utf8")))
+  .map(rel);
+if (!files.length) fail("no src/app file calls createAdminClient - unexpected; check the walk");
+// Same anchored pattern the standing guard uses, so the two cannot disagree.
+const missing = files.filter((f) => !/^export const dynamic\s*=/m.test(readFileSync(f, "utf8")));
 if (missing.length)
   fail(`${missing.length} of ${files.length} src/app files call createAdminClient with no 'export const dynamic' - next build will evaluate them:\n       ` +
        missing.slice(0, 6).join("\n       ") + (missing.length > 6 ? `\n       ...and ${missing.length - 6} more` : ""));
