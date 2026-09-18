@@ -9,21 +9,25 @@ export default defineConfig({
       "src/**/*.spec.ts",
       "tests/**/*.test.ts",
     ],
-    exclude: ["node_modules", ".next", "tests/e2e/**", "src/__tests__/integration-live/**"],
+    exclude: [
+      "node_modules",
+      ".next",
+      "tests/e2e/**",
+      "src/__tests__/integration-live/**",
+      // src/__tests__/integration/*.test.ts hit real Playwright browsers, the
+      // live Anthropic API, and a live Supabase project (2026-09-17: the
+      // default `pnpm test` gate - 300s budget, 156 spec files - was killed
+      // by timeout with these files still running; a single one of them,
+      // form-analyzer-filler.test.ts, launches a real browser against
+      // httpbin.org and makes a real Claude call per test). They still run
+      // serialized (see the fileParallelism note in vitest.integration.config.ts,
+      // which is where they moved) via `pnpm test:integration` - just not
+      // inside the fast default suite the gate enforces.
+      "src/__tests__/integration/**",
+    ],
     passWithNoTests: true,
     setupFiles: ["tests/setup.ts"],
     testTimeout: 30000,
-    // Many src/__tests__/integration/*.test.ts files hit the same live
-    // Supabase project, Anthropic API, and Playwright sessions with real
-    // network round-trips. Vitest's default thread pool runs test files
-    // concurrently, so under real-world network jitter these files contend
-    // for the same resources and a different file's hook/test times out each
-    // run (observed 2026-08-22: ag19, autoapply-risk-scoring, and
-    // platform-config-org-scope each timed out in separate full-suite runs,
-    // each passing cleanly standalone). Serializing file execution removes
-    // the contention rather than chasing individual timeout bumps file by
-    // file.
-    fileParallelism: false,
     coverage: {
       provider: "v8",
       thresholds: {
