@@ -5,6 +5,7 @@ import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import { CLAIM_TYPES_BY_DIMENSION, INSTITUTIONAL_ENTITY_TYPES, scoreRelationshipStrength } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import type { EvidenceItem, Prospect, ProspectOpportunity, ProspectOpportunityClassification } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-STR-01 -- Prospect Engagement Strategy Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~854, FAMILY 6 -- STRATEGY &
@@ -70,7 +71,6 @@ import type { EvidenceItem, Prospect, ProspectOpportunity, ProspectOpportunityCl
 // would make a governed decision look like an automatic continuation of this
 // agent's own run.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const LOW_CONFIDENCE_THRESHOLD = 0.4;
 
 export type EngagementObjective = "solicit" | "cultivate" | "monitor" | "research_more";
@@ -247,7 +247,7 @@ export class ProspectEngagementStrategyAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -292,7 +292,8 @@ export class ProspectEngagementStrategyAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

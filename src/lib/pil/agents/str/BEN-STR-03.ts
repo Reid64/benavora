@@ -4,6 +4,7 @@ import { getEvidence } from "@/lib/pil/evidence";
 import { logAction } from "@/lib/pil/audit";
 import { CLAIM_TYPES_BY_DIMENSION, scoreDimension } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import { describeWarmIntroduction, findWarmEdge } from "@/lib/pil/agents/str/shared";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   CultivationMilestone,
   CultivationPlan,
@@ -90,8 +91,6 @@ import type {
 // requesting "A3" here would make canDelegate() return false and fail this
 // run, the same convention BEN-STR-01's header documents for its own
 // BEN-STR-03 delegation.
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 // See this file's own header -- cross-references BEN-QLF-04.ts's private
 // RESEARCH_SUFFICIENCY_THRESHOLD (value 40), which cannot be imported.
@@ -236,7 +235,7 @@ export class CultivationStrategyAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -308,7 +307,8 @@ export class CultivationStrategyAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

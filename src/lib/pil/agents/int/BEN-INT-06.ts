@@ -4,7 +4,6 @@ import {
   getProspectById,
   hostnameOf,
   MAX_DELEGATIONS_PER_RUN,
-  MODEL_TOKEN_UNIT_COST_USD,
   recordIntelligenceEvidence,
   tryModelTokens,
   upsertCounterpartyNode,
@@ -348,7 +347,7 @@ export class FoundationIntelligenceAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts (called inside tryModelTokens); recording it again here would double-count the same tokens.
       error: null,
     };
   }

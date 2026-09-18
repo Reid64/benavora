@@ -3,6 +3,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { getEvidence } from "@/lib/pil/evidence";
 import { logAction } from "@/lib/pil/audit";
 import { CLAIM_TYPES_BY_DIMENSION, scoreDimension, VERIFICATION_WEIGHT } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   CapacityPropensityAssessment,
   EvidenceItem,
@@ -91,7 +92,6 @@ import type {
 // CLAIM_TYPES_BY_DIMENSION.missionAffinity) rather than duplicating BEN-QLF-01's
 // full scoring logic (recency decay, counterevidence penalty, etc.).
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const LOW_CONFIDENCE_DELEGATION_THRESHOLD = 0.6;
 const CAUSE_ASSESSMENT_FRESHNESS_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -147,9 +147,9 @@ function parseDollarAmount(text: string): number | null {
   if (Number.isNaN(raw)) return null;
   const suffix = match[2]?.toLowerCase();
   let multiplier = 1;
-  if (suffix === "million" || suffix === "m") multiplier = 1_000_000;
+  if (suffix === "million" || suffix === "m") multiplier = 1_000_000; // ok: parses a grant-claim dollar amount, not a token-cost rate
   else if (suffix === "thousand" || suffix === "k") multiplier = 1_000;
-  else if (suffix === "billion" || suffix === "b") multiplier = 1_000_000_000;
+  else if (suffix === "billion" || suffix === "b") multiplier = 1_000_000_000; // ok: parses a grant-claim dollar amount, not a token-cost rate
   return Math.round(raw * multiplier);
 }
 
@@ -405,7 +405,7 @@ export class PhilanthropicCapacityPropensityAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -513,7 +513,8 @@ export class PhilanthropicCapacityPropensityAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

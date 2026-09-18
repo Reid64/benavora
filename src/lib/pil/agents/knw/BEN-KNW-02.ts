@@ -5,6 +5,7 @@ import { getNodesByProspect } from "@/lib/pil/graph";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import type { GraphNode, Prospect, ProspectAlias, ResolutionCandidateStatus } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-KNW-02 -- Entity Resolution Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~966, FAMILY 7 -- KNOWLEDGE
@@ -62,7 +63,6 @@ import type { GraphNode, Prospect, ProspectAlias, ResolutionCandidateStatus } fr
 //   gracefully to NotImplementedAgent (agents/index.ts), the same
 //   convention BEN-KNW-01.ts's own BEN-KNW-04 delegation already relies on.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const AUTO_MERGE_THRESHOLD = 0.95;
 const HUMAN_REVIEW_THRESHOLD = 0.7;
 const SENSITIVE_CLAIM_TYPES = new Set(["giving_history", "wealth_capacity"]);
@@ -164,7 +164,7 @@ export class EntityResolutionAgent implements Agent {
       conclusions: { results },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -407,7 +407,8 @@ export class EntityResolutionAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (units <= 0 || !context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

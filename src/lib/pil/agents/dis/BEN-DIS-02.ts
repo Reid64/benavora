@@ -5,7 +5,6 @@ import {
   findExistingProspect,
   findOrCreateProspect,
   hostnameOf,
-  MODEL_TOKEN_UNIT_COST_USD,
   normalizeName,
   parseGoalCriteria,
   recordDiscoveryEvidence,
@@ -309,7 +308,7 @@ export class MajorDonorDiscoveryAgent implements Agent {
       },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts (called inside tryModelTokens); recording it again here would double-count the same tokens.
       error: null,
     };
   }

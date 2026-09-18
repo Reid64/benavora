@@ -5,6 +5,7 @@ import { getNodesByProspect } from "@/lib/pil/graph";
 import { getEvents } from "@/lib/pil/monitoring";
 import { logAction } from "@/lib/pil/audit";
 import { CLAIM_TYPES_BY_DIMENSION, VERIFICATION_WEIGHT, scoreRelationshipStrength } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   EvidenceItem,
   FundingEligibilityAssessment,
@@ -131,7 +132,6 @@ import type {
 //     codebase's established graceful-degradation convention (this run still
 //     completes its own determination from the evidence fallback).
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const ASSESSMENT_FRESHNESS_DAYS = 30;
 const RELATIONSHIP_MATURITY_APPROACH_THRESHOLD = 55;
 const DOCUMENT_READINESS_APPROACH_THRESHOLD = 70;
@@ -380,7 +380,7 @@ export class TimingReadinessAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -511,7 +511,8 @@ export class TimingReadinessAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

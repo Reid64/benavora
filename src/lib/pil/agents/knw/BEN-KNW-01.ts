@@ -5,6 +5,7 @@ import { getNodesByProspect, getEdges } from "@/lib/pil/graph";
 import { logAction } from "@/lib/pil/audit";
 import { nameSimilarity } from "@/lib/pil/agents/knw/BEN-KNW-02";
 import type { EvidenceContradiction, EvidenceItem, GraphNode, ProspectDigitalTwin, ProspectOpportunity } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-KNW-01 -- Prospect Digital Twin Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~945, FAMILY 7 -- KNOWLEDGE
@@ -65,7 +66,6 @@ import type { EvidenceContradiction, EvidenceItem, GraphNode, ProspectDigitalTwi
 // in this run's AgentResult -- none of them change what gets written to
 // pil_prospect_digital_twins in this run.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const DUPLICATE_NAME_SIMILARITY_THRESHOLD = 0.5;
 const UNVERIFIED_VERIFICATION_STATUSES = new Set(["unverified", "single_source_fact"]);
 const COMPLETENESS_CRITIC_THRESHOLD = 0.7;
@@ -316,7 +316,7 @@ export class ProspectDigitalTwinAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -459,7 +459,8 @@ export class ProspectDigitalTwinAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

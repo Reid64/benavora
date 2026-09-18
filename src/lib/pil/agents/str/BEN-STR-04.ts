@@ -6,6 +6,7 @@ import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import { CLAIM_TYPES_BY_DIMENSION, scoreDimension, scoreRelationshipStrength, scoreTimingFromMonitoring } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import type { CultivationPlan, EvidenceItem, ProspectOpportunity } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-STR-04 -- Next-Best-Action Agent
 // (pil_agent_registry, migration 155 line 115, FAMILY 6 -- STRATEGY &
@@ -131,7 +132,6 @@ import type { CultivationPlan, EvidenceItem, ProspectOpportunity } from "@/lib/p
 // opportunity processed (action "next_best_action.recommended", resource_type
 // "pil_prospect_opportunities", resource_id the opportunity id).
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const MAX_BATCH_SIZE = 200;
 const MAX_TOKENS_PER_RUN = 5000;
 const TOKENS_PER_OPPORTUNITY = 300;
@@ -245,7 +245,7 @@ export class NextBestActionAgent implements Agent {
       conclusions: { recommendation },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -269,7 +269,7 @@ export class NextBestActionAgent implements Agent {
       conclusions: { recommendations, batchCapped },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -417,7 +417,8 @@ export class NextBestActionAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (units <= 0 || !context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

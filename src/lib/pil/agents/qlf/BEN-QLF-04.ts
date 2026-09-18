@@ -5,6 +5,7 @@ import { getNodesByProspect } from "@/lib/pil/graph";
 import { getEvents } from "@/lib/pil/monitoring";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   CapacityPropensityAssessment,
   EvidenceItem,
@@ -91,8 +92,6 @@ import type {
 // way by its own callers), so the persisted classification here is the
 // agent's own defensible determination, with critic review recorded as
 // delegated rather than blocking this run.
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 export const VERIFICATION_WEIGHT: Record<EvidenceVerificationStatus, number> = {
   verified_fact: 1,
@@ -521,7 +520,7 @@ export class OpportunityQualificationAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -659,7 +658,8 @@ export class OpportunityQualificationAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

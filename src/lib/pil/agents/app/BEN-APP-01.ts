@@ -5,6 +5,7 @@ import { getNodesByProspect } from "@/lib/pil/graph";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import { scoreRelationshipStrength } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   ApplicationProfile,
   ApplicationProfilePitchParameters,
@@ -158,7 +159,6 @@ import type {
 // assessment next run (BEN-QLF-01/03/05, BEN-REL-06), the same additive
 // hand-off-delegation convention BEN-QLF-04 established.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const FALLBACK_DIMENSION_SCORE = 0.5;
 const CAPACITY_WEIGHT = 0.3;
 const AFFINITY_WEIGHT = 0.3;
@@ -559,7 +559,7 @@ export class ApplicationProfileOrchestratorAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -761,7 +761,8 @@ export class ApplicationProfileOrchestratorAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (units <= 0 || !context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

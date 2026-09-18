@@ -4,6 +4,7 @@ import { getEvidence } from "@/lib/pil/evidence";
 import { getNodesByProspect, getEdges } from "@/lib/pil/graph";
 import { logAction } from "@/lib/pil/audit";
 import type { Prospect } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-SUP-08 -- Executive Intelligence Narrative Agent
 // Synthesizes a completed prospect research run's evidence and knowledge
@@ -21,7 +22,6 @@ import type { Prospect } from "@/lib/pil/types";
 // (every sentence traces to a specific pil_evidence row) rather than
 // dependent on an LLM call reliably following that instruction.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const INFERRED_VERIFICATION_STATUSES = new Set(["reasoned_inference", "estimate"]);
 const LOW_CONFIDENCE_THRESHOLD = 0.4;
 const HIGH_CONFIDENCE_THRESHOLD = 0.6;
@@ -156,7 +156,7 @@ export class ExecutiveIntelligenceNarrativeAgent implements Agent {
       conclusions: { dossier, narrativeText, dossierId: saved.id, version: saved.version },
       delegations: [],
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -253,7 +253,8 @@ export class ExecutiveIntelligenceNarrativeAgent implements Agent {
   private async tryUseTool(context: AgentContext, runner: AgentRunner, tool: string, units: number): Promise<number> {
     if (!context.tools.includes(tool)) return 0;
     try {
-      await runner.useTool(context, tool, { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, tool, { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

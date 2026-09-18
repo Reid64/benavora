@@ -5,6 +5,7 @@ import { getNodesByProspect, getEdges } from "@/lib/pil/graph";
 import { logAction } from "@/lib/pil/audit";
 import { createReviewItem } from "@/lib/pil/human-review";
 import type { AgentRun, EvidenceItem, PolicyDecisionOutcome, ProspectIdentity } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-SUP-05 -- Prospect Research Critic & Red-Team Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 1 -- SUPERVISORY & ORCHESTRATION").
@@ -22,7 +23,6 @@ import type { AgentRun, EvidenceItem, PolicyDecisionOutcome, ProspectIdentity } 
 // pil_agent_runs row under review; context.prospectId identifies the prospect
 // whose pil_evidence/pil_graph_* the review is scored against.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const MIN_CONFIDENCE = 0.3;
 const SPECULATIVE_CONFIDENCE_CEILING = 0.4;
 
@@ -196,7 +196,7 @@ export class ProspectResearchCriticAgent implements Agent {
       conclusions: { report },
       delegations: [],
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -377,7 +377,8 @@ export class ProspectResearchCriticAgent implements Agent {
   private async tryUseTool(context: AgentContext, runner: AgentRunner, tool: string, units: number): Promise<number> {
     if (!context.tools.includes(tool)) return 0;
     try {
-      await runner.useTool(context, tool, { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, tool, { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

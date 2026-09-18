@@ -9,6 +9,7 @@ import {
   VERIFICATION_WEIGHT,
 } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import type { EvidenceItem, MissionAffinityAssessment, Prospect, ProspectOpportunity } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-QLF-01 -- Mission Affinity Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~742, FAMILY 5 -- QUALIFICATION &
@@ -92,7 +93,6 @@ import type { EvidenceItem, MissionAffinityAssessment, Prospect, ProspectOpportu
 // is one of BEN-QLF-04's INSTITUTIONAL_ENTITY_TYPES (an individual donor
 // with no foundation evidence is not a gap; an un-researched foundation is).
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const RECENCY_DECAY_WINDOW_DAYS = 730;
 const LOW_CONFIDENCE_DELEGATION_THRESHOLD = 0.6;
 const COUNTEREVIDENCE_PENALTY_PER_ITEM = 10;
@@ -295,7 +295,7 @@ export class MissionAffinityAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -369,7 +369,8 @@ export class MissionAffinityAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

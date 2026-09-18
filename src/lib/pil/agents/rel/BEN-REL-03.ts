@@ -1,5 +1,5 @@
 import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
-import { callTool, hostnameOf, MODEL_TOKEN_UNIT_COST_USD, recordRelationshipEvidence, tryModelTokens } from "@/lib/pil/agents/rel/shared";
+import { callTool, hostnameOf, recordRelationshipEvidence, tryModelTokens } from "@/lib/pil/agents/rel/shared";
 import { getPilClient } from "@/lib/pil/db";
 import { upsertEdge, upsertNode } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphEdge, GraphNode } from "@/lib/pil/types";
@@ -403,7 +403,7 @@ export class CorporateRelationshipMappingAgent implements Agent {
       },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts (called inside tryModelTokens); recording it again here would double-count the same tokens.
       error: null,
     };
   }

@@ -7,6 +7,7 @@ import { nameSimilarity } from "@/lib/pil/agents/knw/BEN-KNW-02";
 import { VERIFICATION_WEIGHT } from "@/lib/pil/agents/knw/BEN-KNW-03";
 import { CLAIM_TYPES_BY_DIMENSION } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import type { ContradictionResolutionStatus, EvidenceContradiction, EvidenceFreshnessStatus, EvidenceItem } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-KNW-04 -- Contradiction and Freshness Investigator
 // (PROSPECT_INTELLIGENCE_AGENTS.md, FAMILY 7 -- KNOWLEDGE INTEGRITY;
@@ -92,7 +93,6 @@ import type { ContradictionResolutionStatus, EvidenceContradiction, EvidenceFres
 //     src/ tree today (only in PIL_SPEC_WORKING_DIR planning docs) -- that
 //     layer is out of scope until it actually lands.
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Margin a canonicalWeight side must exceed the other by before this agent
@@ -400,7 +400,7 @@ export class ContradictionFreshnessInvestigatorAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -461,7 +461,8 @@ export class ContradictionFreshnessInvestigatorAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

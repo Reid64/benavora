@@ -6,6 +6,7 @@ import { logAction } from "@/lib/pil/audit";
 import { CLAIM_TYPES_BY_DIMENSION, VERIFICATION_WEIGHT } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import { scoreRelationshipStrength } from "@/lib/pil/agents/qlf/BEN-QLF-04";
 import type { EvidenceItem, ProspectOpportunity } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-STR-02 -- Best First Ask Agent
 // (pil_agent_registry, migration 155 line 113, FAMILY 6 -- STRATEGY &
@@ -50,8 +51,6 @@ import type { EvidenceItem, ProspectOpportunity } from "@/lib/pil/types";
 // anything indicating an ask was made, sent, or accepted, so every
 // recommendation it produces must surface for human sign-off before any
 // solicitation happens.
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 // Ask Type thresholds (Roster "Ask Type" dimension). Major-gift asks require
 // both strong capacity AND strong propensity; propensity without strong
@@ -244,7 +243,7 @@ export class BestFirstAskAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -280,7 +279,8 @@ export class BestFirstAskAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

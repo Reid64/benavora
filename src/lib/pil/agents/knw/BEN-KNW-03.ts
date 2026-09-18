@@ -4,6 +4,7 @@ import { getEvidence, detectContradiction, recordContradiction, getProvenanceHas
 import { getNodesByProspect } from "@/lib/pil/graph";
 import { logAction } from "@/lib/pil/audit";
 import type { EvidenceFreshnessStatus, EvidenceItem, EvidenceVerificationStatus } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-KNW-03 -- Evidence & Provenance Verification Agent
 // (PROSPECT_INTELLIGENCE_AGENTS.md line ~987, FAMILY 7 -- KNOWLEDGE
@@ -75,8 +76,6 @@ import type { EvidenceFreshnessStatus, EvidenceItem, EvidenceVerificationStatus 
 //     source_type has zero matching pil_source_registry rows at all is NOT
 //     flagged -- unknown permissibility is intentionally not treated the same
 //     as prohibited.
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 const DEFAULT_TTL_HOURS = 24 * 30; // 30 days
 const TTL_HOURS_BY_SOURCE_TYPE: Record<string, number> = {
@@ -409,7 +408,7 @@ export class EvidenceProvenanceAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -503,7 +502,8 @@ export class EvidenceProvenanceAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

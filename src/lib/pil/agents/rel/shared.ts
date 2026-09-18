@@ -4,6 +4,7 @@ import { getNodesByProspect } from "@/lib/pil/graph";
 import { getTool } from "@/lib/pil/tools";
 import type { ToolResult } from "@/lib/pil/tools";
 import type { AgentContext, AgentRunner } from "@/lib/pil/agent-runner";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   EvidenceEntityTable,
   EvidenceItem,
@@ -20,8 +21,6 @@ import type {
 // searches, so its shared helpers center on path reconstruction and
 // tenant-contact lookups instead of Discovery/Intelligence's
 // goal-parsing/dossier helpers.
-
-export const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 export async function getProspectById(orgId: string, prospectId: string): Promise<Prospect | null> {
   const { data, error } = await getPilClient()
@@ -111,7 +110,8 @@ export async function callTool(
 export async function tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
   if (!context.tools.includes("T-MODEL")) return 0;
   try {
-    await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+    const rate = await pilBlendedTokenRateUsd();
+    await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
     return units;
   } catch {
     return 0;

@@ -6,6 +6,7 @@ import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import { CEO_TRANSITION_KEYWORDS, DENIAL_KEYWORDS, hasWarmIntroPath, scanEvidenceForKeywords } from "@/lib/pil/agents/app/BEN-APP-01";
 import { scoreRelationshipStrength } from "@/lib/pil/agents/qlf/BEN-QLF-04";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   ApplicationProfile,
   ApplicationRecommendationStatus,
@@ -149,8 +150,6 @@ import type {
 // boundary convention exists to flag -- scaled from BEN-APP-01's
 // per-prospect version of the same review type up to this agent's own
 // batch-level output.
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 const SUCCESS_PROBABILITY_WEIGHT = 35;
 const CAPACITY_WEIGHT = 25;
@@ -512,7 +511,7 @@ export class RecommendationPriorityScorerAgent implements Agent {
       conclusions: { report },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -760,7 +759,8 @@ export class RecommendationPriorityScorerAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (units <= 0 || !context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

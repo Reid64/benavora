@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUsageContext } from "@/lib/ai/usage-context";
-import { computeCostUsd } from "@/lib/ai/pricing";
+import { computeCostUsd } from "@/lib/pil/model-pricing";
 import { recordCost } from "@/lib/pil/cost";
 
 // AR-9.2 (recovery): this was originally inline in src/lib/ai/claude.ts, which

@@ -5,6 +5,7 @@ import { listActiveSources } from "@/lib/pil/sources";
 import { logAction } from "@/lib/pil/audit";
 import { createReviewItem } from "@/lib/pil/human-review";
 import type { EvidenceItem, Prospect, ProspectEntityType, SourceType } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-SUP-02 -- Research Strategy Architect
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 1 -- SUPERVISORY & ORCHESTRATION").
@@ -37,8 +38,6 @@ type ResearchDimension =
   | "business_ownership";
 
 const PLANNER_AGENT = "BEN-SUP-03";
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
-
 const DIMENSION_KEYWORDS: Record<ResearchDimension, string[]> = {
   professional_position: ["employer", "position", "title", "career", "employment"],
   wealth_capacity: ["wealth", "capacity", "net_worth", "asset"],
@@ -308,7 +307,7 @@ export class ResearchStrategyArchitect implements Agent {
       conclusions: { plan, infeasibleDimensions },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -322,7 +321,8 @@ export class ResearchStrategyArchitect implements Agent {
   private async tryUseTool(context: AgentContext, runner: AgentRunner, tool: string, units: number): Promise<number> {
     if (!context.tools.includes(tool)) return 0;
     try {
-      await runner.useTool(context, tool, { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, tool, { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

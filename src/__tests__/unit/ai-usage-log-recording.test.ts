@@ -32,7 +32,7 @@ vi.mock("@/lib/ai/usage-context", () => ({
   getUsageContext: vi.fn(),
 }));
 
-vi.mock("@/lib/ai/pricing", () => ({
+vi.mock("@/lib/pil/model-pricing", () => ({
   computeCostUsd: vi.fn(),
 }));
 
@@ -64,7 +64,7 @@ describe("AR-9.2: claude.ts wrapper records cost on every call", () => {
 
   it("callClaude() records a priced call against the active usage context", async () => {
     const { getUsageContext } = await import("@/lib/ai/usage-context");
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     const { recordCost } = await import("@/lib/pil/cost");
     vi.mocked(getUsageContext).mockReturnValue({
       organizationId: ORG_ID,
@@ -94,7 +94,7 @@ describe("AR-9.2: claude.ts wrapper records cost on every call", () => {
 
   it("records cost_usd: null (not 0) for a model missing from model_cost_reference", async () => {
     const { getUsageContext } = await import("@/lib/ai/usage-context");
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     const { recordCost } = await import("@/lib/pil/cost");
     vi.mocked(getUsageContext).mockReturnValue({
       organizationId: ORG_ID,
@@ -124,7 +124,7 @@ describe("AR-9.2: claude.ts wrapper records cost on every call", () => {
 
   it("a failed ai_usage_log write never fails the caller's already-successful AI call", async () => {
     const { getUsageContext } = await import("@/lib/ai/usage-context");
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     const { recordCost } = await import("@/lib/pil/cost");
     vi.mocked(getUsageContext).mockReturnValue({ organizationId: ORG_ID, agentType: "x" });
     vi.mocked(computeCostUsd).mockResolvedValue(0.01);
@@ -138,7 +138,7 @@ describe("AR-9.2: claude.ts wrapper records cost on every call", () => {
 
   it("callClaudeWithTools() and callClaudeWithWebSearch() also record cost", async () => {
     const { getUsageContext } = await import("@/lib/ai/usage-context");
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     const { recordCost } = await import("@/lib/pil/cost");
     vi.mocked(getUsageContext).mockReturnValue({ organizationId: ORG_ID, agentType: "x" });
     vi.mocked(computeCostUsd).mockResolvedValue(0.02);

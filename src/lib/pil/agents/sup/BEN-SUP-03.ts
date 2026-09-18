@@ -3,6 +3,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { logAction } from "@/lib/pil/audit";
 import { getBudgetSummary } from "@/lib/pil/cost";
 import type { AgentRun, AgentRunStatus, CostBudget } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-SUP-03 -- Cross-Agent Research Planner
 // (PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 1 -- SUPERVISORY & ORCHESTRATION").
@@ -41,8 +42,6 @@ const STAGES: PlanStage[] = [
   { stage: 3, agents: ["BEN-REL-01"], dependsOn: 2 },
   { stage: 4, agents: ["BEN-QLF-04"], dependsOn: 3 },
 ];
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 // Redundancy window: a COMPLETED run of the same agent against the same
 // prospect (in any research run for this org) within the last 7 days is
@@ -275,7 +274,7 @@ export class CrossAgentResearchPlanner implements Agent {
       },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -366,7 +365,8 @@ export class CrossAgentResearchPlanner implements Agent {
   private async tryUseTool(context: AgentContext, runner: AgentRunner, tool: string, units: number): Promise<number> {
     if (!context.tools.includes(tool)) return 0;
     try {
-      await runner.useTool(context, tool, { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, tool, { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

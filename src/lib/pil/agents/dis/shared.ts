@@ -4,6 +4,7 @@ import { recordEvidence } from "@/lib/pil/evidence";
 import { getTool } from "@/lib/pil/tools";
 import type { ToolResult } from "@/lib/pil/tools";
 import type { EvidenceItem, EvidenceVerificationStatus, Prospect, ProspectEntityType } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // Shared plumbing for the Discovery family (BEN-DIS-01..05,
 // PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 2 -- DISCOVERY"). The task spec for
@@ -12,8 +13,6 @@ import type { EvidenceItem, EvidenceVerificationStatus, Prospect, ProspectEntity
 // pil_prospects rows ... create pil_evidence rows ... return discovered
 // prospect IDs with confidence scores" -- this module is that shared
 // pattern's implementation, factored out once five concrete callers need it.
-
-export const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 export interface DiscoveryGoalCriteria {
   geography: string | null;
@@ -183,7 +182,8 @@ export async function callTool(
 export async function tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
   if (!context.tools.includes("T-MODEL")) return 0;
   try {
-    await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+    const rate = await pilBlendedTokenRateUsd();
+    await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
     return units;
   } catch {
     return 0;

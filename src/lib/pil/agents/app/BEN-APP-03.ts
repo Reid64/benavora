@@ -5,6 +5,7 @@ import { getNodesByProspect } from "@/lib/pil/graph";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import { CEO_TRANSITION_KEYWORDS, DENIAL_KEYWORDS, hasWarmIntroPath, scanEvidenceForKeywords } from "@/lib/pil/agents/app/BEN-APP-01";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 import type {
   ApplicationProfile,
   CapacityPropensityAssessment,
@@ -167,7 +168,6 @@ import type {
 // can honestly be read from (pil_submission_queue is append-only and never
 // updated after the fact, matching every sibling APP/QLF detail table).
 
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 const TOKENS_PER_REVIEWED_PROSPECT = 220;
 const MAX_BATCH_SIZE = 200;
 
@@ -529,7 +529,7 @@ export class SubmissionOrchestratorAgent implements Agent {
       conclusions: { report, legacyQueueItemsCreated, reviewsCreated },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -942,7 +942,8 @@ export class SubmissionOrchestratorAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (units <= 0 || !context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

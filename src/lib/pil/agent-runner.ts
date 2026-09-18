@@ -217,7 +217,21 @@ export class AgentRunner {
   async useTool(
     context: AgentContext,
     toolName: string,
-    cost: { unitCost: number; units: number; costType?: "model_tokens" | "api_call" | "licensed_data" | "browser_automation" | "storage"; agentRunId?: string | null },
+    cost: {
+      /** AR-10.1: null means the caller resolved a rate and found the model
+       * unpriced (src/lib/pil/model-pricing.ts already raised the
+       * unpriced-model alert) -- never coerce this to 0, or an unmeasured
+       * call becomes indistinguishable from a free one. */
+      unitCost: number | null;
+      units: number;
+      costType?: "model_tokens" | "api_call" | "licensed_data" | "browser_automation" | "storage";
+      agentRunId?: string | null;
+      /** AR-10.1: the real model id for "model_tokens" calls (PIL_AGENT_MODEL
+       * from model-pricing.ts), so the recorded row can trace back to a
+       * model_cost_reference row. Falls back to "unknown" for cost types
+       * that are not a model call at all (api_call/licensed_data/etc). */
+      model?: string;
+    },
   ): Promise<void> {
     if (!context.tools.includes(toolName)) {
       throw new ToolNotPermittedError(toolName, context.agentCode);
@@ -226,17 +240,15 @@ export class AgentRunner {
     // ai_usage_log has no research_run_id/delegated_task_id columns (unlike
     // the superseded pil_cost_ledger) -- that finer-grained attribution is
     // out of scope for AR-5.1's consolidation; pil_agent_run_id is preserved
-    // as the run-attribution column. model is unknown at this call site (a
-    // tool invocation, not necessarily a model call) so it falls back to
-    // "unknown" to satisfy ai_usage_log.model's NOT NULL constraint.
+    // as the run-attribution column.
     await recordCost({
       organization_id: context.orgId,
-      model: "unknown",
+      model: cost.model ?? "unknown",
       endpoint: costType,
       input_tokens: 0,
       output_tokens: 0,
       total_tokens: costType === "model_tokens" ? cost.units : 0,
-      cost_usd: cost.units * cost.unitCost,
+      cost_usd: cost.unitCost === null ? null : cost.units * cost.unitCost,
       duration_ms: null,
       agent_type: toolName,
       agent_run_id: null,
@@ -296,26 +308,14 @@ export class AgentRunner {
       })
       .eq("id", agentRun.id);
 
-    if (tokensUsed > 0 || costUsd > 0) {
-      // model is unknown here (the agent implementation doesn't report which
-      // underlying model it called) -- falls back to "unknown", same as
-      // useTool() above, to satisfy ai_usage_log.model's NOT NULL constraint.
-      await recordCost({
-        organization_id: context.orgId,
-        model: "unknown",
-        endpoint: "model_tokens",
-        input_tokens: 0,
-        output_tokens: 0,
-        total_tokens: tokensUsed,
-        cost_usd: costUsd,
-        duration_ms: null,
-        agent_type: context.agentCode,
-        agent_run_id: null,
-        pil_agent_run_id: agentRun.id,
-        provider: "anthropic",
-        billing_path: "api",
-      });
-    }
+    // AR-10.1: this used to also call recordCost() here with the run's total
+    // tokensUsed/costUsd, writing a SECOND ai_usage_log row for tokens that
+    // useTool()'s T-MODEL calls had already recorded in real time during
+    // execution (every agent that reports nonzero tokensUsed does so via
+    // tryModelTokens()/tryUseTool(), which always calls useTool() first) --
+    // every PIL agent run's cost was double-counted in the ledger. useTool()
+    // is now the sole ai_usage_log writer for a run; this update only
+    // maintains the pil_agent_runs rollup columns above.
 
     await logAction({
       organization_id: context.orgId,

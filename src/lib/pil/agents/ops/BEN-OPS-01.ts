@@ -3,6 +3,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { logAction } from "@/lib/pil/audit";
 import type { AgentRun } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-OPS-01 -- Agent Fleet Performance & Learning Agent
 // (supabase/migrations/155_pil_agent_registry.sql line 122, family
@@ -46,8 +47,6 @@ import type { AgentRun } from "@/lib/pil/types";
 // exists fleet-wide to enforce (see BEN-SUP-07.ts's own SELF_APPROVAL_REVIEW_TYPES
 // check, which would catch a self-approved finding from this agent if one
 // ever slipped through).
-
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 // A single agent_id's run volume must reach this size before it's compared
 // against the fleet median cost or flagged as a failure-rate/cost outlier at
@@ -230,7 +229,7 @@ export class AgentFleetPerformanceAndLearningAgent implements Agent {
       conclusions: { mode, windowDays, agentsEvaluated, proposals, fleetMedianCostUsd },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -296,7 +295,8 @@ export class AgentFleetPerformanceAndLearningAgent implements Agent {
   private async tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
     if (!context.tools.includes("T-MODEL")) return 0;
     try {
-      await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

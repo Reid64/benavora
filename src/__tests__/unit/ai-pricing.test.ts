@@ -30,7 +30,7 @@ describe("AR-9.2: computeCostUsd", () => {
       ]) as unknown as ReturnType<typeof createAdminClient>,
     );
 
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     const cost = await computeCostUsd("claude-sonnet-4-6", 1_000_000, 1_000_000);
     expect(cost).toBeCloseTo(18.0, 6);
   });
@@ -43,7 +43,7 @@ describe("AR-9.2: computeCostUsd", () => {
       ]) as unknown as ReturnType<typeof createAdminClient>,
     );
 
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     const cost = await computeCostUsd("some-future-model-not-seeded", 1000, 1000);
     expect(cost).toBeNull();
   });
@@ -54,7 +54,7 @@ describe("AR-9.2: computeCostUsd", () => {
       mockSelect(null, new Error("connection refused")) as unknown as ReturnType<typeof createAdminClient>,
     );
 
-    const { computeCostUsd } = await import("@/lib/ai/pricing");
+    const { computeCostUsd } = await import("@/lib/pil/model-pricing");
     await expect(computeCostUsd("claude-sonnet-4-6", 1000, 1000)).resolves.toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { upsertNode } from "@/lib/pil/graph";
 import { getTool } from "@/lib/pil/tools";
 import type { ToolResult } from "@/lib/pil/tools";
 import type { EvidenceItem, EvidenceVerificationStatus, GraphNode, GraphNodeType, Prospect } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // Shared plumbing for the Core Prospect Intelligence family (BEN-INT-01..08,
 // PROSPECT_INTELLIGENCE_AGENTS.md "FAMILY 3 -- CORE PROSPECT INTELLIGENCE").
@@ -13,8 +14,6 @@ import type { EvidenceItem, EvidenceVerificationStatus, GraphNode, GraphNodeType
 // prospect's dossier with cited pil_evidence rows -- it never creates a new
 // prospect row itself (spec: "Builds the canonical evidence-backed dossier
 // once a prospect exists ... never a bare, uncited assertion").
-
-export const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
 
 // Bounds per-run delegation fan-out: AgentRunner executes delegations
 // synchronously/inline (agent-runner.ts's delegate()), so an unbounded
@@ -104,7 +103,8 @@ export async function callTool(
 export async function tryModelTokens(context: AgentContext, runner: AgentRunner, units: number): Promise<number> {
   if (!context.tools.includes("T-MODEL")) return 0;
   try {
-    await runner.useTool(context, "T-MODEL", { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+    const rate = await pilBlendedTokenRateUsd();
+    await runner.useTool(context, "T-MODEL", { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
     return units;
   } catch {
     return 0;

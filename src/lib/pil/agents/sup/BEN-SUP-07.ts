@@ -3,6 +3,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { logAction } from "@/lib/pil/audit";
 import { createReviewItem } from "@/lib/pil/human-review";
 import type { AgentDefinition, AgentRun, AutonomyLevel, DelegatedTask, FeatureFlag, HumanReviewItem } from "@/lib/pil/types";
+import { pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
 
 // BEN-SUP-07 -- Autonomy Governor
 // Kill-switch and policy-enforcement supervisor for the Prospect Intelligence
@@ -23,8 +24,6 @@ const AUTONOMY_ORDER: Record<AutonomyLevel, number> = { A0: 0, A1: 1, A2: 2, A3:
 const ACTIVE_RUN_STATUSES = ["queued", "planning", "running", "observing", "replanning"];
 const ACTIVE_DELEGATION_STATUSES = ["pending", "accepted", "running"];
 const SELF_APPROVAL_REVIEW_TYPES = ["autonomy_increase", "policy_exception"];
-const MODEL_TOKEN_UNIT_COST_USD = 0.00002;
-
 export type ViolationType =
   | "autonomy_ceiling_exceeded"
   | "delegation_exceeds_parent"
@@ -176,7 +175,7 @@ export class AutonomyGovernorAgent implements Agent {
       },
       delegations: [],
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts; recording it again here would double-count the same tokens.
       error: null,
     };
   }
@@ -236,7 +235,8 @@ export class AutonomyGovernorAgent implements Agent {
   private async tryUseTool(context: AgentContext, runner: AgentRunner, tool: string, units: number): Promise<number> {
     if (!context.tools.includes(tool)) return 0;
     try {
-      await runner.useTool(context, tool, { unitCost: MODEL_TOKEN_UNIT_COST_USD, units, costType: "model_tokens" });
+      const rate = await pilBlendedTokenRateUsd();
+      await runner.useTool(context, tool, { unitCost: rate, units, costType: "model_tokens", model: PIL_AGENT_MODEL });
       return units;
     } catch {
       return 0;

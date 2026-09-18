@@ -1,5 +1,5 @@
 import type { Agent, AgentContext, AgentResult, AgentRunner, DelegationRequest } from "@/lib/pil/agent-runner";
-import { MODEL_TOKEN_UNIT_COST_USD, tryModelTokens } from "@/lib/pil/agents/rel/shared";
+import { tryModelTokens } from "@/lib/pil/agents/rel/shared";
 import { getPilClient } from "@/lib/pil/db";
 import { getNodesByProspect } from "@/lib/pil/graph";
 import type { EvidenceItem, GraphEdge, GraphNode, RelationshipStrength } from "@/lib/pil/types";
@@ -327,7 +327,7 @@ export class RelationshipStrengthAgent implements Agent {
       },
       delegations,
       tokensUsed,
-      costUsd: tokensUsed * MODEL_TOKEN_UNIT_COST_USD,
+      costUsd: 0, // AR-10.1: real cost already recorded per-call in ai_usage_log by useTool()/T-MODEL via model-pricing.ts (called inside tryModelTokens); recording it again here would double-count the same tokens.
       error: null,
     };
   }
