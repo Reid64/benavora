@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emailSender, type SendOptions } from "@/lib/email/sender";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const RATE_LIMIT = 20;

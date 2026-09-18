@@ -12,6 +12,7 @@ import { createPortalSession } from "@/lib/payments/stripe";
 // client — a cross-tenant admin tool looking INTO one tenant, not that
 // tenant's own RLS-scoped session (mirrors /admin/orgs/[id]/page.tsx).
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type RouteContext = { params: { id: string } };
 

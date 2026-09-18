@@ -12,6 +12,7 @@ import { DraftAutoGenerator } from "@/lib/drafts/auto-generator";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // Non-streaming Claude drafts at max_tokens=8192 take ~180s; allow 3 items.
 export const maxDuration = 300;
 

@@ -25,6 +25,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 //      own organization via the session client (RLS-scoped).
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const THRESHOLDS = [
   { days: 30, flag: "reminder_30d_sent" },

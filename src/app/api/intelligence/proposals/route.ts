@@ -15,6 +15,7 @@ import {
 } from "@/lib/intelligence/proposals-query";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
 

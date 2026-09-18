@@ -21,6 +21,7 @@ import { callClaude } from "@/lib/ai/claude";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const TEMPLATE_LABELS: Record<string, string> = {

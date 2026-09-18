@@ -18,6 +18,7 @@ import { logAudit } from "@/lib/audit/logger";
 // every route, which is a materially larger and more security-sensitive
 // change than one admin button, and not something to introduce silently.
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const COOKIE_NAME = "impersonation_org_id";
 // WGR-074: bounded to 1 hour per STANDING_DIRECTIVES.

@@ -25,6 +25,7 @@ import type { FormField } from "@/types/automation";
 // caller's profile; every read/write is re-scoped by organization_id.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {

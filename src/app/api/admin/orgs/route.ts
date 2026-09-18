@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // §3.2). Every query uses the service-role client with no organization_id
 // filter — cross-tenant by design, mirroring /admin/page.tsx.
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type OrgRow = {
   id: string;

@@ -16,6 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // take up to ~180 s per item (CLAUDE.md memory: AI routes need maxDuration 300).
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 type TypedClient = SupabaseClient<Database>;

@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // /admin/system dashboard. GET is admin-or-owner (same gate as the existing
 // /api/admin/monitor); the destructive POST action is owner-only.
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });

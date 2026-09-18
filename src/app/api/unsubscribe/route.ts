@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmailComplianceEngine } from "@/lib/admin/compliance";
 
+export const dynamic = "force-dynamic";
+
 const compliance = new EmailComplianceEngine();
 
 export async function GET(req: NextRequest): Promise<NextResponse> {

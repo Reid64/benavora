@@ -19,6 +19,7 @@ import {
 // RLS does not protect service-role queries.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {

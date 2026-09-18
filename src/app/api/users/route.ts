@@ -7,6 +7,7 @@ import { USER_ROLES } from "@/lib/utils/constants";
 import type { Enums } from "@/types/database";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type UserRole = Enums<"user_role">;
 

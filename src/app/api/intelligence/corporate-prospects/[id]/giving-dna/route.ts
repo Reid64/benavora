@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateGivingDna } from "@/lib/intelligence/giving-dna";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function jsonError(message: string, status: number) {

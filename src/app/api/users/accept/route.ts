@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Enums } from "@/types/database";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type UserRole = Enums<"user_role">;
 

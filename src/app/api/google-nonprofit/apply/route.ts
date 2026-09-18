@@ -18,6 +18,7 @@ import { emailSender } from "@/lib/email/sender";
 import { isValidEmail, isNonEmpty } from "@/lib/utils/validators";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const STORAGE_BUCKET = process.env.STORAGE_DOCUMENTS_BUCKET ?? "documents";
 

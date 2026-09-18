@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // only a read-only CSV export at /api/admin/sales-analytics/export?type=suppression.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request) {
   const gate = await requireRole("owner");

@@ -9,6 +9,7 @@ import { UnsubscribeAgent } from "@/lib/admin/unsubscribe-agent";
 // Supported events: email.delivered, email.opened, email.bounced, email.complained
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface BounceData {
   type?: string;

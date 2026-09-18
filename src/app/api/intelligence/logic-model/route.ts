@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { generateLogicModel, type GeneratedLogicModel } from '@/lib/intelligence/logic-model-generator'
 
 export const runtime = 'nodejs'
+export const dynamic = "force-dynamic";
 export const maxDuration = 300
 
 function jsonError(message: string, code: string, status: number) {

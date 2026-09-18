@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function getPeriodStart(period: string): string | null {
   const now = new Date();

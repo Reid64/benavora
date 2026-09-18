@@ -44,6 +44,7 @@ import { createResearchRun } from "@/lib/pil/workflow";
 // if Discovery needs those preserved.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const VALID_ENTITY_TYPES = [
   "individual",

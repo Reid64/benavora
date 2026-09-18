@@ -16,6 +16,7 @@ import {
 } from "@/lib/scan/scoring-engine";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Funding Potential Scan intake (/scan). Anonymous, unauthenticated visitors
 // submit this - see supabase/migrations/172_scan_submissions.sql for the RLS

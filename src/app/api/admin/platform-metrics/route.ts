@@ -11,6 +11,7 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Hardcoded per task spec - not the BLUEPRINT §10 SaaS tier prices, which are
 // listed there for the licensable-SaaS pricing page, not this metric.

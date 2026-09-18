@@ -23,6 +23,7 @@ import type { Database, Enums } from "@/types/database";
 // org's funders even though the client bypasses RLS.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type FunderCategory = Enums<"funder_category">;
 type FunderInsert = Database["public"]["Tables"]["funders"]["Insert"];

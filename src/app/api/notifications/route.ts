@@ -20,6 +20,7 @@ import { ctaButton, emailLayout, EMAIL_COLORS } from "@/lib/email/templates/base
 // Contracts §32: 90-day retention; in-app channel; org-scoped by RLS + explicit filter.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const RETENTION_DAYS = 90;
 const VALID_PRIORITIES: NotificationPriority[] = ["urgent", "immediate", "normal"];

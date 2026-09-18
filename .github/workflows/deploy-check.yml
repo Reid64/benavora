@@ -37,6 +37,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # AR-8.1: cheap, fast-failing guard for the exact class of failure this
+      # workflow spent weeks chasing (see the SUPABASE_SERVICE_ROLE_KEY block
+      # below) - runs in seconds, before the 4-minute build, so a missing
+      # `dynamic` export on a new admin route fails fast instead of after a
+      # full build.
+      - name: Guard - admin routes must be force-dynamic
+        run: node scripts/audit/assert-admin-routes-dynamic.mjs
+
       # 2026-08-11: ubuntu-latest's default V8 heap limit (~2GB) OOM'd
       # partway through next build's lint/type-check phase on every single
       # run since re-enabling `push` above — including commits whose actual

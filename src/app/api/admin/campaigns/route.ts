@@ -5,6 +5,7 @@ import { SalesCampaignEngine } from "@/lib/admin/sales-campaign-engine";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request) {
   const gate = await requireRole("owner");

@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // env-var stopgap; that gap was closed (AUDIT_NAV_CONSOLIDATION.md) and they
 // now use requireRole("owner") too.
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type RouteContext = { params: { id: string } };
 

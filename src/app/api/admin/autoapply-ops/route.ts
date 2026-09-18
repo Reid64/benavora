@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Authentication gate ensures only owner/admin callers reach the data queries.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function extractDomain(url: string): string | null {
   try {

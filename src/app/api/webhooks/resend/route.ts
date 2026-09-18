@@ -20,6 +20,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // you want to switch to the SDK later (`pnpm add svix`).
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface ResendWebhookEvent {
   type: string;

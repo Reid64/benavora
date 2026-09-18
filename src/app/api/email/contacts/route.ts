@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { EmailContactExtractor } from "@/lib/email/contact-extractor";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET() {

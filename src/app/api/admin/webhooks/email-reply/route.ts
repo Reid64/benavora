@@ -9,6 +9,7 @@ import { UnsubscribeAgent } from "@/lib/admin/unsubscribe-agent";
 // Classifies the reply intent and triggers the appropriate automated action.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface ResendInboundHeader {
   name: string;

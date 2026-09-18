@@ -29,6 +29,7 @@ import { ReminderEngine } from "@/lib/calendar/reminder-engine";
 // RLS does NOT protect us (Contracts §2, §15).
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // A sweep may email across many orgs; give it headroom beyond the default.
 export const maxDuration = 300;
 

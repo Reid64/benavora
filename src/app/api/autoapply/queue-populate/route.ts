@@ -13,6 +13,7 @@ import { populateQueue } from "@/lib/autoapply/auto-queue-populator";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // Iterates funders with cross-client dedup + domain throttle checks per row;
 // allow the full serverless budget for larger batches.
 export const maxDuration = 300;

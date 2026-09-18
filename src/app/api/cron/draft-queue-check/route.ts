@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // the heavier draft-automation cron or the auto-generator triggered inline.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 type TypedClient = SupabaseClient<Database>;

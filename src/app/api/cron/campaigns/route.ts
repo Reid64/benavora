@@ -19,6 +19,7 @@ import { EmailCampaignAgent } from "@/lib/agents/email-campaign";
 // not protect us (Contracts §2, §15).
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // A sweep may send across many orgs; give it headroom beyond the default.
 export const maxDuration = 300;
 

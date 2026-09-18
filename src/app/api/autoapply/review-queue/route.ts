@@ -27,6 +27,7 @@ import type { Json } from "@/types/database";
 //      so a reviewer knows the full candidate set was larger without seeing it.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface PausedRow {
   id: string;

@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { loadContactOutreachContext, daysFromNow } from "@/lib/outreach/contact-context";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function jsonError(message: string, status: number) {

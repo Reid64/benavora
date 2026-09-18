@@ -17,6 +17,7 @@ import { loadContactOutreachContext, daysFromNow } from "@/lib/outreach/contact-
 import { generateOutreachLetterPDF } from "@/lib/reports/letter-pdf";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const STORAGE_BUCKET = process.env.STORAGE_DOCUMENTS_BUCKET ?? "documents";

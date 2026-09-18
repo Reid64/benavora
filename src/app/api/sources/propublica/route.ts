@@ -16,6 +16,7 @@ import { fetchProPublicaFinancials } from "@/lib/sources/propublica-990-client";
 // its siblings this route does not take an orgId param.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {

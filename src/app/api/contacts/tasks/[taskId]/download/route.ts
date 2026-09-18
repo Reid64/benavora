@@ -9,6 +9,8 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 const STORAGE_BUCKET = process.env.STORAGE_DOCUMENTS_BUCKET ?? "documents";
 
 function jsonError(message: string, status: number) {

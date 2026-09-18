@@ -19,6 +19,7 @@ import { searchSamGovOpportunities } from "@/lib/sources/samgov-client";
 // either inserted as new rows or used to update the matching existing row.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {

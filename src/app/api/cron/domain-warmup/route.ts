@@ -8,6 +8,7 @@ import { WarmupEngine } from "@/lib/admin/warmup-engine";
 // Processes all active sending_domains whose warmup_status is 'warming' or 'frozen'.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 function jsonError(message: string, code: string, status: number) {

@@ -52,6 +52,7 @@ import type { Enums, Json } from "@/types/database";
 // RLS does NOT protect us (Contracts §2, §15).
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // A sweep runs several agents sequentially, each capped at 60s (AGENTS.md §15).
 // Vercel clamps this to the deployment's plan limit; if the function times out
 // mid-sweep, unfinished orgs are simply picked up on the next daily run.

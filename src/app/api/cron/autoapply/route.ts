@@ -5,6 +5,7 @@ import { populateQueue } from "@/lib/autoapply/auto-queue-populator";
 import { sendAutoapplyDigest } from "@/lib/autoapply/digest-email";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const HOUR_MS = 60 * 60 * 1000;

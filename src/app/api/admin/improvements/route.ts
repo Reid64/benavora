@@ -18,6 +18,7 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const VALID_STATUSES = ["proposed", "approved", "rejected", "implemented", "rolled_back"];
 const METRICS_LOOKBACK_DAYS = 7;

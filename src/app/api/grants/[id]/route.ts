@@ -25,6 +25,7 @@ import {
 // `opportunities` table.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });

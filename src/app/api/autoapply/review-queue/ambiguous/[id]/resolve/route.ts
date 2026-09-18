@@ -25,6 +25,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // leakage guard the GET route applies when building the candidate list.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface AmbiguousMatchRow {
   id: string;

@@ -26,6 +26,7 @@ import {
 // recommendation_reasoning back onto the row, and logs to agent_runs.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // The scorer makes a Claude call; give it headroom over the platform default.
 export const maxDuration = 120;
 

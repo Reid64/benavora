@@ -5,6 +5,7 @@ import { DomainManager } from "@/lib/admin/domain-manager";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type RouteContext = { params: { id: string } };
 

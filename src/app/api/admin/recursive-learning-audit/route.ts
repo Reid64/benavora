@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // learned on that run.
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
