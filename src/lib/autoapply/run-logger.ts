@@ -14,7 +14,7 @@
 // failed row is recorded.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { redactSecrets } from "@/lib/orchestration/orchestration-log";
+import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
 
 export interface WithAgentRunOptions {
   supabase: SupabaseClient;
@@ -80,6 +80,56 @@ async function logPatch(
   }
 }
 
+// AR-9.1: orchestration_logs (migration 190, AR-6.2) had exactly zero rows in
+// production despite real AutoApply traffic (autoapply_queue_processor,
+// autoapply_submission_validator, ...) passing through this exact wrapper,
+// because AR-6.2 only ever wired worker/autonomous-orchestrator.ts's
+// agent_queue consumer — a completely separate pipeline this file's own
+// header explicitly says it does NOT depend on. withAgentRun() is the one
+// real step boundary the AutoApply worker pipeline has, so it is the
+// correct place to write one orchestration_logs row per run. Same
+// best-effort contract as the agent_runs logging above: never throws, never
+// masks `work`'s real result — but unlike logStart/logPatch, a failed write
+// here is logged with a fixed "[orchestration_logs]" prefix distinct from
+// the "[agentType]" ones above, so it can never again go unnoticed while
+// this table sits at zero.
+async function writeOrchestrationLog(
+  opts: WithAgentRunOptions,
+  runId: string | null,
+  status: "completed" | "failed",
+  startedAtIso: string,
+  errorMessage?: string,
+): Promise<void> {
+  if (runId === null) return; // no agent_runs row to link — logStart already logged that failure loudly.
+  const finishedAtIso = new Date().toISOString();
+  try {
+    const result = await logOrchestrationStep(opts.supabase, {
+      organizationId: opts.organizationId,
+      orchestrationId: runId,
+      taskId: opts.agentType,
+      agentType: opts.agentType,
+      agentRunId: runId,
+      status,
+      startedAt: startedAtIso,
+      finishedAt: finishedAtIso,
+      durationMs: Date.parse(finishedAtIso) - Date.parse(startedAtIso),
+      errorMessage: errorMessage ?? null,
+      schemaValidationPassed: status === "completed",
+    });
+    if (!result.ok) {
+      console.error(
+        `[orchestration_logs] WRITE FAILED for ${opts.agentType} run ${runId}: ${result.error}`,
+      );
+    }
+  } catch (e) {
+    console.error(
+      `[orchestration_logs] WRITE THREW for ${opts.agentType} run ${runId}: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+}
+
 /**
  * Runs `work`, logging an agent_runs row: inserted as 'running' before work
  * starts, patched to 'completed' (with duration_ms + output_summary) on
@@ -90,26 +140,29 @@ export async function withAgentRun<T>(
   opts: WithAgentRunOptions,
   work: () => Promise<T>,
 ): Promise<T> {
-  const startedAt = Date.now();
+  const startedAtMs = Date.now();
+  const startedAtIso = new Date(startedAtMs).toISOString();
   const runId = await logStart(opts);
 
   try {
     const result = await work();
     await logPatch(opts.supabase, opts.agentType, runId, {
       status: "completed",
-      duration_ms: Date.now() - startedAt,
+      duration_ms: Date.now() - startedAtMs,
       output_summary: summarizeResult(result),
       completed_at: new Date().toISOString(),
     });
+    await writeOrchestrationLog(opts, runId, "completed", startedAtIso);
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await logPatch(opts.supabase, opts.agentType, runId, {
       status: "failed",
-      duration_ms: Date.now() - startedAt,
+      duration_ms: Date.now() - startedAtMs,
       error_message: redactSecrets(message),
       completed_at: new Date().toISOString(),
     });
+    await writeOrchestrationLog(opts, runId, "failed", startedAtIso, redactSecrets(message));
     throw err;
   }
 }

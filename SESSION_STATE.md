@@ -8,11 +8,50 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-8.1: CI build parity — placeholder service-role key, force-dynamic on admin routes, fail-fast guard)
+- **Last updated:** 2026-09-18 (AR-9.1: orchestration_logs actually captures real production runs)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-9.1: orchestration_logs actually captures)
+
+`orchestration_logs` (AR-6.2, migration 190) had zero rows, all time, live-verified at session start
+despite 184 real `agent_runs` in the prior 3 hours. Two causes: (1) the one instrumented path
+(`worker/autonomous-orchestrator.ts`'s `agent_queue` consumer) is fed by a once-daily ~4-minute burst
+that simply hadn't fired since AR-6.2 deployed — confirmed self-resolving mid-session when that
+burst fired live and rows climbed 0 → 29 with zero code changes from us; (2) the platform's actual
+highest-volume traffic (`ag-29-knowledge-indexer`'s 24/7 poll loop — 178 of 184 measured runs — plus
+the AutoApply worker pipeline) runs through `src/lib/agents/autonomous-base.ts` /
+`src/lib/autoapply/run-logger.ts` / `src/lib/agents/base-agent.ts`, entirely outside
+`worker/autonomous-orchestrator.ts`, and was never instrumented — a real, permanent, structural gap,
+confirmed still at exactly 0 rows for those agent_types even while cause #1's rows were live-arriving
+in the same query.
+
+**Fix:** all three shared boundaries now call `logOrchestrationStep()` directly, one row per real
+step; a failed/thrown write is caught, never breaks the real result, and logs a loud, greppable
+`[orchestration_logs] WRITE FAILED/THREW` line instead of disappearing. New migration 196 adds the
+`authenticated`+org-scoped `INSERT` policy AR-6.2 correctly omitted at the time (no authenticated
+write path existed until this session's `base-agent.ts` change created one) — **not yet applied
+live**, both `DATABASE_URL`/`psql` and the Management API PAT were dead this session (same recurring
+flap as AR-6.1/AR-7.1); does not block the fix itself, since both real live traffic sources use the
+service-role client (RLS-exempt).
+
+**Gates:** `pnpm typecheck` 0 errors, `pnpm run build:worker` 0 errors, `pnpm build` exit 0,
+`pnpm lint` 0 errors, `pnpm test` 92 files / 869 tests passed (1 pre-existing unrelated skip), zero
+regressions. New `src/__tests__/unit/orchestration-logs-real-traffic.test.ts` (9 assertions).
+
+**NOT YET LIVE-VERIFIED POST-DEPLOY.** This fix is committed and pushed to `main`. Railway
+auto-deploys from GitHub on every push with no manual step (per this prompt's own framing) — the next
+`ag-29-knowledge-indexer` poll pass (≤60s after the new build is live) or AutoApply queue pass should
+produce the first-ever `orchestration_logs` row for those `agent_type`s. **Next session (or later
+this one): re-query `orchestration_logs` for `agent_type IN ('ag-29-knowledge-indexer',
+'autoapply_queue_processor', 'autoapply_submission_validator')` — if still 0 more than a few minutes
+after the push, treat that as a real signal (Railway build failure, or a build that skipped because
+"no changes to watched files" per this prompt's own noted Railway history pattern) and investigate,
+don't assume success.** Full root-cause writeup: STATE_OF_THE_BUILD.md's AR-9.1 entry. Migration 196
+still needs manual application once a working DB credential is available (see BLUEPRINT_v2.md §10 for
+symptom, §11 for credentials last tried).
 
 ## Session — 2026-09-18 (AR-8.1: CI build parity)
 

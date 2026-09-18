@@ -1,5 +1,115 @@
 # Benavora Platform Build State
 
+## AR-9.1 — `orchestration_logs` actually captures real production runs (2026-09-18)
+
+**The defect, in full.** `orchestration_logs` (migration 190, AR-6.2) had **zero rows, all time**,
+re-checked live at the start of this session — despite 184 real `agent_runs` rows (178 `completed`)
+in the prior 3 hours, and despite AR-6.2 having shipped "wired at 25 boundaries covering 51/52
+distinct step types" hours earlier. Same defect class as AutoApply writing `status='submitted'` with
+no confirmation number: a claim about the code that nobody checked against the running system —
+except this time it was in the layer whose entire job is producing that evidence.
+
+**Root cause: two distinct problems, not one.**
+
+1. **Timing — bursty traffic, self-resolving, but genuinely misleading in the meantime.** The
+   *only* path AR-6.2 instrumented is `worker/autonomous-orchestrator.ts`'s `agent_queue` consumer.
+   Its dominant feed, `runOrgPipeline()`'s nightly sweep, runs once a day for about 4 minutes, not
+   continuously — the prior `agent_queue` row before this session was queued `2026-09-17T07:01:19Z`,
+   and the next batch didn't queue until `2026-09-18T07:00:48Z`, almost exactly 24h later. AR-6.2
+   deployed into that ~24h gap, so its first opportunity to write a row hadn't arrived yet when this
+   session started checking. **Live-verified mid-session, unprompted by any code change of ours:**
+   at 07:00:48 UTC the nightly batch queued, and `orchestration_logs` climbed from 0 → 21 → 27 → 29
+   rows in real time, all under the exact 16 step types AR-6.2's `runOrgPipeline()` wiring documents
+   (`discovery`, `eligibility_scoring`, `probability_scoring`, `draft_generation`, `reputation`,
+   `deadline_prediction`, `document_expiry`, `fundability_scorer`, `donor_intent`, ...). That part of
+   AR-6.2's wiring is correct and does work — it just had nothing to prove it until this session
+   happened to still be open when the day's only window arrived.
+2. **Structural — a real, permanent gap, unrelated to timing.** The platform's actual highest-volume
+   traffic never goes through `worker/autonomous-orchestrator.ts` at all, and AR-6.2 never touched it:
+   - `src/lib/agents/autonomous-base.ts` (`AutonomousAgent.startRun()`/`completeRun()`/`failRun()`) —
+     26 subclasses. `ag-29-knowledge-indexer`'s dedicated 24/7 poll loop
+     (`worker/knowledge-indexer-processor.ts`, 60s cadence, started independently in
+     `worker/index.ts`) alone produced 178 of the 184 `agent_runs` measured in the 3h window used for
+     this audit.
+   - `src/lib/autoapply/run-logger.ts` (`withAgentRun()`) — the entire AutoApply worker pipeline
+     (`worker/queue-processor.ts`, `autoapply_queue_processor`/`autoapply_submission_validator`/...,
+     the other 6 of the 184 measured runs). This file's own header explicitly documents it as a
+     standalone reimplementation that does *not* depend on `worker/autonomous-orchestrator.ts`.
+   - `src/lib/agents/base-agent.ts` (`BaseAgent.run()`) — the on-demand agent fleet (eligibility
+     scoring, research, draft generation, ...) triggered from API routes, either under a session
+     client or the service-role client depending on caller.
+   Live-confirmed at the same moment the nightly batch was writing real rows under cause #1:
+   `orchestration_logs` had (and, pre-fix, would always have) exactly 0 rows with
+   `agent_type = 'ag-29-knowledge-indexer'` and 0 with `agent_type IN
+   ('autoapply_queue_processor', 'autoapply_submission_validator')` — proving this is not a sampling
+   artifact of cause #1, it is a real, permanent, structural gap.
+
+**Fix — instrument the code the traffic actually takes, not the path the design assumed.** All three
+shared boundaries above now call `logOrchestrationStep()`
+(`src/lib/orchestration/orchestration-log.ts`, unchanged — same typed writer AR-6.2 built, same
+redaction) directly, one row per real step:
+- `autonomous-base.ts`: `startRun()` now records `started_at` per open run id (a poll-loop processor
+  reuses one agent instance across many `run()` passes, so this can't be a single instance field);
+  `completeRun()`/`failRun()` each write one `orchestration_logs` row using `orchestration_id =
+  agent_run_id` (there is no broader "orchestration" concept above a single agent run in this class).
+- `run-logger.ts`: `withAgentRun()` writes one row alongside its existing `agent_runs`
+  insert/patch, same pattern.
+- `base-agent.ts`: `BaseAgent.run()` writes one row alongside its existing `agent_runs`
+  insert/patch, same pattern.
+
+**Failure is now loud, not silent (the actual ask of this prompt's Step 3).** Every new write is
+wrapped in try/catch; a failed or thrown `orchestration_logs` insert never throws into the caller and
+never touches the real `agent_runs` result — but it does emit
+`console.error("[orchestration_logs] WRITE FAILED/THREW for <agentType> run <id>: <reason>")`, a
+fixed, greppable prefix distinct from this file's existing `[<agentType>]` logging lines. Verified
+against the *existing*, untouched test suite: two pre-existing tests
+(`government-grants-orchestration.test.ts`, `autoapply-queue-gating.test.ts`) use generic mocked
+Supabase clients that don't special-case the `orchestration_logs` table — running them post-fix now
+prints exactly this `[orchestration_logs] WRITE FAILED` line to stderr while the tests themselves
+still pass, which is the design working as intended: the write failed, it said so loudly, and it did
+not touch the wrapped work's real result.
+
+**New migration `196_orchestration_logs_authenticated_insert.sql`.** AR-6.2's migration 190 shipped
+`orchestration_logs` with a `SELECT`-only RLS policy on the explicit, stated assumption that "there
+is no authenticated write path to bypass" — correct at the time, since only the service-role worker
+wrote here. Instrumenting `base-agent.ts` makes that assumption false: `BaseAgent.run()` is
+documented to run under either the service-role client or a session client depending on caller.
+Migration 196 adds `FOR INSERT WITH CHECK (organization_id = public.current_org_id())` for
+`authenticated`, matching `agent_runs_org_isolation`'s existing pattern (migration 001) exactly, so a
+session-client insert can only ever write its own org's row. **NOT YET APPLIED LIVE** — both
+`DATABASE_URL`/`psql` (`28P01` password auth failure) and the §11 Management API PAT (`401`) were
+dead this session, the same recurring flap noted in AR-6.1/AR-7.1. This does not block the primary
+fix: the two real, currently-live traffic sources (`ag-29-knowledge-indexer`, AutoApply) both run
+under the service-role client, which bypasses RLS entirely regardless of this policy. Apply migration
+196 once a working DB credential is available; until then, any `BaseAgent.run()` invoked under a
+session client will write a loud `[orchestration_logs] WRITE FAILED` line instead of a row (correct,
+visible degraded behavior — not a silent gap).
+
+**New test:** `src/__tests__/unit/orchestration-logs-real-traffic.test.ts`, 9 assertions with mocked
+Supabase clients (matches this repo's existing convention for these three classes, e.g.
+`agent-silent-failure-alert.test.ts`, `autoapply-run-logger.test.ts`) — covers all three boundaries
+writing a correctly-scoped `completed` row, a correctly-scoped `failed` row with the error message,
+and (for `AutonomousAgent`/`withAgentRun`) that a failing `orchestration_logs` write is loud via
+`console.error` and never breaks the real result.
+
+**Gates, real numbers.** `pnpm typecheck` — 0 errors. `pnpm run build:worker` — 0 errors.
+`pnpm run build` — succeeded, full route manifest emitted. `pnpm lint` — 0 warnings/errors.
+`pnpm test` (full suite) — **92 test files passed, 1 skipped (pre-existing, unrelated), 869 tests
+passed, 13 todo** — zero regressions.
+
+**Live orchestration_logs count, before/after this session's investigation (not yet reflecting this
+fix's deploy):**
+- At session start: **0 rows, all time.**
+- Mid-session, during the nightly `agent_queue` burst (cause #1 above, pre-existing AR-6.2 code,
+  zero changes from this session): climbed **0 → 21 → 27 → 29** rows in real time, all from the
+  16 already-instrumented `runOrgPipeline()` step types.
+- `agent_type IN ('ag-29-knowledge-indexer', 'autoapply_queue_processor',
+  'autoapply_submission_validator')` (the structural gap this session's code changes target):
+  **still 0** at time of writing — this fix has been committed and pushed but **not yet observed
+  live**, because it requires a Railway redeploy the next `ag-29-knowledge-indexer` poll pass (≤60s
+  after redeploy) or AutoApply queue pass will exercise. **This is stated plainly rather than
+  claimed as verified** — see SESSION_STATE.md for the redeploy-verification follow-up.
+
 ## AR-8.1 — CI build parity: placeholder service-role key, force-dynamic on admin routes, fail-fast guard (2026-09-18)
 
 **The defect, in full.** Reid received a "[Reid64/benavora] Run failed:

@@ -15,7 +15,7 @@
 // jsonb column, so `metadata` passed to createNotification is not persisted.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { redactSecrets } from "@/lib/orchestration/orchestration-log";
+import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
 
 export const AUTONOMOUS_HARD_LIMITS = {
   NEVER_SUBMIT_EXTERNALLY: true,
@@ -76,10 +76,76 @@ export abstract class AutonomousAgent {
   protected agentId: string;
   protected supabase: SupabaseClient;
 
+  /** started_at (ISO) per open agent_runs id, so completeRun()/failRun() can
+   * report a real duration to orchestration_logs. A single agent instance is
+   * reused across many run() passes by the poll-loop processors (e.g.
+   * worker/knowledge-indexer-processor.ts), so this must be keyed by runId,
+   * not a single instance field. */
+  private runStartedAt = new Map<string, string>();
+
   constructor(orgId: string, agentId: string, supabase: SupabaseClient) {
     this.orgId = orgId;
     this.agentId = agentId;
     this.supabase = supabase;
+  }
+
+  /**
+   * AR-9.1: orchestration_logs (migration 190, AR-6.2) had exactly zero rows
+   * in production despite 178+ real runs/3h through this exact class,
+   * because AR-6.2 only wired worker/autonomous-orchestrator.ts's
+   * agent_queue consumer — a path fed solely by on-demand trigger routes
+   * that had queued nothing for 24+ hours. The actual high-volume traffic
+   * (every AutonomousAgent subclass, e.g. ag-29-knowledge-indexer's 24/7
+   * poll loop) runs entirely through startRun()/completeRun()/failRun()
+   * below and was never instrumented. This writes one orchestration_logs
+   * row per completeRun()/failRun() call — the real step boundary this
+   * class actually has.
+   *
+   * Never throws and never masks the caller's real result: an observability
+   * write that silently swallowed its own failure is exactly the defect
+   * class this exists to fix, so a failed or thrown write is logged at
+   * error level with a fixed, greppable "[orchestration_logs]" prefix
+   * instead of disappearing.
+   */
+  private async writeOrchestrationLog(params: {
+    runId: string;
+    status: "completed" | "failed";
+    itemsExpected?: number | null;
+    itemsProcessed?: number | null;
+    errorMessage?: string | null;
+  }): Promise<void> {
+    const startedAt = this.runStartedAt.get(params.runId) ?? new Date().toISOString();
+    this.runStartedAt.delete(params.runId);
+    const finishedAt = new Date().toISOString();
+
+    try {
+      const result = await logOrchestrationStep(this.supabase, {
+        organizationId: this.orgId,
+        orchestrationId: params.runId,
+        taskId: this.agentId,
+        agentType: this.agentId,
+        agentRunId: params.runId,
+        status: params.status,
+        startedAt,
+        finishedAt,
+        durationMs: Date.parse(finishedAt) - Date.parse(startedAt),
+        itemsExpected: params.itemsExpected ?? null,
+        itemsProcessed: params.itemsProcessed ?? null,
+        errorMessage: params.errorMessage ?? null,
+        schemaValidationPassed: params.status === "completed",
+      });
+      if (!result.ok) {
+        console.error(
+          `[orchestration_logs] WRITE FAILED for ${this.agentId} run ${params.runId}: ${result.error}`,
+        );
+      }
+    } catch (e) {
+      console.error(
+        `[orchestration_logs] WRITE THREW for ${this.agentId} run ${params.runId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
   }
 
   /**
@@ -134,6 +200,7 @@ export abstract class AutonomousAgent {
     triggerSource: TriggerSource,
     inputParams?: Record<string, unknown>,
   ): Promise<string> {
+    const startedAt = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("agent_runs")
       .insert({
@@ -142,7 +209,7 @@ export abstract class AutonomousAgent {
         status: "running",
         trigger_source: triggerSource,
         input_params: inputParams ?? {},
-        started_at: new Date().toISOString(),
+        started_at: startedAt,
       })
       .select("id")
       .single();
@@ -152,7 +219,9 @@ export abstract class AutonomousAgent {
         `Failed to start agent run: ${error?.message ?? "no row returned"}`,
       );
     }
-    return (data as { id: string }).id;
+    const runId = (data as { id: string }).id;
+    this.runStartedAt.set(runId, startedAt);
+    return runId;
   }
 
   /** Marks an agent_runs row completed with whatever summary fields apply.
@@ -197,6 +266,14 @@ export abstract class AutonomousAgent {
 
     await this.supabase.from("agent_runs").update(patch).eq("id", runId);
 
+    await this.writeOrchestrationLog({
+      runId,
+      status: (patch.status as "completed" | "failed" | undefined) ?? "completed",
+      itemsExpected: params.itemsFound ?? null,
+      itemsProcessed: params.itemsProcessed ?? null,
+      errorMessage: params.errorMessage ?? null,
+    });
+
     // Silent-failure guard (CROSS_WIRING_REPORT.md, 2026-09-15): a run can
     // report status='completed' while having found real work and processed
     // none of it -- ag-29-knowledge-indexer's original bug (fixed to report
@@ -236,6 +313,12 @@ export abstract class AutonomousAgent {
         error_message: redactSecrets(errorMessage),
       })
       .eq("id", runId);
+
+    await this.writeOrchestrationLog({
+      runId,
+      status: "failed",
+      errorMessage,
+    });
   }
 
   /** Enqueues a downstream agent run in agent_queue (BEHAVIORAL_CONTRACTS §23

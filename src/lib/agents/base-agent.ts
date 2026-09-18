@@ -20,7 +20,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { trackUsage } from "@/lib/billing/usage-tracker";
-import { redactSecrets } from "@/lib/orchestration/orchestration-log";
+import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
@@ -177,12 +177,13 @@ export abstract class BaseAgent<TInput, TResult> {
    * best-effort - a logging failure never masks or blocks the real result.
    */
   async run(input: TInput): Promise<AgentRunOutcome<TResult>> {
-    const startedAt = Date.now();
+    const startedAtMs = Date.now();
+    const startedAtIso = new Date(startedAtMs).toISOString();
     const runId = await this.logStart(input);
 
     try {
       const execution = await this.withTimeout(this.execute(input));
-      const durationMs = Date.now() - startedAt;
+      const durationMs = Date.now() - startedAtMs;
       const tokensUsed = execution.tokensUsed ?? 0;
       const itemsFound = execution.itemsFound ?? 0;
 
@@ -197,12 +198,16 @@ export abstract class BaseAgent<TInput, TResult> {
         duration_ms: durationMs,
         completed_at: new Date().toISOString(),
       });
+      await this.writeOrchestrationLog(runId, "completed", startedAtIso, {
+        itemsExpected: itemsFound,
+        itemsProcessed,
+      });
 
       await this.checkSilentFailure(itemsFound, itemsProcessed, execution.outputSummary);
 
       return { runId, data: execution.data, tokensUsed, durationMs };
     } catch (err) {
-      const durationMs = Date.now() - startedAt;
+      const durationMs = Date.now() - startedAtMs;
       const message =
         err instanceof Error ? err.message : "Agent execution failed.";
 
@@ -215,6 +220,9 @@ export abstract class BaseAgent<TInput, TResult> {
         error_message: redactSecrets(message),
         duration_ms: durationMs,
         completed_at: new Date().toISOString(),
+      });
+      await this.writeOrchestrationLog(runId, "failed", startedAtIso, {
+        errorMessage: message,
       });
 
       // `message` (the raw exception text) is logged to agent_runs.error_message
@@ -275,6 +283,56 @@ export abstract class BaseAgent<TInput, TResult> {
   ): Promise<void> {
     if (!runId) return;
     await this.client.from("agent_runs").update(patch).eq("id", runId);
+  }
+
+  /**
+   * AR-9.1: orchestration_logs (migration 190, AR-6.2) had exactly zero rows
+   * in production because AR-6.2 only wired worker/autonomous-orchestrator.ts's
+   * agent_queue consumer, not this class — even though BaseAgent is the shared
+   * run() boundary for most of the on-demand agent fleet (eligibility scoring,
+   * research, draft generation, ...). run() above is the real step boundary;
+   * this writes one orchestration_logs row per run() call. No-op when there is
+   * no agent_runs row id (logStart already failed loudly in that case). Never
+   * throws and never masks run()'s real result or rethrown error — a failed
+   * write here is logged at error level with a fixed, greppable
+   * "[orchestration_logs]" prefix instead of disappearing.
+   */
+  private async writeOrchestrationLog(
+    runId: string | null,
+    status: "completed" | "failed",
+    startedAtIso: string,
+    params: { itemsExpected?: number; itemsProcessed?: number; errorMessage?: string } = {},
+  ): Promise<void> {
+    if (!runId) return;
+    const finishedAtIso = new Date().toISOString();
+    try {
+      const result = await logOrchestrationStep(this.client, {
+        organizationId: this.organizationId,
+        orchestrationId: runId,
+        taskId: this.agentType,
+        agentType: this.agentType,
+        agentRunId: runId,
+        status,
+        startedAt: startedAtIso,
+        finishedAt: finishedAtIso,
+        durationMs: Date.parse(finishedAtIso) - Date.parse(startedAtIso),
+        itemsExpected: params.itemsExpected ?? null,
+        itemsProcessed: params.itemsProcessed ?? null,
+        errorMessage: params.errorMessage ?? null,
+        schemaValidationPassed: status === "completed",
+      });
+      if (!result.ok) {
+        console.error(
+          `[orchestration_logs] WRITE FAILED for ${this.agentType} run ${runId}: ${result.error}`,
+        );
+      }
+    } catch (e) {
+      console.error(
+        `[orchestration_logs] WRITE THREW for ${this.agentType} run ${runId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
   }
 
   /**
