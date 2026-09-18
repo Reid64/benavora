@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
+import { enterUsageContext } from "@/lib/ai/usage-context";
 
 export const AUTONOMOUS_HARD_LIMITS = {
   NEVER_SUBMIT_EXTERNALLY: true,
@@ -221,6 +222,13 @@ export abstract class AutonomousAgent {
     }
     const runId = (data as { id: string }).id;
     this.runStartedAt.set(runId, startedAt);
+
+    // AR-9.2: no single wrapper method calls a subclass's run() body here
+    // (unlike BaseAgent.run()), so enterWith attributes the rest of this
+    // async chain -- including whatever Anthropic calls the subclass makes
+    // after awaiting startRun() -- to this run, without a closure.
+    enterUsageContext({ organizationId: this.orgId, agentType: this.agentId, agentRunId: runId });
+
     return runId;
   }
 

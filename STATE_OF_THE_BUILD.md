@@ -1,5 +1,89 @@
 # Benavora Platform Build State
 
+## AR-9.2 — `ai_usage_log` actually captures cost for the platform's real traffic (2026-09-18)
+
+**The defect.** AR-5.1 (below) consolidated the platform onto one per-call cost ledger and was marked
+complete. Since then the platform executed 184 real `agent_runs` (178 `completed`) in a 3-hour
+window and recorded **zero** new `ai_usage_log` rows — the table's only 49 rows, all time, are the
+migration-186 backfill from `pil_cost_ledger`, last written 2026-09-16. AR-6.4's five dashboard views
+built on this table all read zero, silently, because a genuinely empty ledger and a genuinely broken
+one render identically.
+
+**Root cause, confirmed by reading the actual call graph, not assumed.** `recordCost()`
+(`src/lib/pil/cost.ts`) never throws and never gets swallowed — the defect is upstream of it. It has
+exactly two call sites in the whole repo, both inside `src/lib/pil/agent-runner.ts` (the PIL agent
+framework). The platform's actual dominant traffic — `ag-29-knowledge-indexer` and the other ~90
+`BaseAgent`/`AutonomousAgent` subclasses under `src/lib/agents/**` — never went through PIL at all.
+Their Anthropic calls go through the shared wrapper `src/lib/ai/claude.ts` (`callClaude`/
+`callClaudeConversation`/`callClaudeWithTools`/`callClaudeWithWebSearch`, imported by 105 files),
+which computed `usage.inputTokens`/`outputTokens` on every call and then discarded them — never wrote
+them anywhere. AR-5.1 correctly consolidated the ledger's *schema* and *PIL's own writer*; nobody
+checked whether the platform's real traffic went through PIL before marking the task complete. It
+didn't (confirmed: `ag-29-knowledge-indexer` doesn't call Anthropic at all — it uses OpenAI embeddings
+via `src/lib/intelligence/embeddings.ts` — but `fundability-scorer-agent.ts` and most of the
+`BaseAgent` fleet do, through `callClaude()`, and none of it was ever recorded).
+
+**Fix — centralized in the one shared wrapper, not fanned out to call sites.** `src/lib/ai/claude.ts`'s
+four functions now call a new `recordUsage()` after every successful `messages.create()`, using the
+real `response.model`/`usage.input_tokens`/`usage.output_tokens` (never `"unknown"`, unlike PIL's own
+two call sites). Org/agent/run attribution is threaded via a new `AsyncLocalStorage`-based context
+(`src/lib/ai/usage-context.ts`) set once at the shared run boundary — `BaseAgent.run()` wraps
+`execute()` in it, `AutonomousAgent.startRun()` calls `enterUsageContext()` — so none of the 105
+`callClaude*` call sites, and none of the ~91 agent subclasses, needed a signature change. Both
+`BaseAgent` and `AutonomousAgent` are used by subclasses that run under the Vercel app and under the
+Railway worker alike (`worker/knowledge-indexer-processor.ts` imports `AutonomousAgent` directly,
+confirmed by `pnpm run build:worker` succeeding against these changes) — the fix covers both runtimes
+without caring which one a given agent happens to run in. Same centralization principle AR-7.1's "five
+of six launch sites" bug should have taught: fix the shared wrapper, not forty call sites.
+
+**Pricing: real rate card, honest about gaps.** Cost is computed from `model_cost_reference`
+(migration 192, already seeded with the models actually in use) via a new `src/lib/ai/pricing.ts`,
+cached 5 minutes in-process. `computeCostUsd()` returns `null` — never `0` — for any model missing a
+rate row; `cost_usd` is now nullable end-to-end (`CostLedgerEntry.cost_usd: number | null`, the DB
+column was already nullable). A `null` cost_usd correctly skips the AR-5.2 budget-accrual trigger
+(`WHERE NEW.cost_usd IS NOT NULL`) instead of silently adding a wrong number, and reads as "unpriced"
+everywhere a dashboard sums it — the exact ambiguity (unmeasured vs. free) that let this ledger's
+emptiness go unnoticed for a full day.
+
+**A call with no usage context is now loud, not silently dropped.** `ai_usage_log.organization_id` is
+`NOT NULL`, so a `callClaude*` call with no active `UsageContext` (nothing calling through
+`BaseAgent`/`AutonomousAgent` — e.g. a standalone script) cannot be attributed and is not written.
+Instead of disappearing, it throttles a `system_errors` insert (`error_type: 'usage_log_no_context'`)
+— visible on `/admin/system`, the same pattern `claude.ts` already uses for a dead platform API key. A
+failed `ai_usage_log` write (RLS, network, whatever) alerts the same way
+(`usage_log_write_failed`) and never fails the Anthropic call that already succeeded.
+
+**Known, explicit gap — not fixed this pass.** Every raw `new Anthropic(...)` construction under
+`src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**`,
+`src/lib/scraper-v2/**`, `src/lib/enrichment/**`, `src/lib/email/thread-linker.ts`,
+`src/lib/admin/unsubscribe-agent.ts`, `src/lib/sources/land-bank-client.ts`, and several
+`src/scripts/*` bypasses `claude.ts` entirely and still records nothing — roughly 30 call sites,
+confirmed by a repo-wide grep for `new Anthropic(`. This is real, uninstrumented spend, named here
+rather than left for a future session to discover the ledger is still incomplete. Fixing it is future
+work: either migrate each site to the shared wrapper, or give `src/lib/autoapply/claude-concurrency.ts`'s
+tree (which already has its own separate concurrency limiter for exactly this kind of scope reason) an
+equivalent lightweight recorder.
+
+**Correction to AR-5.1's own claim.** AR-5.1 (2026-09-17, below) said "`recordCost()` now writes
+`ai_usage_log`" without qualifying that the only two call sites actually recording into it were PIL's.
+AR-6.4's "Is every dollar figure any dashboard now shows traceable to a rate with a date and a source?"
+answer was correct about the rate card but never checked whether any dollars were actually arriving —
+this fix is that check, and the answer was no.
+
+**Gates, real numbers:** `pnpm typecheck` 0 errors. `pnpm run build` succeeded (also fixed a
+pre-existing, unrelated bug this surfaced: `src/app/(dashboard)/follow-ups/page.tsx` is `"use client"`
+and imported a constant from `follow-up-generator.ts`, which pulls in all of `claude.ts` — including,
+now, node's `async_hooks` — into the client bundle; extracted the client-safe subset into
+`src/lib/agents/follow-up-types.ts`). `pnpm run build:worker` 0 errors. `pnpm test`: 94 files / 877
+tests passed, 13 todo, zero regressions — plus 8 new tests
+(`src/__tests__/unit/ai-usage-log-recording.test.ts`, `src/__tests__/unit/ai-pricing.test.ts`).
+
+**Pre-fix production baseline, live-verified:** `count(*) = 49`, `sum(cost_usd) = 0.3771`,
+`count(*) WHERE created_at > now() - interval '3 hours' = 0`, `max(created_at) = 2026-09-16` — matches
+the task's stated diagnosis exactly. **Not yet re-verified post-deploy** — pushed to `main`; the next
+`ag-29`-adjacent or on-demand-agent Anthropic call after deploy should produce the first new row since
+2026-09-16.
+
 ## AR-9.1 — `orchestration_logs` actually captures real production runs (2026-09-18)
 
 **The defect, in full.** `orchestration_logs` (migration 190, AR-6.2) had **zero rows, all time**,

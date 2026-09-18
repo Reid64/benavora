@@ -482,7 +482,9 @@ export interface CostLedgerEntry {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
-  cost_usd: number;
+  /** null when `model` has no row in model_cost_reference (AR-9.2) -- an
+   * unpriced call, not a free one. Never write 0 to mean "unknown". */
+  cost_usd: number | null;
   duration_ms: number | null;
   agent_type: string | null;
   agent_run_id: UUID | null;

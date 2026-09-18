@@ -6,8 +6,8 @@ import { Check, Mail, RefreshCw } from "lucide-react";
 import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
-import { FOLLOW_UP_NOTE_PREFIX } from "@/lib/agents/follow-up-generator";
-import type { FollowUpStep, FollowUpStepType, FollowUpStoredPayload } from "@/lib/agents/follow-up-generator";
+import { FOLLOW_UP_NOTE_PREFIX } from "@/lib/agents/follow-up-types";
+import type { FollowUpStep, FollowUpStepType, FollowUpStoredPayload } from "@/lib/agents/follow-up-types";
 
 // ---------------------------------------------------------------------------
 // Types

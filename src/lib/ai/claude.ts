@@ -2,6 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withClaudeLimit } from "@/lib/ai/claude-concurrency";
+import { getUsageContext } from "@/lib/ai/usage-context";
+import { computeCostUsd } from "@/lib/ai/pricing";
+import { recordCost } from "@/lib/pil/cost";
 
 /**
  * Claude API wrapper with token tracking.
@@ -91,6 +94,96 @@ async function reportPlatformKeyAuthFailure(
   }
 }
 
+// AR-9.2: best-effort, throttled admin alert when an Anthropic call ran with
+// no usage context set (getUsageContext() returned undefined) -- its cost
+// could not be attributed to an org and was not recorded. This is the
+// visible signal for exactly the failure mode this fix exists to close: a
+// call that goes unmeasured must never look identical to one that cost
+// nothing.
+let lastUncontextedCallAlertAt = 0;
+const USAGE_LOG_ALERT_THROTTLE_MS = 10 * 60 * 1000;
+
+async function reportUncontextedCall(source: string): Promise<void> {
+  const now = Date.now();
+  if (now - lastUncontextedCallAlertAt < USAGE_LOG_ALERT_THROTTLE_MS) return;
+  lastUncontextedCallAlertAt = now;
+  try {
+    await createAdminClient().from("system_errors").insert({
+      source: "ai_usage_log",
+      error_type: "usage_log_no_context",
+      message:
+        `A ${source} call ran with no organization/agent usage context set ` +
+        "(src/lib/ai/usage-context.ts) -- its cost could not be attributed " +
+        "and was not recorded in ai_usage_log.",
+      severity: "warning",
+    });
+  } catch {
+    // Alerting must never mask or block the caller's real response.
+  }
+}
+
+let lastUsageLogWriteErrorAlertAt = 0;
+
+async function reportUsageLogWriteFailure(source: string, err: unknown): Promise<void> {
+  const now = Date.now();
+  if (now - lastUsageLogWriteErrorAlertAt < USAGE_LOG_ALERT_THROTTLE_MS) return;
+  lastUsageLogWriteErrorAlertAt = now;
+  try {
+    await createAdminClient().from("system_errors").insert({
+      source: "ai_usage_log",
+      error_type: "usage_log_write_failed",
+      message:
+        `Failed to write ai_usage_log for a ${source} call: ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+      severity: "warning",
+    });
+  } catch {
+    // Alerting must never mask or block the caller's real response.
+  }
+}
+
+/**
+ * Records one Anthropic call's cost to the single per-call ledger
+ * (ai_usage_log, AR-5.1/AR-9.2). Never throws -- a logging failure must
+ * never fail an Anthropic call that already succeeded. Skips recording (and
+ * alerts instead) when no usage context is set, since organization_id is
+ * NOT NULL on ai_usage_log and there is nothing to attribute the row to.
+ */
+async function recordUsage(
+  source: string,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  durationMs: number,
+): Promise<void> {
+  const context = getUsageContext();
+  if (!context) {
+    await reportUncontextedCall(source);
+    return;
+  }
+
+  try {
+    const costUsd = await computeCostUsd(model, inputTokens, outputTokens);
+    await recordCost({
+      organization_id: context.organizationId,
+      model,
+      endpoint: source,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      total_tokens: inputTokens + outputTokens,
+      cost_usd: costUsd,
+      duration_ms: durationMs,
+      agent_type: context.agentType,
+      agent_run_id: context.agentRunId ?? null,
+      pil_agent_run_id: null,
+      provider: "anthropic",
+      billing_path: "api",
+    });
+  } catch (err) {
+    await reportUsageLogWriteFailure(source, err);
+  }
+}
+
 export interface ClaudeUsage {
   inputTokens: number;
   outputTokens: number;
@@ -135,6 +228,7 @@ export interface ClaudeResponse {
 export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {
   const model = req.model ?? DEFAULT_MODEL;
   const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const startedAt = Date.now();
 
   let message;
   try {
@@ -161,6 +255,8 @@ export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
+
+  await recordUsage("callClaude", message.model, inputTokens, outputTokens, Date.now() - startedAt);
 
   return {
     text,
@@ -200,6 +296,7 @@ export async function callClaudeConversation(
 ): Promise<ClaudeResponse> {
   const model = req.model ?? DEFAULT_MODEL;
   const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const startedAt = Date.now();
 
   let message;
   try {
@@ -226,6 +323,14 @@ export async function callClaudeConversation(
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
+
+  await recordUsage(
+    "callClaudeConversation",
+    message.model,
+    inputTokens,
+    outputTokens,
+    Date.now() - startedAt,
+  );
 
   return {
     text,
@@ -279,6 +384,7 @@ export interface ClaudeToolCallResponse {
 export async function callClaudeWithTools(req: ClaudeToolCallRequest): Promise<ClaudeToolCallResponse> {
   const model = req.model ?? DEFAULT_MODEL;
   const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const startedAt = Date.now();
 
   let message;
   try {
@@ -300,6 +406,14 @@ export async function callClaudeWithTools(req: ClaudeToolCallRequest): Promise<C
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
+
+  await recordUsage(
+    "callClaudeWithTools",
+    message.model,
+    inputTokens,
+    outputTokens,
+    Date.now() - startedAt,
+  );
 
   return {
     content: message.content,
@@ -335,6 +449,7 @@ export async function callClaudeWithWebSearch(
 ): Promise<ClaudeWebSearchResponse> {
   const model = req.model ?? DEFAULT_MODEL;
   const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const startedAt = Date.now();
 
   const webSearchTool = {
     type: "web_search_20250305",
@@ -372,6 +487,14 @@ export async function callClaudeWithWebSearch(
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
+
+  await recordUsage(
+    "callClaudeWithWebSearch",
+    message.model,
+    inputTokens,
+    outputTokens,
+    Date.now() - startedAt,
+  );
 
   return {
     text,

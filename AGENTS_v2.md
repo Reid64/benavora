@@ -615,15 +615,34 @@ full 144 at once — given the Claude/browser/live-API cost each real invocation
 
 ---
 
-## Single cost ledger: `ai_usage_log` (AR-5.1, 2026-09-17)
+## Single cost ledger: `ai_usage_log` (AR-5.1, 2026-09-17; corrected by AR-9.2, 2026-09-18)
 
 Every agent that spends money — `AgentRunner.useTool()` and `AgentRunner.finalizeRun()` in
 `src/lib/pil/agent-runner.ts`, called by every PIL agent (AG-31+ / BEN-* families) that reports
-token usage or calls a priced tool — now records that spend into `ai_usage_log`, not
+token usage or calls a priced tool — records that spend into `ai_usage_log`, not
 `pil_cost_ledger`. `pil_cost_ledger` is superseded and read-only as of migrations 185-186; nothing
 in `src/` or `worker/` inserts into it anymore. `recordCost()` (`src/lib/pil/cost.ts`) is the single
-writer; route every new priced action through `useTool()` rather than calling it directly, same rule
-as before — that's what keeps tool calls attributable to `context.tools` in the first place.
+*insert function*; route every new priced PIL action through `useTool()` rather than calling it
+directly, same rule as before — that's what keeps tool calls attributable to `context.tools` in the
+first place.
+
+**This was not the whole platform.** AR-5.1's own writeup called `recordCost()` "the" writer of
+`ai_usage_log` without checking whether the platform's actual highest-volume traffic — the ~91
+`BaseAgent`/`AutonomousAgent` subclasses under `src/lib/agents/**` (AG-01 through AG-30's nightly
+batch jobs, on-demand eligibility/research/draft agents, `ag-29-knowledge-indexer`'s 24/7 poll loop)
+— ever called it. It didn't; those agents call Anthropic through the separate shared wrapper
+`src/lib/ai/claude.ts`, which never recorded cost at all. Live-verified (AR-9.2): 184 real
+`agent_runs` in 3 hours produced 0 new `ai_usage_log` rows. As of AR-9.2, `callClaude`/
+`callClaudeConversation`/`callClaudeWithTools`/`callClaudeWithWebSearch` in `src/lib/ai/claude.ts`
+also record cost, after every successful call, attributed via a new `AsyncLocalStorage` context
+(`src/lib/ai/usage-context.ts`) set once at `BaseAgent.run()`/`AutonomousAgent.startRun()` — if you
+are writing a new agent that extends either base class and calls `callClaude*`, cost recording is
+automatic; you do not need to call `recordCost()` yourself. If you are writing a new PIL agent, keep
+routing through `useTool()` as above. Full defect/fix writeup: `STATE_OF_THE_BUILD.md`'s AR-9.2
+entry. Any raw `new Anthropic(...)` construction outside both of these paths (several remain under
+`src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**` and others — see
+AR-9.2) still records nothing; do not add another one without wiring it to one of the two paths
+above.
 
 New columns on `ai_usage_log` relevant to agent authors: `cost_usd` (numeric, real dollars — use
 this, not the old `estimated_cost_cents`), `pil_agent_run_id` (PIL run attribution;

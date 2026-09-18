@@ -15,23 +15,18 @@ import {
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
+import {
+  FOLLOW_UP_NOTE_PREFIX,
+  type FollowUpStep,
+  type FollowUpStepType,
+  type FollowUpStoredPayload,
+} from "@/lib/agents/follow-up-types";
 
-// NOTE_PREFIX identifies follow-up sequence notes so the UI can filter them.
-export const FOLLOW_UP_NOTE_PREFIX = "FOLLOW_UP_SEQ:";
+export { FOLLOW_UP_NOTE_PREFIX };
+export type { FollowUpStep, FollowUpStepType, FollowUpStoredPayload };
 
 export interface FollowUpInput {
   applicationId: string;
-}
-
-export type FollowUpStepType = "thank_you" | "check_in" | "status_request";
-
-export interface FollowUpStep {
-  stepNumber: number;
-  type: FollowUpStepType;
-  delayDays: number;
-  subject: string;
-  body: string;
-  humanizationScore: number;
 }
 
 export interface FollowUpResult {
@@ -40,13 +35,6 @@ export interface FollowUpResult {
   funderName: string;
   steps: FollowUpStep[];
   noteId: string | null;
-}
-
-export interface FollowUpStoredPayload {
-  generatedAt: string;
-  opportunityName: string;
-  funderName: string;
-  steps: FollowUpStep[];
 }
 
 export interface FollowUpGeneratorOptions extends BaseAgentOptions {

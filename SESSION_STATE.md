@@ -8,11 +8,57 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-9.1: orchestration_logs actually captures real production runs)
+- **Last updated:** 2026-09-18 (AR-9.2: ai_usage_log actually captures cost for real traffic)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-9.2: ai_usage_log actually captures cost)
+
+`ai_usage_log` had 0 new rows against 184 real `agent_runs` in the prior 3 hours (its only 49 rows,
+all time, were the migration-186 backfill, last written 2026-09-16) despite AR-5.1 marking the
+single-ledger consolidation complete. Root cause: `recordCost()` (`src/lib/pil/cost.ts`) has exactly
+two call sites, both inside the PIL agent framework (`src/lib/pil/agent-runner.ts`) — the platform's
+actual dominant traffic (`ag-29-knowledge-indexer` and ~90 other `BaseAgent`/`AutonomousAgent`
+subclasses under `src/lib/agents/**`) never goes through PIL. It calls Anthropic via the shared
+wrapper `src/lib/ai/claude.ts` (105 importers), which computed token usage on every call and simply
+discarded it. AR-5.1 fixed the ledger's schema and PIL's own writer; it never verified PIL was the
+writer that mattered.
+
+**Fix:** `claude.ts`'s four `callClaude*` functions now record cost after every successful call,
+using the real model name and real token counts (never `"unknown"`). Attribution (org/agent/run) is
+threaded via a new `AsyncLocalStorage` context (`src/lib/ai/usage-context.ts`) set once at
+`BaseAgent.run()`/`AutonomousAgent.startRun()` — no signature changes needed at any of the 105
+`callClaude*` call sites or the ~91 agent subclasses, following the same "fix the shared wrapper, not
+forty call sites" lesson AR-7.1 should have taught. Pricing comes from `model_cost_reference`
+(migration 192, already seeded) via a new cached `src/lib/ai/pricing.ts`; an unpriced model records
+`cost_usd: null`, never `0` — the exact ambiguity that let this ledger's emptiness go unnoticed. A
+call with no active usage context (nothing running through `BaseAgent`/`AutonomousAgent`) is not
+silently dropped — it throttle-alerts to `system_errors` instead, same pattern as `claude.ts`'s
+existing dead-platform-key alert.
+
+**Known gap, not fixed this pass:** ~30 raw `new Anthropic(...)` construction sites under
+`src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**`,
+`src/lib/scraper-v2/**`, `src/lib/enrichment/**`, and several `src/scripts/*` bypass `claude.ts`
+entirely and still record nothing — named explicitly in `STATE_OF_THE_BUILD.md`'s AR-9.2 entry rather
+than left for a future session to rediscover.
+
+**A build bug this surfaced, fixed in the same pass:** `src/app/(dashboard)/follow-ups/page.tsx` is
+`"use client"` and imported a constant from `follow-up-generator.ts` (server-only, imports
+`claude.ts`), pulling `claude.ts`'s entire graph — now including node's `async_hooks` — into the
+client bundle, which webpack cannot resolve. Extracted the client-safe subset into
+`src/lib/agents/follow-up-types.ts`; the client page now imports only that.
+
+**Gates:** `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm run build:worker` 0 errors,
+`pnpm test` 94 files / 877 tests passed (13 todo), zero regressions, plus 8 new tests.
+
+**Pre-fix production baseline, live-verified via Supabase MCP** (`DATABASE_URL`/`psql` auth was down
+again this session, same recurring flap noted in AR-6.1/AR-7.1/AR-9.1):
+`count(*) = 49`, `sum(cost_usd) = 0.3771`, `count(*) WHERE created_at > now() - interval '3 hours' = 0`,
+`max(created_at) = 2026-09-16` — matches the task's stated diagnosis exactly. **Not yet
+re-verified post-deploy** — pushed to `main`; re-query after the next real Anthropic call to confirm a
+live row lands, don't assume success from the gates alone.
 
 ## Session — 2026-09-18 (AR-9.1: orchestration_logs actually captures)
 

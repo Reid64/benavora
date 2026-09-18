@@ -21,6 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { trackUsage } from "@/lib/billing/usage-tracker";
 import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
+import { runWithUsageContext } from "@/lib/ai/usage-context";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
@@ -182,7 +183,16 @@ export abstract class BaseAgent<TInput, TResult> {
     const runId = await this.logStart(input);
 
     try {
-      const execution = await this.withTimeout(this.execute(input));
+      // AR-9.2: every Anthropic call this subclass makes (however deep
+      // inside execute()) attributes its ai_usage_log row to this run via
+      // src/lib/ai/usage-context.ts, without execute() needing to pass
+      // organizationId/runId down to whatever calls callClaude().
+      const execution = await this.withTimeout(
+        runWithUsageContext(
+          { organizationId: this.organizationId, agentType: this.agentType, agentRunId: runId },
+          () => this.execute(input),
+        ),
+      );
       const durationMs = Date.now() - startedAtMs;
       const tokensUsed = execution.tokensUsed ?? 0;
       const itemsFound = execution.itemsFound ?? 0;

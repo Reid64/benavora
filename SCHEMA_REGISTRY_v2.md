@@ -1368,6 +1368,38 @@ this note as historical, not current, for any migration number beyond 097.
 
 ---
 
+## `ai_usage_log` writers, corrected (AR-9.2, 2026-09-18)
+
+**Correction to the "Cost Ledger Consolidation (AR-5.1)" section immediately below:** that section
+describes `recordCost()` as "the single writer" of `ai_usage_log` — true of the code, false of what
+actually ran. `recordCost()`'s only two call sites are inside `src/lib/pil/agent-runner.ts` (the PIL
+agent framework), and the platform's real dominant traffic — `ag-29-knowledge-indexer` and ~90 other
+`BaseAgent`/`AutonomousAgent` subclasses under `src/lib/agents/**`, which call Anthropic through the
+separate shared wrapper `src/lib/ai/claude.ts` — never called `recordCost()` at all. Live-verified:
+184 real `agent_runs` in a 3-hour window produced 0 new `ai_usage_log` rows; all 49 rows, all time,
+predate this session (migration-186 backfill, last written 2026-09-16).
+
+`src/lib/ai/claude.ts`'s four `callClaude*` functions (`callClaude`/`callClaudeConversation`/
+`callClaudeWithTools`/`callClaudeWithWebSearch`) now call `recordCost()` too, after every successful
+`messages.create()`, using the real model name and real `usage.input_tokens`/`output_tokens` — so
+`ai_usage_log` now has two independent writer paths into the same table: PIL's (`agent_run_id` NULL,
+`pil_agent_run_id` set) and core's (`agent_run_id` set, `pil_agent_run_id` NULL), exactly matching the
+dual-FK shape migration 185 already provided for this. Org/agent/run attribution for the core path
+comes from a new `AsyncLocalStorage` context (`src/lib/ai/usage-context.ts`), set once at
+`BaseAgent.run()`/`AutonomousAgent.startRun()` — `callClaude*`'s call sites did not need new
+parameters.
+
+`cost_usd` is now nullable in the TS type (`CostLedgerEntry.cost_usd: number | null`, matching the DB
+column, which was already nullable) — `src/lib/ai/pricing.ts` (new, reads `model_cost_reference`,
+cached 5 min) returns `null` rather than `0` for a model with no rate row, so an unpriced call reads
+as "unpriced," not "free," and correctly skips AR-5.2's `accrue_cost_budget_spend` trigger (`WHERE
+NEW.cost_usd IS NOT NULL`).
+
+**Still not covered:** ~30 raw `new Anthropic(...)` sites under `src/lib/autoapply/**`,
+`src/lib/intelligence/**`, `src/lib/donor-discovery/**`, `src/lib/scraper-v2/**`,
+`src/lib/enrichment/**`, and several `src/scripts/*` bypass `claude.ts` and record nothing. Full
+detail: `STATE_OF_THE_BUILD.md`'s AR-9.2 entry.
+
 ## Cost Ledger Consolidation (AR-5.1, 2026-09-17)
 
 `ai_usage_log` (original shape: migration 056, `agent_type` column, `estimated_cost_cents integer`)
