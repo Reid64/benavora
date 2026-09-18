@@ -55,7 +55,7 @@ function randomSuffix(): string {
 function mockWebhookFetch(
   webhookUrl: string,
   handler: (init: RequestInit | undefined) => Response | Promise<Response>,
-): { spy: ReturnType<typeof vi.spyOn>; callCount: () => number } {
+) {
   const realFetch = globalThis.fetch.bind(globalThis);
   let calls = 0;
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
