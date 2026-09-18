@@ -53,16 +53,28 @@ Instead of disappearing, it throttles a `system_errors` insert (`error_type: 'us
 failed `ai_usage_log` write (RLS, network, whatever) alerts the same way
 (`usage_log_write_failed`) and never fails the Anthropic call that already succeeded.
 
-**Known, explicit gap — not fixed this pass.** Every raw `new Anthropic(...)` construction under
-`src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**`,
-`src/lib/scraper-v2/**`, `src/lib/enrichment/**`, `src/lib/email/thread-linker.ts`,
-`src/lib/admin/unsubscribe-agent.ts`, `src/lib/sources/land-bank-client.ts`, and several
-`src/scripts/*` bypasses `claude.ts` entirely and still records nothing — roughly 30 call sites,
-confirmed by a repo-wide grep for `new Anthropic(`. This is real, uninstrumented spend, named here
-rather than left for a future session to discover the ledger is still incomplete. Fixing it is future
-work: either migrate each site to the shared wrapper, or give `src/lib/autoapply/claude-concurrency.ts`'s
-tree (which already has its own separate concurrency limiter for exactly this kind of scope reason) an
-equivalent lightweight recorder.
+**The ~34 raw-client sites — closed in the AR-9.2 recovery pass, same day.** The first AR-9.2 pass
+named, but did not fix, every raw `new Anthropic(...)` construction under `src/lib/autoapply/**`,
+`src/lib/intelligence/**`, `src/lib/donor-discovery/**`, `src/lib/scraper-v2/**`,
+`src/lib/enrichment/**`, `src/lib/email/thread-linker.ts`, `src/lib/admin/unsubscribe-agent.ts`,
+`src/lib/sources/land-bank-client.ts` and several `src/scripts/*` — 34 sites by exact grep, all
+bypassing `claude.ts` and recording nothing. They are now instrumented, and deliberately NOT by
+adding a `recordUsage()` line to each site (the AR-7.1 five-of-six-launch-sites failure mode).
+`src/lib/ai/tracked-anthropic.ts` exports `createTrackedAnthropic(options, source, billingPath)`,
+which returns a real `Anthropic` client whose `messages.create` is wrapped once to record every
+successful call. Each of the 34 modules changed exactly one line — how it *constructs* the client —
+so every present and future `messages.create` on that client is covered by construction. The shared
+recorder itself moved out of `claude.ts` into `src/lib/ai/usage-recorder.ts`, so the wrapper path and
+the raw-client path run the same implementation rather than two that can drift. Verified
+non-streaming-only is correct for this repo: a repo-wide grep for `stream: true`, `messages.stream(`
+and `.withResponse()` returns zero hits, so no call site depends on the SDK's `APIPromise`-only
+methods, and a response with no `.usage` is left unrecorded rather than recorded as a false zero.
+
+**`billing_path` is now a real parameter, not a constant.** `recordUsage()` takes a `BillingPath`
+(`'api' | 'subscription'`). Runtime agents burning `ANTHROPIC_API_KEY` record `'api'` and get a
+computed `cost_usd`; a `'subscription'` call (FORGE build runs on the Max plan) records its real token
+counts with `cost_usd: null`, because those tokens are real but the dollars are not applicable —
+pricing them would overstate platform spend.
 
 **Correction to AR-5.1's own claim.** AR-5.1 (2026-09-17, below) said "`recordCost()` now writes
 `ai_usage_log`" without qualifying that the only two call sites actually recording into it were PIL's.
@@ -78,11 +90,59 @@ now, node's `async_hooks` — into the client bundle; extracted the client-safe 
 tests passed, 13 todo, zero regressions — plus 8 new tests
 (`src/__tests__/unit/ai-usage-log-recording.test.ts`, `src/__tests__/unit/ai-pricing.test.ts`).
 
+**Gates re-run after the recovery pass, real numbers:** `pnpm typecheck` 0 errors. `pnpm lint` clean
+(the raw-client swap left `Anthropic` unused as a value in 4 files; those imports were removed rather
+than suppressed). `pnpm run build` succeeded. `pnpm run build:worker` 0 errors, and
+`worker/dist/src/lib/ai/tracked-anthropic.js` plus the rewritten autoapply modules are present in the
+worker bundle — the Railway runtime carries the instrumentation, not just Vercel. `pnpm test`: 95
+files / 882 tests passed, 1 skipped, 13 todo, zero regressions — including 5 new tests in
+`src/__tests__/unit/tracked-anthropic.test.ts` pinning that the tracked client records, returns the
+SDK response untouched, honours `billing_path`, skips a usage-less (streaming) response instead of
+recording a false zero, and propagates a real Anthropic failure unchanged.
+
 **Pre-fix production baseline, live-verified:** `count(*) = 49`, `sum(cost_usd) = 0.3771`,
 `count(*) WHERE created_at > now() - interval '3 hours' = 0`, `max(created_at) = 2026-09-16` — matches
-the task's stated diagnosis exactly. **Not yet re-verified post-deploy** — pushed to `main`; the next
-`ag-29`-adjacent or on-demand-agent Anthropic call after deploy should produce the first new row since
-2026-09-16.
+the task's stated diagnosis exactly.
+
+**Why the first post-deploy gate still failed, and why it was NOT a broken writer.** The gate re-ran
+and reported `0 rows in 6h while agent_runs logged 417`. Diagnosed against live production before
+changing anything: of those 417 runs, **356 were `ag-29-knowledge-indexer`, which makes no Anthropic
+calls at all** — `sum(tokens_used) = 0` across all 356, and the agent imports no Anthropic SDK (it
+uses OpenAI embeddings). Only 38 runs in the window consumed any tokens at all
+(`eligibility_scoring` 30 runs / 26,772 tokens, `ag-30-donor-intent` 1 / 162,467,
+`ag-29-fundability` 1 / 20,228) — and **every one of them ran before the AR-9.2 commit existed**
+(latest token-consuming run 07:04 UTC; commit 07:38 UTC). After the commit, production executed 14
+runs, all of them `ag-29-knowledge-indexer`, all zero-token. There was no Anthropic call to record.
+Corroborating evidence that the writer was not silently failing: `system_errors` had **zero** rows
+with `source = 'ai_usage_log'` in the same window while carrying 73 rows from an unrelated source, so
+neither the no-context alert nor the write-failure alert had fired — the recording code had simply not
+executed. RLS was also ruled out rather than assumed: `ai_usage_log.cost_usd` is nullable and the
+insert path uses the service-role client.
+
+**Live verification is now a repeatable script, not a wait for organic traffic.** `pnpm verify:ai-usage`
+(`scripts/verify-ai-usage-log.ts`) makes two real, minimal (`max_tokens: 16`) Anthropic calls against
+production — one through `callClaude`, one through a `createTrackedAnthropic` raw client — inside the
+same `runWithUsageContext` boundary `BaseAgent.run()` uses, then reads back the rows and fails loudly
+if either path wrote nothing.
+
+**Post-fix production state, live-verified 2026-09-18 07:56 UTC:** `ai_usage_log` `count(*) = 52`
+(was 49 — the first new rows since 2026-09-16), `sum(cost_usd) = 0.377406`, `count(*) WHERE cost_usd
+IS NULL = 0` (every row priced, nothing recorded as a false zero). Both recording paths confirmed
+writing real rows: `endpoint = 'callClaude'` and `endpoint = 'verification-tracked-client'`, each
+`cost_usd = 0.000102` at 14 in / 4 out on `claude-sonnet-4-6`.
+
+**Honest coverage estimate.** Every Anthropic call in `src/**` and `worker/**` now runs through one of
+two instrumented constructors — `claude.ts`'s wrapper or `createTrackedAnthropic` — so the *code*
+coverage of Anthropic call sites is complete (grep for `new Anthropic(` returns hits only inside those
+two modules). Actual *captured* spend is bounded by attribution, not instrumentation: a call only
+writes a row when a `UsageContext` is active. `BaseAgent`/`AutonomousAgent` subclasses set it, so the
+core agent fleet is covered. Paths that call Anthropic outside any agent run boundary — several
+`src/lib/autoapply/**` helpers invoked directly by `worker/queue-processor.ts`, and the operator
+`src/scripts/*` ingests — will now emit a throttled `usage_log_no_context` `system_errors` row instead
+of a row in the ledger. That is the deliberate design: those calls are visible as unattributed rather
+than invisible as free, and `/admin/system` is where they surface. Wiring a usage context at the
+autoapply worker boundary is the next concrete step to raise captured coverage, and is named here
+rather than implied to be done.
 
 ## AR-9.1 — `orchestration_logs` actually captures real production runs (2026-09-18)
 

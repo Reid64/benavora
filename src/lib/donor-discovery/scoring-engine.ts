@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -142,7 +143,7 @@ function getClient(): Anthropic {
   if (!apiKey) {
     throw new Error("Missing ANTHROPIC_API_KEY");
   }
-  anthropicClient = new Anthropic({ apiKey });
+  anthropicClient = createTrackedAnthropic({ apiKey }, "scoring-engine");
   return anthropicClient;
 }
 

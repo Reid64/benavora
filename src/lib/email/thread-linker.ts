@@ -5,6 +5,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface LinkResult {
@@ -21,7 +22,7 @@ function getAnthropic(): Anthropic {
   if (_anthropic) return _anthropic;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY");
-  _anthropic = new Anthropic({ apiKey });
+  _anthropic = createTrackedAnthropic({ apiKey }, "thread-linker");
   return _anthropic;
 }
 

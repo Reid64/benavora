@@ -46,6 +46,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 export interface LandBankOpportunity {
   title: string;
   funder_name: string;
@@ -94,7 +95,7 @@ function getClaude(): Anthropic | null {
   if (anthropicClient) return anthropicClient;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  anthropicClient = new Anthropic({ apiKey });
+  anthropicClient = createTrackedAnthropic({ apiKey }, "land-bank-client");
   return anthropicClient;
 }
 

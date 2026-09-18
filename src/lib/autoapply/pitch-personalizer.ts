@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from './claude-concurrency';
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
@@ -13,7 +14,7 @@ function getClaude(): Anthropic {
   if (!_claude) {
     const apiKey = process.env['ANTHROPIC_API_KEY'];
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
-    _claude = new Anthropic({ apiKey });
+    _claude = createTrackedAnthropic({ apiKey }, "pitch-personalizer");
   }
   return _claude;
 }

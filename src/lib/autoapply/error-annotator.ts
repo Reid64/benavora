@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from './claude-concurrency';
 
 let _client: Anthropic | null = null;
@@ -7,7 +8,7 @@ function getClaude(): Anthropic {
   if (_client) return _client;
   const apiKey = process.env['ANTHROPIC_API_KEY'];
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
-  _client = new Anthropic({ apiKey });
+  _client = createTrackedAnthropic({ apiKey }, "error-annotator");
   return _client;
 }
 

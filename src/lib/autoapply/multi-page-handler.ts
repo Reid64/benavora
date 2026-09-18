@@ -1,5 +1,6 @@
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from './claude-concurrency';
 
 export interface FormPage {
@@ -20,7 +21,7 @@ export class MultiPageFormHandler {
   private readonly claude: Anthropic;
 
   constructor() {
-    this.claude = new Anthropic();
+    this.claude = createTrackedAnthropic({}, "multi-page-handler");
   }
 
   async detectMultiPage(page: Page): Promise<MultiPageInfo> {

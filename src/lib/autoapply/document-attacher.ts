@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from "./claude-concurrency";
 import type { AdvancedFieldHandler } from "./advanced-field-handler";
 import type { DocumentVault, OrgDocument } from "./document-vault";
@@ -59,7 +60,7 @@ export class DocumentAttacher {
     private readonly advancedFieldHandler: AdvancedFieldHandler,
     apiKey?: string,
   ) {
-    this.anthropic = new Anthropic({ apiKey });
+    this.anthropic = createTrackedAnthropic({ apiKey }, "document-attacher");
   }
 
   async detectUploadFields(page: unknown): Promise<UploadField[]> {

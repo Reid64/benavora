@@ -16,6 +16,7 @@
 
 import * as cheerio from 'cheerio';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import type { OrgProfile, SubmissionProfile } from './org-profile-mapper';
 
 export type { OrgProfile } from './org-profile-mapper';
@@ -340,7 +341,7 @@ export class GenericAdapter implements PortalAdapter {
   private readonly claude: Anthropic;
 
   constructor() {
-    this.claude = new Anthropic();
+    this.claude = createTrackedAnthropic({}, "portal-adapters");
   }
 
   // Always false — this adapter is the fallback used when no other adapter

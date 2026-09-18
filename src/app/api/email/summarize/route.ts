@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     .join("\n\n---\n\n");
 
   try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = createTrackedAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }, "email-summarize");
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 512,

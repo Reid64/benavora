@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from '@/lib/ai/claude-concurrency';
 import { NeedDataPoint } from './sources/types';
 import { CensusDataSource } from './sources/census-api';
@@ -6,7 +6,7 @@ import { HudDataSource } from './sources/hud-api';
 import { BlsDataSource } from './sources/bls-api';
 import { CdcDataSource } from './sources/cdc-api';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropic = createTrackedAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }, "need-statement-engine");
 
 const census = new CensusDataSource();
 const hud = new HudDataSource();

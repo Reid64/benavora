@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import Anthropic from "@anthropic-ai/sdk";
 
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { fetchCompliant } from "@/lib/donor-discovery/crawler-core";
 
 /**
@@ -72,7 +73,7 @@ function getClient(): Anthropic {
   if (!apiKey) {
     throw new Error("Missing ANTHROPIC_API_KEY");
   }
-  anthropicClient = new Anthropic({ apiKey });
+  anthropicClient = createTrackedAnthropic({ apiKey }, "web-extractor");
   return anthropicClient;
 }
 

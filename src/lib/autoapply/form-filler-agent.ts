@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import type { StealthBrowser } from './stealth-browser.js';
 import { AdvancedFieldHandler } from './advanced-field-handler.js';
 import { MultiPageFormHandler } from './multi-page-handler.js';
@@ -182,7 +183,7 @@ export class FormFillerAgent {
     private readonly browser: StealthBrowser,
   ) {
     void this.browser;
-    this.claude = new Anthropic();
+    this.claude = createTrackedAnthropic({}, "form-filler-agent");
   }
 
   async fillAndSubmit(options: FillOptions): Promise<FillResult> {

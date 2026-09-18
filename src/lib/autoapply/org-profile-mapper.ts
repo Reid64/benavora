@@ -21,6 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 export interface OrgProfile {
   id: string;
   name: string;
@@ -215,7 +216,7 @@ export async function mapOrgToSubmissionProfile(
   const executive_director_email = (kb.contact_email || org.email || owner.email || '').trim();
   const requested_amount = options?.requestedAmount ?? 0;
 
-  const claude = new Anthropic();
+  const claude = createTrackedAnthropic({}, "org-profile-mapper");
   const baseContext = buildContext(org, kb);
 
   const mission_statement =

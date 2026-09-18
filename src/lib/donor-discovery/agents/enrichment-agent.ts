@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import * as cheerio from "cheerio";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -85,7 +86,7 @@ function getClient(): Anthropic {
   if (!apiKey) {
     throw new Error("Missing ANTHROPIC_API_KEY");
   }
-  anthropicClient = new Anthropic({ apiKey });
+  anthropicClient = createTrackedAnthropic({ apiKey }, "enrichment-agent");
   return anthropicClient;
 }
 

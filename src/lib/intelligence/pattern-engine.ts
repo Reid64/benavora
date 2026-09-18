@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
 export interface NarrativePattern {
@@ -25,7 +26,7 @@ let anthropicClient: Anthropic | null = null
 
 function getClient(): Anthropic {
   if (anthropicClient === null) {
-    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    anthropicClient = createTrackedAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }, "pattern-engine")
   }
   return anthropicClient
 }

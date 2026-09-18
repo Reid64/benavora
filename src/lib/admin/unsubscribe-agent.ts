@@ -1,6 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ReplyIntent =
@@ -30,7 +31,7 @@ function getAnthropicClient(): Anthropic {
   if (anthropicClient) return anthropicClient;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY");
-  anthropicClient = new Anthropic({ apiKey });
+  anthropicClient = createTrackedAnthropic({ apiKey }, "unsubscribe-agent");
   return anthropicClient;
 }
 

@@ -8,7 +8,7 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-9.2: ai_usage_log actually captures cost for real traffic)
+- **Last updated:** 2026-09-18 (AR-9.2 + recovery pass: ai_usage_log captures cost; all 34 raw Anthropic clients instrumented, live-verified 52 rows)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
@@ -38,11 +38,38 @@ call with no active usage context (nothing running through `BaseAgent`/`Autonomo
 silently dropped — it throttle-alerts to `system_errors` instead, same pattern as `claude.ts`'s
 existing dead-platform-key alert.
 
-**Known gap, not fixed this pass:** ~30 raw `new Anthropic(...)` construction sites under
-`src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**`,
-`src/lib/scraper-v2/**`, `src/lib/enrichment/**`, and several `src/scripts/*` bypass `claude.ts`
-entirely and still record nothing — named explicitly in `STATE_OF_THE_BUILD.md`'s AR-9.2 entry rather
-than left for a future session to rediscover.
+**Recovery pass, same day — the gate failed and the diagnosis was not a broken writer.** The
+re-run gate reported `0 rows in 6h while agent_runs logged 417`. Checked against live production
+first: 356 of those 417 runs were `ag-29-knowledge-indexer`, which makes **no Anthropic calls at all**
+(`sum(tokens_used) = 0`, no SDK import — it uses OpenAI embeddings). Only 38 runs consumed tokens, and
+all of them ran *before* the AR-9.2 commit existed (07:04 UTC vs. commit 07:38 UTC). Every run after
+the commit was zero-token `ag-29`. `system_errors` had zero `source='ai_usage_log'` rows in the window
+(while holding 73 from an unrelated source), confirming the recorder had not fired-and-failed — it had
+simply had nothing to record. Not RLS, not a swallowed throw.
+
+**What the recovery actually fixed:** the ~34 raw `new Anthropic(...)` sites the first pass named but
+left open. They are now instrumented centrally, not per-call-site: `src/lib/ai/tracked-anthropic.ts`
+exports `createTrackedAnthropic(options, source, billingPath)`, returning a real `Anthropic` client
+whose `messages.create` records once. Each of the 34 modules changed exactly one line — how it
+constructs the client — so future `messages.create` calls on it are covered automatically. The shared
+recorder moved out of `claude.ts` into `src/lib/ai/usage-recorder.ts` so both paths run one
+implementation. `billing_path` is now a real parameter: `'api'` prices the call, `'subscription'`
+(FORGE/Max build runs) records real tokens with `cost_usd: null` rather than overstating spend.
+
+**Live-verified, not inferred:** `pnpm verify:ai-usage` (`scripts/verify-ai-usage-log.ts`, new) makes
+two real minimal Anthropic calls against production — one via `callClaude`, one via a tracked raw
+client — and reads the rows back, failing loudly if either wrote nothing. Both wrote. `ai_usage_log`
+went 49 → 52 rows (first new rows since 2026-09-16), `sum(cost_usd) = 0.377406`, and **0 rows have a
+NULL `cost_usd`** — nothing is recorded as a false zero.
+
+**Remaining bound on coverage, stated honestly:** instrumentation of Anthropic call sites is now
+complete (`grep 'new Anthropic('` hits only the two instrumented constructors). Capture is bounded by
+*attribution*, not instrumentation — a row is written only when a `UsageContext` is active.
+`BaseAgent`/`AutonomousAgent` set it; autoapply helpers called directly from
+`worker/queue-processor.ts` and the operator `src/scripts/*` do not, so those calls now raise a
+throttled `usage_log_no_context` alert on `/admin/system` instead of writing a row. Visible-as-
+unattributed, not invisible-as-free. Wiring a context at the autoapply worker boundary is the next
+step to raise captured coverage.
 
 **A build bug this surfaced, fixed in the same pass:** `src/app/(dashboard)/follow-ups/page.tsx` is
 `"use client"` and imported a constant from `follow-up-generator.ts` (server-only, imports

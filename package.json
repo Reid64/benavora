@@ -23,6 +23,7 @@
         "test:e2e:all-browsers": "playwright test e2e/critical-paths.spec.ts --project=chromium --project=firefox --project=webkit",
         "test:visual": "npx playwright test e2e/visual-regression.spec.ts",
         "seed-demo": "node seed-demo.mjs",
+        "verify:ai-usage": "tsx scripts/verify-ai-usage-log.ts",
         "seed:beta": "tsx scripts/seed-beta-users.ts",
         "seed:dd-taxonomy": "tsx scripts/seed-dd-taxonomy.ts",
         "seed:dd-aliases": "tsx scripts/seed-dd-aliases.ts",

@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from "./claude-concurrency";
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
@@ -19,7 +20,7 @@ function getClaude(): Anthropic {
   if (!_client) {
     const apiKey = process.env["ANTHROPIC_API_KEY"];
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
-    _client = new Anthropic({ apiKey });
+    _client = createTrackedAnthropic({ apiKey }, "confirmation-parser");
   }
   return _client;
 }

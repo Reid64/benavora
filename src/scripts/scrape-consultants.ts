@@ -3,6 +3,7 @@ import * as path from 'path';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { launchChromium } from '@/lib/browser/launch-chromium';
 
 // ---------------------------------------------------------------------------
@@ -473,7 +474,7 @@ async function main(): Promise<void> {
     throw new Error('ANTHROPIC_API_KEY not found in environment or .env.local');
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = createTrackedAnthropic({ apiKey }, "scrape-consultants");
 
   const outputDir = path.resolve(process.cwd(), 'exports');
   const outputPath = path.join(outputDir, 'consultant-leads.csv');

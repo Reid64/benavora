@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import ws from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import type { Database } from '../types/database';
 
 // Load .env.local before any Supabase/OpenAI/Anthropic client is initialized.
@@ -194,7 +195,7 @@ async function main(): Promise<void> {
   const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     realtime: { transport: ws as unknown as never },
   });
-  const anthropic = new Anthropic({ apiKey: anthropicKey });
+  const anthropic = createTrackedAnthropic({ apiKey: anthropicKey }, "ingest-nih-proposals");
 
   // Clear out prior NIH_NIAID rows before re-running, so a re-ingest starts
   // clean rather than accumulating duplicates from earlier runs.

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
 import { launchChromium } from '@/lib/browser/launch-chromium';
@@ -291,7 +292,7 @@ async function main(): Promise<void> {
   if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL not found in environment or .env.local');
   if (!serviceRoleKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY not found in environment or .env.local');
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = createTrackedAnthropic({ apiKey }, "scrape-nonprofit-leads");
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     // ws's constructor type is broader than Supabase's WebSocketLikeConstructor;

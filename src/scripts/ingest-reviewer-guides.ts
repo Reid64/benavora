@@ -8,6 +8,7 @@ import * as path from 'path';
 import ws from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import type { Database } from '../types/database';
 
 dotenv.config({ path: '.env.local' });
@@ -233,7 +234,7 @@ async function main(): Promise<void> {
   let _anthropicInstance: Anthropic | null = null;
   const getAnthropic = (): Anthropic => {
     if (_anthropicInstance === null) {
-      _anthropicInstance = new Anthropic({ apiKey: anthropicKey });
+      _anthropicInstance = createTrackedAnthropic({ apiKey: anthropicKey }, "ingest-reviewer-guides");
     }
     return _anthropicInstance;
   };

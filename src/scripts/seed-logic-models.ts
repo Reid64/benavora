@@ -8,6 +8,7 @@ dotenv.config({ path: '.env.local' });
 import ws from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import type { Database } from '../types/database';
 
 const CATEGORIES = [
@@ -54,7 +55,7 @@ function getAnthropic(): Anthropic {
   if (anthropicClient === null) {
     const key = process.env['ANTHROPIC_API_KEY'];
     if (!key) throw new Error('Missing ANTHROPIC_API_KEY');
-    anthropicClient = new Anthropic({ apiKey: key });
+    anthropicClient = createTrackedAnthropic({ apiKey: key }, "seed-logic-models");
   }
   return anthropicClient;
 }

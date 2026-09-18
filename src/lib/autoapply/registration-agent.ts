@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import crypto from 'crypto';
 import { withClaudeLimit } from './claude-concurrency';
 
@@ -113,7 +114,7 @@ export class RegistrationAgent {
   private readonly claude: Anthropic;
 
   constructor() {
-    this.claude = new Anthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] });
+    this.claude = createTrackedAnthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] }, "registration-agent");
   }
 
   async detectRegistrationForm(page: any): Promise<RegistrationFormDetection | null> {

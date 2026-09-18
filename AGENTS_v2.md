@@ -639,18 +639,40 @@ also record cost, after every successful call, attributed via a new `AsyncLocalS
 are writing a new agent that extends either base class and calls `callClaude*`, cost recording is
 automatic; you do not need to call `recordCost()` yourself. If you are writing a new PIL agent, keep
 routing through `useTool()` as above. Full defect/fix writeup: `STATE_OF_THE_BUILD.md`'s AR-9.2
-entry. Any raw `new Anthropic(...)` construction outside both of these paths (several remain under
-`src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**` and others — see
-AR-9.2) still records nothing; do not add another one without wiring it to one of the two paths
-above.
+entry.
+
+**Never write `new Anthropic(...)` directly.** As of the AR-9.2 recovery pass, the ~34 modules that
+did (under `src/lib/autoapply/**`, `src/lib/intelligence/**`, `src/lib/donor-discovery/**`,
+`src/lib/scraper-v2/**`, `src/lib/enrichment/**` and others) construct their client with
+`createTrackedAnthropic(options, source, billingPath)` from `src/lib/ai/tracked-anthropic.ts`
+instead — it returns a real `Anthropic` client whose `messages.create` records every successful call,
+so instrumentation is inherited by construction rather than re-added at each call site. If you need a
+raw client, use that factory; a bare `new Anthropic(...)` records nothing and is the one pattern that
+re-opens this defect.
+
+**Cost recording requires an active usage context.** `ai_usage_log.organization_id` is `NOT NULL`, so
+a call outside any agent run boundary writes no row and instead raises a throttled `system_errors`
+alert (`usage_log_no_context`) visible on `/admin/system`. If you write a code path that calls
+Anthropic outside `BaseAgent`/`AutonomousAgent` (e.g. a worker helper or an operator script), wrap it
+in `runWithUsageContext({ organizationId, agentType, agentRunId }, ...)` from
+`src/lib/ai/usage-context.ts` or its spend will be reported as unattributed rather than captured.
+Verify any change to this path with `pnpm verify:ai-usage`, which makes two real minimal Anthropic
+calls against production and fails if either writes no row.
 
 New columns on `ai_usage_log` relevant to agent authors: `cost_usd` (numeric, real dollars — use
 this, not the old `estimated_cost_cents`), `pil_agent_run_id` (PIL run attribution;
 `agent_run_id` is reserved for the core, non-PIL `agent_runs` pipeline — AG-01 through AG-30's
 nightly batch jobs, not PIL agents), and `billing_path` (`'api'` for anything calling the real
 Anthropic API — which is every PIL agent — vs `'subscription'` for FORGE's own `claude` CLI build
-runs). Full defect list and live verification in `STATE_OF_THE_BUILD.md`'s "AR-5.1" section and
-`SCHEMA_REGISTRY_v2.md`'s "Cost Ledger Consolidation" section.
+runs — these record real token counts with `cost_usd` deliberately `NULL`, since subscription tokens
+carry no per-token dollar cost). Full defect list and live verification in
+`STATE_OF_THE_BUILD.md`'s "AR-5.1" and "AR-9.2" sections and `SCHEMA_REGISTRY_v2.md`'s
+"`ai_usage_log` writers, corrected" section.
+
+**Do not assume this ledger reflects total platform spend.** Live-verified 2026-09-18: 52 rows,
+`sum(cost_usd) = 0.377406`, 0 unpriced rows. Every Anthropic *call site* is instrumented, but captured
+spend is bounded by attribution (see the usage-context note above), so the recorded total is a floor
+on real usage, not a complete bill.
 
 ---
 

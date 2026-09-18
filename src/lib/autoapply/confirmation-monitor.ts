@@ -27,7 +27,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { gmail_v1, google } from 'googleapis';
-import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from './claude-concurrency';
 
 import { CredentialManager } from './credential-manager';
@@ -281,7 +281,7 @@ async function extractConfirmationDetails(emailText: string): Promise<ExtractedC
   if (!apiKey) return EMPTY_EXTRACTION;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createTrackedAnthropic({ apiKey }, "confirmation-monitor");
     const response = await withClaudeLimit(() =>
       client.messages.create({
       model: 'claude-sonnet-4-6',

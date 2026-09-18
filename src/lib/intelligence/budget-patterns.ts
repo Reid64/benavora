@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { createClient } from '@/lib/supabase/server'
 import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
@@ -48,7 +49,7 @@ function getClient(): Anthropic {
   if (anthropicClient === null) {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) throw new Error('Missing required env var: ANTHROPIC_API_KEY')
-    anthropicClient = new Anthropic({ apiKey })
+    anthropicClient = createTrackedAnthropic({ apiKey }, "budget-patterns")
   }
   return anthropicClient
 }

@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from '@/lib/ai/claude-concurrency'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const anthropic = createTrackedAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }, "section-extractor")
 
 export interface ExtractedSections {
   executive_summary?: string

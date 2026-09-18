@@ -15,6 +15,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { withClaudeLimit } from './claude-concurrency';
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
@@ -225,7 +226,7 @@ export class FormAnalyzerAgent {
   private readonly claude: Anthropic;
 
   constructor(private readonly supabase: SupabaseClient) {
-    this.claude = new Anthropic();
+    this.claude = createTrackedAnthropic({}, "form-analyzer-agent");
   }
 
   async analyzeAndStore(options: AnalyzeOptions): Promise<{ id: string; fieldCount: number }> {

@@ -23,6 +23,7 @@
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import Anthropic from "@anthropic-ai/sdk";
+import { createTrackedAnthropic } from "@/lib/ai/tracked-anthropic";
 import { DEFAULT_MODEL } from "../ai/claude";
 
 /**
@@ -61,7 +62,7 @@ function getClient(): Anthropic {
   if (!apiKey) {
     throw new Error("Missing ANTHROPIC_API_KEY");
   }
-  client = new Anthropic({ apiKey });
+  client = createTrackedAnthropic({ apiKey }, "extractor");
   return client;
 }
 

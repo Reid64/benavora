@@ -1395,10 +1395,34 @@ cached 5 min) returns `null` rather than `0` for a model with no rate row, so an
 as "unpriced," not "free," and correctly skips AR-5.2's `accrue_cost_budget_spend` trigger (`WHERE
 NEW.cost_usd IS NOT NULL`).
 
-**Still not covered:** ~30 raw `new Anthropic(...)` sites under `src/lib/autoapply/**`,
-`src/lib/intelligence/**`, `src/lib/donor-discovery/**`, `src/lib/scraper-v2/**`,
-`src/lib/enrichment/**`, and several `src/scripts/*` bypass `claude.ts` and record nothing. Full
-detail: `STATE_OF_THE_BUILD.md`'s AR-9.2 entry.
+**Third writer path, added in the AR-9.2 recovery pass (same day):** the ~34 raw
+`new Anthropic(...)` sites under `src/lib/autoapply/**`, `src/lib/intelligence/**`,
+`src/lib/donor-discovery/**`, `src/lib/scraper-v2/**`, `src/lib/enrichment/**`,
+`src/lib/email/thread-linker.ts`, `src/lib/admin/unsubscribe-agent.ts`,
+`src/lib/sources/land-bank-client.ts` and several `src/scripts/*` — which bypassed `claude.ts` and
+recorded nothing — now construct their client via `createTrackedAnthropic()`
+(`src/lib/ai/tracked-anthropic.ts`), which wraps `messages.create` to record once per successful
+call. Rows from this path carry `endpoint` = the calling module's slug (e.g. `pattern-engine`,
+`submission-validator`) rather than a `callClaude*` function name, which is how you tell the three
+writer paths apart in the table. The recorder shared by all paths now lives in
+`src/lib/ai/usage-recorder.ts` (moved out of `claude.ts`) so there is one implementation, not two
+that can drift.
+
+**`billing_path` semantics (column added by migration 185, now actually varied):** `'api'` = a
+runtime call on `ANTHROPIC_API_KEY`, priced from `model_cost_reference` into `cost_usd`.
+`'subscription'` = a FORGE/Max-plan build run: real token counts recorded, `cost_usd` deliberately
+`NULL`, because those tokens carry no per-token dollar cost and pricing them would overstate platform
+spend. Reading `SUM(cost_usd)` therefore gives API spend; `COUNT(*) WHERE cost_usd IS NULL`
+distinguishes "not applicable / unpriced" from "free."
+
+**Capture is bounded by attribution, not instrumentation.** `organization_id` is `NOT NULL`, so a row
+is written only when a `UsageContext` is active (set at `BaseAgent.run()` /
+`AutonomousAgent.startRun()`). An Anthropic call made outside any agent run boundary — several
+autoapply helpers invoked directly by `worker/queue-processor.ts`, and the operator `src/scripts/*`
+ingests — writes no row and instead raises a throttled `system_errors` row
+(`source='ai_usage_log'`, `error_type='usage_log_no_context'`). Live-verified post-fix 2026-09-18
+07:56 UTC: `count(*) = 52` (was 49), `sum(cost_usd) = 0.377406`, `count(*) WHERE cost_usd IS NULL = 0`.
+Repeatable proof: `pnpm verify:ai-usage`. Full detail: `STATE_OF_THE_BUILD.md`'s AR-9.2 entry.
 
 ## Cost Ledger Consolidation (AR-5.1, 2026-09-17)
 
