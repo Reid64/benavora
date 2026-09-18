@@ -505,6 +505,9 @@ export interface CostBudget {
   spent_usd: number;
   alert_threshold_pct: number;
   hard_stop: boolean;
+  /** AR-10.3: anchor of the current budget_period window; null-time-end for
+   * 'per_run' (see cost_budget_period_end() in migration 198). */
+  period_start: ISODateTime;
   created_at: ISODateTime;
   updated_at: ISODateTime;
 }

@@ -2,7 +2,7 @@ import { getPilClient } from "@/lib/pil/db";
 import { loadAgent } from "@/lib/pil/agent-registry-service";
 import { loadAgentImpl } from "@/lib/pil/agents";
 import { logAction } from "@/lib/pil/audit";
-import { checkBudget, recordCost } from "@/lib/pil/cost";
+import { checkBudget, checkBudgetMidRun, recordCost } from "@/lib/pil/cost";
 import { canDelegate, checkAgentAuthorization, PolicyViolationError } from "@/lib/pil/policy";
 import { createReviewItem } from "@/lib/pil/human-review";
 import { agentEventsLogged, agentRunDuration } from "@/lib/observability/metrics";
@@ -237,6 +237,7 @@ export class AgentRunner {
       throw new ToolNotPermittedError(toolName, context.agentCode);
     }
     const costType = cost.costType ?? "api_call";
+    const costUsd = cost.unitCost === null ? null : cost.units * cost.unitCost;
     // ai_usage_log has no research_run_id/delegated_task_id columns (unlike
     // the superseded pil_cost_ledger) -- that finer-grained attribution is
     // out of scope for AR-5.1's consolidation; pil_agent_run_id is preserved
@@ -248,7 +249,7 @@ export class AgentRunner {
       input_tokens: 0,
       output_tokens: 0,
       total_tokens: costType === "model_tokens" ? cost.units : 0,
-      cost_usd: cost.unitCost === null ? null : cost.units * cost.unitCost,
+      cost_usd: costUsd,
       duration_ms: null,
       agent_type: toolName,
       agent_run_id: null,
@@ -256,6 +257,15 @@ export class AgentRunner {
       provider: "anthropic",
       billing_path: "api",
     });
+
+    // AR-10.3: mid-run enforcement. Checked here, right after this call's
+    // own cost lands, so a run whose spend crosses a hard_stop limit is
+    // stopped before its NEXT tool call rather than only before its next
+    // AgentRunner.run() invocation. Throws MidRunBudgetExceededError, which
+    // propagates out of the agent implementation's execute() and is caught
+    // by run()'s existing try/catch, finalizing this run's pil_agent_runs
+    // row as "failed" with an error message naming the budget.
+    await checkBudgetMidRun(context.orgId, "org", context.orgId, costUsd ?? 0);
   }
 
   private async createRun(
