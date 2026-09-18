@@ -8,11 +8,56 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-7.1: single Chromium launcher, fixes 215 failures across 5 EA agents — code only, worker NOT redeployed)
+- **Last updated:** 2026-09-17 (AR-7.2: automation_sessions deadlock — finalize on every path, reap 7 stuck rows live, 32/32 autoapply_queue_processor failures explained)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-7.2: automation_sessions deadlock)
+
+Production evidence: `autoapply_queue_processor` — 32 runs, 0 completed, 32 failed, never once
+succeeded, all on `concurrent_automation_conflict: active automation_sessions row <uuid> exists for
+this org+funder` (`worker/queue-processor.ts:730`). Live query found 7 `automation_sessions` rows
+non-terminal (`awaiting_approval` x4, `approved` x2, `pending` x1), oldest since 2026-06-11 (99
+days), `updated_at` exactly equal to `created_at` on 6 of the 7 — never touched since insert.
+`SubmissionValidator.checkConcurrentAutomation()` blocks a new run for an org+funder pair while any
+non-terminal row exists, so each abandoned session blocked that pair forever, and with it AR-3.1's
+submit-integrity fix, which could never execute because the processor could never get past the guard.
+
+**Map first, checked not assumed:** `processItem()` (the direct funder-portal pipeline) already
+finalized on every reachable throw before this change — only `SkipError`/`CaptchaPauseError`
+re-throw past the `finalizeAutomationSession()` call, and both only ever fire *before* the session
+is created. AR-3.1 did not make this pipeline's deadlock worse — checked, not assumed true or
+false. The real gaps: the finalize call sat after the try/catch/finally (a future re-throw could
+silently break it), its own failure was swallowed by a bare `.catch()`, and — the actual explanation
+for the `pending`/`approved` stuck rows — nothing revisits a session if the worker process crashes,
+is killed, or hangs before any handler runs. No `try/finally` survives a `SIGKILL`.
+
+**Fix:** `processItem()`'s finalize call moved into its existing `finally` (unconditional, not
+convention-dependent); its own failure now raises a `manual_review_required` alert instead of just
+logging. `processBrowserAutomationItem()` (Agent-16 pipeline) gained a post-run guard that re-reads
+the session after `agent.run()` settles and force-closes it if it's not in a settled status. New
+`reapStaleAutomationSessions()` sweep in `worker/stuck-run-watchdog.ts` (exported standalone,
+10-minute loop) with per-status thresholds — 30 minutes for `pending`/`in_progress`/`approved`
+(technical states, 6x the ~5-minute run SLA), 7 days for `awaiting_approval` (a human-wait state per
+session-manager.ts's PAUSE-FOR-APPROVAL INVARIANT — live rows sat abandoned 9.8-99 days).
+
+**Cleared live:** migration `195_reap_stuck_automation_sessions.sql` applied directly (Supabase MCP,
+project `vbjplpquqxxfbpazyalt`) — same threshold logic as the watchdog. 7 rows closed:
+`5df2c9f5`/`73c852be`/`48597b27`/`cbf5a78d`/`79433369`/`30ba9614`/`de762167`. Non-terminal count
+verified 0 immediately after. Each raised a `manual_review_required` alert (AR-6.3 vocabulary).
+
+**Test:** `src/__tests__/integration/automation-session-lifecycle.test.ts`, real DB, 4/4 green —
+normal completion terminal, thrown `IncompleteSubmissionError` still terminal, stale
+`awaiting_approval` reaped while fresh one isn't (plus a stale `approved` row, proving the per-status
+logic), and — the assertion that proves the deadlock is actually broken —
+`checkConcurrentAutomation()` flips from conflict to no-conflict after a reap.
+
+**Not claimed:** the Railway worker was NOT redeployed ("DO NOT DEPLOY"), so Steps 1-2's code fix is
+not live and `autoapply_queue_processor` has not been observed to succeed. What's verified live is
+the lock being clear (0 non-terminal rows) — see `STATE_OF_THE_BUILD.md`'s "AR-7.2" section for the
+full step-by-step and the three closing questions answered directly.
 
 ## Session — 2026-09-17 (AR-7.1: unified Chromium launcher)
 

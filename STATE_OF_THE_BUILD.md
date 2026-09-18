@@ -1,5 +1,153 @@
 # Benavora Platform Build State
 
+## AR-7.2 — automation_sessions deadlock: finalize on every path, reap what's already stuck (2026-09-17)
+
+**The defect.** `autoapply_queue_processor`: 32 runs, 0 completed, 32 failed —
+it has never once succeeded. Every failure was the same error, raised at
+`worker/queue-processor.ts:730`: `concurrent_automation_conflict: active
+automation_sessions row <uuid> exists for this org+funder`. Live data
+(2026-09-17) showed 7 `automation_sessions` rows stuck in a non-terminal
+status (`awaiting_approval` x4, `approved` x2, `pending` x1), the oldest
+since 2026-06-11 (99 days). Every one of the 6 rows created by a raw
+`INSERT` had `updated_at` exactly equal to `created_at` — proof nothing
+had ever touched them since creation, not that they were merely slow.
+`SubmissionValidator.checkConcurrentAutomation()` refuses a new AutoApply
+run for an org+funder pair while *any* non-terminal row exists for it, so
+each abandoned session blocked that org+funder forever — and with it, the
+AR-3.1 submit-integrity fix (field_mapping adapter, verified submit, honest
+status mapping), which could never execute in production because the
+processor that invokes it could not get past this guard.
+
+**Step 1 — the finalization map, checked before changing anything.**
+`worker/queue-processor.ts`'s `processItem()` (the direct funder-portal
+pipeline) already finalized on every reachable throw *before* this change —
+`IncompleteSubmissionError`/`SubmissionNotVerifiedError`/any other `Error`
+falls through the existing `catch` (only `SkipError`/`CaptchaPauseError`
+re-throw, and both are only ever thrown *before* `autoSessionId` is set) to
+the unconditional `finalizeAutomationSession()` call after the
+try/catch/finally. **AR-3.1 did not make this pipeline's deadlock worse** —
+that specific hypothesis is false for this call site; it was checked, not
+assumed. Two real gaps existed regardless: (a) the call sat after the
+try/catch/finally, reachable only by nobody adding a future re-throw — a
+maintenance trap, not a live bug; (b) `finalizeAutomationSession()`'s own
+failure was swallowed by a bare `.catch()` with just a `console.warn`, no
+retry, no alert. The Agent-16 pipeline (`processBrowserAutomationItem()` →
+`BrowserAutomationAgent.run()`) had the same swallow-on-failure gap inside
+`markFailed()` (`.catch(() => undefined)`), and — the real explanation for
+the `pending`/`approved` stuck rows — nothing revisits a session if the
+process crashes, is killed (Railway restart/OOM), or hangs before any
+`catch`/`finally` runs at all. No `try/finally` survives a `SIGKILL`; that
+class of failure needs a watchdog, not more error handling, which is why
+Step 3 exists.
+
+**Step 2 — finalize on every path.** `processItem()`'s
+`finalizeAutomationSession()` call moved into the existing `finally` (after
+`browser.close()`), so it runs unconditionally rather than by not-re-throwing
+convention; its own failure now raises a `manual_review_required` alert
+instead of only logging. `processBrowserAutomationItem()` gained a
+post-run guard: after `agent.run()` settles (success or the existing
+`catch`), it re-reads the session and force-closes it with `markFailed()` —
+plus an alert — if it's not `submitted`/`failed`/`cancelled`/
+`awaiting_approval`, covering the case where `BrowserAutomationAgent`'s own
+internal `markFailed()` silently failed to write.
+
+**Step 3 — reap what a `finally` can't reach.** `worker/stuck-run-watchdog.ts`
+gained a third sweep, `reapStaleAutomationSessions()` (exported standalone,
+not just a private method, so it's directly testable), on the existing
+10-minute loop. Per-status thresholds, not the flat 30-minute
+`STUCK_TIMEOUT_MS` already used for `agent_runs`/`pil_agent_runs`:
+`pending`/`in_progress`/`approved` get 30 minutes — technical mid-flight
+states with a real SLA (the browser-automation route caps a run at ~5
+minutes; `processItem()`'s own pipeline drives pending→approved→submitted/
+failed within one queue-item attempt), so 30 minutes is 6x that ceiling and
+nothing legitimate is ever still there. `awaiting_approval` gets 7 days —
+`session-manager.ts`'s PAUSE-FOR-APPROVAL INVARIANT means this state waits
+on a *human*, not code, and live data showed real (if abandoned) approval
+requests aged 9.8–99 days; a short timeout would destroy a review someone
+might still be about to act on. 7 days is long enough that an intending
+reviewer has almost certainly already acted, while still eventually
+releasing the lock for a request nobody ever will.
+
+**Step 4 — cleared the 7 already-stuck rows.** A code fix doesn't retroactively
+unblock existing rows, and "DO NOT DEPLOY" meant the new watchdog sweep
+would never run against production this session. Applied migration `195_
+reap_stuck_automation_sessions.sql` directly (via the Supabase MCP
+connector, project `vbjplpquqxxfbpazyalt`) — the identical per-status
+threshold logic as the watchdog, so a row it closes is indistinguishable
+from one the watchdog would close on its first pass. **7 rows closed:**
+`5df2c9f5` (awaiting_approval, 99.0d), `73c852be` (approved, 22.5d),
+`48597b27` (pending, 22.5d), `cbf5a78d` (awaiting_approval, 13.1d),
+`79433369` (awaiting_approval, 11.7d), `30ba9614` (awaiting_approval, 9.8d),
+`de762167` (approved, 0.4d/565m). Verified live immediately after: `SELECT
+count(*) FROM automation_sessions WHERE status NOT IN
+('submitted','failed','cancelled')` → **0**.
+
+**Step 5 — alert on it.** Both the watchdog's `reapStaleAutomationSessions()`
+and the one-time migration cleanup raise a `manual_review_required` alert
+(AR-6.3's alert vocabulary) per reaped row via `raiseOrchestrationAlert()` —
+since the migration itself is plain SQL and can't call that TypeScript
+helper, the 7 migration-closed rows' alerts were raised separately,
+same dedup key convention (`orchestration:manual_review_required:<session
+id>`), immediately after. A session getting stuck here means AutoApply was
+silently blocked for that org+funder, possibly for days — that's worth a
+human looking at, not a log line nobody reads.
+
+**Test.** `src/__tests__/integration/automation-session-lifecycle.test.ts`,
+against the real DB (service-role client, no mocks) — 4/4 green:
+1. A normal completion leaves the session `submitted`.
+2. A thrown `IncompleteSubmissionError` still leaves the session `failed`
+   (the direct guard on the deadlock) — proven by calling
+   `QueueProcessor`'s real `createApprovedAutomationSession()`/
+   `finalizeAutomationSession()` inside a try/catch/finally shaped exactly
+   like `processItem()`'s, not by driving the full pipeline: `processItem()`
+   gates on `assertUrlSafe()` before ever reaching `fillAndSubmit()`, which
+   hard-blocks every private/loopback address, so no local fixture server
+   can stand in as a portal, and no stable public form with an
+   intentionally-empty required field exists to trigger a real
+   `IncompleteSubmissionError` end to end (the same constraint
+   `autoapply-submit-integrity.test.ts` already documents for the identical
+   reason).
+3. A session aged 8 days in `awaiting_approval` is reaped; one aged 1 hour
+   is not; one aged 45 minutes in `approved` is reaped (proves the
+   per-status thresholds, not just the human-wait one) — plus confirms the
+   reap raises a real `manual_review_required` alert row.
+4. After a reap, `checkConcurrentAutomation()` for that org+funder flips
+   from `conflict: true` to `conflict: false` — the assertion that proves
+   the deadlock is actually broken, not just that a row's status changed.
+
+**Gates:** `pnpm typecheck` 0 errors. `pnpm run build` succeeded. `pnpm run
+build:worker` 0 errors. `pnpm test` 90 files / 853 tests passed, 13 todo, 1
+file skipped (866 total) — zero new unit-test files from this change (the
+new suite lives in `src/__tests__/integration/`, outside `pnpm test`'s
+default scope, and passed separately, 4/4). `pnpm vitest run --config
+vitest.integration.config.ts src/__tests__/integration/automation-session-
+lifecycle.test.ts` — 4/4 green, reported above.
+
+**Answering the three questions directly, not claiming more than is shown:**
+- **Non-terminal `automation_sessions` rows remaining: 0**, verified live
+  immediately after Step 4's cleanup.
+- **Can a thrown error still leave a session active?** For every code path
+  that raises a catchable JS exception — no: `processItem()` finalizes from
+  `finally`, and `processBrowserAutomationItem()`'s post-run guard force-closes
+  anything the agent's own bookkeeping missed. What still can, in principle,
+  is a failure that isn't a catchable exception at all — the process being
+  killed (Railway OOM/restart) or genuinely hanging past any timeout, since
+  no `finally` survives a `SIGKILL`. That case is no longer *unbounded*: the
+  watchdog now bounds the exposure to its per-status threshold (≤30 minutes
+  for the three technical states, ≤7 days for `awaiting_approval`) instead
+  of forever, which is what actually broke the deadlock for the 7 rows that
+  had already fallen into it.
+- **Has `autoapply_queue_processor` succeeded yet?** No, and that is not
+  claimed here. The Railway worker was not redeployed this session
+  (explicit "DO NOT DEPLOY") and the code fix (Steps 1-2) is therefore not
+  live. What *is* live and verified is Steps 3-5 applied directly against
+  production: the lock is clear (0 non-terminal rows) and future reaps
+  will alert. The next real `autoapply_queue_processor` run should no
+  longer hit `concurrent_automation_conflict` for these 7 org+funder pairs,
+  but that is a prediction from verified DB state, not an observed
+  success — do not report one until a real post-redeploy `agent_runs` row
+  shows `status='completed'`.
+
 ## AR-7.1 — Unified Chromium launcher, fixes 215 failures across 5 EA agents (2026-09-17)
 
 **Root cause, confirmed 2026-09-17 from live `agent_runs`:** `ea01_giving_detector`,

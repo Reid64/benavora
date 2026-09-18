@@ -244,3 +244,76 @@ agents are now consolidated onto the canonical formula.
 consolidation and does not compute a relationship score at all — it builds
 the `pig_nodes`/`pig_edges` warm-introduction graph, an unrelated feature
 sharing only the word "relationship."
+
+---
+
+## Contract: AutoApply Automation Session Lifecycle (Benavora product, not FORGE)
+
+Note on numbering: `src/lib/automation/session-manager.ts`,
+`worker/queue-processor.ts`, and several other source files cite this
+document as "BEHAVIORAL_CONTRACTS §18" for the human-approval gate on
+AutoApply submissions. As with the Relationship Scoring section above, that
+section number was never written here — see project memory
+`benavora-governance-docs-missing-v1-sections`. This section is added at the
+literal location that citation points to (AR-7.2, 2026-09-17), without
+inventing a fake numbering scheme to match it.
+
+### The approval gate (what §18 citations mean)
+The automation drives an `automation_sessions` row to `awaiting_approval` and
+STOPS. The only path to `submitted` runs through a human's `approve()` call
+followed by `markSubmitted()`, which refuses unless a human has already
+approved (`src/lib/automation/session-manager.ts`). There is deliberately no
+method that approves-and-submits in one step. This gate is orthogonal to the
+lifecycle contract below — the second AutoApply implementation
+(`worker/queue-processor.ts`'s `submission_queue` pipeline) auto-approves
+its own sessions for its own autonomous submissions (no per-item human
+review in that pipeline by design), and both implementations share one
+`automation_sessions` table and one mutual-exclusion guard
+(`SubmissionValidator.checkConcurrentAutomation()`).
+
+### The lifecycle contract (added AR-7.2, 2026-09-17)
+An `automation_sessions` row that never reaches a terminal status blocks
+`checkConcurrentAutomation()` for that org+funder pair forever — live
+production data showed 7 rows stuck this way (one 99 days old) and
+`autoapply_queue_processor` failing 32/32 runs as a direct result.
+
+### MUST DO
+- Any code path that creates an `automation_sessions` row MUST finalize it
+  (`submitted`/`failed`/`cancelled`, or `awaiting_approval` for the
+  human-review pause specifically) on every exit, including a thrown error —
+  from a `finally`, not a catch block that merely happens not to re-throw.
+- Any new automation pipeline sharing this table MUST be covered by
+  `worker/stuck-run-watchdog.ts`'s `reapStaleAutomationSessions()` sweep or
+  an equivalent staleness reap — a `finally` block cannot survive a process
+  crash or kill, so a bounded-time reap is the only backstop for that
+  failure class.
+- A session reaped for staleness MUST raise a `manual_review_required` alert
+  (`raiseOrchestrationAlert()`) — a silently-cleaned-up deadlock teaches
+  nothing the next time it happens.
+
+### MUST NOT DO
+- Must NOT reap `awaiting_approval` on the same short threshold as the
+  technical mid-flight statuses (`pending`/`in_progress`/`approved`) — it is
+  a genuine human wait, not a bug, and a short timeout would destroy a
+  review a human is still plausibly about to complete.
+- Must NOT swallow a finalize-write failure silently (a bare `.catch()` with
+  only a log line) — a session that is still non-terminal because the write
+  itself failed is exactly as blocking as one nobody ever tried to finalize.
+
+### History
+AR-3.1 (2026-09-17, earlier the same day) made `worker/queue-processor.ts`'s
+form-fill failures throw (`IncompleteSubmissionError`,
+`SubmissionNotVerifiedError`) rather than being silently swallowed, in order
+to stop AutoApply from reporting a submission it never made. AR-7.2 checked,
+rather than assumed, whether that change made this deadlock worse for the
+`submission_queue` pipeline — it did not: every throw reachable after a
+session's creation already fell through to the existing finalize call before
+this fix (`SkipError`/`CaptchaPauseError` are the only re-throws, and both
+only ever occur before a session exists). The real causes were narrower: the
+finalize call's placement relied on no future catch re-throwing (moved into
+`finally`, AR-7.2), a swallowed finalize-write failure (now alerts), and —
+the actual explanation for the stuck `pending`/`approved` rows — a crashed
+or killed worker process, which no amount of `try`/`catch`/`finally` can
+protect against. That last class is why `reapStaleAutomationSessions()`
+exists. Full incident detail, the 7 reaped row ids, and per-status threshold
+rationale: `STATE_OF_THE_BUILD.md`'s "AR-7.2" section.

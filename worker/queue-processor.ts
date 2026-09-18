@@ -611,6 +611,7 @@ export class QueueProcessor {
       throw new Error('automation_session_missing_application_id');
     }
 
+    let runErr: unknown = null;
     try {
       const agent = new BrowserAutomationAgent({
         client: this.supabase,
@@ -619,10 +620,43 @@ export class QueueProcessor {
       });
       await agent.run({ applicationId, sessionId });
     } catch (err) {
+      runErr = err;
       const message = err instanceof Error ? err.message : 'Browser automation failed.';
       await sessions.markFailed(sessionId, message).catch(() => undefined);
-      throw err;
+    } finally {
+      // AR-7.2: agent.run() is expected to leave the session at a terminal
+      // status (submitted/failed/cancelled) or the deliberate human-review
+      // pause (awaiting_approval - BEHAVIORAL_CONTRACTS §18's
+      // PAUSE-FOR-APPROVAL invariant) on every path, including the catch
+      // above. But BrowserAutomationAgent's own markFailed() calls swallow
+      // their write errors (.catch(() => undefined)) rather than throwing, so
+      // a DB write failure there would otherwise leave this row silently
+      // stuck - exactly the deadlock class this fix targets (32/32
+      // autoapply_queue_processor runs failed in production on
+      // concurrent_automation_conflict, 2026-09-17 audit). Verify the actual
+      // row state rather than trusting that agent.run() did what it should.
+      const finalState = await sessions.getSession(sessionId).catch(() => null);
+      const settledStatuses = new Set(['submitted', 'failed', 'cancelled', 'awaiting_approval']);
+      if (finalState !== null && !settledStatuses.has(finalState.status)) {
+        const reason = `Browser automation exited (status='${finalState.status}') without reaching a terminal or awaiting_approval state.`;
+        await sessions.markFailed(sessionId, reason).catch((e: unknown) => {
+          console.warn(
+            `[QueueProcessor] Failed to force-finalize automation session ${sessionId}:`,
+            e instanceof Error ? e.message : String(e),
+          );
+        });
+        void raiseOrchestrationAlert(this.supabase, {
+          organizationId: item.organization_id,
+          orchestrationId: sessionId,
+          type: 'manual_review_required',
+          severity: 'warning',
+          message: `AutoApply browser-automation session ${sessionId} exited in status '${finalState.status}' without finalizing - force-closed by the queue processor's post-run guard.`,
+          dedupKey: dedupKeys.orchestrationManualReviewRequired(sessionId),
+        }).catch(() => {});
+      }
     }
+
+    if (runErr !== null) throw runErr;
   }
 
   private async processItem(item: QueueItem): Promise<void> {
@@ -1593,23 +1627,43 @@ export class QueueProcessor {
       }
       // Retrieve recording path only after browser.close() finalizes the .webm file
       localRecordingPath = await stealthBrowser.getRecordingPath().catch(() => null);
-    }
 
-    // Close out the automation_sessions audit trail (if a session was created above â€”
-    // it may not have been if the run failed before reaching the fill/submit stage).
-    if (autoSessionId !== null) {
-      await this.finalizeAutomationSession(
-        autoSessionId,
-        orgId,
-        submissionStatus === 'submitted',
-        confirmationNumber,
-        errorMessage,
-      ).catch((e: unknown) => {
-        console.warn(
-          '[QueueProcessor] Failed to finalize automation session:',
-          e instanceof Error ? e.message : String(e),
-        );
-      });
+      // AR-7.2: finalize the automation_sessions audit trail from `finally`,
+      // not after the try/catch, so it runs on every outcome - success, a
+      // thrown IncompleteSubmissionError/SubmissionNotVerifiedError, or any
+      // other error the catch above absorbed. A session created above
+      // (autoSessionId set by createApprovedAutomationSession()) that never
+      // reaches a terminal status blocks this org+funder pair forever via
+      // checkConcurrentAutomation()'s mutual-exclusion guard - that deadlock
+      // is what stranded every autoapply_queue_processor run in production
+      // (32/32 failed, 2026-09-17 audit). autoSessionId may still be null if
+      // the run failed before reaching the fill/submit stage - nothing to
+      // finalize in that case.
+      if (autoSessionId !== null) {
+        const sessionId = autoSessionId;
+        await this.finalizeAutomationSession(
+          sessionId,
+          orgId,
+          submissionStatus === 'submitted',
+          confirmationNumber,
+          errorMessage,
+        ).catch((e: unknown) => {
+          const failMsg = e instanceof Error ? e.message : String(e);
+          console.warn('[QueueProcessor] Failed to finalize automation session:', failMsg);
+          // The finalize write itself failed (not the submission) - the
+          // session is still non-terminal and will keep blocking this
+          // org+funder pair until the stuck-run watchdog's staleness reap
+          // catches it. Alert now rather than silently wait for that.
+          void raiseOrchestrationAlert(this.supabase, {
+            organizationId: orgId,
+            orchestrationId: sessionId,
+            type: 'manual_review_required',
+            severity: 'warning',
+            message: `Failed to finalize automation session ${sessionId} for funder ${funderName}: ${failMsg}`,
+            dedupKey: dedupKeys.orchestrationManualReviewRequired(sessionId),
+          }).catch(() => {});
+        });
+      }
     }
 
     // Persist full submission audit record

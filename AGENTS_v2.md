@@ -761,6 +761,59 @@ Full detail: `SCHEMA_REGISTRY_v2.md`'s and `STATE_OF_THE_BUILD.md`'s "AR-6.4" se
 
 ---
 
+## `automation_sessions` must reach a terminal status on every path, or it deadlocks AutoApply (AR-7.2, 2026-09-17)
+
+The mutual-exclusion guard between the two AutoApply implementations —
+what code comments (WGR-167, BEHAVIORAL_CONTRACTS §18) call "Agent 16"
+(`/api/agents/automation`, `automation_sessions`, browser automation with
+human approval — note this is NOT this registry's `AG-16` (Digital Twin
+Builder); the "Agent 16" name is a pre-existing numbering collision, see
+"Canonical implementation per AG-NN slot" above, not something this change
+introduced or resolved) and the `submission_queue` pipeline
+(`worker/queue-processor.ts`, the same one AR-1.2/AR-3.1 fixed) — is correct
+in intent (one automation per org+funder at
+a time, `SubmissionValidator.checkConcurrentAutomation()`) but was a live
+deadlock in practice: a session created and then abandoned (crash, kill, or
+simply left in `awaiting_approval` forever by an inattentive reviewer) blocks
+that org+funder pair permanently, because nothing ever revisits a session
+once its owning process exits. Production evidence: `autoapply_queue_processor`
+had never once succeeded — 32/32 runs failed on `concurrent_automation_conflict`
+— and AR-3.1's submit-integrity fix could not execute as a direct result.
+
+**If you add a new code path that creates an `automation_sessions` row
+(a third pipeline, or a new branch in either existing one), it must reach a
+terminal status (`submitted`/`failed`/`cancelled`) — or, for the Agent-16
+approval flow specifically, `awaiting_approval` — on every exit, including a
+thrown error.** Prefer a `finally` over relying on a catch block that
+happens not to re-throw; a future edit to that catch can silently reopen this
+exact deadlock without anyone noticing, since the only symptom is a slow
+accumulation of stuck rows, not an immediate error at the call site that
+introduced it.
+
+**Crashes and kills are not solvable in application code — that's what the
+watchdog is for.** `worker/stuck-run-watchdog.ts`'s `reapStaleAutomationSessions()`
+sweep (same 10-minute loop as the existing `agent_runs`/`pil_agent_runs`
+sweeps) closes anything left non-terminal past a per-status threshold: 30
+minutes for the three technical mid-flight statuses (`pending`/`in_progress`/
+`approved`), 7 days for `awaiting_approval` specifically because that state
+is a genuine human wait (session-manager.ts's PAUSE-FOR-APPROVAL INVARIANT),
+not a bug — do not lower that threshold without re-reading the reasoning in
+that file's header comment; live data showed real, still-plausibly-pending
+approval requests aged up to 13 days before the 99-day outlier that finally
+forced this fix.
+
+**Not deployed this session.** The `finally`-block relocation and the
+post-run guard on `processBrowserAutomationItem()` are code-only — the
+Railway worker was not redeployed ("DO NOT DEPLOY"). The watchdog sweep and
+the alerting it raises were still applied against production data this
+session: once via a one-time migration (`195_reap_stuck_automation_sessions.sql`)
+that closed the 7 rows already stuck, using the identical threshold logic the
+watchdog will use once it does deploy. Full step-by-step, the reaped row ids,
+and the three closing questions answered directly: `STATE_OF_THE_BUILD.md`'s
+"AR-7.2" section.
+
+---
+
 ## Agent Registry Schema
 
 ```sql
