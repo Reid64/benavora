@@ -5,7 +5,13 @@ import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 
-import { priceUsage, computeCostUsd, pilBlendedTokenRateUsd, PIL_AGENT_MODEL } from "@/lib/pil/model-pricing";
+import {
+  priceUsage,
+  computeCostUsd,
+  priceApiCall,
+  pilBlendedTokenRateUsd,
+  PIL_AGENT_MODEL,
+} from "@/lib/pil/model-pricing";
 import { recordCost } from "@/lib/pil/cost";
 
 /**
@@ -53,6 +59,7 @@ function randomSuffix(): string {
 }
 
 const UNSEEDED_MODEL = `ar-10-1-test-unseeded-model-${randomSuffix()}`;
+const UNSEEDED_CONNECTOR = `ar-10-2-test-unseeded-connector-${randomSuffix()}`;
 
 (CREDS_AVAILABLE ? describe : describe.skip)(
   "Cost traceability (AR-10.1) — ai_usage_log rows trace to a dated, sourced rate",
@@ -214,6 +221,60 @@ const UNSEEDED_MODEL = `ar-10-1-test-unseeded-model-${randomSuffix()}`;
       const expected =
         (Number(rateRow!.input_usd_per_mtok) + Number(rateRow!.output_usd_per_mtok)) / 2 / 1_000_000;
       expect(blended!).toBeCloseTo(expected, 10);
+    });
+
+    it("AR-10.2: prices a non-LLM connector call via model_cost_reference's pricing_unit='call' rows, and the recorded ai_usage_log row traces to it", async () => {
+      const { data: rateRow, error } = await service
+        .from("model_cost_reference")
+        .select("pricing_unit, usd_per_call, effective_from, source")
+        .eq("model", "google_places")
+        .single();
+      expect(error, error?.message).toBeNull();
+      expect(rateRow!.pricing_unit).toBe("call");
+      expect(Number(rateRow!.usd_per_call)).toBeGreaterThan(0);
+
+      const requestsMade = 3;
+      const priced = await priceApiCall("google_places", requestsMade);
+      expect(priced.priced).toBe(true);
+      if (!priced.priced) throw new Error("unreachable");
+      expect(priced.costUsd).toBeCloseTo(requestsMade * Number(rateRow!.usd_per_call), 6);
+      expect(priced.effectiveFrom).toBe(rateRow!.effective_from);
+      expect(priced.source).toBe(rateRow!.source);
+
+      const orgId = await createOrg(`AR-10.2 connector-call ${randomSuffix()}`);
+      await recordCost({
+        organization_id: orgId,
+        model: "google_places",
+        endpoint: "cost-traceability-test-connector-call",
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+        cost_usd: priced.costUsd,
+        duration_ms: null,
+        agent_type: null,
+        agent_run_id: null,
+        pil_agent_run_id: null,
+        provider: "google_places",
+        billing_path: "api",
+      });
+
+      const { data: row, error: rowError } = await service
+        .from("ai_usage_log")
+        .select("cost_usd, provider, input_tokens, output_tokens")
+        .eq("organization_id", orgId)
+        .eq("endpoint", "cost-traceability-test-connector-call")
+        .single();
+      expect(rowError, rowError?.message).toBeNull();
+      expect(row!.input_tokens).toBe(0);
+      expect(row!.output_tokens).toBe(0);
+      expect(row!.provider).toBe("google_places");
+      expect(Number(row!.cost_usd)).toBeCloseTo(requestsMade * Number(rateRow!.usd_per_call), 6);
+    });
+
+    it("AR-10.2: a connector with no model_cost_reference row (Apollo/Hunter today) resolves to an explicit unpriced null, never a fabricated $0", async () => {
+      const priced = await priceApiCall(UNSEEDED_CONNECTOR, 1);
+      expect(priced.priced).toBe(false);
+      expect(priced.costUsd).toBeNull();
     });
 
     it("the resolver's cached value matches the table on repeated calls (per-process cache, not a re-fetch mismatch)", async () => {

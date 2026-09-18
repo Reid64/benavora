@@ -32,18 +32,18 @@ if (bypass.length)
        (bypass.length > 6 ? `\n       ...and ${bypass.length - 6} more` : ""));
 
 // 3. adapter_usage_log.api_cost_cents (google-places-adapter.ts,
-//    donor-discovery/connectors/usage-log.ts) is a real, live ledger too, but
-//    it prices a different thing entirely: per-API-call cents charged by
-//    Google Places/Apollo/Hunter, providers model_cost_reference has no rows
-//    for (that table is Anthropic per-token rates only). It is not a second
-//    Anthropic cost ledger and out of AR-10.1's scope - excluded by path
-//    rather than flagged, same as check #2's `// ok:` escape hatch.
+//    donor-discovery/connectors/usage-log.ts) was AR-10.1's one carved-out
+//    exception - a real ledger pricing Google Places/Apollo/Hunter, providers
+//    model_cost_reference had no rows for. AR-10.2 closed that gap: the
+//    table now carries pricing_unit='call' rows too (migration 197), the
+//    column is frozen at its DEFAULT 0, and both files route their cost
+//    dimension through recordCost() like every Anthropic call. No code
+//    should write this column anymore - zero exceptions, not two.
 const adapter = sh(`grep -rn --include=*.ts --exclude-dir=node_modules --exclude-dir=__tests__ "api_cost_cents" src worker || true`)
   .split("\n").filter(Boolean)
-  .filter((l) => !/\/\/|superseded|deprecated/i.test(l))
-  .filter((l) => !/donor-discovery\/(adapters\/google-places-adapter|connectors\/usage-log)\.ts/.test(l));
+  .filter((l) => !/\/\/|superseded|deprecated/i.test(l));
 if (adapter.length)
-  fail(`api_cost_cents is written outside the known Google Places/donor-discovery adapters in ${adapter.length} place(s) - that is a second Anthropic-cost ledger:\n       ` +
+  fail(`api_cost_cents is still written in ${adapter.length} place(s) - AR-10.2 retired it as a cost writer, this is a second cost ledger:\n       ` +
        adapter.slice(0, 4).map((l) => l.split(":").slice(0, 2).join(":")).join("\n       "));
 
 // 4. A test proving a dashboard dollar traces to a dated rate.

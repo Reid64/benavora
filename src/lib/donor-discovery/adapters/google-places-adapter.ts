@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey } from "@/lib/crypto/key-encrypt";
 import { DomainRateLimiter } from "@/lib/donor-discovery/crawler-core";
 import { upsertDirectoryRecord, parseGeo, type DirectoryGeo } from "@/lib/donor-discovery/directory";
+import { priceApiCall } from "@/lib/pil/model-pricing";
+import { recordCost } from "@/lib/pil/cost";
 
 /**
  * Google Places registry adapter, cache-first variant
@@ -15,10 +17,12 @@ import { upsertDirectoryRecord, parseGeo, type DirectoryGeo } from "@/lib/donor-
  * `donor_discovery_directory` before any paid call, the legacy Nearby Search
  * endpoint (which — unlike Places API (New) — accepts a free-text `keyword`
  * param, matching this task's "keyword derived from NAICS label + alias"
- * requirement), and a per-organization Faith Foundation budget throttle
- * backed by `adapter_usage_log` (migration 076) rather than the shared
- * `dd_api_spend` ledger. The two files are not wired together; which one the
- * worker uses is a decision for a later phase, not this task.
+ * requirement), and a per-organization Faith Foundation budget throttle —
+ * originally backed by `adapter_usage_log` (migration 076), re-pointed at
+ * `ai_usage_log` by AR-10.2 once that became the platform's single per-call
+ * cost ledger — rather than the shared `dd_api_spend` ledger. The two files
+ * are not wired together; which one the worker uses is a decision for a
+ * later phase, not this task.
  *
  * Nothing in this module runs at import time — env vars and the admin client
  * are only touched inside `enumerate`, matching the lazy-init convention
@@ -79,7 +83,7 @@ export class AdapterError extends Error {
 }
 
 const PROVIDER = "google_places";
-const MONTHLY_BUDGET_CENTS = 100_00; // $100 hard ceiling (Faith Foundation platform-key path only)
+const MONTHLY_BUDGET_USD = 100; // $100 hard ceiling (Faith Foundation platform-key path only)
 
 // ── Non-enumerable "cached-only" warning flag ───────────────────────────────
 //
@@ -259,25 +263,34 @@ function isFaithFoundation(organizationId: string): boolean {
   return Boolean(faithOrgId) && organizationId === faithOrgId;
 }
 
-async function faithFoundationMonthSpendCents(organizationId: string): Promise<number> {
+// AR-10.2: the throttle now reads ai_usage_log (the single per-call cost
+// ledger) instead of adapter_usage_log.api_cost_cents, which is frozen at
+// its DEFAULT 0 and no longer written. Unpriced rows (cost_usd null -- see
+// recordGooglePlacesCost below) are treated as $0 spend for this sum,
+// consistent with checkBudget()'s (src/lib/pil/cost.ts) own tri-state
+// "unknown-priced calls don't count against a hard-dollar ceiling" posture,
+// since summing null as if it were the real spend would either crash the
+// throttle or silently understate it either way -- this at least never
+// blocks a Faith Foundation search that isn't actually confirmed to have
+// spent anything.
+async function faithFoundationMonthSpendUsd(organizationId: string): Promise<number> {
   const supabase = createAdminClient();
   const now = new Date();
   const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
   const { data, error } = await supabase
-    .from("adapter_usage_log")
-    .select("api_cost_cents")
+    .from("ai_usage_log")
+    .select("cost_usd")
     .eq("organization_id", organizationId)
-    .eq("adapter_name", PROVIDER)
-    .gte("called_at", monthStartIso);
+    .eq("model", PROVIDER)
+    .gte("created_at", monthStartIso);
 
   if (error || !data) return 0;
-  return (data as { api_cost_cents: number }[]).reduce((sum, r) => sum + (r.api_cost_cents ?? 0), 0);
+  return (data as { cost_usd: number | null }[]).reduce((sum, r) => sum + (r.cost_usd ?? 0), 0);
 }
 
 async function logAdapterUsage(params: {
   organizationId: string;
-  apiCostCents: number;
   recordsReturned: number;
   cacheHit: boolean;
 }): Promise<void> {
@@ -285,10 +298,43 @@ async function logAdapterUsage(params: {
   await supabase.from("adapter_usage_log").insert({
     organization_id: params.organizationId,
     adapter_name: PROVIDER,
-    api_cost_cents: params.apiCostCents,
     records_returned: params.recordsReturned,
     cache_hit: params.cacheHit,
   });
+}
+
+/**
+ * AR-10.2: records the real dollar cost of `requestsMade` paid Nearby Search
+ * calls to ai_usage_log via the single recordCost() ledger, priced through
+ * model_cost_reference's 'google_places' pricing_unit='call' row (migration
+ * 197) rather than a hardcoded per-file constant. Never throws -- a
+ * cost-logging failure must not fail the prospect enumeration that already
+ * succeeded, matching src/lib/ai/usage-recorder.ts's recordUsage() contract
+ * for Anthropic calls.
+ */
+async function recordGooglePlacesCost(organizationId: string, requestsMade: number): Promise<void> {
+  if (requestsMade === 0) return;
+  try {
+    const priced = await priceApiCall(PROVIDER, requestsMade);
+    await recordCost({
+      organization_id: organizationId,
+      model: PROVIDER,
+      endpoint: "google-places-nearby-search",
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+      cost_usd: priced.costUsd,
+      duration_ms: null,
+      agent_type: null,
+      agent_run_id: null,
+      pil_agent_run_id: null,
+      provider: PROVIDER,
+      billing_path: "api",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[google-places-adapter] Failed to record ai_usage_log cost: ${message}`);
+  }
 }
 
 // ── BYOK connector resolution (non-Faith-Foundation orgs) ───────────────────
@@ -363,7 +409,6 @@ async function resolveKeyword(naicsCode: string): Promise<string> {
 // not on Places API (New)'s searchNearby — see file header) ────────────────
 
 const NEARBY_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
-const COST_PER_REQUEST_USD = 0.032; // Basic Data SKU, same rate as Text Search (New)
 const MAX_RADIUS_METERS = 50_000; // Places API hard cap
 const MAX_PAGES = 3; // Nearby Search caps at 60 results / 3 pages of 20
 const NEXT_PAGE_TOKEN_DELAY_MS = 2_000; // Google recommends a short delay before a token becomes valid
@@ -549,7 +594,6 @@ async function enumerate(
   if (gapCodes.length === 0) {
     await logAdapterUsage({
       organizationId,
-      apiCostCents: 0,
       recordsReturned: cachedProspects.length,
       cacheHit: true,
     });
@@ -559,16 +603,15 @@ async function enumerate(
   const faith = isFaithFoundation(organizationId);
 
   if (faith) {
-    const spentCents = await faithFoundationMonthSpendCents(organizationId);
-    if (spentCents >= MONTHLY_BUDGET_CENTS) {
+    const spentUsd = await faithFoundationMonthSpendUsd(organizationId);
+    if (spentUsd >= MONTHLY_BUDGET_USD) {
       console.warn(
         `[google-places-adapter] Faith Foundation monthly Places budget exceeded ` +
-          `($${(spentCents / 100).toFixed(2)} of $${(MONTHLY_BUDGET_CENTS / 100).toFixed(2)}) — ` +
+          `($${spentUsd.toFixed(2)} of $${MONTHLY_BUDGET_USD.toFixed(2)}) — ` +
           "returning cached results only.",
       );
       await logAdapterUsage({
         organizationId,
-        apiCostCents: 0,
         recordsReturned: cachedProspects.length,
         cacheHit: true,
       });
@@ -597,10 +640,10 @@ async function enumerate(
 
   await logAdapterUsage({
     organizationId,
-    apiCostCents: Math.round(totalRequests * COST_PER_REQUEST_USD * 100),
     recordsReturned: merged.length,
     cacheHit: false,
   });
+  await recordGooglePlacesCost(organizationId, totalRequests);
 
   return merged;
 }

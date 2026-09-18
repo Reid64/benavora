@@ -12,8 +12,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // every Anthropic call and every PIL agent's T-MODEL tool use.
 
 interface ModelRate {
-  input: number;
-  output: number;
+  // AR-10.2: 'token' rows (every pre-existing Anthropic row) carry
+  // input/output; 'call' rows (non-LLM per-call APIs -- Google Places,
+  // connector enrichers) carry usdPerCall instead. Missing pricing_unit
+  // (rows selected before migration 197 added the column, or mocked in
+  // ai-pricing.test.ts) defaults to 'token' so every pre-AR-10.2 row and
+  // test fixture keeps resolving exactly as before.
+  pricingUnit: "token" | "call";
+  input: number | null;
+  output: number | null;
+  usdPerCall: number | null;
   effectiveFrom: string;
   source: string;
 }
@@ -28,7 +36,7 @@ async function loadRates(): Promise<Map<string, ModelRate>> {
 
   const { data, error } = await createAdminClient()
     .from("model_cost_reference")
-    .select("model, input_usd_per_mtok, output_usd_per_mtok, effective_from, source");
+    .select("model, input_usd_per_mtok, output_usd_per_mtok, effective_from, source, pricing_unit, usd_per_call");
 
   if (error || !data) {
     // A stale cache beats no pricing at all. On the very first load (no
@@ -43,8 +51,12 @@ async function loadRates(): Promise<Map<string, ModelRate>> {
     data.map((row) => [
       row.model as string,
       {
-        input: Number(row.input_usd_per_mtok),
-        output: Number(row.output_usd_per_mtok),
+        pricingUnit: ((row as { pricing_unit?: string }).pricing_unit as "token" | "call" | undefined) ?? "token",
+        input: row.input_usd_per_mtok != null ? Number(row.input_usd_per_mtok) : null,
+        output: row.output_usd_per_mtok != null ? Number(row.output_usd_per_mtok) : null,
+        usdPerCall: (row as { usd_per_call?: number | string | null }).usd_per_call != null
+          ? Number((row as { usd_per_call?: number | string | null }).usd_per_call)
+          : null,
         effectiveFrom: row.effective_from as string,
         source: row.source as string,
       },
@@ -111,7 +123,7 @@ export async function priceUsage(
 ): Promise<PriceResult> {
   const rates = await loadRates();
   const rate = rates.get(model);
-  if (!rate) {
+  if (!rate || rate.pricingUnit !== "token" || rate.input == null || rate.output == null) {
     await reportUnpricedModel(model);
     return { priced: false, model, costUsd: null };
   }
@@ -122,6 +134,42 @@ export async function priceUsage(
     costUsd,
     inputUsdPerMtok: rate.input,
     outputUsdPerMtok: rate.output,
+    effectiveFrom: rate.effectiveFrom,
+    source: rate.source,
+  };
+}
+
+export type ApiCallPriceResult =
+  | {
+      priced: true;
+      model: string;
+      costUsd: number;
+      usdPerCall: number;
+      effectiveFrom: string;
+      source: string;
+    }
+  | { priced: false; model: string; costUsd: null };
+
+/**
+ * AR-10.2: resolves the dollar cost of `calls` invocations of a per-call
+ * (non-token) API -- Google Places, donor-discovery connector enrichers --
+ * from a model_cost_reference row with pricing_unit='call'. Same never-a-
+ * silent-0 contract as priceUsage(): a model with no row, or a row that
+ * turns out to be token-priced, resolves to a typed unpriced result and
+ * fires the same throttled system_errors alert, not a fabricated $0.00.
+ */
+export async function priceApiCall(model: string, calls: number): Promise<ApiCallPriceResult> {
+  const rates = await loadRates();
+  const rate = rates.get(model);
+  if (!rate || rate.pricingUnit !== "call" || rate.usdPerCall == null) {
+    await reportUnpricedModel(model);
+    return { priced: false, model, costUsd: null };
+  }
+  return {
+    priced: true,
+    model,
+    costUsd: calls * rate.usdPerCall,
+    usdPerCall: rate.usdPerCall,
     effectiveFrom: rate.effectiveFrom,
     source: rate.source,
   };
@@ -163,7 +211,7 @@ export const PIL_AGENT_MODEL = "claude-sonnet-4-6";
 export async function pilBlendedTokenRateUsd(): Promise<number | null> {
   const rates = await loadRates();
   const rate = rates.get(PIL_AGENT_MODEL);
-  if (!rate) {
+  if (!rate || rate.pricingUnit !== "token" || rate.input == null || rate.output == null) {
     await reportUnpricedModel(PIL_AGENT_MODEL);
     return null;
   }
