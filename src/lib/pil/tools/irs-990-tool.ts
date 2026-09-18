@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { causeOf } from "@/lib/agents/base-agent";
 import type { AgentContext } from "@/lib/pil/agent-runner";
 import type { Tool, ToolResult } from "@/lib/pil/tools";
 
@@ -89,7 +90,14 @@ async function lookupFoundationDirectory(ein: string): Promise<FoundationDirecto
     .select("ein, name, dba, city, state, zip, ntee_code, foundation_type, revenue_amount, asset_amount, giving_total, website, email, phone")
     .eq("ein", ein)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    console.error(`[lookupFoundationDirectory] query failed for ein=${ein}: ${causeOf(error)}`);
+    // Best-effort: this is the first of a two-source waterfall (falls
+    // through to ProPublica below), so a transient failure here should not
+    // block the lookup -- it just means we skip straight to ProPublica.
+    return null;
+  }
+  if (!data) return null;
   return data as FoundationDirectoryRow;
 }
 

@@ -23,6 +23,8 @@ import { callClaude } from "@/lib/ai/claude";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -306,7 +308,16 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
       .eq("organization_id", this.organizationId)
       .single();
 
-    if (oppErr || !oppData) {
+    if (oppErr) {
+      console.error(
+        `[NofaParserAgent.execute] query failed for opportunityId=${opportunityId}: ${causeOf(oppErr)}`,
+      );
+      throw new AgentError(
+        withCause(`Failed to load opportunity ${opportunityId}.`, oppErr),
+        "db_error",
+      );
+    }
+    if (!oppData) {
       throw new AgentError(
         `Opportunity ${opportunityId} not found.`,
         "opportunity_not_found",

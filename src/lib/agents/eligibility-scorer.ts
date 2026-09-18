@@ -19,6 +19,8 @@ import { humanizeEnum } from "@/lib/utils/formatters";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -124,7 +126,16 @@ export class EligibilityScorer extends BaseAgent<
         .single(),
     ]);
 
-    if (oppRes.error || !oppRes.data) {
+    if (oppRes.error) {
+      console.error(
+        `[EligibilityScorer] opportunity fetch failed for opportunityId=${opportunityId}: ${causeOf(oppRes.error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load the opportunity.", oppRes.error),
+        "db_error",
+      );
+    }
+    if (!oppRes.data) {
       throw new AgentError("Opportunity not found.", "not_found", 404);
     }
 

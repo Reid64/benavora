@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { causeOf, withCause } from "@/lib/agents/base-agent";
+
 const STORAGE_BUCKET = "org-documents";
 
 export const DOCUMENT_TYPES = {
@@ -94,8 +96,17 @@ export class DocumentVault {
       .select("id")
       .single();
 
-    if (insertError || !data) {
-      throw new Error(`Database insert failed: ${insertError?.message ?? "no data returned"}`);
+    if (insertError) {
+      console.error(
+        `[DocumentVault.uploadDocument] insert failed for orgId=${orgId} documentType=${documentType}: ${causeOf(insertError)}`,
+      );
+      throw new Error(withCause("Failed to save document record.", insertError));
+    }
+    if (!data) {
+      console.error(
+        `[DocumentVault.uploadDocument] insert returned no data for orgId=${orgId} documentType=${documentType}`,
+      );
+      throw new Error("Failed to save document record: insert succeeded but no row was returned.");
     }
 
     return data.id as string;
@@ -118,8 +129,15 @@ export class DocumentVault {
       .from(STORAGE_BUCKET)
       .download(storagePath);
 
-    if (error || !data) {
-      throw new Error(`Storage download failed: ${error?.message ?? "no data returned"}`);
+    if (error) {
+      console.error(
+        `[DocumentVault.getDocumentBuffer] download failed for storagePath=${storagePath}: ${causeOf(error)}`,
+      );
+      throw new Error(withCause("Storage download failed.", error));
+    }
+    if (!data) {
+      console.error(`[DocumentVault.getDocumentBuffer] download returned no data for storagePath=${storagePath}`);
+      throw new Error(`Storage download failed: no data returned for ${storagePath}.`);
     }
 
     return Buffer.from(await data.arrayBuffer());

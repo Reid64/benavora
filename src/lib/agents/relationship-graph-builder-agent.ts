@@ -158,6 +158,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import { causeOf, withCause } from "@/lib/agents/base-agent";
 import { callClaudeWithWebSearch, DEFAULT_MODEL } from "@/lib/ai/claude";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
@@ -558,11 +559,17 @@ async function ensurePigNode(
     .select("id")
     .single();
 
-  if (error || !data) {
+  if (error) {
+    console.error(
+      `[ensurePigNode] upsert failed for ${entityTable}/${entityId}: ${causeOf(error)}`,
+    );
     throw new Error(
-      `Failed to upsert pig_nodes row for ${entityTable}/${entityId}: ${
-        error?.message ?? "no row returned"
-      }`,
+      withCause(`Failed to upsert pig_nodes row for ${entityTable}/${entityId}.`, error),
+    );
+  }
+  if (!data) {
+    throw new Error(
+      `Failed to upsert pig_nodes row for ${entityTable}/${entityId}: no row returned.`,
     );
   }
   return (data as { id: string }).id;
@@ -581,7 +588,15 @@ export class RelationshipGraphBuilderAgent extends AutonomousAgent {
       )
       .eq("id", this.orgId)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error(
+        `[RelationshipGraphBuilderAgent.loadOrg] query failed for orgId=${this.orgId}: ${causeOf(error)}`,
+      );
+      throw new Error(
+        withCause("Failed to load organization for relationship graph building.", error),
+      );
+    }
+    if (!data) return null;
     return data as OrgRow;
   }
 

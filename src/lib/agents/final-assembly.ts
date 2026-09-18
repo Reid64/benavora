@@ -12,6 +12,8 @@ import { formatCurrency } from "@/lib/utils/formatters";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -75,7 +77,16 @@ export class FinalAssemblyAgent extends BaseAgent<
       .eq("organization_id", this.organizationId)
       .single();
 
-    if (error || !app) {
+    if (error) {
+      console.error(
+        `[FinalAssemblyAgent] application fetch failed for applicationId=${applicationId}: ${causeOf(error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load the application.", error),
+        "db_error",
+      );
+    }
+    if (!app) {
       throw new AgentError("Application not found.", "not_found", 404);
     }
 
@@ -99,7 +110,16 @@ export class FinalAssemblyAgent extends BaseAgent<
         .single(),
     ]);
 
-    if (oppRes.error || !oppRes.data) {
+    if (oppRes.error) {
+      console.error(
+        `[FinalAssemblyAgent] opportunity fetch failed for opportunityId=${app.opportunity_id}: ${causeOf(oppRes.error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load the opportunity.", oppRes.error),
+        "db_error",
+      );
+    }
+    if (!oppRes.data) {
       throw new AgentError("Opportunity not found.", "not_found", 404);
     }
     const opp = oppRes.data;

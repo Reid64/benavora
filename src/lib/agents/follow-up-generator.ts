@@ -11,6 +11,8 @@ import { runHumanizer } from "@/lib/agents/humanizer-agent";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -70,7 +72,16 @@ export class FollowUpGeneratorAgent extends BaseAgent<
       .eq("organization_id", this.organizationId)
       .single();
 
-    if (appError || !appData) {
+    if (appError) {
+      console.error(
+        `[FollowUpGeneratorAgent.execute] failed to load application ${applicationId}: ${causeOf(appError)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load application.", appError),
+        "db_error",
+      );
+    }
+    if (!appData) {
       throw new AgentError("Application not found.", "not_found", 404);
     }
 
@@ -81,7 +92,16 @@ export class FollowUpGeneratorAgent extends BaseAgent<
       .eq("id", appData.opportunity_id as string)
       .single();
 
-    if (oppError || !oppData) {
+    if (oppError) {
+      console.error(
+        `[FollowUpGeneratorAgent.execute] failed to load opportunity ${appData.opportunity_id as string}: ${causeOf(oppError)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load opportunity.", oppError),
+        "db_error",
+      );
+    }
+    if (!oppData) {
       throw new AgentError("Opportunity not found.", "not_found", 404);
     }
 

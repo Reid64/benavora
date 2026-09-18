@@ -64,6 +64,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { causeOf, withCause } from "@/lib/agents/base-agent";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
@@ -357,10 +358,12 @@ export class SelfImprovementAgent {
       .select("id")
       .single();
 
-    if (error || !data) {
-      throw new Error(
-        `Failed to start AG-38 platform-level run: ${error?.message ?? "no row returned"}`,
-      );
+    if (error) {
+      console.error(`[SelfImprovementAgent.startRun] insert failed: ${causeOf(error)}`);
+      throw new Error(withCause("Failed to start AG-38 platform-level run.", error));
+    }
+    if (!data) {
+      throw new Error("Failed to start AG-38 platform-level run: no row returned.");
     }
     return (data as { id: string }).id;
   }
@@ -951,7 +954,18 @@ If there is not enough data to propose anything with reasonable confidence, retu
       .order("proposed_at", { ascending: false })
       .limit(MAX_DEDUP_CANDIDATES);
 
-    if (error || !data || data.length === 0) return { isDuplicate: false };
+    if (error) {
+      // Best-effort dedup check: a broken query here just means a possibly-
+      // duplicate proposal gets inserted for human review rather than
+      // suppressed — annoying, not harmful (this agent never auto-applies
+      // proposals; see file header HARD LIMIT). Log distinctly and fall back
+      // to "not duplicate" rather than aborting the whole proposal pipeline.
+      console.error(
+        `[SelfImprovementAgent.checkDuplicate] query failed for proposal_type=${proposal.proposal_type} affected_agent_id=${proposal.affectedAgentId}: ${causeOf(error)}`,
+      );
+      return { isDuplicate: false };
+    }
+    if (!data || data.length === 0) return { isDuplicate: false };
 
     const candidates = data as Array<{ id: string; status: string; proposed_at: string }>;
 

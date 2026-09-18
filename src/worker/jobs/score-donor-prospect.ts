@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ScoringEngine, type RequestContext } from "@/lib/donor-discovery/scoring-engine";
 import type { DdGeography } from "@/lib/donor-discovery/adapters/google-places";
 import type { ScoreResult } from "@/lib/donor-discovery/scoring";
+import { causeOf } from "@/lib/agents/base-agent";
 
 /**
  * `score_donor_prospect` worker job (DONOR_DISCOVERY_ARCHITECTURE.md §2D).
@@ -96,7 +97,11 @@ export async function claimNextScoreDonorProspectJob(
     .limit(CLAIM_SCAN_LIMIT)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error(`[claimNextScoreDonorProspectJob] claim query failed: ${causeOf(error)}`);
+    throw new Error(`score_donor_prospect_claim_failed: ${causeOf(error)}`);
+  }
+  if (!data) return null;
 
   return { type: SCORE_DONOR_PROSPECT_JOB_TYPE, prospectId: (data as { id: string }).id };
 }
@@ -134,8 +139,12 @@ async function buildRequestContext(
     .eq("id", prospectId)
     .maybeSingle();
 
-  if (prospectError || !prospectData) {
-    throw new Error(`prospect_not_found: ${prospectError?.message ?? prospectId}`);
+  if (prospectError) {
+    console.error(`[buildRequestContext] prospect lookup failed for prospectId=${prospectId}: ${causeOf(prospectError)}`);
+    throw new Error(`prospect_lookup_failed: ${causeOf(prospectError)}`);
+  }
+  if (!prospectData) {
+    throw new Error(`prospect_not_found: ${prospectId}`);
   }
 
   const prospect = prospectData as ProspectContextRow;
@@ -146,8 +155,12 @@ async function buildRequestContext(
     .eq("id", prospect.request_id)
     .maybeSingle();
 
-  if (requestError || !requestData) {
-    throw new Error(`request_not_found: ${requestError?.message ?? prospect.request_id}`);
+  if (requestError) {
+    console.error(`[buildRequestContext] request lookup failed for requestId=${prospect.request_id}: ${causeOf(requestError)}`);
+    throw new Error(`request_lookup_failed: ${causeOf(requestError)}`);
+  }
+  if (!requestData) {
+    throw new Error(`request_not_found: ${prospect.request_id}`);
   }
 
   const request = requestData as RequestGeographyRow;
@@ -179,7 +192,11 @@ async function resolveTaxonomyLabels(supabase: SupabaseClient, taxonomyIds: stri
     .select("id, label")
     .in("id", taxonomyIds);
 
-  if (error || !data) return taxonomyIds;
+  if (error) {
+    console.error(`[resolveTaxonomyLabels] taxonomy lookup failed, falling back to raw ids: ${causeOf(error)}`);
+    return taxonomyIds;
+  }
+  if (!data) return taxonomyIds;
 
   const labelById = new Map((data as TaxonomyLabelRow[]).map((row) => [row.id, row.label]));
   return taxonomyIds.map((id) => labelById.get(id) ?? id);

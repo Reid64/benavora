@@ -269,7 +269,13 @@ export class ChangeMonitorAgent extends AutonomousAgent {
       .order("enriched_web_at", { ascending: true })
       .limit(budget);
 
-    if (error || !data) return [];
+    if (error) {
+      console.error(
+        `[loadFoundationScope] query failed, treating as zero foundations in scope this cycle: ${causeOf(error)}`,
+      );
+      return [];
+    }
+    if (!data) return [];
     return data as FoundationRow[];
   }
 

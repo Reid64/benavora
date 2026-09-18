@@ -8,11 +8,44 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-10.2: `adapter_usage_log` retired as a cost writer — `ai_usage_log` is now the only per-call cost ledger in the codebase)
+- **Last updated:** 2026-09-18 (AR-11.2: `error || !data` conflation fixed at 55 sites across `src/lib/agents`, `src/lib/pil`, `src/lib/autoapply`, and both worker trees — a database error is no longer indistinguishable from a legitimate empty result)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-11.2: error is not empty)
+
+AR-7.3 fixed 16 sites where a caught error's real cause was discarded before being logged, and
+explicitly deferred the broader `if (error || !data)` pattern — a genuine database failure and a
+legitimate empty result treated as the same outcome, so a broken query silently reports "not
+found"/"nothing to do" and the caller proceeds on a false premise. Same failure shape as the
+AutoApply P0: a claim made without the evidence to support it.
+
+**Count:** swept `src/lib/agents`, `src/lib/pil`, `src/lib/autoapply`, and both worker trees
+(top-level `worker/`, plus `src/worker/jobs/` since the former dispatches into the latter via
+`await import()`). 46 sites matched going in; 9 more of the identical shape (several with `error`
+not even destructured) surfaced during the per-file fix. **55 sites fixed across 31 files, 0
+remaining** — re-verified by re-running the sweep's grep pattern after the fix. 10 sites left
+unconverted (a different, worse shape — `error` never checked at all, not conflated) are logged
+with reasons in `test-evidence/ERROR_CONFLATION_LEDGER.md`, the source of truth for every
+per-site resolution.
+
+**Fix, reusing AR-7.3's helpers:** every site splits into an error branch (logs via
+`causeOf`/`withCause`, then throws `AgentError`/`Error` by default so the caller can act on it) and
+an empty branch (unchanged — still a legitimate, expected, unlogged outcome). A minority of sites
+are `CONFLATED-JUSTIFIED`: documented best-effort/fail-open functions (e.g.
+`government-grants.ts`'s reflection filter — "cannot judge must never mean reject" — or
+`ab-testing.ts`'s variant selection) where both branches still resolve the same way, but only on
+the condition that the error is now always logged first — several of these had zero logging at
+all before this pass, not just conflated logging.
+
+**Verification:** new `src/__tests__/unit/error-vs-empty.test.ts` (4 tests) drives one fixed,
+exported call site (`refreshPriorityRanking`, AG-22) end to end with a fake Supabase client — a
+simulated Postgres error throws a distinct `AgentError("db_error")` carrying the real cause and
+logs via `console.error`; a genuine empty result resolves to `{ scanned: 0, updated: 0 }` and never
+calls `console.error`. `pnpm typecheck`, `pnpm run build`, `pnpm test` all pass clean — see
+STATE_OF_THE_BUILD.md's AR-11.2 entry for real before/after counts.
 
 ## Session — 2026-09-18 (AR-9.3: the scheduler gap — EA-family invocation path traced and restored)
 

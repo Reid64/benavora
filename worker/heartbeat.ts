@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { causeOf } from '../src/lib/agents/base-agent.js';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let _client: SupabaseClient | null = null;
@@ -102,9 +103,15 @@ export async function incrementProcessed(): Promise<void> {
     .select('items_processed')
     .eq('worker_id', _workerId)
     .single();
-  if (selectError || data === null) {
+  if (selectError) {
     console.error(
-      `[Heartbeat] incrementProcessed() could not read current count for worker_id=${_workerId}: ${selectError?.message ?? 'no row'}`,
+      `[Heartbeat] incrementProcessed() could not read current count for worker_id=${_workerId}: ${causeOf(selectError)}`,
+    );
+    return;
+  }
+  if (data === null) {
+    console.error(
+      `[Heartbeat] incrementProcessed() found no worker_status row for worker_id=${_workerId}`,
     );
     return;
   }
@@ -124,9 +131,15 @@ export async function incrementFailed(): Promise<void> {
     .select('items_failed')
     .eq('worker_id', _workerId)
     .single();
-  if (selectError || data === null) {
+  if (selectError) {
     console.error(
-      `[Heartbeat] incrementFailed() could not read current count for worker_id=${_workerId}: ${selectError?.message ?? 'no row'}`,
+      `[Heartbeat] incrementFailed() could not read current count for worker_id=${_workerId}: ${causeOf(selectError)}`,
+    );
+    return;
+  }
+  if (data === null) {
+    console.error(
+      `[Heartbeat] incrementFailed() found no worker_status row for worker_id=${_workerId}`,
     );
     return;
   }

@@ -593,6 +593,68 @@ error surfaces (`automation_sessions.error`, etc.) were not swept
 exhaustively — this pass prioritized `agent_runs.error_message` per the
 task's own framing.
 
+## AR-11.2 — a database error is no longer indistinguishable from an empty result (2026-09-18)
+
+**The defect this closes.** The `error || !data` pattern AR-7.3 flagged and
+deferred. A broken query and a legitimate empty result look identical to
+`if (error || !data)`: the caller can't tell "nothing here" from "the
+database couldn't answer," so it proceeds as if the empty case is true. Same
+failure shape as the AutoApply P0 (a claim made without the evidence to
+support it) — here the claim is "not found"/"nothing pending," made by a
+query that never actually completed.
+
+**Scope and count.** Swept `src/lib/agents`, `src/lib/pil`,
+`src/lib/autoapply`, and both worker trees (top-level `worker/`, the
+Railway-deployed process, and `src/worker/jobs/`, which it dispatches into
+via `await import()`). **46** sites matched the named pattern or a
+variable-named equivalent going in; **9** more of the identical shape
+surfaced during the per-file fix pass (several where `error` wasn't even
+being destructured — the invisible error never reached a branch at all).
+**55 sites fixed across 31 files, 0 remaining** in the four scoped
+directories (re-verified by re-running the sweep's own grep pattern after
+the fix). Full per-site table, resolution, and one-line reasoning:
+`test-evidence/ERROR_CONFLATION_LEDGER.md`.
+
+**The fix, reusing AR-7.3's helpers, not new ones.** Every site now splits
+into two branches. The error branch logs the real cause via AR-7.3's
+`causeOf(err)`/`withCause(human, err)` (`src/lib/agents/base-agent.ts`) and
+then, by default, surfaces it — `throw new AgentError(withCause(...),
+"db_error")` inside a `BaseAgent` subclass (propagates to `run()`, which
+already logs and fails the run distinctly), or a plain `Error(withCause(...))`
+otherwise. The empty branch is untouched: still a legitimate, expected
+outcome, still returns the same "not found"/`[]`/default sentinel, never
+logged as an error. Two named resolutions came out of this, both recorded
+per-site in the ledger: **SEPARATED** (the default — error and empty produce
+materially different outcomes) and **CONFLATED-JUSTIFIED** (a documented
+best-effort/fail-open function — e.g. `government-grants.ts`'s reflection
+filter, whose own docstring says "cannot judge must never mean reject," or
+`ab-testing.ts`'s variant selection — where both branches still resolve the
+same way, but only on the condition that the error is now always logged via
+`causeOf` first; several of these previously had zero logging at all, not
+just conflated logging).
+
+**Left unconverted.** 10 sites where `error` is discarded by omission —
+never destructured or checked at all, in `autonomous-digest-agent.ts` (8
+sites) and `document-vault.ts` (2 sites, out of that file's literal task
+scope). Same family of bug, but "add a check where none exists" is a
+different, larger edit than "separate an existing conflated check," and was
+left for a dedicated follow-up rather than fixed speculatively here — see
+the ledger's closing table.
+
+**Verification.** New suite `src/__tests__/unit/error-vs-empty.test.ts` (4
+tests) exercises one fixed, exported call site end to end
+(`refreshPriorityRanking`, AG-22) with a fake Supabase client: a simulated
+Postgres error throws a distinct `AgentError` (`code: "db_error"`) carrying
+the real Postgres code/message and calls `console.error`; a genuine empty
+result resolves normally to `{ scanned: 0, updated: 0 }` and never calls
+`console.error` — the two outcomes are now materially different in both
+control flow and log behavior, not just in a discarded return value.
+`pnpm typecheck` (root + `worker/tsconfig.json` via `pnpm run build:worker`),
+`pnpm run build`, and `pnpm test` (97 files / 902 tests: 96 passed + 1
+pre-existing skip, 889 passed + 13 pre-existing todo, 0 failures) all pass
+clean. Conflation-site count: 46 before this pass, 0 after (re-verified by
+re-running the sweep's own grep across all four scoped directories).
+
 ## AR-7.2 — automation_sessions deadlock: finalize on every path, reap what's already stuck (2026-09-17)
 
 **The defect.** `autoapply_queue_processor`: 32 runs, 0 completed, 32 failed —

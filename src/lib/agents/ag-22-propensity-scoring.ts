@@ -42,6 +42,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -171,7 +173,16 @@ async function fetchFullProspect(
     .eq("id", prospectId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error(
+      `[fetchFullProspect] query failed for prospectId=${prospectId}: ${causeOf(error)}`,
+    );
+    throw new AgentError(
+      withCause("Failed to load corporate prospect.", error),
+      "db_error",
+    );
+  }
+  if (!data) return null;
   return data as unknown as FullProspectRow;
 }
 
@@ -300,7 +311,16 @@ export async function refreshPriorityRanking(
     .not("scores_computed_at", "is", null)
     .limit(MAX_RANKED_PROSPECTS_SCAN);
 
-  if (error || !data) return { scanned: 0, updated: 0 };
+  if (error) {
+    console.error(
+      `[refreshPriorityRanking] query failed: ${causeOf(error)}`,
+    );
+    throw new AgentError(
+      withCause("Failed to load scored prospects for ranking refresh.", error),
+      "db_error",
+    );
+  }
+  if (!data) return { scanned: 0, updated: 0 };
 
   if (data.length === MAX_RANKED_PROSPECTS_SCAN) {
     console.warn(

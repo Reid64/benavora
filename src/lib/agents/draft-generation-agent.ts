@@ -81,6 +81,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import { causeOf, withCause } from "@/lib/agents/base-agent";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
 import { sendEmail } from "@/lib/email/resend-client";
@@ -1455,10 +1456,19 @@ export class DraftGenerationAgent extends AutonomousAgent {
         .eq("organization_id", this.orgId)
         .single();
 
-      if (oppError || !opportunityData) {
-        throw new Error(
-          `Opportunity ${payload.opportunityId} not found: ${oppError?.message ?? "no row returned"}`,
+      if (oppError) {
+        console.error(
+          `[DraftGenerationAgent.run] query failed for opportunityId=${payload.opportunityId}: ${causeOf(oppError)}`,
         );
+        throw new Error(
+          withCause(
+            `Opportunity ${payload.opportunityId} not found.`,
+            oppError,
+          ),
+        );
+      }
+      if (!opportunityData) {
+        throw new Error(`Opportunity ${payload.opportunityId} not found.`);
       }
       const opportunity = opportunityData as OpportunityRow;
       const funderId = opportunity.funder_id ?? payload.funderId;

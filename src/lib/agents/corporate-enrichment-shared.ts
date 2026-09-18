@@ -17,6 +17,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { causeOf, withCause } from "@/lib/agents/base-agent";
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -47,7 +49,13 @@ export async function fetchProspect(
     .eq("id", prospectId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error(
+      `[fetchProspect] query failed for prospectId=${prospectId}: ${causeOf(error)}`,
+    );
+    throw new Error(withCause("Failed to load corporate prospect.", error));
+  }
+  if (!data) return null;
   return data as unknown as CorporateProspectRow;
 }
 

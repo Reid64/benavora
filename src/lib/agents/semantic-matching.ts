@@ -5,6 +5,8 @@ import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -84,7 +86,16 @@ export class SemanticMatchingAgent extends BaseAgent<
         .limit(200),
     ]);
 
-    if (orgRes.error || !orgRes.data) {
+    if (orgRes.error) {
+      console.error(
+        `[SemanticMatchingAgent] organization fetch failed for organizationId=${this.organizationId}: ${causeOf(orgRes.error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load the organization profile.", orgRes.error),
+        "db_error",
+      );
+    }
+    if (!orgRes.data) {
       throw new AgentError("Organization not found.", "not_found", 404);
     }
 

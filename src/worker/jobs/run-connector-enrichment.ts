@@ -9,6 +9,7 @@ import type {
   ConnectorEnricher,
   ConnectorEnrichment,
 } from "@/lib/donor-discovery/connectors/types";
+import { causeOf } from "@/lib/agents/base-agent";
 
 /**
  * `run_connector_enrichment` worker job (DONOR_DISCOVERY_ARCHITECTURE.md
@@ -121,8 +122,12 @@ async function loadProspect(supabase: SupabaseClient, prospectId: string): Promi
     .eq("id", prospectId)
     .maybeSingle();
 
-  if (error || !data) {
-    throw new Error(`prospect_not_found: ${error?.message ?? prospectId}`);
+  if (error) {
+    console.error(`[loadProspect] prospect lookup failed for prospectId=${prospectId}: ${causeOf(error)}`);
+    throw new Error(`prospect_lookup_failed: ${causeOf(error)}`);
+  }
+  if (!data) {
+    throw new Error(`prospect_not_found: ${prospectId}`);
   }
 
   return data as ProspectRow;
@@ -137,8 +142,12 @@ async function loadDirectoryRecord(supabase: SupabaseClient, directoryId: string
     .eq("id", directoryId)
     .maybeSingle();
 
-  if (error || !data) {
-    throw new Error(`directory_not_found: ${error?.message ?? directoryId}`);
+  if (error) {
+    console.error(`[loadDirectoryRecord] directory lookup failed for directoryId=${directoryId}: ${causeOf(error)}`);
+    throw new Error(`directory_lookup_failed: ${causeOf(error)}`);
+  }
+  if (!data) {
+    throw new Error(`directory_not_found: ${directoryId}`);
   }
 
   const row = data as DirectoryRow;
@@ -181,8 +190,15 @@ async function resolveActiveApiKey(
     .eq("provider", provider)
     .maybeSingle();
 
+  if (error) {
+    console.error(
+      `[resolveActiveApiKey] connector lookup failed for organization ${organizationId}, provider ${provider}: ${causeOf(error)}`,
+    );
+    throw new Error(`connector_lookup_failed: ${causeOf(error)}`);
+  }
+
   const row = data as { encrypted_api_key: string; status: string } | null;
-  if (error || !row || row.status !== "active") {
+  if (!row || row.status !== "active") {
     throw new Error(
       `connector_not_active: organization ${organizationId} has no active ${provider} connector.`,
     );
@@ -234,7 +250,11 @@ export async function claimNextRunConnectorEnrichmentJob(
     .order("activated_at", { ascending: true })
     .limit(CONNECTOR_SCAN_LIMIT);
 
-  if (connectorError || !connectorRows || connectorRows.length === 0) return null;
+  if (connectorError) {
+    console.error(`[claimNextRunConnectorEnrichmentJob] connector scan failed: ${causeOf(connectorError)}`);
+    throw new Error(`run_connector_enrichment_claim_failed: ${causeOf(connectorError)}`);
+  }
+  if (!connectorRows || connectorRows.length === 0) return null;
 
   for (const row of connectorRows as ActiveConnectorRow[]) {
     if (!isRunnableConnectorProvider(row.provider)) continue;
@@ -247,7 +267,13 @@ export async function claimNextRunConnectorEnrichmentJob(
       .order("created_at", { ascending: true })
       .limit(1);
 
-    if (prospectError || !prospectRows || prospectRows.length === 0) continue;
+    if (prospectError) {
+      console.error(
+        `[claimNextRunConnectorEnrichmentJob] prospect scan failed for organization ${row.organization_id}, provider ${row.provider}: ${causeOf(prospectError)}`,
+      );
+      continue;
+    }
+    if (!prospectRows || prospectRows.length === 0) continue;
 
     const prospectId = (prospectRows[0] as { id: string }).id;
     return {

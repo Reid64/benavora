@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DdRequestProcessor, type DdRequestRow } from "../../../worker/dd-request-processor";
+import { causeOf } from "@/lib/agents/base-agent";
 
 /**
  * `process_discovery_request` job (DONOR_DISCOVERY_ARCHITECTURE.md §3).
@@ -36,7 +37,13 @@ export async function handleProcessDiscoveryRequestJob(
     .eq("organization_id", job.organizationId)
     .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    console.error(
+      `[handleProcessDiscoveryRequestJob] request lookup failed for requestId=${job.requestId}, org=${job.organizationId}: ${causeOf(error)}`,
+    );
+    throw new Error(`process_discovery_request_lookup_failed: ${causeOf(error)}`);
+  }
+  if (!data) {
     throw new Error(
       `process_discovery_request: request ${job.requestId} not found for org ${job.organizationId}`,
     );

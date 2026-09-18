@@ -12,6 +12,7 @@ import { buildReviewPrompt } from "@/lib/ai/prompts/review";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
   withCause,
   type AgentExecution,
   type BaseAgentOptions,
@@ -76,7 +77,16 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
       .eq("organization_id", this.organizationId)
       .single();
 
-    if (error || !app) {
+    if (error) {
+      console.error(
+        `[ReviewAgent] application fetch failed for applicationId=${applicationId}: ${causeOf(error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load the application.", error),
+        "db_error",
+      );
+    }
+    if (!app) {
       throw new AgentError("Application not found.", "not_found", 404);
     }
 
@@ -108,7 +118,16 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
         .limit(MAX_KB_FACTS),
     ]);
 
-    if (oppRes.error || !oppRes.data) {
+    if (oppRes.error) {
+      console.error(
+        `[ReviewAgent] opportunity fetch failed for opportunityId=${app.opportunity_id}: ${causeOf(oppRes.error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to load the opportunity.", oppRes.error),
+        "db_error",
+      );
+    }
+    if (!oppRes.data) {
       throw new AgentError("Opportunity not found.", "not_found", 404);
     }
     const opp = oppRes.data;

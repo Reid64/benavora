@@ -17,6 +17,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
 import { enterUsageContext } from "@/lib/ai/usage-context";
+import { causeOf, withCause } from "@/lib/agents/base-agent";
 
 export const AUTONOMOUS_HARD_LIMITS = {
   NEVER_SUBMIT_EXTERNALLY: true,
@@ -188,10 +189,12 @@ export abstract class AutonomousAgent {
       .select("id")
       .single();
 
-    if (error || !data) {
-      throw new Error(
-        `Failed to log agent decision: ${error?.message ?? "no row returned"}`,
-      );
+    if (error) {
+      console.error(`[logDecision] insert failed for org ${this.orgId}: ${causeOf(error)}`);
+      throw new Error(withCause("Failed to log agent decision.", error));
+    }
+    if (!data) {
+      throw new Error("Failed to log agent decision: no row returned");
     }
     return (data as { id: string }).id;
   }
@@ -215,10 +218,12 @@ export abstract class AutonomousAgent {
       .select("id")
       .single();
 
-    if (error || !data) {
-      throw new Error(
-        `Failed to start agent run: ${error?.message ?? "no row returned"}`,
-      );
+    if (error) {
+      console.error(`[startRun] insert failed for agent ${this.agentId} org ${this.orgId}: ${causeOf(error)}`);
+      throw new Error(withCause("Failed to start agent run.", error));
+    }
+    if (!data) {
+      throw new Error("Failed to start agent run: no row returned");
     }
     const runId = (data as { id: string }).id;
     this.runStartedAt.set(runId, startedAt);
@@ -353,7 +358,7 @@ export abstract class AutonomousAgent {
   /** Reads this org's autonomy toggles. Falls back to safe (all-off)
    * defaults when no org_autonomous_config row exists yet. */
   protected async getOrgConfig(): Promise<OrgAutonomousConfig> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from("org_autonomous_config")
       .select(
         "auto_research_enabled, auto_score_enabled, auto_draft_enabled, " +
@@ -364,6 +369,14 @@ export abstract class AutonomousAgent {
       .eq("org_id", this.orgId)
       .maybeSingle();
 
+    if (error) {
+      // Fail closed on a genuine query failure -- same as having no config
+      // row, so this org's autonomous actions simply don't run this cycle
+      // rather than acting on a stale/guessed config. Logged distinctly so
+      // the failure itself doesn't disappear into the "no row yet" case.
+      console.error(`[getOrgConfig] query failed for org ${this.orgId}, falling back to safe (all-off) defaults: ${causeOf(error)}`);
+      return SAFE_DEFAULT_CONFIG;
+    }
     if (!data) return SAFE_DEFAULT_CONFIG;
     return data as unknown as OrgAutonomousConfig;
   }

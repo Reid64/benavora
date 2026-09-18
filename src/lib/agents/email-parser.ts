@@ -16,6 +16,8 @@ import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   AgentError,
   BaseAgent,
+  causeOf,
+  withCause,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -285,7 +287,16 @@ export class EmailParserAgent extends BaseAgent<
       .select("id")
       .single();
 
-    if (error || !data) {
+    if (error) {
+      console.error(
+        `[EmailParserAgent] email_activity insert failed for subject="${email.subject}": ${causeOf(error)}`,
+      );
+      throw new AgentError(
+        withCause("Failed to save email activity record.", error),
+        "write_failed",
+      );
+    }
+    if (!data) {
       throw new AgentError(
         "Failed to save email activity record.",
         "write_failed",

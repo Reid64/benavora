@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { causeOf } from "@/lib/agents/base-agent";
 
 // AR-10.1: the single resolver every token-to-dollar computation in this repo
 // must go through. Supersedes src/lib/ai/pricing.ts (AR-9.2), which read
@@ -38,12 +39,16 @@ async function loadRates(): Promise<Map<string, ModelRate>> {
     .from("model_cost_reference")
     .select("model, input_usd_per_mtok, output_usd_per_mtok, effective_from, source, pricing_unit, usd_per_call");
 
-  if (error || !data) {
+  if (error) {
+    console.error(`[loadRates] model_cost_reference query failed: ${causeOf(error)}`);
     // A stale cache beats no pricing at all. On the very first load (no
     // cache yet) this falls through to an empty map, which every resolver
     // below reads as "every model unpriced" until the next successful
     // refresh -- visible via null cost_usd rows and an unpriced-model alert,
     // never a silent 0.
+    return cache ?? new Map();
+  }
+  if (!data) {
     return cache ?? new Map();
   }
 

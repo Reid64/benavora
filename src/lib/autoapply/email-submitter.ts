@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 
+import { causeOf, withCause } from "@/lib/agents/base-agent";
+
 let _resend: Resend | null = null;
 
 function getResend(): Resend {
@@ -158,8 +160,13 @@ export async function submitViaEmail(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (resend.emails.send as (p: any) => Promise<{ data: { id: string } | null; error: { message: string } | null }>)(sendParams);
 
-  if (error !== null || data === null) {
-    throw new Error(`Resend send failed: ${error?.message ?? "no response data"}`);
+  if (error !== null) {
+    console.error(`[submitViaEmail] Resend send failed for funderEmail=${params.funderEmail}: ${causeOf(error)}`);
+    throw new Error(withCause("Resend send failed.", error));
+  }
+  if (data === null) {
+    console.error(`[submitViaEmail] Resend send returned no data for funderEmail=${params.funderEmail}`);
+    throw new Error("Resend send failed: no response data.");
   }
 
   return {

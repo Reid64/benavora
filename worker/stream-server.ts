@@ -2,6 +2,7 @@ import * as http from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { IncomingMessage } from 'http';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { causeOf } from '../src/lib/agents/base-agent.js';
 
 export class StreamServer {
   private readonly port: number;
@@ -64,7 +65,12 @@ export class StreamServer {
     }
 
     const { data, error } = await this.supabase.auth.getUser(token);
-    if (error !== null || data.user === null) {
+    if (error !== null) {
+      console.error(`[StreamServer] auth.getUser failed: ${causeOf(error)}`);
+      clientWs.close(4001, 'Invalid token');
+      return;
+    }
+    if (data.user === null) {
       clientWs.close(4001, 'Invalid token');
       return;
     }

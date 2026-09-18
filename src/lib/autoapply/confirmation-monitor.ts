@@ -32,6 +32,7 @@ import { withClaudeLimit } from './claude-concurrency';
 
 import { CredentialManager } from './credential-manager';
 import type { Database } from '@/types/database';
+import { causeOf, withCause } from '@/lib/agents/base-agent';
 
 // --- Config -----------------------------------------------------------------
 
@@ -349,8 +350,12 @@ async function loadCandidates(supabase: SupabaseClient): Promise<MatchCandidate[
     .lte('submitted_at', now.toISOString())
     .eq('confirmation_email_received', false);
 
-  if (error || !data) {
-    throw new Error(`Failed to load candidate submissions: ${error?.message ?? 'unknown error'}`);
+  if (error) {
+    console.error(`[${SOURCE}] loadCandidates query failed: ${causeOf(error)}`);
+    throw new Error(withCause('Failed to load candidate submissions.', error));
+  }
+  if (!data) {
+    return [];
   }
 
   type CandidateRow = {

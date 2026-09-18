@@ -77,6 +77,30 @@ broader `error || !data` "not found" conflation pattern (a real DB error
 masquerading as a 404) still exists elsewhere and is a distinct,
 lower-urgency follow-up, not covered by this contract's enforcement yet.
 
+**Error-vs-empty contract (AR-11.2, 2026-09-18):** the follow-up named
+above. `if (error || !data)` — or any variable-named equivalent — is
+prohibited across `src/lib/agents`, `src/lib/pil`, `src/lib/autoapply`, and
+both worker trees (`worker/`, `src/worker/jobs/`): a genuine query failure
+and a legitimate empty result must never share a branch. A caught `error`
+must always be logged with its real cause via `causeOf(err)`/`withCause(human,
+err)` (the same AR-7.3 helpers — do not write new ones), and then, by
+default, surfaced to the caller (`throw new AgentError(withCause(...),
+"db_error")` inside a `BaseAgent` subclass; a plain `Error(withCause(...))`
+otherwise) rather than silently reused as the same result an empty query
+would have produced. The only accepted exception is a documented
+best-effort/fail-open function (a periodic sweep, an optional-enhancement
+lookup, an explicit fallback source in a waterfall) where a transient
+failure genuinely means "try again next cycle, nothing wrong gets done as a
+result" — even there, the error must still be logged distinctly before the
+function falls through to its empty-case behavior; an error that reaches
+neither a log nor a throw is never acceptable, regardless of which branch
+shape a given site ends up with. 55 sites were fixed under this contract
+this session (see `test-evidence/ERROR_CONFLATION_LEDGER.md` for the full
+per-site table); 10 sites where `error` was discarded by omission — never
+even checked, a worse case of the same underlying bug — were found but left
+for a dedicated follow-up rather than fixed speculatively, also logged in
+that ledger.
+
 ---
 
 ## Phase 1 Agents (MVP — Already Built)

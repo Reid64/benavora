@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { causeOf } from "@/lib/agents/base-agent";
+
 export interface ABVariant {
   id: string;
   variantName: string;
@@ -66,12 +68,16 @@ export class ABTestEngine {
     supabase: any,
   ): Promise<ABVariant | null> {
     try {
-      const { data } = (await supabase
+      const { data, error } = (await supabase
         .from('ab_test_variants')
         .select('*')
         .eq('organization_id', orgId)
         .eq('funder_category', funderCategory)
-        .eq('active', true)) as { data: VariantRow[] | null };
+        .eq('active', true)) as { data: VariantRow[] | null; error: unknown };
+
+      if (error) {
+        console.error(`[ABTestEngine.getVariant] query failed: ${causeOf(error)}`);
+      }
 
       if (!data || data.length === 0) return null;
 
@@ -128,11 +134,15 @@ export class ABTestEngine {
     supabase: any,
   ): Promise<void> {
     try {
-      const { data } = (await supabase
+      const { data, error } = (await supabase
         .from('ab_test_variants')
         .select('*')
         .eq('id', variantId)
-        .maybeSingle()) as { data: VariantRow | null };
+        .maybeSingle()) as { data: VariantRow | null; error: unknown };
+
+      if (error) {
+        console.error(`[ABTestEngine.recordOutcome] query failed for variantId=${variantId}: ${causeOf(error)}`);
+      }
 
       if (!data) return;
 
@@ -172,13 +182,17 @@ export class ABTestEngine {
     supabase: any,
   ): Promise<void> {
     try {
-      const { data } = (await supabase
+      const { data, error } = (await supabase
         .from('ab_test_variants')
         .select('*')
         .eq('organization_id', orgId)
         .eq('funder_category', funderCategory)
         .eq('active', true)
-        .eq('is_winner', false)) as { data: VariantRow[] | null };
+        .eq('is_winner', false)) as { data: VariantRow[] | null; error: unknown };
+
+      if (error) {
+        console.error(`[ABTestEngine.checkForWinner] query failed: ${causeOf(error)}`);
+      }
 
       if (!data || data.length < 2) return;
 
@@ -230,14 +244,19 @@ export class ABTestEngine {
    */
   async getTestResults(orgId: string, supabase: any): Promise<TestResults[]> {
     try {
-      const { data } = (await supabase
+      const { data, error } = (await supabase
         .from('ab_test_variants')
         .select('*')
         .eq('organization_id', orgId)
         .order('funder_category', { ascending: true })
         .order('variant_name', { ascending: true })) as {
         data: VariantRow[] | null;
+        error: unknown;
       };
+
+      if (error) {
+        console.error(`[ABTestEngine.getTestResults] query failed for orgId=${orgId}: ${causeOf(error)}`);
+      }
 
       if (!data) return [];
 

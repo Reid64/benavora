@@ -74,6 +74,7 @@
 import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   BaseAgent,
+  causeOf,
   type AgentExecution,
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
@@ -733,10 +734,13 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
       .from("opportunities")
       .select("id, name, description")
       .in("id", ids);
-    if (error || !data) {
-      console.error("[government-grants:kb-filter] lookup failed:", error);
+    if (error) {
+      // Fails open by design (see docstring): "cannot judge" must never mean
+      // "reject." Log the real cause distinctly, then keep every candidate.
+      console.error(`[applyKbFilter] lookup failed: ${causeOf(error)}`);
       return { kept: ids, removed: [] };
     }
+    if (!data) return { kept: ids, removed: [] };
 
     const kept: string[] = [];
     const removed: string[] = [];
@@ -771,7 +775,14 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
       .from("opportunities")
       .select("id, name, description, category")
       .in("id", ids);
-    if (error || !data || data.length === 0) {
+    if (error) {
+      // Fails open by design (see docstring): a reflection-filter failure
+      // must keep every candidate, not discard them. Log the real cause
+      // distinctly before falling back.
+      console.error(`[applyReflectionFilter] lookup failed: ${causeOf(error)}`);
+      return { kept: ids, removed: [] };
+    }
+    if (!data || data.length === 0) {
       return { kept: ids, removed: [] };
     }
     const candidates = data as Array<{

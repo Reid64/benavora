@@ -90,6 +90,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import { causeOf, withCause } from "@/lib/agents/base-agent";
 import { callClaudeWithWebSearch, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   searchSamGovOpportunities,
@@ -357,7 +358,13 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
       .order("created_at", { ascending: false })
       .limit(CALIBRATION_SAMPLE_LIMIT);
 
-    if (error || !data) return empty;
+    if (error) {
+      console.error(
+        `[loadCalibrationSummary] query failed for org ${this.orgId}: ${causeOf(error)}`,
+      );
+      throw new Error(withCause("Failed to load prediction calibration history.", error));
+    }
+    if (!data) return empty;
 
     const daysOffList: number[] = [];
     for (const row of data as Array<{
@@ -829,7 +836,7 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
           const daysFromNow = differenceInCalendarDays(nextOpenDate, new Date());
           if (daysFromNow < 0 || daysFromNow > PREDICTION_WINDOW_DAYS) continue;
 
-          const { data: openOpp } = await this.supabase
+          const { data: openOpp, error: openOppError } = await this.supabase
             .from("opportunities")
             .select("id")
             .eq("organization_id", this.orgId)
@@ -837,6 +844,14 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
             .eq("status", "open")
             .maybeSingle();
 
+          if (openOppError) {
+            console.error(
+              `[DeadlinePredictionAgent] open-opportunity check failed for funder ${funder.id}: ${causeOf(openOppError)}`,
+            );
+            throw new Error(
+              withCause("Failed to check for an existing open opportunity before predicting a new one.", openOppError),
+            );
+          }
           if (openOpp) continue;
 
           const year = nextOpenDate.getFullYear();
@@ -860,10 +875,14 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
             .single();
 
           if (insertError || !inserted) {
+            const cause = insertError
+              ? causeOf(insertError)
+              : "no row returned";
+            console.error(
+              `[DeadlinePredictionAgent] failed to insert predicted opportunity for funder ${funder.id}: ${cause}`,
+            );
             errors.push(
-              `funder ${funder.id}: failed to insert predicted opportunity: ${
-                insertError?.message ?? "no row returned"
-              }`,
+              `funder ${funder.id}: failed to insert predicted opportunity: ${cause}`,
             );
             continue;
           }

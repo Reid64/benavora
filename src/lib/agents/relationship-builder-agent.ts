@@ -111,6 +111,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import { causeOf, withCause } from "@/lib/agents/base-agent";
 import {
   callClaude,
   callClaudeWithWebSearch,
@@ -315,11 +316,17 @@ async function ensurePigNode(
     .select("id")
     .single();
 
-  if (error || !data) {
+  if (error) {
+    console.error(
+      `[ensurePigNode] upsert failed for ${entityTable}/${entityId}: ${causeOf(error)}`,
+    );
     throw new Error(
-      `Failed to upsert pig_nodes row for ${entityTable}/${entityId}: ${
-        error?.message ?? "no row returned"
-      }`,
+      withCause(`Failed to upsert pig_nodes row for ${entityTable}/${entityId}.`, error),
+    );
+  }
+  if (!data) {
+    throw new Error(
+      `Failed to upsert pig_nodes row for ${entityTable}/${entityId}: no row returned.`,
     );
   }
   return (data as { id: string }).id;
@@ -520,7 +527,15 @@ async function computeFunderReadiness(
     .limit(1)
     .maybeSingle();
 
-  if (error || !data) return INSUFFICIENT_DATA_MIDPOINT;
+  if (error) {
+    console.error(
+      `[computeFunderReadiness] query failed for funderName=${funderName}: ${causeOf(error)}`,
+    );
+    throw new Error(
+      withCause(`Failed to load funder readiness signal for "${funderName}".`, error),
+    );
+  }
+  if (!data) return INSUFFICIENT_DATA_MIDPOINT;
   const score = (data as { intent_score: number | null }).intent_score;
   return typeof score === "number"
     ? Math.max(0, Math.min(100, score)) / 100
@@ -547,7 +562,15 @@ async function computeOpportunityValue(
     .limit(1)
     .maybeSingle();
 
-  if (error || !data) return INSUFFICIENT_DATA_MIDPOINT;
+  if (error) {
+    console.error(
+      `[computeOpportunityValue] query failed for funderId=${funderId}: ${causeOf(error)}`,
+    );
+    throw new Error(
+      withCause(`Failed to load opportunity value signal for funder ${funderId}.`, error),
+    );
+  }
+  if (!data) return INSUFFICIENT_DATA_MIDPOINT;
   const score = (data as { eligibility_score: number | null })
     .eligibility_score;
   return typeof score === "number"

@@ -67,6 +67,7 @@ import {
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
+import { causeOf } from "@/lib/agents/base-agent";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
 
@@ -261,7 +262,7 @@ export class AutonomousDigestAgent extends AutonomousAgent {
           .eq("org_id", this.orgId)
           .eq("decision_type", "probability_scored")
           .gte("created_at", since),
-        this.collectStrategicRecommendations(),
+        this.collectStrategicRecommendations(errors),
         this.collectCriticalDeadlines(since, errors),
         this.collectDraftsPendingReview(since, errors),
         this.collectHighIntentSignals(since, errors),
@@ -410,9 +411,9 @@ export class AutonomousDigestAgent extends AutonomousAgent {
 
   // ---- Candidate collection -------------------------------------------
 
-  private async collectStrategicRecommendations(): Promise<
-    DigestCandidate[]
-  > {
+  private async collectStrategicRecommendations(
+    errors: string[],
+  ): Promise<DigestCandidate[]> {
     const { data, error } = await this.supabase
       .from("strategic_recommendations")
       .select("id, title, recommendation, urgency, time_sensitivity")
@@ -421,7 +422,12 @@ export class AutonomousDigestAgent extends AutonomousAgent {
       .in("urgency", ["immediate", "urgent"])
       .order("generated_at", { ascending: false })
       .limit(20);
-    if (error || !data) return [];
+    if (error) {
+      console.error(`[collectStrategicRecommendations] query failed: ${causeOf(error)}`);
+      errors.push(`strategic_recommendations query failed: ${causeOf(error)}`);
+      return [];
+    }
+    if (!data) return [];
 
     return (data as StrategicRecRow[]).map((row) => ({
       itemType:
@@ -738,7 +744,14 @@ export class AutonomousDigestAgent extends AutonomousAgent {
         .lte("digest_date", maxDate)
         .gte("digest_date", minDate)
         .limit(200);
-      if (error || !data || data.length === 0) return;
+      if (error) {
+        // Best-effort resolver: a query failure here must not block
+        // tonight's digest, but it must not silently vanish either.
+        console.error(`[resolveOutstandingLog] query failed for org ${this.orgId}: ${causeOf(error)}`);
+        errors.push(`digest_item_log outstanding-log query failed: ${causeOf(error)}`);
+        return;
+      }
+      if (!data || data.length === 0) return;
 
       const rows = data as DigestItemLogRow[];
       const byType = new Map<string, DigestItemLogRow[]>();
@@ -889,7 +902,14 @@ export class AutonomousDigestAgent extends AutonomousAgent {
         .eq("resolved", true)
         .not("actioned", "is", null)
         .lte("digest_date", cutoff);
-      if (error || !data || data.length === 0) return;
+      if (error) {
+        // Best-effort adaptive weighting: a query failure here must not
+        // block tonight's digest, but it must not silently vanish either.
+        console.error(`[recalculateWeights] query failed for org ${this.orgId}: ${causeOf(error)}`);
+        errors.push(`digest_item_log weight-recalc query failed: ${causeOf(error)}`);
+        return;
+      }
+      if (!data || data.length === 0) return;
 
       const rows = data as Array<{
         item_type: string;

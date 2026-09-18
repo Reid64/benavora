@@ -48,6 +48,7 @@ import {
 import { BrowserAutomationAgent } from '../src/lib/agents/browser-automation.js';
 import { AutomationSessionManager } from '../src/lib/automation/session-manager.js';
 import { withAgentRun } from '../src/lib/autoapply/run-logger.js';
+import { causeOf, withCause } from '../src/lib/agents/base-agent.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -1976,10 +1977,12 @@ export class QueueProcessor {
       .select('id')
       .single();
 
-    if (error || !data) {
-      throw new Error(
-        `Failed to create automation session: ${error?.message ?? 'no row returned'}`,
-      );
+    if (error) {
+      console.error(`[QueueProcessor] createApprovedAutomationSession() insert failed: ${causeOf(error)}`);
+      throw new Error(withCause('Failed to create automation session.', error));
+    }
+    if (!data) {
+      throw new Error('Failed to create automation session: insert returned no row.');
     }
 
     const sessionId = (data as { id: string }).id;

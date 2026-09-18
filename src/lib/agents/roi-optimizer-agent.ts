@@ -73,6 +73,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import { causeOf } from "@/lib/agents/base-agent";
 import { callClaude } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
 
@@ -918,7 +919,13 @@ export async function getSubmissionRecommendations(
     .order("generated_at", { ascending: false })
     .limit(TOP_RECOMMENDATIONS_COUNT);
 
-  if (error || !data) return [];
+  if (error) {
+    console.error(
+      `[getSubmissionRecommendations] query failed for orgId=${orgId}: ${causeOf(error)}`,
+    );
+    return [];
+  }
+  if (!data) return [];
 
   return (data as Array<{ recommended_action: string | null }>)
     .map((row) => row.recommended_action)
