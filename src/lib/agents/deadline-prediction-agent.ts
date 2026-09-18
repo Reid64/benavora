@@ -91,6 +91,7 @@ import {
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
 import { causeOf, withCause } from "@/lib/agents/base-agent";
+import { dedupKeys } from "@/lib/alerts/alerts-service";
 import { callClaudeWithWebSearch, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   searchSamGovOpportunities,
@@ -564,7 +565,7 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
         severity: "critical",
         message: `URGENT: "${opportunityName}" deadline is ${deadlineStr} (within 7 days).`,
         opportunity_id: opportunityId,
-        dedup_key: `deadline-prediction:red:${opportunityId}:${crypto.randomUUID()}`,
+        dedup_key: dedupKeys.deadlinePredictionTier("red", opportunityId),
       });
 
       if (!existingApp) {
@@ -592,7 +593,7 @@ export class DeadlinePredictionAgent extends AutonomousAgent {
         severity: "warning",
         message: `"${opportunityName}" deadline is ${deadlineStr} (8-21 days out).`,
         opportunity_id: opportunityId,
-        dedup_key: `deadline-prediction:amber:${opportunityId}:${crypto.randomUUID()}`,
+        dedup_key: dedupKeys.deadlinePredictionTier("amber", opportunityId),
       });
 
       if (!existingScore) {

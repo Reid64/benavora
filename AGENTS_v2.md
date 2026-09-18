@@ -759,10 +759,9 @@ Dedup key builders for these eight types live in `dedupKeys` in
 `src/lib/alerts/alerts-service.ts` (e.g. `dedupKeys.orchestrationTaskFailed(orchestrationId,
 agentType)`) and are deliberately deterministic — no `crypto.randomUUID()` component — so repeated
 occurrences of the same orchestration event collapse under `uq_alerts_org_dedup` instead of piling
-up as duplicate rows. Any new agent writing orchestration alerts should use these builders, not the
-`crypto.randomUUID()`-suffixed pattern already present in `base-agent.ts`, `autonomous-base.ts`, and
-`deadline-prediction-agent.ts` — that pattern is a known pre-existing bug (dedup never fires for
-those three) and is out of scope for this migration. Full detail in `SCHEMA_REGISTRY_v2.md`'s
+up as duplicate rows. Any new agent writing an `alerts` row must use a `dedupKeys` builder, never a
+random-suffixed key — see "Every `alerts.dedup_key` is deterministic" (AR-11.3) below for the
+contract and the six sites that used to violate it. Full detail in `SCHEMA_REGISTRY_v2.md`'s
 "Orchestration Alert Types" section.
 
 ---
@@ -1021,3 +1020,53 @@ It had no way to represent "the agent correctly declined to act" as
 anything other than "the agent failed" — now it can
 (`agent_run_status` enum, migration 001, gains a fifth value: `'skipped'`,
 via migration 199).
+
+---
+
+## AR-11.3 — Every `alerts.dedup_key` is deterministic; `uq_alerts_org_dedup` now actually suppresses noise (2026-09-18)
+
+Six call sites built `dedup_key` by appending `crypto.randomUUID()` to an otherwise-sensible prefix
+— `base-agent.ts`'s `checkSilentFailure()`, `autonomous-base.ts`'s `createNotification()`,
+`deadline-prediction-agent.ts`'s red and amber tier alerts (two sites), `notify.ts`, and
+`worker/autonomous-orchestrator.ts`'s `insertAlert()`. A random suffix makes every key unique, so
+`uq_alerts_org_dedup` (`organization_id, dedup_key`, migration 013) never fires — those alerts never
+deduped at all. Live counts (2026-09-18, un-mass-deleted history): 68 `agent-silent-failure:*` rows
+collapse to 8 real events under the new key (60 would have been suppressed), 36
+`autonomous:*` generic-notification rows collapse to 35 (1 suppressed), 4
+`autonomous-orchestrator:*` rows were already all distinct (0 suppressed) — 61 noise rows out of 108
+checked, measured via live SQL, not estimated.
+
+**The contract going forward: derive `dedup_key` only from what makes two occurrences the same
+real-world event, never from randomness.** Two shapes cover every case in this codebase:
+
+- **A stable entity is enough on its own, no period needed** — `dedupKeys.deadlinePredictionTier(tier,
+  opportunityId)` (same opportunity + same tier is one event; the tier itself already changes the key
+  when a deadline moves bands, so a fresh alert isn't needed daily) and
+  `dedupKeys.autonomousOrchestratorEntityAlert(type, entityId)` (same pattern for
+  `worker/autonomous-orchestrator.ts`'s `draft_review` alerts, keyed on `applicationId` ??
+  `opportunityId`).
+- **No entity id is available — add a day bucket (`dateKey`, `new Date().toISOString().slice(0, 10)`)
+  plus a content fingerprint.** `dedupKeys.agentSilentFailure(agentIdentifier, dateKey)` covers the
+  silent-failure pattern on both base classes (same agent + same org + same UTC day is one event; a
+  new day is deliberately a new event, so a chronically-broken agent keeps alerting instead of going
+  silent after one dismissed row). `dedupKeys.autonomousNotification(agentId, type, dateKey,
+  contentKey)`, `dedupKeys.userNotification(eventType, userId, dateKey, contentKey)`, and
+  `dedupKeys.autonomousOrchestratorContentAlert(type, dateKey, contentKey)` cover the generic
+  notification helpers that receive free-text `title`/`message` but no entity id — `contentKey` is
+  `contentFingerprint(...)` (also exported from `alerts-service.ts`), a short FNV-1a hash of the
+  type-specific content. This is what stops two different documents/funders/prospects notified the
+  same day from colliding into one alert (a real regression a plain `type + dateKey` key would have
+  caused), while a byte-identical repeat still dedups.
+
+`contentFingerprint()` is deliberately not `node:crypto` — `alerts-service.ts` is shared with the
+client UI (Alerts page, Sidebar badges; see file header), so it has to stay usable in a browser
+bundle. Collisions are an accepted tradeoff (worst case, two distinct alerts merge under one key on
+the same day — noise reduction, not data loss, and not a security property).
+
+**Any new `alerts` insert must use one of the `dedupKeys` builders above — never
+`` `${prefix}:${crypto.randomUUID()}` ``, and never a bare `type + dateKey` key if the call site's
+message/title can vary per entity.** Regression coverage:
+`src/__tests__/unit/dedup-key-determinism.test.ts` (byte-identical key for the same event, no
+collision across genuinely different events, new key in a new period) and the FORGE gate
+`scripts/audit/forge-gates/ar-11-error-and-dedup.mjs`, which greps `src` and `worker` for
+`dedup_key.*randomUUID` on every run.

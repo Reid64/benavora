@@ -138,6 +138,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DraftTemplateType } from '../src/types/ai.js';
 import type { FunderRelationshipEvent } from '../src/lib/agents/funder-relationship.js';
 import { runOrchestrationStep } from '../src/lib/orchestration/orchestration-log.js';
+import { dedupKeys, contentFingerprint } from '../src/lib/alerts/alerts-service.js';
 
 // Synthetic platform-level organizations rows each agent provisions for
 // itself so agent_runs/agent_decisions have a real FK target while running
@@ -339,12 +340,26 @@ async function insertAlert(
     applicationId?: string;
   },
 ): Promise<void> {
+  // Reuse the real entity id when this alert names one (draft_review's
+  // applicationId, or its opportunityId when no application exists yet) -
+  // same type + same entity is one event. Alert types that name no entity at
+  // all (e.g. the reputation-risk system alert below, which only names a
+  // funder inside its message text) fall back to a content fingerprint on a
+  // daily cadence.
+  const entityId = params.applicationId ?? params.opportunityId;
+  const dedupKey = entityId
+    ? dedupKeys.autonomousOrchestratorEntityAlert(params.type, entityId)
+    : dedupKeys.autonomousOrchestratorContentAlert(
+        params.type,
+        new Date().toISOString().slice(0, 10),
+        contentFingerprint(params.message),
+      );
   await supabase.from('alerts').insert({
     organization_id: params.organizationId,
     type: params.type,
     severity: params.severity,
     message: params.message,
-    dedup_key: `autonomous-orchestrator:${params.type}:${crypto.randomUUID()}`,
+    dedup_key: dedupKey,
     opportunity_id: params.opportunityId ?? null,
     application_id: params.applicationId ?? null,
   });

@@ -8,6 +8,7 @@ import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { NotificationEventType } from "@/lib/services/notification-dispatcher";
+import { dedupKeys, contentFingerprint } from "@/lib/alerts/alerts-service";
 
 export interface NotifyData {
   title: string;
@@ -48,7 +49,12 @@ export async function notify(
         severity: "info",
         message: data.message ? `${data.title}: ${data.message}` : data.title,
         link: data.link ?? null,
-        dedup_key: `notify:${eventType}:${userId}:${crypto.randomUUID()}`,
+        dedup_key: dedupKeys.userNotification(
+          eventType,
+          userId,
+          new Date().toISOString().slice(0, 10),
+          contentFingerprint(`${data.title}\n${data.message ?? ""}`),
+        ),
       })
       .select("id")
       .single();

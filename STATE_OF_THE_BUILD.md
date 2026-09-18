@@ -655,6 +655,99 @@ pre-existing skip, 889 passed + 13 pre-existing todo, 0 failures) all pass
 clean. Conflation-site count: 46 before this pass, 0 after (re-verified by
 re-running the sweep's own grep across all four scoped directories).
 
+## AR-11.3 — deterministic, period-scoped dedup keys so uq_alerts_org_dedup actually suppresses noise (2026-09-18)
+
+**The defect this closes.** `public.alerts` has a real, working unique index —
+`uq_alerts_org_dedup` on `(organization_id, dedup_key)` (migration 013) — but
+six call sites built `dedup_key` by appending `crypto.randomUUID()` to an
+otherwise-sensible prefix: `base-agent.ts`'s `checkSilentFailure()`,
+`autonomous-base.ts`'s `createNotification()`, `deadline-prediction-agent.ts`'s
+red and amber tier alerts (two call sites), `notify.ts`, and
+`worker/autonomous-orchestrator.ts`'s `insertAlert()`. A random suffix makes
+every key unique by construction, so the index never fires and none of these
+alerts ever deduped — every run that hit the same condition wrote a fresh row
+forever. AR-6.1 (2026-09-17) deliberately did not copy this pattern for the
+new orchestration alert types and logged it as pre-existing, out of scope at
+the time; this task closes it.
+
+**Step 1 — what makes two occurrences the same event, per site.** No single
+rule fits all six; each key is built only from the facts that actually
+identify the event:
+- **`base-agent.ts` / `autonomous-base.ts` silent-failure alerts** — same
+  agent type/id + same org (already in the index) + same UTC day is one
+  event. `dedupKeys.agentSilentFailure(agentIdentifier, dateKey)`.
+- **`deadline-prediction-agent.ts` red/amber tiers** — same opportunity + same
+  tier is one event; the tier itself already changes the key as a deadline
+  moves bands, so no period component is needed.
+  `dedupKeys.deadlinePredictionTier(tier, opportunityId)`.
+- **`autonomous-base.ts`'s generic `createNotification()`** (~15 different
+  notice types — document_expiring, donor_intent_high, introduction_path,
+  digests...) has no entity-id parameter, and its title/message are the only
+  thing that distinguishes, say, two different expiring documents notified
+  the same day. Keying on `type + dateKey` alone would have collapsed those
+  two genuinely different alerts into one — a real regression, not a fix. So
+  non-`silent_failure` types use `dedupKeys.autonomousNotification(agentId,
+  type, dateKey, contentKey)`, where `contentKey` is a fingerprint of the
+  title+message content.
+- **`notify.ts`** — same reasoning as above, keyed on `eventType + userId +
+  dateKey + contentKey` (`dedupKeys.userNotification`). This dispatcher has no
+  live caller yet (defined, never imported/called from any route or agent as
+  of this session) — fixed anyway since it's a real six-site defect, not
+  speculative.
+- **`worker/autonomous-orchestrator.ts`'s `insertAlert()`** — reuses the real
+  entity id when the call site has one (`draft_review`'s `applicationId` ??
+  `opportunityId`, `dedupKeys.autonomousOrchestratorEntityAlert`); falls back
+  to `type + dateKey + contentKey` for the one call site with no entity at
+  all (the reputation-risk `system` alert, which only names a funder inside
+  its message text).
+
+**Step 2 — period components, not randomness, for anything that should
+recur.** Every fallback above uses `dateKey` (`new Date().toISOString().slice(0,
+10)`, the existing UTC-day convention already used by
+`morning-digest.ts`/`self-improvement-agent.ts`/
+`worker/autoapply-autonomous-orchestrator.ts`), not a random value: a
+chronically-broken agent still gets a fresh silent-failure alert every day
+instead of one dismissed row silencing it forever, and a resolved-then-
+recurring notice (e.g. `document-expiry-agent.ts`'s own
+`RENOTIFY_SUPPRESSION_DAYS` cadence) isn't blocked by an old row from weeks
+earlier with an identical content fingerprint.
+
+**The fingerprint, not `node:crypto`.** `contentFingerprint()` (new export,
+`src/lib/alerts/alerts-service.ts`) is a short FNV-1a hash used everywhere a
+call site has no entity id. Deliberately not `node:crypto.createHash`:
+`alerts-service.ts` is shared with the client UI (Alerts page, Sidebar
+badges — see file header), so it has to stay usable in a browser bundle.
+Collisions are an accepted tradeoff — worst case, two distinct alerts merge
+under one key on the same day, which is a noise-reduction miss, not data loss
+or a security property.
+
+**Step 3 — existing rows, measured not deleted.** No mass-delete of history.
+Live counts against the six old prefixes (2026-09-18): 68
+`agent-silent-failure:*` rows collapse to 8 distinct `(org, agentType, day)`
+keys under the new scheme — **60 rows would have been suppressed**. 36
+`autonomous:*` generic-notification rows (excluding the zero `silent_failure`
+rows raised through that path so far) collapse to 35 — **1 suppressed**. 4
+`autonomous-orchestrator:*` rows were already all distinct — **0
+suppressed**. `deadline-prediction:{red,amber}:*` and `notify:*` have zero
+historical rows (the red/amber tiers and the never-yet-called `notify()` have
+not fired in production). **61 noise rows out of 108 checked**, via a live
+SQL query against the `benavora` Supabase project, not an estimate.
+
+**Verification.** New suite
+`src/__tests__/unit/dedup-key-determinism.test.ts` (7 tests): every
+`dedupKeys` builder added by this task produces a byte-identical key for two
+calls describing the same event, a different key for a genuinely different
+event (different agent, different opportunity, different tier, different
+user, different content), and a different key in a new period (`dateKey`
+rolled forward) for every fallback that uses one.
+`scripts/audit/forge-gates/ar-11-error-and-dedup.mjs` (existing FORGE gate,
+its check 1) now passes clean: `grep -rn --include=*.ts --exclude-dir=__tests__
+-E "dedup_key.*randomUUID|randomUUID.*dedup_key" src worker` returns zero
+matches. `pnpm typecheck`, `pnpm run build`, `pnpm run build:worker`, and
+`pnpm test` (98 files / 909 tests: 97 passed + 1 pre-existing skip, 896
+passed + 13 pre-existing todo, 0 failures) all pass clean. Random-component
+count in any `dedup_key` in this codebase, post-fix: **zero**.
+
 ## AR-7.2 — automation_sessions deadlock: finalize on every path, reap what's already stuck (2026-09-17)
 
 **The defect.** `autoapply_queue_processor`: 32 runs, 0 completed, 32 failed —

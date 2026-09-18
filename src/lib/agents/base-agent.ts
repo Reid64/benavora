@@ -22,6 +22,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { trackUsage } from "@/lib/billing/usage-tracker";
 import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
 import { runWithUsageContext } from "@/lib/ai/usage-context";
+import { dedupKeys } from "@/lib/alerts/alerts-service";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
@@ -366,7 +367,10 @@ export abstract class BaseAgent<TInput, TResult> {
         type: "system",
         severity: "warning",
         message: `${this.agentType}: found ${itemsFound} item(s), processed 0. ${outputSummary}`,
-        dedup_key: `agent-silent-failure:${this.agentType}:${crypto.randomUUID()}`,
+        dedup_key: dedupKeys.agentSilentFailure(
+          this.agentType,
+          new Date().toISOString().slice(0, 10),
+        ),
       });
     } catch {
       // Best-effort only -- never let alerting itself fail a real run.

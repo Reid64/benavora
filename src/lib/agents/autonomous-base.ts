@@ -18,6 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { redactSecrets, logOrchestrationStep } from "@/lib/orchestration/orchestration-log";
 import { enterUsageContext } from "@/lib/ai/usage-context";
 import { causeOf, withCause } from "@/lib/agents/base-agent";
+import { dedupKeys, contentFingerprint } from "@/lib/alerts/alerts-service";
 
 export const AUTONOMOUS_HARD_LIMITS = {
   NEVER_SUBMIT_EXTERNALLY: true,
@@ -391,12 +392,26 @@ export abstract class AutonomousAgent {
     severity: "info" | "warning" | "error" | "success" = "info",
   ): Promise<void> {
     void metadata; // no jsonb column on `alerts` to persist this into.
+    const dateKey = new Date().toISOString().slice(0, 10);
+    // "silent_failure" is the same bug pattern as base-agent.ts's own
+    // checkSilentFailure(), so it shares that exact key shape (agent + org +
+    // day). Every other type has no entity-id parameter of its own, so a
+    // fingerprint of its title+message stands in for one.
+    const dedupKey =
+      type === "silent_failure"
+        ? dedupKeys.agentSilentFailure(this.agentId, dateKey)
+        : dedupKeys.autonomousNotification(
+            this.agentId,
+            type,
+            dateKey,
+            contentFingerprint(`${title}\n${message}`),
+          );
     await this.supabase.from("alerts").insert({
       organization_id: this.orgId,
       type: "system",
       severity,
       message: message ? `${title}: ${message}` : title,
-      dedup_key: `autonomous:${this.agentId}:${type}:${crypto.randomUUID()}`,
+      dedup_key: dedupKey,
     });
   }
 

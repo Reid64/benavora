@@ -8,11 +8,47 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-18 (AR-11.2: `error || !data` conflation fixed at 55 sites across `src/lib/agents`, `src/lib/pil`, `src/lib/autoapply`, and both worker trees — a database error is no longer indistinguishable from a legitimate empty result)
+- **Last updated:** 2026-09-18 (AR-11.3: six `alerts.dedup_key` sites stopped appending `crypto.randomUUID()`, so `uq_alerts_org_dedup` now actually suppresses repeat noise — 61 of 108 live rows checked would have deduped under the new keys)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-18 (AR-11.3: deterministic, period-scoped dedup keys)
+
+Six call sites built `alerts.dedup_key` by appending `crypto.randomUUID()` to an otherwise-sensible
+prefix — `base-agent.ts`'s `checkSilentFailure()`, `autonomous-base.ts`'s `createNotification()`,
+`deadline-prediction-agent.ts`'s red/amber tier alerts (two sites), `notify.ts`, and
+`worker/autonomous-orchestrator.ts`'s `insertAlert()`. A random suffix makes every key unique, so
+`uq_alerts_org_dedup` (migration 013) never fires and none of these alerts ever deduped — every run
+that hit the same condition wrote a fresh row forever. AR-6.1 (2026-09-17) explicitly left this open
+as pre-existing; this task closes it.
+
+**Per-site identity, not one blanket rule:** entity-only keys where a stable id exists and no cadence
+is needed (`dedupKeys.deadlinePredictionTier(tier, opportunityId)`,
+`dedupKeys.autonomousOrchestratorEntityAlert(type, entityId)`); agent+org+day keys for the shared
+silent-failure pattern (`dedupKeys.agentSilentFailure(agentIdentifier, dateKey)`); and, for the
+generic notification helpers that receive free-text `title`/`message` but no entity id, a day bucket
+plus a `contentFingerprint()` of that text (`dedupKeys.autonomousNotification`,
+`dedupKeys.userNotification`, `dedupKeys.autonomousOrchestratorContentAlert`) — keying those on
+`type + day` alone would have collapsed two genuinely different entities (two different expiring
+documents, two different funders) notified the same day into one alert, a real regression rather
+than a fix. `contentFingerprint()` is a non-crypto FNV-1a hash, not `node:crypto`, because
+`alerts-service.ts` is shared with the client UI and has to stay browser-bundle-safe.
+
+**Existing rows measured, not deleted:** live query against the six old prefixes found 68
+`agent-silent-failure:*` rows collapsing to 8 real events (60 suppressed), 36
+`autonomous:*` generic-notification rows collapsing to 35 (1 suppressed), 4
+`autonomous-orchestrator:*` rows already all distinct (0 suppressed) — 61 of 108 checked rows were
+pure noise. `deadline-prediction:{red,amber}:*` and `notify:*` have zero historical rows (those
+paths haven't fired live yet).
+
+**Verification:** new `src/__tests__/unit/dedup-key-determinism.test.ts` (7 tests) — byte-identical
+key for the same event, distinct key for a genuinely different one, new key in a new period.
+`pnpm typecheck`, `pnpm run build`, `pnpm run build:worker`, `pnpm test` (98 files / 909 tests: 97
+passed + 1 pre-existing skip, 896 passed + 13 pre-existing todo, 0 failures) all pass clean. The
+FORGE gate `scripts/audit/forge-gates/ar-11-error-and-dedup.mjs` passes; random-component count in
+any `dedup_key` in this codebase is now zero. Full detail: STATE_OF_THE_BUILD.md's AR-11.3 entry.
 
 ## Session — 2026-09-18 (AR-11.2: error is not empty)
 
