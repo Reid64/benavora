@@ -1,0 +1,22 @@
+# Auto-detect text files and normalize their line endings to LF, both in the
+# repo and on checkout, on every platform. This project is edited from both
+# Windows and the Linux side of a device bridge; without a forced eol, files
+# ping-pong between CRLF and LF and a real one-line change shows up as a
+# whole-file diff where every line is removed and re-added identically.
+* text=auto eol=lf
+
+# Known binary types — never run through text normalization
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.docx binary
+*.zip binary
+*.gz binary
