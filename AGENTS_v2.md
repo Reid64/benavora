@@ -227,6 +227,20 @@ Discovers and scores corporate donors via Google Places and enrichment pipeline.
 **Model:** claude-sonnet-4-6
 **Tokens:** ~3,000 input / 1,500 output
 
+**AR-7.1 note (2026-09-17):** AG-20 (EA-01) and AG-21 (EA-08), plus the EA-02
+(`ea02_community_outreach_detector`), EA-05 (`ea05_career_page_analyzer`), and EA-09
+(`ea09_contact_extractor`) corporate enrichment agents (implemented in
+`src/lib/agents/ea-0*.ts`; not individually specified elsewhere in this document) all fetch
+pages through `StealthEngine` (`src/lib/scraper/stealth-engine.ts`). Production evidence
+2026-09-17 showed all five failing 86-88% of runs with
+`browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/...` —
+`stealth-engine.ts` was 1 of 5 unfixed `chromium.launch()` call sites (of 6 total in the
+repo) that didn't resolve the worker container's system Chromium binary. Fixed by routing
+every call site through the new `src/lib/browser/launch-chromium.ts` helper — see
+`STATE_OF_THE_BUILD.md`'s "AR-7.1" section. **Code fix only, not yet live**: the Railway
+worker was not redeployed this session, so all five agents remain broken in production
+until it is.
+
 ### AG-22: Propensity Scoring Agent
 
 **Purpose:** Computes all 10 donation propensity scores for each corporate prospect.

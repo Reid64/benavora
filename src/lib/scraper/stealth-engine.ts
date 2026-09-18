@@ -26,6 +26,7 @@ import type { UserAgentData } from "user-agents";
 import type { Browser, BrowserContext, Cookie, Page, Route } from "playwright";
 
 import { CaptchaSolver, type CaptchaDetection } from "@/lib/autoapply/captcha-solver";
+import { launchChromium } from "@/lib/browser/launch-chromium";
 
 chromium.use(StealthPlugin());
 
@@ -383,7 +384,7 @@ export class StealthEngine {
       launchArgs.proxy = { server: this.proxy };
     }
 
-    const browser = await chromium.launch(launchArgs);
+    const browser = await launchChromium(chromium, launchArgs);
     const context = await browser.newContext({
       userAgent: uaProfile.userAgent,
       viewport: resolution,

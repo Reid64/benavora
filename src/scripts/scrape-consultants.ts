@@ -3,6 +3,7 @@ import * as path from 'path';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
+import { launchChromium } from '@/lib/browser/launch-chromium';
 
 // ---------------------------------------------------------------------------
 // Grant Writing Consultant Lead Scraper
@@ -490,7 +491,7 @@ async function main(): Promise<void> {
   process.stdout.write('Starting in 3 seconds...\n');
   await sleep(3000);
 
-  const browser = await chromium.launch({
+  const browser = await launchChromium(chromium, {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });

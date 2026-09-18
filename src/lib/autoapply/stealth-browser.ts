@@ -19,6 +19,7 @@
 import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import type { Browser, BrowserContext, Page, CDPSession } from "playwright";
+import { launchChromium } from "@/lib/browser/launch-chromium";
 
 // Apply stealth (spoofs navigator.webdriver, fake plugins, hides automation
 // flags) once at module load.
@@ -359,20 +360,10 @@ export class StealthBrowser {
     if (options?.proxy) {
       launchArgs.proxy = { server: options.proxy };
     }
-    // worker/Dockerfile installs the system `chromium` package (apt) and sets
-    // PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-    // specifically so Playwright's own browser download is skipped in favor
-    // of that system binary -- but this call never actually read the env var
-    // and passed it as `executablePath`, so Playwright fell back to its own
-    // default bundled-browser path (which the skipped download left empty),
-    // failing live in production with "browserType.launch: Executable
-    // doesn't exist at /root/.cache/ms-playwright/...". Fixed 2026-08-05: the
-    // Dockerfile's intent was always to redirect here, it was just never
-    // wired up. No effect outside the container (env var unset locally).
-    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
-      launchArgs.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-    }
-    const browser = await chromium.launch(launchArgs);
+    // AR-7.1: executable resolution (env var, system path, Playwright default)
+    // now lives in one shared helper — see src/lib/browser/launch-chromium.ts
+    // for why the other five launch sites in this repo needed the same fix.
+    const browser = await launchChromium(chromium, launchArgs);
 
     const context = await browser.newContext({
       userAgent,

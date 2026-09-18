@@ -1,5 +1,74 @@
 # Benavora Platform Build State
 
+## AR-7.1 — Unified Chromium launcher, fixes 215 failures across 5 EA agents (2026-09-17)
+
+**Root cause, confirmed 2026-09-17 from live `agent_runs`:** `ea01_giving_detector`,
+`ea02_community_outreach_detector`, `ea05_career_page_analyzer`,
+`ea08_executive_biography_analyzer`, `ea09_contact_extractor` — 215 combined failures
+(86-88% failure rate each), all `browserType.launch: Executable doesn't exist at
+/root/.cache/ms-playwright/chromium_headless_shell-1223/...`. `worker/Dockerfile` installs
+Debian's `chromium` apt package and sets `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, so
+Playwright's own bundled-browser cache is always empty in that container. Only 1 of 6
+`chromium.launch()` call sites (`src/lib/autoapply/stealth-browser.ts`) read the env var
+pointing at the system binary and passed it through as `executablePath`; the other five
+(`src/lib/scraper-v2/universal-fetcher.ts`, `src/lib/scraper/stealth-engine.ts`,
+`src/lib/enrichment/sources/website-scraper.ts`, `src/lib/automation/browser-engine.ts`,
+`src/scripts/scrape-consultants.ts`, `src/scripts/scrape-nonprofit-leads.ts`) fell back to
+Playwright's default and hit the empty cache. The five EA agents all route through
+`StealthEngine` (`src/lib/scraper/stealth-engine.ts`) — one of the unfixed five.
+
+**The fix is the class, not the instance.** New shared module
+`src/lib/browser/launch-chromium.ts` exports `launchChromium(chromiumLike, options)` +
+`resolveChromiumExecutablePath()`. Resolution order: explicit `options.executablePath` →
+`CHROMIUM_EXECUTABLE_PATH` env var → known Debian/Ubuntu system paths
+(`/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/usr/bin/google-chrome`,
+`/usr/bin/google-chrome-stable`) → the Chromium binary Playwright itself would default to
+(covers local dev, where Playwright's own downloaded browsers are present and
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` is unset). Throws, naming every path tried, if none
+resolve — a browser agent that can't find a browser now fails loudly instead of returning
+empty enrichment. All 6 launch sites now route through it (accepting a `ChromiumLauncher`
+parameter rather than importing `chromium` itself, since three sites use plain
+`playwright` and three use the `playwright-extra` stealth-wrapped singleton — these are
+different module-level objects and can't share one hardcoded import).
+
+**Dockerfile decision: kept the Debian `chromium` apt package (option a), not a switch to
+Playwright's own downloaded browsers (option b).** The image already carries the full set
+of apt dependencies (`fonts-liberation`, `libasound2`, `libatk-bridge2.0-0`, etc.) that
+`chromium` needs to run — switching to option (b) would mean removing
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` and letting `pnpm install`'s Playwright postinstall
+download its own Chromium + chrome-headless-shell into the image instead, discarding that
+already-working apt investment for no functional gain. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
+renamed to `CHROMIUM_EXECUTABLE_PATH` — the old name looked like a real Playwright env var
+but Playwright never read it (confirmed: Playwright only honours
+`PLAYWRIGHT_BROWSERS_PATH` and the per-call `executablePath` option), which is exactly how
+this bug went unnoticed at 5 of 6 call sites. Every reader updated to the new name; no
+other production code referenced the old one (grep confirmed — only historical
+`test-evidence/`, `AGENT_VERIFICATION_LOG.md`, and stale `WORKER_ARCHITECTURE*.md` docs
+still mention it, left untouched as frozen point-in-time evidence).
+
+**New FORGE gate:** `scripts/audit/forge-gates/ar-7-browser-launch-unified.mjs` fails the
+build if any `chromium.launch(` call exists outside the helper, if the helper never sets
+`executablePath`, or if `src/__tests__/unit/launch-chromium.test.ts` is missing — so a
+seventh launch site can't reintroduce this bug silently.
+
+**NOT LIVE UNTIL REDEPLOY.** This fixes the worker image; the worker runs on Railway and
+was not redeployed as part of this change (explicitly out of scope — "DO NOT DEPLOY").
+**All five EA agents remain broken in production** until `worker/Dockerfile` is rebuilt and
+redeployed to Railway. This fix is unproven until a real `agent_runs` row for one of these
+five agent types shows `status='completed'` after that redeploy — do not report these
+agents as fixed before that evidence exists. Separately: Railway's live variable store
+(per `test-evidence/pt-15/railway-variables-kv-raw.txt`, captured 2026-08-20) still has the
+old `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` name set; this is now inert (no code reads it)
+since the Dockerfile bakes `CHROMIUM_EXECUTABLE_PATH` directly into the image via `ENV`,
+but Reid may want to remove the stale Railway variable during the redeploy for cleanliness.
+
+**Gates:** `pnpm vitest run src/__tests__/unit/launch-chromium.test.ts` 3/3 green, the new
+FORGE gate script passes, `pnpm run build:worker` 0 errors, `pnpm typecheck` 0 errors,
+`pnpm run build` succeeded, `pnpm test` 110 files / 947 tests passed / 13 todo (1 file
+skipped, pre-existing) — up from AR-6.4's baseline by exactly the one new test file and its
+3 tests, zero regressions. Zero `chromium.launch(` call sites remain outside
+`src/lib/browser/launch-chromium.ts`.
+
 ## AR-6.4 — Worker-side Slack delivery, verified model rate card, RLS-safe dashboard views (2026-09-17)
 
 **Part A — delivery moved out of SQL and into the worker.** `pg_net`, `pg_cron`, and `http` are

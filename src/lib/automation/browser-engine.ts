@@ -26,6 +26,7 @@ import { chromium } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ScreenshotCapture } from "@/types/automation";
+import { launchChromium } from "@/lib/browser/launch-chromium";
 
 /** Default per-navigation timeout (task spec: 30 seconds). */
 export const NAVIGATION_TIMEOUT_MS = 30_000;
@@ -103,7 +104,7 @@ export class BrowserEngine {
 
     const launchOptions: LaunchOptions = { headless: this.headless };
     try {
-      this.browser = await chromium.launch(launchOptions);
+      this.browser = await launchChromium(chromium, launchOptions);
       this.context = await this.browser.newContext(
         this.initialSessionState !== undefined
           ? { storageState: this.initialSessionState as never }

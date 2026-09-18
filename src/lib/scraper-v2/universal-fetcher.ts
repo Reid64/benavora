@@ -37,6 +37,7 @@ import { SessionPool, type Session } from "crawlee";
 import { FingerprintGenerator, type Fingerprint } from "fingerprint-generator";
 import { path as ghostCursorPath } from "ghost-cursor";
 import type { Browser, BrowserContext, Page } from "playwright";
+import { launchChromium } from "@/lib/browser/launch-chromium";
 
 chromium.use(StealthPlugin());
 
@@ -146,7 +147,7 @@ export class UniversalFetcher {
 
   /** Launches the shared browser and opens the Crawlee SessionPool. Call once before fetchPage(). */
   async init(): Promise<void> {
-    this.browser = await chromium.launch({
+    this.browser = await launchChromium(chromium, {
       headless: this.headless,
       args: ["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage"],
     });

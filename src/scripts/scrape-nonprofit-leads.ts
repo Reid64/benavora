@@ -5,6 +5,7 @@ import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
+import { launchChromium } from '@/lib/browser/launch-chromium';
 
 // ---------------------------------------------------------------------------
 // Nonprofit Lead Scraper
@@ -337,7 +338,7 @@ async function main(): Promise<void> {
   process.stdout.write('Starting enrichment in 3 seconds...\n\n');
   await sleep(3000);
 
-  const browser = await chromium.launch({
+  const browser = await launchChromium(chromium, {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });

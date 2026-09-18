@@ -8,11 +8,50 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-17 (AR-6.4: worker-side Slack delivery with retry, verified model rate card, RLS-safe dashboard views)
+- **Last updated:** 2026-09-17 (AR-7.1: single Chromium launcher, fixes 215 failures across 5 EA agents — code only, worker NOT redeployed)
 
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-17 (AR-7.1: unified Chromium launcher)
+
+Production evidence: `ea01_giving_detector`, `ea02_community_outreach_detector`,
+`ea05_career_page_analyzer`, `ea08_executive_biography_analyzer`,
+`ea09_contact_extractor` — 215 combined failures, all
+`browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/...`.
+
+**Root cause:** `worker/Dockerfile` installs system `chromium` + sets
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, but only 1 of 6 `chromium.launch()` call sites
+(`stealth-browser.ts`) read the env var and passed it as `executablePath`. The other five —
+including `stealth-engine.ts`, which all five broken EA agents use — fell back to
+Playwright's own (empty) browser cache.
+
+**Fix:** new `src/lib/browser/launch-chromium.ts` — single `launchChromium()` /
+`resolveChromiumExecutablePath()` helper, resolution order explicit option → env var
+(renamed `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` → `CHROMIUM_EXECUTABLE_PATH`, since the old
+name looked like a real Playwright variable but Playwright never read it) → known system
+paths → Playwright's own default (covers local dev). Throws naming every path tried when
+none resolve. All 6 call sites migrated. `worker/Dockerfile` kept the Debian `chromium` apt
+package (not switched to Playwright's own browser downloads) since the image already
+carries chromium's full apt dependency set. New FORGE gate
+`scripts/audit/forge-gates/ar-7-browser-launch-unified.mjs` prevents a 7th call site from
+reintroducing this.
+
+**Test:** `src/__tests__/unit/launch-chromium.test.ts` — 3/3 green (non-empty
+executablePath passed through; explicit option overrides env var; throws naming attempted
+paths when nothing resolves).
+
+**Gates:** `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm run build:worker` 0
+errors, `pnpm test` 110 files / 947 tests passed / 13 todo (960 total) — up from AR-6.4's
+109/944/13/957 by exactly the one new file and its 3 tests, zero regressions. Zero
+`chromium.launch(` sites remain outside the helper (grep-confirmed and FORGE-gate-confirmed).
+
+**NOT LIVE UNTIL REDEPLOY.** Code-only change. The Railway worker was not rebuilt or
+redeployed this session (explicit instruction: DO NOT DEPLOY). All five EA agents remain
+broken in production until `worker/Dockerfile` is rebuilt and pushed to Railway, and this
+fix is unproven until a real `agent_runs` row for one of these agent types shows
+`status='completed'` after that redeploy.
 
 ## Session — 2026-09-17 (AR-6.4: worker-side Slack delivery, verified model rate card, RLS-safe dashboard views)
 

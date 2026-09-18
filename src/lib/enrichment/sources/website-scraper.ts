@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { launchChromium } from "@/lib/browser/launch-chromium";
 
 export interface ContactInfo {
   emails: string[];
@@ -215,7 +216,7 @@ export class WebsiteScraper {
       return { emails: [], phones: [], officers: [], social_media: {} };
     }
 
-    const browser = await playwright.chromium.launch({ headless: true });
+    const browser = await launchChromium(playwright.chromium, { headless: true });
     const results: ContactInfo[] = [];
 
     try {
