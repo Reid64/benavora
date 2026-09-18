@@ -1564,3 +1564,77 @@ Last Updated: 2026-09-11
 5. Execute via FORGE: `cd C:\Users\manag\Documents\FORGE && powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora -startFrom 0`
 6. Update STATE_OF_THE_BUILD.md with Phase 6 completion status
 
+
+---
+
+# AR-8.2 — Bounded Test Gate (2026-09-18)
+
+**Status:** COMPLETE. Measured, split, budgeted. No deploy.
+
+## Problem
+
+FORGE's test gate was killed at the 300s ceiling during AR-7.1 (2026-09-17
+21:45) while running correct work, burning a retry:
+
+```
+TIMEOUT after 300s, process tree killed
+[GATE:test] Found 156 spec file(s). Running pnpm test...
+```
+
+A gate that times out on healthy work is a **false fail** — the same defect
+class as a gate that passes broken work, which is what this program exists
+to eliminate.
+
+## Measured result
+
+| Lane | Command | Wall-clock | Spec files | Tests |
+|---|---|---:|---:|---|
+| Default gate | `pnpm test` / `test:unit` | **13s / 14s** cold, **27s** post-build | 92 | 860 passed, 13 todo |
+| Integration | `pnpm test:integration` | **380s** | 24 | 101 passed, 2 skipped |
+
+**Headroom against the 300s ceiling: 91%** (27s of 300s used).
+
+Budget against the post-build number. FORGE runs the test gate straight
+after `pnpm run build`, and a suite that takes 14s cold takes 27s on a
+machine whose caches are still warm from a Next.js production build. Cold
+measurements understate what the gate actually pays.
+
+The integration suite measures **380s — it exceeds the gate ceiling on its
+own.** That is the direct, measured cause of the AR-7.1 timeout: while those
+files sat in the default glob, the gate could not have passed no matter how
+correct the code was. Commit `05eeab6` had already moved them out; this
+phase supplies the number proving it was necessary and recording what room
+is left.
+
+## What changed
+
+- `test-evidence/TEST_GATE_BUDGET.md` — **new.** Measured seconds per lane,
+  the 300s ceiling, headroom, spec counts, slowest-file breakdown, and
+  redundant-spec candidates listed for human decision (not removed).
+- `TESTING_v2.md` — new Section 15 + Rule 6: the default suite must never
+  contain live-network, live-DB, or real-browser tests.
+- `vitest.config.ts` / `vitest.integration.config.ts` / `package.json` —
+  already correct as committed in `05eeab6`; verified, not re-edited.
+
+## Findings for a human
+
+1. **`tests/api/analytics.test.ts`** — 13 tests, all 13 skipped. Collected
+   every gate run, contributes zero assertions. Re-enable or delete.
+2. **`.quarantine-2026-09-06-unrelated-tsc-break/`** — 4 spec files parked
+   12 days, collected by nothing. Restore or delete.
+3. **`TESTING_v2.md` stack table is stale** — documents Jest + `jest.config.ts`;
+   the repo runs Vitest and has no `jest.config.ts`. Five documented script
+   names do not exist in `package.json`. Flagged, not silently rewritten.
+4. **`DATABASE_URL` is auth-failing again** (28P01, `password authentication
+   failed for user "postgres"`). Causes the only integration failure,
+   `success-probability-upsert-constraint.test.ts`. Environment, not code —
+   zero test-level assertion failures across the run.
+
+## Recommendation on FORGE's ceiling
+
+**Leave the 300s ceiling alone and do not shard the gate.** At 91%
+headroom there is no case for either. `forge.ps1` was deliberately NOT
+edited from this run — FORGE is outside this repo, and changing a build tool
+from inside a build it is running is how an overnight run is lost.
+
+Re-measure when the default gate exceeds ~120s (60% of budget consumed).

@@ -659,3 +659,49 @@ Before every production deploy (manual or automated):
 - [ ] `npx vercel deploy --prod` run manually (GitHub auto-deploy is broken)
 - [ ] Hard refresh on production URL confirms changes are live
 - [ ] FlightPathHUD stage colors verified in browser DevTools (inline styles rendering)
+
+---
+
+## Section 15: Test Gate Budget & Suite Split (AR-8.2, 2026-09-18)
+
+**Canonical budget file:** `test-evidence/TEST_GATE_BUDGET.md` — measured
+numbers live there and are re-measured on a trigger, not on a schedule.
+
+### The lanes
+
+| Lane | Command | Config | In FORGE gate? | Measured |
+|---|---|---|---|---:|
+| Unit / default gate | `pnpm test`, `pnpm test:unit` | `vitest.config.ts` | **yes** | **13-14s cold / 27s post-build** |
+| Integration (live) | `pnpm test:integration` | `vitest.integration.config.ts` | no | **380s** |
+| E2E | `pnpm test:e2e` | `playwright.config.ts` | no | separate lane |
+
+**FORGE gate ceiling: 300s.** Default gate uses 9% of it. **Headroom: 91%.**
+
+Measure the gate *after* a build, never in isolation: FORGE runs test
+immediately after `pnpm run build`, which roughly doubles wall-clock
+(14s → 27s). Cold numbers understate what the gate pays.
+
+### Rule 6 (new)
+
+**The default `pnpm test` suite must never contain a test requiring live
+network, live DB credentials, or a real browser.** Those live in
+`src/__tests__/integration/` and `src/__tests__/integration-live/`, are
+excluded by glob from `vitest.config.ts`, and run only via
+`pnpm test:integration`.
+
+This is not a style preference. On 2026-09-17 the gate was killed at 300s
+during AR-7.1 on correct work, because those files were still in the default
+glob. Measured alone they take 380s — they exceed the gate ceiling unaided,
+so the gate could not have passed regardless of code quality. A gate that
+times out on healthy work is a false fail: the same defect class as a gate
+that passes broken work.
+
+### Known doc drift (not fixed here)
+
+The **Test Stack** table above (line ~19) and **Section 2** still describe
+**Jest + ts-jest** and a `jest.config.ts`. The repo has used **Vitest**
+since before this measurement; there is no `jest.config.ts`. Several script
+names in that table (`test:api`, `test:a11y`, `test:cross-browser`,
+`test:soak`, `test:migrations`) do not exist in `package.json`. Flagged for a
+human decision rather than silently rewritten, since correcting it touches
+sections beyond AR-8.2 scope.

@@ -732,3 +732,65 @@ now-real underlying error text — flagged as the natural next step, not done he
 ## Notes
 Time spent: 2 hours. Deliverables: 0 (queue.yaml not executable).
 
+
+---
+
+# Session: AR-8.2 Test Gate Scaling (2026-09-18)
+
+**Outcome:** COMPLETE. Recovery run — prior attempt did the config split but
+exited before writing the budget file, so the `file_exists` gate failed on
+`test-evidence/TEST_GATE_BUDGET.md`. This run measured and wrote it.
+
+## What was already done (verified, not redone)
+
+Commit `05eeab6` had already:
+- Split `vitest.config.ts` (default) from `vitest.integration.config.ts`
+- Excluded `src/__tests__/integration/**` and `integration-live/**` by glob
+- Exposed `test:unit` and `test:integration` as independently runnable
+
+`git status` confirmed these files were committed and unmodified. The gap
+was Steps 1 and 3 — measurement and the budget record.
+
+## Measurements taken this session
+
+| Command | Run 1 | Run 2 | Result |
+|---|---:|---:|---|
+| `pnpm test` | 13s | — | 91 files passed, 1 skipped; 860 tests passed |
+| `pnpm test:unit` | — | 14s | identical (same config) |
+| `pnpm test` (post-build) | 27s | — | same counts; run right after `pnpm run build` |
+| `pnpm test:integration` | 380s | — | 23 files passed, 1 failed; 101 tests passed |
+
+**Headroom vs FORGE's 300s ceiling: 91%** (using the 27s post-build figure).
+Well above the 40% threshold, so no ceiling raise and no sharding recommended.
+
+The post-build run costing ~2x the cold run is the non-obvious finding here:
+FORGE sequences test immediately after build, so any measurement taken in
+isolation understates the gate's real cost.
+
+Integration's single failure is `DATABASE_URL` auth (28P01), not code.
+
+## Files written
+
+- `test-evidence/TEST_GATE_BUDGET.md` (new) — the deliverable that was missing
+- `TESTING_v2.md` — Section 15 + Rule 6
+- `STATE_OF_THE_BUILD.md` — AR-8.2 entry
+
+## Constraints honoured
+
+- **No test deleted, skipped, or weakened.** Redundant-spec candidates
+  (`tests/api/analytics.test.ts`, the 4 quarantined specs) are listed in
+  §6 of the budget file for human decision only.
+- **`forge.ps1` not touched** — outside this repo; recommendation made in
+  the report instead.
+- **No deploy.**
+- Scoped `git add` only — never `git add -A`. Pre-existing unrelated dirty
+  files (`form-filler-agent.ts`, `tsconfig.json`, `supabase/.temp/cli-latest`,
+  two modified integration specs, four untracked `STATE_OF_THE_BUILD_2026-09-17*`
+  docs) were left alone.
+
+## Carry-forward
+
+1. `DATABASE_URL` auth is dead again — blocks one integration regression guard.
+2. `TESTING_v2.md` stack table still documents Jest; repo runs Vitest.
+3. `.quarantine-2026-09-06-unrelated-tsc-break/` — 12 days parked, 4 specs
+   protecting nothing. Needs a decision.
