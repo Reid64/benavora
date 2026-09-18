@@ -71,6 +71,16 @@ throttled `usage_log_no_context` alert on `/admin/system` instead of writing a r
 unattributed, not invisible-as-free. Wiring a context at the autoapply worker boundary is the next
 step to raise captured coverage.
 
+**Re-verified same day, no code changes needed (~08:15 UTC):** a repeat task dispatch asked for this
+exact fix again. `git log`/`git status` confirmed both commits above were already on `main`, pushed,
+tree clean. Rather than assume committed meant deployed, checked directly: `vercel inspect
+https://www.benavora.com` showed a production deployment at 08:06:53 UTC (1m41s after the recovery
+commit); `railway deployment list` showed `benavora-worker`'s latest `SUCCESS` at 08:06:51 UTC — both
+runtimes confirmed current. No organic Anthropic traffic had run since (only zero-token
+`ag-29-knowledge-indexer`), so `pnpm verify:ai-usage` was re-run for a fresh live row: `ai_usage_log`
+52 → 54 rows, `sum(cost_usd)` 0.377406 → 0.377610, latest `2026-09-18T08:15:41 UTC`. `pnpm test`/
+`typecheck`/`build`/`build:worker` all re-ran clean.
+
 **A build bug this surfaced, fixed in the same pass:** `src/app/(dashboard)/follow-ups/page.tsx` is
 `"use client"` and imported a constant from `follow-up-generator.ts` (server-only, imports
 `claude.ts`), pulling `claude.ts`'s entire graph — now including node's `async_hooks` — into the

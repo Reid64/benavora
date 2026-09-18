@@ -131,6 +131,24 @@ IS NULL = 0` (every row priced, nothing recorded as a false zero). Both recordin
 writing real rows: `endpoint = 'callClaude'` and `endpoint = 'verification-tracked-client'`, each
 `cost_usd = 0.000102` at 14 in / 4 out on `claude-sonnet-4-6`.
 
+**Re-verification pass, same day, no code changes required (2026-09-18, ~08:15 UTC).** A later task
+dispatch re-asked for this exact fix under a new task ID. Before touching anything, checked whether it
+was already done: `git log` showed both commits above already on `main` and already pushed
+(`git rev-parse HEAD` == `origin/main`), working tree clean. Rather than assume "committed" means
+"live" — the recurring failure mode in this project (see AR-7.1, Phase 5.3) — deploy currency was
+checked directly rather than assumed: `vercel inspect https://www.benavora.com` showed a production
+deployment created 2026-09-18 08:06:53 UTC, 1m41s after the recovery commit (08:05:12 UTC), aliased to
+the production domain; `railway status` + `railway deployment list` showed the linked
+`benavora-worker` service's latest `SUCCESS` deployment at 08:06:51 UTC, same window. Both runtimes are
+confirmed running the fix, not just `main`. Because no organic Anthropic-consuming traffic had occurred
+since that deploy (`agent_runs` since 08:05:12 UTC: 5 rows, all `ag-29-knowledge-indexer`, 0 tokens),
+`pnpm verify:ai-usage` was re-run to get a live row under current conditions rather than rely on the
+now-9-minutes-stale numbers above: `ai_usage_log` went 52 → 54 rows, `sum(cost_usd)` 0.377406 →
+0.377610, latest row `2026-09-18T08:15:41 UTC`, both paths (`callClaude` and
+`verification-tracked-client`) recorded. `pnpm test` (95 files / 882 passed, 1 skipped, 13 todo),
+`pnpm typecheck`, `pnpm run build`, and `pnpm run build:worker` all re-run clean with zero changes to
+the working tree.
+
 **Honest coverage estimate.** Every Anthropic call in `src/**` and `worker/**` now runs through one of
 two instrumented constructors — `claude.ts`'s wrapper or `createTrackedAnthropic` — so the *code*
 coverage of Anthropic call sites is complete (grep for `new Anthropic(` returns hits only inside those
