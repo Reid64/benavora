@@ -710,7 +710,7 @@ sections beyond AR-8.2 scope.
 
 ## Section 16: AutoApply End-to-End Proof (AR-9.3, 2026-09-18)
 
-**File:** `src/__tests__/integration/autoapply-e2e-proof.test.ts`. Lane:
+**File:** `src/__tests__/integration/autoapply-end-to-end.test.ts`. Lane:
 `pnpm test:integration` (`vitest.integration.config.ts`) — real Playwright,
 real Anthropic API, real Supabase, gated on `.env.local` having
 `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` /

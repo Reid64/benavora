@@ -905,7 +905,7 @@ function startFixturePortal(): Promise<FixturePortal> {
 if (!CREDS_AVAILABLE) {
   // eslint-disable-next-line no-console
   console.warn(
-    "[autoapply-e2e-proof.test] skipped entirely — .env.local is missing NEXT_PUBLIC_SUPABASE_URL / " +
+    "[autoapply-end-to-end.test] skipped entirely — .env.local is missing NEXT_PUBLIC_SUPABASE_URL / " +
       "SUPABASE_SERVICE_ROLE_KEY / ANTHROPIC_API_KEY",
   );
 }

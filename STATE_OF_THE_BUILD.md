@@ -2923,7 +2923,7 @@ AR-3.1 fixed — the pre-existing `form-analyzer-filler.test.ts` targets
 
 ### What was built
 
-`src/__tests__/integration/autoapply-e2e-proof.test.ts`: a local `http`
+`src/__tests__/integration/autoapply-end-to-end.test.ts`: a local `http`
 fixture portal (two routes — `/apply`, a 4-field form with every field
 `required`; `/apply-unverified`, identical but with a client-side handler
 that blocks the real submit) driven by real Playwright, real Claude, and the

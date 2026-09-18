@@ -1193,7 +1193,7 @@ for `.name` — the exact same columns
 reads for the identical purpose — as a fallback layer any future
 `knowledge_base` entry (if the enum is ever extended) can still override.
 
-Regression coverage: `src/__tests__/integration/autoapply-e2e-proof.test.ts`
+Regression coverage: `src/__tests__/integration/autoapply-end-to-end.test.ts`
 assertion 1 (happy path) fills a real required EIN field end to end via this
 exact path; assertion 2 (incomplete) proves an org missing only its `ein`
 column correctly produces `IncompleteSubmissionError` rather than silently

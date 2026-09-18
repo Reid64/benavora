@@ -26,7 +26,7 @@ exact class of form the pre-existing `form-analyzer-filler.test.ts` cannot
 regression-guard, since its target (httpbin.org/forms/post) has no
 `required` attributes and lets a 2-of-8-filled form "succeed."
 
-**What was built:** `src/__tests__/integration/autoapply-e2e-proof.test.ts`
+**What was built:** `src/__tests__/integration/autoapply-end-to-end.test.ts`
 — a local `http` fixture server (two routes: `/apply`, a 4-field form with
 every field `required`; `/apply-unverified`, identical but
 `onsubmit="return false"`) driven by real Playwright + real Claude + the
