@@ -56,31 +56,35 @@ const nextConfig = {
   // (see cpus: 1 note above) that duplicate pass is enough to push the build past
   // the gate's 300s ceiling. Skip both here; type/lint errors still fail the
   // earlier tsc gate.
-  // 2026-09-19: BOTH RE-ENABLED. These were removed on 2026-08-21 (3f685e55)
-  // and re-added on 2026-09-03 (7942f606) to keep `next build` under FORGE's
-  // 300s compile-gate ceiling. That trade was worse than it looked:
-  // gates/compile.ps1's own header says `tsc --noEmit` "does not run ESLint,
-  // so it misses build-fatal ESLint errors that Vercel's/Railway's actual
-  // `next build` enforces. That gap let 28 consecutive deploys fail in
-  // production while this gate reported PASS." The gate closes that gap by
-  // also running the real build - so setting ignoreDuringBuilds here reopened
-  // the exact hole the gate exists to close, and the gate went on reporting
-  // PASS.
+  // 2026-09-19: these were briefly set to false earlier today, and that change
+  // is what broke Deploy Check. Reproduced on a clean clone of commit 1c82076
+  // with the workflow's exact env:
   //
-  // Verified before flipping, 2026-09-19:
-  //   next lint            -> exit 0, "No ESLint warnings or errors"
-  //   tsc --noEmit         -> clean (every AR-5..AR-12 compile gate passed,
-  //                           and compile.ps1 hard-exits 1 on any tsc error)
-  // The budget problem is fixed where it belongs: forge.ps1's compile-gate
-  // timeout is raised from 300s to 900s, matching the build gate. A gate that
-  // times out on correct code is a false failure - the same defect class as a
-  // false pass - and the answer to a slow check is a longer budget, never a
-  // disabled check.
+  //     ✓ Compiled successfully
+  //        Linting and checking validity of types ...
+  //     FATAL ERROR: Ineffective mark-compacts near heap limit
+  //                  Allocation failed - JavaScript heap out of memory
+  //     Next.js build worker exited with code: null and signal: SIGABRT
+  //     BUILD EXIT: 1
+  //
+  // With both back to true, same clone, same env: BUILD EXIT 0, 408/408 static
+  // pages generated.
+  //
+  // Type and lint coverage is NOT lost. deploy-check.yml now runs `pnpm
+  // typecheck` and `pnpm lint` as their own steps ahead of the build - both
+  // pass in about a minute and name the offending file and line. Repeating
+  // that work inside `next build` adds no coverage and costs more than the
+  // 4GB heap the job had. The workflow heap is also raised to 8192 for the
+  // compile itself.
+  //
+  // The older note below explains why gates/compile.ps1 cares about ESLint
+  // during the real build. That concern is now answered by the dedicated CI
+  // steps, which is a better answer than duplicating the pass here.
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
   // mkt-001: /for-consultants predates the new marketing IA (src/lib/marketing/nav.ts,
   // ALL_MARKETING_ROUTES) and has no direct replacement page yet, so it points at the
