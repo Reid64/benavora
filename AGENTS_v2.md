@@ -1447,3 +1447,69 @@ traced mechanical cause (`ag-15-probability`), 2 THIN (`eligibility_scoring`,
 (`BEN-SUP-04`), the remaining ~19 INSUFFICIENT SAMPLE (real n too small, or
 zero, or synthetic-fixture-only). No tenancy-scoped cache (one org's result
 served to every org) was found anywhere in this family.
+
+## AR-17.3 — Research/discovery family: 0% of enriched funder fields carry a stored source, and `ag-29` is 96% of every agent run ever recorded (2026-09-19)
+
+AR-17.1 built the instrument; AR-17.2 ran it over the scoring family; this
+prompt runs it over every agent that discovers, enriches, extracts or
+researches, plus three read-only companion probes built for this pass
+(`test-evidence/ar173-provenance-and-ag29.mjs`, `ar173-ag29-timeline.mjs`,
+`ar173-spotcheck-deep.mjs`). No fixes — diagnosis only, AR-17.6 fixes. Full
+report: `test-evidence/AGENT_OUTPUT_QUALITY_RESEARCH.md`.
+
+**Headline — the fabrication check could not run, and that is the finding.**
+`opportunities` holds **6,309 filled actionable fields** (deadline, grant range,
+eligibility, application method, required documents, geographic restrictions,
+description) across 4,860 rows. **6,211 (98.4%) sit on a row carrying a `url`.**
+That 98.4% is *pointer* coverage, not provenance. **The proportion backed by a
+stored source is 0.0% (0 of 6,309).** `opportunity_documents` — populated on 174
+rows, the only column that could retain source material — holds exclusively
+`[{"url", "title"}]`, i.e. attachment links, never attachment text. A fabricated
+deadline and a correctly-scraped one are therefore indistinguishable after the
+fact. **Fabrication is undetectable by construction**, which is worse than
+finding it, because absence cannot be asserted.
+
+**Fabrication spot-check (10 most recent enriched records, selected by recency
+before any content was visible): 0 matched / 0 contradicted / 10 unverifiable.**
+The zero-contradicted must not be read as a pass — the check had nothing to
+check against.
+
+**The one stored-source comparison the platform can offer passes cleanly.**
+`funder_intelligence.raw_data.pageText` (n=2) is the only retained source text in
+the family. One row stored an empty string; the other stored the **Walmart.com
+retail homepage**. In both, every extracted field — `priorities`,
+`recent_grants`, `board_members`, `average_grant_size`, `total_annual_giving` —
+came back `[]` or `null`. Handed a shopping page, the extractor invented
+nothing. **Coverage honesty passes family-wide**: `corporate_prospects.
+enrichment` is empty arrays and explicit nulls across all 50 rows, and
+`ca_grants_portal` writes the exemplary hedge *"Nonprofit eligibility not
+confirmed from source data — verify on the funder's page before applying."*
+AR-17.6 should adopt that string as the family template. **No fabricated fill was
+found anywhere in this family.** The evidenced defect is unverifiability and
+staleness, not invention — notably **1,090 rows (22.4%) are `status='open'` with
+a deadline already in the past**, and 39 rows have no source pointer at all, 24
+of which still carry a deadline.
+
+**`ag-29-knowledge-indexer` — both figures in the task prompt were wrong, and
+the premise was wrong.** Verified live rather than repeated: **65,602 lifetime
+runs** (not ~63,941) = **95.94% of all 68,377 `agent_runs`** (not ~44% — the
+prompt understated it by more than 2x; supersedes the earlier 85% figure on
+record). It is **not** true that every run processed zero items: **42,515 runs
+found rows and embedded none**, 22,180 found none, and **907 embedded ≥1** —
+all 907 within the last 24 hours. `tokens_used > 0` on **zero** runs.
+
+**Its target set is not empty.** `knowledge-indexer-agent.ts` scans three tables
+for `embedding IS NULL`: `intelligence_proposal_sections` (105 rows, **0**
+unembedded — complete), `outcomes` (7, 1), and `foundation_directory`
+(**133,812 rows, 43,061 unembedded**). The historical failure was the embedding
+call failing whole-batch (the `OPENAI_API_KEY` signature the code self-documents
+at lines 645–652) while still reporting `status='completed'` — not an empty set.
+**It is working now**: the last 8 runs read `Embedded 100/100 row(s) (0
+failed)`.
+
+**Verdict: FIX, do not delete.** AR-15 owns the deletion; this prompt's verdict
+is that it must not be exercised. The deletion case rested on "63,941 runs over
+an empty set" — both halves false. What must be fixed is the run accounting: it
+writes an `agent_runs` row every ~40 seconds regardless of outcome (this is why
+`agent_runs` is unusable as a platform-wide denominator for cost or health), and
+42,515 historical failures still read as `completed`.

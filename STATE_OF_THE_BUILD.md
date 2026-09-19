@@ -1,5 +1,72 @@
 # Benavora Platform Build State
 
+## AR-17.3 — 0% of enriched funder fields carry a stored source; `ag-29` is 96% of every agent run ever recorded (2026-09-19)
+
+AR-17.1 built the read-only instrument, AR-17.2 ran it over the scoring family;
+this prompt runs it over every agent that discovers, enriches, extracts or
+researches, plus three read-only companion probes built for this pass. No fixes
+— diagnosis only, AR-17.6 fixes. Full report:
+`test-evidence/AGENT_OUTPUT_QUALITY_RESEARCH.md`.
+
+**Most serious finding — the fabrication check could not run, and that is the
+finding.** `opportunities` holds **6,309 filled actionable fields** (deadline,
+grant range, eligibility, application method, required documents, geographic
+restrictions, description) across 4,860 rows. **6,211 (98.4%) sit on a row
+carrying a `url`** — but that is *pointer* coverage, not provenance. **The
+proportion backed by a stored source is 0.0% (0 of 6,309).**
+`opportunity_documents`, populated on 174 rows and the only column that could
+retain source material, holds exclusively `[{"url", "title"}]` — attachment
+links, never attachment text. A fabricated deadline and a correctly-scraped one
+are therefore indistinguishable after the fact. Fabrication on this platform is
+**undetectable by construction**, which is a worse position than finding it,
+because its absence cannot be asserted.
+
+**Fabrication spot-check — 0 contradicted, and that zero is not a pass.** The 10
+most recent enriched records, selected by recency before any content was
+visible: **0 matched / 0 contradicted / 10 unverifiable-because-no-stored-
+source**. The check had nothing to check against.
+
+**Coverage honesty passes; no fabricated fill was found anywhere in this
+family.** The single real stored-source comparison the platform can offer —
+`funder_intelligence.raw_data.pageText`, n=2 — passes cleanly: one row stored an
+empty string, the other stored the **Walmart.com retail homepage**, and in both
+every extracted field (`priorities`, `recent_grants`, `board_members`,
+`average_grant_size`, `total_annual_giving`) came back `[]` or `null`. Handed a
+shopping page, the extractor invented nothing. `corporate_prospects.enrichment`
+is empty arrays and explicit nulls across all 50 rows, and `ca_grants_portal`
+writes the exemplary hedge *"Nonprofit eligibility not confirmed from source
+data — verify on the funder's page before applying."* **The evidenced
+customer-facing risk is staleness and unverifiability, not invention** — notably
+**1,090 rows (22.4%) are `status='open'` with a deadline already in the past**,
+and 39 rows carry no source pointer at all, 24 of which still carry a deadline.
+
+**`ag-29-knowledge-indexer` — both prompt figures wrong, and the premise wrong.**
+Verified live rather than repeated: **65,602 lifetime runs** (not ~63,941) =
+**95.94% of all 68,377 `agent_runs`** (not ~44%; the prompt understated it by
+more than 2x, and this supersedes the earlier 85% figure on record). It is **not**
+true that every run processed zero items: **42,515 found rows and embedded
+none**, 22,180 found none, **907 embedded ≥1** — all 907 inside the last 24
+hours, with `tokens_used > 0` on zero runs.
+
+**Its target set is not empty.** It scans three tables for `embedding IS NULL`:
+`intelligence_proposal_sections` (105 rows, **0** unembedded — complete),
+`outcomes` (7, 1), and `foundation_directory` (**133,812 rows, 43,061
+unembedded**). The historical failure was the embedding call failing whole-batch
+— the `OPENAI_API_KEY` signature the code self-documents at
+`knowledge-indexer-agent.ts:645-652` — while still writing
+`status='completed'`. **It is working now**: the last 8 runs read `Embedded
+100/100 row(s) (0 failed)`.
+
+**Verdict: FIX, do not delete.** AR-15 owns the deletion; this prompt's verdict
+is that it must not be exercised. The deletion case rested on "63,941 runs over
+an empty set" — both halves false. What must be fixed is the run accounting: it
+writes an `agent_runs` row every ~40 seconds regardless of outcome, which is
+precisely why `agent_runs` is unusable as a platform-wide denominator for cost
+or health, and 42,515 historical failures still read as `completed`.
+
+**Gates:** `pnpm typecheck` clean (exit 0); `pnpm test` 904 passed / 13 todo,
+98 files passed / 1 skipped (exit 0).
+
 ## AR-17.2 — the numbers customers see as "advice": one is a hardcoded formula, the qualification squad has never run (2026-09-19)
 
 AR-17.1 built the read-only instrument; this prompt runs it (plus a new

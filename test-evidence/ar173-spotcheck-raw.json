@@ -1,0 +1,180 @@
+{
+  "tally": {
+    "CHECKABLE_AGAINST_STORED_SOURCE": 0,
+    "UNVERIFIABLE_POINTER_ONLY": 10,
+    "UNVERIFIABLE_NO_SOURCE": 0
+  },
+  "totalClaims": 10,
+  "records": [
+    {
+      "id": "fd89bd36-763d-4056-9ad8-444cab920f09",
+      "name": "Department of War Cyber Service Academy (DoW CSA)",
+      "source": "agent",
+      "discovered_at": "2026-09-19T11:53:45.468731+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=358380",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2030-01-22T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=358380",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "f85331a2-bafd-4bbc-a80f-c137e05364e4",
+      "name": "Data Coordinating Center for Multi-Site Investigator-Initiated Clinical Trials (Collaborative U24 Clinical Trial Required)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:59.666631+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=358938",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2028-11-02T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=358938",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "d4c6f700-45ba-488e-a063-e075c1d085b6",
+      "name": "Establishing a Center for the Advancement of Substance Use Disorder (SUD) Pharmacotherapeutics through Training and Preclinical Support (U54 Clinical Trial Not Allowed)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:59.271377+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=360380",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2026-09-30T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=360380",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "64ec1279-1577-45a7-b645-696af4a6ceb5",
+      "name": "Maximizing Investigators&rsquo; Research Award (MIRA) for Early Stage Investigators (ESI)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:59.204842+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=360593",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2029-02-06T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=360593",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "cce528ab-3900-4ce3-b5a4-fe65e215c3ff",
+      "name": "Biomedical Technology Optimization and Dissemination Center (BTOD) (RM1 - Clinical Trial Not Allowed)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:59.124119+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=360446",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2029-01-29T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=360446",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "366f20a4-5cba-4eae-b723-eb5a84151551",
+      "name": "Title X Family Planning Services Grants",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:59.056143+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=361754",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2027-01-11T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=361754",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "ad0e7086-329f-4be8-b2e7-f8a7bd22bf72",
+      "name": "BRAIN Initiative: Integrative Team-Research BRAIN Circuits Program - iBCP (RM1 Clinical Trial Not Allowed)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:58.987351+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=360398",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2028-06-23T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=360398",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "5ef42f63-ffc2-4b52-9d7f-e2ab7992c84d",
+      "name": "Discovery of the Genetic Basis of Childhood Cancers and of Congenital Anomalies: Gabriella Miller Kids First Pediatric Research Program (X01 Clinical Trial Not Allowed)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:58.851349+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=361164",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2027-01-11T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=361164",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "ca64b66d-9167-483d-b4d4-238f949f84bc",
+      "name": "GREGoRi Technology Integration Center (U01, Clinical Trials Optional)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:58.783562+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=359280",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2026-10-30T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=359280",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    },
+    {
+      "id": "5b62ccd3-cce1-4a9f-a70c-b398b89be4dd",
+      "name": "HEAL Initiative: Translating Addiction Epidemiology, Prevention, Treatment, and Recovery Research into Practice (R61/R33 - Clinical Trial Optional)",
+      "source": "grants_gov",
+      "discovered_at": "2026-09-19T11:49:58.648596+00:00",
+      "url": "https://www.grants.gov/search-grants?opp=362672",
+      "storedSource": null,
+      "descriptionIsAUrl": false,
+      "claims": {
+        "deadline": {
+          "value": "2029-02-09T00:00:00+00:00",
+          "storedSource": null,
+          "urlPointer": "https://www.grants.gov/search-grants?opp=362672",
+          "verdict": "UNVERIFIABLE_POINTER_ONLY"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+[
+  {
+    "id": "9349b006-ed99-4e7f-bc7a-4d05ac854431",
+    "legal_name": "EXERCISE-HARNESS-Fixture Prospect Inc",
+    "enrichment": {
+      "recent_gifts": [],
+      "board_members": [],
+      "foundation_ein": null,
+      "habitat_partner": false,
+      "donation_history": [],
+      "executive_changes": [],
+      "linkedin_profiles": [],
+      "united_way_partner": false,
+      "decision_maker_names": [],
+      "community_involvement": [],
+      "decision_maker_titles": [],
+      "foundation_affiliation": null,
+      "local_causes_supported": [],
+      "change_monitor_snapshot": {
+        "website_reachable": false
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:53:23.180Z"
+    },
+    "enrichment_completed_at": "2026-09-19T11:45:55.749+00:00",
+    "source_adapters": null
+  },
+  {
+    "id": "3d15c0f2-e524-4d94-a7fa-e03c82d965b6",
+    "legal_name": "GOOD HOUSING CONSTRUCTION LLC",
+    "enrichment": {
+      "sam_uei": "ZASQNZA4EEU3",
+      "recent_gifts": [],
+      "board_members": [],
+      "foundation_ein": null,
+      "habitat_partner": false,
+      "donation_history": [],
+      "recent_donations": [],
+      "executive_changes": [],
+      "linkedin_profiles": [],
+      "united_way_partner": false,
+      "decision_maker_names": [],
+      "community_involvement": [],
+      "decision_maker_titles": [],
+      "foundation_affiliation": null,
+      "local_causes_supported": [],
+      "change_monitor_snapshot": {},
+      "employee_count_estimate": null,
+      "change_monitor_last_checked_at": "2026-09-19T11:51:28.602Z"
+    },
+    "enrichment_completed_at": "2026-09-18T08:24:11.092+00:00",
+    "source_adapters": [
+      "sam_gov"
+    ]
+  },
+  {
+    "id": "f06ac3cc-60b8-4335-b2ed-9e5e049257d5",
+    "legal_name": "Rooftech Solutions and Construction LLC",
+    "enrichment": {
+      "rating": 4.9,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJH8pkwtSPWYYRrRRUuCu9WDY",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:56:27.547Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:31:25.916+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "d9e06ce1-4ad7-46aa-9555-9c6c06472e97",
+    "legal_name": "Flying D Roofing & Construction LLC, FD Custom Homes",
+    "enrichment": {
+      "rating": 5,
+      "google_types": [
+        "establishment",
+        "general_contractor",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJkaovPCqBWoYR1nGt56nDwig",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:55:35.922Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:30:25.271+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "fb24d783-9995-4c5c-9e37-d790ac53dd1f",
+    "legal_name": "KC Roofing and Siding, LLC",
+    "enrichment": {
+      "rating": 5,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJbVUv_r3PRIYR7wY0kSlAN4s",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:57:19.624Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:29:02.967+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "fa63ba6f-7f34-4ca1-b415-da590138d2cd",
+    "legal_name": "Primos Roofing LLC",
+    "enrichment": {
+      "rating": 3.7,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJNzFAM_37WoYRs76qklnAxIY",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:57:11.848Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:27:57.967+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "f4d85a3b-7ea6-4f03-a2ff-38397afeb8d4",
+    "legal_name": "APEX Roofing",
+    "enrichment": {
+      "rating": 5,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJAQBcPfscW4YR3HRpmzFw8Ak",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": false
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:56:57.304Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:26:59.534+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "979bfb57-7295-4e0a-93c5-4c8777b16395",
+    "legal_name": "Duration Roofing & Construction LLC",
+    "enrichment": {
+      "rating": 4.9,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJ9XBbQQDTRIYRbn2GFl3tTrc",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:53:44.024Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:25:53.75+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "f329d1af-9d15-44c6-acfe-d014cb36559f",
+    "legal_name": "Perennial Roofing LLC",
+    "enrichment": {
+      "rating": 5,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJjQTMh4_XWoYR9y4Eq-hXUuA",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:56:40.026Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:24:37.411+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  },
+  {
+    "id": "cd070b18-5f1c-4f5f-8186-ebec2ae6ef1d",
+    "legal_name": "Ja-Mar Roofing & Sheet Metal - Highland Lakes",
+    "enrichment": {
+      "rating": 4.9,
+      "google_types": [
+        "establishment",
+        "point_of_interest",
+        "roofing_contractor"
+      ],
+      "foundation_ein": null,
+      "google_place_id": "ChIJjwiBxQEdW4YRiZyIynaRvlA",
+      "foundation_affiliation": null,
+      "change_monitor_snapshot": {
+        "website_reachable": true
+      },
+      "change_monitor_last_checked_at": "2026-09-19T11:55:17.341Z"
+    },
+    "enrichment_completed_at": "2026-09-17T08:23:19.541+00:00",
+    "source_adapters": [
+      "google_places"
+    ]
+  }
+]

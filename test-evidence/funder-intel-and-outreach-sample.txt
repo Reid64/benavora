@@ -1,0 +1,112 @@
+=== funder_intelligence ===
+[
+  {
+    "id": "70980989-e789-4d6f-b79a-765f74bca5d4",
+    "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+    "funder_id": "7330aa21-fb83-417c-a0a5-6255db50a884",
+    "priorities": [],
+    "recent_grants": [],
+    "board_members": [],
+    "review_criteria": null,
+    "funding_cycles": null,
+    "average_grant_size": null,
+    "total_annual_giving": null,
+    "application_tips": null,
+    "last_scraped_at": "2026-09-19T11:46:10.718+00:00",
+    "raw_data": {
+      "pageText": ""
+    },
+    "created_at": "2026-09-19T11:46:11.160458+00:00",
+    "updated_at": "2026-09-19T11:46:10.718+00:00"
+  },
+  {
+    "id": "7676da57-1c7a-4ef5-afd4-b3842ac53bd8",
+    "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+    "funder_id": "3a0bc27b-30df-4d4d-9d86-1f0738cab85d",
+    "priorities": [],
+    "recent_grants": [],
+    "board_members": [],
+    "review_criteria": null,
+    "funding_cycles": null,
+    "average_grant_size": null,
+    "total_annual_giving": null,
+    "application_tips": null,
+    "last_scraped_at": "2026-08-23T06:57:50.541+00:00",
+    "raw_data": {
+      "pageText": "Walmart | Save Money. Live better. Skip to Main Content Pickup or delivery? Cancel Reorder My Items Reorder Lists Registries Sign In Account Sign in or create account Purchase History Walmart+ Subscriptions Language | English $0.00 Departments Services Pickup or delivery? Walmart | Save Money. Live better. Savings that fuel your day Save 10¢/gallon as a Walmart+ member Try Walmart+ now Try Walmart+ now 1 trial per member. T&C apply. Styles that fit your life The Denim Shop Find your fit Find your fit In as fast as an hour* Fans, pools & more Shop now Shop now Discover Great Brands Shop all Clearance Acer Nitro ED0 Series Gaming Monitor 27&quot; 1920 x 1080) Curved Full HD Widescreen with AMD FreeSync Technology, 180Hz ED270R S3biip Clearance Options Now $ 85 68 $ 124.00 Acer Nitro ED0 Series Gaming Monitor 27\" 1920 x 1080) Curved Full HD Widescreen with AMD FreeSync Technology, 180Hz ED270R S3biip Besque Magic Body Oil, 3.4 FL OZ, After Shower Body Oil For Women, Hydrating Skin Care For Full Body That Plumps, Tightens, and Firms Skin With Natural Ingredients, Luxury Spa Gifts - Pack of 2 Options $ 120 00 Besque Magic Body Oil, 3.4 FL OZ, After Shower Body Oil For Women, Hydrating Skin Care For Full Body That Plumps, Tightens, and Firms Skin With Natural Ingredients, Luxury Spa Gifts - Pack of 2 Bed Head by TIGI After Party Super Smoothing Cream for frizzy or dull hair, 3.38 fl oz​ Add Now $ 15 47 $ 19.99 Bed Head by TIGI After Party Super Smoothing Cream for frizzy or dull hair, 3.38 fl oz​ EltaMD UV Lotion Body Sunscreen, SPF 30 Sunscreen Lotion, Made with Zinc Oxide and Hyaluronic Acid, 7.0 oz Pump Add $ 55 00 EltaMD UV Lotion Body Sunscreen, SPF 30 Sunscreen Lotion, Made with Zinc Oxide and Hyaluronic Acid, 7.0 oz Pump BaBylissPRO® Nano Titanium™ 1&quot; Digital Straightener Options Now $ 55 00 $ 109.99 BaBylissPRO® Nano Titanium™ 1\" Digital Straightener Allswell 6 Cube Wax Melts, Relax (Lavender Jasmine Chamomile), 2.5 oz Add $ 2 33 Allswell 6 Cube Wax Melts, Relax (Lavender Jasmine Chamomile), 2.5 oz Go wild anywhere Mastercard® is accepted National Park gift cards Shop now Shop now Glasses, contacts & exams Complete eyecare, all in 1 place Learn more Learn more Get birthday party faves, fast! Shop now Shop now Walmart+ members earn 5% cash back at Walmart Learn more Learn more From meds to fitness programs Weight management support Learn more Learn more We’d love to hear what you think! Give feedback All Departments Store Directory Careers Our Company Sell on Walmart.com Help Product Recalls Accessibility Tax Exempt Program Get the Walmart App Safety Data Sheet Terms of Use Privacy Notice California Supply Chain Act Your Privacy Choices Notice at Collection AdChoices Consumer Health Data Privacy Notices Learn about Spark Driver Brand Shop Directory Walmart Business #IYWYK Delete Account © 2026 Walmart. The trademarks Walmart and the Walmart Spark design are registered with the US Patent and Trademark Office. All Rights Reserved."
+    },
+    "created_at": "2026-08-23T06:57:50.553515+00:00",
+    "updated_at": "2026-08-23T06:57:50.541+00:00"
+  }
+]
+=== outreach_contacts ===
+[
+  {
+    "id": "0d6393e8-56f6-40a9-97ba-a7dc26361b51",
+    "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+    "company_name": "EXERCISE-HARNESS Fixture Co",
+    "contact_name": null,
+    "email": null,
+    "phone": null,
+    "contact_form_url": null,
+    "source_url": null,
+    "company_type": null,
+    "giving_likelihood": "low",
+    "campaign_id": null,
+    "status": "new",
+    "converted_to_funder_id": null,
+    "created_at": "2026-09-19T11:41:47.437192+00:00",
+    "updated_at": "2026-09-19T11:41:47.437192+00:00"
+  },
+  {
+    "id": "95c1a030-d7d1-43a2-b1d0-733603e93404",
+    "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+    "company_name": "EXERCISE-HARNESS Fixture Co",
+    "contact_name": null,
+    "email": null,
+    "phone": null,
+    "contact_form_url": null,
+    "source_url": null,
+    "company_type": null,
+    "giving_likelihood": "low",
+    "campaign_id": null,
+    "status": "new",
+    "converted_to_funder_id": null,
+    "created_at": "2026-09-19T11:36:49.465447+00:00",
+    "updated_at": "2026-09-19T11:36:49.465447+00:00"
+  },
+  {
+    "id": "88cc5777-49f2-47de-a375-cd6a60d2daaf",
+    "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+    "company_name": "EXERCISE-HARNESS Fixture Co",
+    "contact_name": null,
+    "email": null,
+    "phone": null,
+    "contact_form_url": null,
+    "source_url": null,
+    "company_type": null,
+    "giving_likelihood": "low",
+    "campaign_id": null,
+    "status": "new",
+    "converted_to_funder_id": null,
+    "created_at": "2026-09-19T11:29:13.077728+00:00",
+    "updated_at": "2026-09-19T11:29:13.077728+00:00"
+  },
+  {
+    "id": "eca23b1f-f257-4161-b2eb-da29bff1b818",
+    "organization_id": "bf75d362-473c-4039-9e28-e09ef44ee862",
+    "company_name": "Bluebonnet Builders (E2E Seed)",
+    "contact_name": "Pat Rivera",
+    "email": "pat@bluebonnet.example",
+    "phone": null,
+    "contact_form_url": null,
+    "source_url": null,
+    "company_type": null,
+    "giving_likelihood": "high",
+    "campaign_id": "442f31f9-ca89-4f3a-8f53-cae149d4ccf8",
+    "status": "contacted",
+    "converted_to_funder_id": null,
+    "created_at": "2026-06-11T02:52:36.649932+00:00",
+    "updated_at": "2026-06-11T02:52:36.649932+00:00"
+  }
+]

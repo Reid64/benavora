@@ -1,0 +1,380 @@
+{
+  "agent_runs_total": 68377,
+  "ag29_runs": 65602,
+  "ag29_share": 0.9594161779545753,
+  "ag29_status_completed": 65601,
+  "ag29_status_failed": 0,
+  "ag29_status_running": 1,
+  "ag29_status_pending": 0,
+  "ag29_status_cancelled": "N/A (enum agent_run_status: \\\"cancelled\\\")",
+  "ag29_recent": [
+    {
+      "id": "fbb9376c-0469-424c-960f-873b2a0313cb",
+      "status": "running",
+      "started_at": "2026-09-19T14:38:51.568+00:00",
+      "completed_at": null,
+      "items_found": 0,
+      "items_processed": 0,
+      "items_queued": 0,
+      "output_summary": null,
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "b1a0643f-9d2f-4b82-8ab7-7a9b29588253",
+      "status": "completed",
+      "started_at": "2026-09-19T14:38:36.77+00:00",
+      "completed_at": "2026-09-19T14:38:48.308+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "d35c9a2f-5dfe-4c24-8c29-5bfbb0975fc1",
+      "status": "completed",
+      "started_at": "2026-09-19T14:38:21.719+00:00",
+      "completed_at": "2026-09-19T14:38:33.52+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "1ba83c6c-88c2-47cc-b9a3-9efea74d49ee",
+      "status": "completed",
+      "started_at": "2026-09-19T14:38:06.577+00:00",
+      "completed_at": "2026-09-19T14:38:18.464+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "30ae0a8d-ff06-4f5b-a5e6-a9f1c9b670c8",
+      "status": "completed",
+      "started_at": "2026-09-19T14:37:51.755+00:00",
+      "completed_at": "2026-09-19T14:38:03.31+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "01851922-8eda-4300-9d53-967b999cbe95",
+      "status": "completed",
+      "started_at": "2026-09-19T14:37:36.371+00:00",
+      "completed_at": "2026-09-19T14:37:48.503+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "ba04789a-85b0-4467-86b0-3cb51457a0ed",
+      "status": "completed",
+      "started_at": "2026-09-19T14:37:21.151+00:00",
+      "completed_at": "2026-09-19T14:37:33.103+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "d43397fb-a7c6-4ade-9f80-dad002d78c38",
+      "status": "completed",
+      "started_at": "2026-09-19T14:37:05.961+00:00",
+      "completed_at": "2026-09-19T14:37:17.873+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "cfe88f30-f65d-40f5-9abf-5a40439c412d",
+      "status": "completed",
+      "started_at": "2026-09-19T14:36:46.852+00:00",
+      "completed_at": "2026-09-19T14:37:02.69+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "08e79301-51df-4c9a-9ee6-1db8090db07f",
+      "status": "completed",
+      "started_at": "2026-09-19T14:36:31.709+00:00",
+      "completed_at": "2026-09-19T14:36:43.573+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "5aab045e-c83c-4973-8384-77c3ee5575ff",
+      "status": "completed",
+      "started_at": "2026-09-19T14:36:16.809+00:00",
+      "completed_at": "2026-09-19T14:36:28.421+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "8a1ce04b-a781-44b2-8e8c-c0664de03acc",
+      "status": "completed",
+      "started_at": "2026-09-19T14:36:01.499+00:00",
+      "completed_at": "2026-09-19T14:36:13.537+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "eeb73720-d48c-449d-8227-f3511986a7e8",
+      "status": "completed",
+      "started_at": "2026-09-19T14:35:46.142+00:00",
+      "completed_at": "2026-09-19T14:35:58.221+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "a3f6ab22-c4ef-4517-b644-4cdff80be5b4",
+      "status": "completed",
+      "started_at": "2026-09-19T14:35:31.318+00:00",
+      "completed_at": "2026-09-19T14:35:42.867+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "69cbd1a1-bea2-4e67-b0c4-3ca7130bd064",
+      "status": "completed",
+      "started_at": "2026-09-19T14:35:16.29+00:00",
+      "completed_at": "2026-09-19T14:35:28.043+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "2b583aea-28c3-4574-a893-0886a3e15d89",
+      "status": "completed",
+      "started_at": "2026-09-19T14:35:01.17+00:00",
+      "completed_at": "2026-09-19T14:35:12.979+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "9d1544f3-004b-4c85-b37b-7b5ed9435546",
+      "status": "completed",
+      "started_at": "2026-09-19T14:34:46.322+00:00",
+      "completed_at": "2026-09-19T14:34:57.891+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "6b6f9004-877a-47d0-bad9-46ce98840d14",
+      "status": "completed",
+      "started_at": "2026-09-19T14:34:31.282+00:00",
+      "completed_at": "2026-09-19T14:34:43.05+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "887779f2-0a29-4de2-ab19-99ef0900b7b0",
+      "status": "completed",
+      "started_at": "2026-09-19T14:34:14.85+00:00",
+      "completed_at": "2026-09-19T14:34:28.012+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation ran.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "b0f0bf4c-dc81-476b-a4e6-0c693ea97462",
+      "status": "completed",
+      "started_at": "2026-09-19T14:33:59.875+00:00",
+      "completed_at": "2026-09-19T14:34:11.581+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "f6c73f0d-f31e-48cf-9e0b-f6c534b89fea",
+      "status": "completed",
+      "started_at": "2026-09-19T14:33:44.7+00:00",
+      "completed_at": "2026-09-19T14:33:56.593+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "8a8901e7-2cc7-404d-9a0d-10004d1de415",
+      "status": "completed",
+      "started_at": "2026-09-19T14:33:29.345+00:00",
+      "completed_at": "2026-09-19T14:33:41.397+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "165c2db2-be92-400f-8527-a32174e55fe7",
+      "status": "completed",
+      "started_at": "2026-09-19T14:33:14.073+00:00",
+      "completed_at": "2026-09-19T14:33:26.074+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "9840daed-cefb-40cb-946f-799dc31ca3eb",
+      "status": "completed",
+      "started_at": "2026-09-19T14:32:59.111+00:00",
+      "completed_at": "2026-09-19T14:33:10.775+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    },
+    {
+      "id": "b89fe7ae-9a5a-4936-a714-84feba57fad9",
+      "status": "completed",
+      "started_at": "2026-09-19T14:32:43.704+00:00",
+      "completed_at": "2026-09-19T14:32:55.838+00:00",
+      "items_found": 100,
+      "items_processed": 100,
+      "items_queued": 0,
+      "output_summary": "Embedded 100/100 row(s) (0 failed); pattern aggregation not due.",
+      "error_message": null,
+      "tokens_used": null
+    }
+  ],
+  "ag29_items_processed_gt0": 907,
+  "ag29_items_found_gt0": 43422,
+  "ag29_tokens_gt0": 0,
+  "table_knowledge_base_entries": "ERR 404 knowledge_base_entries?select=id: {\"code\":\"PGRST205\",\"details\":null,\"hint\":\"",
+  "table_knowledge_documents": "ERR 404 knowledge_documents?select=id: {\"code\":\"PGRST205\",\"details\":null,\"hint\":\"Per",
+  "table_kb_narratives": "ERR 404 kb_narratives?select=id: {\"code\":\"PGRST205\",\"details\":null,\"hint\":\"Perhaps y",
+  "table_documents": 14,
+  "table_organization_knowledge": "ERR 404 organization_knowledge?select=id: {\"code\":\"PGRST205\",\"details\":null,\"hint\":\"",
+  "opportunities_total": 4860,
+  "opportunities_with_url": 4821,
+  "opportunities_with_docs": 174,
+  "fields": {
+    "deadline": {
+      "filled": 3592,
+      "filledWithUrl": 3568,
+      "provenanceRate": 0.9933184855233853
+    },
+    "amount_min": {
+      "filled": 271,
+      "filledWithUrl": 256,
+      "provenanceRate": 0.9446494464944649
+    },
+    "amount_max": {
+      "filled": 240,
+      "filledWithUrl": 225,
+      "provenanceRate": 0.9375
+    },
+    "amount_available": {
+      "filled": 268,
+      "filledWithUrl": 258,
+      "provenanceRate": 0.9626865671641791
+    },
+    "eligibility_requirements": {
+      "filled": 467,
+      "filledWithUrl": 463,
+      "provenanceRate": 0.9914346895074947
+    },
+    "application_method": {
+      "filled": 46,
+      "filledWithUrl": 42,
+      "provenanceRate": 0.9130434782608695
+    },
+    "required_documents": {
+      "filled": 25,
+      "filledWithUrl": 21,
+      "provenanceRate": 0.84
+    },
+    "geographic_restrictions": {
+      "filled": 131,
+      "filledWithUrl": 127,
+      "provenanceRate": 0.9694656488549618
+    },
+    "description": {
+      "filled": 1269,
+      "filledWithUrl": 1251,
+      "provenanceRate": 0.9858156028368794
+    }
+  },
+  "platform_field_provenance": {
+    "totalFilledFields": 6309,
+    "withProvenance": 6211,
+    "rate": 0.9844666349659217
+  },
+  "cp_total": 50,
+  "cp_enriched": 50,
+  "cp_with_adapters": 49,
+  "fi_total": 2,
+  "fi_with_raw": 2
+}

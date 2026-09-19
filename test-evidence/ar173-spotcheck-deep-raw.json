@@ -1,0 +1,221 @@
+{
+  "withDocs": [
+    {
+      "id": "2679d5eb-33d5-493c-b0a0-81edc43f7c40",
+      "name": "Rural Housing Preservation Grant",
+      "source": "grants.gov",
+      "docShape": "array[4]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/354317\",\"title\":\"RD 1970-A Exhibit H Multi-tier Action Environmental Compliance Agreement.pdf\"},{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/354318\",\"title\":\"RD Form 400-4 Assurance Agreement.pdf\"",
+      "claims": {
+        "deadline": "2026-09-08T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Faith-Based and Community Organizations"
+      }
+    },
+    {
+      "id": "fdffcfad-0750-4056-89fd-c532bc86c9a8",
+      "name": "INCLUDE (INvestigation of Co-occurring conditions across the Lifespan ",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/335930\",\"title\":\"RFA-OD-24-007-Full-Announcement.html\"}]",
+      "claims": {
+        "deadline": "2026-07-01T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Other Eligible Applicants include the following: Alaska Native and Native Hawaiian Serving Institutions; Asian American "
+      }
+    },
+    {
+      "id": "439b2a5e-e51b-4006-b55c-b1202fbb85aa",
+      "name": "INCLUDE (INvestigation of Co-occurring conditions across the Lifespan ",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/335930\",\"title\":\"RFA-OD-24-007-Full-Announcement.html\"}]",
+      "claims": {
+        "deadline": "2026-07-01T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Other Eligible Applicants include the following: Alaska Native and Native Hawaiian Serving Institutions; Asian American "
+      }
+    },
+    {
+      "id": "d304779c-4785-4645-ac67-a011d857ee6c",
+      "name": "INCLUDE (INvestigation of Co-occurring conditions across the Lifespan ",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/335930\",\"title\":\"RFA-OD-24-007-Full-Announcement.html\"}]",
+      "claims": {
+        "deadline": "2026-07-01T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Other Eligible Applicants include the following: Alaska Native and Native Hawaiian Serving Institutions; Asian American "
+      }
+    },
+    {
+      "id": "bed624d0-2a28-4fe9-8293-c995e2d83b48",
+      "name": "INCLUDE (INvestigation of Co-occurring conditions across the Lifespan ",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/335930\",\"title\":\"RFA-OD-24-007-Full-Announcement.html\"}]",
+      "claims": {
+        "deadline": "2026-07-01T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Other Eligible Applicants include the following: Alaska Native and Native Hawaiian Serving Institutions; Asian American "
+      }
+    },
+    {
+      "id": "1ecaa5c2-a828-41dc-b912-f8a38af7dc73",
+      "name": "F24AS00298 Cooperative Agriculture",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/336463\",\"title\":\"Foa_Content_of_F24AS00298.pdf\"}]",
+      "claims": {
+        "deadline": "2029-03-07T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Applicants must be private individuals or small business entities. Pre-application coordination is required. Environment"
+      }
+    },
+    {
+      "id": "d68f9459-6016-4e3a-988a-f83ca7d94a86",
+      "name": "F24AS00298 Cooperative Agriculture",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/336463\",\"title\":\"Foa_Content_of_F24AS00298.pdf\"}]",
+      "claims": {
+        "deadline": "2029-03-07T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Applicants must be private individuals or small business entities. Pre-application coordination is required. Environment"
+      }
+    },
+    {
+      "id": "ea8dcc02-a585-47a8-95f6-cd5b03638a2d",
+      "name": "F24AS00298 Cooperative Agriculture",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/336463\",\"title\":\"Foa_Content_of_F24AS00298.pdf\"}]",
+      "claims": {
+        "deadline": "2029-03-07T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Applicants must be private individuals or small business entities. Pre-application coordination is required. Environment"
+      }
+    },
+    {
+      "id": "2a2b7510-ee14-4cb2-9cdc-8f3897fcc56f",
+      "name": "F24AS00298 Cooperative Agriculture",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/336463\",\"title\":\"Foa_Content_of_F24AS00298.pdf\"}]",
+      "claims": {
+        "deadline": "2029-03-07T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Applicants must be private individuals or small business entities. Pre-application coordination is required. Environment"
+      }
+    },
+    {
+      "id": "9ae03a60-fd03-4313-b9c7-d631fdd8af9e",
+      "name": "INCLUDE Project: Clinical Trials Phased Awards for Down syndrome Resea",
+      "source": "grants.gov",
+      "docShape": "array[1]",
+      "docKeys": [
+        "url",
+        "title"
+      ],
+      "docHoldsSourceText": false,
+      "docSample": "[{\"url\":\"https://apply07.grants.gov/grantsws/rest/opportunity/att/download/351969\",\"title\":\"RFA-OD-27-005-Full-Announcement.html\"}]",
+      "claims": {
+        "deadline": "2028-06-15T00:00:00+00:00",
+        "amount_min": null,
+        "amount_max": null,
+        "eligibility": "Refer to Section III. Eligibility Information in the NOFO for additional information on eligibility.Foreign Organization"
+      }
+    }
+  ],
+  "consistency": {
+    "total": 4860,
+    "open_but_deadline_past": 1090,
+    "deadline_beyond_2029": 170,
+    "deadline_present": 3592,
+    "amount_min_gt_amount_max": 0,
+    "description_is_bare_url": 42,
+    "no_url_at_all": 39,
+    "no_url_but_has_deadline": 24,
+    "no_url_but_has_eligibility": 4,
+    "amount_pairs_checked": 190,
+    "descriptions_checked": 1000
+  },
+  "amountContradictions": [],
+  "bareUrlBySource": {
+    "sam_gov": 42
+  },
+  "eligibility": {
+    "checked": 467,
+    "hedged_explicitly": 46
+  },
+  "eligibilityBySource": {
+    "hud.gov": 61,
+    "corporate_research_agent": 1,
+    "government_research_agent": 1,
+    "manual_entry": 1,
+    "local_sponsorship_agent": 1,
+    "foundation_research_agent": 2,
+    "grants.gov": 160,
+    "ca_grants_portal": 200,
+    "fhlb-pgh.com": 16,
+    "manual": 4,
+    "hcr.ny.gov": 15,
+    "Walmart.org": 1,
+    "Bank of America": 3,
+    "exercise-harness-seed": 1
+  }
+}

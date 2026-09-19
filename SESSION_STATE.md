@@ -8,7 +8,43 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-17.2: ran the AR-17.1 sampler, plus a new
+- **Last updated:** 2026-09-19 (AR-17.3: ran the AR-17.1 sampler over the
+  research/discovery/enrichment family plus three read-only companion probes
+  (`test-evidence/ar173-provenance-and-ag29.mjs`, `ar173-ag29-timeline.mjs`,
+  `ar173-spotcheck-deep.mjs`). No fixes -- diagnosis only, AR-17.6 fixes. Full
+  report: `test-evidence/AGENT_OUTPUT_QUALITY_RESEARCH.md`.
+  **PLATFORM-WIDE PROVENANCE: 0.0% of 6,309 enriched funder fields carry a
+  stored source.** 6,211 of 6,309 (98.4%) carry a `url`, but that is pointer
+  coverage, not provenance -- `opportunity_documents` (174 rows, the only
+  column that could retain source material) holds only `[{"url","title"}]`,
+  attachment links and never attachment text. A fabricated deadline and a
+  correctly-scraped one are indistinguishable after the fact; fabrication is
+  undetectable by construction. **FABRICATION SPOT-CHECK (10 most recent
+  enriched records, recency-selected before content was visible): 0 matched /
+  0 CONTRADICTED / 10 unverifiable-because-no-stored-source** -- the zero is
+  not a pass, the check had nothing to check against. Coverage honesty PASSES:
+  no fabricated fill found anywhere in the family; the one real stored-source
+  comparison available (`funder_intelligence.raw_data.pageText`, n=2, one of
+  them the Walmart.com retail homepage) returned `[]`/`null` for every
+  extracted field rather than inventing a grant range or program officer.
+  Evidenced risk is staleness, not invention: 1,090 rows (22.4%) are
+  `status='open'` with a past deadline; 39 rows have no source pointer at all,
+  24 of those carrying a deadline. **ag-29-knowledge-indexer: both prompt
+  figures verified WRONG live** -- 65,602 lifetime runs (not ~63,941) =
+  **95.94% of all 68,377 agent_runs** (not ~44%; supersedes the earlier 85%
+  figure). Not every run processed zero: 42,515 found rows and embedded none,
+  22,180 found none, 907 embedded >=1 (all within the last 24h). Target set is
+  NOT empty -- `foundation_directory` has 133,812 rows with 43,061 still
+  unembedded; `intelligence_proposal_sections` 105/0 complete. Historical cause
+  was whole-batch embedding failure (the OPENAI_API_KEY signature the code
+  self-documents at `knowledge-indexer-agent.ts:645-652`) reported as
+  `status='completed'`. It is working now (last 8 runs `Embedded 100/100
+  row(s) (0 failed)`). **VERDICT: FIX, DO NOT DELETE** -- AR-15 owns the
+  deletion and must not exercise it; fix the run accounting instead (an
+  `agent_runs` row every ~40s regardless of outcome is why `agent_runs` is
+  unusable as a platform denominator, and 42,515 historical failures still read
+  `completed`). Gates: `pnpm typecheck` clean (exit 0), `pnpm test` 904 passed
+  / 13 todo, 98 files passed / 1 skipped (exit 0).) Previous entry -- 2026-09-19 (AR-17.2: ran the AR-17.1 sampler, plus a new
   companion `scripts/audit/scoring-family-deep-dive.mjs` targeting the exact
   score field inside nested PIL reports, against every score/probability/
   rank/match/confidence agent in the codebase. No fixes -- diagnosis only,

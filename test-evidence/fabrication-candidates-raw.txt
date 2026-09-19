@@ -1,0 +1,172 @@
+=== hud_monitor sample (source=eq.hud.gov) ===
+[
+  {
+    "name": "HUD Funding Opportunities",
+    "description": "HUD's grants and funding opportunities page listing various housing-related grant programs for eligible applicants including nonprofits, local governments, and other entities.",
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": "http://www.hud.gov/grants",
+    "eligibility_requirements": null,
+    "source": "hud.gov"
+  },
+  {
+    "name": "Reentry Housing Assistance Grant",
+    "description": "Supports housing and services for individuals returning from correctional institutions to help them successfully reintegrate into communities.",
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": null,
+    "eligibility_requirements": null,
+    "source": "hud.gov"
+  },
+  {
+    "name": "Homeless Veterans Reintegration Program (HVRP)",
+    "description": null,
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": null,
+    "eligibility_requirements": null,
+    "source": "hud.gov"
+  }
+]
+=== grants_gov_research sample (source=eq.grants.gov) ===
+[
+  {
+    "name": "Rural Housing Preservation Grant",
+    "description": "<p>The Rural Housing Service (RHS) announces a notice in funding availability under its Housing Preservation Grant (HPG) program. The HPG program is a grant program which provides qualified public agencies, private nonprofit organizations, which may include but not be limited to, Faith-Based and Community Organizations, and other eligible entities grant funds to assist very low- and low-income homeowners in repairing and rehabilitating their homes in rural areas. In addition, the HPG program assists rental property owners and cooperative housing complexes in repairing and rehabilitating their units if they agree to make such units available to low- and very low-income persons. This action is taken to comply with Agency regulations found in 7 CFR part 1944, subpart N, which require the Agency to announce the opening and closing dates for receipt of preapplications for HPG funds from eligible applicants. The intended effect of this Notice is to provide eligible organizations notice of these dates.</p>\n<p><br></p>\n<p>$250,000 remains available from the American Relief Act, 2025 (Public Law 118-158) for Puerto Rico.</p>\n<p><br></p>\n<p>$2.09 million ($50,000 maximum award) is available for Calendar Year 2022 disaster assistance. The disaster funding is made available from the Consolidated Appropriations Act, 2023, Division N, Title I (Public Law 117-328). 2022 presidentially declared disaster areas can be viewed at <a href=\"https://www.fema.gov/disaster/declarations\" target=\"_blank\">https://www.fema.gov/disaster/declarations</a>.</p>",
+    "deadline": "2026-09-08T00:00:00+00:00",
+    "amount_min": null,
+    "amount_max": null,
+    "url": "https://www.grants.gov/search-grants?opp=USDA-RD-HCFP-HPG-2026",
+    "eligibility_requirements": "Faith-Based and Community Organizations",
+    "source": "grants.gov"
+  },
+  {
+    "name": "Expanding Financial Literacy and Empowerment: Increasing Awareness and Use of ABLE Accounts for Americans with Disabilities",
+    "description": null,
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": "https://www.grants.gov/search-grants?opp=HHS-2026-ACL-AOD-DFLA-0025",
+    "eligibility_requirements": null,
+    "source": "grants.gov"
+  },
+  {
+    "name": "Centers of Excellence for Veteran Student Success (CEVSS) Program",
+    "description": "The Employment and Training Administration at the U.S. Department of Labor (Labor) is soliciting applications in support of the administration of the Centers of Excellence for Veteran Student Success Program (CEVSS) on behalf of the U.S. Department of Education (ED) and the Secretary of Education (Secretary). The purpose of the CEVSS Program is to encourage institutions of higher education (IHEs) to develop model programs to support veteran student success in postsecondary education by coordinating services to address the academic, financial, physical, and social needs of veteran students.",
+    "deadline": "2026-06-23T00:00:00+00:00",
+    "amount_min": null,
+    "amount_max": 3000000,
+    "url": "https://www.grants.gov/search-grants?opp=ED-GRANT-26-031",
+    "eligibility_requirements": "IHEs (as defined in section 101 of the Higher Education Act of 1965, as amended (HEA) (20 U.S.C. 1001)).See ANI for eligibility specifics.",
+    "source": "grants.gov"
+  }
+]
+=== sam_gov rows (source=eq.sam_gov, underscore) ===
+[
+  {
+    "name": "PROCUREMENT OF COMBAT RUBBER RAIDING CRAFT (CRRC) AND  ANCILLARY EQUIPMENT",
+    "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=ca5e21deece34f9396619f7cff3f3104",
+    "deadline": "2026-09-08T00:00:00+00:00",
+    "url": "https://sam.gov/opp/ca5e21deece34f9396619f7cff3f3104",
+    "eligibility_requirements": null,
+    "source": "sam_gov",
+    "source_type": "government_federal"
+  },
+  {
+    "name": "This opportunity is ONLY available to the Region 3 Forest Engineering & Roads Maintenance Blanket Purchase Agreement (FERM BPA) contractors",
+    "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=ca9dc7ffc47644a29498879390ba617d",
+    "deadline": "2026-09-11T00:00:00+00:00",
+    "url": "https://sam.gov/opp/ca9dc7ffc47644a29498879390ba617d",
+    "eligibility_requirements": null,
+    "source": "sam_gov",
+    "source_type": "government_federal"
+  },
+  {
+    "name": "91--Philips Diamond Class 66 (ISO VG 68) Turbine Oil",
+    "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=caa39357afad422e8a11bb545cebb255",
+    "deadline": "2026-09-10T00:00:00+00:00",
+    "url": "https://sam.gov/opp/caa39357afad422e8a11bb545cebb255",
+    "eligibility_requirements": null,
+    "source": "sam_gov",
+    "source_type": "government_federal"
+  }
+]
+=== source=eq.sam.gov (dot, registry filter) count check ===
+count: */0
+=== ca_grants_portal sample ===
+[
+  {
+    "name": "FY25-26 Next Generation Warning System Grant Program – CFO",
+    "description": "The Program will identify capability gaps and implement solutions for alert and warning.",
+    "deadline": "2026-05-22T00:00:00+00:00",
+    "url": "https://www.grants.ca.gov/grants/fy25-26-next-generation-warning-system-grant-program-cfo/",
+    "eligibility_requirements": "Agency: Governor's Office of Emergency Services Nonprofit eligibility not confirmed from source data — verify on the funder's page before applying.",
+    "source": "ca_grants_portal"
+  },
+  {
+    "name": "Encampment Resolution Funding (ERF) Program Round 5",
+    "description": "The California Department of Housing and Community Development (HCD) is pleased to announce the availability of Encampment Resolution Funding (ERF) Program Round 5 (ERF Round 5) grant funding. Pursuant to Health and Safety Code (HSC) section 50251. ERF was established to increase collaboration between HCD, local jurisdictions, and continuums of care (CoCs) for the following purposes:\n\nAssist local jurisdictions in ensuring the safety and wellness of people experiencing homelessness in encampments.\nProvide encampment resolution grants to local jurisdictions and continuums of care to resolve critical encampment concerns and transition individuals into safe and stable housing.\nEncourage a data-informed, coordinated approach to address encampment concerns.",
+    "deadline": "2026-07-30T00:00:00+00:00",
+    "url": "https://www.grants.ca.gov/grants/encampment-resolution-funding-erf-program-round-5/",
+    "eligibility_requirements": "Agency: Department of Housing and Community Development Nonprofit eligibility not confirmed from source data — verify on the funder's page before applying.",
+    "source": "ca_grants_portal"
+  },
+  {
+    "name": "CalMoneySmart 2026-2028 Grant Program",
+    "description": "Grant funds may only be used for the following financial education and empowerment services for the targeted at-risk unbanked and underbanked populations:\n&nbsp;\n1) Designing, developing, or offering, free of charge to consumers, classroom or web-based financial education and empowerment content intended to help unbanked and underbanked consumers achieve, identify, and access lower cost financial products and services, establish or improve their credit, increase their savings, or lower their debt.\n2) Providing individualized, free financial coaching to unbanked and underbanked consumers.\n3) Designing, developing, or offering, free of charge to consumers, a financial product or service intended to help unbanked and underbanked consumers identify and access responsible financial products and financial services, establish or improve their credit, increase their savings, or lower their debt.\n&nbsp;\nEvery project funded with a grant from the Financial Empowerment Fund shall meet the following criteria:\n1) Promote and enhance the economic security of consumers.\n2) Adhere to the five principles of effective financial education described in the June 2017 report issued by the federal Consumer Financial Protection Bureau titled “Effective financial education: Five principles and how to use them.”\n&nbsp;\nGrant awards will be announced for a two-year period covering two consecutive fiscal years (2026-27 and 2027-28). Funds for each fiscal year are disbursed separately, and any unexpended funds must be returned to the DFPI. Disbursement of funding for the second fiscal year is contingent on submission of a satisfactory annual report.\nGrantees may use no more than 15 percent of the grant to cover administrative (indirect) costs. Failure to comply shall render the Applicant ineligible for a grant during the subsequent fiscal year and until the noncompliance is corrected. \nA grantee may subcontract services that it has agreed to provide under the grant agreement, so long as those services are conducted on behalf of the grantee. Subcontract arrangements must be clearly described in the scope of work and budget.\nAccepting grant funds with the intent of distributing those funds to other nonprofit organizations (i.e. sub-grants or fiscal sponsorship) is not allowed.\nGrant funding may not be used for financial incentives for individuals. Prohibited incentives include, but are not limited to, match funding for savings accounts, participant stipends, or gift cards with a cash value.\nGrantees are required to submit quarterly and final annual reports, in a form and by a date specified by the Commissioner of Financial Protection and Innovation, documenting:\n1) The specific uses to which grant funds were allocated,\n2) The specified required data elements,\n3) Quantitative results regarding the impact of grant funding, and\n4) Any other information requested by the Commissioner.\nFailure to submit satisfactory reports shall render the Applicant ineligible for any DFPI grant during the subsequent fiscal year and until the required report is submitted. \n&nbsp;\n&nbsp;",
+    "deadline": "2026-04-27T00:00:00+00:00",
+    "url": "https://www.grants.ca.gov/grants/calmoneysmart-2026-2028-grant-program/",
+    "eligibility_requirements": "Agency: Department of Financial Protection and Innovation Nonprofit organizations confirmed eligible (California Grants Portal applicant-type tag).",
+    "source": "ca_grants_portal"
+  }
+]
+=== Bank of America / Walmart.org sourced rows ===
+[
+  {
+    "name": "Spark Good Local Grants",
+    "description": "Local grants designed to support local organizations that meet the unique needs of the communities where Walmart operates. Each year, Walmart U.S. stores, Sam's Clubs and Distribution Centers award local cash grants ranging from $250 to $5,000. Focus areas include economic opportunity, advancing sustainability, strengthening community, access to healthier food, disaster preparedness and response, and building caring and connected communities.",
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": 5000,
+    "url": "https://walmart.org/how-we-give/program-guidelines/spark-good-local-grants-guidelines",
+    "eligibility_requirements": "Organizations must have a Spark Good account on Walmart.com/nonprofits and be verified by Walmart's third-party verification partner, Deed.,Only authorized users of the organization's Spark Good account may apply.,Organizations must serve the same service area that the facility they are requesting funding from serves.,Eligible entities include: 501(c)(3) public charities recognized under Section 501(c)(3) of the Internal Revenue Code, classified as a public charity under Section 509(a)(1), (2) or (3) (Types I or II), and Deed verified.,Government entities (non-501(c)(3)): U.S. federal agencies, territories and commonwealths, state agencies and departments, and political subdivisions (including cities, counties, municipal agencies), and Deed verified.,Schools: All K-12 public or nonprofit private schools, charter schools, community/junior colleges, state/private colleges, or universities with a NCES number or 501(c)(3) tax status, and Deed verified.,Churches or other faith-based organizations with a proposed project that benefits the community at large (e.g., food pantries, soup kitchens, clothing closets), and Deed verified.,Non-charities including 501(c)(4)s, (c)(6)s, and (c)(19)s such as homeowner's associations, civic leagues, or volunteer fire companies are NOT eligible.,Organizations must not deny service, membership, or other involvement on the basis of race, religion, color, sex, sexual orientation, gender identity, age, national origin, ancestry, citizenship, veteran, or disability status.,A maximum of 25 applications (pending or approved status) is allowed per organization at any time.,Once funded, reapplication to the same facility is not allowed within the same fiscal year.,Grant recipients must affirm alignment with Spark Good program guidelines and agree to logo usage and recognition guidelines.,Applications are accepted through three cycles in FY27: Cycle 1 (Feb. 1 – Apr. 15), Cycle 2 (May 1 – Jul. 15), Cycle 3 (Aug. 1 – Nov. 30).",
+    "source": "Walmart.org"
+  },
+  {
+    "name": "Bank of America Charitable Foundation Matching Gifts Program",
+    "description": "A program through the Bank of America Charitable Foundation that matches employee gifts to eligible nonprofit organizations.",
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": "https://about.bankofamerica.com/en/making-an-impact/grant-funding-for-nonprofits-sponsorship-programs",
+    "eligibility_requirements": "Eligible nonprofit organizations receiving gifts from Bank of America employees.",
+    "source": "Bank of America"
+  },
+  {
+    "name": "Bank of America Charitable Foundation Grant Funding for Nonprofits",
+    "description": "Bank of America provides grant funding for nonprofits to advance economic mobility and supports the economic, social and cultural life of the places they live and work.",
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": "https://about.bankofamerica.com/en/making-an-impact/grant-funding-for-nonprofits-sponsorship-programs",
+    "eligibility_requirements": "Nonprofit organizations focused on economic mobility and community development.",
+    "source": "Bank of America"
+  },
+  {
+    "name": "Bank of America Volunteer Grants Program",
+    "description": "Grants provided to nonprofits where Bank of America employees volunteer their time.",
+    "deadline": null,
+    "amount_min": null,
+    "amount_max": null,
+    "url": "https://about.bankofamerica.com/en/making-an-impact/grant-funding-for-nonprofits-sponsorship-programs",
+    "eligibility_requirements": "Nonprofit organizations where Bank of America employees actively volunteer.",
+    "source": "Bank of America"
+  }
+]
+=== state_portal_tdhca (source=eq.tdhca.state.tx.us) ===
+[]
+=== historical_awards (government_research_usaspending) ===
+historical_awards count: */0
