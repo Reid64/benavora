@@ -8,7 +8,21 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-13.2: full scheduler and trigger audit —
+- **Last updated:** 2026-09-19 (AR-13.3: upstream data pipeline audit —
+  resolved `ag-29-knowledge-indexer` completely: it scans `foundation_directory`
+  (133,812 rows, 100% pending) but that table's own enrichment writers never
+  populate the two fields — `programs`, `enrichment.mission` — the agent
+  reads, a permanent producer/consumer contract mismatch, not a bug in the
+  agent. `intelligence_proposal_sections` is fully drained (0 pending, no
+  new rows since 2026-06-20); `outcomes` has only 7 rows ever. Confirmed
+  `ingest:bmf`/`ingest:samgov`/`enrich:990`/`enrich:web`/`enrich:websites`/
+  `enrich:propublica` have zero scheduling wiring anywhere (not in GH
+  Actions, `vercel.json`, or `worker/scheduler.ts`) — manual CLI only. The
+  one semi-automated substitute (`ENABLE_SCRAPER`-gated weekly worker jobs)
+  fires on schedule but every enrichment timestamp checked live has been
+  stalled 6-7 weeks. Full detail: `test-evidence/DATA_PIPELINE_AUDIT.md`.
+  Diagnose only — no production behaviour changed. Previous entry —
+  AR-13.2: full scheduler and trigger audit —
   every mechanism that fires an agent, mapped and live-verified in
   `test-evidence/SCHEDULER_MAP.md`. Headline number: 1,511 of 67,184 lifetime
   `agent_runs` rows (2.25%) are real work; `ag-29-knowledge-indexer` alone is

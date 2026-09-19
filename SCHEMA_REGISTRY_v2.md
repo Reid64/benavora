@@ -4,6 +4,22 @@
 ## Status: CANONICAL — All migrations listed here are the authoritative source of truth.
 ## Current migration count: 097 applied or queued
 
+> **Coverage note (2026-09-19, AR-13.3):** `foundation_directory`'s
+> `programs` column (text[]) is `NULL` on all 133,812 live rows, and no
+> writer anywhere in this codebase (`enrich-foundations-990.ts`,
+> `enrich-foundations-propublica.ts`, `enrich-foundations-web.ts`,
+> `enrich-foundations-websites.ts`, `foundation-scraper.ts`) has ever
+> populated it or an `enrichment.mission` jsonb key — confirmed by live
+> query and by grepping every writer's full history. `ag-29-knowledge-indexer`
+> (`src/lib/agents/knowledge-indexer-agent.ts`) reads exactly those two
+> fields to decide what to embed, so this column has been structurally
+> dead weight since it was added — not a recent regression. See
+> `test-evidence/DATA_PIPELINE_AUDIT.md` §1 for full detail. No schema
+> change was made this session (diagnose only); a future fix should either
+> populate `programs`/`enrichment.mission` from the 990/ProPublica data
+> these scripts already parse, or repoint `flattenFoundationText()` at the
+> `enrichment.propublica.*` fields that are genuinely populated today.
+
 > **Coverage note (2026-09-17, AR-3.1):** This doc's "097 applied or queued" snapshot predates
 > `autoapply_submissions` and `form_templates` (both from migration 045) — neither table is indexed
 > anywhere below; see `supabase/migrations/045_autoapply_tables.sql` directly. Migration 184 added

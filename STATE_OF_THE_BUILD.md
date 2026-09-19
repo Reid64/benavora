@@ -1,5 +1,70 @@
 # Benavora Platform Build State
 
+## AR-13.3 — Upstream data pipeline audit: which agents have nothing to process and why (2026-09-19)
+
+**Task:** for every major table an agent reads or writes, establish row
+counts, recency, the intended producer, whether that producer ran
+successfully in the last 7 days, and whether consumer agents find real
+work — resolving specifically whether AR-13.1/13.2's no-op agents are
+broken agents or starved-by-empty-upstream agents. Diagnose only, no
+production behaviour changed. Full detail: `test-evidence/DATA_PIPELINE_AUDIT.md`.
+
+**`ag-29-knowledge-indexer`, fully resolved.** It reads `WHERE embedding IS
+NULL` from three tables: `intelligence_proposal_sections` (105 rows, 0
+pending — fully drained, nothing new since 2026-06-20),
+`outcomes` (7 rows total, ever), and `foundation_directory` (133,812 rows,
+**100% pending**). The `foundation_directory` scan is where the whole
+64,551-lifetime-run/9,702-in-7-days no-op history comes from: its own
+`flattenFoundationText()` only extracts text from `programs` (text[]) and
+`enrichment->>'mission'` — and live query confirms `programs` is `NULL` on
+every one of the 133,812 rows, and `enrichment.mission` does not exist
+anywhere in the data. Grepped every foundation-enrichment writer
+(`enrich-foundations-990.ts`, `enrich-foundations-propublica.ts`,
+`enrich-foundations-web.ts`, `enrich-foundations-websites.ts`,
+`foundation-scraper.ts`): all of them write real data into
+`enrichment.propublica`/`enrichment.propublica_enriched_at`/
+`enrichment.website_scraped_at`/`enriched_990_at` — never into `programs`
+or `enrichment.mission`. **This is a permanent producer/consumer field-name
+contract mismatch, not a broken query and not a bug introduced recently** —
+grep across every enrichment script's full history shows neither field was
+ever written. The agent's own error-reporting is confirmed correct (the
+2026-09-15 silent-success fix still holds); it has simply never had a
+single real batch to report as failed.
+
+**Ingest/enrich scripts are functionally manual-only.** None of `ingest:bmf`,
+`ingest:samgov`, `enrich:990`, `enrich:web`, `enrich:websites`,
+`enrich:propublica` appear in `.github/workflows/*.yml`, `vercel.json`'s
+`crons`, or `worker/scheduler.ts`. The one semi-automated substitute —
+`worker/scheduler.ts`'s `foundation-enrichment-weekly` /
+`nonprofit-enrichment-weekly` jobs, gated behind `ENABLE_SCRAPER === 'true'`
+— does fire on schedule per `test-evidence/pt-08/railway-scheduler-jobs-fired.json`,
+but every downstream enrichment timestamp checked live
+(`enrichment.propublica_enriched_at` max 2026-07-19, `enriched_990_at` max
+2026-08-06, `nonprofits.last_enriched_at` max 2026-08-06) stopped advancing
+6-7 weeks ago. `ENABLE_SCRAPER`'s actual live Railway value was not
+confirmed this session (no Railway CLI access from this sandbox).
+
+**Other tables audited:** `opportunities` is genuinely healthy (681 new
+rows in 7 days, fresh as of today, via the `grantsgov` Vercel cron).
+`agent_queue` is genuinely healthy (142 rows in 7 days). `knowledge_patterns`
+is genuinely healthy — it's the one part of AG-29 that works, since its
+24h pattern-aggregation pass reads from `outcomes`, not `foundation_directory`.
+Four tables (`outcomes`, `applications`, `corporate_prospects`,
+`knowledge_base`) each showed exactly one "recent" row, but all four trace
+to the same single synthetic exercise-harness organization inserted in one
+~1-second window on 2026-09-17 — not organic usage; flagged so a future
+audit doesn't mistake it for a live producer. Two tables outside the
+original list were found and audited: `prospects` (the real Sales Outreach
+CRM table — 0 rows, ever, despite fully-wired code) and `funders` (48 rows,
+100% E2E test-seed data).
+
+**Verification:** `pnpm typecheck` and `pnpm test` run clean (no code
+changed this session — diagnose-only). See `test-evidence/DATA_PIPELINE_AUDIT.md`
+for full per-table evidence, every query used, and the complete answer to
+"how many agents have nothing to work on and why."
+
+---
+
 ## AR-13.2 — Full scheduler and trigger audit: every mechanism that fires an agent, with real-work ratios (2026-09-19)
 
 **Task:** build `test-evidence/SCHEDULER_MAP.md`, mapping every trigger source
