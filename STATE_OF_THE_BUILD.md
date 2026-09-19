@@ -4356,12 +4356,42 @@ embedding 100/100 with 0% failure in the 24h before this session):
 | `sam_gov` live row count under corrected source value | 100 (unchanged, already matched) |
 | New regression suite | `src/__tests__/integration/research-drafting-quality.test.ts`, 9/9 passing |
 
-**Not yet re-measured post-deploy:** ag-29's share of `agent_runs` (still
-95.96% as of this write — the code fix takes effect only after the worker
-redeploys; a number that hasn't moved yet because the fix hasn't shipped
-is not a failure of the fix, but it must be re-checked after deploy, not
-assumed). Research-family provenance proportion and drafting-family
-cross-org similarity: re-run against the same sampler scripts
-(`test-evidence/ar173-provenance-and-ag29.mjs`,
-`test-evidence/drafting-family-deep-dive.mjs`) after this commit lands, not
-estimated here.
+**Re-measured post-deploy (2026-09-19, later same session):** `git log`
+confirms this commit was HEAD and pushed; `scripts/audit/forge-gates/
+work-landed.mjs` confirms migrations 203/204 applied live via
+`forge_migration_ledger()`. `pnpm typecheck`, `pnpm run build`, and
+`pnpm test` (908 tests, 98 files) all re-ran clean; `pnpm test:integration`
+re-confirmed `research-drafting-quality.test.ts` 9/9 against the live DB
+(the trigger genuinely rejects/accepts real INSERTs, not a mock).
+
+Re-running `test-evidence/ar173-provenance-and-ag29.mjs`:
+
+| Metric | AR-17.3 audit | This re-run | Moved? |
+|---|---|---|---|
+| `foundation_directory` unembedded | 43,061 | **1** | Yes — backlog drained |
+| ag-29 runs with `items_processed > 0` | 907 | 1,342 | Yes — still embedding |
+| ag-29 historical mislabeled-`completed` | 42,515 (identified) | 0 (all corrected to `failed`) | Yes |
+| `opportunities` quarantined | — | 37 | Confirmed |
+| `opportunities` field URL-pointer rate | 98.4% (6,211/6,309) | 98.4% (6,211/6,309) | **No — unchanged, expected.** The trigger blocks new source-less writes; it does not retrofit sources onto rows already carrying one. No enriched field was written to `opportunities` since deploy, so nothing could move this number yet. |
+| ag-29 share of all-time `agent_runs` | 95.94–95.96% (65,602/68,377–68,428) | 95.93% (66,042/68,846) | **No — expected, not a failure.** This is a lifetime cumulative ratio over 65,602 historical rows the fix cannot retroactively remove; the forward-looking proof is the next row. |
+| ag-29 runs since deploy | — | the 5 most recent runs (2026-09-19, ~16:33–17:04 UTC) all read `status='skipped'`, `items_found=0` | New — this status did not exist in any pre-fix run |
+
+The `agent_runs` lifetime-share figure not moving is called out explicitly
+per this queue's own rule that a number that didn't move must be reported
+as such, not glossed over — but it is the wrong denominator to judge this
+fix by (see `agent-runs-is-wrong-denominator-for-cost` in prior audits).
+The number that actually demonstrates the fix is live: the backlog this
+agent exists to clear went from 43,061 rows to 1, and its most recent polls
+correctly report `skipped` instead of a fabricated `completed`.
+
+Drafting-family cross-org similarity (`test-evidence/drafting-family-deep-dive.mjs`)
+was **not** re-measurable this pass: `draft_versions` (47), `applications`
+with `draft_source='autonomous'` (5), and `autoapply_submissions` (3) are
+all identical counts to the AR-17.4 audit — no new draft has been generated
+in production since this commit landed, so there is no new cross-org pair
+to compare. This is reported as "not yet exercised," not claimed as
+improved. The fix's correctness against fabrication is instead proven by
+`research-drafting-quality.test.ts`'s live, fixture-based checks (two orgs
+producing materially different drafts from the same funder; a fabricated
+figure failing to survive) — per this task's explicit instruction never to
+submit to a real funder's portal to manufacture a production sample.

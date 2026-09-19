@@ -2296,6 +2296,20 @@ Verification: `pnpm typecheck`, `pnpm run build`, and `pnpm test` re-run
 `src/__tests__/integration/research-drafting-quality.test.ts` (9/9 passing,
 via `pnpm test:integration`) proves the trigger rejection, null-not-guess
 behavior, incomplete-draft gate, cross-org distinctness, and figure-scrub
-end to end. ag-29's `agent_runs` share has not yet moved (95.96% as of this
-write) because the code fix takes effect only after the worker redeploys —
-recorded here as pending, not claimed as resolved.
+end to end.
+
+**Re-verified post-deploy, later this session:** `foundation_directory`
+unembedded rows dropped from 43,061 (AR-17.3 audit time) to **1**; the 5
+most recent ag-29 `agent_runs` rows correctly read `status='skipped'` with
+`items_found=0` (a status no pre-fix run ever wrote). ag-29's lifetime
+`agent_runs` share sits at ~95.93% (66,042/68,846), essentially unchanged
+from the audit's 95.94–95.96% — expected, since that ratio is dominated by
+65,602 historical rows the fix cannot retroactively remove, not a sign the
+fix failed. `opportunities` field URL-pointer rate is also unchanged at
+98.4% (6,211/6,309) because the trigger only blocks new source-less
+writes and no enriched field has been written since deploy — not a failure
+either. Drafting-family cross-org similarity could not be re-measured:
+`draft_versions`/`applications`/`autoapply_submissions` counts are
+identical to the AR-17.4 audit (47/5/3) — no new draft has been generated
+in production since this commit landed. Full table in
+`STATE_OF_THE_BUILD.md`.

@@ -1686,6 +1686,12 @@ Regression suite: `src/__tests__/integration/research-drafting-quality.test.ts`
 (9/9 passing via `pnpm test:integration`) — proves the trigger rejection,
 null-not-guess enrichment behavior, the incomplete-draft gate, cross-org
 draft distinctness for the same funder, and end-to-end figure-scrubbing.
-ag-29's `agent_runs` share has not yet moved (95.96% as of this write) since
-the fix takes effect only after the worker redeploys — recorded as pending,
-not claimed as resolved.
+Re-verified later this session, post-deploy: `foundation_directory`
+unembedded dropped from 43,061 (AR-17.3 audit) to **1**, and the 5 most
+recent ag-29 runs correctly read `status='skipped'`, `items_found=0` — a
+status no pre-fix run ever produced. ag-29's lifetime `agent_runs` share is
+still ~95.93% (66,042/68,846) and is *expected* to stay near that for a
+long time: it's a cumulative ratio over 65,602 historical rows the fix
+cannot remove retroactively, not the metric the fix was meant to move — the
+backlog-drain and the `skipped` status are the real evidence. Full
+before/after table in `STATE_OF_THE_BUILD.md`'s AR-17.6 section.
