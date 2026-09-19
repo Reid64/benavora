@@ -55,6 +55,19 @@ jobs:
       # below) - runs in seconds, before the 4-minute build, so a missing
       # `dynamic` export on a new admin route fails fast instead of after a
       # full build.
+      # 2026-09-19: typecheck and lint as their own steps, ahead of the build.
+      # next.config.mjs had both disabled during `next build` to fit FORGE's
+      # 300s compile-gate ceiling; both are re-enabled now, but CI should not
+      # depend on that - these run in ~60s and name the offending file and line
+      # directly, instead of surfacing four minutes into a build as a generic
+      # failure. GitHub gives this job 6 hours and 16GB; there is no budget
+      # reason to skip a correctness check here.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
       - name: Guard - admin routes must be force-dynamic
         run: node scripts/audit/assert-admin-routes-dynamic.mjs
 
