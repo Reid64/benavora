@@ -8,7 +8,44 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-18.2 recovery: the AR-18.2 queue failed on
+- **Last updated:** 2026-09-19 (AR-17.1: built `scripts/audit/output-quality-sampler.mjs`,
+  the read-only instrument that measures whether an agent's real production
+  output is worth anything, not just whether it ran. Every prior gate on this
+  platform (including this session's own AR-18 work-landed gate) checks
+  execution and shipping, never content quality -- an agent that completes,
+  writes a row, and produces a useless result passes every one of them.
+  Output location was derived per agent from the actual write call in source
+  (file:line cited), never assumed: four parallel research passes (core /
+  autonomous-AG / PIL BEN-* / AutoApply+plain families) traced 148 agent_type
+  entries against `test-evidence/AGENT_CENSUS.md` and the live source tree,
+  landing in `scripts/audit/output-quality-locations.mjs`. **143 locatable,
+  5 UNLOCATABLE** (`email_campaign`, `compliance_check`, `propublica_mining`,
+  `semantic_matching`, `autoapply_submission_validator` -- each confirmed to
+  write nothing to any domain table, reason cited, not guessed). Measures
+  implemented, all pure functions gated by self-test: VARIANCE
+  (distinct-value count + full distribution -- "a scoring agent whose output
+  clusters on one value is not scoring, it is defaulting"), NULLITY (empty
+  fraction of the answer field), BOILERPLATE (longest common prefix +
+  dominant-prefix-share across text samples), GROUNDING (evidence/rationale
+  column presence), STALENESS (newest output vs newest input timestamp when
+  configured). `--self-test` injects fixtures proving each measure fires:
+  **27/27 passed**. `WINDOW HANDLING` implemented literally: n&lt;5 reports
+  INSUFFICIENT_SAMPLE with the real n, sample never padded or widened.
+  Live-queried smoke tests across all four families against real production
+  data (not mocked): `eligibility_scoring` (n=902, numeric, VARIANCE caught a
+  real defaulting cluster -- 132/300 most-recent rows scored exactly 2);
+  `ag22_propensity_scoring` (n=50, jsonb); `BEN-DIS-01` (n=3,
+  INSUFFICIENT_SAMPLE, not padded); `autoapply_risk_engine` (n=0); a full
+  `autoapply` family sweep (13 agents, all four status branches exercised).
+  Tool makes zero Claude calls and executes zero agents -- every query is a
+  GET against PostgREST, asserted in the file header. Renders no verdicts and
+  fixes nothing, per the task's own scope: AR-17.2/17.3/17.4 use this
+  instrument to assess three real agent families next. `pnpm typecheck` 0
+  errors. Known gap, not claimed complete: 3 of the census's 6
+  "registry-gap" agents (`autonomous_orchestrator`, `fit_analysis`,
+  `ag-43-funder-signals`) were not traced this session and are absent from
+  the 148-entry registry -- neither locatable nor UNLOCATABLE, simply not
+  yet attempted.) Previous entry -- 2026-09-19 (AR-18.2 recovery: the AR-18.2 queue failed on
   `work-landed` check 3 -- `password authentication failed for user
   "postgres"`. Two defects behind one error line. (1) No working read path to
   `supabase_migrations.schema_migrations`: `DATABASE_URL` returns 28P01 -- the

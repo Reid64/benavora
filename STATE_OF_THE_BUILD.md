@@ -1,5 +1,93 @@
 # Benavora Platform Build State
 
+## AR-17.1 — output-quality sampler: the instrument, not the verdict (2026-09-19)
+
+**Why this exists:** every gate this platform has ever built (execution
+gates, deploy-verify, work-landed) measures whether an agent RUNS. None
+measures whether what it produces is worth anything. An agent that
+completes, writes a row, records its cost, and produces a useless result
+passes every gate to date. This prompt builds the instrument only — it
+renders no verdicts and fixes nothing. AR-17.2 through AR-17.4 use it to
+assess three real agent families.
+
+**Built:** `scripts/audit/output-quality-sampler.mjs` (READ-ONLY, asserted
+in its own header — every query is a GET against PostgREST, never calls
+Claude, never executes an agent) plus its data module
+`scripts/audit/output-quality-locations.mjs`.
+
+**Output location derived from code, not assumed.** Four parallel research
+passes (core / autonomous-AG / PIL BEN-* / AutoApply+plain families) traced
+each agent's actual write call in source — file:line cited per entry —
+against `test-evidence/AGENT_CENSUS.md` and `AGENT_INVOCATION_MAP.md` as a
+starting point, then verified against the live module. Result: **148
+agent_type entries, 143 locatable, 5 confirmed UNLOCATABLE** with a cited
+reason each (not a guess): `email_campaign` (rendered content is sent live
+through Gmail and never persisted, only a sent/bounced boolean is),
+`compliance_check` (findings return only in the in-memory
+`AgentExecution` payload, zero DB writes in the file), `propublica_mining`
+(pure API-mining function, zero `.from()` calls), `semantic_matching`
+(zero writes, result returned only to caller), `autoapply_submission_validator`
+(its `ReadinessReport` is cached in a JS `Map`, never a table). Coverage
+extends 3 agents beyond the 144-module registry (`ag22_propensity_scoring`,
+`ag-26-forecast`, `narrative_drafting` — real production agent_types the
+AR-13.1 census flagged as registry-gap agents) but does **not** yet cover 3
+others the census also flagged (`autonomous_orchestrator`, `fit_analysis`,
+`ag-43-funder-signals`) — reported as not-yet-attempted, distinct from
+UNLOCATABLE.
+
+**Measures, each a pure function so `--self-test` can prove it fires against
+an injected fixture with no DB access:**
+- **VARIANCE** — distinct-value count + full value distribution. Per the
+  task brief, the single most important measure here: a scoring agent whose
+  output clusters on one value is not scoring, it is defaulting.
+- **NULLITY** — fraction of sampled rows with null/""/[]/{} in the field
+  meant to carry the answer.
+- **BOILERPLATE** — longest common prefix across text samples, plus the
+  proportion sharing a common ~40-char opening window (every summary
+  opening with the same sentence is a template, not an analysis).
+- **GROUNDING** — whether an evidence/sources/rationale/citations field is
+  present and non-empty alongside the score or claim, per agent-specific
+  configuration; agents with no such field configured are reported
+  unconfigured (treated as ungrounded), never silently skipped.
+- **STALENESS** — newest output timestamp vs newest input-data timestamp,
+  when an input source is configured for that agent; reported as
+  not-configured otherwise, never fabricated.
+
+**WINDOW HANDLING implemented literally:** fewer than 5 output rows reports
+`INSUFFICIENT_SAMPLE` with the real `n`; the sample is never padded and the
+window is never silently widened to manufacture a bigger number.
+
+**Self-test: 27/27 passed.** Explicitly proves each measure fires: a
+constant-valued fixture column reports `distinctCount:1`; a 10-value varied
+column reports `distinctCount:10`; an all-null fixture reports
+`nullity:1.0`; a mixed fixture reports the real fraction (`5/8`, not
+rounded to 0 or 1); identical 40-char-prefix text fixtures report
+`dominantPrefixProportion:1` with a non-trivial LCP; genuinely distinct
+openings report a low proportion; a single-sample fixture reports
+not-applicable rather than fabricating a boilerplate result; an
+unconfigured evidence column reports `configured:false`/`groundedFraction:
+null`; a configured one reports the real `2/4`; an unconfigured staleness
+input reports `gapDays:null` with an explanatory note; a configured one
+reports the real day gap.
+
+**Live smoke-verified against real production data across all four
+families (not mocked):**
+- `eligibility_scoring` (core, numeric): n_total=902, VARIANCE surfaced a
+  real finding on the live data — 132 of the 300 most-recent rows scored
+  exactly `2`, a defaulting cluster this instrument was built to catch.
+  GROUNDING 100% (every row has `recommendation_reasoning`).
+- `ag22_propensity_scoring` (autonomous, jsonb): n_total=50, full
+  per-company rationale objects returned untruncated.
+- `BEN-DIS-01` (pil): n=3 → `INSUFFICIENT_SAMPLE`, not padded to reach 5.
+- `autoapply_risk_engine` (autoapply): n=0 → reported cleanly, no crash.
+- Full `autoapply` family sweep (13 agents, `--json`): all three status
+  branches (`ASSESSED`/`INSUFFICIENT_SAMPLE`/`UNLOCATABLE`) exercised
+  correctly in one run.
+
+**`pnpm typecheck`: 0 errors** (scripts/ is excluded from the TS project by
+`tsconfig.json`, so this new `.mjs` tooling was never in-scope for it —
+confirmed the baseline is unchanged, not that the new file was checked).
+
 ## AR-18.1 — `work-landed` FORGE gate: prove gate-passing work actually shipped (2026-09-19)
 
 **Task:** build `scripts/audit/forge-gates/work-landed.mjs`, the gate that closes
