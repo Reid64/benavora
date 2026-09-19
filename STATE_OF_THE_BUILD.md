@@ -1,5 +1,73 @@
 # Benavora Platform Build State
 
+## AR-18.1 — `work-landed` FORGE gate: prove gate-passing work actually shipped (2026-09-19)
+
+**Task:** build `scripts/audit/forge-gates/work-landed.mjs`, the gate that closes
+the exact hole `ar-10-3-budget-teeth` fell through on 2026-09-18 04:59 — four
+gates (compile, test, `file_exists`, its own shell gate) passed while
+migration 198's `cost_budgets.period_start` was already live in production
+with the migration file and its calling code left UNCOMMITTED. Green gates
+proved the working tree was internally consistent at one instant; they never
+proved the tree matched git history, origin, or the live database.
+
+**What it checks, in order, each with an operator-actionable failure
+message naming exact files/versions:**
+1. `git status --porcelain=v1 -- src worker supabase/migrations` is empty
+   (one named exception: `src/docs/` — documentation, not shippable code).
+2. `origin/main...HEAD` has zero commits in either direction (fetches
+   `origin/main` first — catches both a stale local branch and, the more
+   dangerous direction, local commits never pushed).
+3. Every `supabase/migrations/*.sql` file's version prefix is recorded in
+   `supabase_migrations.schema_migrations`, and every recorded version has a
+   matching file — drift in either direction fails. This is the literal
+   AR-10.3 shape: an applied-with-no-file row is exactly what happened.
+
+**Self-test (both directions, non-negotiable per STANDING_DIRECTIVES.md):**
+`work-landed.self-test.mjs` builds a real temporary git repo with a real bare
+`origin` remote (not string fixtures) and drives checks 1–2 against actual
+git plumbing; check 3 uses real on-disk `.sql` fixtures against a fixture
+array standing in for ledger rows, since this sandbox's outbound access to
+Postgres port 5432 times out (HTTPS to `api.supabase.com` works; raw TCP to
+`db.<ref>.supabase.co:5432` does not — confirmed both ways this session).
+Result: **6 clean-pass cases, 4 catch cases, 0 unexpected results**, exit 0.
+The 4 catches: uncommitted file under `src/`, unpushed commit (`HEAD` ahead
+of `origin/main`), a ledger version with no file on disk, a file on disk
+with no ledger row. A 5th check proves the `src/docs/` exception does NOT
+false-positive.
+
+**Live-repo run, right now:** checks 1 and 2 PASS (working tree clean, HEAD
+== `origin/main`). Check 3 FAILS: `password authentication failed for user
+"postgres"` — `DATABASE_URL` is dead again (see the repeated
+`benavora-database-url-auth-broken` / `ar61-...-db-creds-dead-again` pattern
+across prior sessions; this is a credential-freshness problem, not a gate
+bug). The gate correctly reports this as a failure rather than skipping the
+check — an unverifiable ledger is exactly the condition it exists to never
+silently pass.
+
+**Queue wiring verified, not edited (queue files live outside this repo's
+scope, in `C:\Users\manag\Documents\FORGE\library\benavora\`):** the task
+claimed 50 prompts across AR-18.2/AR-14/AR-15/AR-16/AR-17/AR-19 carry this
+gate as their last gate. Actual count for those six named queues:
+**27** (`queue-ar-14`: 3, `queue-ar-15`: 7, `queue-ar-16`: 3, `queue-ar-17`:
+8, `queue-ar-18`: 2, `queue-ar-19`: 4). Counting every non-backup queue file
+in the library that carries it — including AR-20 through AR-23, which the
+task did not name — gives 51. Neither scope produces exactly 50. Reported,
+not corrected: queue files are out of this commit's scope per the task's own
+instruction.
+
+**Also done:** `STANDING_DIRECTIVES.md` Directive 7 added — a build agent
+must commit and push every changed file before reporting a prompt complete,
+and must never end a turn with work sitting uncommitted/unpushed in the
+tree (the second root cause of the 2026-09-18 incident: 5 of 16 prompts that
+run ended mid-sentence in a wait state).
+
+**Verification:** `pnpm typecheck` — 0 errors, exit 0. `pnpm test` — 98 test
+files passed / 1 skipped (99), 904 tests passed / 13 todo (917 total), exit
+0 — unchanged from the AR-13.4 baseline; no production code touched this
+session.
+
+---
+
 ## AR-13.4 — Ranked root-cause remediation plan covering every non-operational agent (2026-09-19)
 
 **Task:** synthesize AR-13.1 (`AGENT_CENSUS.md`), AR-13.2

@@ -8,7 +8,38 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-13.4: ranked root-cause remediation plan
+- **Last updated:** 2026-09-19 (AR-18.1: built `scripts/audit/forge-gates/work-landed.mjs`,
+  the FORGE gate closing the exact hole `ar-10-3-budget-teeth` fell through
+  on 2026-09-18 — four gates green while migration 198's
+  `cost_budgets.period_start` was live in production with its migration file
+  and calling code uncommitted. Checks, in order: (1) `git status` clean
+  under `src/`, `worker/`, `supabase/migrations/` (one named exception,
+  `src/docs/`); (2) `origin/main...HEAD` zero commits either direction,
+  post-fetch; (3) every `supabase/migrations/*.sql` version present in
+  `supabase_migrations.schema_migrations` and vice versa, drift in either
+  direction fails with named files/versions. Self-test
+  (`work-landed.self-test.mjs`) built a real temp git repo + bare remote for
+  checks 1-2 and fixture `.sql` files + fixture ledger array for check 3
+  (live Postgres 5432 is unreachable from this sandbox — confirmed both
+  ways: HTTPS to `api.supabase.com` works, raw TCP to
+  `db.<ref>.supabase.co:5432` times out): **6 clean-pass, 4 catch, 0
+  unexpected**, exit 0. Live-repo run right now: checks 1-2 PASS, check 3
+  FAILS on `password authentication failed for user "postgres"` —
+  `DATABASE_URL` is dead again (recurring credential-freshness issue, not a
+  gate bug) — correctly reported as a failure, not skipped. Queue-wiring
+  claim checked, not edited (queue files live outside this repo in
+  `C:\Users\manag\Documents\FORGE\library\benavora\`): task claimed 50
+  prompts across AR-18.2/AR-14/AR-15/AR-16/AR-17/AR-19 carry this gate;
+  actual count for those six named queues is **27**
+  (14:3, 15:7, 16:3, 17:8, 18:2, 19:4); counting all non-backup library
+  queue files including the unnamed AR-20-23 gives 51. Neither is 50 —
+  reported as a discrepancy, no queue file touched. Added
+  `STANDING_DIRECTIVES.md` Directive 7: build agents must commit + push
+  before reporting a prompt done and must never end a turn with work sitting
+  in the tree (5 of 16 prompts ended mid-sentence in a wait state on
+  2026-09-18). `pnpm typecheck` 0 errors; `pnpm test` 98 files passed/1
+  skipped, 904 tests passed/13 todo, exit 0 — unchanged baseline, no
+  production code touched.) Previous entry — 2026-09-19 (AR-13.4: ranked root-cause remediation plan
   synthesizing AR-13.1/13.2/13.3 — 14 distinct root causes covering the
   145-agent registry's 116 non-operational rows. Ranked #1-5:
   `ag-29-knowledge-indexer` (field mismatch + write-before-check poll,

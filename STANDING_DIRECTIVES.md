@@ -231,6 +231,22 @@ All state portals, corporate foundations, community foundations, international f
 
 ---
 
+## Directive 7: Build Agents Must Land Work Before Reporting
+
+**Objective:** A FORGE build agent's report of "passed" must mean the work is committed AND pushed. Gates that only inspect the working tree cannot tell the difference between "shipped" and "green locally, invisible to everyone else."
+
+**Incident (2026-09-18, 04:59):** `ar-10-3-budget-teeth` passed compile, test, `file_exists` and its own shell gate. Its build agent had ended mid-sentence waiting on a background test. Migration 198 was already applied to PRODUCTION — `cost_budgets.period_start` was live — while the migration file and the code calling its new RPC sat UNCOMMITTED. Production schema was ahead of source control, and the next agent reading the repo would have seen no period logic and quite possibly written a conflicting migration. Four gates green, nothing shipped. Separately, in the same 2026-09-18 run, five of sixteen prompts ended mid-sentence in a wait state instead of finishing.
+
+**Mandatory rules:**
+1. A build agent MUST run `git add` + `git commit` + `git push` for every file it changed before reporting a prompt as complete. "Compiles" and "tests pass" are not "done" — pushed is done.
+2. A build agent MUST NEVER end its turn with uncommitted or unpushed changes in the tree. If a background process (a long-running test, a deploy, a poll) is still pending, the agent either waits for it synchronously within the same turn or commits/pushes the work already completed and clearly states what remains — it does not end the turn mid-sentence in a wait state.
+3. Every queue's final prompt runs `- type: deploy_verify` (per CLAUDE.md Gate 7) AND, as of AR-18.1, `node scripts/audit/forge-gates/work-landed.mjs` (per AR-14 through AR-19) as its last gate — the two are complementary, not redundant: `deploy_verify` proves the pushed SHA is what's live on Vercel; `work-landed.mjs` proves the working tree, git history, and the migration ledger all agree with each other in the first place.
+4. If a gate reports drift between what's on disk and what's live (either direction — applied-with-no-file, or file-never-applied), HALT per CLAUDE.md's Tier 3 error recovery. Do not paper over it with a new migration; investigate which side is wrong first.
+
+**Enforcement:** `scripts/audit/forge-gates/work-landed.mjs` (see queue library for wiring across AR-14 through AR-19).
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:
