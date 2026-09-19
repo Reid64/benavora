@@ -112,7 +112,7 @@ export abstract class AutonomousAgent {
    */
   private async writeOrchestrationLog(params: {
     runId: string;
-    status: "completed" | "failed";
+    status: "completed" | "failed" | "skipped";
     itemsExpected?: number | null;
     itemsProcessed?: number | null;
     errorMessage?: string | null;
@@ -256,7 +256,7 @@ export abstract class AutonomousAgent {
       /** agent_runs.output_payload jsonb (migration 080) -- structured run
        * output for agents whose result is more than a one-line summary. */
       outputPayload?: Record<string, unknown>;
-      status?: "completed" | "failed";
+      status?: "completed" | "failed" | "skipped";
       errorMessage?: string;
     },
   ): Promise<void> {
@@ -282,7 +282,7 @@ export abstract class AutonomousAgent {
 
     await this.writeOrchestrationLog({
       runId,
-      status: (patch.status as "completed" | "failed" | undefined) ?? "completed",
+      status: (patch.status as "completed" | "failed" | "skipped" | undefined) ?? "completed",
       itemsExpected: params.itemsFound ?? null,
       itemsProcessed: params.itemsProcessed ?? null,
       errorMessage: params.errorMessage ?? null,

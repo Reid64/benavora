@@ -19,6 +19,16 @@
 > populate `programs`/`enrichment.mission` from the 990/ProPublica data
 > these scripts already parse, or repoint `flattenFoundationText()` at the
 > `enrichment.propublica.*` fields that are genuinely populated today.
+>
+> **Follow-up (2026-09-19, AR-14.1): fixed.** `flattenFoundationText()` now
+> falls back to `enrichment.propublica.*` (the field 133,811/133,812 rows
+> actually carry) whenever `programs`/`enrichment.mission` are both absent.
+> `programs`/`enrichment.mission` themselves are still never written by any
+> producer — this remains a real, open gap for a future session that wants
+> `flattenFoundationText()`'s two primary sources to actually populate — but
+> `foundation_directory` is no longer permanently unindexable in the
+> meantime. No schema/column change; application-layer fix only. See
+> `STATE_OF_THE_BUILD.md`'s "AR-14.1" section for live before/after numbers.
 
 > **Coverage note (2026-09-17, AR-3.1):** This doc's "097 applied or queued" snapshot predates
 > `autoapply_submissions` and `form_templates` (both from migration 045) — neither table is indexed
@@ -88,7 +98,7 @@ CREATE TYPE knowledge_base_category AS ENUM (
   'impact', 'capacity', 'sustainability', 'partnerships',
   'budget_justification', 'organizational_history', 'custom'
 );
-CREATE TYPE agent_run_status AS ENUM ('pending', 'running', 'completed', 'failed');
+CREATE TYPE agent_run_status AS ENUM ('pending', 'running', 'completed', 'failed', 'skipped'); -- 'skipped' added by migration 199 (AR-11.1), used by run-logger.ts and, since AR-14.1, ag-29-knowledge-indexer for zero-item passes
 CREATE TYPE campaign_status AS ENUM ('draft', 'active', 'paused', 'completed');
 CREATE TYPE campaign_step_status AS ENUM ('pending', 'sent', 'opened', 'replied', 'bounced');
 ```
@@ -1873,3 +1883,24 @@ write anywhere in `src`/`worker`, matching the fact that `ai_usage_log` is
 now the sole per-call cost ledger with zero exceptions.
 
 Full detail: `STATE_OF_THE_BUILD.md`'s "AR-10.2" section.
+
+## `agent_run_status` gains `'skipped'` a real writer; AG-29's producer restored (AR-14.1, 2026-09-19)
+
+Migration 199 (AR-11.1) added `'skipped'` to `agent_run_status` back on
+2026-09-17/18 for `run-logger.ts`'s AutoApply business-rule rejections, but
+this doc's enum listing (line ~91) was never updated to reflect it — fixed
+above, in place, this session.
+
+This session gives `'skipped'` its second real writer:
+`src/lib/agents/autonomous-base.ts`'s `completeRun()` now accepts
+`status: "skipped"`, and `ag-29-knowledge-indexer` uses it for any pass that
+finds 0 items and doesn't run pattern aggregation either — replacing what
+was previously always `'completed'`, the exact ambiguity that let ~64,600
+zero-work runs (96%+ of the entire `agent_runs` table) look identical to
+real work for months. See `test-evidence/DATA_PIPELINE_AUDIT.md` §1 (root
+cause) and this doc's own AR-13.3 coverage note above (`foundation_directory`
+section) for the companion producer fix — no schema/column change, an
+application-layer fix to what `flattenFoundationText()` reads.
+
+Full detail, live before/after production numbers: `STATE_OF_THE_BUILD.md`'s
+"AR-14.1" section.

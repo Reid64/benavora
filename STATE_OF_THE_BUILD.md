@@ -3452,3 +3452,111 @@ wrapper, and `pg_dump` backups need it regardless. (2) The 4 unapplied
 migrations need a decision — 147 is fixing broken production code, 181 and 196
 are additive, 170 is a behaviour change. Until they are applied or withdrawn,
 `work-landed.mjs` will keep failing check 3, correctly.
+
+## AR-14.1 — AG-29's producer restored; empty passes stop reporting as `'completed'` (2026-09-19)
+
+**Task:** `test-evidence/DATA_PIPELINE_AUDIT.md` (AR-13.3) and
+`REMEDIATION_PLAN.md`'s RC-1 (AR-13.4) established that
+`ag-29-knowledge-indexer` — 96.1% of every `agent_runs` row ever written,
+64,663 lifetime runs live-confirmed at the start of this session — was not
+malfunctioning: `flattenFoundationText()` only ever read `programs` and
+`enrichment.mission`, and no writer anywhere in this codebase has ever
+populated either field on any of `foundation_directory`'s 133,812 rows. The
+brief was explicit: fix the producer before the consumer, then make the
+consumer's zero-item passes honest, then back off the poll rate to match
+real arrival.
+
+**Producer fix (`src/lib/agents/knowledge-indexer-agent.ts`):**
+`flattenFoundationText()` now falls back to a new `flattenPropublicaText()`
+helper — a plain-text Form 990 filing summary (name, city/state, IRS
+subsection code, NTEE code, total revenue/assets/expenses) synthesized from
+`enrichment.propublica`, live-confirmed present on 133,811/133,812 rows
+(`enrich-foundations-propublica.ts`/`enrich-foundations-990.ts`'s real
+output) — whenever `programs`/`enrichment.mission` are both absent, which is
+every row today. This makes the already-populated, already-live data
+indexable; it does not change what `programs`/`enrichment.mission` mean or
+fabricate content that isn't real. `programs`/`enrichment.mission`
+themselves remain unpopulated by any producer — a real, separate gap, not
+closed here (see `SCHEMA_REGISTRY_v2.md`'s AR-14.1 follow-up note).
+
+**Consumer honesty (`src/lib/agents/autonomous-base.ts` +
+`knowledge-indexer-agent.ts`):** `completeRun()` now accepts
+`status: "skipped"` (migration 199's enum value — already live in
+production, confirmed via the PostgREST OpenAPI schema before writing any
+code: `agent_runs.status` already listed `pending|running|completed|failed|
+skipped`). AG-29's `run()` now reports `status: "skipped"` — not
+`"completed"` — whenever a pass finds 0 items and pattern aggregation
+wasn't due either. `"completed"` is now reserved for a pass that embedded
+at least one row and/or ran the aggregation pass. The pre-existing
+`batchLevelFailure` → `"failed"` path (p5a-001, the original AG-29
+silent-failure fix) is unchanged.
+
+**Poll cadence (`worker/knowledge-indexer-processor.ts`):** the flat 60s
+sleep-on-empty is now exponential backoff — 60s, doubling on each
+consecutive empty pass, capped at 30 minutes — resetting to 60s the instant
+a pass finds any work. Full-batch passes (which the producer fix turns into
+a real, large backlog while it drains) are now throttled to one every 3
+seconds instead of firing with zero delay, per RC-1's own stated blast-radius
+warning: embedding all 133,812 rows with no inter-batch delay would fire
+roughly 1,338 back-to-back OpenAI embedding-API calls as fast as the network
+allowed.
+
+**Live baseline, queried before any code change (service-role REST, not
+estimated):**
+
+| Metric | Value |
+|---|---|
+| `foundation_directory` total rows | 133,812 |
+| `foundation_directory` rows with `embedding IS NULL` | 133,812 (100%) |
+| `foundation_directory` rows with `enrichment->'propublica'` present | 133,811 (99.999%) |
+| `ag-29-knowledge-indexer` lifetime runs | 64,663 |
+| `ag-29-knowledge-indexer` runs in last 24h | 1,421 |
+| All `agent_runs` rows, lifetime | 67,316 (ag-29 = 96.1% of all rows ever written) |
+| `agent_run_status` enum (live) | `pending, running, completed, failed, skipped` — `'skipped'` already applied (migration 199) before this session touched anything |
+
+**Incremental testing checkpoint:**
+`src/__tests__/integration/knowledge-pipeline.test.ts` (`pnpm test:integration`)
+— 3/3 passing against a fully mocked Supabase client. Real-DB integration
+was deliberately not used here: `loadPendingBatch()` scans ALL pending rows
+platform-wide with no `organization_id` scoping, so running the real agent
+against the live project from a test would actually embed arbitrary
+production rows (133,812 of them, at the time of writing) — same reasoning
+the existing `knowledge-indexer-agent.test.ts` regression test already
+applied. The three tests cover exactly the task's three checkpoints: (1) a
+`programs: null` / `enrichment.propublica`-only row is found and embedded,
+asserting the synthesized text contains real content ("Test Foundation",
+"Austin, TX"); (2) an all-empty pass records `status: "skipped"`, not
+`"completed"`; (3) the pre-existing `intelligence_proposal_sections` path
+still processes real content unchanged.
+
+**End-of-run verification (real numbers):**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Clean, 0 errors |
+| `pnpm run build` | Exit 0, full Next.js production build succeeded |
+| `pnpm run build:worker` | Exit 0 (`tsc -p worker/tsconfig.json && tsc-alias`) |
+| `pnpm test` | 98 files passed, 1 skipped (99); 904 tests passed, 13 todo |
+| `pnpm test:integration` (this session's new file only) | 1 file, 3/3 passed |
+
+**Blast radius, stated per the task's own instruction:** this changes
+`agent_runs` volume/shape for `ag-29-knowledge-indexer` going forward — any
+dashboard or query built on "1 agent_runs row ≈ 1 minute of AG-29 uptime"
+now needs to know a large share of those rows will read `skipped`, not
+`completed`, and that the *rate* of rows will drop sharply once the
+poll-loop backoff takes effect on sustained empty periods. This is the
+intended effect, not a regression: AR-6.4's dashboards and any future
+`agent_runs`-based cost/health query should filter or group by `status`
+rather than assume every row represents completed work — exactly the
+36-page-audit's own point about this agent being 96% of the table's noise.
+
+**Deploy note:** this session's changes touch `worker/knowledge-indexer-processor.ts`
+(inside `railway.json`'s `watchPatterns`), so the `git push` below triggers a
+real Railway redeploy per AR-18.2's watch-path-aware check — the companion
+`src/lib/agents/knowledge-indexer-agent.ts`/`autonomous-base.ts` changes are
+NOT independently in `watchPatterns`, but Railway builds the full repository
+at the pushed commit on any triggered redeploy, so they ship together in the
+same deploy, not separately.
+
+**Production, queried after push (see below for the actual post-deploy
+numbers and whether the knowledge base is receiving content again).**

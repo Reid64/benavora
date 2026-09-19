@@ -143,28 +143,87 @@ function sleep(ms: number): Promise<void> {
 /** Flattens foundation_directory's structured fields into plain text for
  * embedding (spec process step 3: "programs (jsonb array) is flattened to
  * plain text first"). `programs` is a real text[] column (migration 058);
- * `enrichment.mission` is not populated by any writer in this codebase
- * today, but is named explicitly in the spec's own input contract
+ * `enrichment.mission` is named explicitly in the spec's own input contract
  * (`enrichment->>'mission'`) as a real, already-existing jsonb column this
- * agent should read defensively — the mechanism is implemented honestly
- * even though the upstream data doesn't exist yet, same convention already
- * used for AG-30/AG-35 elsewhere in this codebase. Returns null (never a
- * placeholder string) when neither source has real content. */
+ * agent should read defensively. Returns null (never a placeholder string)
+ * when no source has real content.
+ *
+ * AR-14.1: neither of the above has ever been populated by any writer in
+ * this codebase (test-evidence/DATA_PIPELINE_AUDIT.md §1) — every one of
+ * 133,812 rows had `programs IS NULL` and no `enrichment.mission` key,
+ * which is why this agent found 0 indexable rows on every one of its
+ * ~64,000 lifetime runs. The field every enrichment writer actually
+ * populates — confirmed live, 133,811/133,812 rows — is
+ * `enrichment.propublica` (name/city/state/ntee_code/subsection_code/
+ * totrevenue/totassetsend/totfuncexpns, from `enrich-foundations-propublica.ts`
+ * / `enrich-foundations-990.ts`). That block is synthesized into one plain-
+ * text filing summary as a fallback so these rows finally carry real,
+ * substantive content to embed instead of being permanently unindexable. */
 function flattenFoundationText(row: {
   programs: string[] | null;
   enrichment: Record<string, unknown> | null;
 }): string | null {
   const parts: string[] = [];
+  const enrichment =
+    row.enrichment && typeof row.enrichment === "object"
+      ? (row.enrichment as Record<string, unknown>)
+      : null;
+
   if (row.programs && row.programs.length > 0) {
     parts.push(row.programs.filter((p) => p && p.trim()).join(". "));
   }
-  const mission =
-    row.enrichment && typeof row.enrichment === "object"
-      ? (row.enrichment as Record<string, unknown>)["mission"]
-      : undefined;
+  const mission = enrichment?.["mission"];
   if (typeof mission === "string" && mission.trim()) parts.push(mission.trim());
+
+  if (parts.length === 0) {
+    const propublicaText = flattenPropublicaText(enrichment?.["propublica"]);
+    if (propublicaText) parts.push(propublicaText);
+  }
+
   const joined = parts.join(" ").trim();
   return joined.length > 0 ? joined : null;
+}
+
+/** Synthesizes a plain-text Form 990 filing summary from
+ * `enrichment.propublica` — the one enrichment block that is actually
+ * populated on essentially every `foundation_directory` row (see
+ * `flattenFoundationText()`'s doc comment). Returns null when the block is
+ * missing or carries no usable fields (defensive: enrichment writers may
+ * legitimately produce a partial record). */
+function flattenPropublicaText(propublica: unknown): string | null {
+  if (!propublica || typeof propublica !== "object") return null;
+  const p = propublica as Record<string, unknown>;
+
+  const name = typeof p["name"] === "string" && p["name"].trim() ? p["name"].trim() : null;
+  const city = typeof p["city"] === "string" && p["city"].trim() ? p["city"].trim() : null;
+  const state = typeof p["state"] === "string" && p["state"].trim() ? p["state"].trim() : null;
+  const nteeCode =
+    typeof p["ntee_code"] === "string" && p["ntee_code"].trim() ? p["ntee_code"].trim() : null;
+  const subsectionCode =
+    typeof p["subsection_code"] === "number" || typeof p["subsection_code"] === "string"
+      ? String(p["subsection_code"])
+      : null;
+  const totRevenue = typeof p["totrevenue"] === "number" ? p["totrevenue"] : null;
+  const totAssets = typeof p["totassetsend"] === "number" ? p["totassetsend"] : null;
+  const totExpenses = typeof p["totfuncexpns"] === "number" ? p["totfuncexpns"] : null;
+
+  const sentences: string[] = [];
+  if (name) {
+    const location = city && state ? ` (${city}, ${state})` : "";
+    const subsection = subsectionCode ? ` filed under IRS subsection ${subsectionCode}` : "";
+    const ntee = nteeCode ? `, NTEE code ${nteeCode}` : "";
+    sentences.push(`${name}${location} is a tax-exempt organization${subsection}${ntee}.`);
+  }
+  const financials: string[] = [];
+  if (totRevenue !== null) financials.push(`total revenue $${totRevenue.toLocaleString("en-US")}`);
+  if (totAssets !== null) financials.push(`total assets $${totAssets.toLocaleString("en-US")}`);
+  if (totExpenses !== null)
+    financials.push(`total functional expenses $${totExpenses.toLocaleString("en-US")}`);
+  if (financials.length > 0) {
+    sentences.push(`Most recent Form 990 filing reports ${financials.join(", ")}.`);
+  }
+
+  return sentences.length > 0 ? sentences.join(" ") : null;
 }
 
 /** Concatenates outcomes' three possible text fields with clear section
@@ -624,6 +683,15 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
       // as status='completed', which made a 100%-failing batch indefinitely
       // indistinguishable from real work in agent_runs.
       const batchLevelFailure = itemsFound > 0 && itemsProcessed < itemsFound;
+      // AR-14.1: a pass that found nothing to embed and didn't run pattern
+      // aggregation either did zero real work — reporting that as
+      // status='completed' made it indistinguishable from a pass that
+      // genuinely embedded a full batch, which is exactly how ~9,700 empty
+      // passes/week went unnoticed (test-evidence/DATA_PIPELINE_AUDIT.md
+      // §1). 'skipped' (migration 199) is the honest status for this case;
+      // 'completed' is reserved for passes that did something (embedded
+      // rows and/or ran the aggregation pass).
+      const didNothing = itemsFound === 0 && aggregationDecisionId === null;
 
       await this.completeRun(runId, {
         outputSummary:
@@ -638,7 +706,9 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
         },
         ...(batchLevelFailure
           ? { status: "failed" as const, errorMessage: errors.join("; ") }
-          : {}),
+          : didNothing
+            ? { status: "skipped" as const }
+            : {}),
       });
 
       return {

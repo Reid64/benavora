@@ -1241,3 +1241,52 @@ anywhere, including this file — highest AG number listed above is AG-42).
 Full detail, per-agent invoker citations, and rubric scoring:
 `test-evidence/AGENT_CENSUS.md`, `test-evidence/agent-census.json`,
 `test-evidence/AGENT_INVOCATION_MAP.md` §7.
+
+## AR-14.1 — AG-29's producer restored; empty passes finally reported honestly (2026-09-19)
+
+AR-13.3 (`test-evidence/DATA_PIPELINE_AUDIT.md`) traced AG-29's ~64,600
+lifetime runs (96%+ of every `agent_runs` row ever written) to a
+producer/consumer field mismatch: `flattenFoundationText()` only read
+`programs` and `enrichment.mission`, neither of which any writer in this
+codebase has ever populated on `foundation_directory`'s 133,812 rows. The
+field every real enrichment writer (`enrich-foundations-propublica.ts`,
+`enrich-foundations-990.ts`) actually populates —
+`enrichment.propublica` (name/city/state/ntee_code/subsection_code/
+totrevenue/totassetsend/totfuncexpns) — was present on 133,811/133,812 rows
+and never read.
+
+**Fix (`src/lib/agents/knowledge-indexer-agent.ts`):**
+`flattenFoundationText()` now falls back to a new `flattenPropublicaText()`
+helper that synthesizes a plain-text Form 990 filing summary from
+`enrichment.propublica` whenever `programs`/`enrichment.mission` are both
+absent (the universal case). This is the producer fix, not a consumer
+workaround — it makes real, already-populated content indexable for the
+first time; nothing about AG-29's query/matching logic changed.
+
+**Consumer honesty (`src/lib/agents/autonomous-base.ts` +
+`knowledge-indexer-agent.ts`):** `completeRun()` now accepts
+`status: "skipped"` (migration 199's enum value, already live) alongside
+`"completed"`/`"failed"`. AG-29's `run()` reports `status: "skipped"` when
+a pass finds 0 items and pattern aggregation wasn't due — an honest,
+distinct signal from `"completed"`, which is now reserved for passes that
+did real work (embedded rows and/or ran aggregation).
+
+**Poll cadence (`worker/knowledge-indexer-processor.ts`):** the fixed 60s
+sleep-on-empty is now an exponential backoff (60s → doubling → capped at
+30 minutes), resetting to the base interval the instant a pass finds work
+again. A full-batch pass — which the producer fix turns into ~1,338
+consecutive full batches while the 133,812-row backlog drains — now
+throttles to one batch every 3 seconds rather than firing with zero delay,
+per RC-1's stated blast-radius concern (uncontrolled OpenAI embedding-API
+burst).
+
+**New test:** `src/__tests__/integration/knowledge-pipeline.test.ts` (run via
+`pnpm test:integration`) — a mocked-client suite (loadPendingBatch() scans
+ALL pending rows platform-wide with no org scoping, so a real live-Supabase
+run would embed arbitrary production rows) asserting: (1) a
+propublica-only foundation_directory row is found and embedded, (2) an
+empty pass records `status='skipped'`, not `'completed'`, (3) the
+already-working `intelligence_proposal_sections` path is unaffected.
+
+Full detail, live before/after production numbers, and verification output:
+`STATE_OF_THE_BUILD.md`'s "AR-14.1" section.

@@ -1839,3 +1839,76 @@ Exit code 0. Both surfaces genuinely verified, not assumed.
    `.env.local.example` with exact provisioning steps, no values filled in.
 2. DIRECTIVE-020/021, cited by other docs since 2026-08-21, still don't
    exist in `STANDING_DIRECTIVES.md` — flagged, not fixed, in this session.
+
+## AR-14.1 — Knowledge pipeline: producer restored, empty passes no longer look like successes (2026-09-19)
+
+**Task:** `test-evidence/DATA_PIPELINE_AUDIT.md`/`REMEDIATION_PLAN.md`
+(AR-13.3/13.4) named the fix: `ag-29-knowledge-indexer` — 96.1% of all
+`agent_runs` rows ever written — has always found 0 indexable rows because
+`flattenFoundationText()` reads two fields (`programs`,
+`enrichment.mission`) nothing has ever written, while the field every real
+enrichment writer actually populates (`enrichment.propublica`, present on
+133,811/133,812 rows) was never read. Fix the producer first, then make the
+consumer's zero-item passes honest, then back off polling to match real
+arrival — in that order, per the task brief.
+
+**What changed:**
+- `src/lib/agents/knowledge-indexer-agent.ts` — `flattenFoundationText()`
+  falls back to a new `flattenPropublicaText()` synthesizer when
+  `programs`/`enrichment.mission` are both absent (every row today).
+- `src/lib/agents/autonomous-base.ts` — `completeRun()` accepts
+  `status: "skipped"` (migration 199, already live) alongside
+  `"completed"`/`"failed"`.
+- `knowledge-indexer-agent.ts`'s `run()` — reports `"skipped"` for a pass
+  that found 0 items and didn't run pattern aggregation; `"completed"` is
+  now reserved for passes that did real work.
+- `worker/knowledge-indexer-processor.ts` — flat 60s empty-pass sleep
+  replaced with exponential backoff (60s → 30min cap, resets on any find);
+  full-batch passes throttled to one per 3s instead of an unthrottled burst
+  (RC-1's explicit blast-radius warning about the 133,812-row backlog this
+  fix surfaces).
+
+**Incremental testing checkpoint:** `src/__tests__/integration/knowledge-pipeline.test.ts`
+(`pnpm test:integration`), 3/3 passing — a mocked-client suite, not a
+live-Supabase one, because AG-29's queries are platform-wide/unscoped and a
+real run would embed arbitrary production rows. Covers the task's three
+named checkpoints (content becomes indexable, empty pass ≠ plain success,
+existing real-work path unaffected) — see `STATE_OF_THE_BUILD.md`'s AR-14.1
+section for the full breakdown.
+
+**Verification (this session, real output):**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Clean, 0 errors |
+| `pnpm run build` | Exit 0 |
+| `pnpm run build:worker` | Exit 0 |
+| `pnpm test` | 98 files passed, 1 skipped (99); 904 tests passed, 13 todo |
+| `pnpm test:integration` (new file) | 1 file, 3/3 passed |
+
+**Live production baseline (queried before any code change, service-role
+REST):** `foundation_directory` 133,812 rows, 100% `embedding IS NULL`,
+99.999% (133,811) already carry `enrichment.propublica`. `ag-29` lifetime
+runs 64,663 (96.1% of 67,316 total `agent_runs` rows ever written), 1,421 in
+the last 24h alone. `agent_run_status` enum already included `'skipped'`
+live (migration 199) before this session touched any code.
+
+**Constraints honoured:**
+- No `git add -A` — commit stages `src/lib worker supabase/migrations
+  src/__tests__ scripts` only, per the task's own instruction.
+- No mocked data written to production; the new test file never touches the
+  live Supabase project.
+- `programs`/`enrichment.mission` were not fabricated or backfilled — the
+  fix reads a field that is genuinely already populated, it does not invent
+  content for fields that remain genuinely empty.
+
+**Carry-forward:**
+1. `programs`/`enrichment.mission` remain unpopulated by any real producer
+   — a separate, still-open gap (SCHEMA_REGISTRY_v2.md's AR-14.1 note). This
+   session's fix is a fallback onto real existing data, not a fix to those
+   two columns themselves.
+2. Post-push production numbers (row count off zero, real `items_processed`
+   values, `skipped`-vs-`completed` ratio) depend on the Railway worker
+   redeploy this push triggers (`worker/**` is in `railway.json`'s
+   `watchPatterns`) — see `STATE_OF_THE_BUILD.md`'s AR-14.1 section for the
+   actual post-deploy numbers once queried.
