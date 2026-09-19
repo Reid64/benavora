@@ -75,7 +75,7 @@ export interface SamGovOpportunity {
   amount_max: number | null;
   amount_min: number | null;
   url: string | null;
-  source: "sam.gov";
+  source: "sam_gov";
 }
 
 export interface SamGovResult {
@@ -283,7 +283,7 @@ export class SamGovResearchAgent extends BaseAgent<SamGovInput, SamGovResult> {
         amount_max: toPositiveNumber(award.ceiling),
         amount_min: toPositiveNumber(award.floor),
         url: noticeId ? `https://sam.gov/opp/${noticeId}` : null,
-        source: "sam.gov" as const,
+        source: "sam_gov" as const,
       };
     });
 
@@ -316,7 +316,7 @@ export class SamGovResearchAgent extends BaseAgent<SamGovInput, SamGovResult> {
         organization_id: this.organizationId,
         name: opp.title,
         category: "government_grant",
-        source: "sam.gov",
+        source: "sam_gov",
         source_type: "government_federal",
         status: "open",
       };

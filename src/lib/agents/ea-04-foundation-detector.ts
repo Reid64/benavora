@@ -89,10 +89,15 @@ export class EA04FoundationDetectorAgent extends BaseAgent<
     const foundationAffiliation = match?.name ?? null;
     const foundationEin = match?.ein ?? null;
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      foundation_affiliation: foundationAffiliation,
-      foundation_ein: foundationEin,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        foundation_affiliation: foundationAffiliation,
+        foundation_ein: foundationEin,
+      },
+      match ? "irs_bmf_cross_reference" : null,
+    );
 
     return {
       data: { foundationAffiliation, foundationEin, matchMethod },

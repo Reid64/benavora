@@ -4224,3 +4224,144 @@ board members, funder-rule-aware caveats). The AutoApply
 pitch-personalizer's prompt explicitly forbids fabrication and its one real
 sample shows the model correctly refusing rather than inventing. AR-17.6
 scope, not fixed here.
+
+---
+
+## AR-17.6 — Provenance enforced structurally on enrichment; drafts required to be org-specific or declare themselves incomplete (2026-09-19)
+
+Fixes AR-17.3's and AR-17.4's Critical/High findings. Two new
+`BEHAVIORAL_CONTRACTS.md` contracts (Enrichment Provenance, Draft
+Specificity) codify what this session enforces in code, not by convention.
+
+**Research side — provenance:**
+
+- Migration 203 adds `enforce_opportunity_field_provenance()`, a
+  BEFORE INSERT OR UPDATE trigger on `opportunities`: any write that
+  changes an enriched field (description, deadline,
+  eligibility_requirements, amount_min/max/available,
+  geographic_restrictions, application_method, required_documents,
+  recurrence) while both `url` and `opportunity_documents` are null is
+  **rejected at the database level** — live-verified: a source-less insert
+  now raises `23514`, the same insert with a `url` succeeds. Agent-owned
+  score columns (eligibility_score, recommendation, match_percentage, etc.)
+  are explicitly exempt.
+- Ten agent files that wrote enriched fields unconditionally while setting
+  `url` only when truthy were fixed to skip the row instead when no source
+  is available: `state-portal.ts`, `sam-gov.ts`, `grants-gov.ts`,
+  `simpler-grants.ts`, `hud-monitor.ts`, `foundation-finder.ts`,
+  `corporate-scraper.ts`, `housing-specific-scrapers.ts`,
+  `state-scrapers.ts`, `tdhca-scraper.ts`.
+- `state-portal.ts` also now writes `eligibility_requirements` as its own
+  column (previously folded into free-text `description` only, so the
+  column was always null) and sets `url` unconditionally.
+- `sam-gov.ts` wrote `source: "sam.gov"` (dot) while every other read path
+  and all 100 live rows use `sam_gov` (underscore) — confirmed live before
+  changing; fixed to `sam_gov` so future rows aren't invisible to
+  `/api/sources/samgov` and `federal-grants-poller.ts`.
+- `nofa-parser.ts`'s `opportunity_documents` refresh was gated on
+  `storedCount > 0` (a PDF actually mirrored to storage); an HTML-only
+  enrichment pass could write description/deadline/etc. with no
+  `opportunity_documents` refresh in the same write. Now refreshes whenever
+  any field was enriched from these documents.
+- `corporate_prospects.enrichment`'s `mergeEnrichmentPatch()` now accepts an
+  optional `source` and records it per-field under `enrichment._sources`;
+  wired into all ten EA-01..EA-10 agents (each passing the URL it actually
+  fetched, an `"irs_bmf_cross_reference"` dataset tag for EA-04, or
+  `"web_search"` for EA-10's search-only path). A field the agent could not
+  determine is still written as real `null` with no source entry — verified
+  by test.
+- `funder_intelligence.raw_data` now stores `sourceUrl` (the funder website
+  actually fetched) alongside `pageText`, since `funders.website` is a live,
+  mutable value on a different table.
+- Quarantine: `opportunities.quarantined_at`/`quarantine_reason` columns
+  added. 37 rows with no source pointer of any kind (24 with a deadline, 4
+  with eligibility text, at assessment time) were flagged, not corrected or
+  deleted. **Contradicted-claims count: 0** — AR-17.3's spot-check found 0
+  of 10 claims checkable at all, so there is nothing to quarantine on that
+  count; this is reported honestly rather than padded.
+
+**Drafting side — specificity:**
+
+- `src/lib/drafts/generator.ts`: a new `hasSubstantiveOrgData` gate runs
+  before any Claude call. When an organization has no mission statement, no
+  service area, no target population, no knowledge-base entries, and no
+  proven narratives, `generateDraft()` returns `incomplete: true` with a
+  `missingFacts` list and a `[INCOMPLETE DRAFT]` notice — never a generated
+  paragraph. This is the direct fix for the Beta Org 1 case (zero KB data,
+  94%/twelve-year/340-unit/28-FTE invented history, confidence 82).
+- New `src/lib/drafts/fact-guard.ts`: `scrubUnverifiedFigures()` extracts
+  figure-shaped claims (percentages, dollar amounts, year/unit/FTE/
+  beneficiary counts) from a draft and replaces any that don't trace to the
+  organization's stored data or the funder's own opportunity data with a
+  `[NEEDS INPUT]` marker — the marker does not echo the fabricated number
+  back into customer-facing text. Wired into `generator.ts`,
+  `api/ai/humanize/route.ts`, and `draft-generation-agent.ts` (all three
+  places a draft's final text is produced).
+- The humanizer's own confidence formula (`/api/ai/humanize`) could add a
+  `gapBonus`/`humanizationBonus` on top of `computeGroundedConfidence()`'s
+  55–65 ceiling for a zero-KB draft — this is the actual mechanism behind
+  the confidence-82 anomaly (removing `[NEEDS INPUT]` markers and reading
+  more "human" earned points regardless of whether the replacement content
+  was real). Fixed: these bonuses can no longer lift a zero-KB draft's score
+  above the ungrounded ceiling.
+- `draft-generation-agent.ts`'s org query never selected
+  phone/address_line1/ein/tax_status and never substituted `[NEEDS INPUT]`
+  for them — root cause of the phone-number fabrication on every twin-powered
+  run. Both now selected and given `[NEEDS INPUT]` fallbacks in
+  `buildSharedContextBlock`; `vision_statement`/`founder_name` given the same
+  treatment for consistency (previously silently blank).
+- `twin_powered: true` was written unconditionally regardless of whether any
+  digital-twin data existed. Now gated on `twinContext.completeness > 0`.
+- New `checkRequestDescriptionLocationConsistency()` in
+  `submission-validator.ts`: flags a `request_profiles.needs_description`
+  naming a major US city inconsistent with the organization's own on-file
+  city/state — the exact shape of the 2026-06-19 Meade Tractor submission.
+  Wired into `form-filler-agent.ts`'s `buildFillData()` as a
+  `DeferredSubmissionError`, before any page interaction, so a location
+  mismatch now postpones for human review instead of reaching a real
+  funder's portal.
+
+**ag-29-knowledge-indexer** (AR-17.3's verdict: fix, not delete — 43,061
+real unembedded `foundation_directory` rows exist, and it was already
+embedding 100/100 with 0% failure in the 24h before this session):
+
+- `KnowledgeIndexerAgent.run()` now checks for claimable work (a non-empty
+  batch, or pattern aggregation due) **before** calling `startRun()` —
+  matching the pattern every other continuous poll loop in this codebase
+  (`dd-request-processor.ts`, `enrichment-processor.ts`) already follows. An
+  empty poll no longer writes any `agent_runs` row at all, closing the
+  actual mechanism behind ag-29 being 95.94% of every `agent_runs` row ever
+  recorded (65,602 of 68,377) despite making no Anthropic calls.
+- One-time backfill (migration 204): 42,515 historical rows recorded
+  `status='completed'` while embedding zero of the items they found
+  (`items_found > 0 AND items_processed = 0` — a whole-batch embedding
+  failure, most commonly a missing/invalid `OPENAI_API_KEY` during that
+  period). Corrected to `status='failed'` so they stop reading as successes
+  in retrospective analysis. Live-verified: 0 rows remain in that
+  mislabeled state after the backfill.
+- Not changed: the exponential poll backoff (60s doubling to 30min on
+  consecutive empty passes) already existed (AR-14.1) and was already
+  correct — this session's fix is specifically the check-before-write gap,
+  not the polling cadence.
+
+### Verification (real numbers, this session)
+
+| Check | Result |
+|---|---|
+| Provenance trigger, live insert with no source | Rejected (`23514`) |
+| Provenance trigger, live insert with `url` | Accepted |
+| Rows quarantined for no source pointer | 37 |
+| Rows quarantined for contradicted claims | 0 (none checkable — see above) |
+| ag-29 historical mislabeled-completed rows | 42,515 → 0 after backfill |
+| `sam_gov` live row count under corrected source value | 100 (unchanged, already matched) |
+| New regression suite | `src/__tests__/integration/research-drafting-quality.test.ts`, 9/9 passing |
+
+**Not yet re-measured post-deploy:** ag-29's share of `agent_runs` (still
+95.96% as of this write — the code fix takes effect only after the worker
+redeploys; a number that hasn't moved yet because the fix hasn't shipped
+is not a failure of the fix, but it must be re-checked after deploy, not
+assumed). Research-family provenance proportion and drafting-family
+cross-org similarity: re-run against the same sampler scripts
+(`test-evidence/ar173-provenance-and-ag29.mjs`,
+`test-evidence/drafting-family-deep-dive.mjs`) after this commit lands, not
+estimated here.

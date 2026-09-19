@@ -212,6 +212,9 @@ export async function POST(request: Request) {
           : undefined,
       logicModel: output.logicModel ?? undefined,
       complianceChecklist: output.complianceChecklist ?? undefined,
+      incomplete: output.incomplete,
+      missingFacts: output.missingFacts,
+      scrubbedFigures: output.scrubbedFigures,
     };
 
     return NextResponse.json(result);

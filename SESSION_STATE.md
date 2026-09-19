@@ -2228,3 +2228,74 @@ funder data in its one real sample.
 Verification: `pnpm typecheck` and `pnpm test` both re-run clean this
 session (see run output at the end of this task) — this audit made no
 code changes.
+
+---
+
+## AR-17.6 — Provenance and specificity fixed at the cause (2026-09-19)
+
+Fixes landed for both AR-17.3 (research/provenance) and AR-17.4 (drafting/
+fabrication). Two new contracts added to `BEHAVIORAL_CONTRACTS.md`:
+Enrichment Provenance and Draft Specificity.
+
+**Provenance, made structural not conventional:** migration 203 adds a
+BEFORE INSERT OR UPDATE trigger on `opportunities` that rejects any write
+changing an enriched field (description, deadline, eligibility_requirements,
+amount_min/max/available, geographic_restrictions, application_method,
+required_documents, recurrence) unless the row also carries a `url` or
+`opportunity_documents`. Live-verified: a source-less insert now raises
+`23514`; the same insert with a `url` succeeds. Ten agent files that
+previously wrote enriched fields unconditionally while setting `url` only
+when truthy (`state-portal.ts`, `sam-gov.ts`, `grants-gov.ts`,
+`simpler-grants.ts`, `hud-monitor.ts`, `foundation-finder.ts`,
+`corporate-scraper.ts`, `housing-specific-scrapers.ts`, `state-scrapers.ts`,
+`tdhca-scraper.ts`) now skip the row instead when no source is available.
+`state-portal.ts` also now writes `eligibility_requirements` as its own
+column (was folded into free-text `description` only). `sam-gov.ts` wrote
+`source: "sam.gov"` while all 100 live rows and every other read path use
+`sam_gov` — fixed to match (confirmed live before changing, not assumed).
+37 rows with no source pointer at all were quarantined
+(`quarantined_at`/`quarantine_reason`); 0 contradicted claims were found to
+quarantine (AR-17.3's spot-check found 0 of 10 checkable at all — reported
+honestly, not padded to look more decisive).
+
+**Drafting specificity, made a hard gate not a scoring adjustment:**
+`generator.ts`'s new `hasSubstantiveOrgData` check returns an explicit
+`incomplete: true` result with a `missingFacts` list — no Claude call, no
+generated prose — when an org has no mission/service-area/target-population
+and no knowledge-base or proven-narrative rows. This directly closes the
+Beta Org 1 case (zero KB data, confidently invented 94%/12-year/340-unit/
+28-FTE history, confidence 82). New `src/lib/drafts/fact-guard.ts` scrubs
+any figure claim from a draft that doesn't trace to the org's stored data
+or the funder's own opportunity data, wired into all three places a draft's
+final text is produced (`generator.ts`, `/api/ai/humanize`,
+`draft-generation-agent.ts`); the marker never echoes the fabricated number
+back into what the customer reads. The humanizer's own confidence formula
+could push a zero-KB draft's score above its intended 55–65 ceiling via
+gap-resolution/humanization bonuses — the actual mechanism behind the
+confidence-82 anomaly — now capped. `draft-generation-agent.ts`'s org query
+never selected phone/address/ein/tax_status and never flagged them missing
+— root cause of the phone-number fabrication on every twin-powered run —
+now selected with `[NEEDS INPUT]` fallbacks; `twin_powered` is no longer
+unconditionally `true`. New `checkRequestDescriptionLocationConsistency()`
+postpones an AutoApply submission (via `DeferredSubmissionError`, before any
+page interaction) when the request description names a city/state
+inconsistent with the org's own profile — the exact shape of the 2026-06-19
+Meade Tractor submission.
+
+**ag-29-knowledge-indexer (verdict: fix, not delete):** `run()` now checks
+for claimable work before calling `startRun()`, matching every other poll
+loop in this codebase — an empty poll no longer writes an `agent_runs` row
+at all, closing the mechanism behind ag-29 being 95.94% of every run ever
+recorded. 42,515 historical rows that recorded `completed` while embedding
+zero items were backfilled to `failed` (migration 204); 0 remain mislabeled
+after the backfill. The existing exponential poll backoff (AR-14.1) was
+already correct and is unchanged.
+
+Verification: `pnpm typecheck`, `pnpm run build`, and `pnpm test` re-run
+(see run output at the end of this task); new suite
+`src/__tests__/integration/research-drafting-quality.test.ts` (9/9 passing,
+via `pnpm test:integration`) proves the trigger rejection, null-not-guess
+behavior, incomplete-draft gate, cross-org distinctness, and figure-scrub
+end to end. ag-29's `agent_runs` share has not yet moved (95.96% as of this
+write) because the code fix takes effect only after the worker redeploys —
+recorded here as pending, not claimed as resolved.

@@ -146,11 +146,16 @@ ${truncateForClaude(combinedHtml)}`;
       ? extracted.known_donation_types.filter((v): v is string => typeof v === "string")
       : [];
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      has_giving_program: hasGivingProgram,
-      giving_portal_url: givingPortalUrl,
-      known_donation_types: knownDonationTypes,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        has_giving_program: hasGivingProgram,
+        giving_portal_url: givingPortalUrl,
+        known_donation_types: knownDonationTypes,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: { hasGivingProgram, givingPortalUrl, knownDonationTypes, pagesFound },

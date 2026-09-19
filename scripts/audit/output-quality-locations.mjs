@@ -713,11 +713,11 @@ export const OUTPUT_LOCATIONS = [
     "valueType": "jsonb",
     "dateColumn": "created_at",
     "orgIdColumn": "organization_id",
-    "agentFilter": "source=eq.sam.gov",
+    "agentFilter": "source=eq.sam_gov",
     "evidenceColumns": [
       "url"
     ],
-    "citation": "src/lib/agents/sam-gov.ts:315-329 insert into opportunities",
+    "citation": "src/lib/agents/sam-gov.ts:315-329 insert into opportunities (AR-17.6: source literal fixed from \"sam.gov\" to \"sam_gov\" to match live data and this filter)",
     "reason": null
   },
   {
@@ -767,7 +767,7 @@ export const OUTPUT_LOCATIONS = [
     "family": "core",
     "locatable": true,
     "table": "opportunities",
-    "primaryColumn": "eligibility",
+    "primaryColumn": "eligibility_requirements",
     "valueType": "text",
     "dateColumn": "created_at",
     "orgIdColumn": "organization_id",
@@ -775,7 +775,7 @@ export const OUTPUT_LOCATIONS = [
     "evidenceColumns": [
       "url"
     ],
-    "citation": "src/lib/agents/state-portal.ts:263-283 insert into opportunities",
+    "citation": "src/lib/agents/state-portal.ts:263-311 insert into opportunities (AR-17.6: primaryColumn corrected from nonexistent \"eligibility\"; agent now writes eligibility_requirements and url instead of folding both into description-only)",
     "reason": null
   },
   {

@@ -446,9 +446,15 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
       }
     }
 
-    // Persist the stored PDF URLs onto opportunity_documents (preserving the
-    // original grants.gov url) so the detail view can render the inline viewer.
-    if (storedCount > 0) {
+    // Persist opportunity_documents (preserving each source document's
+    // original url, plus any mirrored storedUrl) whenever a PDF was stored
+    // OR any field below was enriched from these documents. Provenance
+    // requirement (AR-17.6): opportunity_documents is this agent's only
+    // stored source pointer for the DB_FIELDS it writes below — gating it on
+    // storedCount alone (the old behavior) let an HTML-only enrichment pass
+    // write description/deadline/etc. in the same UPDATE with no source
+    // record refreshed at all.
+    if (storedCount > 0 || enrichedFields.length > 0) {
       patch.opportunity_documents = updatedDocs;
     }
 

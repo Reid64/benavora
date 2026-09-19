@@ -71,6 +71,7 @@ export class EA02CommunityOutreachDetectorAgent extends BaseAgent<
     }
 
     let aboutPageText = "";
+    let aboutPageUrl: string | null = null;
     if (prospect.website) {
       const candidateUrls = buildCandidateUrls(prospect.website, CANDIDATE_PATHS);
       const engine = new StealthEngine();
@@ -83,6 +84,7 @@ export class EA02CommunityOutreachDetectorAgent extends BaseAgent<
           const html = await engine.fetchPage(url);
           if (html) {
             aboutPageText += `\n\n--- ${url} ---\n${html}`;
+            aboutPageUrl = url;
             break; // one working about page is enough context for extraction
           }
         }
@@ -119,12 +121,17 @@ ${truncateForClaude(aboutPageText || "(no about page fetched)")}`;
     const habitatPartner = extracted.habitat_partner === true;
     const unitedWayPartner = extracted.united_way_partner === true;
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      community_involvement: communityInvolvement,
-      local_causes_supported: localCausesSupported,
-      habitat_partner: habitatPartner,
-      united_way_partner: unitedWayPartner,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        community_involvement: communityInvolvement,
+        local_causes_supported: localCausesSupported,
+        habitat_partner: habitatPartner,
+        united_way_partner: unitedWayPartner,
+      },
+      aboutPageUrl,
+    );
 
     return {
       data: {

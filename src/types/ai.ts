@@ -134,6 +134,23 @@ export interface DraftResult {
    * itself failed (non-blocking).
    */
   complianceChecklist?: DraftComplianceChecklist | null;
+  /**
+   * AR-17.6: true when the organization had no substantive profile/
+   * knowledge-base data to draft from. `content` is an explicit
+   * incomplete-draft notice naming what's missing, not model-generated
+   * prose. Callers (UI) should render this distinctly from a normal draft,
+   * even a low-confidence one.
+   */
+  incomplete?: boolean;
+  /** Populated only when `incomplete` is true. */
+  missingFacts?: string[];
+  /**
+   * AR-17.6: figure/number claims Claude returned that could not be traced
+   * to the organization's stored data or the funder's opportunity data.
+   * Each was replaced with a [NEEDS INPUT] marker in `content` before
+   * saving. Empty array (not absent) when the check ran and found nothing.
+   */
+  scrubbedFigures?: string[];
 }
 
 /** Result of the Humanizer pass (/api/ai/humanize). */

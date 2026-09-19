@@ -89,6 +89,7 @@ export class EA03SponsorshipDetectorAgent extends BaseAgent<
     }
 
     let sponsorPageText = "";
+    let firstFoundUrl: string | null = null;
     if (prospect.website) {
       const candidateUrls = buildCandidateUrls(prospect.website, CANDIDATE_PATHS);
       const engine = new StealthEngine();
@@ -99,7 +100,10 @@ export class EA03SponsorshipDetectorAgent extends BaseAgent<
           const url = candidateUrls[i];
           if (!url) continue;
           const html = await engine.fetchPage(url);
-          if (html) sponsorPageText += `\n\n--- ${url} ---\n${html}`;
+          if (html) {
+            sponsorPageText += `\n\n--- ${url} ---\n${html}`;
+            firstFoundUrl = firstFoundUrl ?? url;
+          }
         }
       } finally {
         await engine.close();
@@ -141,10 +145,15 @@ ${truncateForClaude(sponsorPageText || "(no sponsor page fetched)")}`;
         ? extracted.marketing_budget_estimate
         : null;
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      sponsorship_activity: sponsorshipActivity,
-      marketing_budget_estimate: marketingBudgetEstimate,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        sponsorship_activity: sponsorshipActivity,
+        marketing_budget_estimate: marketingBudgetEstimate,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: { blocked: false, sponsorshipActivity, marketingBudgetEstimate },

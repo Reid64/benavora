@@ -281,8 +281,13 @@ ${truncatedHtml}`;
       const descParts: string[] = [];
       if (opp.agency) descParts.push(`Agency: ${opp.agency}`);
       if (opp.amount) descParts.push(`Amount: ${opp.amount}`);
-      if (opp.eligibility) descParts.push(`Eligibility: ${opp.eligibility}`);
-      if (opp.url) descParts.push(`URL: ${opp.url}`);
+
+      // Provenance requirement (AR-17.6): any enriched field written below
+      // must be backed by a stored source in the same write. This agent's
+      // only source pointer is opp.url — skip rows that don't have one
+      // rather than writing eligibility/deadline/description with nothing
+      // to verify them against later.
+      if (!opp.url) continue;
 
       const row: Record<string, unknown> = {
         organization_id: this.organizationId,
@@ -291,9 +296,14 @@ ${truncatedHtml}`;
         source: opp.source,
         source_type: "government_state",
         status: "open",
+        url: opp.url,
       };
 
       if (descParts.length > 0) row.description = descParts.join(" | ");
+      // eligibility_requirements is a real column on opportunities — previously
+      // this text was only folded into the free-text description blob, so the
+      // eligibility_requirements column here was always null (AR-17.3 finding).
+      if (opp.eligibility) row.eligibility_requirements = opp.eligibility;
       if (opp.deadline && isIsoDate(opp.deadline))
         row.deadline = opp.deadline.slice(0, 10);
 

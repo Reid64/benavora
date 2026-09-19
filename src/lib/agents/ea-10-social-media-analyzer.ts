@@ -149,11 +149,22 @@ Company: ${prospect.legal_name}`;
         : null;
     const employeeCountEstimate = existingEmployeeCountEstimate ?? newEmployeeCountEstimate;
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      community_involvement: communityInvolvement,
-      recent_donations: recentDonations,
-      employee_count_estimate: employeeCountEstimate,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        community_involvement: communityInvolvement,
+        recent_donations: recentDonations,
+        employee_count_estimate: employeeCountEstimate,
+      },
+      // No single fetched page to cite -- this agent's only input is
+      // Claude's web search tool over LinkedIn/Facebook, with no URL list
+      // surfaced back by callClaudeWithWebSearch. "web_search" is an honest,
+      // if coarse, source tag rather than leaving these fields unsourced.
+      newCommunityInvolvement.length > 0 || recentDonations.length > 0 || newEmployeeCountEstimate
+        ? "web_search"
+        : null,
+    );
 
     return {
       data: {

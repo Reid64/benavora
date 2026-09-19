@@ -243,6 +243,10 @@ export class SimplerGrantsResearchAgent extends BaseAgent<
         if (byUrl) continue;
       }
 
+      // Provenance requirement (AR-17.6): url is the only stored source this
+      // agent has for any enriched field below.
+      if (!opp.url) continue;
+
       const row: Record<string, unknown> = {
         organization_id: this.organizationId,
         name: opp.title,
@@ -250,13 +254,13 @@ export class SimplerGrantsResearchAgent extends BaseAgent<
         source: "simpler.grants.gov",
         source_type: "government_federal",
         status: "open",
+        url: opp.url,
       };
 
       if (opp.description) row.description = opp.description;
       if (opp.close_date) row.deadline = opp.close_date;
       if (opp.award_ceiling !== null) row.amount_max = opp.award_ceiling;
       if (opp.award_floor !== null) row.amount_min = opp.award_floor;
-      if (opp.url) row.url = opp.url;
 
       const { error } = await this.client.from("opportunities").insert(row);
       if (!error) opportunitiesCreated++;

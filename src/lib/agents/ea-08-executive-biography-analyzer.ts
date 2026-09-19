@@ -110,6 +110,7 @@ export class EA08ExecutiveBiographyAnalyzerAgent extends BaseAgent<
     const engine = new StealthEngine();
     let combinedHtml = "";
     let pagesFound = 0;
+    let firstFoundUrl: string | null = null;
 
     try {
       await engine.init();
@@ -120,6 +121,7 @@ export class EA08ExecutiveBiographyAnalyzerAgent extends BaseAgent<
         const html = await engine.fetchPage(url);
         if (html) {
           pagesFound++;
+          firstFoundUrl = firstFoundUrl ?? url;
           combinedHtml += `\n\n--- ${url} ---\n${html}`;
         }
       }
@@ -161,12 +163,17 @@ ${truncateForClaude(combinedHtml)}`;
     const boardMembers = stringArray(extracted.board_members);
     const linkedinProfiles = stringArray(extracted.linkedin_profiles);
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      decision_maker_names: decisionMakerNames,
-      decision_maker_titles: decisionMakerTitles,
-      board_members: boardMembers,
-      linkedin_profiles: linkedinProfiles,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        decision_maker_names: decisionMakerNames,
+        decision_maker_titles: decisionMakerTitles,
+        board_members: boardMembers,
+        linkedin_profiles: linkedinProfiles,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: {

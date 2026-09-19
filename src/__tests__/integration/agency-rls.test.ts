@@ -157,6 +157,9 @@ function randomSuffix(): string {
           name: `Agency Test Opportunity ${RUN_TAG}`,
           category: "private_foundation",
           deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          // AR-17.6: migration 203's provenance trigger rejects an enriched
+          // field (deadline here) with no stored source in the same write.
+          url: "https://example.org/agency-rls-test-fixture",
         })
         .select()
         .single();

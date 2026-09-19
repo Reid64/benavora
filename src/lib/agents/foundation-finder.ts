@@ -131,6 +131,11 @@ ${pageContent}`;
 
       if (existing) continue;
 
+      // Provenance requirement (AR-17.6): url is the only stored source this
+      // agent has for any enriched field below.
+      const urlStr = toStr(raw?.url);
+      if (!urlStr) continue;
+
       const opp: Record<string, unknown> = {
         organization_id: this.organizationId,
         name,
@@ -138,13 +143,11 @@ ${pageContent}`;
         source_type: "private_foundation",
         category: "private_foundation",
         status: "open",
+        url: urlStr,
       };
 
       const descStr = toStr(raw?.description);
       if (descStr) opp.description = descStr;
-
-      const urlStr = toStr(raw?.url);
-      if (urlStr) opp.url = urlStr;
 
       const elig = toStr(raw?.eligibility_requirements);
       if (elig) opp.eligibility_requirements = elig;

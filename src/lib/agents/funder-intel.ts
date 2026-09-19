@@ -115,7 +115,14 @@ export class FunderIntelAgent extends BaseAgent<
           total_annual_giving: intel.totalAnnualGiving,
           application_tips: intel.applicationTips,
           last_scraped_at: now,
-          raw_data: { pageText: pageText.slice(0, 5000) } as Json,
+          // Provenance (AR-17.6): funders.website is a live, mutable value on
+          // a different table -- if it changes later, the source URL actually
+          // fetched for THIS snapshot would otherwise be unrecoverable. Store
+          // it alongside the page text it produced, in the same write.
+          raw_data: {
+            pageText: pageText.slice(0, 5000),
+            sourceUrl: (funder.website as string | null) ?? null,
+          } as Json,
           updated_at: now,
         },
         { onConflict: "organization_id,funder_id" },

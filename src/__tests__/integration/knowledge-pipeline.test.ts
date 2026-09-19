@@ -19,8 +19,14 @@
 //     foundation_directory row with only `enrichment.propublica` populated
 //     (the real, universally-populated shape; `programs`/`enrichment.mission`
 //     are never written by any producer) is now found and embedded.
-//  2. An empty pass records something other than a plain 'completed' success
-//     — status='skipped' (migration 199), not 'completed'.
+//  2. A genuinely empty pass (itemsFound=0, aggregation not due) writes NO
+//     agent_runs row at all (AR-17.6 supersedes this checkpoint's original
+//     AR-14.1 assertion that it recorded status='skipped' — 'skipped' is
+//     still a real status this agent can write, e.g. an event-triggered run
+//     that finds nothing, but a genuinely empty autonomous poll now never
+//     touches agent_runs to begin with, matching every other continuous
+//     poll loop in this codebase and closing the mechanism behind ag-29
+//     being 95.94% of every agent_runs row ever recorded).
 //  3. The indexer still processes real work when it exists — a regression
 //     guard against the producer/consumer changes above breaking the
 //     already-working intelligence_proposal_sections path.
@@ -168,7 +174,7 @@ describe("Knowledge pipeline (AR-14.1)", () => {
     expect((embedUpdate!.payload as Row).embedding).toEqual([0.1, 0.2, 0.3]);
   });
 
-  it("2. an empty pass (itemsFound=0) is recorded as status='skipped', not a plain 'completed' success", async () => {
+  it("2. a genuinely empty pass (itemsFound=0, aggregation not due) writes NO agent_runs row at all (AR-17.6)", async () => {
     const calls: Call[] = [];
     const state: FakeState = {
       organizations: { id: "system-org" },
@@ -184,11 +190,16 @@ describe("Knowledge pipeline (AR-14.1)", () => {
 
     expect(result.itemsFound).toBe(0);
     expect(result.itemsProcessed).toBe(0);
+    expect(result.success).toBe(true);
     expect(generateEmbeddingsBatch).not.toHaveBeenCalled();
 
-    const patch = completionPatch(calls);
-    expect(patch.status).toBe("skipped");
-    expect(patch.status).not.toBe("completed");
+    // AR-17.6: an empty poll must not touch agent_runs at all -- neither an
+    // insert (startRun) nor an update (completeRun/failRun) -- matching
+    // every other continuous poll loop in this codebase (previously every
+    // pass wrote a 'skipped' row here; that write itself is the mechanism
+    // this fix removes for the no-op case).
+    const agentRunsWrite = calls.find((c) => c.table === "agent_runs");
+    expect(agentRunsWrite).toBeUndefined();
   });
 
   it("3. the indexer still processes real work from intelligence_proposal_sections when it exists", async () => {

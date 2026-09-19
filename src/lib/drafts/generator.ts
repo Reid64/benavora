@@ -34,6 +34,7 @@ import {
 import { BudgetPatternLibrary, type BudgetTemplate } from "@/lib/intelligence/budget-patterns";
 import { EvaluationLibrary, type KPI } from "@/lib/intelligence/evaluation-library";
 import { ComplianceLibrary, type ComplianceCheckResult } from "@/lib/intelligence/compliance-library";
+import { buildFactCorpus, scrubUnverifiedFigures } from "@/lib/drafts/fact-guard";
 import type {
   DraftPromptContext,
   DraftTemplateType,
@@ -279,6 +280,26 @@ export interface GenerateDraftOutput {
   logicModel: GeneratedLogicModel | null;
   /** Compliance checklist (null when check itself failed). */
   complianceChecklist: ComplianceCheckResult | null;
+  /**
+   * AR-17.6: true when the organization had no substantive profile/
+   * knowledge-base data to draft from -- `content` is an explicit
+   * incomplete-draft notice naming what's missing, not model-generated
+   * prose, and no Claude call was made. Callers should surface this
+   * distinctly from a normal (even low-confidence) draft.
+   */
+  incomplete: boolean;
+  /** Populated only when `incomplete` is true. */
+  missingFacts: string[];
+  /**
+   * AR-17.6: figure/number claims (percentages, dollar amounts, year/unit/
+   * FTE/beneficiary counts) that Claude's response contained but that could
+   * not be traced to the organization's stored data or the funder's own
+   * opportunity data. Each was replaced with a [NEEDS INPUT] marker in
+   * `content` before saving -- this list is what got removed, so a
+   * fabricated figure is verifiably absent from the saved draft, not just
+   * asserted to be.
+   */
+  scrubbedFigures: string[];
 }
 
 /** Map opportunity source_type + category to a budget grantType string. */
@@ -417,6 +438,83 @@ export async function generateDraft(
   const successPatterns = extractTopPatterns(
     (provenRes.data ?? []).map((p) => p.success_patterns),
   );
+
+  // AR-17.6 (AR-17.4 Lead Finding #3): an organization with no substantive
+  // profile or knowledge-base data still went through the same prompt as a
+  // richly-documented one and got back confident, fully-invented prose (a
+  // fabricated 94% retention rate, twelve years of operation, etc.) scored
+  // as the second-highest-confidence draft on the platform. Specificity is
+  // a hard requirement, not a scoring adjustment: when there is nothing
+  // organization-specific to draft from, return an explicit incomplete
+  // result naming what's missing instead of calling Claude at all -- there
+  // is no prompt instruction that reliably prevents a model from writing
+  // confident, specific-sounding prose when handed an empty profile.
+  const missingFacts: string[] = [];
+  if (!org?.mission_statement) missingFacts.push("mission statement");
+  if (!org?.service_area) missingFacts.push("service area");
+  if (!org?.target_population) missingFacts.push("target population");
+  if (knowledgeEntries.length === 0) missingFacts.push("knowledge base entries");
+  if (provenNarratives.length === 0) missingFacts.push("proven narrative examples");
+
+  const hasSubstantiveOrgData =
+    knowledgeEntries.length > 0 ||
+    provenNarratives.length > 0 ||
+    Boolean(org?.mission_statement) ||
+    Boolean(org?.service_area) ||
+    Boolean(org?.target_population);
+
+  if (!hasSubstantiveOrgData) {
+    const incompleteText =
+      `[INCOMPLETE DRAFT] This organization has no stored mission statement, service area, ` +
+      `target population, knowledge base entries, or proven narratives to draft from. A ` +
+      `specific, funder-ready draft cannot be produced from an empty profile — generating one ` +
+      `anyway would mean inventing the organization's history to fill the gap. ` +
+      `Missing: ${missingFacts.join(", ")}. Add this information to the organization's profile ` +
+      `and knowledge base, then regenerate.`;
+
+    const { data: version, error: versionError } = await supabase
+      .from("draft_versions")
+      .insert({
+        organization_id: organizationId,
+        opportunity_id: opportunityId,
+        template_type: templateType,
+        content: incompleteText,
+        confidence_score: 0,
+        knowledge_sources: [] as unknown as Json,
+        humanization_status: "not_humanized",
+        source: draftSource,
+        created_by: createdByUserId,
+      })
+      .select("id, version_number, humanization_status, created_at")
+      .single();
+    if (versionError || !version) {
+      throw new Error(
+        `Failed to save incomplete-draft record: ${versionError?.message ?? "no row returned"}`,
+      );
+    }
+
+    return {
+      content: incompleteText,
+      confidenceScore: 0,
+      gapCount: missingFacts.length,
+      wordCount: incompleteText.trim().split(/\s+/).length,
+      sources: [],
+      savedVersion: {
+        id: version.id as string,
+        versionNumber: version.version_number as number,
+        humanizationStatus:
+          version.humanization_status as SavedDraftVersion["humanizationStatus"],
+        createdAt: version.created_at as string,
+      },
+      tokensUsed: 0,
+      rubricDimensionSummary: [],
+      logicModel: null,
+      complianceChecklist: null,
+      incomplete: true,
+      missingFacts,
+      scrubbedFigures: [],
+    };
+  }
 
   const context: DraftPromptContext = {
     organization: org
@@ -910,6 +1008,35 @@ export async function generateDraft(
       "\n\n[Draft truncated — regenerate with a more specific template type for complete output]";
   }
 
+  // AR-17.6: no figure, outcome, beneficiary count, or past-award claim may
+  // appear in a draft unless it is present in the organization's stored
+  // data (or the funder's own opportunity data). Prompt instructions alone
+  // do not guarantee this (AR-17.4 found a fabricated phone number on every
+  // twin-powered run and an invented operating history on a zero-KB org) --
+  // scan what Claude actually returned and strip anything that can't be
+  // traced to a stored source, before this text is saved as the draft.
+  const factCorpus = buildFactCorpus([
+    org?.name,
+    org?.dba,
+    org?.mission_statement,
+    org?.vision_statement,
+    org?.service_area,
+    org?.target_population,
+    org?.founder_name,
+    org?.annual_budget,
+    org?.ein,
+    ...knowledgeEntries.map((e) => e.content),
+    ...provenNarratives.map((p) => p.narrativeText),
+    opportunity.name,
+    opportunity.description as string | null,
+    opportunity.amount_min as number | null,
+    opportunity.amount_max as number | null,
+    opportunity.amount_available as number | null,
+  ]);
+  const { text: scrubbedDraftText, removed: scrubbedFigures } =
+    scrubUnverifiedFigures(draftText, factCorpus);
+  draftText = scrubbedDraftText;
+
   let confidenceScore = computeConfidence(
     draftText,
     knowledgeEntries.length,
@@ -1044,5 +1171,8 @@ export async function generateDraft(
     rubricDimensionSummary,
     logicModel: generatedLogicModel,
     complianceChecklist,
+    incomplete: false,
+    missingFacts: [],
+    scrubbedFigures,
   };
 }

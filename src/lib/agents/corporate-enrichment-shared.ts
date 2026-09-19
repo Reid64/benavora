@@ -62,13 +62,34 @@ export async function fetchProspect(
 /**
  * Merges `patch` into the prospect's existing `enrichment` jsonb (existing
  * keys not present in `patch` are preserved) and bumps enrichment_version.
+ *
+ * `source` (AR-17.6): the URL fetched, or a dataset reference for a
+ * non-fetch agent (e.g. "irs_bmf_cross_reference"), that these patch fields
+ * were extracted from. Recorded under `enrichment._sources[field]` for
+ * every key in `patch` — this is the field-level provenance the AR-17.3
+ * audit found missing (the squad never invents values, but it also never
+ * recorded where a non-null value came from). Omit only when the patch
+ * itself carries no positive claim (e.g. an all-false/empty "nothing found"
+ * patch) — there is nothing to source in that case.
  */
 export async function mergeEnrichmentPatch(
   client: SupabaseClient,
   prospect: CorporateProspectRow,
   patch: Record<string, unknown>,
+  source?: string | null,
 ): Promise<void> {
-  const merged = { ...(prospect.enrichment ?? {}), ...patch };
+  const existing = (prospect.enrichment ?? {}) as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...existing, ...patch };
+
+  if (source) {
+    const existingSources = (existing._sources ?? {}) as Record<string, string>;
+    const nextSources = { ...existingSources };
+    for (const key of Object.keys(patch)) {
+      nextSources[key] = source;
+    }
+    merged._sources = nextSources;
+  }
+
   const now = new Date().toISOString();
 
   await client

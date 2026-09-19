@@ -13,6 +13,7 @@ import { CaptchaSolver } from './captcha-solver.js';
 import type { CaptchaDetection } from './captcha-solver.js';
 import { ScreenshotManager } from './screenshot-manager.js';
 import { WebhookNotifier } from './webhook-notifier.js';
+import { checkRequestDescriptionLocationConsistency } from './submission-validator.js';
 
 /** agent_runs.agent_type value for this module (AR-1.2). */
 export const AGENT_TYPE = 'autoapply_form_filler';
@@ -177,6 +178,8 @@ interface OrgRow {
   contact_email: string | null;
   phone: string | null;
   address_line1: string | null;
+  city: string | null;
+  state: string | null;
 }
 
 export class FormFillerAgent {
@@ -536,7 +539,7 @@ export class FormFillerAgent {
     try {
       const { data: orgData } = await this.supabase
         .from('organizations')
-        .select('name, ein, contact_email, phone, address_line1')
+        .select('name, ein, contact_email, phone, address_line1, city, state')
         .eq('id', organizationId)
         .single();
       orgRow = orgData as OrgRow | null;
@@ -639,6 +642,26 @@ export class FormFillerAgent {
       fillData['request.description'] = `We are requesting support for ${mission}`;
       fillData['request.type'] = 'monetary';
       fillData['request.narrative'] = fillData['request.description'] ?? '';
+    }
+
+    // AR-17.6: the 2026-06-19 Meade Tractor submission sent a funder a
+    // request description naming a different organization's location
+    // ("Faith Foundation SF... San Francisco Bay Area" for a Texas
+    // organization) -- every structured field was correct, but nothing
+    // checked the free-text description against the org's own profile
+    // before it reached a real funder's portal. Checked here, before any
+    // page interaction, on whichever description this run will actually
+    // submit.
+    const locationCheck = checkRequestDescriptionLocationConsistency(
+      orgRow?.city ?? null,
+      orgRow?.state ?? null,
+      fillData['request.description'] ?? null,
+    );
+    if (!locationCheck.consistent) {
+      throw new DeferredSubmissionError(
+        'profile_location_mismatch',
+        `Request description names ${locationCheck.conflictingCity} (${locationCheck.conflictingState}), which does not match this organization's own city/state on file — postponing submission for human review rather than sending a description of the wrong organization to a real funder.`,
+      );
     }
 
     // Dossier-personalized pitch outranks the request profile's generic pitch template.

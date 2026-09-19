@@ -86,6 +86,7 @@ export class EA05CareerPageAnalyzerAgent extends BaseAgent<
     const engine = new StealthEngine();
     let combinedHtml = "";
     let pagesFound = 0;
+    let firstFoundUrl: string | null = null;
 
     try {
       await engine.init();
@@ -96,6 +97,7 @@ export class EA05CareerPageAnalyzerAgent extends BaseAgent<
         const html = await engine.fetchPage(url);
         if (html) {
           pagesFound++;
+          firstFoundUrl = firstFoundUrl ?? url;
           combinedHtml += `\n\n--- ${url} ---\n${html}`;
         }
       }
@@ -133,10 +135,15 @@ ${truncateForClaude(combinedHtml)}`;
       ? extracted.company_culture_signals.filter((v): v is string => typeof v === "string")
       : [];
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      employee_count_estimate: employeeCountEstimate,
-      company_culture_signals: companyCultureSignals,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        employee_count_estimate: employeeCountEstimate,
+        company_culture_signals: companyCultureSignals,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: { employeeCountEstimate, companyCultureSignals, pagesFound },

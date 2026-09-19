@@ -105,6 +105,7 @@ export class EA07EsgAnalyzerAgent extends BaseAgent<EA07Input, EA07Result> {
     const engine = new StealthEngine();
     let combinedHtml = "";
     let pagesFound = 0;
+    let firstFoundUrl: string | null = null;
 
     try {
       await engine.init();
@@ -115,6 +116,7 @@ export class EA07EsgAnalyzerAgent extends BaseAgent<EA07Input, EA07Result> {
         const html = await engine.fetchPage(url);
         if (html) {
           pagesFound++;
+          firstFoundUrl = firstFoundUrl ?? url;
           combinedHtml += `\n\n--- ${url} ---\n${html}`;
         }
       }
@@ -156,10 +158,15 @@ ${truncateForClaude(combinedHtml)}`;
       ? extracted.environmental_commitments.filter((v): v is string => typeof v === "string")
       : [];
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      esg_initiatives: esgInitiatives,
-      environmental_commitments: environmentalCommitments,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        esg_initiatives: esgInitiatives,
+        environmental_commitments: environmentalCommitments,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: { blocked: false, esgInitiatives, environmentalCommitments, pagesFound },

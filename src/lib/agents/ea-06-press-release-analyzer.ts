@@ -101,6 +101,7 @@ export class EA06PressReleaseAnalyzerAgent extends BaseAgent<
     }
 
     let pressPageText = "";
+    let firstFoundUrl: string | null = null;
     if (prospect.website) {
       const candidateUrls = buildCandidateUrls(prospect.website, CANDIDATE_PATHS);
       const engine = new StealthEngine();
@@ -111,7 +112,10 @@ export class EA06PressReleaseAnalyzerAgent extends BaseAgent<
           const url = candidateUrls[i];
           if (!url) continue;
           const html = await engine.fetchPage(url);
-          if (html) pressPageText += `\n\n--- ${url} ---\n${html}`;
+          if (html) {
+            pressPageText += `\n\n--- ${url} ---\n${html}`;
+            firstFoundUrl = firstFoundUrl ?? url;
+          }
         }
       } finally {
         await engine.close();
@@ -152,11 +156,16 @@ ${truncateForClaude(pressPageText || "(no news/press page fetched)")}`;
       ? extracted.executive_changes.filter((v): v is string => typeof v === "string")
       : [];
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      donation_history: donationHistory,
-      recent_gifts: recentGifts,
-      executive_changes: executiveChanges,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        donation_history: donationHistory,
+        recent_gifts: recentGifts,
+        executive_changes: executiveChanges,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: { blocked: false, donationHistory, recentGifts, executiveChanges },

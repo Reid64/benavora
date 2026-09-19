@@ -463,3 +463,144 @@ LLM-prompt-calibration effect with no single traced code cause, left for a
 future pass once volume grows): `STATE_OF_THE_BUILD.md`'s "AR-17.5" section;
 `AGENTS_v2.md`'s "AR-17.5" section; `test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`
 (the AR-17.2 diagnosis this contract responds to).
+
+## Contract: Enrichment Provenance (Benavora product, not FORGE)
+
+AR-17.3 found 0.0% of 6,309 enriched `opportunities` fields (description,
+deadline, eligibility_requirements, amount_min/max/available,
+geographic_restrictions, application_method, required_documents) carried a
+*stored* source — 98.4% carried only a bare `url` pointer to a live page that
+may since have changed, and 39 rows carried no source pointer of any kind.
+The consequence: a fabricated claim and a correctly-scraped claim were, at
+that point, indistinguishable after the fact. Nothing was retained at write
+time against which either could be checked.
+
+### MUST DO
+- Every extracted or enriched field MUST carry its source — a URL, a
+  document/document-set reference, or a filing reference — stored in the
+  *same write* as the field it supports. A source set in a later, separate
+  write does not satisfy this: the two must land together, or a crash
+  between them leaves the field looking sourced when it isn't yet.
+- A field the agent could not determine from a source MUST stay `null`.
+  Filling it with a plausible-looking guess is the defect this contract
+  exists to prevent, not merely to detect. When a positive claim genuinely
+  cannot be sourced (e.g. a non-fetch cross-reference like
+  `ea04_foundation_detector`'s IRS BMF lookup), the source citation is a
+  dataset reference (e.g. `"irs_bmf_cross_reference"`), not a URL — but it
+  is still recorded, never omitted.
+- Where the schema permits it, a database-level constraint or trigger MUST
+  reject an enriched write that carries no stored source, so this cannot
+  depend on every future call site remembering the convention (`opportunities`:
+  migration 203's `enforce_opportunity_field_provenance()` trigger).
+- Where an assessment finds a contradicted claim (a stored fact
+  demonstrably wrong against its own source), the row MUST be quarantined
+  (flagged, e.g. `quarantined_at`/`quarantine_reason`) rather than silently
+  corrected, and the count of quarantined rows MUST be recorded in the
+  assessment. Silently rewriting the value would erase the evidence that a
+  fabrication mechanism existed at all.
+
+### MUST NOT DO
+- Must NOT treat a `url` pointer alone as provenance for a *claim*. A URL is
+  evidence of where an agent looked, not evidence that what it wrote down is
+  what the page said — `opportunity_documents` (or equivalent retained
+  content) is what actually lets a claim be re-checked later.
+- Must NOT write an enriched field unconditionally while setting its source
+  field only when convenient/truthy. If the source is unavailable, the
+  correct action is to leave the enriched field unwritten (skip the row),
+  not to write it source-less. (This was the exact shape of the AR-17.3
+  defect in `state-portal.ts`, `sam-gov.ts`, `grants-gov.ts`,
+  `simpler-grants.ts`, `hud-monitor.ts`, `foundation-finder.ts`,
+  `corporate-scraper.ts`, `housing-specific-scrapers.ts`,
+  `state-scrapers.ts`, `tdhca-scraper.ts` — all fixed in AR-17.6.)
+- Must NOT apply this contract to agent-owned derived scores computed from
+  already-stored fields (`eligibility_score`, `recommendation`,
+  `recommendation_reasoning`, `match_percentage`, `is_high_priority`,
+  `match_mismatch_reasons`, `mission_relevance_score` on `opportunities`).
+  Those are not facts scraped from an external source and carry no external
+  provenance to require — migration 203's trigger deliberately excludes them.
+
+### History
+AR-17.3 (2026-09-19, `test-evidence/AGENT_OUTPUT_QUALITY_RESEARCH.md`) found
+the violation platform-wide across the research/discovery family. AR-17.6
+(2026-09-19) is this contract's origin: added migration 203's trigger and
+`quarantined_at`/`quarantine_reason` columns, fixed the ten agent files
+above to require a source before writing an enriched field, and added
+per-field `_sources` tracking to `corporate_prospects.enrichment` via
+`mergeEnrichmentPatch()`. Full trace: `STATE_OF_THE_BUILD.md`'s "AR-17.6"
+section; `test-evidence/AGENT_OUTPUT_QUALITY_RESEARCH.md`.
+
+## Contract: Draft Specificity (Benavora product, not FORGE)
+
+AR-17.4 found three independently-confirmed fabrication instances in the
+drafting family: a phone number invented on every one of 5 lifetime runs of
+the twin-powered draft path (present nowhere in the organization's data), a
+real AutoApply submission that misdescribed the organization's own location
+to a real funder, and an empty organization profile that produced a fully
+invented operating history (94% retention, twelve years, 340 units, 28 FTE)
+scored as the platform's second-highest-confidence draft ever (82) — a score
+the documented formula could not produce for that input.
+
+### MUST DO
+- A draft MUST incorporate named facts from the organization's own profile
+  and knowledge base. Where those facts are absent — no mission statement,
+  no service area, no target population, no knowledge-base entries, no
+  proven narratives — the correct behavior is to return an explicit
+  incomplete-draft result naming what is missing (`incomplete: true`,
+  `missingFacts: [...]`), not to call the model and let it produce generic
+  prose that reads as finished (`src/lib/drafts/generator.ts`'s
+  `hasSubstantiveOrgData` gate).
+- Every field a drafting agent selects from `organizations` for prompt
+  context MUST have an explicit `[NEEDS INPUT: ...]` fallback when null. A
+  field silently omitted from both the query and the fallback is not
+  "correctly left blank" — the model is never told it's missing and may
+  invent a value instead (the exact root cause of the phone-number
+  fabrication: `draft-generation-agent.ts`'s org query omitted
+  phone/address/ein/tax_status entirely).
+- No figure, outcome, beneficiary count, or past-award claim may survive in
+  a saved draft unless it is present in the organization's stored data or
+  the funder's own opportunity data. This MUST be enforced in code after
+  the model responds (`src/lib/drafts/fact-guard.ts`'s
+  `scrubUnverifiedFigures()`), not only as a prompt instruction — prompt-only
+  enforcement is exactly what failed in both the twin-powered path and the
+  empty-profile case.
+- A draft MUST address the funder's own stated priorities and eligibility
+  questions where they are stored, not generic nonprofit prose with the
+  funder's name substituted in.
+- A confidence score MUST NOT be inflatable by a post-processing pass (e.g.
+  humanization) beyond the ceiling the base scoring formula would produce
+  for the same underlying data. A bonus for "resolved" `[NEEDS INPUT]`
+  markers or a higher "reads human" score is not evidence the replacement
+  content is real — with zero knowledge-base grounding, "resolving" a gap
+  can only mean the model filled it with something unsourced.
+
+### MUST NOT DO
+- Must NOT set a flag like `twin_powered: true` unconditionally on every
+  insert. If the field claims a data source was used, it MUST be gated on
+  that source actually having contributed something measurable (e.g.
+  `twinContext.completeness > 0`), or the field itself becomes a fabricated
+  claim about the draft's own provenance.
+- Must NOT let a free-text field (e.g. `request_profiles.needs_description`)
+  reach a real funder submission unchecked against the organization's own
+  structured profile. Every structured field being present and internally
+  consistent is not sufficient — the 2026-06-19 Meade Tractor submission
+  had a correct EIN/address/phone and a request description naming the
+  wrong organization's city and region.
+- Must NOT echo a removed, unverified figure back into the customer-facing
+  draft text — even inside a `[NEEDS INPUT]` marker. Quoting the fabricated
+  number for "transparency" still means it appears in what the customer
+  reads; keep the removed value in an internal/audit list only.
+
+### History
+AR-17.4 (2026-09-19, `test-evidence/AGENT_OUTPUT_QUALITY_DRAFTING.md`) found
+all three instances above. AR-17.6 (2026-09-19) is this contract's origin:
+added the `hasSubstantiveOrgData` incomplete-draft gate and
+`scrubUnverifiedFigures()` to `src/lib/drafts/generator.ts`,
+`src/app/api/ai/humanize/route.ts`, and `src/lib/agents/draft-generation-agent.ts`;
+fixed the `draft-generation-agent.ts` org query and `twin_powered` flag; and
+added `checkRequestDescriptionLocationConsistency()` to
+`src/lib/autoapply/submission-validator.ts`, wired into
+`form-filler-agent.ts` as a `DeferredSubmissionError` before any page
+interaction. Regression suite:
+`src/__tests__/integration/research-drafting-quality.test.ts`. Full trace:
+`STATE_OF_THE_BUILD.md`'s "AR-17.6" section;
+`test-evidence/AGENT_OUTPUT_QUALITY_DRAFTING.md`.

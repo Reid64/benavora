@@ -89,6 +89,7 @@ export class EA09ContactExtractorAgent extends BaseAgent<
     const engine = new StealthEngine();
     let combinedHtml = "";
     let pagesFound = 0;
+    let firstFoundUrl: string | null = null;
 
     try {
       await engine.init();
@@ -99,6 +100,7 @@ export class EA09ContactExtractorAgent extends BaseAgent<
         const html = await engine.fetchPage(url);
         if (html) {
           pagesFound++;
+          firstFoundUrl = firstFoundUrl ?? url;
           combinedHtml += `\n\n--- ${url} ---\n${html}`;
           break; // the contact page (or homepage footer fallback) is enough context
         }
@@ -147,11 +149,16 @@ ${truncateForClaude(combinedHtml)}`;
     const phone = typeof extracted.phone === "string" && extracted.phone.trim() ? extracted.phone.trim() : null;
     const addressConfirmed = extracted.address_confirmed === true;
 
-    await mergeEnrichmentPatch(this.client, prospect, {
-      verified_emails: verifiedEmails,
-      phone,
-      address_confirmed: addressConfirmed,
-    });
+    await mergeEnrichmentPatch(
+      this.client,
+      prospect,
+      {
+        verified_emails: verifiedEmails,
+        phone,
+        address_confirmed: addressConfirmed,
+      },
+      firstFoundUrl,
+    );
 
     return {
       data: { verifiedEmails, phone, addressConfirmed, pagesFound },

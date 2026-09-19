@@ -82,6 +82,7 @@ import {
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
 import { causeOf, withCause } from "@/lib/agents/base-agent";
+import { buildFactCorpus, scrubUnverifiedFigures } from "@/lib/drafts/fact-guard";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
 import { sendEmail } from "@/lib/email/resend-client";
@@ -148,6 +149,15 @@ interface OrgProfileRow {
   target_population: string | null;
   founder_name: string | null;
   annual_budget: number | null;
+  // AR-17.6: previously absent from this row and from buildSharedContextBlock,
+  // so the model was never told these were missing -- it just wrote a phone
+  // number that exists nowhere in the org's data instead of flagging the gap
+  // (see Lead Finding #1, AR-17.4). ein/tax_status included for parity with
+  // the ordinary drafting path (src/lib/drafts/generator.ts).
+  phone: string | null;
+  address_line1: string | null;
+  ein: string | null;
+  tax_status: string | null;
 }
 
 // platform_learning_patterns (migration 083) has no generated types yet --
@@ -1085,11 +1095,18 @@ export class DraftGenerationAgent extends AutonomousAgent {
       "ORGANIZATION PROFILE:",
       `Name: ${orgName}`,
       `Mission: ${orgProfile?.mission_statement ?? "[NEEDS INPUT: mission statement]"}`,
-      `Vision: ${orgProfile?.vision_statement ?? ""}`,
+      `Vision: ${orgProfile?.vision_statement ?? "[NEEDS INPUT: vision statement]"}`,
       `Service area: ${orgProfile?.service_area ?? "[NEEDS INPUT: service area]"}`,
       `Target population: ${orgProfile?.target_population ?? "[NEEDS INPUT: target population]"}`,
-      `Founder: ${orgProfile?.founder_name ?? ""}`,
+      `Founder: ${orgProfile?.founder_name ?? "[NEEDS INPUT: founder name]"}`,
       `Annual budget: ${orgProfile?.annual_budget ?? "[NEEDS INPUT: annual budget]"}`,
+      // AR-17.6 (Lead Finding #1): without these two lines, the model was
+      // never told a phone/address was missing and would write one anyway
+      // when a federal application template called for it. Never state a
+      // stored value here without it existing in orgProfile -- no fallback
+      // to a guess.
+      `Phone: ${orgProfile?.phone ?? "[NEEDS INPUT: phone number]"}`,
+      `Address: ${orgProfile?.address_line1 ?? "[NEEDS INPUT: mailing address]"}`,
       "",
       ...(twinContext.promptBlock
         ? [twinContext.promptBlock, ""]
@@ -1476,7 +1493,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
       const { data: orgProfileData } = await this.supabase
         .from("organizations")
         .select(
-          "name, mission_statement, vision_statement, service_area, target_population, founder_name, annual_budget",
+          "name, mission_statement, vision_statement, service_area, target_population, founder_name, annual_budget, phone, address_line1, ein, tax_status",
         )
         .eq("id", this.orgId)
         .single();
@@ -1826,6 +1843,43 @@ export class DraftGenerationAgent extends AutonomousAgent {
         );
       }
 
+      // ---- FACT GUARD (AR-17.6) ----------------------------------------------
+      // Lead Finding #1 (AR-17.4): this path fabricated a phone number that
+      // exists nowhere in the org's data on every one of its 5 lifetime
+      // runs. No figure/outcome/beneficiary-count/past-award claim may
+      // survive in the saved draft unless it traces to the org's own
+      // profile/knowledge-base/twin data or the funder's own opportunity
+      // data. Runs after humanization + style guide, on the exact text that
+      // is about to be saved.
+      const factCorpus = buildFactCorpus([
+        orgName,
+        orgProfile?.mission_statement,
+        orgProfile?.vision_statement,
+        orgProfile?.service_area,
+        orgProfile?.target_population,
+        orgProfile?.founder_name,
+        orgProfile?.annual_budget,
+        orgProfile?.phone,
+        orgProfile?.address_line1,
+        orgProfile?.ein,
+        twin?.mission,
+        twin?.vision,
+        ...knowledgeEntries.map((e) => e.content),
+        ...provenNarratives.map((p) => p.narrative_text),
+        opportunity.name,
+        opportunity.description,
+        opportunity.amount_min,
+        opportunity.amount_max,
+      ]);
+      const factGuardResult = scrubUnverifiedFigures(finalDraftText, factCorpus);
+      finalDraftText = factGuardResult.text;
+      const scrubbedFigures = factGuardResult.removed;
+      if (scrubbedFigures.length > 0) {
+        errors.push(
+          `Fact guard removed ${scrubbedFigures.length} unverified figure(s) not present in organizational or funder data: ${scrubbedFigures.join("; ")}`,
+        );
+      }
+
       const criticalStyleViolations =
         styleGuideResult?.violations.filter((v) => v.severity === "critical") ?? [];
 
@@ -1876,7 +1930,13 @@ export class DraftGenerationAgent extends AutonomousAgent {
         knowledge_patterns_applied: knowledgeEngineResult.patterns.map(
           (p) => p.id,
         ),
-        twin_powered: true,
+        // AR-17.6: this was unconditionally true regardless of whether any
+        // digital-twin data existed for the org (buildTwinContext(null)
+        // still returns completeness: 0, promptBlock: null) -- every
+        // draft-generation-agent row claimed to be twin-powered even for an
+        // org with zero twin data. Gate it on the same completeness signal
+        // already computed and stored alongside it.
+        twin_powered: twinContext.completeness > 0,
         twin_completeness: twinContext.completeness,
         compliance_check_result: complianceResult as unknown as Record<
           string,
@@ -1887,6 +1947,10 @@ export class DraftGenerationAgent extends AutonomousAgent {
           humanization_breakdown: humanizationBreakdown,
           style_guide_violations: styleGuideResult?.violations ?? [],
           style_guide_suggestions: styleGuideResult?.suggestions ?? [],
+          // AR-17.6: figures removed by the fact guard because they didn't
+          // trace to org/funder data -- empty array (not absent) when the
+          // check ran and found nothing to remove.
+          fact_guard_scrubbed_figures: scrubbedFigures,
           // Read by the "Intelligence Used" section on
           // /draft-generator/autonomous (see that page for the render side).
           intelligence_pattern_analysis: {

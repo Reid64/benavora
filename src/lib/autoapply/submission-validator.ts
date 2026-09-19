@@ -89,6 +89,68 @@ function validateFieldFormat(
   return {};
 }
 
+// AR-17.6: on 2026-06-19 a real AutoApply submission (FAITH Foundation,
+// Burnet, Texas) sent a funder a `request_description` that described "Faith
+// Foundation SF... the San Francisco Bay Area" -- a stale, wrong free-text
+// value from `request_profiles.needs_description`. Every structured field
+// (EIN, address, phone) was correct and internally consistent; the one field
+// carrying the organization's own self-description was wrong, and nothing
+// downstream checked it against the organization's own profile before it
+// reached a real funder's portal. This is not full geo-NER -- it is a
+// bounded, unambiguous city->state lookup, deliberately limited to city
+// names that map to exactly one state in ordinary usage (no Springfield,
+// Portland, Columbus-style entries), so it catches the concrete failure
+// mode above without false-flagging normal text.
+const UNAMBIGUOUS_US_CITIES: Record<string, string> = {
+  "san francisco": "california", "los angeles": "california", "san diego": "california",
+  "sacramento": "california", "oakland": "california", "san jose": "california", "fresno": "california",
+  "houston": "texas", "dallas": "texas", "austin": "texas", "san antonio": "texas", "el paso": "texas", "fort worth": "texas",
+  "brooklyn": "new york", "manhattan": "new york",
+  "chicago": "illinois", "philadelphia": "pennsylvania", "pittsburgh": "pennsylvania",
+  "phoenix": "arizona", "tucson": "arizona", "seattle": "washington", "denver": "colorado",
+  "boston": "massachusetts", "atlanta": "georgia", "miami": "florida", "orlando": "florida", "tampa": "florida",
+  "detroit": "michigan", "minneapolis": "minnesota", "st. louis": "missouri", "kansas city": "missouri",
+  "baltimore": "maryland", "las vegas": "nevada", "nashville": "tennessee", "memphis": "tennessee",
+  "new orleans": "louisiana", "charlotte": "north carolina", "raleigh": "north carolina",
+  "cleveland": "ohio", "cincinnati": "ohio", "milwaukee": "wisconsin", "honolulu": "hawaii",
+  "anchorage": "alaska", "albuquerque": "new mexico", "salt lake city": "utah",
+};
+
+export interface LocationConsistencyResult {
+  consistent: boolean;
+  conflictingCity?: string;
+  conflictingState?: string;
+}
+
+/**
+ * Flags a free-text request description that names a major US city
+ * inconsistent with the organization's own on-file city/state -- the exact
+ * shape of the 2026-06-19 Meade Tractor submission (a Texas organization's
+ * request description described "the San Francisco Bay Area"). Returns
+ * `consistent: true` (not a false alarm) when there is nothing on file to
+ * compare against, when the description names the org's own city, or when
+ * the named city is in the org's own state.
+ */
+export function checkRequestDescriptionLocationConsistency(
+  orgCity: string | null | undefined,
+  orgState: string | null | undefined,
+  description: string | null | undefined,
+): LocationConsistencyResult {
+  const normalizedOrgState = (orgState ?? "").trim().toLowerCase();
+  const normalizedOrgCity = (orgCity ?? "").trim().toLowerCase();
+  if (!description || !description.trim()) return { consistent: true };
+  if (!normalizedOrgState && !normalizedOrgCity) return { consistent: true };
+
+  const lowerDesc = description.toLowerCase();
+  for (const [city, state] of Object.entries(UNAMBIGUOUS_US_CITIES)) {
+    if (!lowerDesc.includes(city)) continue;
+    if (normalizedOrgCity === city) continue;
+    if (normalizedOrgState && normalizedOrgState === state) continue;
+    return { consistent: false, conflictingCity: city, conflictingState: state };
+  }
+  return { consistent: true };
+}
+
 let _client: Anthropic | null = null;
 
 function getClaude(): Anthropic {

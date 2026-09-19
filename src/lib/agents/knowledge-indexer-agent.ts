@@ -473,7 +473,16 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
    * single timestamp this agent's own run history already carries (spec's
    * own build-time implementation choice). Runs the aggregation and returns
    * the resulting decision id if it ran, or null if not due yet. */
-  private async maybeRunPatternAggregation(runId: string): Promise<string | null> {
+  /**
+   * Read-only due-check, split out of maybeRunPatternAggregation() (AR-17.6)
+   * so callers can decide whether there is any work at all — an empty
+   * embedding batch AND aggregation not due — before writing anything to
+   * agent_runs at all. Safe to call twice per pass (once here, once inside
+   * maybeRunPatternAggregation itself): it's a cheap read against the last
+   * 20 agent_runs rows, and re-checking after startRun() guards against the
+   * rare race where aggregation became due in between.
+   */
+  private async isPatternAggregationDue(): Promise<boolean> {
     const { data: recentRuns } = await this.supabase
       .from("agent_runs")
       .select("completed_at, output_payload")
@@ -493,8 +502,12 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
       ? Date.now() - new Date(lastAggRun.completed_at).getTime()
       : Infinity;
 
-    if (msSinceLastAgg < PATTERN_AGGREGATION_INTERVAL_MS) return null;
+    return msSinceLastAgg >= PATTERN_AGGREGATION_INTERVAL_MS;
+  }
 
+  private async maybeRunPatternAggregation(runId: string): Promise<string | null> {
+    const due = await this.isPatternAggregationDue();
+    if (!due) return null;
     return this.runPatternAggregation(runId);
   }
 
@@ -588,6 +601,45 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
 
   override async run(triggerSource: TriggerSource): Promise<KnowledgeIndexerRunResult> {
     await this.ensureSystemOrg();
+
+    // AR-17.6: check for claimable work BEFORE writing anything to
+    // agent_runs — every other continuous poll loop in this codebase
+    // (dd-request-processor.ts, enrichment-processor.ts, queue-processor.ts)
+    // already does this; this agent didn't, which is the actual mechanism
+    // behind it being 95.94% of every agent_runs row ever recorded on the
+    // platform (65,602 of 68,377) despite making no Anthropic calls. An
+    // empty poll is now invisible in the run history, exactly like every
+    // other poll loop's empty pass already is — this does not change the
+    // 60s/backoff poll cadence itself (worker/knowledge-indexer-processor.ts
+    // already handles that), only whether a no-op tick leaves a row behind.
+    let batch: EmbeddableRow[] = [];
+    if (triggerSource === "event") {
+      const target = await this.loadEventTriggerPayload();
+      if (target) {
+        const specific = await this.loadSpecificRow(target);
+        if (specific) batch.push(specific);
+      }
+    }
+    const remaining = EMBEDDING_BATCH_SIZE - batch.length;
+    if (remaining > 0) {
+      batch = [...batch, ...(await this.loadPendingBatch(remaining, batch))];
+    }
+    const itemsFoundPreCheck = batch.length;
+    const aggregationDue = await this.isPatternAggregationDue();
+
+    if (itemsFoundPreCheck === 0 && !aggregationDue) {
+      return {
+        success: true,
+        itemsFound: 0,
+        itemsProcessed: 0,
+        itemsQueued: 0,
+        decisions: [],
+        nextActions: [],
+        errors: [],
+        batchWasFull: false,
+      };
+    }
+
     const runId = await this.startRun(triggerSource);
     const errors: string[] = [];
     const decisions: string[] = [];
@@ -601,21 +653,6 @@ export class KnowledgeIndexerAgent extends AutonomousAgent {
     };
 
     try {
-      let batch: EmbeddableRow[] = [];
-
-      if (triggerSource === "event") {
-        const target = await this.loadEventTriggerPayload();
-        if (target) {
-          const specific = await this.loadSpecificRow(target);
-          if (specific) batch.push(specific);
-        }
-      }
-
-      const remaining = EMBEDDING_BATCH_SIZE - batch.length;
-      if (remaining > 0) {
-        batch = [...batch, ...(await this.loadPendingBatch(remaining, batch))];
-      }
-
       itemsFound = batch.length;
 
       if (batch.length > 0) {

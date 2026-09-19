@@ -7,6 +7,7 @@ import { trackUsage } from "@/lib/billing/usage-tracker";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import { runHumanizer } from "@/lib/agents/humanizer-agent";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
+import { buildFactCorpus, scrubUnverifiedFigures } from "@/lib/drafts/fact-guard";
 import type {
   DraftKnowledgeEntry,
   DraftProvenNarrative,
@@ -275,13 +276,34 @@ export async function POST(request: Request) {
       maxTokens,
     });
 
-    const humanizedContent = result.content
+    const cleanedContent = result.content
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/\*([^*]+)\*/g, '$1')
       .replace(/^#{1,6}\s+/gm, '')
       .replace(/—/g, '-')
       .replace(/\r\n/g, '\n')
       .trim();
+
+    // AR-17.6: the humanizer's whole job is rewriting prose to sound more
+    // confident and less hedged -- exactly the operation that can turn a
+    // [NEEDS INPUT] placeholder into an invented, confident-sounding figure.
+    // Scrub before scoring so a fabricated number can't both survive AND
+    // earn the "gap resolved" bonus below for having disappeared.
+    const factCorpus = buildFactCorpus([
+      org?.name,
+      org?.dba,
+      org?.mission_statement,
+      org?.vision_statement,
+      org?.service_area,
+      org?.target_population,
+      org?.founder_name,
+      org?.annual_budget,
+      org?.ein,
+      ...knowledgeEntries.map((e) => e.content),
+      ...provenNarratives.map((p) => p.narrativeText),
+    ]);
+    const { text: humanizedContent, removed: scrubbedFigures } =
+      scrubUnverifiedFigures(cleanedContent, factCorpus);
 
     const grounded = computeGroundedConfidence(
       humanizedContent,
@@ -292,7 +314,18 @@ export async function POST(request: Request) {
     const resolvedGaps = Math.max(0, preHumanizeGaps - postGaps);
     const gapBonus = resolvedGaps * 3;
     const humanizationBonus = Math.max(0, Math.round((result.humanizationScore - 50) * 0.2));
-    const confidenceScore = Math.min(100, Math.max(preScore, grounded) + gapBonus + humanizationBonus);
+    const rawConfidenceScore = Math.min(100, Math.max(preScore, grounded) + gapBonus + humanizationBonus);
+    // AR-17.6 (AR-17.4 Lead Finding #3): gapBonus/humanizationBonus reward a
+    // draft for removing [NEEDS INPUT] markers and reading more human --
+    // neither is evidence the replacement content is real. This is exactly
+    // how a zero-knowledge-base draft (Beta Org 1) scored 82, the platform's
+    // second-highest confidence score ever, above the 55-65 ceiling
+    // computeGroundedConfidence's own kbCount===0 branch intends. With no KB
+    // grounding at all, "resolving" a gap can only mean the model filled it
+    // with something not in the org's data -- do not let these bonuses lift
+    // the score above the ungrounded ceiling.
+    const confidenceScore =
+      knowledgeEntries.length === 0 ? Math.min(rawConfidenceScore, grounded) : rawConfidenceScore;
 
     // Transparency panel (BEHAVIORAL_CONTRACTS §9): the facts/voice that informed
     // the rewrite - same shape /api/ai/draft records, so usage history matches.
@@ -360,7 +393,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const payload: HumanizeResult & { belowThreshold: boolean } = {
+    const payload: HumanizeResult & { belowThreshold: boolean; scrubbedFigures: string[] } = {
       content: humanizedContent,
       confidenceScore,
       humanizationStatus: "humanized",
@@ -368,6 +401,7 @@ export async function POST(request: Request) {
       savedVersion,
       humanizationScore: result.humanizationScore,
       belowThreshold: confidenceScore < threshold,
+      scrubbedFigures,
     };
 
     return NextResponse.json(payload);
