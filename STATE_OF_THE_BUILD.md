@@ -1,5 +1,56 @@
 # Benavora Platform Build State
 
+## AR-13.1 — Full agent census: one row per agent module, verdict + evidence from live data (2026-09-19)
+
+**Task:** build `test-evidence/AGENT_CENSUS.md` + `agent-census.json`, one
+row per agent module in the 144-item registry
+(`scripts/audit/agent-exercise-registry.ts`), with live production counts
+(never estimates), real invoker file:line tracing, and a verdict. No
+production code changed.
+
+**Verdict tally across 145 rows (144 registry modules + 1 supplementary
+worker-level `autoapply_queue_processor` entry):**
+
+| Verdict | Count | % |
+|---|---|---|
+| NEVER-INVOKED | 52 | 35.9% |
+| DEGRADED | 32 | 22.1% |
+| OPERATIONAL | 29 | 20.0% |
+| NO-OP | 18 | 12.4% |
+| BROKEN | 10 | 6.9% |
+| ORPHANED | 4 | 2.8% |
+
+Only 29/145 (20%) are cleanly OPERATIONAL. A further 18 (12.4%) run and
+report success while processing zero items.
+
+**Headline finding, root-caused live:** `ag-29-knowledge-indexer` (64,481
+lifetime runs, ~96% of the entire `agent_runs` table) is a correctly
+functioning query hitting a permanently empty well, not a broken agent —
+`foundation_directory` has 133,812/133,812 rows needing embeddings, and
+every one of them has `programs=NULL` and no `enrichment.mission`, the only
+two fields the indexer can read. The fix belongs in the ingestion pipeline
+(`foundation-scraper.ts`), not the indexer.
+
+**Other major findings:** `autoapply_queue_processor` is 0/59 lifetime
+completions (root causes identified and partially fixed — see AR-12.2
+above and `AUTOAPPLY_BLOCKER_CHAIN.md`); `src/lib/agents/form-filler.ts`
+has no approval gate at all (auto-submits live forms with zero human
+review, 0 production runs so dormant not active); the PIL pipeline has
+never once organically completed all 9 agent families for one research
+run (`BEN-SUP-05` is 100% unreachable due to a dropped delegation `plan`
+field, `BEN-APP-03` — the final AutoApply handoff — has 0 lifetime runs);
+`ai_usage_log` (Claude spend tracking) has only 8 populated `agent_type`
+values platform-wide despite dozens of agents claiming `callsClaude:true`,
+including zero coverage across all 51 PIL agents. Six real, executed
+`agent_type` values (`narrative_drafting`, `ag22_propensity_scoring`/AG-22,
+`autonomous_orchestrator`, `fit_analysis`, `ag-26-forecast`,
+`ag-43-funder-signals`) exist in production with no corresponding module
+in the 144-item registry — the registry itself is incomplete relative to
+live history.
+
+Full detail: `test-evidence/AGENT_CENSUS.md`, `test-evidence/agent-census.json`,
+and the AR-13.1 addendum in `test-evidence/AGENT_INVOCATION_MAP.md` §7.
+
 ## AR-12.2 — autoapply_queue_processor's first real completed run, and the bug that was actually blocking it (2026-09-18)
 
 **Task:** drive `autoapply_queue_processor` to a genuine `agent_runs.status

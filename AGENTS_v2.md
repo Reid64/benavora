@@ -1204,3 +1204,40 @@ same order), not `processItem()`'s outer orchestration wrapper, which gates
 on `assertUrlSafe()` (blocks every local/loopback address, so a
 no-external-host fixture portal can never reach it) plus roughly ten
 unrelated business rules outside this chain's scope.
+
+---
+
+## AR-13.1 — Full Live Agent Census (2026-09-19)
+
+`test-evidence/AGENT_CENSUS.md` + `agent-census.json` now hold one row per
+agent module in the 144-item registry (`scripts/audit/agent-exercise-registry.ts`),
+built from live Supabase queries + real source-code invoker tracing, not
+from this document. Treat this document's per-agent descriptions above as
+design intent; treat the census as ground truth for what actually runs.
+
+**Verdict tally (145 rows: 144 registry modules + 1 supplementary
+worker-level row):** 29 OPERATIONAL (20.0%), 52 NEVER-INVOKED (35.9%),
+32 DEGRADED (22.1%), 18 NO-OP (12.4%), 10 BROKEN (6.9%), 4 ORPHANED (2.8%).
+
+**Registry accuracy corrections found this pass** (see census §"Registry
+corrections found" for detail): `ea-04-foundation-detector.ts` does not
+call Claude despite this doc/the registry implying otherwise; 5 AG-*
+agents call Claude despite the registry omitting `callsClaude`; ~25 of the
+51 PIL `BEN-*` agents make zero Claude/tool calls despite `pilAgentDescriptor()`
+hardcoding `callsClaude:true` for all 51; `BEN-STR-01/02/03` are never
+invoked, bringing the true PIL never-invoked-or-orphaned count to 27
+(not the ~24 previously assumed).
+
+**Registry-gap agents** — real, executed, production `agent_type` values
+with no module anywhere in the 144-item registry: `narrative_drafting`,
+`ag22_propensity_scoring` (AG-22 PropensityScoringAgent — the Score Engine
+chained after every EA enrichment pass, a high-value agent missing from
+both this document's phase listings above under that exact name and the
+registry), `autonomous_orchestrator`, `fit_analysis` (this document's own
+AG-04), `ag-26-forecast` (this document's own AG-26, §"Agent Execution
+Order" references it by name), and `ag-43-funder-signals` (undocumented
+anywhere, including this file — highest AG number listed above is AG-42).
+
+Full detail, per-agent invoker citations, and rubric scoring:
+`test-evidence/AGENT_CENSUS.md`, `test-evidence/agent-census.json`,
+`test-evidence/AGENT_INVOCATION_MAP.md` §7.

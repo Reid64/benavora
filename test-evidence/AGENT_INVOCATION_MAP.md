@@ -283,3 +283,123 @@ Check, per agent, which of these five mechanisms (env flag, PIL registry
 starvation like EA) actually governs it — the invocation path differs by
 family, and at least three of the five mechanisms above are real and can
 independently explain "zero runs" without the agent being broken at all.
+
+---
+
+## 7. AR-13.1 Full Census Addendum (2026-09-19)
+
+Built while producing `test-evidence/AGENT_CENSUS.md` / `agent-census.json`,
+one row per agent module across all 144 registry entries. Full per-agent
+invoker file:line citations live in those two files; this section records
+only the cross-cutting corrections and new mechanisms this pass surfaced
+that change or extend the picture above.
+
+### 7.1 `ag-29-knowledge-indexer` — definitively root-caused, not a bug
+
+Section 2 above didn't cover this agent. Live-queried this session:
+`foundation_directory` has 133,812/133,812 rows with `embedding IS NULL`,
+and every one of those 133,812 rows has `programs=NULL` and no
+`enrichment.mission` key — the only two text sources
+`flattenFoundationText()` (`knowledge-indexer-agent.ts:153-168`) can use.
+The WHERE-embedding-IS-NULL query and content-filter logic are **correct**;
+they accurately find zero indexable text on every 60s-tick pass, forever.
+This produces 64,477 of 64,480 "completed" runs with `items_processed=0`
+(~96% of the entire `agent_runs` table). The fix belongs in
+`foundation-scraper.ts` (never populates `programs`/`enrichment.mission`),
+not in the indexer.
+
+### 7.2 `circuit-breaker.ts` correction — NOT wired into the AutoApply family
+
+Section 3 above states `src/lib/resilience/circuit-breaker.ts` "is imported
+here" (the AutoApply/queue-processor family) as a real disabling mechanism.
+A repo-wide grep this session found it imported **only by its own unit
+test** (`src/__tests__/unit/circuit-breaker.test.ts`) — not by
+`worker/queue-processor.ts`, `worker/proxy-manager.ts`,
+`src/lib/scraper/stealth-engine.ts`, or `src/lib/agents/custom-scrape.ts`.
+It is orphaned code, not a live disabling mechanism, and is not the
+explanation for `autoapply_queue_processor`'s 0/59 completion rate (real
+causes: a failure/skip logging bug fixed this cycle, and a separate
+FormAnalyzerAgent navigation bug — see AGENT_CENSUS.md).
+
+### 7.3 New disabling/starvation pattern: dropped delegation `plan` fields
+
+`AgentRunner.delegate()` (`src/lib/pil/agent-runner.ts:384-393`) hardcodes
+a child `AgentContext`'s `plan: {}`, silently dropping the parent
+`DelegationRequest.constraints` object entirely. At least two PIL agents
+hard-require a field that only ever arrives via that dropped path:
+`BEN-SUP-05` requires `context.plan.targetAgentRunId` (immediate hard
+failure if absent — 11/11 lifetime runs fail this way) and `BEN-KNW-02`
+requires `context.plan.prospectIds` (handled as a graceful
+`completed/skipped` no-op instead, masking the identical wiring gap behind
+a green status). `BEN-DIS-05` references the same `targetAgentRunId`
+convention for its own future delegation, meaning a third agent would hit
+this bug if ever reached. This is a **new class of quiet no-op** beyond
+the five mechanisms enumerated in section 6: not an env flag, not a
+registry `active` flag, not a circuit breaker, not queue starvation — a
+parameter-passing bug between parent and child agent contexts.
+
+### 7.4 `follow_up_generator` — unresolved anomaly, not silently assumed fixed
+
+All 4 lifetime runs of `src/lib/agents/follow-up-generator.ts` (the
+core-family `follow_up_generator`, distinct from AG-28's
+`followup-generator-agent.ts`) show `itemsProcessed=0`, but the code path
+cannot structurally produce that value: `parseSequenceResponse()` throws on
+a 0-length array and the generation loop always pushes at least one entry
+onto `steps` before returning `itemsProcessed: steps.length`. Root cause
+not identified this session — flagged for follow-up, not assumed resolved.
+
+### 7.5 `form-filler.ts` — live auto-submit safety gap (0 production runs)
+
+`src/lib/agents/form-filler.ts` (`FormFillerAgent`, invoked only via the
+manual `/api/agents/form-filler` route, which has never been called in
+production) has **no approval gate**: `execute()` calls
+`stealth.humanClick()` on the live submit control directly, then inserts
+`autoapply_submissions` with `status:'submitted'` — no human review step
+exists in this file. This appears to contradict the "Automation NEVER
+auto-submits forms" contract that `src/lib/agents/playwright-agent.ts`
+visibly enforces (`apply` mode always pauses at `awaiting_approval`).
+Currently dormant (0 lifetime runs) but a real code-level risk, independent
+of run history.
+
+### 7.6 Registry corrections (agent-exercise-registry.ts vs. live source)
+
+- `src/lib/agents/ea-04-foundation-detector.ts`: registry says
+  `callsClaude:true`; source has zero `callClaude` import and its own
+  header says "purely deterministic."
+- Five `AUTONOMOUS_AGENT_SPECS` entries omit `callsClaude` (defaults
+  `false`) but genuinely call Claude at runtime: `ag-30-donor-intent`,
+  `ag-35-community-need`, `ag-09-outcome-analyzer`, `ag-11-knowledge-gap`,
+  `ag-32-relationship-graph`.
+- `pilAgentDescriptor()` hardcodes `callsClaude:true` for all 51 PIL codes;
+  roughly 25 of the 51 (all REL-02/04/05/06, all QLF, all KNW, all STR,
+  OPS-01, all APP) make zero Claude or PIL-tool calls in their actual
+  source.
+- `BEN-STR-01/02/03` were omitted from this task's own "~24 PIL
+  never-invoked" framing; live query confirms all three also have zero
+  lifetime `pil_agent_runs` rows. **True PIL never-invoked-or-orphaned
+  count is 27, not 24.**
+
+### 7.7 Registry-gap agents (executed in production, absent from the 144-module registry)
+
+`narrative_drafting` (88 lifetime runs), `ag22_propensity_scoring`/AG-22
+PropensityScoringAgent (63 runs, the Score Engine chained after every EA
+enrichment pass — a high-value, high-volume agent entirely missing from
+the registry), `autonomous_orchestrator` (41 runs, likely the worker's own
+top-level pipeline wrapper), `fit_analysis` (1 run, AGENTS_v2.md's AG-04),
+`ag-26-forecast` (7 runs, AGENTS_v2.md's AG-26, referenced by name in
+`worker/scheduler.ts`'s job table), and `ag-43-funder-signals` (4 runs, not
+documented in AGENTS_v2.md at all). See AGENT_CENSUS.md for full detail.
+
+### 7.8 ai_usage_log coverage — near-total gap
+
+Platform-wide, only 8 distinct `agent_type` values have ever written a row
+to `ai_usage_log`, out of dozens of agents with `callsClaude:true` (real or
+claimed): `eligibility_scoring` (30 rows), `ag22_propensity_scoring` (9),
+`ai_usage_log_verification` (5), `ag-29-knowledge-indexer` (4 — anomalous,
+since that agent calls OpenAI's embedding API, not Claude, and no code path
+in its file writes to `ai_usage_log`), `ea02_community_outreach_detector`
+(1), `ea10_social_media_analyzer` (1), `ea06_press_release_analyzer` (1).
+Every PIL agent (all 51, all hardcoded `callsClaude:true`) has **zero**
+`ai_usage_log` rows despite `pil_agent_run_id` existing as a column on that
+table. Real Claude/AI spend on this platform is almost entirely untracked
+outside a handful of high-volume core-family agents.
