@@ -8,7 +8,36 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-13.3: upstream data pipeline audit —
+- **Last updated:** 2026-09-19 (AR-13.4: ranked root-cause remediation plan
+  synthesizing AR-13.1/13.2/13.3 — 14 distinct root causes covering the
+  145-agent registry's 116 non-operational rows. Ranked #1-5:
+  `ag-29-knowledge-indexer` (field mismatch + write-before-check poll,
+  small effort, 1 agent but 96.1% of all `agent_runs` volume);
+  AutoApply's 10-agent submission chain (both root-cause bugs already
+  merged on `main` — only a poisoned-cache clear + live verification
+  remain); PIL `BEN-SUP-05`'s dropped `plan.targetAgentRunId` field
+  (blocks the critic agent every AutoApply-bound PIL path depends on);
+  a shared 30-minute stuck-run hang across 6 PIL DIS/INT/REL/SUP agents
+  (family-abort design means this also explains ~24 more never-reached
+  PIL agents, stated as cascade potential, not counted as confirmed
+  recovery); EA-family + AG-22's 11-agent `corporate_prospects` queue
+  starvation (manual-CLI-only acquisition, no scheduled refill — the
+  underlying Chromium bug is already proven fixed live per AR-9.3). Plus
+  4 small isolated fixes (`hud_monitor`, `follow_up_generator`, `review`,
+  `BEN-QLF-03/04`). **5 items called out as needing Reid directly**
+  (autonomous-config rollout scope, which of 15 never-surfaced manual
+  agents to build a UI for vs retire, and 3 Railway/Vercel
+  credential/account gaps). **7 agents recommended for outright deletion**
+  (`budget_builder_worker`, `form_filler` — has an active auto-submit
+  safety gap, `form_analyzer`, `application_cloning`, plus
+  `ag-25-deadline-prediction`/`ag-28-followup`/`ag-15-probability`, three
+  one-time-harness-only duplicates of real working agents). Coverage: 34
+  agents fixed directly (~58 incl. cascade), 22 need Reid, 14 confirmed
+  correct-as-is, 7 to delete. Diagnose/plan only — no production code
+  changed. `pnpm typecheck` 0 errors; `pnpm test` 98 files passed/1
+  skipped, 904 tests passed/13 todo, exit 0. Full detail:
+  `test-evidence/REMEDIATION_PLAN.md`.) Previous entry —
+  2026-09-19 (AR-13.3: upstream data pipeline audit —
   resolved `ag-29-knowledge-indexer` completely: it scans `foundation_directory`
   (133,812 rows, 100% pending) but that table's own enrichment writers never
   populate the two fields — `programs`, `enrichment.mission` — the agent
@@ -50,6 +79,91 @@
 ## Active Build
 none — Phase 6 FORGE execution still blocked pending enterprise-grade specifications (unchanged by
 this session's work, see "Session — 2026-09-16 (Phase 6 Prompt Generation)" below).
+
+## Session — 2026-09-19 (AR-13.4: ranked root-cause remediation plan)
+
+**Task:** read AR-13.1/13.2/13.3 (`AGENT_CENSUS.md`, `SCHEDULER_MAP.md`,
+`DATA_PIPELINE_AUDIT.md`) and produce `test-evidence/REMEDIATION_PLAN.md`
+grouped by root cause, not by agent — the task's own framing: a 60-line
+per-agent plan is unexecutable, a 12-root-cause plan covering 60 agents is
+executable tonight. Synthesis only, no production code changed.
+
+**14 root causes**, each with agents affected, quoted evidence, a
+concretely-scoped fix, blast radius, a live-production verification (not a
+passing test), and an effort tier, ranked by agents-recovered-per-effort:
+
+1. `ag-29-knowledge-indexer` — `flattenFoundationText()` only reads
+   `programs`/`enrichment.mission`, fields no producer ever writes, plus
+   `knowledge-indexer-processor.ts` logs a formal run before checking for
+   work. Ranked #1 despite covering 1 agent because it's 96.1% of all
+   `agent_runs` history.
+2. AutoApply's 10-agent submission chain — verified this session that
+   both root-cause bugs (`run-logger.ts` misclassification,
+   `FormAnalyzerAgent`'s missing `page.goto()`) are **already merged on
+   `main`** (`worker/queue-processor.ts:1353`, commit `2027a944`); what's
+   left is a scoped `form_templates` cache-clear for pre-fix poisoned rows
+   and one live end-to-end verification against a real (non-test) org.
+3. PIL `BEN-SUP-05` — `AgentRunner.delegate()` drops
+   `plan.targetAgentRunId`, hard-failing the critic agent every
+   AutoApply-bound PIL submission path depends on (`BEN-APP-01`'s own
+   `human_boundary` always delegates to it first).
+4. A shared 30-minute stuck-run hang across `BEN-SUP-01/03`, `BEN-DIS-08`,
+   `BEN-INT-03/09`, `BEN-REL-03` (6 agents, identical
+   `stuck-run-watchdog.ts:255` timeout signature) — flagged as needing a
+   trace-then-patch investigation, not a one-line fix; honestly labeled
+   as the practical reason ~24 more PIL agents have never been
+   positionally reached, without counting that cascade as confirmed.
+5. EA-family (10) + AG-22 — `corporate_prospects` acquisition
+   (`acquireFromGooglePlaces()`) is manual-CLI-only despite a route
+   comment claiming a nightly sweep that doesn't exist in code, and
+   `enrichProspect()`'s completion-flag semantics ("attempted" not
+   "succeeded") permanently block re-queuing. Confirmed the underlying
+   Chromium bug (AR-7.1) is unrelated and already proven fixed live
+   (AR-9.3 reset-and-rerun) — this is pure queue starvation now.
+6-9. `hud_monitor` (unconditional call site, zero runs ever — traced as a
+   real anomaly, not starvation), `follow_up_generator` (structurally-
+   impossible zero-item completions — likely `parseSequenceResponse()`
+   miscounting), `review` (100% failure, zero `ai_usage_log` rows,
+   consistent with never having received AR-11.4's timeout-class raise),
+   `BEN-QLF-03`/`BEN-QLF-04` (the `[object Object]` bug is reportedly
+   already fixed via `serializePilError()` — flagged for re-verification
+   on this specific call path).
+10. Registry hygiene (not a functional fix): 6 real, actively-used
+   `agent_type`s (`narrative_drafting`, `ag22_propensity_scoring`,
+   `fit_analysis`, `ag-26-forecast`, `ag-43-funder-signals`,
+   `autonomous_orchestrator`) are absent from the 144-module registry —
+   add them so future audits stop rediscovering them from scratch.
+
+**Called out separately, per the task's explicit instruction:**
+- **Needs Reid (5 items):** whether to expand `org_autonomous_config`
+  past its single currently-enabled org (gates 7 agents); which of 15
+  real-but-never-surfaced manual-only agents deserve a UI/scheduler entry
+  point vs retirement; Railway env access to check `FORGE_SLACK_WEBHOOK`
+  (637 critical alerts, zero ever delivered to Slack) and `ENABLE_SCRAPER`
+  (foundation/nonprofit enrichment stalled 6-7 weeks); Vercel team access
+  to confirm the 7 cron entries are actually live in the dashboard, not
+  just present in `vercel.json`.
+- **Recommend DELETE, not repair (7 agents):** `budget_builder_worker`
+  (dead duplicate of the working `budget_builder`), `form_filler` (0
+  runs, and per AR-13.1's own finding auto-submits a live funder form
+  with zero approval gate — a safety liability, not just dead code),
+  `form_analyzer` (duplicate of the queue-integrated
+  `autoapply_form_analyzer`), `application_cloning` (predates the lighter
+  `/api/applications/[id]/clone` route per existing memory),
+  `ag-25-deadline-prediction`/`ag-28-followup`/`ag-15-probability` (each
+  ran exactly once, ever, in the same 2026-08-02 exercise-harness batch,
+  each duplicating a real actively-invoked agent under a different name).
+
+**Coverage:** 34 non-operational agents get a named, concrete fix
+directly (≈58 including root cause #4's honestly-uncounted cascade); 22
+more depend on a Reid decision or credential; 14 are confirmed
+correct-as-designed (real API/scrape queries finding nothing, or an
+accurate self-reported skip); 7 are recommended for deletion.
+
+**Verification:** `pnpm typecheck` — 0 errors, exit 0. `pnpm test` — 98
+test files passed / 1 skipped (99), 904 tests passed / 13 todo (917
+total), exit 0. No code changed this session. Full detail:
+`test-evidence/REMEDIATION_PLAN.md`.
 
 ## Session — 2026-09-18 (AR-9.3: AutoApply end-to-end proof against a local required-field portal)
 

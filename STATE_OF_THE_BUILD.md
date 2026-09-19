@@ -1,5 +1,77 @@
 # Benavora Platform Build State
 
+## AR-13.4 — Ranked root-cause remediation plan covering every non-operational agent (2026-09-19)
+
+**Task:** synthesize AR-13.1 (`AGENT_CENSUS.md`), AR-13.2
+(`SCHEDULER_MAP.md`), and AR-13.3 (`DATA_PIPELINE_AUDIT.md`) — 145 tracked
+agent/worker rows, 116 non-operational — into an executable plan grouped
+by root cause, not a 60-line per-agent list. No production code changed.
+Full detail: `test-evidence/REMEDIATION_PLAN.md`.
+
+**14 distinct root causes identified**, ranked by agents-recovered-per-
+unit-effort (one deliberate exception stated in the plan: `ag-29`'s fix is
+ranked first despite "recovering" only 1 agent, because that agent is
+96.1% of the entire `agent_runs` table):
+
+1. **`ag-29-knowledge-indexer`** — field-name mismatch (`foundation_directory`
+   never populates the two fields it reads) + a write-before-check poll
+   loop. Small-medium effort, 1 agent, disproportionate platform-wide
+   monitoring impact.
+2. **AutoApply submission chain (10 agents)** — both root-cause bugs
+   (run-logger misclassification, `FormAnalyzerAgent` missing
+   `page.goto()`) are **already merged on `main`**; what's left is
+   clearing pre-fix poisoned `form_templates` cache rows and one live
+   verification run. Small effort.
+3. **PIL `BEN-SUP-05`** — `AgentRunner.delegate()` drops
+   `plan.targetAgentRunId`, hard-failing the one critic agent every
+   AutoApply-bound submission path depends on. Small effort, 1 agent
+   directly, gates the application family.
+4. **PIL stuck-run hang** — 6 agents (`BEN-SUP-01/03`, `BEN-DIS-08`,
+   `BEN-INT-03/09`, `BEN-REL-03`) share an identical 30-minute
+   `stuck-run-watchdog.ts` timeout signature; family-abort-on-failure
+   design means this is also the practical reason ~24 more PIL agents
+   have never been reached. Medium effort (needs a shared-call trace
+   before a patch is possible).
+5. **EA-family + AG-22 (11 agents)** — `corporate_prospects` acquisition
+   is manual-CLI-only with no scheduled refill, and a completion-flag
+   semantics bug prevents partially-enriched rows from ever re-queuing.
+   The underlying Chromium bug (AR-7.1) is already proven fixed live
+   (AR-9.3) — this is a pure queue-starvation problem now. Medium effort.
+6-9. Four small, isolated single/dual-agent fixes: `hud_monitor` (unconditional
+   call site, zero runs ever — real anomaly), `follow_up_generator`
+   (structurally-impossible zero-item completions), `review` (likely
+   still on the 60s timeout default other chronic-timeout agents were
+   already raised off), `BEN-QLF-03/04` (serialization bug likely already
+   fixed, needs re-verification).
+
+**Called out separately, per this task's instruction:**
+- **5 items need Reid directly** — a product decision (expand the
+  1-org-enabled autonomous config to more orgs? which of 15 never-surfaced
+  manual-only agents deserve a UI/scheduler entry point vs retirement?) or
+  a credential/account only he can provide (Railway env access for
+  `FORGE_SLACK_WEBHOOK`/`ENABLE_SCRAPER`, Vercel team access for cron
+  dashboard liveness).
+- **7 agents recommended for outright deletion, not repair:**
+  `budget_builder_worker`, `form_filler` (has an active safety gap — no
+  approval gate before auto-submitting a live funder form), `form_analyzer`,
+  `application_cloning` — all dead duplicates of a working queue-integrated
+  or lighter-route equivalent — plus `ag-25-deadline-prediction`,
+  `ag-28-followup`, `ag-15-probability`, three agents whose only lifetime
+  execution was the same one-time 2026-08-02 exercise-harness batch, each
+  duplicating a real, actively-invoked agent under a different name.
+
+**Coverage:** 34 non-operational agents get a named, concrete fix directly
+(rising to ~58 once the PIL cascade in root cause #4 is included); 22 more
+depend on a Reid decision; 14 are confirmed correct-as-designed
+(no action needed); 7 are recommended for deletion.
+
+**Verification:** `pnpm typecheck` — 0 errors, exit 0. `pnpm test` — 98
+test files passed / 1 skipped (99), 904 tests passed / 13 todo (917
+total), exit 0. No code changed this session; these gates confirm the
+prior three audit sessions' state is still clean going into remediation.
+
+---
+
 ## AR-13.3 — Upstream data pipeline audit: which agents have nothing to process and why (2026-09-19)
 
 **Task:** for every major table an agent reads or writes, establish row
