@@ -1369,3 +1369,81 @@ requires a live dequeue cycle, out of this task's scope. Those two gates are
 proven at the "processItem() throws the right distinguishable reason" level,
 not at the "and it lands in the database" level the other three gates are
 proven at.
+
+## AR-17.2 — Scoring-family output quality: `ag-15-probability` is a hardcoded formula wearing a probability's clothes; the PIL qualification squad has never scored a real prospect (2026-09-19)
+
+AR-17.1 built the instrument (`output-quality-sampler.mjs`) and rendered no
+verdicts. This prompt runs it — plus a companion, `scripts/audit/
+scoring-family-deep-dive.mjs`, built because AR-17.1's registry points several
+PIL agents at a whole nested report object rather than the score field inside
+it — against every agent in the codebase that emits a score, probability,
+rank, match strength, or confidence. Full per-agent contract quotes, n/date
+ranges, complete value distributions, and code-level cause tracing:
+`test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`. No fixes were made; this is
+diagnosis only. AR-17.5 fixes.
+
+**The headline defect, fully traced:** `opportunity_probability_scores`
+(agent `ag-15-probability`, rendered on the live opportunities list as the
+green/amber/red **"Probability"** badge with an expandable **Key Risks / Key
+Strengths** panel) is written by two different agents sharing the table via
+upsert-on-conflict: a real Claude call (`probability-scoring-agent.ts`) and a
+purely arithmetic **"Deterministic (non-Claude) precursor"** (`src/lib/
+intelligence/grant-probability-engine.ts`, self-documented as such at its own
+file header). Of 500 sampled production rows, **478 (95.6%)** have all three
+of the deterministic engine's non-Digital-Twin factors pinned to hardcoded
+fallback constants simultaneously — `eligibility_score → NEUTRAL_ELIGIBILITY
+= 0.5` (30% weight), `category_win_rate → NEUTRAL_CATEGORY_WIN_RATE = 0.3`
+(25% weight), `deadline_proximity → 0` (20% weight) — `grant-probability-
+engine.ts:18-20,175-199`. 75 of the formula's 100 weighted points are frozen
+constants on 95.6% of rows; the only factor that ever varies is
+`twin_completeness` (25% weight), so the entire visible spread in this
+"probability" (64.4% of sampled rows show exactly `25`) is a linear echo of
+one number. The "Key Risks" shown alongside those rows are themselves
+templated strings from `buildKeyRisks()` in the same file (`"No eligibility
+score computed for this opportunity yet."`, `"No prior outcomes recorded in
+this funding category."`, verified verbatim in production), not synthesized
+per-opportunity reasoning. **A constant score, wrapped in templated risk
+language, presented to the customer as a personalized per-opportunity
+assessment — this class of defect is the report's own definition of "most
+serious."**
+
+**The PIL qualification squad the task named — `BEN-QLF-01` through
+`BEN-QLF-05` — plus every related PIL scoring agent (`BEN-KNW-01/02/03`,
+`BEN-REL-04`, `BEN-STR-02`, `BEN-APP-01`, `BEN-APP-02`, `BEN-SUP-04`) has
+1–7 lifetime rows each, virtually all a single 2026-09-19 exercise-harness
+sweep against the synthetic `EXERCISE-HARNESS-Test Foundation` org, and most
+short-circuit with `{"skipped": true, "reason": "<agent> requires an
+existing prospectId"}` before computing a score at all.** No customer
+prospect has ever been qualified by this squad. `corporate_intent_signals`
+(`ag-30-donor-intent`) has zero rows ever, despite a live dashboard page
+built to render its score. `submission_queue.risk_score` (`autoapply_risk_
+engine`) has 8 lifetime rows, all synthetic `AUTOAPPLY_RISK_TEST_FUNDER_*`
+fixtures — the gate deciding whether an AutoApply submission runs unattended
+has never been exercised on real traffic.
+
+**Two agents are the family's positive examples.** `success_probability`
+(`src/lib/agents/success-probability.ts`) attributes every factor with an
+honest human-readable reason and an explicit `estimated: true/false` flag —
+the pattern the rest of the family should copy. `ag22_propensity_scoring`
+shows the best differentiation in the family (20 distinct values over 50
+rows, no value above 12% share) with verified genuinely per-prospect
+rationale text. `eligibility_scoring` and `ag-29-fundability` are THIN, not
+DEGENERATE: real per-row reasoning exists, but the numeric encoding
+collapses onto a narrow band of low integers for one dominant organization
+whose grant matches are almost uniformly poor fits — plausible but not
+proven to be a single-line code defect; flagged for recalibration research
+in 17.5.
+
+**Methodology note:** `ag-17-discovery` was listed as a scorer in AR-17.1's
+registry; its own header comment (`opportunity-discovery-agent.ts:66-70`)
+says newly-discovered opportunities have no `eligibility_score` yet — that
+column is written only by `eligibility-scorer.ts`. It is not a distinct
+scoring mechanism and carries no separate verdict.
+
+**Verdict tally (25 scoring entries assessed):** 2 USEFUL
+(`success_probability`, `ag22_propensity_scoring`), 1 DEGENERATE with a fully
+traced mechanical cause (`ag-15-probability`), 2 THIN (`eligibility_scoring`,
+`ag-29-fundability`), 1 internal-only degenerate-looking-but-pipeline-stalled
+(`BEN-SUP-04`), the remaining ~19 INSUFFICIENT SAMPLE (real n too small, or
+zero, or synthetic-fixture-only). No tenancy-scoped cache (one org's result
+served to every org) was found anywhere in this family.

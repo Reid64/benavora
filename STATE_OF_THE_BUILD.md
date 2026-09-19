@@ -1,5 +1,50 @@
 # Benavora Platform Build State
 
+## AR-17.2 — the numbers customers see as "advice": one is a hardcoded formula, the qualification squad has never run (2026-09-19)
+
+AR-17.1 built the read-only instrument; this prompt runs it (plus a new
+companion, `scripts/audit/scoring-family-deep-dive.mjs`, targeting the exact
+score field inside nested PIL reports rather than the whole report object)
+against every score/probability/rank/match/confidence-emitting agent in the
+codebase. No fixes made — diagnosis only, AR-17.5 fixes. Full report:
+`test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`.
+
+**Most serious finding — a constant score presented as a personalized
+assessment.** `opportunity_probability_scores` (`ag-15-probability`), shown
+on the live opportunities list as a green/amber/red "Probability" badge with
+an expandable Key Risks/Key Strengths panel, is written by two agents
+sharing the table: a real Claude call, and a self-documented **"Deterministic
+(non-Claude) precursor"** (`src/lib/intelligence/grant-probability-engine.ts`).
+Of 500 sampled rows, **478 (95.6%)** have three of the formula's four
+weighted factors (75 of 100 points) pinned simultaneously to hardcoded
+fallback constants (`grant-probability-engine.ts:18-20,175-199`) — the only
+factor that ever varies is Digital Twin completeness, so the entire visible
+spread in this "probability" is a linear echo of one number, and 64.4% of
+sampled rows show exactly `25`. The "Key Risks" shown alongside are
+templated strings (`"No eligibility score computed for this opportunity
+yet."`), not per-opportunity reasoning, verified verbatim in production.
+
+**The PIL qualification squad — `BEN-QLF-01..05` — and every related PIL
+scoring agent has never scored a real prospect.** 1–7 lifetime rows each,
+virtually all one 2026-09-19 exercise-harness sweep against a synthetic test
+org, most returning `{"skipped": true, "reason": "requires an existing
+prospectId"}` before any score computes. `corporate_intent_signals`
+(donor-intent) has zero rows ever despite a live dashboard built for it.
+`autoapply_risk_engine`'s submission-safety gate has 8 lifetime rows, all
+synthetic test-funder fixtures — never exercised on real traffic.
+
+**Two genuine successes:** `success_probability` (transparent per-factor
+attribution with honest `estimated: true/false` flags) and
+`ag22_propensity_scoring` (best differentiation in the family, 20 distinct
+values over 50 rows, verified real per-prospect grounding) are both USEFUL.
+`eligibility_scoring` and `ag-29-fundability` are THIN — real per-row
+reasoning, but numeric output clustered into a narrow band for one dominant
+org, not yet traced to a single code defect.
+
+**Verdict tally (25 scoring entries):** 2 USEFUL, 1 DEGENERATE (fully traced),
+2 THIN, ~19 INSUFFICIENT SAMPLE. No tenancy-scoped cache found anywhere in
+this family.
+
 ## AR-17.1 recovery — the `work-landed` gate now has a way to say "knowingly not applied" (2026-09-19)
 
 The AR-17.1 queue's last gate failed. Not on anything AR-17.1 built: the

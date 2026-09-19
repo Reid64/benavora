@@ -8,7 +8,24 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-17.1 recovery: the queue's last gate,
+- **Last updated:** 2026-09-19 (AR-17.2: ran the AR-17.1 sampler, plus a new
+  companion `scripts/audit/scoring-family-deep-dive.mjs` targeting the exact
+  score field inside nested PIL reports, against every score/probability/
+  rank/match/confidence agent in the codebase. No fixes -- diagnosis only,
+  AR-17.5 fixes. Full report: `test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`.
+  Most serious finding: `opportunity_probability_scores` (`ag-15-probability`,
+  the live "Probability" badge + Key Risks/Strengths panel on the
+  opportunities list) is DEGENERATE for 95.6% of sampled rows -- traced to a
+  self-documented "Deterministic (non-Claude) precursor"
+  (`grant-probability-engine.ts:18-20,175-199`) that pins 3 of its 4 weighted
+  factors (75 of 100 points) to hardcoded neutral constants every time,
+  leaving Digital Twin completeness as the only real input; the "Key Risks"
+  text shown alongside is itself templated, not per-opportunity reasoning.
+  Second finding: the PIL qualification squad (`BEN-QLF-01..05`) and every
+  related PIL scoring agent has 1-7 lifetime rows, virtually all one
+  synthetic exercise-harness sweep, and has never scored a real prospect.
+  `success_probability` and `ag22_propensity_scoring` verified USEFUL --
+  genuine per-item differentiation and grounding.) Previous entry -- 2026-09-19 (AR-17.1 recovery: the queue's last gate,
   `work-landed`, failed — not on anything AR-17.1 built. Checks 1 and 2 were
   green and commit `77149580` was pushed; check 3 failed on the single file it
   is now guaranteed to fail on forever,
