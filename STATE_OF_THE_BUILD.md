@@ -1,5 +1,70 @@
 # Benavora Platform Build State
 
+## AR-13.2 — Full scheduler and trigger audit: every mechanism that fires an agent, with real-work ratios (2026-09-19)
+
+**Task:** build `test-evidence/SCHEDULER_MAP.md`, mapping every trigger source
+on the platform — 7 Vercel cron entries, the Railway worker's boot-time poll
+loops and `worker/scheduler.ts`'s 12-job wall-clock scheduler, `agent_queue`/
+`submission_queue` consumers, and any database-side (pg_cron) scheduling —
+and answering how much of the platform's 67,184-row `agent_runs` history is
+real work versus empty polling. No production behavior changed.
+
+**The headline number:** 1,511 of 67,184 lifetime `agent_runs` rows (2.25%)
+have `items_processed > 0`. Last 7 days: 363 of 10,664 (3.4%). **The single
+worst offender is `ag-29-knowledge-indexer`**, unchanged from AR-13.1's
+root-cause finding: 64,533 lifetime rows (96.1% of the whole table), only 3
+ever real. Excluding it, the rest of the platform is 1,508/2,651 = 56.9% real
+work lifetime (37.5% for the last 7 days, depressed by the AR-7.1
+verification session's bulk 50-run EA-family reprocessing batch landing
+inside that window). Root cause re-confirmed structural, not incidental:
+`worker/knowledge-indexer-processor.ts`'s loop calls
+`KnowledgeIndexerAgent.run()`, which writes a formal `agent_runs` row via
+`startRun()` **before** checking for indexable rows — every other poller in
+the codebase checks for work first and writes nothing when the queue is
+empty. `foundation_directory` still has 133,812/133,812 rows with no
+`programs`/`enrichment.mission` text to index, unchanged since AR-13.1.
+
+**pg_cron / pg_net / http confirmed NOT installed** — live query against
+`pg_extension` and `information_schema.schemata` returned zero rows for all
+three, corroborating (now via direct proof, not just a code comment)
+`alert-notifier.ts`'s 2026-09-17 header claim. Every trigger on this platform
+is a Vercel cron entry or a Node.js interval/poll loop in the Railway worker
+process — there is no database-side scheduling anywhere.
+
+**No circuit breaker un-schedules a failing agent, anywhere.** Re-confirmed:
+`worker/scheduler.ts`'s 12 jobs have no failure counter; all 5 continuous
+poll loops catch-log-and-continue; `src/lib/resilience/circuit-breaker.ts`
+is imported only by its own unit test. The only real per-agent/per-org kill
+switches are `pil_agent_registry.active` (all 51 rows currently `true` — a
+no-op gate right now) and `ENABLE_SCRAPER` (gates 2 weekly scraper jobs).
+**Conclusion for AR-13.1's ~52 NEVER-INVOKED agents: none of them were
+switched off after failing — it is missing wiring, org-config gating (only
+1 of ~74 orgs has `org_autonomous_config` enabled), or positional
+unreachability in a multi-stage pipeline, in every case checked.**
+
+**New finding this session, not previously logged:** `worker/alert-notifier.ts`
+has been polling `alerts` every 60s since AR-6.4 landed, but **zero alerts,
+ever, have `notified_at IS NOT NULL`** — including 637 `severity='critical'`
+rows dating back to 2026-06-22. Either `FORGE_SLACK_WEBHOOK` is unset in the
+Railway production environment or every delivery attempt has failed; this
+session could not distinguish the two without Railway env access, but the
+practical effect is that critical alerts have never once reached Slack.
+Flagged, not fixed, per this task's map-first scope.
+
+Also confirmed still-starved (unchanged from AR-9.3/AR-13.1): `corporate_prospects`
+(50 rows, 0 unenriched — the EA family's queue is fully drained) and
+`donor_discovery_requests` (5 rows lifetime, 0 in the last 7 days, polled
+every 15s regardless).
+
+Full trigger inventory, per-mechanism run counts, and the never-invoked
+cross-reference: `test-evidence/SCHEDULER_MAP.md`. Governance docs updated:
+`ARCHITECTURE.md` (new "AR-13.2 full trigger & scheduler inventory"
+subsection under Background & Cron Jobs), `SESSION_STATE.md`.
+
+**Verification:** `pnpm typecheck` clean, 0 errors. `pnpm test`: 904/904 tests
+passed (13 todo), 98 files passed / 1 skipped (99) — doc-only change, no
+source files touched.
+
 ## AR-13.1 — Full agent census: one row per agent module, verdict + evidence from live data (2026-09-19)
 
 **Task:** build `test-evidence/AGENT_CENSUS.md` + `agent-census.json`, one

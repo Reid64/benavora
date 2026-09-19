@@ -8,7 +8,28 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-13.1: full agent census, one row per module across all 144 registry entries, built entirely from live Supabase queries + source-code invoker tracing. Verdict tally across 145 rows: 29 OPERATIONAL, 52 NEVER-INVOKED, 32 DEGRADED, 18 NO-OP, 10 BROKEN, 4 ORPHANED. Root-caused the platform's single biggest anomaly: `ag-29-knowledge-indexer` (96% of all `agent_runs`) is a correct query hitting a permanently empty `foundation_directory` — every one of 133,812 rows needing embeddings lacks the two fields the indexer reads. Also found: `form-filler.ts` has no approval gate (dormant, 0 runs); PIL pipeline has never completed all 9 families end-to-end (`BEN-SUP-05` 100% unreachable via a dropped delegation field); `ai_usage_log` covers only 8 of dozens of Claude-calling agent_types, zero PIL coverage; 6 real executed agent_types are absent from the 144-module registry. No production code changed. Full detail: `test-evidence/AGENT_CENSUS.md`, `agent-census.json`, `AGENT_INVOCATION_MAP.md` §7.)
+- **Last updated:** 2026-09-19 (AR-13.2: full scheduler and trigger audit —
+  every mechanism that fires an agent, mapped and live-verified in
+  `test-evidence/SCHEDULER_MAP.md`. Headline number: 1,511 of 67,184 lifetime
+  `agent_runs` rows (2.25%) are real work; `ag-29-knowledge-indexer` alone is
+  64,533 of those rows (96.1%) with only 3 ever real — excluding it, the rest
+  of the platform is 56.9% real work lifetime. Root cause re-confirmed
+  structural: its poll loop writes a formal `agent_runs` row via `startRun()`
+  before checking for indexable text, unlike every other poller in the
+  codebase. Confirmed live: `pg_cron`/`pg_net`/`http` are NOT installed
+  (zero rows from direct `pg_extension`/`information_schema.schemata`
+  queries) — every trigger on this platform is a Vercel cron entry or a
+  Node.js interval/poll loop in the Railway worker. Confirmed no circuit
+  breaker un-schedules a failing agent anywhere (`circuit-breaker.ts` is
+  imported only by its own unit test) — AR-13.1's ~52 NEVER-INVOKED agents
+  are explained entirely by missing wiring, org-config gating, or positional
+  pipeline unreachability, never by a kill switch tripping. New finding:
+  `alert-notifier.ts` has polled `alerts` every 60s since AR-6.4 but zero
+  alerts, ever, have been delivered (637 unnotified criticals since
+  2026-06-22) — flagged, not fixed. No production code changed. `pnpm
+  typecheck` clean; `pnpm test` 904/904 passed. Full detail:
+  `test-evidence/SCHEDULER_MAP.md`.)
+- **Previously:** 2026-09-19 (AR-13.1: full agent census, one row per module across all 144 registry entries, built entirely from live Supabase queries + source-code invoker tracing. Verdict tally across 145 rows: 29 OPERATIONAL, 52 NEVER-INVOKED, 32 DEGRADED, 18 NO-OP, 10 BROKEN, 4 ORPHANED. Root-caused the platform's single biggest anomaly: `ag-29-knowledge-indexer` (96% of all `agent_runs`) is a correct query hitting a permanently empty `foundation_directory` — every one of 133,812 rows needing embeddings lacks the two fields the indexer reads. Also found: `form-filler.ts` has no approval gate (dormant, 0 runs); PIL pipeline has never completed all 9 families end-to-end (`BEN-SUP-05` 100% unreachable via a dropped delegation field); `ai_usage_log` covers only 8 of dozens of Claude-calling agent_types, zero PIL coverage; 6 real executed agent_types are absent from the 144-module registry. No production code changed. Full detail: `test-evidence/AGENT_CENSUS.md`, `agent-census.json`, `AGENT_INVOCATION_MAP.md` §7.)
 - **Previously:** 2026-09-18 (AR-9.3: built the first full-chain proof that AutoApply's submission pipeline runs start to finish against a local, self-hosted, real-`required`-attribute portal — mutex guard, `StealthBrowser`, `FormAnalyzerAgent`, `SubmissionValidator`, `FormFillerAgent`, status mapping, `autoapply_submissions` insert, and session finalization, all real production code. Found and fixed a genuine, separate bug it surfaced along the way: `FormFillerAgent.buildFillData()`'s EIN/email/phone/address KB lookups could never match any real `knowledge_base` row, because `knowledge_base_category` is a closed Postgres enum with no such members — those fields were silently unfillable in production. Full writeup below.)
 - **Previously:** 2026-09-18 (AR-12.2: found and fixed the actual bug blocking `autoapply_queue_processor`'s first completed run — `FormAnalyzerAgent` never navigated the page, and the queue processor only navigated on the cached-template path, so every first analysis of a funder ran against a blank browser page and cached a 0-field template; also cleared orphaned `cross_client_submissions` test debris that was permanently blocking the one safe non-funder test target. Full chain: `test-evidence/AUTOAPPLY_BLOCKER_CHAIN.md`.)
 

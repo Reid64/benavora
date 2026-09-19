@@ -381,6 +381,56 @@ Returns: `{ date (ISO), runs, grants_found, duplicates_removed }[]`.
 - Calls Anthropic Claude; updates `grants.match_percentage`, `eligibility_flag`, `eligibility_notes`, `eligibility_scored_at`.
 - If `eligibility_flag='high_match'` and grant age <24h, INSERTs into `alerts` with `alert_type='high_match_grant'`.
 
+### AR-13.2 full trigger & scheduler inventory (2026-09-19)
+
+The two entries above are one Vercel cron and one internal side-effect —
+neither is the complete picture. Full inventory, built and live-verified for
+`test-evidence/SCHEDULER_MAP.md`:
+
+- **7 Vercel cron entries** (`vercel.json`): `/api/cron/research` (daily
+  06:00 UTC), `/api/cron/grantsgov` (daily 07:00), `/api/cron/reminders`
+  (daily 08:00), `/api/cron/autoapply` (daily 02:00), `/api/cron/domain-warmup`
+  (daily 06:00), `/api/cron/autoapply-retry` (hourly), `/api/cron/pil-research`
+  (every 10 min). All `CRON_SECRET`-gated.
+- **`worker/scheduler.ts`**: a single `setInterval` 60s wall-clock tick
+  (no `node-cron` dependency) firing 12 named jobs at fixed America/Chicago
+  HH:MM — the nightly autonomous pipeline, morning digest, and 10 AG-family
+  pipelines (AG-10/23/25/26/27/32/36/38/42 plus 2 scraper jobs gated behind
+  `ENABLE_SCRAPER`). No failure counter exists — a job that throws every
+  night still fires every night.
+- **5 continuous poll loops started at Railway worker boot**
+  (`worker/index.ts`): `queue-processor.ts` (`submission_queue`, 15s),
+  `dd-request-processor.ts` (`donor_discovery_requests`, 15s),
+  `enrichment-processor.ts` (`corporate_prospects`, 60s),
+  `knowledge-indexer-processor.ts` (AG-29, 60s), `alert-notifier.ts`
+  (`alerts`, 60s) — plus `stuck-run-watchdog.ts` (10 min sweep, marks stuck
+  rows failed but never un-schedules an agent type) and
+  `processAgentQueue()` (`agent_queue`, 30s empty-sleep).
+- **Database-side scheduling: none.** `pg_cron`, `pg_net`, and `http` are
+  **not installed** on this project — confirmed live 2026-09-19 via
+  `pg_extension` and `information_schema.schemata` queries returning zero
+  rows for all three. Every trigger on this platform is either a Vercel
+  cron entry or a Node.js interval/poll loop inside the Railway worker.
+- **`ag-29-knowledge-indexer` is architecturally different from every other
+  poller**: its loop calls `KnowledgeIndexerAgent.run()`, which writes a
+  formal `agent_runs` row via `startRun()` **before** checking whether any
+  indexable row exists. Every other poller checks for work first and stays
+  silent when there is none. This is why one agent accounts for 96% of all
+  `agent_runs` rows ever written (67,184 lifetime; 64,533 are this one
+  agent type; real-work platform-wide is 2.25% lifetime, 56.9% lifetime
+  once this one agent is excluded). See `SCHEDULER_MAP.md` for the full
+  real-work ratio breakdown.
+- **No generic circuit breaker exists anywhere in this trigger surface.**
+  `src/lib/resilience/circuit-breaker.ts` is imported only by its own unit
+  test. A failing scheduled job, poll pass, or queue claim is logged and
+  retried at its next natural interval — it is never disabled. The only
+  real per-agent kill switches are `pil_agent_registry.active` (all 51 PIL
+  agents currently `true`) and the `ENABLE_SCRAPER` env flag (gates the 2
+  weekly scraper jobs only).
+
+Full per-trigger detail, live run counts, and the never-invoked-agent
+cross-reference: `test-evidence/SCHEDULER_MAP.md`.
+
 ---
 
 ## Routing Conventions
