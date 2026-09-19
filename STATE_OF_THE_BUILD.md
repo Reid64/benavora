@@ -3677,3 +3677,89 @@ be re-queried after the drain completes rather than assumed.
 | `knowledge-indexer-agent.test.ts` (unit) | 1/1 passed |
 | `live-capture.mjs --self-test` | 9/9 branches correct |
 | `live-capture.mjs` corrected live invocation | **PASS** (0 → 348) |
+
+---
+
+## AR-16.1 — `processItem()` orchestration proven gate by gate, SSRF guard unchanged (2026-09-19)
+
+AR-9.3 proved the AutoApply submission chain (mutex → StealthBrowser →
+FormAnalyzerAgent → FormFillerAgent → status mapping → submission row →
+session finalization) end to end, but named one deliberate gap: it never
+called `processItem()` (`worker/queue-processor.ts`) itself, because
+`assertUrlSafe()` — the SSRF guard — unconditionally rejects every
+private/loopback address before the browser ever launches, and ~10 other
+business gates sit in that path besides.
+
+**The SSRF guard was not weakened.** `src/lib/security/ssrf-guard.ts` is
+byte-for-byte unchanged. `QueueProcessor`'s constructor gained one new
+optional 4th parameter, `urlSafetyCheck`, defaulting to the real
+`assertUrlSafe`. Production's only call site (`start()`, bottom of
+`queue-processor.ts`) never passes a 4th argument — zero behavior change in
+any real deployment. Verified three ways in the new test (below): the
+production default still blocks the fixture's own loopback URL for real; an
+injected test-only override lets that same `processItem()` proceed past the
+SSRF stage for one carved-out host; that same override still defers to the
+real, unmodified guard for a different private-range URL.
+
+**Every business gate in `processItem()`'s path now has one assertion each,
+with the actual distinguishable, recorded reason:**
+
+| Gate | Thrown reason | Recorded |
+|---|---|---|
+| Queue control plane | `control_plane_blocked:tenant: <reason>` | via `loop()`'s existing SkipError catch (`status='skipped'`) — not re-driven here |
+| Org readiness | `org_not_ready: <first blocker>` | same as above |
+| Portal health check | `portal_dead` | inline `funders.portal_status='dead'` update |
+| Risk engine (manual route) | `risk_manual_route: score=<n> (<classification>)` | inline `submission_queue` → `status='pending_manual'`, `risk_score`, `risk_factors` |
+| Login-gating (no creds, no registration form) | `account_required: portal requires login but no registration form found` | inline `autoapply_submissions.error_message` |
+
+**New test:** `src/__tests__/integration/processitem-orchestration.test.ts` —
+fully mocked (no live Supabase/Anthropic/Playwright; a hand-rolled `Proxy`
+stands in for the Supabase query builder), 8/8 passing. Lives in
+`src/__tests__/integration/` per the task's required path, but note this
+directory is wholesale-excluded from the default `pnpm test` gate
+(`vitest.config.ts`, a 2026-09-17 change aimed at genuinely-live suites) —
+this file runs via `pnpm test:integration` instead, despite needing none of
+what that lane exists for. See `TESTING_v2.md` §17 for the full writeup.
+
+**What remains unproven:** `loop()` itself — the poll/dequeue/heartbeat cycle
+that actually persists the control-plane and org-readiness `SkipError`s to
+`submission_queue.status='skipped'` — was not driven by this suite; it needs
+a live dequeue cycle, out of this task's scope.
+
+**Verification (real numbers, this session):**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Exit 0, clean |
+| `pnpm run build:worker` | Exit 0 |
+| `pnpm run build` | Compiled successfully |
+| `pnpm test` (default gate) | 98 files passed, 1 skipped (99); 904 tests passed, 13 todo |
+| `processitem-orchestration.test.ts` (`vitest.integration.config.ts`) | 8/8 passed |
+
+---
+
+## AR-16.1 recovery — work landed, migration ledger partially closed (2026-09-19)
+
+`work-landed.mjs` blocked AR-16.1 on two checks; both were real and neither
+was a defect in the proof itself.
+
+1. **Check 2 (pushed):** commit `0b9ec9ec` was local-only. Now pushed, along
+   with recovery commit for migration 147. `origin/main` matches HEAD.
+2. **Check 3 (ledger):** 4 files on disk had no ledger row; all 4 verified
+   genuinely absent from production. `147`, `181` and `196` are now applied
+   and recorded (ledger 199 → 202 rows). `170` is deliberately left
+   unapplied — see `SESSION_STATE.md` and `STANDING_DIRECTIVES.md`
+   DIRECTIVE-020 rule 5. **Check 3 therefore still fails on exactly one
+   file, `170_pil_prospects_auto_research_run_trigger.sql`, pending Reid's
+   decision.** That single red is the honest state, not an outstanding bug.
+
+**Production SSRF protection is unchanged.** `src/lib/security/ssrf-guard.ts`
+has not been modified by AR-16.1 or by this recovery.
+
+**Knowledge RPC path is live for the first time.** `public.knowledge_search`,
+`public.knowledge_rate_count` and `public.knowledge_insert_query` now exist
+and were each verified by a real call — `knowledge_search` returns rows
+against the 783-chunk corpus. Before today `src/lib/knowledge/db.ts` was
+calling three functions that did not exist in production, and the version of
+`knowledge_search` in the migration file would have thrown on every
+invocation even if it had been applied.

@@ -780,3 +780,79 @@ that `FormFillerAgent.buildFillData()` could never fill them from
 `organizations` row instead (see `AGENTS_v2.md` AR-9.3 for the full writeup).
 Confirmed no regression: all 12 pre-existing tests across the three sibling
 AutoApply integration suites still pass unchanged.
+
+---
+
+## Section 17: processItem() Orchestration Proof (AR-16.1, 2026-09-19)
+
+**File:** `src/__tests__/integration/processitem-orchestration.test.ts`. This
+is the suite that closes the exact gap Section 16 above named. It does NOT
+re-prove the AR-3.1/AR-7.1/AR-7.2/AR-9.2 submission chain — it proves the
+`processItem()` orchestration WRAPPER around that chain: the queue control
+plane, org readiness, portal health check, the risk engine, and
+login-gating, plus the SSRF guard's dependency-injection seam.
+
+**Lane caveat — read before assuming this runs in the default gate:**
+despite the required file path putting it in `src/__tests__/integration/`,
+this suite is fully mocked (no live Supabase/Anthropic/Playwright — see
+"what it does NOT need" below) and has no `describe.skip`/credential gate.
+It still does **not** run under the default `pnpm test` (`vitest.config.ts`)
+gate — that config excludes the entire `src/__tests__/integration/**`
+directory wholesale (a 2026-09-17 change, see that file's own comment),
+because most of its siblings genuinely do hit live systems. This one
+specifically does not, but the exclude is directory-wide, not
+content-aware. Run it via `pnpm test:integration`
+(`vitest.integration.config.ts`), same lane as every other file in this
+directory. `pnpm test` (Gate 4 in `CLAUDE.md`) will report success without
+ever having executed it — this is a pre-existing lane-routing gap, not
+something this suite's own tests can detect from inside themselves.
+
+**What it does NOT need, by design:** no real Supabase project, no real
+Anthropic API key, no real Playwright browser, no real HTTP server. Every
+collaborator `processItem()` calls is mocked (`vi.mock`, `vi.hoisted()` for
+~20 shared mock functions — see the suite's own header on why a plain `const
+mockX = vi.fn()` immediately above each `vi.mock()` call became unreliable
+once enough blocks preceded each other in one file). The Supabase client
+itself is a hand-rolled `Proxy`-based chainable query builder
+(`makeResult()`/`makeSupabase()`) rather than a real client, so arbitrary
+PostgREST chain calls (`.select().eq().gte()...`) never throw regardless of
+which real, unmocked collaborator (`getOptimalAskAmount`,
+`RelationshipManager.checkContactRules`, `ABTestEngine.getVariant` — all
+three are left real, relying on their own call-site `.catch()` fallback)
+happens to call them.
+
+**The SSRF guard (`src/lib/security/ssrf-guard.ts`) — unchanged, kept
+exactly as strict as before this task.** `processItem()` calls
+`assertUrlSafe(portalUrl)` before ever reaching a browser or the portal
+health check, unconditionally rejecting every private/loopback address —
+including the one local fixture host any hermetic test can use. Rather than
+weaken that guard, `worker/queue-processor.ts`'s `QueueProcessor` constructor
+gained one new, optional 4th parameter:
+`urlSafetyCheck: (url: string) => Promise<ValidatedAddress> = assertUrlSafe`.
+Production code (the `start()` factory at the bottom of `queue-processor.ts`)
+never passes a 4th argument, so every real deployment still calls the real,
+unmodified `assertUrlSafe` — zero behavior change in production. Three tests
+prove this seam is honest, not a bypass:
+- **A1** — the production default (no override) still rejects the fixture's
+  own loopback URL via the real guard, proving the guard is untouched.
+- **A2** — an injected test policy that carves out only the fixture host
+  lets the SAME `processItem()` proceed past the SSRF stage (proven via a
+  sentinel thrown deeper in the gate chain).
+- **A3** — that same injected policy still defers to the real, unmodified
+  `assertUrlSafe` for a *different* private-range URL (`10.1.2.3`), proving
+  the override is a narrow carve-out, not a blanket bypass.
+
+**The five business gates (Group B), one assertion each — the exact reason
+processItem() records for each, so a real "why didn't this application go
+out" question is answerable:**
+
+| Gate | Thrown reason | Recorded where |
+|---|---|---|
+| Queue control plane | `control_plane_blocked:tenant: <reason>` | SkipError only — persisted by `loop()`'s existing catch (`status: 'skipped'`), not re-driven here (loop() needs a live dequeue cycle, out of scope) |
+| Org readiness | `org_not_ready: <first blocker>` | Same as above — SkipError, persisted via `loop()`'s catch |
+| Portal health check | `portal_dead` | Inline: `funders.portal_status = 'dead'` update, asserted directly |
+| Risk engine (`recommendation: 'manual'`) | `risk_manual_route: score=<n> (<classification>)` | Inline: `submission_queue` updated to `status: 'pending_manual'`, `risk_score`, `risk_factors` |
+| Login-gating (no credentials, no registration form) | `account_required: portal requires login but no registration form found` | Inline: `autoapply_submissions.error_message` on the row this run creates |
+
+Confirmed live: `pnpm exec vitest run --config vitest.integration.config.ts
+src/__tests__/integration/processitem-orchestration.test.ts` — 8/8 passed.

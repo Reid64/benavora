@@ -1314,3 +1314,58 @@ worker live at 10:46 UTC:
 Event-triggered indexing is unaffected by the new backoff: events route through
 `worker/autonomous-orchestrator.ts`'s `routeQueueItem()` `case
 'ag-29-knowledge-indexer'`, which does not share the poll loop's sleep.
+
+---
+
+## AR-16.1 — `processItem()`'s orchestration wrapper proven gate by gate; the SSRF guard unchanged (2026-09-19)
+
+AR-9.3 (above) proved the AR-3.1/AR-7.1/AR-7.2/AR-9.2 submission chain end to
+end, and named exactly what it could not prove: `processItem()` itself
+(`worker/queue-processor.ts`, the same `autoapply_queue_processor` identity
+registered under AR-1.2) was never called end to end, because
+`assertUrlSafe()` unconditionally rejects every private/loopback address —
+including any hermetic test's local fixture host — before the browser ever
+launches, and roughly ten unrelated business gates sit in that path besides.
+
+**The SSRF guard stays exactly as strict as before.** No line in
+`src/lib/security/ssrf-guard.ts` changed. Instead, `QueueProcessor`'s
+constructor gained one new, optional 4th parameter:
+`urlSafetyCheck: (url: string) => Promise<ValidatedAddress> = assertUrlSafe`.
+The `start()` factory at the bottom of `queue-processor.ts` — the only
+production call site — never passes a 4th argument, so every real deployment
+still calls the real, unmodified `assertUrlSafe`. Only a test that
+deliberately constructs `new QueueProcessor(supabase, id, undefined,
+override)` sees different behavior, and even then only for whatever host the
+override explicitly carves out — every other host still goes through the
+real guard, proven by `processitem-orchestration.test.ts`'s test A3 (a
+different private-range URL, `10.1.2.3`, still gets rejected by the same
+injected override).
+
+**Every business gate in `processItem()`'s path, one distinguishable, recorded
+reason each** — see `TESTING_v2.md` §17 for the full mapping of thrown reason
+→ where it's recorded. In order: queue control plane
+(`control_plane_blocked:<level>: <reason>`), org readiness
+(`org_not_ready: <first blocker>`), portal health check (`portal_dead`,
+inline `funders.portal_status` update), the risk engine
+(`risk_manual_route: score=<n> (<classification>)`, inline
+`submission_queue` → `pending_manual` update), and login-gating
+(`account_required: portal requires login but no registration form found`,
+inline `autoapply_submissions.error_message`).
+
+**New test:** `src/__tests__/integration/processitem-orchestration.test.ts`
+(run via `pnpm test:integration` — see `TESTING_v2.md` §17 for why this fully
+mocked, non-live suite still doesn't run under the default `pnpm test` gate:
+`vitest.config.ts` excludes the whole `src/__tests__/integration/**`
+directory regardless of an individual file's actual dependencies). 8/8
+passed: 3 proving the SSRF injection seam is honest (production default
+still blocks for real; the override lets the same `processItem()` proceed;
+the override doesn't blanket-bypass), 5 one per business gate above.
+
+**What remains unproven:** `worker/queue-processor.ts`'s `loop()` — the
+poll/dequeue/heartbeat cycle that wraps `processItem()` and is what actually
+persists the queue-control-plane and org-readiness `SkipError`s as
+`submission_queue.status='skipped'` — is not driven by this suite; it
+requires a live dequeue cycle, out of this task's scope. Those two gates are
+proven at the "processItem() throws the right distinguishable reason" level,
+not at the "and it lands in the database" level the other three gates are
+proven at.

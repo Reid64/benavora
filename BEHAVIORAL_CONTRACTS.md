@@ -339,3 +339,52 @@ first whether the blocking rows are orphaned test debris
 (`cross_client_submissions` has no other legitimate source) and, if so,
 delete only those, and fix the test that leaked them. Full incident:
 `STATE_OF_THE_BUILD.md`'s "AR-12.2" section.
+
+---
+
+## Contract: SSRF Guard Test Injection Seam (Benavora product, not FORGE)
+
+`src/lib/security/ssrf-guard.ts`'s `assertUrlSafe()` is a real protection
+against a real attack (private-range/loopback/cloud-metadata addresses,
+non-http schemes) — it is not a test inconvenience to be routed around.
+Every prior AutoApply integration suite that needed a local fixture portal
+(AR-9.3, AR-12.2, and others) documented this guard as the reason
+`worker/queue-processor.ts`'s `processItem()` itself could never be driven
+end to end, since the guard unconditionally rejects the loopback address any
+hermetic local fixture must use. AR-16.1 closed that gap with a
+dependency-injection seam rather than a guard change.
+
+### MUST DO
+- `QueueProcessor`'s constructor's `urlSafetyCheck` parameter MUST default to
+  the real, unmodified `assertUrlSafe` — every production call site
+  (`start()`, bottom of `queue-processor.ts`) MUST continue to construct
+  `QueueProcessor` with exactly 2–3 arguments, never passing an override.
+- A test that injects an override MUST have that override delegate to the
+  real `assertUrlSafe` for every host it does not explicitly carve out — an
+  override that unconditionally returns "safe" for any input is a disguised
+  guard bypass, not a test seam, regardless of which file it lives in.
+- A suite that adds such an override MUST also assert the guard is still
+  live for a host outside the carve-out (see
+  `processitem-orchestration.test.ts` test A3) — an injection seam with no
+  test proving its boundary is exactly the kind of thing that quietly rots
+  into a real bypass, the same concern AR-12.2's contract above raises for
+  domain-based special-casing.
+
+### MUST NOT DO
+- Must NOT modify `src/lib/security/ssrf-guard.ts` itself to make a test
+  target reachable (widening a blocked range, adding an env-var escape
+  hatch, special-casing a hostname inside the guard). Every carve-out lives
+  in the calling test, never in the guard.
+- Must NOT reach for this seam to avoid genuinely proving a code path — it
+  exists specifically for the orchestration wrapper *around* a chain that
+  real Playwright/Claude suites (AR-9.3) already prove for real; it is not a
+  general-purpose substitute for a real fixture portal where one is
+  achievable (see AR-9.3's own header for why it used a real local HTTP
+  server, not this seam, to prove the submission chain itself).
+
+### History
+AR-16.1 (2026-09-19) added the seam and used it to prove `processItem()`'s
+five business gates (queue control plane, org readiness, portal health
+check, risk engine, login-gating) with real, distinguishable, recorded
+reasons. Full detail: `AGENTS_v2.md`'s "AR-16.1" section; `TESTING_v2.md`
+§17; `STATE_OF_THE_BUILD.md`'s "AR-16.1" section.

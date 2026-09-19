@@ -1953,3 +1953,88 @@ runs now record `items_processed > 0` against 0% of the 355 runs before.
 4. Every `git push` here runs a 5+ minute `pnpm run build` + `vitest run`
    pre-push hook. Background it, and never run a build concurrently — two Next
    builds OOM each other and the hook fails.
+
+---
+
+## AR-16.1 (2026-09-19) — `processItem()` orchestration proven, SSRF guard unchanged
+
+**What changed:** `worker/queue-processor.ts`'s `QueueProcessor` constructor
+gained one new optional 4th parameter (`urlSafetyCheck`, defaults to the
+real `assertUrlSafe`) so a test can inject a carved-out SSRF policy without
+touching `src/lib/security/ssrf-guard.ts` at all — production's only call
+site (`start()`) never passes it, so real deployments are unaffected. New
+suite: `src/__tests__/integration/processitem-orchestration.test.ts`, 8/8
+passing — 3 prove the injection seam is honest (not a bypass), 5 prove one
+business gate each (queue control plane, org readiness, portal health check,
+risk engine, login-gating), each with the actual distinguishable, recorded
+reason. Full writeup: `AGENTS_v2.md`'s "AR-16.1" section;
+`TESTING_v2.md` §17; `STATE_OF_THE_BUILD.md`'s "AR-16.1" section.
+
+**Lane note:** this new test file is fully mocked and needs no live system,
+but it lives in `src/__tests__/integration/`, which `vitest.config.ts`
+excludes wholesale from the default `pnpm test` gate. Run it via
+`pnpm test:integration`. `pnpm test` (Gate 4) will pass without ever having
+run it — a pre-existing lane-routing gap, not a regression this session
+introduced.
+
+**What remains unproven:** `loop()` — the poll/dequeue/heartbeat cycle that
+actually persists the queue-control-plane and org-readiness `SkipError`s to
+`submission_queue.status='skipped'` — needs a live dequeue cycle and was not
+driven by this suite.
+
+**Verification, real numbers this session:**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Exit 0, clean |
+| `pnpm run build:worker` | Exit 0 |
+| `pnpm run build` | Exit 0, compiled successfully (pre-existing warnings only: Edge Runtime note on `@supabase/supabase-js`, an unrecognized `next.config.mjs` experimental key — neither touched by this change) |
+| `pnpm test` (default gate) | 98 files passed, 1 skipped (99); 904 tests passed, 13 todo — no regressions |
+| `processitem-orchestration.test.ts` (`vitest.integration.config.ts`) | 8/8 passed |
+
+---
+
+## AR-16.1 recovery (2026-09-19) — the commit never left the machine, and four migrations had never been applied
+
+`work-landed.mjs` failed two of three checks. Neither was a defect in
+AR-16.1's proof — the test file and the `urlSafetyCheck` seam above are
+unchanged, and the SSRF guard is still byte-for-byte untouched.
+
+**Check 2 — committed, never pushed.** `0b9ec9ec` existed only locally.
+Pushed. This is the second time in three runs (see `39b702cc`, the AR-14.1
+recovery). The pre-push hook is a 5+ minute build+test, so a session that
+starts the push and doesn't wait on it ends with the work stranded. Wait for
+the push, then re-read `git log --oneline -1 origin/main`.
+
+**Check 3 — four migration files on disk with no ledger row.** Checked
+against production object by object rather than assumed: none of the four
+was live. Resolved per the new DIRECTIVE-020 rule 5:
+
+| Migration | Verdict |
+|---|---|
+| `147_knowledge_public_wrappers` | **Applied.** Repairs a broken production path — `src/lib/knowledge/db.ts` calls three RPCs that did not exist. Applying it surfaced a real defect in the file itself (see below). |
+| `181_email_security_audit_log` | **Applied.** Two additive tables, no reader yet. |
+| `196_orchestration_logs_authenticated_insert` | **Applied.** One additive INSERT policy scoped to `current_org_id()`. |
+| `170_pil_prospects_auto_research_run_trigger` | **Still open — Reid's call.** Applied, then fully reverted. Its trigger creates a `pil_research_runs` row per new prospect and `/api/cron/pil-research` spends real Anthropic budget on each every 10 minutes. Zero rows were created in the interim. No code depends on the trigger, so leaving it unapplied breaks nothing. **Check 3 will keep failing on this one file until Reid decides.** |
+
+**Migration 147 was broken as written**, which is exactly what a migration
+that is never applied hides. `knowledge_search` opened with
+`SET LOCAL ivfflat.probes = 20;` inside a `LANGUAGE sql STABLE` body:
+Postgres accepts that at CREATE time and throws
+`0A000: SET is not allowed in a non-volatile function` on every call. Now
+plpgsql with `set_config(..., is_local => true)`. The function-level
+`SET ivfflat.probes` clause was tried first and rejected by the server with
+`42501: permission denied to set parameter` — that GUC is a placeholder
+until pgvector's library loads — so it is not usable here. All three
+wrappers verified by live call against the 783-row knowledge corpus.
+
+**Verification after recovery:**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Exit 0 |
+| `pnpm run build:worker` | Exit 0 |
+| `pnpm run build` (pre-push hook, twice) | Exit 0 both times |
+| `pnpm test` (pre-push hook, twice) | 98 files passed / 1 skipped; 904 passed / 13 todo, both times |
+| `processitem-orchestration.test.ts` | 8/8 passed |
+| `work-landed.mjs` | checks 1 and 2 green; check 3 red on `170` alone, by design |
