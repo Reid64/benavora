@@ -7,9 +7,27 @@
 -- instead of a direct pg connection to the IPv6-only db host.
 CREATE OR REPLACE FUNCTION public.knowledge_search(query_embedding vector(1536), query_text text, match_count integer DEFAULT 8)
 RETURNS TABLE (chunk_id uuid, document_id uuid, title text, canonical_url text, publisher text, rights text, content text, score double precision)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = knowledge, public, extensions AS $$
-  SET LOCAL ivfflat.probes = 20;
-  SELECT * FROM knowledge.search(query_embedding, query_text, match_count);
+-- AR-16.1 recovery, 2026-09-19: this wrapper was authored as LANGUAGE sql with
+-- a bare `SET LOCAL ivfflat.probes = 20;` as its first statement. That form is
+-- rejected by Postgres at call time - "0A000: SET is not allowed in a
+-- non-volatile function" - so the function created cleanly and then threw on
+-- every single invocation. The defect was invisible for a month because the
+-- migration itself had never been applied; the first real call happened the
+-- day it was. Two alternatives were rejected on evidence, not taste:
+--   - the function-level `SET ivfflat.probes = 20` clause fails at CREATE time
+--     with "42501: permission denied to set parameter", because ivfflat.probes
+--     is only a GUC placeholder until pgvector's library is loaded into the
+--     session, and assigning a placeholder needs superuser;
+--   - dropping the probes tuning entirely would silently cut ivfflat recall
+--     back to the default probes=1.
+-- plpgsql + set_config(..., is_local => true) keeps the per-call probe tuning,
+-- keeps STABLE, and is a plain function call rather than a utility statement,
+-- so neither restriction applies. Verified by a live call, not by inspection.
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = knowledge, public, extensions AS $$
+BEGIN
+  PERFORM set_config('ivfflat.probes', '20', true);
+  RETURN QUERY SELECT * FROM knowledge.search(query_embedding, query_text, match_count);
+END;
 $$;
 REVOKE ALL ON FUNCTION public.knowledge_search(vector, text, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.knowledge_search(vector, text, integer) TO service_role;
