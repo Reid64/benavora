@@ -388,3 +388,78 @@ five business gates (queue control plane, org readiness, portal health
 check, risk engine, login-gating) with real, distinguishable, recorded
 reasons. Full detail: `AGENTS_v2.md`'s "AR-16.1" section; `TESTING_v2.md`
 §17; `STATE_OF_THE_BUILD.md`'s "AR-16.1" section.
+
+---
+
+## Contract: Scoring Output — Evidence and Insufficient Data (Benavora product, not FORGE)
+
+Applies to every agent or module that persists a score, probability, rank,
+match strength, or confidence value anywhere on the platform (the
+`eligibility_scoring`, `ag-15-probability`, `ag-29-fundability`,
+`success_probability`, `ag22_propensity_scoring`, `funder_relationship`,
+`autoapply_risk_engine`, `corporate_intent_signals`, and PIL qualification-
+squad families, and any future one). Written after AR-17.2
+(`test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`) found
+`opportunity_probability_scores` DEGENERATE for 95.6% of sampled rows: three
+of its four weighted factors were silently substituted with hardcoded
+neutral constants whenever the real input was missing, producing a number
+that was mechanically a linear echo of one unrelated field while looking
+like a personalized 0-100 probability, wrapped in templated "risk" language
+that made it look more computed than it was. AR-17.5 fixed the mechanism in
+`src/lib/intelligence/grant-probability-engine.ts` and
+`src/lib/agents/probability-scoring-agent.ts`; this section generalizes the
+rule so the same defect class doesn't recur in a different agent.
+
+### MUST DO
+- A scoring agent MUST track, per weighted factor, whether its value came
+  from real stored data or a fallback/neutral constant (an `isFallback`
+  boolean, or equivalent) — never silently blend the two into one opaque
+  number.
+- When too few of an agent's weighted factors have real data behind them to
+  produce a meaningful score (this platform's threshold, traced to the exact
+  AR-17.2 degenerate pattern: fewer than 2 of 4, or fewer than 2 of 5,
+  factors real), the agent MUST persist an explicit, first-class
+  insufficient-data outcome — a `status` (or equivalent) column value the UI
+  can render as its own state — with the numeric score column left `null`.
+  `null` is acceptable here specifically because it is paired with an
+  explicit status flag; `null` alone, with no such flag, is not sufficient
+  (see MUST NOT DO below).
+- Every persisted score, and every persisted insufficient-data result, MUST
+  carry an evidence record identifying which stored inputs (table + column,
+  or equivalent) produced it, or were missing. A number or an
+  insufficient-data verdict with nothing behind it is the same defect class
+  as a `status='submitted'` row with no confirmation of the submission it
+  claims happened.
+- A UI that renders a score MUST render the insufficient-data state as its
+  own distinct visual state (not the same "gray, not scored" treatment used
+  for "this has never been computed at all" — those are different facts:
+  one is "never attempted," the other is "attempted, declined to fabricate").
+
+### MUST NOT DO
+- Must NOT add jitter, randomization, or artificial spread to a score's
+  output to make a distribution look more varied. If a formula produces a
+  narrow or repetitive distribution because most of its inputs are
+  genuinely missing across the sampled population, the fix is the
+  insufficient-data rule above, never cosmetic variance.
+- Must NOT represent "insufficient data to compute" using a magic sentinel
+  number (`0`, `-1`, `50`) instead of an explicit status flag. A downstream
+  reader cannot distinguish a sentinel from a real low score; several
+  ripples from exactly this ambiguity were found and fixed in the same pass
+  that added this contract (`match-feed.ts` collapsed a null score to `0`
+  before checking whether a score existed at all).
+- Must NOT recompute or reclassify historical rows via a bulk `UPDATE`
+  guessing at what their status "should have been." The remediation path is
+  re-running the real scoring computation against each row's live current
+  inputs (as AR-17.5's one-time recompute script and the existing nightly
+  batch jobs both do) — a status inferred without actually recomputing is
+  itself an unevidenced claim.
+
+### History
+AR-17.5 (2026-09-19) is both the first violation found (AG-15) and the
+contract's origin. Full trace of the mechanism, the before/after production
+distributions, and what was explicitly deferred (THIN, not DEGENERATE,
+findings on `eligibility_scoring`/`ag-29-fundability` — a suspected
+LLM-prompt-calibration effect with no single traced code cause, left for a
+future pass once volume grows): `STATE_OF_THE_BUILD.md`'s "AR-17.5" section;
+`AGENTS_v2.md`'s "AR-17.5" section; `test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`
+(the AR-17.2 diagnosis this contract responds to).

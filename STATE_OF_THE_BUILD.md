@@ -1,5 +1,170 @@
 # Benavora Platform Build State
 
+## AR-17.5 — Fixed the AR-17.2 DEGENERATE score: `ag-15-probability` now returns an explicit insufficient-data result instead of a hardcoded-constant number (2026-09-19)
+
+Full report and before/after evidence: `test-evidence/ar175-before-distribution.json`,
+`test-evidence/ar175-after-distribution.json`, `test-evidence/ar175-recompute-run.log`.
+This fixes the single DEGENERATE finding from AR-17.2
+(`test-evidence/AGENT_OUTPUT_QUALITY_SCORING.md`); THIN findings
+(`eligibility_scoring`, `ag-29-fundability`) are explicitly deferred, not
+silently dropped — see "What was skipped, and why" below.
+
+**Cache/tenancy check (highest-priority item in this prompt's instructions,
+checked first): no tenancy-scoped cache exists anywhere in this scoring
+family.** AR-17.2 already checked for "one org's result served to every org"
+and found none; this session re-verified by reading `grant-probability-engine.ts`
+and `probability-scoring-agent.ts` line by line — every query is a direct
+Supabase call filtered by `organization_id`/`org_id`, no in-memory or
+persisted cache layer of any kind sits in front of them. There was no cache
+key to fix. The regression guard for this (two orgs scoring the "same"
+opportunity id never see each other's data) is
+`src/__tests__/integration/scoring-output-quality.test.ts`'s
+"cache/tenancy" test, since there is no literal cache to unit-test against.
+
+**The cause, exactly as AR-17.2 traced it, now fixed at the source (not
+patched at the display layer).** `grant-probability-engine.ts`'s
+`computeGrantProbability()` used to compute a full weighted score even when
+`eligibility_score`, `category_win_rate`, and `deadline_proximity` were all
+simultaneously missing and silently substituted their neutral fallback
+constants (`NEUTRAL_ELIGIBILITY=0.5`, `NEUTRAL_CATEGORY_WIN_RATE=0.3`,
+deadline`=0`) — 75 of the formula's 100 weighted points frozen, with only
+`twin_completeness` (25%) ever moving. It now tracks, per factor, whether
+its value is real (`isFallback: false`) or a fallback (`isFallback: true`),
+counts `realFactorCount` across the 4 weighted factors, and:
+- `realFactorCount >= 2` → `status: "scored"`, a real `overall_score`,
+  unchanged formula/thresholds otherwise.
+- `realFactorCount <= 1` → `status: "insufficient_data"`, `overall_score:
+  null` (never a fabricated number), a populated `insufficient_data_reasons`
+  array naming exactly which real inputs are missing, and empty
+  `key_risks`/`key_strengths` (the old boilerplate-risk-alongside-a-fake-
+  number pattern AR-17.2 flagged is gone — there is nothing dressed up as a
+  personalized judgment when no judgment was made).
+- Every row of either status now also carries an `evidence` object
+  (`opportunityId`, `organizationId`, `realFactorCount`, and the 5 raw
+  inputs read) — "GROUND EVERY SCORE": a number with nothing behind it is
+  the same defect class as a status flag with no confirmation behind it.
+`probability-scoring-agent.ts` (the real Claude-backed calibration layer
+that shares this table) was updated to read the new baseline shape — when
+its own deterministic baseline is `insufficient_data`, it tells Claude so
+explicitly in the prompt instead of interpolating `null/100` into prompt
+text, and its own `estimated_roi`/`time_to_complete` (previously always
+copied from the baseline) now fall back to the same pure helper functions
+computed from its own real `overallScore` when the baseline had none to
+give it. This agent's own 5-factor Claude-scored writes are unaffected in
+substance — they were never the DEGENERATE mechanism — but now also carry
+`evidence` and explicit `isFallback: false`/`source` per factor for the
+same auditability.
+
+**A ripple this fix would otherwise have created, caught and fixed in the
+same pass:** `src/lib/intelligence/match-feed.ts` built its
+`opportunity_id -> overall_score` map with `r.overall_score ?? 0`, collapsing
+a genuinely-null score to `0` before checking whether AG-15 had scored the
+opportunity at all. Before this fix, `overall_score` was almost never
+actually `null` (the degenerate formula always produced *some* fabricated
+number), so this bug was latent. After this fix, ~82% of rows are honestly
+`null` — unpatched, this would have made the match feed blend a fabricated
+"0% probability" into `combinedScore` for every one of those opportunities,
+a new fabrication introduced by fixing an old one. Fixed by preserving
+`null` through the map and reading it back with `?? null` instead of a
+non-null assertion.
+
+**Migration 202** (`supabase/migrations/202_probability_scores_insufficient_data.sql`)
+adds `status text NOT NULL DEFAULT 'scored' CHECK (status IN ('scored',
+'insufficient_data'))`, `insufficient_data_reasons text[] NOT NULL DEFAULT
+'{}'`, and `evidence jsonb` to `opportunity_probability_scores`. Applied live
+via the Supabase MCP connector (`apply_migration`, project `vbjplpquqxxfbpazyalt`)
+since `DATABASE_URL` psql auth is dead again (consistent with the
+2026-09-19 memory note that this flips between sessions) — confirmed via
+`information_schema.columns` immediately after.
+
+**Proof the fix changed real production data, not just the code — before
+and after, same 1,015-row table, same sampler:**
+
+| | BEFORE (AR-17.2, this session's `ar175-before-distribution.json`) | AFTER (`ar175-after-distribution.json`) |
+|---|---|---|
+| n_total | 1,015 | 1,015 |
+| distinct values in top-500 sample | 18 | 27 (26 real scores + null) |
+| dominant value | `25` on 322/500 (**64.4%**) | `null` (insufficient_data) on 415/500 (**83.0%**) |
+| 2nd value | `40` on 68/500 (13.6%) | `25` on 22/500 (4.4%) |
+| nullity (sample) | 0.0% | 83.0% |
+
+Live table-wide (not sample-limited, via direct SQL after the recompute):
+**834/1,015 (82.2%) are now `status="insufficient_data"` with `overall_score
+IS NULL`; 181/1,015 (17.8%) are `status="scored"` with a real number.**
+Verified invariants hold for all 1,015 rows, zero exceptions: `evidence IS
+NOT NULL` (1,015/1,015), no `scored` row has a null score, no
+`insufficient_data` row has a non-null score, no `insufficient_data` row has
+an empty `insufficient_data_reasons` array. This is the fix working, not a
+prettier label on the same numbers — 64.4% of the table used to show a
+specific, wrong, confident-looking number; it now shows an honest "not
+enough data yet," and the 17.8% that do show a number are far better spread
+(no value above 4.4% share, vs. 64.4% before) because they are no longer
+diluted by hundreds of rows whose real signal was 3 hardcoded constants.
+
+**Retroactive correction, not just a forward-looking code change.** Every
+existing row was re-run through the fixed formula via a new one-time script,
+`scripts/audit/ar175-recompute-probability-scores.ts` (distinct from the
+existing nightly `scripts/batch-score-opportunities.ts`, which only
+recomputes missing-or-stale-by-7-days rows — none of the DEGENERATE rows
+were stale, so the nightly job would not have corrected them for up to a
+week). 1,015/1,015 recomputed, 0 failures.
+
+**What was skipped, and why (explicit, per this prompt's instructions,
+rather than silently dropped):**
+- **`eligibility_scoring` and `ag-29-fundability` (THIN, not DEGENERATE) —
+  deferred.** AR-17.2's own diagnosis: real per-opportunity Claude reasoning
+  exists on every row, but the numeric output clusters onto ~6 specific low
+  integers for one dominant organization even across genuinely distinct
+  federal grant categories. This is a suspected LLM prompt-calibration
+  effect (coarse rubric buckets with no within-bucket anchor), not a traced
+  single-line code defect the way `ag-15-probability`'s hardcoded-constant
+  formula was — AR-17.2 explicitly flagged it as "not yet traced to a single
+  line" and recommended re-running the comparison once volume grows past
+  ~200 rows for `ag-29-fundability` (currently n=40). Fixing a suspected
+  prompt-calibration issue without a traced mechanical cause would risk
+  exactly the forbidden move this prompt calls out — moving a number without
+  understanding why it moved.
+- **PIL qualification squad (`BEN-QLF-01..05`, `BEN-KNW-01/02/03`,
+  `BEN-REL-04`, `BEN-STR-02`, `BEN-APP-01`, `BEN-APP-02`) — no fix needed.**
+  These already return `{"skipped": true, "reason": "<agent> requires an
+  existing prospectId"}` when they lack real input — i.e. they already
+  implement the explicit-insufficient-data pattern this prompt asks
+  `ag-15-probability` to adopt. The finding was that they have never run
+  against a real prospect, not that their output is wrong when they do.
+- **`autoapply_risk_engine`, `corporate_intent_signals` (`ag-30-donor-
+  intent`), `funder_relationship`, `consensus_validation`, `BEN-SUP-04` — no
+  fix.** All INSUFFICIENT SAMPLE (zero or synthetic-fixture-only rows) or, for
+  `BEN-SUP-04`, explained by a stalled internal research pipeline, not a
+  formula bug. Nothing here is DEGENERATE or WRONG; there is no defect to
+  fix, only volume to wait on.
+- **`ag22_propensity_scoring`'s text-not-numeric sort bug on the marketplace
+  page** — real, and explicitly flagged by AR-17.2 as "worth flagging for
+  17.5," but it is a UI sort bug on a `USEFUL`-verdict agent, not a
+  DEGENERATE/WRONG score. Left untouched to keep this pass scoped to the
+  scoring defect this prompt named; noted here so it isn't lost.
+- **AutoApply approval gate and mutual-exclusion guard** — untouched, per
+  explicit instruction; nothing in this fix touches
+  `autoapply_risk_engine`, `checkCrossClientDedup()`, or the queue's
+  human-approval gate.
+
+**New test:** `src/__tests__/integration/scoring-output-quality.test.ts` (4
+tests — different inputs produce different outputs, missing inputs produce
+`insufficient_data` never a default, every result carries `evidence`, no
+cross-org data mixing) plus 4 new tests appended to the existing
+`src/__tests__/unit/grant-probability-engine.test.ts` (14/14 passing,
+including all 10 pre-existing tests unchanged). Both suites pass; the
+integration suite runs under `pnpm test:integration` per this repo's
+existing convention for that directory (`vitest.config.ts` excludes
+`src/__tests__/integration/**` from the default `pnpm test` gate — see
+AR-16.1's note on the same convention), so the properties are additionally
+covered by the unit-test file for the default gate.
+
+**Gates, real numbers.** `pnpm typecheck` — 0 errors. `pnpm run build` —
+succeeded, full route manifest emitted. `pnpm test` — **98 test files
+passed, 1 skipped (pre-existing, unrelated), 908 tests passed, 13 todo** —
+zero regressions. `pnpm test:integration` (this task's new file) — 1 file,
+4/4 passed.
+
 ## AR-17.3 — 0% of enriched funder fields carry a stored source; `ag-29` is 96% of every agent run ever recorded (2026-09-19)
 
 AR-17.1 built the read-only instrument, AR-17.2 ran it over the scoring family;

@@ -61,6 +61,9 @@ import {
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   computeGrantProbability,
+  buildEstimatedRoi,
+  buildTimeToComplete,
+  type GrantProbabilityEvidence,
   type GrantProbabilityFactor,
   type GrantProbabilityResult,
 } from "@/lib/intelligence/grant-probability-engine";
@@ -361,11 +364,15 @@ function buildCalibratedPrompt(args: {
   }
   if (opportunity.deadline) oppLines.push(`- Deadline: ${opportunity.deadline}`);
   oppLines.push(
-    `- Deterministic Grant Probability Engine baseline: ${baseline.score}/100 ` +
-      `(confidence ${baseline.confidence}; mission/twin-completeness factor ${factorPercent(
-        baseline.factors,
-        "twin_completeness",
-      )}%; deadline urgency factor ${factorPercent(baseline.factors, "deadline_proximity")}%).`,
+    baseline.status === "scored"
+      ? `- Deterministic Grant Probability Engine baseline: ${baseline.score}/100 ` +
+        `(confidence ${baseline.confidence}; mission/twin-completeness factor ${factorPercent(
+          baseline.factors,
+          "twin_completeness",
+        )}%; deadline urgency factor ${factorPercent(baseline.factors, "deadline_proximity")}%).`
+      : `- Deterministic Grant Probability Engine baseline: insufficient data to compute (${baseline.insufficient_data_reasons.join(
+          "; ",
+        )}). Score this opportunity from the facts below alone, and score any correspondingly-affected factor conservatively.`,
   );
 
   const prompt = [
@@ -863,12 +870,19 @@ export class ProbabilityScoringAgent extends AutonomousAgent {
               `${parsed.factorScores.financial_capacity_match}, track record ${parsed.factorScores.track_record}, ` +
               `and program fit ${parsed.factorScores.program_fit}.`;
 
+          // isFallback is always false here — every one of these 5 factors
+          // came from a real Claude judgment on this specific opportunity's
+          // facts (buildCalibratedPrompt), never a hardcoded constant. That
+          // is exactly what distinguishes this agent's write from the
+          // deterministic engine's baseline above.
           const factors: GrantProbabilityFactor[] = [
             {
               name: "ntee_alignment",
               weight: FACTOR_WEIGHTS.ntee_alignment,
               value: parsed.factorScores.ntee_alignment / 100,
               contribution: FACTOR_WEIGHTS.ntee_alignment * parsed.factorScores.ntee_alignment,
+              isFallback: false,
+              source: "claude:mission_statement+opportunity.category+description",
             },
             {
               name: "geographic_eligibility",
@@ -876,6 +890,8 @@ export class ProbabilityScoringAgent extends AutonomousAgent {
               value: parsed.factorScores.geographic_eligibility / 100,
               contribution:
                 FACTOR_WEIGHTS.geographic_eligibility * parsed.factorScores.geographic_eligibility,
+              isFallback: false,
+              source: "claude:opportunity.geographic_restrictions+org.service_area",
             },
             {
               name: "financial_capacity_match",
@@ -884,20 +900,48 @@ export class ProbabilityScoringAgent extends AutonomousAgent {
               contribution:
                 FACTOR_WEIGHTS.financial_capacity_match *
                 parsed.factorScores.financial_capacity_match,
+              isFallback: false,
+              source: "claude:opportunity.amount_min/max+org.annual_budget",
             },
             {
               name: "track_record",
               weight: FACTOR_WEIGHTS.track_record,
               value: parsed.factorScores.track_record / 100,
               contribution: FACTOR_WEIGHTS.track_record * parsed.factorScores.track_record,
+              isFallback: false,
+              source: "claude:outcomes(funder_category)",
             },
             {
               name: "program_fit",
               weight: FACTOR_WEIGHTS.program_fit,
               value: parsed.factorScores.program_fit / 100,
               contribution: FACTOR_WEIGHTS.program_fit * parsed.factorScores.program_fit,
+              isFallback: false,
+              source: "claude:organizational_digital_twins+knowledge_base",
             },
           ];
+
+          // This agent always runs a real Claude call and always produces a
+          // real overallScore, so this write is always status="scored" even
+          // when the deterministic baseline it fed into the prompt was
+          // itself "insufficient_data" — estimated_roi/time_to_complete fall
+          // back to the same pure functions the baseline engine uses,
+          // computed from this agent's own overallScore/twin rather than a
+          // null baseline value.
+          const evidence: GrantProbabilityEvidence = {
+            opportunityId: opp.id,
+            organizationId: this.orgId,
+            realFactorCount: availableFactorCount,
+            inputs: {
+              eligibilityScore: opportunity.eligibility_score,
+              categoryOutcomesCount: realCategoryStats.count,
+              categoryAwardedCount: Math.round(
+                (realCategoryStats.awardRate ?? 0) * realCategoryStats.count,
+              ),
+              deadline: opportunity.deadline,
+              twinCompletenessScore: twin?.twin_completeness_score ?? null,
+            },
+          };
 
           const { error: upsertError } = await this.supabase
             .from("opportunity_probability_scores")
@@ -911,8 +955,13 @@ export class ProbabilityScoringAgent extends AutonomousAgent {
                 recommendation: legacyRecommendation,
                 key_risks: keyRisks,
                 key_strengths: keyStrengths,
-                estimated_roi: baseline.estimated_roi,
-                time_to_complete: baseline.time_to_complete,
+                estimated_roi:
+                  baseline.status === "scored" ? baseline.estimated_roi : buildEstimatedRoi(overallScore),
+                time_to_complete:
+                  baseline.status === "scored" ? baseline.time_to_complete : buildTimeToComplete(twin),
+                status: "scored",
+                insufficient_data_reasons: [],
+                evidence,
                 computed_at: new Date().toISOString(),
               },
               { onConflict: "opportunity_id,organization_id" },

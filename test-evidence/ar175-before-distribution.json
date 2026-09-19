@@ -1,0 +1,685 @@
+[
+  {
+    "agentType": "ag-15-probability",
+    "modulePath": "src/lib/agents/probability-scoring-agent.ts",
+    "family": "autonomous",
+    "status": "ASSESSED",
+    "n_total": 1015,
+    "n_sampled": 500,
+    "sampleCap": 500,
+    "sampleNote": "variance/nullity/boilerplate/grounding computed over the 500 most recent of 1015 total rows (sample cap 500); not a full-population statistic",
+    "dateRange": {
+      "oldest": "2026-07-18T00:33:16.634+00:00",
+      "newest": "2026-09-19T11:58:33.903+00:00"
+    },
+    "recentOutputsVerbatim": [
+      {
+        "id": "8a539d86-e04e-4b89-88eb-87acbd0eecc0",
+        "opportunity_id": "63068f6f-2cb0-44c1-8c51-c05a96f1a575",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 17,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.02,
+            "weight": 0.3,
+            "contribution": 0.6
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.35,
+            "weight": 0.25,
+            "contribution": 8.75
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.1,
+            "weight": 0.2,
+            "contribution": 2
+          },
+          {
+            "name": "track_record",
+            "value": 0.35,
+            "weight": 0.15,
+            "contribution": 5.25
+          },
+          {
+            "name": "program_fit",
+            "value": 0.02,
+            "weight": 0.1,
+            "contribution": 0.2
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Mission is entirely unrelated to dental/oral/craniofacial biomarker or observational research required by NIDCR U01 mechanisms",
+          "Annual budget of $250,000 is almost certainly far too small to support a federal U01 cooperative agreement and its associated indirect costs and infrastructure requirements",
+          "No funder record is linked, making it impossible to confirm eligibility criteria, geographic scope, or award range",
+          "No organizational Digital Twin exists, meaning no pre-built narrative content is available to support application development",
+          "No track record in this government research funding category — calibration accuracy will improve as more outcomes are recorded",
+          "Fixture/test organization — the mission statement explicitly flags this as not a real nonprofit, making any real application submission inappropriate"
+        ],
+        "key_strengths": [
+          "Geographic specificity in Rural Texas could theoretically align with a rural health equity angle, but no evidence in the opportunity description supports that framing",
+          "501(c)3 status is a baseline eligibility requirement for many federal grants, which this organization meets",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:58:33.903+00:00"
+      },
+      {
+        "id": "283e6245-0bd2-44b2-9871-42a080c39d63",
+        "opportunity_id": "d408249f-86b2-421c-adbd-606e4447b191",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 22,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.05,
+            "weight": 0.3,
+            "contribution": 1.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.35,
+            "weight": 0.25,
+            "contribution": 8.75
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.2,
+            "weight": 0.2,
+            "contribution": 4
+          },
+          {
+            "name": "track_record",
+            "value": 0.5,
+            "weight": 0.15,
+            "contribution": 7.5
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Severe mission misalignment: K32 academic career awards target individual biomedical/clinical researchers at research institutions, not nonprofits serving homeless families",
+          "No linked funder record available, so eligibility requirements, geographic restrictions, and institutional prerequisites cannot be confirmed",
+          "Annual budget of $250,000 is almost certainly insufficient to meet indirect cost and institutional infrastructure requirements of a federal K-series mechanism",
+          "No Organizational Digital Twin exists, severely limiting the ability to generate competitive application content",
+          "No track record in this funding category, and no calibration data available (fewer than 5 outcomes recorded in 180 days)",
+          "Deadline is 2029, which reduces urgency but does not offset fundamental ineligibility concerns"
+        ],
+        "key_strengths": [
+          "Deadline urgency factor is rated at maximum (100%), meaning there is no near-term time pressure that would force a rushed decision",
+          "Organization has 501c3 status, satisfying a basic threshold requirement for many federal opportunities",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:58:22.33+00:00"
+      },
+      {
+        "id": "73e09945-e79c-4d97-ae34-ae47575af431",
+        "opportunity_id": "1cc633b3-75d3-496c-bc79-659fe9b0a870",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 19,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.02,
+            "weight": 0.3,
+            "contribution": 0.6
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.35,
+            "weight": 0.25,
+            "contribution": 8.75
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.2,
+            "weight": 0.2,
+            "contribution": 4
+          },
+          {
+            "name": "track_record",
+            "value": 0.35,
+            "weight": 0.15,
+            "contribution": 5.25
+          },
+          {
+            "name": "program_fit",
+            "value": 0.02,
+            "weight": 0.1,
+            "contribution": 0.2
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Mission is entirely unrelated to Down syndrome research or any biomedical/clinical science focus",
+          "Organization has no funder record linked, making eligibility and fit verification impossible",
+          "Annual budget of $250,000 is far below the typical floor for federal R01-equivalent awards, which commonly exceed $500,000 per year in direct costs",
+          "No Organizational Digital Twin exists, meaning no structured evidence base to support a competitive application narrative",
+          "No track record in this or any comparable government research grant category",
+          "Geographic restriction details are unknown — rural Texas service area is unlikely to be the basis for eligibility in a national biomedical research program"
+        ],
+        "key_strengths": [
+          "Organization holds 501(c)3 status, which is a baseline eligibility requirement for many grant programs",
+          "Deadline is distant (June 2028), so there is no urgency-based pressure to apply prematurely",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:58:11.873+00:00"
+      },
+      {
+        "id": "2cd9c7b8-fefa-4a04-8cfb-7bb55f4fe25f",
+        "opportunity_id": "9cda2b60-ae81-40f3-912a-46aa034a3ec9",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 15,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.05,
+            "weight": 0.3,
+            "contribution": 1.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.05,
+            "weight": 0.25,
+            "contribution": 1.25
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.2,
+            "weight": 0.2,
+            "contribution": 4
+          },
+          {
+            "name": "track_record",
+            "value": 0.5,
+            "weight": 0.15,
+            "contribution": 7.5
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Severe mission misalignment: organization serves homeless and at-risk families in rural Texas; opportunity targets global health security in Nigeria",
+          "Geographic ineligibility: organization's service area (rural Texas) does not match the opportunity's geographic focus (Nigeria)",
+          "No funder record is linked, making it impossible to assess funder priorities, eligibility requirements, or award history",
+          "No Organizational Digital Twin exists, meaning proposal development would require building supporting documentation from scratch",
+          "No track record in this funding category, removing any historical win-rate signal",
+          "Low confidence band due to zero calibration outcomes recorded in the last 180 days — accuracy will improve as outcomes are logged"
+        ],
+        "key_strengths": [
+          "Deadline is not imminent (October 2026), so there is no urgency-driven pressure to commit resources prematurely",
+          "Organization holds 501(c)3 status, satisfying a basic threshold eligibility requirement for many government grants"
+        ],
+        "estimated_roi": "Low: effort likely outweighs expected return",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:58:00.124+00:00"
+      },
+      {
+        "id": "d819d361-51b4-46c4-8291-67e2a74f18c0",
+        "opportunity_id": "f66dc06f-e749-42bc-aba3-27e372189844",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 26,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.05,
+            "weight": 0.3,
+            "contribution": 1.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.5,
+            "weight": 0.25,
+            "contribution": 12.5
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.2,
+            "weight": 0.2,
+            "contribution": 4
+          },
+          {
+            "name": "track_record",
+            "value": 0.5,
+            "weight": 0.15,
+            "contribution": 7.5
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Mission is entirely misaligned: organization serves homeless and at-risk families; funder seeks communication disorders research",
+          "R21 mechanism requires research infrastructure (IRB, PI credentials, institutional sponsorship) not evidenced in the organization's profile",
+          "No funder record is linked, making eligibility requirements, indirect cost policies, and award range unknown",
+          "Annual budget of $250,000 is almost certainly too small to absorb NIH R21 indirect costs and project overhead",
+          "No Organizational Digital Twin exists, meaning program fit cannot be substantiated with structured evidence",
+          "No track record in this funding category provides no historical signal of competitiveness"
+        ],
+        "key_strengths": [
+          "Deadline is well in the future (June 2027), providing ample time to redirect resources to better-matched opportunities",
+          "Organization holds 501(c)(3) status, satisfying a baseline federal eligibility requirement",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:57:50.395+00:00"
+      },
+      {
+        "id": "1159129e-812f-4fc5-aa85-a148283180ea",
+        "opportunity_id": "5fd3b1be-d5c4-4703-ad5b-4552dac51a14",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 22,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.05,
+            "weight": 0.3,
+            "contribution": 1.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.35,
+            "weight": 0.25,
+            "contribution": 8.75
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.3,
+            "weight": 0.2,
+            "contribution": 6
+          },
+          {
+            "name": "track_record",
+            "value": 0.35,
+            "weight": 0.15,
+            "contribution": 5.25
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Severe mission misalignment: organization serves homeless and at-risk families; opportunity targets spina bifida health outcomes research",
+          "No funder record linked — award range, geographic restrictions, and eligibility requirements are entirely unknown",
+          "No organizational Digital Twin built, reducing ability to auto-match or demonstrate programmatic fit",
+          "Annual budget of $250,000 is likely too small to competitively pursue a government health research grant, which typically requires substantial indirect cost infrastructure",
+          "No track record in this funding category on file — calibration accuracy will improve as more outcomes are recorded",
+          "Organization is flagged as a test fixture and should never submit real applications"
+        ],
+        "key_strengths": [
+          "Deadline is not imminent (October 2026), providing time for a human review before any resource commitment",
+          "501c3 tax status satisfies a baseline eligibility requirement common to many government grants",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:57:38.985+00:00"
+      },
+      {
+        "id": "aa527f2b-9480-474c-bdd7-5bf27e99f51e",
+        "opportunity_id": "f251d2fb-f46c-4f73-960d-edf927b91da9",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 18,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.05,
+            "weight": 0.3,
+            "contribution": 1.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.02,
+            "weight": 0.25,
+            "contribution": 0.5
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.4,
+            "weight": 0.2,
+            "contribution": 8
+          },
+          {
+            "name": "track_record",
+            "value": 0.5,
+            "weight": 0.15,
+            "contribution": 7.5
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Mission is entirely unrelated to outdoor and heritage tourism — the organization serves homeless and at-risk families with no apparent programmatic connection to tourism or the Chesapeake Bay Watershed",
+          "Geographic eligibility is effectively zero — Rural Texas falls entirely outside the Chesapeake Bay Watershed service area defined by this opportunity",
+          "No organizational Digital Twin exists, severely limiting the ability to produce a competitive, evidence-rich application",
+          "No funder record is linked, so funder priorities, past grantees, and relationship history are completely unknown",
+          "No track record in this funding category is on file, removing any historical win-rate signal",
+          "Knowledge Base coverage is minimal (mission only), leaving program details, financials, and outcomes undocumented for application use"
+        ],
+        "key_strengths": [
+          "Deadline is distant (November 2026), so no urgency cost if the team chooses to pass",
+          "Annual budget of $250,000 is not disqualifyingly small relative to many government grant award ranges, though award range for this opportunity is unspecified",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:57:28.881+00:00"
+      },
+      {
+        "id": "732cbeba-e9a8-40b5-abbd-d21f350dae1a",
+        "opportunity_id": "d6b17774-0e17-4aef-960e-9f046e08c5fb",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 22,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.05,
+            "weight": 0.3,
+            "contribution": 1.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.5,
+            "weight": 0.25,
+            "contribution": 12.5
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.15,
+            "weight": 0.2,
+            "contribution": 3
+          },
+          {
+            "name": "track_record",
+            "value": 0.3,
+            "weight": 0.15,
+            "contribution": 4.5
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Critical mission misalignment: NIH R25/UE5 funds biomedical research education and mentoring, not homeless/at-risk family services",
+          "Severe financial capacity mismatch: NIH research education grants typically require institutional infrastructure and budgets far exceeding $250,000 annually",
+          "No linked funder record, making eligibility requirements, indirect cost policies, and institutional requirements unverifiable",
+          "No Organizational Digital Twin built yet, meaning no profile content exists to support a competitive narrative",
+          "No track record in this funding category, providing no confidence signal about competitiveness",
+          "Organization is flagged as a test/exercise fixture — real application submission is explicitly prohibited"
+        ],
+        "key_strengths": [
+          "Deadline is distant (2029-05-05), so no immediate urgency cost to declining this opportunity",
+          "Geographic eligibility is indeterminate due to no linked funder record, so no confirmed geographic exclusion",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:57:17.579+00:00"
+      },
+      {
+        "id": "687e02a8-a765-4395-9960-2ec590b24336",
+        "opportunity_id": "88f4cb67-f5eb-47b1-8aa6-36fae6104163",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 40,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.45,
+            "weight": 0.3,
+            "contribution": 13.5
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.55,
+            "weight": 0.25,
+            "contribution": 13.75
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.2,
+            "weight": 0.2,
+            "contribution": 4
+          },
+          {
+            "name": "track_record",
+            "value": 0.4,
+            "weight": 0.15,
+            "contribution": 6
+          },
+          {
+            "name": "program_fit",
+            "value": 0.3,
+            "weight": 0.1,
+            "contribution": 3
+          }
+        ],
+        "recommendation": "consider",
+        "key_risks": [
+          "Annual budget of $250,000 is almost certainly far below the minimum financial capacity required for federal UAC Home Study and Post-Release Services cooperative agreements, which typically require large, licensed child welfare agencies",
+          "Organization's mission and programs are focused on homeless and at-risk families, not the specialized immigration and child welfare services required for Unaccompanied Alien Children programs",
+          "No linked funder record means eligibility requirements, award range, and geographic restrictions cannot be fully verified, requiring conservative scoring across all factors",
+          "No organizational Digital Twin has been built, meaning program evidence and organizational capacity claims cannot be surfaced or substantiated in an application narrative",
+          "No track record in this government grant funding category; calibration accuracy will improve only as more outcomes are recorded",
+          "Rural Texas service area may not align with where UAC placements and post-release services are most concentrated or where HHS prioritizes funding"
+        ],
+        "key_strengths": [
+          "Service area in Rural Texas could overlap with some geographic eligibility if the funder serves Texas, though this cannot be confirmed without a linked funder record",
+          "Target population of at-risk families has a distant conceptual connection to family reunification goals present in UAC post-release services",
+          "Deadline of 2027-10-01 provides substantial lead time if the organization were to build capacity toward eligibility",
+          "Deadline is 30+ days out — ample time to prepare."
+        ],
+        "estimated_roi": "Moderate: worthwhile with focused preparation",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:57:05.733+00:00"
+      },
+      {
+        "id": "b224a26b-c921-4b1e-bfd8-dba33e1e806f",
+        "opportunity_id": "b715c24c-c27d-4127-bb29-d38c1401788b",
+        "organization_id": "b51797db-1029-406a-ac9f-14214816f633",
+        "overall_score": 19,
+        "confidence": "medium",
+        "factors": [
+          {
+            "name": "ntee_alignment",
+            "value": 0.1,
+            "weight": 0.3,
+            "contribution": 3
+          },
+          {
+            "name": "geographic_eligibility",
+            "value": 0.2,
+            "weight": 0.25,
+            "contribution": 5
+          },
+          {
+            "name": "financial_capacity_match",
+            "value": 0.3,
+            "weight": 0.2,
+            "contribution": 6
+          },
+          {
+            "name": "track_record",
+            "value": 0.3,
+            "weight": 0.15,
+            "contribution": 4.5
+          },
+          {
+            "name": "program_fit",
+            "value": 0.05,
+            "weight": 0.1,
+            "contribution": 0.5
+          }
+        ],
+        "recommendation": "skip",
+        "key_risks": [
+          "Severe mission/category mismatch: forced labor import prohibition is unrelated to homeless and at-risk family services",
+          "No funder record linked — award range, geographic eligibility, and funder priorities are all unknown and must be scored conservatively",
+          "No Digital Twin built for this organization, reducing ability to efficiently generate responsive application content",
+          "No track record in the government grant funding category on file",
+          "Organization is explicitly flagged as a test fixture — real applications must never be submitted for it",
+          "Annual budget of $250,000 may be misaligned with a government grant program focused on international trade enforcement, which typically targets larger institutions or federal contractors"
+        ],
+        "key_strengths": [
+          "Deadline is distant (September 2026), so time pressure is not an immediate constraint if the organization chose to investigate further",
+          "501(c)(3) tax status preserves eligibility for many government grant categories in principle"
+        ],
+        "estimated_roi": "Low: effort likely outweighs expected return",
+        "time_to_complete": "Est. 12-16 hours",
+        "computed_at": "2026-09-19T11:56:51.96+00:00"
+      }
+    ],
+    "variance": {
+      "n": 500,
+      "distinctCount": 18,
+      "distribution": [
+        {
+          "value": 25,
+          "count": 322
+        },
+        {
+          "value": 40,
+          "count": 68
+        },
+        {
+          "value": 38,
+          "count": 47
+        },
+        {
+          "value": 35,
+          "count": 45
+        },
+        {
+          "value": 22,
+          "count": 3
+        },
+        {
+          "value": 19,
+          "count": 2
+        },
+        {
+          "value": 15,
+          "count": 2
+        },
+        {
+          "value": 17,
+          "count": 1
+        },
+        {
+          "value": 26,
+          "count": 1
+        },
+        {
+          "value": 18,
+          "count": 1
+        },
+        {
+          "value": 41,
+          "count": 1
+        },
+        {
+          "value": 20,
+          "count": 1
+        },
+        {
+          "value": 23,
+          "count": 1
+        },
+        {
+          "value": 29,
+          "count": 1
+        },
+        {
+          "value": 14,
+          "count": 1
+        },
+        {
+          "value": 11,
+          "count": 1
+        },
+        {
+          "value": 60,
+          "count": 1
+        },
+        {
+          "value": 42,
+          "count": 1
+        }
+      ],
+      "distributionTruncated": 0
+    },
+    "nullity": {
+      "n": 500,
+      "emptyCount": 0,
+      "nullity": 0
+    },
+    "boilerplate": {
+      "applicable": false,
+      "reason": "valueType is \"numeric\", not text"
+    },
+    "grounding": {
+      "configured": true,
+      "n": 500,
+      "groundedCount": 500,
+      "groundedFraction": 1,
+      "evidenceColumns": [
+        "factors",
+        "key_risks",
+        "key_strengths"
+      ]
+    },
+    "staleness": {
+      "newestOutputTs": "2026-09-19T11:58:33.903+00:00",
+      "newestInputTs": null,
+      "gapDays": null,
+      "note": "no input-data timestamp configured for this agent"
+    },
+    "primaryColumn": "overall_score",
+    "valueType": "numeric",
+    "citation": "src/lib/agents/probability-scoring-agent.ts:902-919 supabase.from('opportunity_probability_scores').upsert(...)"
+  }
+]

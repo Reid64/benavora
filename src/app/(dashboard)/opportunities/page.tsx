@@ -41,6 +41,11 @@ interface ProbabilityScoreRow {
   key_strengths: string[] | null;
   estimated_roi: string | null;
   time_to_complete: string | null;
+  /** AR-17.5: "insufficient_data" means AG-15 explicitly declined to compute
+   * a number (too few real inputs) — distinct from `data === null` below,
+   * which means AG-15 has never run for this opportunity at all. */
+  status: "scored" | "insufficient_data" | null;
+  insufficient_data_reasons: string[] | null;
 }
 
 type OpportunityRow = Tables<"opportunities"> & {
@@ -206,8 +211,12 @@ function deadlineColor(deadline: string | null): string {
   return "#334155";
 }
 
-function probabilityTone(score: number | null | undefined): { color: string; label: string } {
-  if (score == null) return { color: "#64748B", label: "Not scored" };
+function probabilityTone(
+  score: number | null | undefined,
+  status?: "scored" | "insufficient_data" | null,
+): { color: string; label: string } {
+  if (status === "insufficient_data") return { color: "#64748B", label: "Insufficient data" };
+  if (score == null) return { color: "#94A3B8", label: "Not scored" };
   if (score >= 70) return { color: "#16A34A", label: `${Math.round(score)}%` };
   if (score >= 40) return { color: "#D97706", label: `${Math.round(score)}%` };
   return { color: "#EF4444", label: `${Math.round(score)}%` };
@@ -273,7 +282,7 @@ export default function OpportunitiesPage() {
       supabase
         .from("opportunity_probability_scores")
         .select(
-          "opportunity_id, overall_score, confidence, factors, recommendation, key_risks, key_strengths, estimated_roi, time_to_complete",
+          "opportunity_id, overall_score, confidence, factors, recommendation, key_risks, key_strengths, estimated_roi, time_to_complete, status, insufficient_data_reasons",
         ),
     ]);
 
@@ -814,7 +823,7 @@ export default function OpportunitiesPage() {
                 {sorted.map((opp) => {
                   const bucket = sourceBucket(opp);
                   const accent = bucket ? CATEGORY_ACCENT[bucket] : "#94A3B8";
-                  const probTone = probabilityTone(opp.probabilityScore);
+                  const probTone = probabilityTone(opp.probabilityScore, opp.probabilityData?.status);
                   const dLineColor = deadlineColor(opp.deadline);
                   const closingSoon =
                     !!opp.deadline && differenceInCalendarDays(new Date(opp.deadline), new Date()) <= 14;
@@ -1057,6 +1066,46 @@ function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
       >
         Not yet scored. This opportunity has no grant probability score on record —
         the Grant Probability Engine hasn&rsquo;t run for it yet.
+      </div>
+    );
+  }
+
+  if (data.status === "insufficient_data") {
+    return (
+      <div
+        style={{
+          marginTop: "14px",
+          padding: "18px 20px",
+          borderRadius: "10px",
+          backgroundColor: "#2C4E3B",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+          <span
+            style={{
+              backgroundColor: "#E2E8F0",
+              color: "#334155",
+              borderRadius: "6px",
+              padding: "3px 10px",
+              fontSize: "12px",
+              fontWeight: 700,
+            }}
+          >
+            Insufficient data
+          </span>
+        </div>
+        <div style={{ fontSize: "12px", color: "#CBD5E1", marginBottom: "10px" }}>
+          The Grant Probability Engine could not compute a meaningful score for
+          this opportunity — too few of the real inputs it needs are on file
+          yet. This is not a low score; no number was computed at all.
+        </div>
+        {data.insufficient_data_reasons && data.insufficient_data_reasons.length > 0 && (
+          <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "#E2E8F0", lineHeight: 1.6 }}>
+            {data.insufficient_data_reasons.map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }

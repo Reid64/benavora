@@ -255,6 +255,102 @@ describe("computeGrantProbability", () => {
     );
   });
 
+  it("AR-17.5: returns status='insufficient_data' with score=null (never a fabricated number) when at most 1 of 4 factors has real data", async () => {
+    const supabase = createSupabaseMock({
+      opportunity: {
+        id: "opp-1",
+        category: null,
+        deadline: null,
+        eligibility_score: null,
+      },
+      twin: { twin_completeness_score: 40 },
+      outcomes: null,
+    });
+
+    const result = await computeGrantProbability("opp-1", "org-1", supabase);
+
+    expect(result.status).toBe("insufficient_data");
+    expect(result.score).toBeNull();
+    expect(result.recommendation).toBeNull();
+    expect(result.estimated_roi).toBeNull();
+    expect(result.time_to_complete).toBeNull();
+    expect(result.insufficient_data_reasons).toEqual(
+      expect.arrayContaining([
+        "Eligibility score has not been computed yet for this opportunity.",
+        "No prior outcomes recorded in this funding category.",
+        "No deadline on record for this opportunity.",
+      ]),
+    );
+    expect(result.evidence.realFactorCount).toBe(1);
+    expect(supabase.__upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "insufficient_data", overall_score: null }),
+      { onConflict: "opportunity_id,organization_id" },
+    );
+  });
+
+  it("AR-17.5: reproduces the exact AR-17.2 degenerate pattern (eligibility+category+deadline all fallback, only twin real) as insufficient_data", async () => {
+    const supabase = createSupabaseMock({
+      opportunity: {
+        id: "opp-1",
+        category: "housing_grant",
+        deadline: null,
+        eligibility_score: null,
+      },
+      twin: { twin_completeness_score: 70 },
+      outcomes: [],
+    });
+
+    const result = await computeGrantProbability("opp-1", "org-1", supabase);
+
+    expect(result.status).toBe("insufficient_data");
+    const twinFactor = result.factors.find((f) => f.name === "twin_completeness");
+    expect(twinFactor?.isFallback).toBe(false);
+    const eligibilityFactor = result.factors.find((f) => f.name === "eligibility_score");
+    expect(eligibilityFactor?.isFallback).toBe(true);
+  });
+
+  it("AR-17.5: returns status='scored' with real evidence once 2 or more factors have real data", async () => {
+    const supabase = createSupabaseMock({
+      opportunity: {
+        id: "opp-1",
+        category: "housing_grant",
+        deadline: null,
+        eligibility_score: 80,
+      },
+      twin: null,
+      outcomes: [{ result: "awarded" }],
+    });
+
+    const result = await computeGrantProbability("opp-1", "org-1", supabase);
+
+    expect(result.status).toBe("scored");
+    expect(typeof result.score).toBe("number");
+    expect(result.evidence.realFactorCount).toBe(2);
+    expect(result.evidence.inputs.eligibilityScore).toBe(80);
+    expect(result.evidence.inputs.categoryOutcomesCount).toBe(1);
+  });
+
+  it("AR-17.5: every factor carries isFallback and a source, regardless of status", async () => {
+    const supabase = createSupabaseMock({
+      opportunity: {
+        id: "opp-1",
+        category: "housing_grant",
+        deadline: addDays(new Date(), 40).toISOString(),
+        eligibility_score: 80,
+      },
+      twin: { twin_completeness_score: 60 },
+      outcomes: [{ result: "awarded" }],
+    });
+
+    const result = await computeGrantProbability("opp-1", "org-1", supabase);
+
+    for (const f of result.factors) {
+      expect(typeof f.isFallback).toBe("boolean");
+      expect(typeof f.source).toBe("string");
+      expect(f.source.length).toBeGreaterThan(0);
+    }
+  });
+
   it("throws when persisting the score fails", async () => {
     const supabase = createSupabaseMock({
       opportunity: {

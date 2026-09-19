@@ -1,0 +1,2 @@
+READ-ONLY: this tool issues only SELECT (GET) queries against PostgREST. It never calls Claude and never executes an agent.
+

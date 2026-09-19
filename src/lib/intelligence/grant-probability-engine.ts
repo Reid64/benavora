@@ -3,15 +3,32 @@
 // Deterministic (non-Claude) precursor to the full AG-15 agent: computes a
 // weighted 0-100 probability score from opportunity + Digital Twin + outcomes
 // data alone, and persists it to opportunity_probability_scores (migration
-// 093). AG-15 can later layer a Claude call on top of this for narrative
-// risks/strengths; this function already returns those fields with
-// deterministic fallbacks so callers have a complete result today.
+// 093, extended by migration 202). AG-15 can later layer a Claude call on
+// top of this for narrative risks/strengths; this function already returns
+// those fields with deterministic fallbacks so callers have a complete
+// result today.
 //
 // Factor weights (sum to 100%):
 //   1. eligibility_score                30%
 //   2. category_win_rate (outcomes)     25%
 //   3. deadline_proximity               20%
 //   4. twin_completeness                25%
+//
+// AR-17.5 fix: AR-17.2's read-only audit found that 478/500 sampled
+// production rows had all three non-Digital-Twin factors pinned to their
+// hardcoded neutral fallback constants *simultaneously* (no eligibility
+// score, no outcomes in this funder category, no deadline on file) — 75 of
+// the formula's 100 weighted points frozen constants, with only
+// twin_completeness ever varying. The result was a number that looked like a
+// personalized probability but was, mechanically, a linear rescaling of one
+// unrelated field. This function no longer persists a fabricated score in
+// that situation: whenever at most one of the four factors has real data
+// behind it, the result is an explicit `status: "insufficient_data"` outcome
+// with `score: null` and a `reasons` list naming exactly which inputs are
+// missing — not a magic sentinel number, and not a boilerplate "risk" list
+// dressed up as a computed judgment. Every factor also records `isFallback`
+// and `source` so the evidence behind (or missing behind) a score is never
+// implicit.
 
 import { differenceInCalendarDays } from "date-fns";
 
@@ -19,23 +36,65 @@ const NEUTRAL_ELIGIBILITY = 0.5;
 const NEUTRAL_CATEGORY_WIN_RATE = 0.3;
 const NEUTRAL_TWIN_COMPLETENESS = 0.2;
 
+/** At most this many of the 4 weighted factors may be real data before the
+ * result is downgraded to "insufficient_data" instead of a number. Traced
+ * directly to the AR-17.2 finding: the degenerate rows all had exactly 0 or
+ * 1 real factor (twin_completeness only) out of 4. */
+const MIN_REAL_FACTORS_FOR_SCORE = 2;
+
+export type GrantProbabilityStatus = "scored" | "insufficient_data";
+
 export interface GrantProbabilityFactor {
   name: string;
   weight: number;
   value: number;
   contribution: number;
+  /** True when this factor used a neutral fallback constant because the
+   * real input was missing, not because a real input evaluated to a low
+   * number. */
+  isFallback: boolean;
+  /** Exactly which stored input this factor's value (or fallback) came
+   * from, so a score's evidence can be audited without re-reading source. */
+  source: string;
+}
+
+export interface GrantProbabilityEvidence {
+  opportunityId: string;
+  organizationId: string;
+  /** How many of the 4 factors above had real data behind them. */
+  realFactorCount: number;
+  inputs: {
+    eligibilityScore: number | null;
+    categoryOutcomesCount: number;
+    categoryAwardedCount: number;
+    deadline: string | null;
+    twinCompletenessScore: number | null;
+  };
 }
 
 export interface GrantProbabilityResult {
-  score: number;
+  status: GrantProbabilityStatus;
+  /** Null when status is "insufficient_data" — never a fabricated number. */
+  score: number | null;
   confidence: "high" | "medium" | "low";
   factors: GrantProbabilityFactor[];
-  recommendation: "apply" | "consider" | "skip";
+  evidence: GrantProbabilityEvidence;
+  recommendation: "apply" | "consider" | "skip" | null;
   key_risks: string[];
   key_strengths: string[];
-  estimated_roi: string;
-  time_to_complete: string;
+  estimated_roi: string | null;
+  time_to_complete: string | null;
+  /** Populated only when status is "insufficient_data" — names exactly
+   * which real inputs are missing, grounded in `evidence.inputs`. */
+  insufficient_data_reasons: string[];
 }
+
+const REASON_TEXT: Record<string, string> = {
+  eligibility_score: "Eligibility score has not been computed yet for this opportunity.",
+  category_win_rate: "No prior outcomes recorded in this funding category.",
+  deadline_proximity: "No deadline on record for this opportunity.",
+  twin_completeness: "Organizational Digital Twin has not been built for this org yet.",
+};
 
 export async function computeGrantProbability(
   opportunityId: string,
@@ -80,7 +139,7 @@ export async function computeGrantProbability(
   const eligibility = scoreEligibility(
     opportunity.eligibility_score as number | null,
   );
-  const categoryWinRate = scoreCategoryWinRate(outcomes);
+  const categoryWinRate = scoreCategoryWinRate(outcomes, category);
   const deadlineProximity = scoreDeadlineProximity(
     opportunity.deadline as string | null,
   );
@@ -93,42 +152,74 @@ export async function computeGrantProbability(
     twinCompleteness,
   ];
 
-  const realDataCount = [
-    opportunity.eligibility_score != null,
-    (outcomes?.length ?? 0) > 0,
-    opportunity.deadline != null,
-    twin?.twin_completeness_score != null,
-  ].filter(Boolean).length;
+  const realFactorCount = factors.filter((f) => !f.isFallback).length;
+  const awardedCount = (outcomes ?? []).filter((o) => o.result === "awarded").length;
 
-  const confidence: GrantProbabilityResult["confidence"] =
-    realDataCount === 4 ? "high" : realDataCount >= 2 ? "medium" : "low";
-
-  const score = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(factors.reduce((sum, f) => sum + f.contribution, 0)),
-    ),
-  );
-
-  const recommendation: GrantProbabilityResult["recommendation"] =
-    score >= 70 ? "apply" : score >= 40 ? "consider" : "skip";
-
-  const key_risks = buildKeyRisks(opportunity, outcomes, twin);
-  const key_strengths = buildKeyStrengths(opportunity, outcomes, twin);
-  const estimated_roi = buildEstimatedRoi(score);
-  const time_to_complete = buildTimeToComplete(twin);
-
-  const result: GrantProbabilityResult = {
-    score,
-    confidence,
-    factors,
-    recommendation,
-    key_risks,
-    key_strengths,
-    estimated_roi,
-    time_to_complete,
+  const evidence: GrantProbabilityEvidence = {
+    opportunityId,
+    organizationId: orgId,
+    realFactorCount,
+    inputs: {
+      eligibilityScore: (opportunity.eligibility_score as number | null) ?? null,
+      categoryOutcomesCount: outcomes?.length ?? 0,
+      categoryAwardedCount: awardedCount,
+      deadline: (opportunity.deadline as string | null) ?? null,
+      twinCompletenessScore: twin?.twin_completeness_score ?? null,
+    },
   };
+
+  const status: GrantProbabilityStatus =
+    realFactorCount < MIN_REAL_FACTORS_FOR_SCORE ? "insufficient_data" : "scored";
+
+  let result: GrantProbabilityResult;
+
+  if (status === "insufficient_data") {
+    const insufficientReasons = factors
+      .filter((f) => f.isFallback)
+      .map((f) => REASON_TEXT[f.name] ?? `No real data for ${f.name}.`);
+
+    result = {
+      status,
+      score: null,
+      confidence: "low",
+      factors,
+      evidence,
+      recommendation: null,
+      key_risks: [],
+      key_strengths: [],
+      estimated_roi: null,
+      time_to_complete: null,
+      insufficient_data_reasons: insufficientReasons,
+    };
+  } else {
+    const score = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(factors.reduce((sum, f) => sum + f.contribution, 0)),
+      ),
+    );
+
+    const confidence: GrantProbabilityResult["confidence"] =
+      realFactorCount === 4 ? "high" : "medium";
+
+    const recommendation: GrantProbabilityResult["recommendation"] =
+      score >= 70 ? "apply" : score >= 40 ? "consider" : "skip";
+
+    result = {
+      status,
+      score,
+      confidence,
+      factors,
+      evidence,
+      recommendation,
+      key_risks: buildKeyRisks(opportunity, outcomes, twin),
+      key_strengths: buildKeyStrengths(opportunity, outcomes, twin),
+      estimated_roi: buildEstimatedRoi(score),
+      time_to_complete: buildTimeToComplete(twin),
+      insufficient_data_reasons: [],
+    };
+  }
 
   const { error: upsertError } = await supabase
     .from("opportunity_probability_scores")
@@ -144,6 +235,9 @@ export async function computeGrantProbability(
         key_strengths: result.key_strengths,
         estimated_roi: result.estimated_roi,
         time_to_complete: result.time_to_complete,
+        status: result.status,
+        insufficient_data_reasons: result.insufficient_data_reasons,
+        evidence: result.evidence,
         computed_at: new Date().toISOString(),
       },
       { onConflict: "opportunity_id,organization_id" },
@@ -162,6 +256,8 @@ function factor(
   name: string,
   weight: number,
   value: number,
+  isFallback: boolean,
+  source: string,
 ): GrantProbabilityFactor {
   const clamped = Math.max(0, Math.min(1, value));
   return {
@@ -169,43 +265,57 @@ function factor(
     weight,
     value: clamped,
     contribution: weight * clamped * 100,
+    isFallback,
+    source,
   };
 }
 
 function scoreEligibility(raw: number | null): GrantProbabilityFactor {
-  const value = raw == null ? NEUTRAL_ELIGIBILITY : raw / 100;
-  return factor("eligibility_score", 0.3, value);
+  const isFallback = raw == null;
+  const value = isFallback ? NEUTRAL_ELIGIBILITY : (raw as number) / 100;
+  return factor("eligibility_score", 0.3, value, isFallback, "opportunities.eligibility_score");
 }
 
 function scoreCategoryWinRate(
   outcomes: { result: string }[] | null,
+  category: string | null,
 ): GrantProbabilityFactor {
+  const source = category
+    ? `outcomes(organization_id, funder_category='${category}')`
+    : "outcomes (no funder_category on opportunity)";
   if (!outcomes || outcomes.length === 0) {
-    return factor("category_win_rate", 0.25, NEUTRAL_CATEGORY_WIN_RATE);
+    return factor("category_win_rate", 0.25, NEUTRAL_CATEGORY_WIN_RATE, true, source);
   }
   const awarded = outcomes.filter((o) => o.result === "awarded").length;
-  return factor("category_win_rate", 0.25, awarded / outcomes.length);
+  return factor("category_win_rate", 0.25, awarded / outcomes.length, false, source);
 }
 
 function scoreDeadlineProximity(
   deadline: string | null,
 ): GrantProbabilityFactor {
-  if (!deadline) {
-    return factor("deadline_proximity", 0.2, 0);
+  const isFallback = !deadline;
+  if (isFallback) {
+    return factor("deadline_proximity", 0.2, 0, true, "opportunities.deadline");
   }
-  const days = differenceInCalendarDays(new Date(deadline), new Date());
+  const days = differenceInCalendarDays(new Date(deadline as string), new Date());
   const value = days >= 30 ? 1.0 : days >= 15 ? 0.5 : days >= 0 ? 0.1 : 0;
-  return factor("deadline_proximity", 0.2, value);
+  return factor("deadline_proximity", 0.2, value, false, "opportunities.deadline");
 }
 
 function scoreTwinCompleteness(
   twin: { twin_completeness_score: number | null } | null,
 ): GrantProbabilityFactor {
-  const value =
-    twin?.twin_completeness_score == null
-      ? NEUTRAL_TWIN_COMPLETENESS
-      : twin.twin_completeness_score / 100;
-  return factor("twin_completeness", 0.25, value);
+  const isFallback = twin?.twin_completeness_score == null;
+  const value = isFallback
+    ? NEUTRAL_TWIN_COMPLETENESS
+    : (twin as { twin_completeness_score: number }).twin_completeness_score / 100;
+  return factor(
+    "twin_completeness",
+    0.25,
+    value,
+    isFallback,
+    "organizational_digital_twins.twin_completeness_score",
+  );
 }
 
 function buildKeyRisks(
@@ -293,13 +403,13 @@ function buildKeyStrengths(
   return strengths;
 }
 
-function buildEstimatedRoi(score: number): string {
+export function buildEstimatedRoi(score: number): string {
   if (score >= 70) return "High: strong return likely relative to effort";
   if (score >= 40) return "Moderate: worthwhile with focused preparation";
   return "Low: effort likely outweighs expected return";
 }
 
-function buildTimeToComplete(
+export function buildTimeToComplete(
   twin: { twin_completeness_score: number | null } | null,
 ): string {
   const completeness = twin?.twin_completeness_score ?? 0;

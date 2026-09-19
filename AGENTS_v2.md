@@ -194,6 +194,19 @@ Discovers and scores corporate donors via Google Places and enrichment pipeline.
 **Tokens:** ~3,000 input / 1,500 output
 **Schedule:** Nightly 3AM CST for all active opportunities
 
+**AR-17.5 output contract (2026-09-19), applies to both writers of
+`opportunity_probability_scores` (this agent and its deterministic precursor,
+`src/lib/intelligence/grant-probability-engine.ts`'s `computeGrantProbability()`):**
+see BEHAVIORAL_CONTRACTS.md's "Contract: Scoring Output — Evidence and
+Insufficient Data" section for the full MUST DO / MUST NOT DO. Summary: a row
+is `status="scored"` only when at least 2 of the 4 (deterministic) or 5
+(Claude-calibrated) weighted factors have real data behind them; otherwise it
+is `status="insufficient_data"` with `overall_score=null` and a populated
+`insufficient_data_reasons` array — never a number computed mostly from
+hardcoded neutral constants presented as if it were personalized. Every row,
+scored or not, carries an `evidence` object naming which stored inputs (or
+their absence) produced it.
+
 ### AG-16: Digital Twin Builder Agent
 
 **Purpose:** Constructs and maintains the Organizational Digital Twin from all available org data.
@@ -1577,3 +1590,30 @@ knowledge-base data produced a confidently-invented operating history
 (94% retention, 12 years, 340 units, 28 FTE) with `confidence_score: 82` —
 inconsistent with `computeConfidence()`'s own documented formula for zero
 KB input.
+
+---
+
+## AR-17.5 — Fix: `ag-15-probability` returns an explicit insufficient-data result instead of a hardcoded-constant number (2026-09-19)
+
+Fixes the single DEGENERATE finding from AR-17.2. Full before/after evidence
+and the full explanation of what was fixed, what rippled, and what was
+explicitly deferred (THIN findings, out of scope): `STATE_OF_THE_BUILD.md`'s
+"AR-17.5" section (top of that file). The new output contract itself — MUST
+DO / MUST NOT DO for any agent that writes a score, probability, or
+confidence value — lives in `BEHAVIORAL_CONTRACTS.md`'s "Contract: Scoring
+Output — Evidence and Insufficient Data" section, cross-referenced from the
+AG-15 entry above.
+
+**One-line summary:** `grant-probability-engine.ts` and
+`probability-scoring-agent.ts` now write `status: "scored"` (a real number)
+only when at least 2 of the weighted factors behind it have real data;
+otherwise `status: "insufficient_data"`, `overall_score: null`, and a
+populated `insufficient_data_reasons` array — never a plausible-looking
+number computed mostly from hardcoded neutral constants. Every row of either
+status carries an `evidence` object. Migration 202 adds the three columns.
+Retroactively recomputed all 1,015 existing production rows: 834 (82.2%)
+are now honestly `insufficient_data`, 181 (17.8%) carry a real, better-spread
+number (26 distinct values, none above 4.4% share — was 18 distinct values
+with one value at 64.4% share before the fix). Cache/tenancy check (this
+prompt's top-priority conditional item): re-confirmed no cache exists
+anywhere in this scoring family, so there was nothing to fix there.

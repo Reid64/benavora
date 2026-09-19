@@ -1,0 +1,21 @@
+◇ injected env (14) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+AR-17.5 — retroactive recompute of every opportunity_probability_scores row
+
+  Rows to recompute: 1015
+
+  ... processed 100/1015, scored 100 (insufficient_data 83), failed 0
+  ... processed 200/1015, scored 200 (insufficient_data 159), failed 0
+  ... processed 300/1015, scored 300 (insufficient_data 242), failed 0
+  ... processed 400/1015, scored 400 (insufficient_data 323), failed 0
+  ... processed 500/1015, scored 500 (insufficient_data 405), failed 0
+  ... processed 600/1015, scored 600 (insufficient_data 483), failed 0
+  ... processed 700/1015, scored 700 (insufficient_data 565), failed 0
+  ... processed 800/1015, scored 800 (insufficient_data 644), failed 0
+  ... processed 900/1015, scored 900 (insufficient_data 734), failed 0
+  ... processed 1000/1015, scored 1000 (insufficient_data 820), failed 0
+
+Done.
+  Recomputed:         1015
+  -> insufficient_data: 834
+  -> scored (real number): 181
+  Failed:              0

@@ -485,9 +485,11 @@ function buildScoringPrompt(args: {
 
   if (existingScore) {
     oppLines.push(
-      `- Existing Grant Probability Engine score: ${existingScore.overall_score ?? "n/a"}/100 (confidence: ${
-        existingScore.confidence ?? "unknown"
-      })`,
+      existingScore.overall_score != null
+        ? `- Existing Grant Probability Engine score: ${existingScore.overall_score}/100 (confidence: ${
+            existingScore.confidence ?? "unknown"
+          })`
+        : "- Existing Grant Probability Engine score: insufficient data to compute (too few real inputs on file).",
     );
     if (existingScore.key_risks && existingScore.key_risks.length > 0) {
       oppLines.push(`- Known risks: ${existingScore.key_risks.join("; ")}`);

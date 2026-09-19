@@ -330,7 +330,7 @@ export async function computeMatchFeed(
   const programs = twin?.programs ?? [];
   const missionKeywords = tokenize(twin?.mission, ...(twin?.key_strengths ?? []));
 
-  let probabilityByOpp = new Map<string, number>();
+  let probabilityByOpp = new Map<string, number | null>();
   let funderNameById = new Map<string, string>();
   if (opportunities.length > 0) {
     const oppIds = opportunities.map((o) => o.id);
@@ -347,10 +347,14 @@ export async function computeMatchFeed(
         : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     ]);
 
+    // AR-17.5: preserve null (an AG-15 row exists but is status="insufficient_data",
+    // not yet a real probability) rather than collapsing it to 0 here — collapsing
+    // it would make probabilityBlended below true with a fabricated "0% probability"
+    // blended in, for exactly the opportunities AG-15 explicitly declined to score.
     probabilityByOpp = new Map(
       ((probRes.data ?? []) as { opportunity_id: string; overall_score: number | null }[]).map((r) => [
         r.opportunity_id,
-        r.overall_score ?? 0,
+        r.overall_score,
       ]),
     );
     funderNameById = new Map(
@@ -371,7 +375,7 @@ export async function computeMatchFeed(
       Math.min(100, Math.round(factors.reduce((sum, f) => sum + f.contribution, 0))),
     );
 
-    const probabilityScore = probabilityByOpp.has(opp.id) ? probabilityByOpp.get(opp.id)! : null;
+    const probabilityScore = probabilityByOpp.get(opp.id) ?? null;
     const probabilityBlended = probabilityScore != null;
     const combinedScore = probabilityBlended
       ? Math.round(affinityScore * AFFINITY_BLEND_WEIGHT + probabilityScore! * PROBABILITY_BLEND_WEIGHT)

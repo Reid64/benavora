@@ -8,7 +8,41 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-17.3: ran the AR-17.1 sampler over the
+- **Last updated:** 2026-09-19 (AR-17.5: fixed the AR-17.2 DEGENERATE
+  finding. `grant-probability-engine.ts`'s `computeGrantProbability()` no
+  longer emits a full weighted score when eligibility_score/category_win_rate/
+  deadline_proximity are all simultaneously missing (75/100 weighted points
+  frozen constants) -- it now returns `status: "insufficient_data"`,
+  `overall_score: null`, and an `insufficient_data_reasons` list instead, and
+  every row (either status) carries an `evidence` object naming its real
+  inputs. Migration 202 adds `status`/`insufficient_data_reasons`/`evidence`
+  to `opportunity_probability_scores`, applied live via the Supabase MCP
+  connector (`DATABASE_URL` psql auth dead again this session). Cache/tenancy
+  check (top priority per this prompt): re-confirmed no cache exists in this
+  family, so nothing to fix there -- see AGENTS_v2.md/STATE_OF_THE_BUILD.md
+  "AR-17.5" sections for the full trace. **Retroactively recomputed all
+  1,015 existing rows** (`scripts/audit/ar175-recompute-probability-scores.ts`,
+  0 failures) so the fix's effect is measured on live data, not just
+  asserted: dominant value went from `25` on 322/500 sampled rows (64.4%) to
+  `null`/insufficient_data on 415/500 (83.0%), and among rows that DO get a
+  real number the spread widened from 18 to 26 distinct values with no value
+  above 4.4% share (was 64.4%). Table-wide: 834/1,015 (82.2%)
+  insufficient_data, 181/1,015 (17.8%) scored, verified zero rows violate the
+  status/score/evidence/reasons invariants. Also fixed a ripple this would
+  otherwise have introduced: `match-feed.ts` collapsed a null AG-15 score to
+  `0` before checking presence, which would have blended a fabricated "0%
+  probability" into every insufficient_data opportunity's combined score --
+  fixed to preserve null through the map. `eligibility_scoring` and
+  `ag-29-fundability` (THIN, not DEGENERATE) explicitly deferred -- no
+  traced single-line cause, a suspected LLM prompt-calibration effect
+  instead; fixing it without a traced cause would be exactly the "move a
+  number without knowing why" mistake this prompt forbids. New test:
+  `src/__tests__/integration/scoring-output-quality.test.ts` (4/4) plus 4
+  new unit tests in `grant-probability-engine.test.ts` (14/14). Gates:
+  `pnpm typecheck` 0 errors, `pnpm run build` succeeded, `pnpm test` 98
+  files / 908 tests passed, 1 pre-existing skip, zero regressions. Full
+  report: `STATE_OF_THE_BUILD.md`'s "AR-17.5" section.)
+- **Previously (2026-09-19):** AR-17.3 ran the AR-17.1 sampler over the
   research/discovery/enrichment family plus three read-only companion probes
   (`test-evidence/ar173-provenance-and-ag29.mjs`, `ar173-ag29-timeline.mjs`,
   `ar173-spotcheck-deep.mjs`). No fixes -- diagnosis only, AR-17.6 fixes. Full
