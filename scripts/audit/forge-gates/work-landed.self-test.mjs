@@ -10,17 +10,24 @@
 //
 // Check 3 (migration ledger drift) is exercised against real on-disk .sql
 // fixture files plus a fixture array standing in for
-// supabase_migrations.schema_migrations rows, using diffMigrationVersions()
-// directly. A live Postgres fixture was not used: this environment's
-// outbound access to the direct Postgres port (5432) times out (confirmed
-// during this session - HTTPS egress to api.supabase.com works, raw TCP to
-// db.<ref>.supabase.co:5432 does not), so fetchLedgerVersions() itself is not
-// exercised here. That function is a thin, already-reviewed wrapper (connect,
-// one existence check, one SELECT) around the exact pattern used by
-// scripts/audit/pt06-001-readonly-connection.mjs and
-// scripts/audit-migration-ledger.ts elsewhere in this repo; the logic this
-// self-test actually needs to prove - the drift computation - is pure and
-// fully covered below.
+// supabase_migrations.schema_migrations rows, using diffMigrationLedger()
+// directly. The read path itself is not fixtured here - it is proven against
+// the live ledger by running the gate, which on 2026-09-19 read 199 rows via
+// the service_role fallback.
+//
+// CORRECTION (2026-09-19) to this file's original note: it claimed raw TCP to
+// db.<ref>.supabase.co:5432 times out from this environment. It does not -
+// the port answers and the server returns 28P01 (password authentication
+// failed). The DATABASE_URL credential is wrong/rotated; the network is fine.
+// That mattered, because "the port is blocked" is unfixable and "the password
+// is wrong" is not, and the wrong diagnosis is part of why check 3 went nine
+// queues without ever running.
+//
+// The matching fixtures below cover all three ledger-labelling conventions
+// this project actually uses (whole stem, bare number, timestamp + task-id
+// name), because matching on "the token before the first underscore" - the
+// rule this gate originally shipped - fabricated 380 drift findings against
+// the real ledger.
 //
 // Usage: node scripts/audit/forge-gates/work-landed.self-test.mjs
 
@@ -34,7 +41,7 @@ import {
   isAllowedException,
   findUnlandedFiles,
   diffPushStatus,
-  diffMigrationVersions,
+  diffMigrationLedger,
   listMigrationFiles,
 } from "./work-landed.mjs";
 
@@ -123,7 +130,7 @@ try {
   expectPass("check 2 (push status) on a freshly committed, pushed fixture", check2().length === 0);
 
   const diskFilesClean = listMigrationFiles(path.join(work, "supabase", "migrations"));
-  const cleanDrift = diffMigrationVersions(diskFilesClean, ["001"]);
+  const cleanDrift = diffMigrationLedger(diskFilesClean, ["001"]);
   expectPass(
     "check 3 (migration drift) when disk and ledger fixture agree",
     cleanDrift.onDiskNotInLedger.length === 0 && cleanDrift.inLedgerNotOnDisk.length === 0,
@@ -171,7 +178,7 @@ try {
   //    shape - something applied to production with no committed file).
   // ============================================================
   const diskFiles = listMigrationFiles(path.join(work, "supabase", "migrations"));
-  const driftA = diffMigrationVersions(diskFiles, ["001", "999"]);
+  const driftA = diffMigrationLedger(diskFiles, ["001", "999"]);
   expectCatch(
     "check 3 catches a ledger version (999) with no matching file on disk",
     driftA.inLedgerNotOnDisk.length === 1 && driftA.inLedgerNotOnDisk[0] === "999",
@@ -182,10 +189,66 @@ try {
   // ============================================================
   writeFileSync(path.join(work, "supabase", "migrations", "002_never_applied.sql"), "alter table t add column x int;\n");
   const diskFilesWithOrphan = listMigrationFiles(path.join(work, "supabase", "migrations"));
-  const driftB = diffMigrationVersions(diskFilesWithOrphan, ["001"]);
+  const driftB = diffMigrationLedger(diskFilesWithOrphan, ["001"]);
   expectCatch(
     "check 3 catches a migration file on disk (002_never_applied.sql) with no ledger row",
     driftB.onDiskNotInLedger.length === 1 && driftB.onDiskNotInLedger[0] === "002_never_applied.sql",
+  );
+
+  // ============================================================
+  // 7. CLEAN: the three real ledger-labelling conventions must all match,
+  //    with no file on disk and no ledger row left over. Every one of these
+  //    was a false "drift" finding under the original token-before-first-
+  //    underscore rule.
+  // ============================================================
+  const realWorldFiles = [
+    "001_initial_schema.sql", // ledger version IS the whole stem
+    "162_pil_deferred_fks.sql", // ledger version is the bare number, name is the stem
+    "192_model_cost_reference.sql", // ledger version is a timestamp, name is the FORGE task id
+    "199_agent_run_status_skipped.sql", // ledger name dropped the file's number prefix
+  ];
+  const realWorldLedger = [
+    { version: "001_initial_schema", name: "001_initial_schema" },
+    { version: "162", name: "162_pil_deferred_fks" },
+    { version: "20260917231636", name: "ar64_model_cost_reference" },
+    { version: "20260918100836", name: "agent_run_status_skipped" },
+  ];
+  const realWorldDrift = diffMigrationLedger(realWorldFiles, realWorldLedger);
+  expectPass(
+    "check 3 matches all three real ledger conventions (stem, bare number, timestamp+task-id name)",
+    realWorldDrift.onDiskNotInLedger.length === 0 && realWorldDrift.inLedgerNotOnDisk.length === 0,
+  );
+
+  // ============================================================
+  // 8. CLEAN + CATCH: duplicate-prefix filenames. 063_white_label.sql and
+  //    086_white_label.sql both normalise to "white_label"; each must pair
+  //    with its OWN exact ledger row, and a genuinely missing one must still
+  //    be caught rather than absorbed by its twin.
+  // ============================================================
+  const twins = ["063_white_label.sql", "086_white_label.sql"];
+  const bothRecorded = diffMigrationLedger(twins, ["063_white_label", "086_white_label"]);
+  expectPass(
+    "check 3 pairs duplicate-name migrations with their own exact ledger rows",
+    bothRecorded.onDiskNotInLedger.length === 0 && bothRecorded.inLedgerNotOnDisk.length === 0,
+  );
+  const oneRecorded = diffMigrationLedger(twins, ["063_white_label"]);
+  expectCatch(
+    "check 3 still catches the unrecorded twin (086_white_label.sql) instead of matching it loosely",
+    oneRecorded.onDiskNotInLedger.length === 1 && oneRecorded.onDiskNotInLedger[0] === "086_white_label.sql",
+  );
+
+  // ============================================================
+  // 9. CATCH: a ledger row identified only by its name (the timestamp-version
+  //    shape) with no file on disk - the AR-10.3 defect in its modern form.
+  // ============================================================
+  const orphanNamed = diffMigrationLedger(["001_initial_schema.sql"], [
+    { version: "001_initial_schema", name: "001_initial_schema" },
+    { version: "20260918113008", name: "funder_delete_cancels_queue_items" },
+  ]);
+  expectCatch(
+    "check 3 catches a timestamp-versioned ledger row whose file was never committed",
+    orphanNamed.inLedgerNotOnDisk.length === 1 &&
+      orphanNamed.inLedgerNotOnDisk[0] === "20260918113008 (funder_delete_cancels_queue_items)",
   );
 } finally {
   rmSync(tmpRoot, { recursive: true, force: true });

@@ -8,7 +8,44 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-18.1: built `scripts/audit/forge-gates/work-landed.mjs`,
+- **Last updated:** 2026-09-19 (AR-18.2 recovery: the AR-18.2 queue failed on
+  `work-landed` check 3 -- `password authentication failed for user
+  "postgres"`. Two defects behind one error line. (1) No working read path to
+  `supabase_migrations.schema_migrations`: `DATABASE_URL` returns 28P01 -- the
+  host DOES answer on 5432, correcting AR-18.1's self-test note that claimed
+  the port was blocked, so the credential is stale, not the network -- and both
+  Management API PATs in `BLUEPRINT_v2.md` return 401. Fixed with migration
+  201, `public.forge_migration_ledger()`: SECURITY DEFINER, SELECT-only, no
+  args, EXECUTE granted to `service_role` only, `anon`/`authenticated`
+  revoked; verified live service_role=200/199 rows, anon=401. Check 3 tries
+  `DATABASE_URL` first, falls back to that RPC, and names what each path did
+  when both fail. No credential invented, guessed or hardcoded. (2) Matching
+  logic that could never have passed: the gate compared ledger `version`
+  against the filename token before the first underscore, but this ledger uses
+  three conventions at once (`001_initial_schema`, bare `162` with the name in
+  `name`, and `20260917231636`/`ar64_model_cost_reference` for the on-disk
+  `192_model_cost_reference.sql`) -- **380 fabricated findings** against the
+  real ledger, never seen because defect 1 always fired first. Now matches
+  `version` AND `name` in two passes, exact before normalised, one ledger row
+  per file. **First real result:** 24 files with no ledger row. 20 verified
+  live object-by-object (tables/columns/constraints/policies/enum
+  values/registry rows all present) and their rows repaired
+  (`created_by='forge-ar-18.2-ledger-repair-2026-09-19'`). **4 genuinely
+  unapplied and left open** per DIRECTIVE-018 rule 4: `147` (the three
+  `knowledge_*` RPCs `src/lib/knowledge/db.ts` calls do NOT exist in
+  production -- live broken code path, surfaced by this gate for the first
+  time), `170` (trigger; applying it changes behaviour -- a
+  `pil_research_runs` row per prospect insert), `181`
+  (`email_security_audit_log`/`pii_mask_log` absent), `196` (policy absent).
+  Not applied by this session -- finding drift does not license fixing it in
+  the same pass. Added `STANDING_DIRECTIVES.md` DIRECTIVE-020 (ledger read
+  paths + matching rules; also corrects DIRECTIVE-019's note that 020 was
+  undocumented). Self-test: **8 clean-pass, 6 catch, 0 unexpected**, exit 0
+  (3 new cases: all three ledger conventions, duplicate-stem pairing,
+  timestamp-versioned orphan). `pnpm typecheck` 0 errors. Live gate run now:
+  checks 1-2 PASS, check 3 reads 199 rows via the service_role fallback and
+  fails on exactly those 4 files -- the gate working, not the gate broken.)
+  Previous entry -- 2026-09-19 (AR-18.1: built `scripts/audit/forge-gates/work-landed.mjs`,
   the FORGE gate closing the exact hole `ar-10-3-budget-teeth` fell through
   on 2026-09-18 — four gates green while migration 198's
   `cost_budgets.period_start` was live in production with its migration file

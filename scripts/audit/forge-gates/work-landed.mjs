@@ -28,11 +28,15 @@
 // as their last gate - do not change the invocation, only fix bugs here.
 //
 // Pure logic (parseGitStatus, isAllowedException, diffPushStatus,
-// diffMigrationVersions) is exported so work-landed.self-test.mjs can prove
+// diffMigrationLedger) is exported so work-landed.self-test.mjs can prove
 // both directions - clean fixture passes, broken fixture is caught - without
-// depending on a live database connection, which is unreliable from some
-// execution environments (see self-test file for the live-repo caveat this
-// produced on 2026-09-19).
+// depending on a live database connection.
+//
+// AR-18.2 recovery (2026-09-19): check 3 had never once made an assertion. It
+// failed on `password authentication failed for user "postgres"` every run
+// from 2026-09-17 onward, and behind that sat a second defect - the version
+// matching below - that would have fabricated 380 drift findings the moment a
+// connection did succeed. Both are fixed; see DIRECTIVE-020.
 
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
@@ -116,16 +120,43 @@ export function diffPushStatus(behind, ahead) {
 // Check 3: migration files on disk <-> supabase_migrations.schema_migrations.
 // ----------------------------------------------------------------------------
 
-// Version convention matches the existing precedent in
-// scripts/audit-migration-ledger.ts: version = filename token before the
-// first underscore (e.g. "198_budget_period_start.sql" -> "198"). This
-// project has a handful of duplicate-prefix filenames (e.g. two "022_*"
-// files); when that happens they share one ledger version and cannot be
-// individually distinguished by version alone. That is an existing, known
-// limitation of this project's versioning scheme, not something this gate
-// invents or can fix by itself.
-export function versionOf(filename) {
-  return filename.split("_")[0];
+// This project's ledger does NOT use one stable version convention, so
+// matching on "the filename token before the first underscore" - the rule
+// AR-18.1 shipped, copied from scripts/audit-migration-ledger.ts - does not
+// work here. Live ledger, read 2026-09-19, contains all three of:
+//
+//   version "001_initial_schema"  name "001_initial_schema"   <- whole stem
+//   version "162"                 name "162_pil_deferred_fks" <- bare number
+//   version "20260917231636"      name "ar64_model_cost_reference"
+//                                    ^ supabase timestamp, name recorded under
+//                                      the FORGE task id; the file on disk is
+//                                      192_model_cost_reference.sql
+//
+// Under the old rule every one of the 202 files on disk would have been
+// reported as "no ledger row" and all 178 ledger rows as "no file" - 380
+// fabricated drift findings. The rule below matches on version AND name, in
+// two passes: exact labels first, then normalised ones, with each ledger row
+// consumable by at most one file. Two-pass consumption is what keeps the
+// duplicate-prefix filenames honest: 063_white_label.sql and
+// 086_white_label.sql both normalise to "white_label", but each pairs with
+// its own exact ledger row in pass 1 and never reaches the loose pass.
+const NUMERIC_PREFIX = /^\d+[_-]/;
+const TASK_PREFIX = /^ar\d+(?:[._-]\d+)*[_-]/i;
+
+export function stemOf(filename) {
+  return filename.replace(/\.sql$/i, "");
+}
+
+// "192_model_cost_reference" -> "model_cost_reference"
+// "ar64_model_cost_reference" -> "model_cost_reference"
+export function bareLabel(label) {
+  return String(label).toLowerCase().replace(NUMERIC_PREFIX, "").replace(TASK_PREFIX, "");
+}
+
+// "162_pil_deferred_fks" -> "162" (the bare-number ledger convention)
+export function numericPrefixOf(label) {
+  const m = /^(\d+)[_-]/.exec(String(label));
+  return m ? m[1] : null;
 }
 
 export function listMigrationFiles(dir) {
@@ -134,20 +165,69 @@ export function listMigrationFiles(dir) {
     .sort();
 }
 
-// diskFiles: array of filenames (e.g. from listMigrationFiles).
-// ledgerVersions: array of version strings from schema_migrations.version.
-// Returns { onDiskNotInLedger: [filenames], inLedgerNotOnDisk: [versions] }.
-export function diffMigrationVersions(diskFiles, ledgerVersions) {
-  const ledgerSet = new Set(ledgerVersions.map(String));
-  const diskVersionSet = new Set(diskFiles.map(versionOf));
-
-  const onDiskNotInLedger = diskFiles.filter((f) => !ledgerSet.has(versionOf(f)));
-  const inLedgerNotOnDisk = [...ledgerSet].filter((v) => !diskVersionSet.has(v)).sort();
-
-  return { onDiskNotInLedger, inLedgerNotOnDisk };
+// Accepts either {version, name} rows or bare version strings (the latter is
+// what the pure fixtures in work-landed.self-test.mjs pass).
+function normaliseLedgerRow(row) {
+  if (typeof row === "string") return { version: row, name: null };
+  return { version: String(row.version), name: row.name == null ? null : String(row.name) };
 }
 
-async function fetchLedgerVersions(databaseUrl) {
+function keysOf(labels) {
+  const exact = labels.map((l) => String(l).toLowerCase());
+  const loose = [];
+  for (const l of labels) {
+    loose.push(bareLabel(l));
+    const n = numericPrefixOf(l);
+    if (n) loose.push(n);
+  }
+  return { exact, all: [...new Set([...exact, ...loose])].filter(Boolean) };
+}
+
+// diskFiles: array of filenames (e.g. from listMigrationFiles).
+// ledgerRows: array of {version, name} (or version strings).
+// Returns { onDiskNotInLedger: [filenames], inLedgerNotOnDisk: [labels] }.
+export function diffMigrationLedger(diskFiles, ledgerRows) {
+  const disk = diskFiles.map((f) => ({ file: f, keys: keysOf([stemOf(f)]), matched: false }));
+  const ledger = ledgerRows.map((r) => {
+    const row = normaliseLedgerRow(r);
+    return { row, keys: keysOf([row.version, row.name].filter(Boolean)), matched: false };
+  });
+
+  for (const pass of ["exact", "all"]) {
+    for (const d of disk) {
+      if (d.matched) continue;
+      const wanted = new Set(d.keys[pass]);
+      const hit = ledger.find((l) => !l.matched && l.keys[pass].some((k) => wanted.has(k)));
+      if (hit) {
+        d.matched = true;
+        hit.matched = true;
+      }
+    }
+  }
+
+  return {
+    onDiskNotInLedger: disk.filter((d) => !d.matched).map((d) => d.file),
+    inLedgerNotOnDisk: ledger
+      .filter((l) => !l.matched)
+      .map((l) => (l.row.name && l.row.name !== l.row.version ? `${l.row.version} (${l.row.name})` : l.row.version))
+      .sort(),
+  };
+}
+
+// ---- Two ways to read the ledger, because one of them is currently dead. ----
+//
+// DATABASE_URL is the direct connection and is the preferred path when it
+// works. On 2026-09-19 it does not: the TCP connection succeeds (contradicting
+// the "port 5432 is blocked from this environment" note in the self-test - it
+// is not blocked, it answers) and the server rejects the password with 28P01.
+// Both Management API PATs recorded in BLUEPRINT_v2.md return 401. The only
+// live credential is SUPABASE_SERVICE_ROLE_KEY, and PostgREST exposes just
+// public + graphql_public, so migration 201 adds a SECURITY DEFINER wrapper,
+// public.forge_migration_ledger(), granted to service_role alone. That is the
+// fallback. Nine consecutive queues reported this check unverifiable; a second
+// read path is the fix, not relaxing what the check asserts.
+
+async function fetchLedgerViaPostgres(databaseUrl) {
   const client = new pg.Client({
     connectionString: databaseUrl,
     ssl: { rejectUnauthorized: false },
@@ -160,12 +240,12 @@ async function fetchLedgerVersions(databaseUrl) {
       `SELECT 1 FROM information_schema.tables WHERE table_schema = 'supabase_migrations' AND table_name = 'schema_migrations'`,
     );
     if ((tableCheck.rowCount ?? 0) === 0) {
-      return { exists: false, versions: null, error: null };
+      return { exists: false, rows: null, error: null };
     }
-    const rows = await client.query(`SELECT version FROM supabase_migrations.schema_migrations ORDER BY version`);
-    return { exists: true, versions: rows.rows.map((r) => String(r.version)), error: null };
+    const result = await client.query(`SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version`);
+    return { exists: true, rows: result.rows, error: null };
   } catch (err) {
-    return { exists: null, versions: null, error: err.message };
+    return { exists: null, rows: null, error: err.message };
   } finally {
     try {
       await client.end();
@@ -173,6 +253,59 @@ async function fetchLedgerVersions(databaseUrl) {
       // ignore close errors
     }
   }
+}
+
+async function fetchLedgerViaRest(supabaseUrl, serviceRoleKey) {
+  try {
+    const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/rpc/forge_migration_ledger`, {
+      method: "POST",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      const hint = text.includes("PGRST202")
+        ? " - public.forge_migration_ledger() is missing; apply supabase/migrations/201_forge_migration_ledger_rpc.sql"
+        : "";
+      return { exists: null, rows: null, error: `HTTP ${res.status} ${text.slice(0, 200)}${hint}` };
+    }
+    const rows = JSON.parse(text);
+    if (!Array.isArray(rows)) return { exists: null, rows: null, error: `unexpected RPC payload: ${text.slice(0, 200)}` };
+    return { exists: true, rows, error: null };
+  } catch (err) {
+    return { exists: null, rows: null, error: err.message };
+  }
+}
+
+// Tries every configured path and reports what each one did, so a failure
+// names the reason per path instead of collapsing to "cannot check".
+async function fetchLedger(env) {
+  const attempts = [];
+
+  if (env.DATABASE_URL) {
+    const direct = await fetchLedgerViaPostgres(env.DATABASE_URL);
+    if (direct.error === null) return { ...direct, source: "DATABASE_URL (direct postgres)", attempts };
+    attempts.push(`DATABASE_URL (direct postgres): ${direct.error}`);
+  } else {
+    attempts.push("DATABASE_URL (direct postgres): not set");
+  }
+
+  const restUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const restKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (restUrl && restKey) {
+    const rest = await fetchLedgerViaRest(restUrl, restKey);
+    if (rest.error === null) return { ...rest, source: "service_role -> public.forge_migration_ledger()", attempts };
+    attempts.push(`service_role -> public.forge_migration_ledger(): ${rest.error}`);
+  } else {
+    attempts.push("service_role -> public.forge_migration_ledger(): NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set");
+  }
+
+  return { exists: null, rows: null, error: "no read path to the migration ledger succeeded", source: null, attempts };
 }
 
 // ----------------------------------------------------------------------------
@@ -226,24 +359,18 @@ async function main() {
 
   // ---- Check 3: migration ledger drift ----
   loadDotenv({ path: ".env.local" });
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    failures.push(
-      `CHECK 3 FAILED - DATABASE_URL not set (checked process.env and .env.local) - cannot verify migration ledger.\n` +
-        `  -> Fix: set DATABASE_URL, then re-run this gate.`,
-    );
-  } else if (!existsSync(MIGRATIONS_DIR)) {
+  if (!existsSync(MIGRATIONS_DIR)) {
     failures.push(`CHECK 3 FAILED - ${MIGRATIONS_DIR} does not exist - cannot verify migration ledger.`);
   } else {
     const diskFiles = listMigrationFiles(MIGRATIONS_DIR);
-    const ledger = await fetchLedgerVersions(databaseUrl);
+    const ledger = await fetchLedger(process.env);
     if (ledger.error) {
       failures.push(
-        `CHECK 3 FAILED - could not query supabase_migrations.schema_migrations: ${ledger.error}\n` +
-          `  -> Fix: confirm DATABASE_URL is reachable from this environment (see STANDING_DIRECTIVES.md ` +
-          `for the known direct-connection-vs-pooler caveat), then re-run this gate. This is reported as a ` +
-          `failure, not skipped, because an unverifiable ledger is exactly the condition this gate exists to ` +
-          `never silently pass.`,
+        `CHECK 3 FAILED - could not read supabase_migrations.schema_migrations by any configured path:\n` +
+          ledger.attempts.map((a) => `  ${a}`).join("\n") +
+          `\n  -> Fix: restore one of the read paths above (see STANDING_DIRECTIVES.md DIRECTIVE-020), then ` +
+          `re-run this gate. This is reported as a failure, not skipped, because an unverifiable ledger is ` +
+          `exactly the condition this gate exists to never silently pass.`,
       );
     } else if (ledger.exists === false) {
       failures.push(
@@ -253,7 +380,8 @@ async function main() {
           `investigate before proceeding - do not re-create it blind.`,
       );
     } else {
-      const { onDiskNotInLedger, inLedgerNotOnDisk } = diffMigrationVersions(diskFiles, ledger.versions);
+      console.log(`work-landed/check-3: ledger read via ${ledger.source} (${ledger.rows.length} rows)`);
+      const { onDiskNotInLedger, inLedgerNotOnDisk } = diffMigrationLedger(diskFiles, ledger.rows);
       if (onDiskNotInLedger.length > 0) {
         failures.push(
           `CHECK 3 FAILED - ${onDiskNotInLedger.length} migration file(s) on disk have no ledger row ` +

@@ -3371,3 +3371,84 @@ fresh machine still needs a real `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` and/or
 `RAILWAY_TOKEN` provisioned to get anything but `INDETERMINATE` there; no
 value was invented here, per the task's explicit instruction. DIRECTIVE-020/
 021 flagged as missing, not backfilled — out of this task's scope.
+
+## AR-18.2 recovery — the work-landed migration gate can finally read the ledger, and it found real drift (2026-09-19)
+
+The AR-18.2 queue failed its last gate: `work-landed: 1 check(s) FAILED —
+CHECK 3 FAILED - could not query supabase_migrations.schema_migrations:
+password authentication failed for user "postgres"`. Two defects sat behind
+that one line, and the second had never been visible because the first always
+fired first.
+
+**Defect 1 — no working read path.** Re-tested live, not assumed:
+`DATABASE_URL` connects (the host answers on 5432; the "port 5432 is blocked
+from this sandbox" note recorded in AR-18.1's self-test was wrong) and the
+server rejects the password with `28P01`. Both Management API PATs recorded
+in `BLUEPRINT_v2.md` return `401`. `SUPABASE_SERVICE_ROLE_KEY` is alive, but
+PostgREST exposes only `public` + `graphql_public`, so the ledger was out of
+reach over REST.
+
+Migration `201_forge_migration_ledger_rpc.sql` adds
+`public.forge_migration_ledger()` — SECURITY DEFINER, SELECT-only, no
+arguments, `GRANT EXECUTE` to `service_role` alone, `anon` and
+`authenticated` explicitly revoked (this project's public schema
+default-grants to `anon`). Verified live: `service_role` → 200 / 199 rows,
+`anon` → 401 `permission denied for function forge_migration_ledger`. Check 3
+now tries `DATABASE_URL` first and falls back to that RPC, and when both fail
+it names what each path did rather than collapsing to "cannot check". No
+credential was invented, guessed, or hardcoded.
+
+**Defect 2 — matching that could never have passed.** The gate compared
+ledger `version` against "the filename token before the first underscore".
+This project's ledger uses three conventions simultaneously:
+`001_initial_schema` (version is the whole stem), `162` (bare number, real
+name in `name`), and `20260917231636` with name `ar64_model_cost_reference`
+(Supabase timestamp; the file on disk is `192_model_cost_reference.sql`).
+Against the real ledger the old rule yields **380 fabricated findings** — all
+202 files "never applied" and all 178 rows "orphaned". Matching now compares
+`version` AND `name` in two passes, exact labels before normalised ones
+(leading `NNN_` and `arNN_` stripped), each ledger row consumable by at most
+one file so duplicate stems like `063_white_label.sql` / `086_white_label.sql`
+still pair with their own rows.
+
+**First real result.** With both defects fixed the gate reported 24 files on
+disk with no ledger row and 0 orphaned rows. Each of the 24 was checked
+object-by-object against production:
+
+- **20 were already live, just never recorded** — 148, 149, 163, 164, 165,
+  166, 167, 168, 169, 171–180, 183. Evidence per file: the tables, columns,
+  constraints, policies, enum values and `pil_agent_registry` rows they create
+  all exist in production. Their ledger rows were repaired
+  (`created_by = 'forge-ar-18.2-ledger-repair-2026-09-19'`).
+- **4 are genuinely not applied and remain open** — and one of them is a live
+  production bug this gate surfaced for the first time:
+  - `147_knowledge_public_wrappers.sql` — `public.knowledge_search`,
+    `knowledge_rate_count` and `knowledge_insert_query` do not exist in
+    production. `src/lib/knowledge/db.ts` calls all three by RPC, so that code
+    path is broken live.
+  - `170_pil_prospects_auto_research_run_trigger.sql` — trigger absent.
+    Applying it changes behaviour: every `pil_prospects` insert would start
+    creating a `pil_research_runs` row.
+  - `181_email_security_audit_log.sql` — `email_security_audit_log` and
+    `pii_mask_log` absent.
+  - `196_orchestration_logs_authenticated_insert.sql` — that policy absent;
+    `orchestration_logs` carries only `orchestration_logs_org_isolation`.
+
+Per DIRECTIVE-018 rule 4 (and the new DIRECTIVE-020 rule 4) these four were
+**not** applied by this session. Finding drift does not license fixing it in
+the same pass, least of all 170.
+
+**Verification:** `work-landed.self-test.mjs` — 8 clean-pass, 6 catch, 0
+unexpected, exit 0 (3 new cases cover all three ledger conventions, the
+duplicate-stem pairing, and a timestamp-versioned orphan). Live gate run:
+check 1 PASS, check 2 PASS, check 3 reads 199 rows via the service_role
+fallback and fails on exactly the 4 unapplied files above — which is the gate
+working, not the gate broken.
+
+**Carry-forward:** (1) `DATABASE_URL` needs a fresh password from Supabase →
+Project Settings → Database; the REST fallback works without it but the
+direct connection is still the only path that doesn't need a public-schema
+wrapper, and `pg_dump` backups need it regardless. (2) The 4 unapplied
+migrations need a decision — 147 is fixing broken production code, 181 and 196
+are additive, 170 is a behaviour change. Until they are applied or withdrawn,
+`work-landed.mjs` will keep failing check 3, correctly.

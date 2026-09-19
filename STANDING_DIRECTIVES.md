@@ -249,7 +249,7 @@ All state portals, corporate foundations, community foundations, international f
 
 ## DIRECTIVE-019: Deploy-Drift Verification Gate (Vercel + Railway)
 
-**Note on numbering:** `.githooks/pre-push`, `scripts/verify-deployment.ts`, and several `test-evidence/` audits have cited "DIRECTIVE-019" (and later "DIRECTIVE-020", "DIRECTIVE-021") as if defined in this file since 2026-08-11. As of this update (2026-09-19) none of those numbered entries actually existed here — every prior session that referenced DIRECTIVE-019 was citing a directive nobody had written down. This entry is the first time it's actually been recorded. DIRECTIVE-020/021 remain undocumented here; do not assume their cited content is accurate until someone does the same for those.
+**Note on numbering:** `.githooks/pre-push`, `scripts/verify-deployment.ts`, and several `test-evidence/` audits have cited "DIRECTIVE-019" (and later "DIRECTIVE-020", "DIRECTIVE-021") as if defined in this file since 2026-08-11. As of this update (2026-09-19) none of those numbered entries actually existed here — every prior session that referenced DIRECTIVE-019 was citing a directive nobody had written down. This entry is the first time it's actually been recorded. DIRECTIVE-020 was written on 2026-09-19 (below) and covers migration-ledger read paths, not whatever earlier sessions cited it for. DIRECTIVE-021 remains undocumented here; do not assume its cited content is accurate until someone does the same for it.
 
 **Objective:** A green pre-push build and a pushed `main` do not mean production is running that code. Every production surface this programme deploys to must be checked against local HEAD, and the result must be reported honestly as CONFIRMED, DRIFTED, or INDETERMINATE — never collapsed to a single pass/fail, and never silently skipped.
 
@@ -266,6 +266,29 @@ All state portals, corporate foundations, community foundations, international f
 4. When adding a new deployed surface (a third platform, a second Vercel project, etc.), extend this gate rather than standing up a separate, un-cross-referenced check.
 
 **Enforcement:** `scripts/verify-deployment.ts`, run as the `deploy_verify` step per CLAUDE.md Gate 7 (see Directive 7 above).
+
+---
+
+## DIRECTIVE-020: Migration Ledger Read Paths and Matching
+
+**Objective:** `supabase_migrations.schema_migrations` is the only record of what production has actually run. The `work-landed.mjs` check-3 gate depends on reading it and on comparing it correctly to `supabase/migrations/*.sql`. Both halves were broken; both are fixed here.
+
+**Incident (2026-09-17 → 2026-09-19):** check 3 failed on every run with `password authentication failed for user "postgres"` and was never able to make an assertion. Two separate defects sat behind that:
+
+1. **No working read path.** `DATABASE_URL` returns 28P01 — the direct host answers on 5432 (the earlier "port 5432 is blocked from this environment" note in `work-landed.self-test.mjs` was wrong and has been corrected), the credential is simply stale. Both Management API PATs recorded in `BLUEPRINT_v2.md` return 401. The only live credential is `SUPABASE_SERVICE_ROLE_KEY`, and PostgREST exposes only `public` + `graphql_public`.
+2. **Matching logic that could never have passed.** The gate compared `version` against "the filename token before the first underscore". This project's ledger uses three conventions at once — `001_initial_schema` (whole stem), `162` (bare number, real name in `name`), and `20260917231636` / `ar64_model_cost_reference` (Supabase timestamp, name recorded under the FORGE task id, file on disk `192_model_cost_reference.sql`). Against the real ledger that rule produces 380 fabricated drift findings — 202 files "unapplied" and 178 rows "orphaned". Because defect 1 always fired first, defect 2 had never been seen.
+
+**Fixed (2026-09-19):** migration 201 adds `public.forge_migration_ledger()` — SECURITY DEFINER, SELECT-only, no arguments, `GRANT EXECUTE` to `service_role` only, `anon`/`authenticated` explicitly revoked (verified live: service_role 200, anon 401). Check 3 tries `DATABASE_URL` first and falls back to that RPC, naming what each path did when both fail. Matching now compares version AND name in two passes — exact labels first, then normalised (leading `NNN_` and `arNN_` prefixes stripped) — with each ledger row consumable by at most one file, so duplicate-stem filenames like `063_white_label.sql` / `086_white_label.sql` still pair with their own rows.
+
+**First real result (2026-09-19):** 24 files on disk had no ledger row. 20 were verified live object-by-object (tables, columns, constraints, policies, enum values, registry rows all present in production) and their ledger rows were repaired, `created_by = 'forge-ar-18.2-ledger-repair-2026-09-19'`. **4 are genuinely not applied to production and remain open:** `147_knowledge_public_wrappers.sql` (the three `knowledge_*` RPCs `src/lib/knowledge/db.ts` calls do not exist live — that code path is broken in production), `170_pil_prospects_auto_research_run_trigger.sql`, `181_email_security_audit_log.sql`, `196_orchestration_logs_authenticated_insert.sql`. Per DIRECTIVE-018 rule 4 these were NOT applied by the session that found them; 170 in particular changes behaviour (auto-creates a `pil_research_runs` row per prospect insert) and is Reid's call.
+
+**Mandatory rules:**
+1. Never make check 3 skip, soften, or auto-pass when the ledger is unreadable. An unverifiable ledger is the exact condition the gate exists to catch. Add a read path instead.
+2. Never compare migrations on the numeric prefix alone. Match on `version` and `name`, exact before normalised, one ledger row per file.
+3. Repairing a ledger row is only permitted after verifying the migration's objects exist live, object by object. Recording an unapplied migration as applied is worse than the drift it hides.
+4. Finding drift does not license applying the missing migrations in the same pass. Report them; let a human decide, especially for anything that changes behaviour or costs money.
+
+**Enforcement:** `scripts/audit/forge-gates/work-landed.mjs` check 3; `scripts/audit/forge-gates/work-landed.self-test.mjs` cases 7–9 cover all three ledger conventions and the duplicate-stem case.
 
 ---
 
