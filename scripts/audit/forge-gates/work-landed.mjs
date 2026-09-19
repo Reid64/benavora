@@ -37,6 +37,15 @@
 // from 2026-09-17 onward, and behind that sat a second defect - the version
 // matching below - that would have fabricated 380 drift findings the moment a
 // connection did succeed. Both are fixed; see DIRECTIVE-020.
+//
+// AR-17.1 recovery (2026-09-19): with check 3 finally asserting, it began
+// failing every downstream queue on one file - 170, which DIRECTIVE-020 rule 4
+// explicitly forbids any agent from applying (it spends Anthropic budget per
+// prospect row) and which is Reid's open decision. Rule 1 forbids softening the
+// check; rule 4 forbids fixing the drift. DEFERRED_MIGRATIONS below resolves
+// that deadlock by making the exception NAMED, AUDITED and LOUD rather than
+// silent: the file is printed on every run, and the waiver itself fails the
+// gate if it goes stale or if the migration is later applied.
 
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
@@ -142,6 +151,63 @@ export function diffPushStatus(behind, ahead) {
 // its own exact ledger row in pass 1 and never reaches the loose pass.
 const NUMERIC_PREFIX = /^\d+[_-]/;
 const TASK_PREFIX = /^ar\d+(?:[._-]\d+)*[_-]/i;
+
+// ---- Named deferrals: migrations knowingly NOT applied, by human decision ----
+//
+// DIRECTIVE-020 rule 5 creates a deadlock this registry resolves without
+// softening anything. Rule 4 forbids a session applying a behaviour-changing or
+// money-spending migration it merely found; rule 1 forbids check 3 auto-passing
+// on drift. For 170 both hold at once, so every one of the 27+ downstream FORGE
+// queues that ends on this gate fails on a condition that is already decided,
+// already documented, and that no agent is permitted to fix. A gate that is red
+// for a reason nobody may act on stops being read - which is how the AR-10.3
+// incident got four green gates in the first place.
+//
+// A deferral is NOT a suppression. It must name the file exactly, the decision
+// that holds it open, and who owns that decision; the file is still printed on
+// every run; and the registry is policed in both directions by
+// partitionDeferred() below - a deferral whose file has vanished, or whose
+// migration has since been applied, FAILS the gate. Waivers here rot loudly.
+//
+// Adding an entry is a governance act, not a gate fix. Anything not backed by a
+// recorded decision in STANDING_DIRECTIVES.md does not belong in this list.
+export const DEFERRED_MIGRATIONS = [
+  {
+    file: "170_pil_prospects_auto_research_run_trigger.sql",
+    owner: "Reid",
+    since: "2026-09-19",
+    decision: "STANDING_DIRECTIVES.md DIRECTIVE-020, rules 4-5 and the AR-16.1 recovery update",
+    reason:
+      "Its AFTER INSERT trigger on pil_prospects creates a pil_research_runs row per prospect, and " +
+      "/api/cron/pil-research polls those every 10 minutes and spends real Anthropic budget on each. " +
+      "Applied once during AR-16.1 and fully reverted (trigger, function and ledger row dropped; zero " +
+      "runs created in the interim). Nothing in src/ or worker/ reads the trigger, so leaving it " +
+      "unapplied breaks no code path.",
+  },
+];
+
+// Splits check 3's on-disk-not-in-ledger findings against the deferral registry,
+// and audits the registry itself. Pure, so the self-test can prove every branch.
+//
+//   unexplained - real drift, still fails the gate
+//   deferred    - matched a registry entry, reported but does not fail
+//   stale       - registry entry naming a file that is no longer on disk
+//   resolved    - registry entry whose migration IS now in the ledger
+//
+// stale and resolved both FAIL: a waiver that no longer describes reality is a
+// blind spot, and the only way to clear it is to delete the entry deliberately.
+export function partitionDeferred(onDiskNotInLedger, diskFiles, deferrals = DEFERRED_MIGRATIONS) {
+  const drift = new Set(onDiskNotInLedger);
+  const onDisk = new Set(diskFiles);
+  const known = new Map(deferrals.map((d) => [d.file, d]));
+
+  return {
+    unexplained: onDiskNotInLedger.filter((f) => !known.has(f)),
+    deferred: onDiskNotInLedger.filter((f) => known.has(f)).map((f) => known.get(f)),
+    stale: deferrals.filter((d) => !onDisk.has(d.file)),
+    resolved: deferrals.filter((d) => onDisk.has(d.file) && !drift.has(d.file)),
+  };
+}
 
 export function stemOf(filename) {
   return filename.replace(/\.sql$/i, "");
@@ -382,13 +448,45 @@ async function main() {
     } else {
       console.log(`work-landed/check-3: ledger read via ${ledger.source} (${ledger.rows.length} rows)`);
       const { onDiskNotInLedger, inLedgerNotOnDisk } = diffMigrationLedger(diskFiles, ledger.rows);
-      if (onDiskNotInLedger.length > 0) {
+      const { unexplained, deferred, stale, resolved } = partitionDeferred(onDiskNotInLedger, diskFiles);
+
+      // Deferrals are printed on every run, pass or fail - a known gap that
+      // stops being visible is a known gap that stops being decided.
+      for (const d of deferred) {
+        console.log(
+          `work-landed/check-3: DEFERRED (not applied, by decision) ${MIGRATIONS_DIR}/${d.file}\n` +
+            `  owner: ${d.owner}, since ${d.since} - ${d.decision}\n` +
+            `  ${d.reason}`,
+        );
+      }
+
+      if (unexplained.length > 0) {
         failures.push(
-          `CHECK 3 FAILED - ${onDiskNotInLedger.length} migration file(s) on disk have no ledger row ` +
+          `CHECK 3 FAILED - ${unexplained.length} migration file(s) on disk have no ledger row ` +
             `(file never applied, OR applied by hand without recording it):\n` +
-            onDiskNotInLedger.map((f) => `  ${MIGRATIONS_DIR}/${f}`).join("\n") +
+            unexplained.map((f) => `  ${MIGRATIONS_DIR}/${f}`).join("\n") +
             `\n  -> Fix: apply the migration and record it (supabase migration repair --status applied <version>), ` +
-            `or if it is already live, just repair the ledger.`,
+            `or if it is already live, just repair the ledger. If it is knowingly held unapplied by a recorded ` +
+            `human decision, add it to DEFERRED_MIGRATIONS in this file with that decision named - see ` +
+            `STANDING_DIRECTIVES.md DIRECTIVE-020 rule 6.`,
+        );
+      }
+      if (stale.length > 0) {
+        failures.push(
+          `CHECK 3 FAILED - ${stale.length} DEFERRED_MIGRATIONS entr(ies) name a file that is no longer on disk:\n` +
+            stale.map((d) => `  ${MIGRATIONS_DIR}/${d.file} (${d.decision})`).join("\n") +
+            `\n  -> Fix: the deferral no longer describes anything. Delete the entry from DEFERRED_MIGRATIONS ` +
+            `in ${path.posix.join("scripts/audit/forge-gates", "work-landed.mjs")}, and record why the file went away.`,
+        );
+      }
+      if (resolved.length > 0) {
+        failures.push(
+          `CHECK 3 FAILED - ${resolved.length} DEFERRED_MIGRATIONS entr(ies) describe a migration that IS now ` +
+            `recorded in the ledger:\n` +
+            resolved.map((d) => `  ${MIGRATIONS_DIR}/${d.file} (${d.decision})`).join("\n") +
+            `\n  -> Fix: the decision has been made and acted on. Delete the entry from DEFERRED_MIGRATIONS and ` +
+            `update the directive that recorded it. A waiver left standing over an applied migration hides the ` +
+            `next real drift on that file.`,
         );
       }
       if (inLedgerNotOnDisk.length > 0) {
@@ -410,7 +508,13 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("OK: working tree clean, HEAD matches origin/main, migration files and ledger agree in both directions");
+  const deferralNote =
+    DEFERRED_MIGRATIONS.length > 0
+      ? ` (${DEFERRED_MIGRATIONS.length} migration(s) knowingly deferred, listed above)`
+      : "";
+  console.log(
+    `OK: working tree clean, HEAD matches origin/main, migration files and ledger agree in both directions${deferralNote}`,
+  );
 }
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

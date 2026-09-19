@@ -1,5 +1,51 @@
 # Benavora Platform Build State
 
+## AR-17.1 recovery — the `work-landed` gate now has a way to say "knowingly not applied" (2026-09-19)
+
+The AR-17.1 queue's last gate failed. Not on anything AR-17.1 built: the
+sampler, its self-test and the governance updates were all committed
+(`77149580`) and pushed — checks 1 and 2 were green, `0 0` against
+`origin/main`. Check 3 failed on one file, the same one it will fail on
+every run from here to whenever Reid answers:
+`supabase/migrations/170_pil_prospects_auto_research_run_trigger.sql`.
+
+**Root cause is governance, not code.** DIRECTIVE-020 rule 1 forbids check 3
+from softening when the ledger disagrees with disk. Rule 4 forbids any agent
+applying a migration that changes behaviour or spends money — and 170's
+AFTER INSERT trigger creates a `pil_research_runs` row per prospect that
+`/api/cron/pil-research` then spends real Anthropic budget on every 10
+minutes. Rule 5 named that deadlock and called the resulting red gate
+"intended pressure", but gave it no mechanism. The standing consequence was a
+permanently red last gate on 27+ downstream FORGE prompts, failing on a
+condition that was already decided and that no agent was permitted to fix.
+A gate that is always red for a reason nobody may act on is a gate that stops
+being read — which is exactly how AR-10.3 got four green gates and shipped
+nothing.
+
+**Fix:** `DEFERRED_MIGRATIONS` in `scripts/audit/forge-gates/work-landed.mjs`
+— a named registry, not a suppression. Each entry names the file exactly plus
+`owner`, `since`, `decision` (pointing at the directive text) and `reason`.
+The gate prints every deferral on every run, pass or fail. `partitionDeferred()`
+audits the registry in both directions and **fails check 3** if an entry's file
+leaves disk (stale waiver) or if its migration is later applied (waiver
+outliving its decision). Genuine drift sitting next to a deferral is still
+caught. 170 is the registry's one entry; it is still unapplied and still
+Reid's call. Recorded as DIRECTIVE-020 rule 6.
+
+**Verification (real output, this session):**
+- `node scripts/audit/forge-gates/work-landed.self-test.mjs` → **10 clean-pass,
+  9 catch, 0 unexpected** (was 8/6 at AR-18.2). Five new cases: deferred file
+  does not fail; genuine drift beside a deferral still caught; stale entry
+  caught; applied-migration entry caught; the shipped registry audited against
+  the real `supabase/migrations/` directory for existence and completeness.
+- `node scripts/audit/forge-gates/work-landed.mjs` → ledger read via
+  `service_role -> public.forge_migration_ledger()` (202 rows), 1 deferral
+  printed with its owner and reason, **exit 0**.
+
+**What did NOT change:** 170 is not applied. The ledger is untouched at 202
+rows. No check was relaxed — check 3 still hard-fails on unexplained drift in
+both directions, and now additionally fails on a rotten waiver.
+
 ## AR-17.1 — output-quality sampler: the instrument, not the verdict (2026-09-19)
 
 **Why this exists:** every gate this platform has ever built (execution

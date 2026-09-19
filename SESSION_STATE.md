@@ -8,7 +8,25 @@
 - **Current prompt:** None (external specification in progress)
 - **Completed prompts:** 0
 - **Failed prompts:** 0 (templates rejected before execution)
-- **Last updated:** 2026-09-19 (AR-17.1: built `scripts/audit/output-quality-sampler.mjs`,
+- **Last updated:** 2026-09-19 (AR-17.1 recovery: the queue's last gate,
+  `work-landed`, failed — not on anything AR-17.1 built. Checks 1 and 2 were
+  green and commit `77149580` was pushed; check 3 failed on the single file it
+  is now guaranteed to fail on forever,
+  `supabase/migrations/170_pil_prospects_auto_research_run_trigger.sql`.
+  DIRECTIVE-020 rule 1 forbids softening check 3; rule 4 forbids any agent
+  applying 170 (its trigger spends real Anthropic budget per prospect row);
+  rule 5 named that deadlock but supplied no mechanism, leaving a permanently
+  red last gate on 27+ downstream prompts over an already-made decision.
+  Fixed with `DEFERRED_MIGRATIONS` + `partitionDeferred()` in
+  `scripts/audit/forge-gates/work-landed.mjs`: a named deferral registry
+  requiring file/owner/since/decision/reason per entry, printed on every run,
+  and **audited in both directions** — a deferral whose file is gone, or whose
+  migration has since been applied, fails check 3. Genuine drift beside a
+  deferral is still caught. Recorded as DIRECTIVE-020 rule 6. Self-test
+  **10 clean-pass / 9 catch / 0 unexpected** (up from 8/6; cases 10a-10e);
+  live gate run: ledger via service_role RPC, 202 rows, 1 deferral printed,
+  exit 0. 170 remains unapplied and remains Reid's call; the ledger was not
+  touched.) Previous entry -- 2026-09-19 (AR-17.1: built `scripts/audit/output-quality-sampler.mjs`,
   the read-only instrument that measures whether an agent's real production
   output is worth anything, not just whether it ran. Every prior gate on this
   platform (including this session's own AR-18 work-landed gate) checks

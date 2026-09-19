@@ -35,6 +35,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   parseGitStatus,
@@ -43,7 +44,13 @@ import {
   diffPushStatus,
   diffMigrationLedger,
   listMigrationFiles,
+  partitionDeferred,
+  DEFERRED_MIGRATIONS,
 } from "./work-landed.mjs";
+
+// Case 10e audits the registry that actually ships against the real
+// supabase/migrations/ directory, so it needs the repo root, not the tmp fixture.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 let passCount = 0;
 let catchCount = 0;
@@ -249,6 +256,64 @@ try {
     "check 3 catches a timestamp-versioned ledger row whose file was never committed",
     orphanNamed.inLedgerNotOnDisk.length === 1 &&
       orphanNamed.inLedgerNotOnDisk[0] === "20260918113008 (funder_delete_cancels_queue_items)",
+  );
+
+  // ============================================================
+  // 10. The DEFERRED_MIGRATIONS registry. A named exception is only safe if
+  //     it cannot quietly widen, so all four branches are proven here against
+  //     fixture deferrals, and the registry shipped in work-landed.mjs is
+  //     then audited against the real migrations directory.
+  // ============================================================
+  const FIXTURE_DEFERRALS = [
+    { file: "170_deferred.sql", owner: "Fixture Owner", since: "2026-09-19", decision: "fixture decision", reason: "fixture" },
+  ];
+
+  // 10a. CLEAN: the one deferred file does not fail the gate...
+  const deferredOnly = partitionDeferred(["170_deferred.sql"], ["001_init.sql", "170_deferred.sql"], FIXTURE_DEFERRALS);
+  expectPass(
+    "check 3 does not fail on a migration named in DEFERRED_MIGRATIONS",
+    deferredOnly.unexplained.length === 0 &&
+      deferredOnly.deferred.length === 1 &&
+      deferredOnly.deferred[0].owner === "Fixture Owner" &&
+      deferredOnly.stale.length === 0 &&
+      deferredOnly.resolved.length === 0,
+  );
+
+  // 10b. CATCH: ...and does not cover any OTHER unapplied file alongside it.
+  const deferredPlusReal = partitionDeferred(
+    ["170_deferred.sql", "171_real_drift.sql"],
+    ["170_deferred.sql", "171_real_drift.sql"],
+    FIXTURE_DEFERRALS,
+  );
+  expectCatch(
+    "check 3 still catches genuine drift (171_real_drift.sql) sitting next to a deferred file",
+    deferredPlusReal.unexplained.length === 1 && deferredPlusReal.unexplained[0] === "171_real_drift.sql",
+  );
+
+  // 10c. CATCH: a deferral naming a file that no longer exists on disk.
+  const staleDeferral = partitionDeferred([], ["001_init.sql"], FIXTURE_DEFERRALS);
+  expectCatch(
+    "check 3 catches a DEFERRED_MIGRATIONS entry whose file is gone from disk",
+    staleDeferral.stale.length === 1 && staleDeferral.stale[0].file === "170_deferred.sql",
+  );
+
+  // 10d. CATCH: a deferral whose migration has since been applied - the waiver
+  //      must be deleted, not left standing over a file it no longer describes.
+  const resolvedDeferral = partitionDeferred([], ["001_init.sql", "170_deferred.sql"], FIXTURE_DEFERRALS);
+  expectCatch(
+    "check 3 catches a DEFERRED_MIGRATIONS entry whose migration is now in the ledger",
+    resolvedDeferral.resolved.length === 1 && resolvedDeferral.resolved[0].file === "170_deferred.sql",
+  );
+
+  // 10e. CLEAN: every entry in the REAL shipped registry names a file that is
+  //      actually in supabase/migrations/, and carries the four fields the
+  //      gate prints. A deferral with no recorded decision is a suppression.
+  const realMigrations = listMigrationFiles(path.join(repoRoot, "supabase", "migrations"));
+  const realRegistryAudit = partitionDeferred(DEFERRED_MIGRATIONS.map((d) => d.file), realMigrations);
+  expectPass(
+    `the shipped DEFERRED_MIGRATIONS registry (${DEFERRED_MIGRATIONS.length} entr(ies)) names only real, fully documented files`,
+    realRegistryAudit.stale.length === 0 &&
+      DEFERRED_MIGRATIONS.every((d) => d.file && d.owner && d.since && d.decision && d.reason),
   );
 } finally {
   rmSync(tmpRoot, { recursive: true, force: true });
