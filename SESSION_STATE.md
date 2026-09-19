@@ -1730,3 +1730,75 @@ push.
 - `psql`/pooler direct-DB access still broken from this environment (same
   class of issue as `benavora-database-url-auth-broken-2026-09-10`) — REST
   API + Supabase MCP connector used throughout instead.
+
+## AR-18.2 — Deploy verification covers Vercel and Railway, honestly (2026-09-19)
+
+**Task:** Nine consecutive FORGE queues (2026-09-17 through 2026-09-19) ended
+`deploy_verify` with `INDETERMINATE — VERCEL_TOKEN and/or VERCEL_PROJECT_ID
+are not set`. AR-8.3 had correctly documented what was needed without
+inventing values; this prompt made it actually work, and extended it to the
+Railway worker, which auto-deploys from GitHub independently of Vercel and
+had never been checked at all — discovered only from a screenshot of
+Railway's deploy history.
+
+**What changed:**
+- `scripts/verify-deployment.ts` rewritten to check both surfaces and prefer
+  each platform's own CLI over a hand-provisioned token. Both CLIs are
+  already installed and authenticated non-interactively on this machine:
+  `vercel whoami` → `reid-9664`, with real access to the `reids-projects-b3405b97`
+  team that owns this project (the 2026-09-15 "wrong team" blocker recorded
+  in `.env.local.example`/the `benavora-vercel-cli-team-mismatch-2026-09-15`
+  memory no longer holds — that memory is stale as of this session).
+  `railway whoami` → `reid@repvg.com`, this directory already linked to the
+  real `benavora-worker` project/service via `~/.railway/config.json`. No
+  token was created, invented, or hardcoded for either surface.
+- Railway's comparison is watch-path-aware, not raw SHA equality:
+  `railway.json`'s `build.watchPatterns` means Railway deliberately skips
+  redeploying on commits that don't touch worker code, so `git log
+  <railway-deployed-sha>..HEAD -- <watchPatterns>` is what determines
+  CONFIRMED vs DRIFTED — an empty range means nothing it should have
+  redeployed for has landed, which is a correct SKIPPED, not drift.
+- Three honest outcomes per surface — CONFIRMED / DRIFTED / INDETERMINATE —
+  replacing the old universal-INDETERMINATE collapse. Exit codes simplified
+  to match: 0 both CONFIRMED, 1 at least one DRIFTED, 3 at least one
+  INDETERMINATE (with neither drifted).
+- `.env.local.example`: corrected the stale 2026-09-15 CLI/team-mismatch
+  note, documented that the Vercel vars are now optional on this machine
+  (CLI-first), and added `RAILWAY_TOKEN` as the documented CI fallback.
+- `STANDING_DIRECTIVES.md`: added `DIRECTIVE-019` for real — it had been
+  cited by `.githooks/pre-push`, this script's own header comment, and
+  multiple `test-evidence/` audits since 2026-08-11, but never actually
+  existed in the live file until this session. DIRECTIVE-020/021 remain
+  similarly cited-but-undocumented; out of scope for this task.
+
+**Incremental testing checkpoint (run before the commit below, real output):**
+
+```
+verify-deployment: local HEAD is b04ea3f54d99686a03bfa75ac12a7b7b8006d2b7
+verify-deployment: Vercel — CONFIRMED: production (benavora-c7mbasn29-reids-projects-b3405b97.vercel.app, via vercel CLI) matches local HEAD (b04ea3f54d99686a03bfa75ac12a7b7b8006d2b7).
+verify-deployment: Railway — CONFIRMED: worker (ad174551-05d1-4043-af58-b07cabf07202) is on b9be4a4653ae7382a4d4e2e4c98b8d1e23ff105a, 7 commit(s) behind HEAD, but none touched watched paths (worker/**, package.json, pnpm-lock.yaml, src/lib/autoapply/**, src/lib/supabase/**, src/lib/donor-discovery/**, src/lib/enrichment/web-extractor.ts, src/lib/env.ts, src/types/**) — correctly SKIPPED, not drifted.
+```
+Exit code 0. Both surfaces genuinely verified, not assumed.
+
+**Verification (this session):**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Clean, 0 errors |
+| `pnpm test` | 98 files passed, 1 skipped (99); 904 tests passed, 13 todo |
+
+**Constraints honoured:**
+- No token invented, guessed, or hardcoded for either surface — both checks
+  ride the CLI's own existing, non-interactive login.
+- No browser UI used at any point.
+- No `git add -A` — commit stages `scripts .env.local.example
+  STANDING_DIRECTIVES.md STATE_OF_THE_BUILD.md SESSION_STATE.md` only.
+
+**Carry-forward:**
+1. This machine's CLI-first path works today but is inherently
+   machine-specific; a CI runner or a fresh machine needs `VERCEL_TOKEN`/
+   `VERCEL_PROJECT_ID` and/or `RAILWAY_TOKEN` set for the same gate to
+   produce anything but `INDETERMINATE` there — both are now documented in
+   `.env.local.example` with exact provisioning steps, no values filled in.
+2. DIRECTIVE-020/021, cited by other docs since 2026-08-21, still don't
+   exist in `STANDING_DIRECTIVES.md` — flagged, not fixed, in this session.

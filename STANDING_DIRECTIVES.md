@@ -247,6 +247,28 @@ All state portals, corporate foundations, community foundations, international f
 
 ---
 
+## DIRECTIVE-019: Deploy-Drift Verification Gate (Vercel + Railway)
+
+**Note on numbering:** `.githooks/pre-push`, `scripts/verify-deployment.ts`, and several `test-evidence/` audits have cited "DIRECTIVE-019" (and later "DIRECTIVE-020", "DIRECTIVE-021") as if defined in this file since 2026-08-11. As of this update (2026-09-19) none of those numbered entries actually existed here — every prior session that referenced DIRECTIVE-019 was citing a directive nobody had written down. This entry is the first time it's actually been recorded. DIRECTIVE-020/021 remain undocumented here; do not assume their cited content is accurate until someone does the same for those.
+
+**Objective:** A green pre-push build and a pushed `main` do not mean production is running that code. Every production surface this programme deploys to must be checked against local HEAD, and the result must be reported honestly as CONFIRMED, DRIFTED, or INDETERMINATE — never collapsed to a single pass/fail, and never silently skipped.
+
+**Incident 1 (2026-08-11):** an audit found 37 of the last 40 Vercel production deployments in `Error` state, with production serving a build 21 commits stale for 8+ hours before anything in the pipeline noticed. `.githooks/pre-push` (`pnpm run build`) stops a broken build from reaching `main`, but cannot catch a push that succeeds while Vercel's own deploy fails, never fires, or serves an older commit. `scripts/verify-deployment.ts` was built to close this by comparing local HEAD to Vercel's live production commit SHA.
+
+**Incident 2 (2026-09-17 through 2026-09-19):** nine consecutive FORGE queues ended every `deploy_verify` gate with `INDETERMINATE — VERCEL_TOKEN and/or VERCEL_PROJECT_ID are not set`, because that gate had exactly one path to a real answer and nobody had provisioned it. Production drift was not checked once in that window. Separately, this programme discovered — from a screenshot, not from any check it had run — that the Railway worker auto-deploys from GitHub independently of Vercel, and that Railway's own deploy history shows entries marked SKIPPED ("No changes to watched files"). That's `railway.json`'s `build.watchPatterns` working as intended, but nothing had ever distinguished "correctly skipped, worker code unchanged" from "worker is silently behind" — exactly the blind spot that made several past fixes look live when the worker was still running old code.
+
+**Fixed (AR-18.2, 2026-09-19):** `scripts/verify-deployment.ts` now checks both surfaces and prefers each platform's own CLI, already authenticated non-interactively on the build machine, over a hand-provisioned token — `vercel` (confirmed live access to the `reids-projects-b3405b97` team that owns this project; the 2026-09-15 "wrong team" blocker no longer holds) and `railway` (confirmed live, this directory already linked to the real `benavora-worker` project/service). `VERCEL_TOKEN`/`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID`/`RAILWAY_TOKEN` remain documented in `.env.local.example` as fallbacks for any environment where the CLI isn't already logged in — both CLIs read those variables natively. Railway's check compares against `git log <deployed-sha>..HEAD -- <watchPatterns>`, not raw SHA equality, so a worker correctly sitting on an older commit because nothing it watches has changed reports CONFIRMED, not a false DRIFTED.
+
+**Mandatory rules:**
+1. `deploy_verify` gate output MUST name each surface (Vercel, Railway) and its own verdict — CONFIRMED, DRIFTED, or INDETERMINATE — never a single combined pass/fail.
+2. INDETERMINATE MUST state the specific missing prerequisite (which credential, which CLI). A queue may not report a clean run while a surface sits at INDETERMINATE without saying so in the same breath.
+3. Do not invent, guess, or hardcode a token/credential to make this gate report a pass it hasn't earned. If a surface genuinely requires a human-provisioned credential, say exactly what's needed and leave it INDETERMINATE.
+4. When adding a new deployed surface (a third platform, a second Vercel project, etc.), extend this gate rather than standing up a separate, un-cross-referenced check.
+
+**Enforcement:** `scripts/verify-deployment.ts`, run as the `deploy_verify` step per CLAUDE.md Gate 7 (see Directive 7 above).
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:

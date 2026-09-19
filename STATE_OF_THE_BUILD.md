@@ -3321,3 +3321,53 @@ purpose — as a fallback layer beneath any future `knowledge_base` entry.
 sibling AutoApply integration suites (`autoapply-submit-integrity.test.ts`,
 `automation-session-lifecycle.test.ts`, `form-analyzer-filler.test.ts`, 12
 tests) still pass unchanged after the `buildFillData()` fix — no regression.
+
+## AR-18.2 — Deploy verification now covers Vercel AND Railway, three honest outcomes (2026-09-19)
+
+Nine consecutive FORGE queues had ended `deploy_verify` with a single
+collapsed `INDETERMINATE`, and production drift had not been checked once
+since 2026-09-17. Root cause was narrower than it looked: `VERCEL_TOKEN`/
+`VERCEL_PROJECT_ID` really were unset, but the `vercel` CLI itself, already
+installed on this machine, had quietly become correctly authenticated
+(`reid-9664`, real access to the `reids-projects-b3405b97` team) since the
+2026-09-15 "wrong team" blocker was recorded — nobody had re-checked. The
+gate had also only ever looked at Vercel; the Railway worker auto-deploys
+from GitHub independently and had never been checked by anything, a gap this
+programme only learned about from a screenshot of Railway's deploy history
+showing entries marked SKIPPED.
+
+**Fix:** `scripts/verify-deployment.ts` now checks both surfaces, preferring
+each platform's own already-authenticated CLI over a hand-provisioned token
+(`vercel ls <project> --prod --format json`, `railway status --json`) with
+`VERCEL_TOKEN`/`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID`/`RAILWAY_TOKEN` kept as
+documented, unfilled fallbacks in `.env.local.example` for any environment
+where the CLI isn't already logged in. Railway's comparison is watch-path
+aware — `git log <railway-deployed-sha>..HEAD -- <railway.json's
+watchPatterns>` — so a worker correctly sitting behind HEAD because nothing
+it watches has changed reports CONFIRMED rather than a false DRIFTED; that
+distinction (correct SKIPPED vs. genuine drift) is exactly what was missing
+before and is the blind spot that let past fixes look live on Railway when
+they weren't. Every run now reports one of three named outcomes per surface
+— CONFIRMED, DRIFTED, or INDETERMINATE with the specific missing
+prerequisite stated — instead of one collapsed bucket.
+
+`STANDING_DIRECTIVES.md` DIRECTIVE-019 has been cited by `.githooks/pre-push`
+and this script's own header comment since 2026-08-11, but this session found
+it had never actually been written into the live directives file — added for
+real this session, with a note that DIRECTIVE-020/021 (cited elsewhere by
+other sessions) remain similarly undocumented and unverified.
+
+**Checkpoint run (real output, before this session's commit, HEAD
+`b04ea3f5`):** Vercel CONFIRMED (production matches HEAD exactly, via
+`vercel` CLI); Railway CONFIRMED (worker on `b9be4a46`, 7 commits behind
+HEAD, zero of them touching `railway.json`'s watched paths — correctly
+skipped). Exit code 0.
+
+**Verification:** `pnpm typecheck` clean, 0 errors. `pnpm test` — 98 files
+passed, 1 skipped (99); 904 tests passed, 13 todo.
+
+**Carry-forward:** the CLI-first path is machine-specific — a CI runner or a
+fresh machine still needs a real `VERCEL_TOKEN`/`VERCEL_PROJECT_ID` and/or
+`RAILWAY_TOKEN` provisioned to get anything but `INDETERMINATE` there; no
+value was invented here, per the task's explicit instruction. DIRECTIVE-020/
+021 flagged as missing, not backfilled — out of this task's scope.
