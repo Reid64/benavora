@@ -2146,3 +2146,51 @@ wrappers verified by live call against the 783-row knowledge corpus.
 | `pnpm test` (pre-push hook, twice) | 98 files passed / 1 skipped; 904 passed / 13 todo, both times |
 | `processitem-orchestration.test.ts` | 8/8 passed |
 | `work-landed.mjs` | checks 1 and 2 green; check 3 red on `170` alone, by design |
+
+---
+
+## AR-17.4 — Drafting family assessed: two confirmed fabrication instances (2026-09-19)
+
+Full detail: `test-evidence/AGENT_OUTPUT_QUALITY_DRAFTING.md`. Read-only,
+no fixes (AR-17.6 owns fixes).
+
+Population is thin enough to read in full: 47 `draft_versions` rows ever
+written, across only 2 organizations (46 belong to FAITH Foundation, 1 to
+an otherwise-empty "Beta Org 1"). `pitch_cache`, funder/donor follow-up
+notes, and B2B sales-outreach sends each have **zero rows in production,
+ever**.
+
+**Confirmed fabrication #1:** the twin-powered autonomous draft path
+(`ag-05-draft`) has written the phone number `888-497-6620` — real number
+on file is `7372967444` — into all 5 of its lifetime outputs, because its
+own context-builder (`draft-generation-agent.ts:1476-1480`) never selects
+phone/address/EIN and never substitutes `[NEEDS INPUT]` the way the
+ordinary drafting path does. `twin_powered` has also never been `true` in
+production despite unconditional-`true` source code (`:1879`) — flag and
+reality don't currently reconcile; needs a follow-up read of what actually
+executed those 5 runs, since `agent_runs` for `ag-05-draft` doesn't match
+their timestamps either.
+
+**Confirmed fabrication #2:** a real AutoApply submission (2026-06-19,
+FAITH Foundation → Meade Tractor, `status: submitted`) told the funder the
+org was "Faith Foundation SF... in the San Francisco Bay Area." Traced to
+a `request_profiles.needs_description` value corrected five weeks later —
+not agent-invented — but the pipeline has no check of stored free text
+against the org's own profile before a live submission. The AR-12-class
+`buildFillData()` fix (organizations-table fallback for EIN/email/phone/
+address) is confirmed present and pushed to `main`, but no real submission
+has happened since it landed to confirm its production effect.
+
+An organization with zero knowledge-base data separately produced a
+confidently-invented operating history (94% retention, 12 years, 340
+units, 28 FTE) with a `confidence_score` of 82 — mathematically
+inconsistent with `computeConfidence()`'s documented formula for zero KB
+input, and `knowledge_sources: null` rather than an empty array. Where
+knowledge-base data does exist (FAITH Foundation, ordinary drafting path),
+org- and funder-specificity are genuinely strong, and the AutoApply
+pitch-personalizer correctly refused to fabricate a pitch from placeholder
+funder data in its one real sample.
+
+Verification: `pnpm typecheck` and `pnpm test` both re-run clean this
+session (see run output at the end of this task) — this audit made no
+code changes.

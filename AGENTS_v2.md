@@ -1513,3 +1513,67 @@ an empty set" — both halves false. What must be fixed is the run accounting: i
 writes an `agent_runs` row every ~40 seconds regardless of outcome (this is why
 `agent_runs` is unusable as a platform-wide denominator for cost or health), and
 42,515 historical failures still read as `completed`.
+
+---
+
+## AR-17.4 — Drafting family: `ag-05-draft`'s twin-powered path fabricates a phone number on every lifetime run; a real AutoApply submission misstated the org's location (2026-09-19)
+
+Full detail and evidence: `test-evidence/AGENT_OUTPUT_QUALITY_DRAFTING.md`.
+Read-only sampler pulled every drafting/pitch/outreach row ever produced —
+47 `draft_versions`, 16 `applications` drafts, 3 `autoapply_submissions`,
+0 `pitch_cache`, 0 follow-up notes, 0 sales-outreach sends. No fixes (this
+prompt's scope; AR-17.6 owns them).
+
+**`ag-05-draft` (Draft Generation Agent, "twin-powered," AG-05 in this
+registry): `twin_powered` has never recorded `true` in production.**
+`draft-generation-agent.ts:1879` sets it unconditionally on every insert,
+but all 5 lifetime `draft_source='autonomous'` application rows show
+`twin_powered: false, twin_completeness: null`. `agent_runs` for
+`ag-05-draft` (4 lifetime rows) doesn't timestamp-match these 5 output
+rows either — which code path actually produced them is unresolved.
+
+**The same 5 rows fabricate a phone number, identically, every time.**
+`888-497-6620` appears in all 5 (FAITH Foundation's real phone is
+`7372967444`) — present nowhere in the org's record, knowledge base, or
+digital twin. Root cause: this path's own organization query
+(`draft-generation-agent.ts:1476-1480`, `name, mission_statement,
+vision_statement, service_area, target_population, founder_name,
+annual_budget`) never selects phone/address/EIN and never substitutes
+`[NEEDS INPUT]` for them — unlike the ordinary drafting path
+(`src/lib/drafts/generator.ts:348-351`, which selects `ein, tax_status`
+too and correctly emits `[NEEDS INPUT: Phone number]` for the same
+organization, same missing field). Zero of the other 41 drafts for this
+org contain a fabricated phone number.
+
+**AR-9.3's `buildFillData()` fix (above) is confirmed present and pushed
+to `main`** (commit `a69c67f1`, an ancestor of `origin/main`) — this is
+almost certainly the fix the task queue's "AR-12" numbering refers to.
+**Unverified: no real (non-test) AutoApply submission has happened since
+it landed**, so its effect on a live funder portal remains unconfirmed
+empirically, only present-in-source-and-deployed.
+
+**A real submission this platform already sent** (2026-06-19, FAITH
+Foundation → funder Meade Tractor, `status: submitted`, predating the fix
+by three months) told the funder the org was "Faith Foundation SF... in
+the San Francisco Bay Area" — the organization is in Burnet, Texas.
+Traced to a `request_profiles.needs_description` value corrected five
+weeks later, not agent-invented — but `checkOrgReadiness()`'s gate checks
+that structured identity fields (EIN, phone, address, mission) are
+non-null; it has no check that free-text fields actually describe the
+same organization. `fillUnmappedFields()` (the Claude fallback for
+unmapped form fields on this same path) carries no anti-fabrication
+instruction in its prompt, unlike `pitch-personalizer.ts` and
+`grant-narrative.ts`'s prompts — and its output is never persisted, so it
+cannot be audited after the fact on the platform's highest-consequence
+path.
+
+**Where knowledge-base data exists (FAITH Foundation, ordinary drafting
+path, 46 of 47 lifetime drafts), org- and funder-specificity are both
+genuinely strong** — real founder biography, real board members, real
+program economics, funder-rule-aware caveats — and same-org
+different-funder text similarity averages 3.7% (max 14.8%), i.e. genuinely
+tailored per funder, not boilerplate. A second organization with zero
+knowledge-base data produced a confidently-invented operating history
+(94% retention, 12 years, 340 units, 28 FTE) with `confidence_score: 82` —
+inconsistent with `computeConfidence()`'s own documented formula for zero
+KB input.

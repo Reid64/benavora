@@ -4009,3 +4009,53 @@ against the 783-chunk corpus. Before today `src/lib/knowledge/db.ts` was
 calling three functions that did not exist in production, and the version of
 `knowledge_search` in the migration file would have thrown on every
 invocation even if it had been applied.
+
+---
+
+## AR-17.4 — Drafting family: cross-org similarity, org/funder-specificity, fabrication (2026-09-19)
+
+Read-only sampler (`test-evidence/drafting-family-deep-dive.mjs`) pulled
+every drafting/pitch/outreach row this platform has ever produced (47
+`draft_versions`, 16 `applications` drafts, 3 `autoapply_submissions`, 0
+`pitch_cache`, 0 follow-up notes, 0 sales-outreach sends). Full writeup:
+`test-evidence/AGENT_OUTPUT_QUALITY_DRAFTING.md`.
+
+**Cross-org similarity:** only two organizations have ever used the core
+drafting agent; the one cross-org pair available shows near-zero text
+overlap (Jaccard 0.0000–0.0006). Same-org, different-funder similarity
+(FAITH Foundation, 516 pairs): mean 3.7%, max 14.8% — genuinely
+funder-tailored, not boilerplate with a name swapped in, for the one
+organization with real knowledge-base data.
+
+**Two confirmed fabrication instances, both concrete and reproducible:**
+
+1. The "twin-powered" autonomous draft path (`ag-05-draft`) fabricated the
+   phone number `888-497-6620` — present nowhere in the organization's
+   record, knowledge base, or twin — identically across all 5 of its
+   lifetime outputs. Root cause: its own organization query never selects
+   phone/address/EIN and never substitutes `[NEEDS INPUT]` for them,
+   unlike the ordinary drafting path, which does. `twin_powered` has also
+   never recorded `true` in production despite unconditional-`true` source
+   code — the flag and reality are un-reconciled.
+2. A real AutoApply submission (2026-06-19, FAITH Foundation → funder
+   Meade Tractor, status `submitted`) described the organization as "Faith
+   Foundation SF... in the San Francisco Bay Area" — traced to a since-corrected
+   `request_profiles` field, not agent-invented, but nothing in the
+   pipeline checks stored free text against the org's own profile before
+   a live submission goes out.
+
+A third instance (an organization with zero knowledge-base data received a
+confidently invented 94%-retention/12-year/340-unit/28-FTE operating
+history, `confidence_score` 82 — mathematically inconsistent with the
+documented scoring formula for zero KB input) confirms the pattern: this
+agent is well-grounded and appropriately humble when it has real data, and
+fabricates with total confidence when it doesn't, with no consistent
+signal (confidence score included) telling a customer which mode they're
+in.
+
+Positive, checked and confirmed: where knowledge-base data exists, org- and
+funder-specificity are both genuinely strong (real founder biography, real
+board members, funder-rule-aware caveats). The AutoApply
+pitch-personalizer's prompt explicitly forbids fabrication and its one real
+sample shows the model correctly refusing rather than inventing. AR-17.6
+scope, not fixed here.
