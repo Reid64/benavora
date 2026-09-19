@@ -20,7 +20,7 @@ import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
 import { quickHealthCheck } from './portal-health.js';
-import { assertUrlSafe, SsrfBlockedError } from '../src/lib/security/ssrf-guard.js';
+import { assertUrlSafe, SsrfBlockedError, type ValidatedAddress } from '../src/lib/security/ssrf-guard.js';
 import { scoreAndReorderQueue } from './batch-scorer.js';
 import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
@@ -244,6 +244,16 @@ export class QueueProcessor {
     private readonly supabase: SupabaseClient,
     private readonly workerId: string,
     private readonly streamServer?: StreamServer,
+    // AR-16.1: seam for processitem-orchestration.test.ts to exercise
+    // processItem() end to end against a local fixture portal without
+    // weakening the real guard. Defaults to the actual, unmodified
+    // assertUrlSafe — production code (the `start()` factory below) never
+    // passes a 4th argument, so this is a no-op everywhere except a test
+    // that deliberately constructs QueueProcessor with an override. A test
+    // override should still delegate to the real assertUrlSafe for every
+    // host it doesn't explicitly carve out, so a mistaken override can't
+    // silently turn into a blanket bypass.
+    private readonly urlSafetyCheck: (url: string) => Promise<ValidatedAddress> = assertUrlSafe,
   ) {
     this.credentialManager = new CredentialManager(supabase);
   }
@@ -730,7 +740,7 @@ export class QueueProcessor {
     // either.
     if (portalUrl) {
       try {
-        await assertUrlSafe(portalUrl);
+        await this.urlSafetyCheck(portalUrl);
       } catch (err) {
         if (err instanceof SsrfBlockedError) {
           throw new SkipError(`portal_url_blocked_ssrf: ${err.message}`);
