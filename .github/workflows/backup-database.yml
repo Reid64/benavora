@@ -13,8 +13,21 @@ name: Database Backup (S3)
 # retention — this workflow only decides which S3 object tag today's dump
 # gets.
 on:
-  schedule:
-    - cron: '0 2 * * *'
+  # 2026-09-19: DAILY CRON DISABLED. This workflow was created on 2026-09-02
+  # inside a ~100-file governance-docs commit and has fired at 02:00 UTC every
+  # day since, generating one failure email per day. It requires repo secrets
+  # AWS_BACKUP_ROLE_ARN and BACKUP_DATABASE_URL, an AWS OIDC trust
+  # relationship, and the S3 bucket from infra/aws/backup-bucket/setup.sh.
+  # There is no evidence anywhere in this repository that any of the three was
+  # ever provisioned, and the FORGE gate that recorded this as verified passes
+  # on failure: its success regex is "uploaded|backup" and the script's own
+  # failure line is "[backup-database] FAILED: ...".
+  #
+  # A backup job that has never run is not a backup. Re-enable the schedule
+  # ONLY after running infra/aws/backup-bucket/setup.sh, adding both secrets,
+  # and confirming a manual workflow_dispatch run uploads an object to S3.
+  #   schedule:
+  #     - cron: '0 2 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -36,7 +49,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          # 2026-09-19: was 18. See deploy-check.yml for the full root cause -
+          # undici@7 dereferences the global `File`, which Node 18 lacks, so
+          # every run of this workflow has failed since it was created.
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile

@@ -15,7 +15,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          # 2026-09-19: was 18. See deploy-check.yml for the full root cause -
+          # undici@7 dereferences the global `File`, which Node 18 lacks, so
+          # every run of this workflow has failed since it was created.
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
