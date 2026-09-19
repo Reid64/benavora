@@ -1912,3 +1912,44 @@ live (migration 199) before this session touched any code.
    redeploy this push triggers (`worker/**` is in `railway.json`'s
    `watchPatterns`) — see `STATE_OF_THE_BUILD.md`'s AR-14.1 section for the
    actual post-deploy numbers once queried.
+
+---
+
+## AR-14.1 recovery (2026-09-19) — the work existed locally but was never pushed
+
+**What the failing gate actually meant.** `live-capture.mjs` reported
+`knowledge_base received 0 row(s) in the last 6h while agent_runs logged 401`.
+Neither half of that sentence was about this pipeline:
+
+1. **The writer was not deployed.** `origin/main` sat at `e6e073e0` while the
+   AR-14.1 commit `5e608148` was local-only. Railway builds from the GitHub
+   repo, so production ran pre-fix code — live `agent_runs` showed ag-29 still
+   on the old 60s flat poll writing `completed`/`items_found=0` at 10:32 UTC.
+   The `git push` was not hanging on credentials: `.git/hooks/pre-push` runs
+   a full `pnpm run build` + `npx vitest run`, so every push here takes 5+
+   minutes and a short command timeout kills it mid-hook before it prints
+   anything. Worker live at 10:46 UTC.
+2. **The gate's target table was wrong.** `knowledge_base` is written only by
+   onboarding and `twin-auto-populate.ts`, has no `embedding` column, and is
+   not one of ag-29's three sources. And because ag-29's output is an UPDATE
+   (`embedding` NULL → non-null), a `created_at`-windowed row count could
+   never see it. `live-capture.mjs` gained `--filter`, `--column none` and
+   `--baseline` so that assertion is expressible; a level assertion without a
+   baseline is refused rather than passed.
+
+**Result, live:** `foundation_directory` embeddings **0 → 1,423 within 4.5
+minutes** of the worker booting, at ~395 rows/min; 94% of post-deploy ag-29
+runs now record `items_processed > 0` against 0% of the 355 runs before.
+
+**Carry-forward (supersedes the previous carry-forward item 2):**
+1. `programs`/`enrichment.mission` remain unpopulated by any real producer —
+   still open, unchanged by the recovery.
+2. **Re-query after ~16:30 UTC**, when the ~5.6h backlog drain finishes: that
+   is the first moment a `status='skipped'` ag-29 row can exist, and the
+   first moment the poll backoff is observable. Until then every pass legitimately
+   finds work.
+3. Expect ag-29's run rate to spike (59/hr → 213/hr) then collapse. Neither is
+   an outage — see `STATE_OF_THE_BUILD.md`'s AR-14.1 recovery section.
+4. Every `git push` here runs a 5+ minute `pnpm run build` + `vitest run`
+   pre-push hook. Background it, and never run a build concurrently — two Next
+   builds OOM each other and the hook fails.

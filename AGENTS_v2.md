@@ -1290,3 +1290,27 @@ already-working `intelligence_proposal_sections` path is unaffected.
 
 Full detail, live before/after production numbers, and verification output:
 `STATE_OF_THE_BUILD.md`'s "AR-14.1" section.
+
+### AR-14.1 recovery note (2026-09-19) — AG-29 verified live, not just in the repo
+
+The AR-14.1 entry above described behaviour that had been written but never
+deployed: the commit was local-only, `origin/main` was one behind, and the
+Railway worker was still running the pre-fix agent. After the push, with the
+worker live at 10:46 UTC:
+
+- AG-29 embedded `foundation_directory` rows **0 → 1,423 in 4.5 minutes**
+  (~395 rows/min), the first real output in ~64,000 lifetime runs.
+- **94%** of post-deploy runs record `items_processed > 0`, against **0 of
+  355** in the 6 hours before.
+- Run rate rose 59/hr → **213/hr**, because the producer fix converts 133,812
+  rows to pending at once and every pass now fills a full batch (3s throttle)
+  rather than sleeping 60s on empty. It will collapse to a few runs/hour once
+  the ~5.6h backlog drains and the empty-pass backoff engages.
+- `status='skipped'` is **not yet observable live** — no pass can find zero
+  items while the backlog exists. Covered by
+  `src/__tests__/integration/knowledge-pipeline.test.ts` checkpoint 2; re-query
+  production after the drain rather than assuming it.
+
+Event-triggered indexing is unaffected by the new backoff: events route through
+`worker/autonomous-orchestrator.ts`'s `routeQueueItem()` `case
+'ag-29-knowledge-indexer'`, which does not share the poll loop's sleep.

@@ -3560,3 +3560,120 @@ same deploy, not separately.
 
 **Production, queried after push (see below for the actual post-deploy
 numbers and whether the knowledge base is receiving content again).**
+
+### AR-14.1 recovery — the fix was never pushed; pushing it moved the row count off zero (2026-09-19)
+
+The placeholder above ("Production, queried after push…") was never filled in
+because **the push never happened.** A live gate caught it:
+
+```
+FAIL: knowledge_base received 0 row(s) in the last 6h while agent_runs
+      logged 401 - the writer is deployed but nothing is arriving
+```
+
+Two separate defects sat behind that one line.
+
+**Defect 1 — the writer was not deployed.** `origin/main` was still at
+`e6e073e0`; the AR-14.1 commit `5e608148` existed only in the local working
+tree (`git rev-list --left-right --count origin/main...HEAD` → `0  1`). The
+Railway worker builds from `Reid64/benavora`, so production was running the
+*pre-fix* code the whole time the section above described as shipped. Live
+`agent_runs` confirmed it exactly: at 10:32 UTC ag-29 was still emitting one
+`status='completed'`, `items_found=0` row every 60 seconds — the old flat
+poll, the old always-`completed` status.
+
+**Why the push had never gone through.** `.git/hooks/pre-push`
+(DIRECTIVE-019/021) runs a full `pnpm run build` *and* `npx vitest run` before
+letting anything leave the machine, so every push to this repo takes five-plus
+minutes. A short command timeout kills it mid-hook before it has printed
+anything, which reads exactly like a credential prompt hanging — it isn't, it
+is building. The hook also fails outright if another `pnpm run build` is
+running concurrently: the two Next builds contend on `.next/trace` and then
+OOM (`RangeError: Array buffer allocation failed`), which is what blocked the
+recovery push until the redundant build was killed. **Background every push in
+this repo, and never run a build alongside one.** A push that succeeds here
+is therefore also proof that `pnpm run build` and `vitest run` both passed at
+that commit. Railway picked the commit up and the worker came online at
+**10:46 UTC**.
+
+**Defect 2 — the gate was pointed at a table this pipeline never writes.**
+`knowledge_base` has no `embedding` column and is not one of ag-29's three
+source tables. Its only writers are `src/app/api/onboarding/route.ts` and
+`src/lib/intelligence/twin-auto-populate.ts` — both user-driven. Its last
+insert before this session was 2026-09-17, and the 9 before that were all
+2026-07-16. A zero there means "no org onboarded in the last 6 hours", never
+"the indexer is broken", so that gate would have failed forever regardless of
+whether the pipeline was healthy. It was also structurally unable to see this
+work: ag-29's output is `foundation_directory.embedding` going NULL →
+non-null, an **UPDATE**, which never touches `created_at` — and
+`live-capture.mjs` only counted rows by `created_at` inside a window.
+
+`scripts/audit/forge-gates/live-capture.mjs` therefore gained three flags so
+the real assertion is expressible (`--filter`, `--column none`, `--baseline`;
+9/9 self-test branches pass, up from 5/5). The corrected, now-passing
+invocation:
+
+```
+node scripts/audit/forge-gates/live-capture.mjs --table foundation_directory \
+  --column none --filter embedding=not.is.null --baseline 0 --context agent_runs
+OK: foundation_directory row(s) matching embedding=not.is.null rose from 0 to 348
+    (+348) against 404 agent_runs row(s) of real traffic in the last 6h
+```
+
+A level assertion without `--baseline` is **refused**, not passed: a bare
+"133,812 rows exist" cannot show that a count went up, which is the whole
+claim being made.
+
+**Before / after — live, same probe both times**
+(`scripts/audit/ar-14-1-knowledge-pipeline-status.mjs`):
+
+| Metric | Before (10:40 UTC, pre-deploy) | After (10:50 UTC, +4.5 min live) |
+|---|---|---|
+| `foundation_directory` rows embedded | **0 / 133,812 (0.00%)** | **1,423 and climbing (~395 rows/min)** |
+| `outcomes` rows embedded | 6 / 7 | 6 / 7 |
+| `intelligence_proposal_sections` embedded | 105 / 105 | 105 / 105 |
+| ag-29 runs | 355 in 6h (**59/hr**) | **213/hr** |
+| ag-29 runs with `items_processed > 0` | **0 of 355 (0%)** | **15 of 16 (94%)** |
+| ag-29 share of all `agent_runs` | 88.5% of 401 | 100% of the post-deploy window |
+| `knowledge_base` rows in window | 0 (of 54 total) | 0 (of 54 total) — unrelated table, unchanged |
+
+**Is the knowledge base receiving content again? Yes.** The pipeline went
+from producing literally nothing on 64,000 consecutive runs to embedding real
+Form 990 filing summaries at ~395 rows/minute, within seconds of the worker
+booting the new code.
+
+**Blast radius — read the run count going UP, not down, for the next ~6 hours.**
+The earlier section predicted the rate would "drop sharply". That is the
+eventual steady state, but it is the *opposite* of what happens first. The
+producer fix converts 133,812 rows from unindexable to pending in one step, so
+every pass now fills a full batch and re-polls on the 3-second full-batch
+throttle instead of the 60-second empty sleep:
+
+- ag-29's run rate went **up 3.6x** (59/hr → 213/hr) the moment it deployed.
+- At ~395 rows/min the backlog drains in roughly **5.6 hours** (131,952 rows
+  remaining as of 10:51 UTC).
+- **Only after that** does the empty-pass backoff (60s doubling to a 30-minute
+  cap) take hold and the rate collapse to a few runs per hour.
+
+So AR-6.4's dashboards will show an ag-29 spike this morning and a near-total
+disappearance this afternoon. Neither is an outage. Embedding cost for the
+full drain is ~8M `text-embedding-3-small` tokens ≈ **$0.16**.
+
+**Not yet observed live: a `status='skipped'` ag-29 row.** It cannot appear
+while a 132,000-row backlog exists — every pass finds work. The enum value is
+confirmed accepted in production (`autoapply_queue_processor` already writes
+`skipped` rows), and the path is covered by
+`src/__tests__/integration/knowledge-pipeline.test.ts` checkpoint 2. It should
+be re-queried after the drain completes rather than assumed.
+
+**Recovery verification (real numbers, re-run this session):**
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | Exit 0, clean |
+| `pnpm run build:worker` | Exit 0 |
+| `pnpm run build` | Compiled successfully |
+| `knowledge-pipeline.test.ts` (`vitest.integration.config.ts`) | 3/3 passed |
+| `knowledge-indexer-agent.test.ts` (unit) | 1/1 passed |
+| `live-capture.mjs --self-test` | 9/9 branches correct |
+| `live-capture.mjs` corrected live invocation | **PASS** (0 → 348) |

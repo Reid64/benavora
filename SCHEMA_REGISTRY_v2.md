@@ -1904,3 +1904,22 @@ application-layer fix to what `flattenFoundationText()` reads.
 
 Full detail, live before/after production numbers: `STATE_OF_THE_BUILD.md`'s
 "AR-14.1" section.
+
+### AR-14.1 recovery note (2026-09-19)
+
+`foundation_directory.embedding` is no longer 100% NULL. Live before/after,
+measured with `scripts/audit/ar-14-1-knowledge-pipeline-status.mjs`:
+
+| | rows embedded |
+|---|---|
+| before (pre-deploy, 10:40 UTC) | **0 / 133,812** |
+| after (+4.5 min live, 10:50 UTC) | **1,423**, filling at ~395 rows/min |
+
+The AR-14.1 entries above described the fix as shipped when the commit had not
+been pushed and Railway was still building the previous one. The schema claims
+themselves were correct; only the deployment state was not.
+
+`agent_runs.status = 'skipped'` still has no ag-29 row in production, because
+no pass can find zero items until the ~132,000-row backlog drains (~5.6h from
+10:50 UTC). The enum value itself is confirmed accepted live —
+`autoapply_queue_processor` has written `skipped` rows since 2026-09-18.
